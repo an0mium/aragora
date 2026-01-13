@@ -708,7 +708,10 @@ class TestReplayGeneratorRenderHtml:
 
         # Title should have truncated ID
         assert "very-lon" in html
-        assert "very-long-debate-id-that-should-be-truncated" not in html.split("<title>")[1].split("</title>")[0]
+        assert (
+            "very-long-debate-id-that-should-be-truncated"
+            not in html.split("<title>")[1].split("</title>")[0]
+        )
 
     def test_render_escapes_debate_id(self, generator):
         """Test debate ID is HTML escaped."""
@@ -854,7 +857,11 @@ class TestXSSPrevention:
         html = generator.generate(result)
 
         # Content should be escaped
-        assert "href=&#x27;javascript:" in html or "href=\\'" in html or "href='" not in html.split("const data")[1].split("</script>")[0]
+        assert (
+            "href=&#x27;javascript:" in html
+            or "href=\\'" in html
+            or "href='" not in html.split("const data")[1].split("</script>")[0]
+        )
 
     def test_nested_script_tags(self, generator):
         """Test nested script tags are handled."""

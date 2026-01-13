@@ -41,7 +41,7 @@ GET /api/evolution/patterns?limit=10&type=argument
         "While that perspective has merit, the data suggests...",
         "You raise a valid point, however research indicates..."
       ],
-      "agent": "claude-3-opus"
+      "agent": "anthropic-api"
     },
     {
       "pattern_type": "argument",
@@ -80,19 +80,19 @@ GET /api/evolution/summary
   },
   "top_agents": [
     {
-      "agent": "claude-3-opus",
+      "agent": "anthropic-api",
       "best_score": 0.89,
       "latest_version": 15
     },
     {
-      "agent": "gpt-4o",
+      "agent": "openai-api",
       "best_score": 0.85,
       "latest_version": 12
     }
   ],
   "recent_activity": [
     {
-      "agent": "gemini-2.0-flash",
+      "agent": "gemini",
       "strategy": "gradient_descent",
       "created_at": "2026-01-10T10:00:00Z"
     }
@@ -109,7 +109,7 @@ GET /api/evolution/{agent}/history?limit=10
 **Response:**
 ```json
 {
-  "agent": "claude-3-opus",
+  "agent": "anthropic-api",
   "history": [
     {
       "version": 15,
@@ -145,14 +145,14 @@ extractor = PatternExtractor()
 
 # Extract patterns from a debate outcome
 debate_outcome = {
-    "winner": "claude-3-opus",
+    "winner": "anthropic-api",
     "transcript": [
-        {"agent": "claude-3-opus", "content": "First, let's examine..."},
-        {"agent": "gpt-4o", "content": "I disagree because..."},
+        {"agent": "anthropic-api", "content": "First, let's examine..."},
+        {"agent": "openai-api", "content": "I disagree because..."},
         # ... more messages
     ],
     "votes": [
-        {"judge": "judge1", "winner": "claude-3-opus", "reasoning": "..."}
+        {"judge": "judge1", "winner": "anthropic-api", "reasoning": "..."}
     ]
 }
 
@@ -258,7 +258,7 @@ Patterns are used in different evolution strategies:
 ```python
 # Get patterns that should be incorporated
 patterns = evolver.get_incorporation_candidates(
-    agent_name="claude-3-opus",
+    agent_name="anthropic-api",
     min_effectiveness=0.7,
     min_frequency=10,
 )

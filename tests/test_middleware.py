@@ -616,7 +616,11 @@ class TestCacheMiddleware:
     def test_invalidate_cache_by_source(self):
         """invalidate_cache should clear related cache entries."""
         from aragora.server.middleware import invalidate_cache
-        from aragora.server.middleware.cache import reset_cache, get_cache, get_cache_invalidation_map
+        from aragora.server.middleware.cache import (
+            reset_cache,
+            get_cache,
+            get_cache_invalidation_map,
+        )
 
         reset_cache()
         cache = get_cache()
@@ -632,7 +636,9 @@ class TestCacheMiddleware:
         cache.set("other:test", "value")
 
         initial_count = len(cache)
-        assert initial_count >= 4, f"Expected at least 4 entries, got {initial_count}. Prefixes: {elo_prefixes}"
+        assert (
+            initial_count >= 4
+        ), f"Expected at least 4 entries, got {initial_count}. Prefixes: {elo_prefixes}"
 
         # Invalidate ELO caches using the data source name (not event name)
         cleared = invalidate_cache("elo")
@@ -691,7 +697,9 @@ class TestMiddlewareComposition:
         def protected_endpoint(self, path, query_params, handler=None):
             nonlocal call_count
             call_count += 1
-            return HandlerResult(status_code=200, content_type="application/json", body=b'{"ok":true}')
+            return HandlerResult(
+                status_code=200, content_type="application/json", body=b'{"ok":true}'
+            )
 
         with patch("aragora.server.auth.auth_config") as mock_config:
             mock_config.api_token = "valid-token"

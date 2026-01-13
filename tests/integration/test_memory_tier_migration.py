@@ -304,6 +304,7 @@ class TestConcurrentAccess:
     @pytest.mark.asyncio
     async def test_concurrent_writes(self, continuum_memory):
         """Multiple concurrent writes should work correctly."""
+
         async def write_memory(i: int):
             return await continuum_memory.store(
                 key=gen_key(),

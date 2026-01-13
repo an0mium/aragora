@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 # HIGH PRIORITY: Empty Agent List Guards
 # ============================================================================
 
+
 class TestEmptyAgentListGuards:
     """Test empty agent list handling across the codebase."""
 
@@ -57,6 +58,7 @@ class TestEmptyAgentListGuards:
 # ============================================================================
 # HIGH PRIORITY: String Split Safety
 # ============================================================================
+
 
 class TestStringSplitSafety:
     """Test string split operations handle edge cases."""
@@ -113,6 +115,7 @@ class TestStringSplitSafety:
 # MEDIUM PRIORITY: Convergence Edge Cases
 # ============================================================================
 
+
 class TestConvergenceEdgeCases:
     """Test convergence detection edge cases."""
 
@@ -166,6 +169,7 @@ class TestConvergenceEdgeCases:
 # MEDIUM PRIORITY: Critique Details Split
 # ============================================================================
 
+
 class TestCritiqueDetailsSplit:
     """Test critique details string parsing."""
 
@@ -195,6 +199,7 @@ class TestCritiqueDetailsSplit:
 # ============================================================================
 # TTL Cache Integration Tests
 # ============================================================================
+
 
 class TestTTLCacheIntegration:
     """Test TTL caching behavior on CritiqueStore methods."""
@@ -236,6 +241,7 @@ class TestTTLCacheIntegration:
 # Division By Zero Extended Tests
 # ============================================================================
 
+
 class TestDivisionByZeroExtended:
     """Extended division by zero protection tests."""
 
@@ -268,6 +274,7 @@ class TestDivisionByZeroExtended:
 # ============================================================================
 # Empty Collection Guards
 # ============================================================================
+
 
 class TestEmptyCollectionGuards:
     """Test guards for empty collections throughout the codebase."""
@@ -314,6 +321,7 @@ class TestEmptyCollectionGuards:
 # ============================================================================
 # Consensus Handler Topic Validation Edge Cases
 # ============================================================================
+
 
 class TestConsensusTopicValidation:
     """Test topic length validation boundary conditions."""
@@ -374,13 +382,16 @@ class TestConsensusTopicValidation:
             mock_instance.find_similar_debates.return_value = []
             MockMemory.return_value = mock_instance
             # URL params sometimes come as lists
-            result = handler.handle("/api/consensus/similar", {"topic": ["test topic"]}, MagicMock())
+            result = handler.handle(
+                "/api/consensus/similar", {"topic": ["test topic"]}, MagicMock()
+            )
         assert result.status_code == 200
 
 
 # ============================================================================
 # Orchestrator Deque Overflow Tests
 # ============================================================================
+
 
 class TestOrchestratorDequeOverflow:
     """Test deque bounded queue behavior in orchestrator."""
@@ -418,6 +429,7 @@ class TestOrchestratorDequeOverflow:
 # ============================================================================
 # Phase Module Edge Cases
 # ============================================================================
+
 
 class TestPhaseModuleEdgeCases:
     """Test edge cases in extracted phase modules."""
@@ -520,36 +532,42 @@ class TestPhaseModuleEdgeCases:
 # OpenRouter Fallback Tests
 # ============================================================================
 
+
 class TestRateLimitPatternDetection:
     """Test rate limit error pattern detection."""
 
     def _check_rate_limit_pattern(self, error_message: str) -> bool:
         """Check if error message matches rate limit patterns."""
         from aragora.agents.errors import RATE_LIMIT_PATTERNS
+
         error_str = error_message.lower()
         return any(pattern in error_str for pattern in RATE_LIMIT_PATTERNS)
 
     def _check_network_pattern(self, error_message: str) -> bool:
         """Check if error message matches network error patterns."""
         from aragora.agents.errors import NETWORK_ERROR_PATTERNS
+
         error_str = error_message.lower()
         return any(pattern in error_str for pattern in NETWORK_ERROR_PATTERNS)
 
     def _check_cli_pattern(self, error_message: str) -> bool:
         """Check if error message matches CLI error patterns."""
         from aragora.agents.errors import CLI_ERROR_PATTERNS
+
         error_str = error_message.lower()
         return any(pattern in error_str for pattern in CLI_ERROR_PATTERNS)
 
     def _check_auth_pattern(self, error_message: str) -> bool:
         """Check if error message matches auth error patterns."""
         from aragora.agents.errors import AUTH_ERROR_PATTERNS
+
         error_str = error_message.lower()
         return any(pattern in error_str for pattern in AUTH_ERROR_PATTERNS)
 
     def _check_all_fallback_patterns(self, error_message: str) -> bool:
         """Check if error message matches any fallback pattern."""
         from aragora.agents.errors import ALL_FALLBACK_PATTERNS
+
         error_str = error_message.lower()
         return any(pattern in error_str for pattern in ALL_FALLBACK_PATTERNS)
 

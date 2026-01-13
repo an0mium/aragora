@@ -99,18 +99,26 @@ export function AsciiBanner({ subtitle = 'live', showStatus = true, connected = 
 }
 
 // Compact version for header
-export function AsciiBannerCompact({ connected = false }: { connected?: boolean }) {
+export function AsciiBannerCompact({
+  connected = false,
+  showAsciiArt = false
+}: {
+  connected?: boolean;
+  showAsciiArt?: boolean;
+}) {
   return (
     <div className="flex items-center gap-3">
-      <pre className="font-mono text-[8px] leading-none text-acid-green glow-text-subtle hidden sm:block">
+      {showAsciiArt && (
+        <pre className="font-mono text-[8px] leading-none text-acid-green glow-text-subtle hidden sm:block">
 {`    _    ____
    / \\  |  _ \\
   / _ \\ | |_) |
  / ___ \\|  _ <
 /_/   \\_\\_| \\_\\`}
-      </pre>
+        </pre>
+      )}
       <div className="flex flex-col">
-        <span className="text-xl font-bold text-acid-green glow-text-subtle">AGORA</span>
+        <span className="text-xl font-bold text-acid-green glow-text-subtle">ARAGORA</span>
         <span className="text-xs text-acid-cyan tracking-widest">LIVE</span>
       </div>
       <span

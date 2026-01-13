@@ -322,9 +322,7 @@ class TestSocialMediaHandlerEndpoints:
         # Try callback - state should be consumed regardless of success
         try:
             handler.handle(
-                "/api/youtube/callback",
-                {"state": "callback-state-test", "code": "auth-code"},
-                None
+                "/api/youtube/callback", {"state": "callback-state-test", "code": "auth-code"}, None
             )
         except Exception:
             pass  # Handler may fail for other reasons

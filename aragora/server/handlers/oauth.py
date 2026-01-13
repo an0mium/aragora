@@ -66,7 +66,9 @@ if _IS_PRODUCTION:
     OAUTH_ERROR_URL = _OAUTH_ERROR_URL_ENV or ""
 else:
     # Dev mode: warn and use localhost fallbacks
-    GOOGLE_REDIRECT_URI = _GOOGLE_REDIRECT_URI_ENV or "http://localhost:8080/api/auth/oauth/google/callback"
+    GOOGLE_REDIRECT_URI = (
+        _GOOGLE_REDIRECT_URI_ENV or "http://localhost:8080/api/auth/oauth/google/callback"
+    )
     OAUTH_SUCCESS_URL = _OAUTH_SUCCESS_URL_ENV or "http://localhost:3000/auth/callback"
     OAUTH_ERROR_URL = _OAUTH_ERROR_URL_ENV or "http://localhost:3000/auth/error"
 
@@ -133,6 +135,7 @@ def validate_oauth_config() -> list[str]:
 
     return missing
 
+
 # Google OAuth endpoints
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -146,6 +149,7 @@ from aragora.server.oauth_state_store import (
     validate_oauth_state as _validate_state_internal,
     get_oauth_state_store,
 )
+
 
 class _OAuthStatesView(MutableMapping[str, dict]):
     """Compatibility view over OAuth state storage."""
@@ -209,6 +213,7 @@ MAX_OAUTH_STATES = 10000  # Prevent memory exhaustion from rapid state generatio
 @dataclass
 class OAuthUserInfo:
     """User info from OAuth provider."""
+
     provider: str
     provider_user_id: str
     email: str
@@ -335,14 +340,12 @@ class OAuthHandler(BaseHandler):
 
         # Security: Validate redirect URL against allowlist to prevent open redirects
         if not _validate_redirect_url(redirect_url):
-            return error_response(
-                "Invalid redirect URL. Only approved domains are allowed.",
-                400
-            )
+            return error_response("Invalid redirect URL. Only approved domains are allowed.", 400)
 
         # Check if this is for account linking (user already authenticated)
         user_id = None
         from aragora.billing.jwt_auth import extract_user_from_request
+
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
         if auth_ctx.is_authenticated:
@@ -425,9 +428,7 @@ class OAuthHandler(BaseHandler):
         # Check if this is account linking
         linking_user_id = state_data.get("user_id")
         if linking_user_id:
-            return self._handle_account_linking(
-                user_store, linking_user_id, user_info, state_data
-            )
+            return self._handle_account_linking(user_store, linking_user_id, user_info, state_data)
 
         # Check if user exists by OAuth provider ID
         user = self._find_user_by_oauth(user_store, user_info)
@@ -450,6 +451,7 @@ class OAuthHandler(BaseHandler):
 
         # Create tokens
         from aragora.billing.jwt_auth import create_token_pair
+
         tokens = create_token_pair(
             user_id=user.id,
             email=user.email,
@@ -468,13 +470,15 @@ class OAuthHandler(BaseHandler):
         import urllib.request
         import urllib.error
 
-        data = urlencode({
-            "code": code,
-            "client_id": GOOGLE_CLIENT_ID,
-            "client_secret": GOOGLE_CLIENT_SECRET,
-            "redirect_uri": GOOGLE_REDIRECT_URI,
-            "grant_type": "authorization_code",
-        }).encode()
+        data = urlencode(
+            {
+                "code": code,
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uri": GOOGLE_REDIRECT_URI,
+                "grant_type": "authorization_code",
+            }
+        ).encode()
 
         req = urllib.request.Request(
             GOOGLE_TOKEN_URL,
@@ -483,7 +487,11 @@ class OAuthHandler(BaseHandler):
         )
 
         with urllib.request.urlopen(req, timeout=10) as response:
-            return json.loads(response.read().decode())
+            try:
+                return json.loads(response.read().decode())
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON from Google token endpoint: {e}")
+                raise ValueError(f"Invalid JSON response from Google: {e}") from e
 
     def _get_google_user_info(self, access_token: str) -> OAuthUserInfo:
         """Get user info from Google API."""
@@ -495,7 +503,11 @@ class OAuthHandler(BaseHandler):
         )
 
         with urllib.request.urlopen(req, timeout=10) as response:
-            data = json.loads(response.read().decode())
+            try:
+                data = json.loads(response.read().decode())
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON from Google userinfo endpoint: {e}")
+                raise ValueError(f"Invalid JSON response from Google: {e}") from e
 
         return OAuthUserInfo(
             provider="google",
@@ -511,9 +523,7 @@ class OAuthHandler(BaseHandler):
         # Look for user with matching OAuth link
         # This requires the user store to support OAuth lookups
         if hasattr(user_store, "get_user_by_oauth"):
-            return user_store.get_user_by_oauth(
-                user_info.provider, user_info.provider_user_id
-            )
+            return user_store.get_user_by_oauth(user_info.provider, user_info.provider_user_id)
         return None
 
     def _link_oauth_to_user(self, user_store, user_id: str, user_info: OAuthUserInfo) -> bool:
@@ -591,12 +601,14 @@ class OAuthHandler(BaseHandler):
     def _redirect_with_tokens(self, redirect_url: str, tokens) -> HandlerResult:
         """Redirect to frontend with tokens in URL fragment."""
         # Use URL fragment for tokens (more secure than query params)
-        fragment = urlencode({
-            "access_token": tokens.access_token,
-            "refresh_token": tokens.refresh_token,
-            "token_type": "Bearer",
-            "expires_in": tokens.expires_in,
-        })
+        fragment = urlencode(
+            {
+                "access_token": tokens.access_token,
+                "refresh_token": tokens.refresh_token,
+                "token_type": "Bearer",
+                "expires_in": tokens.expires_in,
+            }
+        )
         url = f"{redirect_url}#{fragment}"
 
         return HandlerResult(
@@ -609,6 +621,7 @@ class OAuthHandler(BaseHandler):
     def _redirect_with_error(self, error: str) -> HandlerResult:
         """Redirect to error page with error message."""
         from urllib.parse import quote
+
         url = f"{OAUTH_ERROR_URL}?error={quote(error)}"
 
         return HandlerResult(
@@ -624,12 +637,14 @@ class OAuthHandler(BaseHandler):
         providers = []
 
         if GOOGLE_CLIENT_ID:
-            providers.append({
-                "id": "google",
-                "name": "Google",
-                "enabled": True,
-                "auth_url": "/api/auth/oauth/google",
-            })
+            providers.append(
+                {
+                    "id": "google",
+                    "name": "Google",
+                    "enabled": True,
+                    "auth_url": "/api/auth/oauth/google",
+                }
+            )
 
         return json_response({"providers": providers})
 
@@ -656,10 +671,7 @@ class OAuthHandler(BaseHandler):
 
         # Validate redirect URL against allowlist (same as start flow)
         if not _validate_redirect_url(redirect_url):
-            return error_response(
-                "Invalid redirect URL. Only approved domains are allowed.",
-                400
-            )
+            return error_response("Invalid redirect URL. Only approved domains are allowed.", 400)
 
         state = _generate_state(user_id=auth_ctx.user_id, redirect_url=redirect_url)
 

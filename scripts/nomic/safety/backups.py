@@ -111,9 +111,7 @@ def restore_backup(
     log_func(f"  Restored {len(restored)} files")
 
     if stream_emit:
-        stream_emit(
-            "on_backup_restored", backup_path.name, len(restored), "verification_failed"
-        )
+        stream_emit("on_backup_restored", backup_path.name, len(restored), "verification_failed")
 
     return True
 
@@ -138,9 +136,7 @@ def get_latest_backup(backup_dir: Path) -> Optional[Path]:
     return None
 
 
-def verify_protected_files(
-    aragora_path: Path, log_func: Callable = print
-) -> List[str]:
+def verify_protected_files(aragora_path: Path, log_func: Callable = print) -> List[str]:
     """
     Verify protected files still exist and are importable.
 

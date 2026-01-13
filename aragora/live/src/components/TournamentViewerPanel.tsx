@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ErrorWithRetry } from './RetryButton';
 import { fetchWithRetry } from '@/utils/retry';
+import { API_BASE_URL } from '@/config';
 
 interface Tournament {
   tournament_id: string;
@@ -58,7 +59,7 @@ interface TournamentViewerPanelProps {
   backendConfig?: BackendConfig;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 const ELO_TIERS: Record<string, { color: string; bg: string; label: string }> = {
   grandmaster: { color: 'text-acid-red', bg: 'bg-acid-red/20', label: 'Grandmaster' },

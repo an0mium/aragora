@@ -116,7 +116,7 @@ async def _retry_with_backoff(coro_fn, max_retries=3, base_delay=1.0):
         except (asyncio.TimeoutError, aiohttp.ClientError) as e:
             if attempt == max_retries - 1:
                 raise
-            delay = base_delay * (2 ** attempt)
+            delay = base_delay * (2**attempt)
             logger.warning(f"API call failed (attempt {attempt + 1}), retrying in {delay}s: {e}")
             await asyncio.sleep(delay)
 
@@ -140,7 +140,7 @@ class EmbeddingProvider:
         for seed in range(self.dimension):
             h = hashlib.sha256(f"{seed}:{text}".encode()).digest()
             # Convert first 4 bytes to float in [-1, 1]
-            val = struct.unpack('<i', h[:4])[0] / (2**31)
+            val = struct.unpack("<i", h[:4])[0] / (2**31)
             embedding.append(val)
         return embedding
 
@@ -163,10 +163,7 @@ class EmbeddingProvider:
         logger = logging.getLogger(__name__)
 
         # Use return_exceptions to prevent first failure from canceling others
-        results = await asyncio.gather(
-            *[self.embed(t) for t in texts],
-            return_exceptions=True
-        )
+        results = await asyncio.gather(*[self.embed(t) for t in texts], return_exceptions=True)
 
         # Process results, replacing exceptions with zero vectors
         embeddings = []
@@ -212,7 +209,7 @@ class OpenAIEmbedding(EmbeddingProvider):
                         raise ExternalServiceError(
                             service="OpenAI Embedding",
                             reason=await response.text(),
-                            status_code=response.status
+                            status_code=response.status,
                         )
                     data = await response.json()
                     return data["data"][0]["embedding"]
@@ -238,7 +235,7 @@ class OpenAIEmbedding(EmbeddingProvider):
                         raise ExternalServiceError(
                             service="OpenAI Embedding",
                             reason=await response.text(),
-                            status_code=response.status
+                            status_code=response.status,
                         )
                     data = await response.json()
                     return [d["embedding"] for d in sorted(data["data"], key=lambda x: x["index"])]
@@ -277,7 +274,7 @@ class GeminiEmbedding(EmbeddingProvider):
                         raise ExternalServiceError(
                             service="Gemini Embedding",
                             reason=await response.text(),
-                            status_code=response.status
+                            status_code=response.status,
                         )
                     data = await response.json()
                     return data["embedding"]["values"]
@@ -307,20 +304,19 @@ class OllamaEmbedding(EmbeddingProvider):
                         raise ExternalServiceError(
                             service="Ollama Embedding",
                             reason=error_text,
-                            status_code=response.status
+                            status_code=response.status,
                         )
                     try:
                         data = await response.json()
                         return data["embedding"]
                     except (json.JSONDecodeError, KeyError) as e:
                         raise ExternalServiceError(
-                            service="Ollama Embedding",
-                            reason=f"Invalid response format: {e}"
+                            service="Ollama Embedding", reason=f"Invalid response format: {e}"
                         ) from e
             except aiohttp.ClientConnectorError as e:
                 raise ExternalServiceError(
                     service="Ollama Embedding",
-                    reason=f"Cannot connect to Ollama at {self.base_url}. Is Ollama running? Start with: ollama serve"
+                    reason=f"Cannot connect to Ollama at {self.base_url}. Is Ollama running? Start with: ollama serve",
                 ) from e
 
 
@@ -331,6 +327,7 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     """
     try:
         import numpy as np
+
         a_arr = np.asarray(a, dtype=np.float32)
         b_arr = np.asarray(b, dtype=np.float32)
         dot = np.dot(a_arr, b_arr)
@@ -391,6 +388,7 @@ class SemanticRetriever:
             # Try Ollama, but fall back to hash-based if not available
             try:
                 import socket
+
                 ollama = OllamaEmbedding()
                 # Quick connectivity check (non-blocking)
                 host = ollama.base_url.replace("http://", "").replace("https://", "")
@@ -421,7 +419,8 @@ class SemanticRetriever:
         with self.db.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS embeddings (
                     id TEXT PRIMARY KEY,
                     text_hash TEXT UNIQUE,
@@ -430,9 +429,12 @@ class SemanticRetriever:
                     provider TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_embeddings_hash ON embeddings(text_hash)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_embeddings_hash ON embeddings(text_hash)"
+            )
 
             conn.commit()
 
@@ -459,7 +461,13 @@ class SemanticRetriever:
                 INSERT OR REPLACE INTO embeddings (id, text_hash, text, embedding, provider)
                 VALUES (?, ?, ?, ?, ?)
             """,
-                (id, text_hash, text[:1000], pack_embedding(embedding), type(self.provider).__name__),
+                (
+                    id,
+                    text_hash,
+                    text[:1000],
+                    pack_embedding(embedding),
+                    type(self.provider).__name__,
+                ),
             )
             conn.commit()
 
@@ -476,9 +484,7 @@ class SemanticRetriever:
         embedding = await self.provider.embed(text)
 
         # Store (non-blocking)
-        await asyncio.to_thread(
-            self._sync_store_embedding, id, text_hash, text, embedding
-        )
+        await asyncio.to_thread(self._sync_store_embedding, id, text_hash, text, embedding)
 
         return embedding
 

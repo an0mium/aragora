@@ -15,7 +15,7 @@ class TestLocalLLMDetection:
         from aragora.agents.registry import AgentRegistry
 
         # Mock the detector to avoid actual network calls
-        with patch('aragora.agents.registry.LocalLLMDetector') as mock_detector:
+        with patch("aragora.agents.registry.LocalLLMDetector") as mock_detector:
             mock_instance = MagicMock()
             mock_detector.return_value = mock_instance
 
@@ -31,7 +31,7 @@ class TestLocalLLMDetection:
         """get_local_status() should return a dict with expected keys."""
         from aragora.agents.registry import AgentRegistry
 
-        with patch('aragora.agents.registry.LocalLLMDetector') as mock_detector:
+        with patch("aragora.agents.registry.LocalLLMDetector") as mock_detector:
             mock_instance = MagicMock()
             mock_detector.return_value = mock_instance
 
@@ -59,7 +59,7 @@ class TestLocalFallbackChain:
         """get_local_fallback_providers() returns empty when no servers available."""
         from aragora.agents.fallback import get_local_fallback_providers
 
-        with patch('aragora.agents.fallback.AgentRegistry') as mock_registry:
+        with patch("aragora.agents.fallback.AgentRegistry") as mock_registry:
             mock_registry.detect_local_agents.return_value = []
 
             result = get_local_fallback_providers()
@@ -69,7 +69,7 @@ class TestLocalFallbackChain:
         """get_local_fallback_providers() returns available server names."""
         from aragora.agents.fallback import get_local_fallback_providers
 
-        with patch('aragora.agents.fallback.AgentRegistry') as mock_registry:
+        with patch("aragora.agents.fallback.AgentRegistry") as mock_registry:
             mock_registry.detect_local_agents.return_value = [
                 {"name": "ollama", "available": True},
                 {"name": "lm-studio", "available": False},
@@ -90,7 +90,7 @@ class TestLocalFallbackChain:
         """build_fallback_chain_with_local() with priority inserts before OpenRouter."""
         from aragora.agents.fallback import build_fallback_chain_with_local
 
-        with patch('aragora.agents.fallback.get_local_fallback_providers') as mock_providers:
+        with patch("aragora.agents.fallback.get_local_fallback_providers") as mock_providers:
             mock_providers.return_value = ["ollama"]
 
             chain = ["openai", "openrouter", "anthropic"]
@@ -107,7 +107,7 @@ class TestLocalFallbackChain:
         """is_local_llm_available() returns False when no servers."""
         from aragora.agents.fallback import is_local_llm_available
 
-        with patch('aragora.agents.fallback.AgentRegistry') as mock_registry:
+        with patch("aragora.agents.fallback.AgentRegistry") as mock_registry:
             mock_registry.get_local_status.return_value = {"any_available": False}
 
             result = is_local_llm_available()

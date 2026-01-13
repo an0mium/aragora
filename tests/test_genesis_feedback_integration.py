@@ -15,6 +15,7 @@ from typing import Optional
 @dataclass
 class MockAgentGenome:
     """Mock agent genome for testing."""
+
     genome_id: str
     base_model: str
     traits: dict
@@ -62,7 +63,7 @@ class MockGenomeBreeder:
         mutated = genome.copy()
         # Apply some random-like mutation
         for key in mutated.traits:
-            mutated.traits[key] *= (1 + rate * 0.5)  # Predictable mutation for testing
+            mutated.traits[key] *= 1 + rate * 0.5  # Predictable mutation for testing
         mutated.genome_id = f"{genome.genome_id}-mutated"
         return mutated
 
@@ -151,14 +152,10 @@ class TestFeedbackPhaseTriggersEvolution:
         breeder = MockGenomeBreeder()
 
         parent1 = MockAgentGenome(
-            "claude-v1", "claude",
-            {"reasoning": 0.9, "creativity": 0.6},
-            ["ai", "safety"]
+            "claude-v1", "claude", {"reasoning": 0.9, "creativity": 0.6}, ["ai", "safety"]
         )
         parent2 = MockAgentGenome(
-            "gemini-v1", "gemini",
-            {"reasoning": 0.7, "creativity": 0.8},
-            ["tech", "research"]
+            "gemini-v1", "gemini", {"reasoning": 0.7, "creativity": 0.8}, ["tech", "research"]
         )
 
         child = breeder.crossover(parent1, parent2)
@@ -212,6 +209,7 @@ class TestFitnessScoring:
 
     def test_combined_fitness_formula(self):
         """Test the combined fitness formula."""
+
         def calculate_combined_fitness(
             consensus: bool,
             confidence: float,
@@ -258,8 +256,10 @@ class TestPopulationEvolution:
         # Initial population
         for i in range(5):
             genome = MockAgentGenome(
-                f"agent-{i}", "base",
-                {"trait": 0.5 + i * 0.1}, ["general"],
+                f"agent-{i}",
+                "base",
+                {"trait": 0.5 + i * 0.1},
+                ["general"],
                 fitness_score=0.5 + i * 0.1,
             )
             population.add_genome(genome)

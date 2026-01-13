@@ -37,9 +37,7 @@ class TestValidateWebhookUrl:
         """Valid HTTPS URL should pass."""
         with patch("socket.getaddrinfo") as mock_getaddr:
             # Return a non-private IP
-            mock_getaddr.return_value = [
-                (2, 1, 6, "", ("93.184.216.34", 443))
-            ]
+            mock_getaddr.return_value = [(2, 1, 6, "", ("93.184.216.34", 443))]
             valid, error = validate_webhook_url("https://example.com/webhook")
             assert valid is True
             assert error == ""
@@ -47,9 +45,7 @@ class TestValidateWebhookUrl:
     def test_valid_http_url(self):
         """Valid HTTP URL should pass."""
         with patch("socket.getaddrinfo") as mock_getaddr:
-            mock_getaddr.return_value = [
-                (2, 1, 6, "", ("93.184.216.34", 80))
-            ]
+            mock_getaddr.return_value = [(2, 1, 6, "", ("93.184.216.34", 80))]
             valid, error = validate_webhook_url("http://example.com/webhook")
             assert valid is True
             assert error == ""
@@ -128,6 +124,7 @@ class TestValidateWebhookUrl:
     def test_dns_resolution_failure(self):
         """Unresolvable hostname should be rejected."""
         import socket
+
         with patch("socket.getaddrinfo", side_effect=socket.gaierror):
             valid, error = validate_webhook_url("https://nonexistent.invalid/")
             assert valid is False
@@ -136,9 +133,7 @@ class TestValidateWebhookUrl:
     def test_dns_resolves_to_private_ip(self):
         """Hostname resolving to private IP should be blocked."""
         with patch("socket.getaddrinfo") as mock_getaddr:
-            mock_getaddr.return_value = [
-                (2, 1, 6, "", ("192.168.1.1", 443))
-            ]
+            mock_getaddr.return_value = [(2, 1, 6, "", ("192.168.1.1", 443))]
             valid, error = validate_webhook_url("https://malicious.example.com/")
             assert valid is False
             assert "private" in error.lower() or "local" in error.lower()
@@ -282,14 +277,16 @@ class TestBatchItem:
 
     def test_from_dict_full(self):
         """from_dict with full data should work."""
-        item = BatchItem.from_dict({
-            "question": "Full test",
-            "agents": "agent1,agent2",
-            "rounds": 5,
-            "consensus": "unanimous",
-            "priority": 100,
-            "metadata": {"foo": "bar"},
-        })
+        item = BatchItem.from_dict(
+            {
+                "question": "Full test",
+                "agents": "agent1,agent2",
+                "rounds": 5,
+                "consensus": "unanimous",
+                "priority": 100,
+                "metadata": {"foo": "bar"},
+            }
+        )
         assert item.question == "Full test"
         assert item.agents == "agent1,agent2"
         assert item.rounds == 5
@@ -299,10 +296,12 @@ class TestBatchItem:
 
     def test_from_dict_agents_as_list(self):
         """from_dict should accept agents as list."""
-        item = BatchItem.from_dict({
-            "question": "Test",
-            "agents": ["agent1", "agent2", "agent3"],
-        })
+        item = BatchItem.from_dict(
+            {
+                "question": "Test",
+                "agents": ["agent1", "agent2", "agent3"],
+            }
+        )
         assert item.agents == "agent1,agent2,agent3"
 
     def test_from_dict_missing_question(self):
@@ -398,9 +397,11 @@ class TestDebateQueue:
     @pytest.fixture
     def mock_executor(self):
         """Create a mock debate executor."""
+
         async def executor(item):
             await asyncio.sleep(0.01)  # Simulate work
             return {"debate_id": f"debate_{item.item_id}", "result": "success"}
+
         return executor
 
     @pytest.mark.asyncio
@@ -608,6 +609,7 @@ class TestDebateQueue:
     @pytest.mark.asyncio
     async def test_process_item_exception(self, queue):
         """_process_item should handle executor exceptions."""
+
         async def failing_executor(item):
             raise RuntimeError("Executor failed")
 
@@ -768,9 +770,7 @@ class TestWebhookSending:
 
             with patch.object(queue, "_send_webhook", wraps=queue._send_webhook) as mock_send:
                 with patch("socket.getaddrinfo") as mock_getaddr:
-                    mock_getaddr.return_value = [
-                        (2, 1, 6, "", ("93.184.216.34", 443))
-                    ]
+                    mock_getaddr.return_value = [(2, 1, 6, "", ("93.184.216.34", 443))]
                     await queue._send_webhook(batch)
                     # Verify aiohttp was used
                     mock_session.post.assert_called_once()
@@ -824,6 +824,7 @@ class TestGlobalQueueFunctions:
         """get_debate_queue should return a DebateQueue instance."""
         # Reset global state
         import aragora.server.debate_queue as dq
+
         dq._queue = None
 
         with patch("aragora.config.MAX_CONCURRENT_DEBATES", 5):
@@ -840,6 +841,7 @@ class TestGlobalQueueFunctions:
     def test_get_debate_queue_sync_none(self):
         """get_debate_queue_sync should return None if not initialized."""
         import aragora.server.debate_queue as dq
+
         dq._queue = None
 
         result = dq.get_debate_queue_sync()
@@ -848,6 +850,7 @@ class TestGlobalQueueFunctions:
     def test_get_debate_queue_sync_returns_instance(self):
         """get_debate_queue_sync should return instance if initialized."""
         import aragora.server.debate_queue as dq
+
         test_queue = DebateQueue()
         dq._queue = test_queue
 

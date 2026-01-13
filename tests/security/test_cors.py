@@ -30,7 +30,7 @@ class TestCORSConfig:
 
         assert "https://aragora.ai" in DEFAULT_ORIGINS
         assert "https://www.aragora.ai" in DEFAULT_ORIGINS
-        assert "https://live.aragora.ai" in DEFAULT_ORIGINS
+        assert "https://api.aragora.ai" in DEFAULT_ORIGINS
 
     def test_is_origin_allowed_valid(self):
         """Test valid origin is allowed."""

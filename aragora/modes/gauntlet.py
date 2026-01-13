@@ -79,6 +79,7 @@ from aragora.gauntlet.types import InputType, Verdict, SeverityLevel
 # Import personas for compliance-aware stress testing
 try:
     from aragora.gauntlet.personas import RegulatoryPersona, PersonaAttack, get_persona
+
     PERSONAS_AVAILABLE = True
 except ImportError:
     PERSONAS_AVAILABLE = False
@@ -91,6 +92,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GauntletProgress:
     """Progress update during Gauntlet execution."""
+
     phase: str  # Current phase name
     phase_number: int  # 1-indexed phase number
     total_phases: int  # Total number of phases
@@ -110,6 +112,7 @@ ProgressCallback = Callable[[GauntletProgress], None]
 @dataclass
 class Finding:
     """A finding from the Gauntlet process."""
+
     finding_id: str
     category: str  # "attack", "probe", "audit", "verification", "risk"
     severity: float  # 0-1
@@ -136,6 +139,7 @@ class Finding:
 @dataclass
 class VerifiedClaim:
     """A claim that was formally verified."""
+
     claim: str
     verified: bool
     verification_method: str  # "z3", "lean", "manual"
@@ -248,10 +252,7 @@ class GauntletResult:
     def all_findings(self) -> list[Finding]:
         """All findings sorted by severity."""
         return (
-            self.critical_findings +
-            self.high_findings +
-            self.medium_findings +
-            self.low_findings
+            self.critical_findings + self.high_findings + self.medium_findings + self.low_findings
         )
 
     @property
@@ -279,19 +280,21 @@ class GauntletResult:
         """Convert result to a JSON-serializable dictionary."""
         findings = []
         for finding in self.all_findings:
-            findings.append({
-                "id": finding.finding_id,
-                "category": finding.category,
-                "severity": finding.severity,
-                "severity_level": finding.severity_level,
-                "title": finding.title,
-                "description": finding.description,
-                "evidence": finding.evidence,
-                "mitigation": finding.mitigation,
-                "source": finding.source,
-                "verified": finding.verified,
-                "timestamp": finding.timestamp,
-            })
+            findings.append(
+                {
+                    "id": finding.finding_id,
+                    "category": finding.category,
+                    "severity": finding.severity,
+                    "severity_level": finding.severity_level,
+                    "title": finding.title,
+                    "description": finding.description,
+                    "evidence": finding.evidence,
+                    "mitigation": finding.mitigation,
+                    "source": finding.source,
+                    "verified": finding.verified,
+                    "timestamp": finding.timestamp,
+                }
+            )
 
         return {
             "gauntlet_id": self.gauntlet_id,
@@ -470,27 +473,33 @@ class GauntletOrchestrator:
         if config.enable_risk_assessment:
             logger.info("--- Phase 1: Risk Assessment ---")
             self._emit_progress(
-                "Risk Assessment", 1, 3, 10,
+                "Risk Assessment",
+                1,
+                3,
+                10,
                 "Analyzing domain-specific risks...",
-                current_task="risk_assessment"
+                current_task="risk_assessment",
             )
-            risk_assessments = self.risk_assessor.assess_topic(
-                config.input_content[:2000]
-            )
+            risk_assessments = self.risk_assessor.assess_topic(config.input_content[:2000])
             for ra in risk_assessments:
-                all_findings.append(Finding(
-                    finding_id=self._next_finding_id(),
-                    category="risk",
-                    severity=self._risk_level_to_severity(ra.level),
-                    title=f"Domain Risk: {ra.category}",
-                    description=ra.description,
-                    mitigation=", ".join(ra.mitigations),
-                    source="RiskAssessor",
-                ))
+                all_findings.append(
+                    Finding(
+                        finding_id=self._next_finding_id(),
+                        category="risk",
+                        severity=self._risk_level_to_severity(ra.level),
+                        title=f"Domain Risk: {ra.category}",
+                        description=ra.description,
+                        mitigation=", ".join(ra.mitigations),
+                        source="RiskAssessor",
+                    )
+                )
             self._findings_count = len(all_findings)
             self._emit_progress(
-                "Risk Assessment", 1, 3, 20,
-                f"Risk assessment complete: {len(risk_assessments)} risks identified"
+                "Risk Assessment",
+                1,
+                3,
+                20,
+                f"Risk assessment complete: {len(risk_assessments)} risks identified",
             )
 
         # 2. Run parallel stress tests
@@ -516,9 +525,12 @@ class GauntletOrchestrator:
         logger.info("--- Phase 2: Parallel Stress Tests ---")
         task_names = [t[0] for t in tasks]
         self._emit_progress(
-            "Stress Testing", 2, 3, 25,
+            "Stress Testing",
+            2,
+            3,
+            25,
             f"Running {len(tasks)} parallel stress tests: {', '.join(task_names)}",
-            current_task=task_names[0] if task_names else None
+            current_task=task_names[0] if task_names else None,
         )
 
         if tasks:
@@ -537,9 +549,12 @@ class GauntletOrchestrator:
                     if isinstance(result, Exception):
                         logger.warning(f"{task_name} failed: {result}")
                         self._emit_progress(
-                            "Stress Testing", 2, 3, progress_pct,
+                            "Stress Testing",
+                            2,
+                            3,
+                            progress_pct,
                             f"{task_name} failed: {str(result)[:50]}",
-                            current_task=task_name
+                            current_task=task_name,
                         )
                         continue
 
@@ -549,9 +564,12 @@ class GauntletOrchestrator:
                         all_findings.extend(new_findings)
                         self._findings_count = len(all_findings)
                         self._emit_progress(
-                            "Stress Testing", 2, 3, progress_pct,
+                            "Stress Testing",
+                            2,
+                            3,
+                            progress_pct,
                             f"Red-team complete: {result.total_attacks} attacks, {len(new_findings)} findings",
-                            current_task="redteam"
+                            current_task="redteam",
                         )
 
                     elif task_name == "probing" and result:
@@ -560,9 +578,12 @@ class GauntletOrchestrator:
                         all_findings.extend(new_findings)
                         self._findings_count = len(all_findings)
                         self._emit_progress(
-                            "Stress Testing", 2, 3, progress_pct,
+                            "Stress Testing",
+                            2,
+                            3,
+                            progress_pct,
                             f"Probing complete: {result.vulnerabilities_found} vulnerabilities",
-                            current_task="probing"
+                            current_task="probing",
                         )
 
                     elif task_name == "deep_audit" and result:
@@ -573,9 +594,12 @@ class GauntletOrchestrator:
                         unresolved_tensions.extend(tensions)
                         self._findings_count = len(all_findings)
                         self._emit_progress(
-                            "Stress Testing", 2, 3, progress_pct,
+                            "Stress Testing",
+                            2,
+                            3,
+                            progress_pct,
                             f"Deep audit complete: {len(findings)} findings, {len(audit_verdict.unanimous_issues)} unanimous",
-                            current_task="deep_audit"
+                            current_task="deep_audit",
                         )
 
                     elif task_name == "verification" and result:
@@ -583,9 +607,12 @@ class GauntletOrchestrator:
                         verified_claims.extend(verified)
                         unverified_claims.extend(unverified)
                         self._emit_progress(
-                            "Stress Testing", 2, 3, progress_pct,
+                            "Stress Testing",
+                            2,
+                            3,
+                            progress_pct,
                             f"Verification complete: {len(verified)} verified, {len(unverified)} unverified",
-                            current_task="verification"
+                            current_task="verification",
                         )
 
                     elif task_name == "persona" and result:
@@ -593,16 +620,18 @@ class GauntletOrchestrator:
                         all_findings.extend(result)
                         self._findings_count = len(all_findings)
                         self._emit_progress(
-                            "Stress Testing", 2, 3, progress_pct,
+                            "Stress Testing",
+                            2,
+                            3,
+                            progress_pct,
                             f"Persona attacks complete: {len(result)} findings",
-                            current_task="persona"
+                            current_task="persona",
                         )
 
             except asyncio.TimeoutError:
                 logger.warning(f"Gauntlet timed out after {config.max_duration_seconds}s")
                 self._emit_progress(
-                    "Stress Testing", 2, 3, 75,
-                    f"Timeout after {config.max_duration_seconds}s"
+                    "Stress Testing", 2, 3, 75, f"Timeout after {config.max_duration_seconds}s"
                 )
 
         # 3. Aggregate and score
@@ -620,35 +649,41 @@ class GauntletOrchestrator:
         low = [f for f in all_findings if f.severity < 0.4]
 
         self._emit_progress(
-            "Aggregation", 3, 3, 85,
-            f"Categorized: {len(critical)} critical, {len(high)} high, {len(medium)} medium"
+            "Aggregation",
+            3,
+            3,
+            85,
+            f"Categorized: {len(critical)} critical, {len(high)} high, {len(medium)} medium",
         )
 
         # Calculate aggregate scores
         risk_score = self._calculate_risk_score(all_findings, risk_assessments)
         robustness_score = redteam_result.robustness_score if redteam_result else 1.0
-        coverage_score = self._calculate_coverage_score(
-            redteam_result, probe_report, audit_verdict
-        )
+        coverage_score = self._calculate_coverage_score(redteam_result, probe_report, audit_verdict)
         verification_coverage = (
             len(verified_claims) / (len(verified_claims) + len(unverified_claims))
-            if (verified_claims or unverified_claims) else 0.0
+            if (verified_claims or unverified_claims)
+            else 0.0
         )
 
         self._emit_progress(
-            "Aggregation", 3, 3, 90,
-            f"Scores: risk={risk_score:.0%}, robustness={robustness_score:.0%}"
+            "Aggregation",
+            3,
+            3,
+            90,
+            f"Scores: risk={risk_score:.0%}, robustness={robustness_score:.0%}",
         )
 
         # Determine verdict
         verdict, confidence = self._determine_verdict(
-            critical, high, medium,
-            risk_score, robustness_score,
-            dissenting_views
+            critical, high, medium, risk_score, robustness_score, dissenting_views
         )
         self._emit_progress(
-            "Aggregation", 3, 3, 95,
-            f"Verdict: {verdict.value.upper()} ({confidence:.0%} confidence)"
+            "Aggregation",
+            3,
+            3,
+            95,
+            f"Verdict: {verdict.value.upper()} ({confidence:.0%} confidence)",
         )
 
         # Build result
@@ -686,8 +721,11 @@ class GauntletOrchestrator:
         logger.info(f"\n{result.summary()}")
 
         self._emit_progress(
-            "Complete", 3, 3, 100,
-            f"Gauntlet complete: {result.total_findings} findings, {verdict.value.upper()}"
+            "Complete",
+            3,
+            3,
+            100,
+            f"Gauntlet complete: {result.total_findings} findings, {verdict.value.upper()}",
         )
 
         return result
@@ -718,11 +756,13 @@ class GauntletOrchestrator:
             result = await self.redteam_mode.run_redteam(
                 target_proposal=config.input_content,
                 proposer="input_author",
-                red_team_agents=self.agents[:config.parallel_attacks],
+                red_team_agents=self.agents[: config.parallel_attacks],
                 run_agent_fn=self.run_agent_fn,
                 max_rounds=3,
             )
-            logger.info(f"Red-team: {result.total_attacks} attacks, robustness={result.robustness_score:.0%}")
+            logger.info(
+                f"Red-team: {result.total_attacks} attacks, robustness={result.robustness_score:.0%}"
+            )
             return result
         except Exception as e:
             logger.warning(f"Red-team failed: {e}")
@@ -742,14 +782,13 @@ class GauntletOrchestrator:
         persona = config.persona
 
         # Run each persona attack using available agents
-        attack_agents = self.agents[:config.parallel_attacks]
+        attack_agents = self.agents[: config.parallel_attacks]
 
         for attack in persona.attack_prompts:
             try:
                 # Generate attack prompt
                 attack_prompt = persona.get_attack_prompt(
-                    config.input_content[:5000],  # Limit context
-                    attack
+                    config.input_content[:5000], attack  # Limit context
                 )
 
                 # Run attack with first available agent
@@ -765,7 +804,9 @@ class GauntletOrchestrator:
             except Exception as e:
                 logger.debug(f"Persona attack {attack.id} failed: {e}")
 
-        logger.info(f"Persona attacks: {len(findings)} findings from {len(persona.attack_prompts)} attacks")
+        logger.info(
+            f"Persona attacks: {len(findings)} findings from {len(persona.attack_prompts)} attacks"
+        )
         return findings
 
     def _parse_persona_response(
@@ -782,14 +823,29 @@ class GauntletOrchestrator:
         response_lower = response.lower()
 
         # Check if response indicates findings
-        has_critical = "critical" in response_lower and ("finding" in response_lower or "violation" in response_lower or "issue" in response_lower)
-        has_high = "high" in response_lower and ("finding" in response_lower or "risk" in response_lower or "severity" in response_lower)
-        has_medium = "medium" in response_lower and ("finding" in response_lower or "risk" in response_lower or "severity" in response_lower)
+        has_critical = "critical" in response_lower and (
+            "finding" in response_lower
+            or "violation" in response_lower
+            or "issue" in response_lower
+        )
+        has_high = "high" in response_lower and (
+            "finding" in response_lower or "risk" in response_lower or "severity" in response_lower
+        )
+        has_medium = "medium" in response_lower and (
+            "finding" in response_lower or "risk" in response_lower or "severity" in response_lower
+        )
 
         # If response contains compliance findings, create a finding
         compliance_indicators = [
-            "violation", "non-compliant", "missing", "inadequate",
-            "failure", "gap", "risk", "concern", "issue"
+            "violation",
+            "non-compliant",
+            "missing",
+            "inadequate",
+            "failure",
+            "gap",
+            "risk",
+            "concern",
+            "issue",
         ]
 
         if any(ind in response_lower for ind in compliance_indicators):
@@ -811,16 +867,18 @@ class GauntletOrchestrator:
             paragraphs = [p.strip() for p in response.split("\n\n") if p.strip()]
             summary = paragraphs[0] if paragraphs else response[:300]
 
-            findings.append(Finding(
-                finding_id=self._next_finding_id(),
-                category=f"persona/{attack.category}",
-                severity=severity,
-                title=f"{persona.regulation}: {attack.name}",
-                description=summary[:500],
-                evidence=response[:1000],
-                mitigation=None,  # Would need more sophisticated parsing
-                source=f"Persona/{persona.name}/{agent_name}",
-            ))
+            findings.append(
+                Finding(
+                    finding_id=self._next_finding_id(),
+                    category=f"persona/{attack.category}",
+                    severity=severity,
+                    title=f"{persona.regulation}: {attack.name}",
+                    description=summary[:500],
+                    evidence=response[:1000],
+                    mitigation=None,  # Would need more sophisticated parsing
+                    source=f"Persona/{persona.name}/{agent_name}",
+                )
+            )
 
         return findings
 
@@ -840,7 +898,9 @@ class GauntletOrchestrator:
                 probe_types=config.probe_types,
                 probes_per_type=2,  # Reduced for speed
             )
-            logger.info(f"Probing: {report.vulnerabilities_found}/{report.probes_run} vulnerabilities")
+            logger.info(
+                f"Probing: {report.vulnerabilities_found}/{report.probes_run} vulnerabilities"
+            )
             return report
         except Exception as e:
             logger.warning(f"Probing failed: {e}")
@@ -864,7 +924,9 @@ class GauntletOrchestrator:
                 task=f"Analyze and critique this {config.input_type.value}:\n\n{config.input_content[:5000]}",
                 context="This is a stress-test to find weaknesses and blind spots.",
             )
-            logger.info(f"Deep audit: confidence={verdict.confidence:.0%}, {len(verdict.findings)} findings")
+            logger.info(
+                f"Deep audit: confidence={verdict.confidence:.0%}, {len(verdict.findings)} findings"
+            )
             return verdict
         except Exception as e:
             logger.warning(f"Deep audit failed: {e}")
@@ -890,20 +952,24 @@ class GauntletOrchestrator:
                 )
 
                 if result.status == FormalProofStatus.PROOF_FOUND:
-                    verified.append(VerifiedClaim(
-                        claim=claim,
-                        verified=True,
-                        verification_method=result.language.value,
-                        proof_hash=result.proof_hash,
-                        verification_time_ms=result.proof_search_time_ms,
-                    ))
+                    verified.append(
+                        VerifiedClaim(
+                            claim=claim,
+                            verified=True,
+                            verification_method=result.language.value,
+                            proof_hash=result.proof_hash,
+                            verification_time_ms=result.proof_search_time_ms,
+                        )
+                    )
                 elif result.status == FormalProofStatus.PROOF_FAILED:
-                    verified.append(VerifiedClaim(
-                        claim=claim,
-                        verified=False,
-                        verification_method=result.language.value,
-                        verification_time_ms=result.proof_search_time_ms,
-                    ))
+                    verified.append(
+                        VerifiedClaim(
+                            claim=claim,
+                            verified=False,
+                            verification_method=result.language.value,
+                            verification_time_ms=result.proof_search_time_ms,
+                        )
+                    )
                 else:
                     unverified.append(claim)
 
@@ -940,16 +1006,18 @@ class GauntletOrchestrator:
         findings = []
 
         for attack in result.critical_issues:
-            findings.append(Finding(
-                finding_id=self._next_finding_id(),
-                category="attack",
-                severity=attack.severity,
-                title=f"Attack: {attack.attack_type.value}",
-                description=attack.attack_description,
-                evidence=attack.evidence,
-                mitigation=attack.mitigation,
-                source=f"RedTeam/{attack.attacker}",
-            ))
+            findings.append(
+                Finding(
+                    finding_id=self._next_finding_id(),
+                    category="attack",
+                    severity=attack.severity,
+                    title=f"Attack: {attack.attack_type.value}",
+                    description=attack.attack_description,
+                    evidence=attack.evidence,
+                    mitigation=attack.mitigation,
+                    source=f"RedTeam/{attack.attacker}",
+                )
+            )
 
         return findings
 
@@ -967,15 +1035,18 @@ class GauntletOrchestrator:
         for probe_type, results in report.by_type.items():
             for probe_result in results:
                 if probe_result.vulnerability_found:
-                    findings.append(Finding(
-                        finding_id=self._next_finding_id(),
-                        category="probe",
-                        severity=severity_map.get(probe_result.severity, 0.5),
-                        title=f"Probe: {probe_type}",
-                        description=probe_result.vulnerability_description or "Vulnerability detected",
-                        evidence=probe_result.evidence or "",
-                        source=f"Prober/{report.target_agent}",
-                    ))
+                    findings.append(
+                        Finding(
+                            finding_id=self._next_finding_id(),
+                            category="probe",
+                            severity=severity_map.get(probe_result.severity, 0.5),
+                            title=f"Probe: {probe_type}",
+                            description=probe_result.vulnerability_description
+                            or "Vulnerability detected",
+                            evidence=probe_result.evidence or "",
+                            source=f"Prober/{report.target_agent}",
+                        )
+                    )
 
         return findings
 
@@ -989,46 +1060,54 @@ class GauntletOrchestrator:
 
         # Convert audit findings
         for af in verdict.findings:
-            findings.append(Finding(
-                finding_id=self._next_finding_id(),
-                category="audit",
-                severity=af.severity,
-                title=f"Audit: {af.category}",
-                description=af.summary,
-                evidence=af.details,
-                source="DeepAudit",
-            ))
+            findings.append(
+                Finding(
+                    finding_id=self._next_finding_id(),
+                    category="audit",
+                    severity=af.severity,
+                    title=f"Audit: {af.category}",
+                    description=af.summary,
+                    evidence=af.details,
+                    source="DeepAudit",
+                )
+            )
 
         # Convert unanimous issues to high-severity findings
         for issue in verdict.unanimous_issues:
-            findings.append(Finding(
-                finding_id=self._next_finding_id(),
-                category="audit",
-                severity=0.85,  # Unanimous = high severity
-                title="Unanimous Issue",
-                description=issue,
-                source="DeepAudit/Unanimous",
-            ))
+            findings.append(
+                Finding(
+                    finding_id=self._next_finding_id(),
+                    category="audit",
+                    severity=0.85,  # Unanimous = high severity
+                    title="Unanimous Issue",
+                    description=issue,
+                    source="DeepAudit/Unanimous",
+                )
+            )
 
         # Convert split opinions to dissent records
         for opinion in verdict.split_opinions:
-            dissents.append(DissentRecord(
-                agent="multiple",
-                claim_id="",
-                dissent_type="partial",
-                reasons=[opinion],
-                severity=0.5,
-            ))
+            dissents.append(
+                DissentRecord(
+                    agent="multiple",
+                    claim_id="",
+                    dissent_type="partial",
+                    reasons=[opinion],
+                    severity=0.5,
+                )
+            )
 
         # Convert risk areas to tensions
         for risk in verdict.risk_areas:
-            tensions.append(UnresolvedTension(
-                tension_id=f"tension-{uuid.uuid4().hex[:6]}",
-                description=risk,
-                agents_involved=[],
-                options=[],
-                impact="Identified during deep audit",
-            ))
+            tensions.append(
+                UnresolvedTension(
+                    tension_id=f"tension-{uuid.uuid4().hex[:6]}",
+                    description=risk,
+                    agents_involved=[],
+                    options=[],
+                    impact="Identified during deep audit",
+                )
+            )
 
         return findings, dissents, tensions
 
@@ -1042,13 +1121,12 @@ class GauntletOrchestrator:
             return 0.0
 
         # Weight by severity
-        finding_risk = sum(f.severity ** 2 for f in findings)  # Square to emphasize high severity
+        finding_risk = sum(f.severity**2 for f in findings)  # Square to emphasize high severity
         finding_max = len(findings) if findings else 1
 
         # Factor in domain risks
         domain_risk = sum(
-            self._risk_level_to_severity(ra.level) * ra.confidence
-            for ra in risk_assessments
+            self._risk_level_to_severity(ra.level) * ra.confidence for ra in risk_assessments
         )
         domain_max = len(risk_assessments) if risk_assessments else 1
 

@@ -97,6 +97,21 @@ OLLAMA_HOST=http://localhost:11434
 OLLAMA_MODEL=llama2
 ```
 
+## LM Studio (Local Models)
+
+Run local LLMs through LM Studio's OpenAI-compatible server.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `LM_STUDIO_HOST` | Optional | LM Studio base URL | `http://localhost:1234` |
+
+**Usage:**
+```bash
+# Start LM Studio server with a model loaded
+# Default endpoint: http://localhost:1234/v1
+LM_STUDIO_HOST=http://localhost:1234
+```
+
 ## Persistence (Supabase)
 
 Optional but recommended for production.
@@ -109,7 +124,7 @@ Optional but recommended for production.
 Enables:
 - Historical debate storage
 - Cross-session learning
-- Live dashboard at live.aragora.ai
+- Live dashboard at aragora.ai
 
 ## Server Configuration
 
@@ -122,8 +137,55 @@ Enables:
 | `ARAGORA_TOKEN_TTL` | Optional | Token lifetime (seconds) | `3600` |
 | `ARAGORA_WS_MAX_MESSAGE_SIZE` | Optional | Max WebSocket message size | `65536` |
 | `ARAGORA_WS_HEARTBEAT` | Optional | WebSocket heartbeat interval (seconds) | `30` |
+| `ARAGORA_DEFAULT_HOST` | Optional | Fallback host for link generation | `localhost:8080` |
+
+## Agent Defaults
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_DEFAULT_AGENTS` | Optional | Default agent list when none specified | `grok,anthropic-api,openai-api,deepseek,mistral-api,gemini,qwen-max,kimi` |
+| `ARAGORA_STREAMING_AGENTS` | Optional | Agents allowed for streaming responses | `grok,anthropic-api,openai-api,mistral-api` |
+
+## Streaming Controls
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_STREAM_BUFFER_SIZE` | Optional | Max SSE buffer size (bytes) | `10485760` |
+| `ARAGORA_STREAM_CHUNK_TIMEOUT` | Optional | Timeout between stream chunks (seconds) | `30` |
+
+## WebSocket & Audience Limits
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_TRUSTED_PROXIES` | Optional | Comma-separated proxy IPs for client IP resolution | `127.0.0.1,::1,localhost` |
+| `ARAGORA_WS_CONN_RATE` | Optional | WS connections per IP per minute | `30` |
+| `ARAGORA_WS_MAX_PER_IP` | Optional | Max concurrent WS connections per IP | `10` |
+| `ARAGORA_WS_MSG_RATE` | Optional | WS messages per second per connection | `10` |
+| `ARAGORA_WS_MSG_BURST` | Optional | WS message burst size | `20` |
+| `ARAGORA_AUDIENCE_INBOX_MAX_SIZE` | Optional | Audience inbox queue size | `1000` |
+| `ARAGORA_MAX_EVENT_QUEUE_SIZE` | Optional | Event queue size (server) | `10000` |
+
+## Reserved / Not Yet Wired
+
+These variables exist in the settings schema but are not currently wired into runtime behavior.
+
+| Variable | Description | Default | Status |
+|----------|-------------|---------|--------|
+| `ARAGORA_MAX_CONTEXT_CHARS` | Max context length for truncation (chars) | `100000` | Planned |
+| `ARAGORA_MAX_MESSAGE_CHARS` | Max message length for truncation (chars) | `50000` | Planned |
+| `ARAGORA_LOCAL_FALLBACK_ENABLED` | Enable local LLM fallback in provider chains | `false` | Planned |
+| `ARAGORA_LOCAL_FALLBACK_PRIORITY` | Prefer local LLMs over OpenRouter | `false` | Planned |
 
 **Note:** `aragora serve` runs HTTP on port 8080 and WebSocket on port 8765 by default. The WebSocket server accepts `/` or `/ws`. For single-port deployments, embed `AiohttpUnifiedServer` (advanced).
+
+## Legacy/Deployment Host & Port
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_HOST` | Optional | Legacy bind host used by deployment templates | `0.0.0.0` |
+| `ARAGORA_PORT` | Optional | Legacy HTTP port used by deployment templates | `8080` |
+
+These are not read by the CLI server directly; prefer `aragora serve --api-port/--ws-port` in local dev.
 
 ### Environment Mode
 
@@ -146,9 +208,21 @@ All databases are stored under this directory:
 - `token_blacklist.db` - Revoked JWT tokens
 - And others...
 
-**Production recommended:** `/var/lib/aragora` or `~/.aragora`
+Related directories:
+- `ARAGORA_NOMIC_DIR` - Legacy alias used by some migration tooling (defaults to `.nomic`)
+- `ARAGORA_STORAGE_DIR` - Non-DB runtime artifacts (plugins, reviews, modes) default to `.aragora`
+
+**Production recommended:** `/var/lib/aragora` or `~/.aragora` for `ARAGORA_DATA_DIR`
 
 Use `get_db_path()` from `aragora.config.legacy` to get consolidated database paths.
+
+### Cleanup (repo root artifacts)
+
+If you ran Aragora in the repo root, stray `.db` files may land there. Move them under `ARAGORA_DATA_DIR` with:
+
+```bash
+scripts/cleanup_runtime_artifacts.sh
+```
 
 ## CORS Configuration
 
@@ -161,7 +235,7 @@ Default origins:
 http://localhost:3000,http://localhost:8080,
 http://127.0.0.1:3000,http://127.0.0.1:8080,
 https://aragora.ai,https://www.aragora.ai,
-https://live.aragora.ai,https://api.aragora.ai
+https://api.aragora.ai
 ```
 
 Example:
@@ -176,13 +250,22 @@ ARAGORA_ALLOWED_ORIGINS=https://myapp.com,https://staging.myapp.com
 | `WEBHOOK_URL` | Optional | External webhook endpoint | - |
 | `WEBHOOK_SECRET` | Optional | HMAC secret for signing | - |
 | `ARAGORA_WEBHOOK_QUEUE_SIZE` | Optional | Max queued events | `1000` |
+| `ARAGORA_WEBHOOK_ALLOW_LOCALHOST` | Optional | Allow localhost webhook targets (dev only) | `false` |
 
 ## Rate Limiting
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `RATE_LIMIT_PER_MINUTE` | Optional | Requests per minute per token | `60` |
-| `IP_RATE_LIMIT_PER_MINUTE` | Optional | Requests per minute per IP | `120` |
+| `ARAGORA_RATE_LIMIT` | Optional | Requests per minute per token | `60` |
+| `ARAGORA_IP_RATE_LIMIT` | Optional | Requests per minute per IP | `120` |
+| `ARAGORA_BURST_MULTIPLIER` | Optional | Burst multiplier for short spikes | `2.0` |
+| `ARAGORA_REDIS_URL` | Optional | Redis URL for distributed rate limits | `redis://localhost:6379/0` |
+| `ARAGORA_REDIS_KEY_PREFIX` | Optional | Redis key prefix | `aragora:ratelimit:` |
+| `ARAGORA_REDIS_TTL` | Optional | Redis TTL for limiter keys (seconds) | `120` |
+| `ARAGORA_REDIS_MAX_CONNECTIONS` | Optional | Redis connection pool max size | `50` |
+| `ARAGORA_REDIS_SOCKET_TIMEOUT` | Optional | Redis socket timeout (seconds) | `5.0` |
+| `ARAGORA_RATE_LIMIT_FAIL_OPEN` | Optional | Allow requests if Redis is down (`true`/`false`) | `false` |
+| `ARAGORA_REDIS_FAILURE_THRESHOLD` | Optional | Failures before Redis limiter disables (count) | `3` |
 
 ## Billing & Authentication
 
@@ -329,6 +412,7 @@ For trending topics and real-time context in debates. These power the Pulse inge
 | Variable | Required | Description | Source |
 |----------|----------|-------------|--------|
 | `TWITTER_BEARER_TOKEN` | Optional | Twitter/X API v2 Bearer token for trending topics | [Twitter Developer Portal](https://developer.twitter.com/en/portal/dashboard) |
+| `ARAGORA_ALLOWED_OAUTH_HOSTS` | Optional | Comma-separated allowed hosts for social OAuth redirects | `localhost:8080,127.0.0.1:8080` (dev) |
 
 **No credentials needed:**
 - **Reddit** - Uses public JSON API (`reddit.com/.json`)

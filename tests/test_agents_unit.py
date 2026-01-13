@@ -23,6 +23,7 @@ from aragora.core import Message, Critique
 # CLI Agent Base Tests
 # =============================================================================
 
+
 class TestCLIAgentSanitization:
     """Tests for CLI argument sanitization."""
 
@@ -157,6 +158,7 @@ class TestCLIAgentContextBuilding:
 # Response Extraction Tests
 # =============================================================================
 
+
 class TestCodexResponseExtraction:
     """Tests for Codex response extraction."""
 
@@ -229,7 +231,7 @@ class TestGrokResponseExtraction:
         from aragora.agents.cli_agents import GrokCLIAgent
 
         agent = GrokCLIAgent(name="test", model="grok-4")
-        raw_output = '''{"role": "assistant", "content": "This is the response"}'''
+        raw_output = """{"role": "assistant", "content": "This is the response"}"""
         result = agent._extract_grok_response(raw_output)
         assert result == "This is the response"
 
@@ -238,8 +240,8 @@ class TestGrokResponseExtraction:
         from aragora.agents.cli_agents import GrokCLIAgent
 
         agent = GrokCLIAgent(name="test", model="grok-4")
-        raw_output = '''{"role": "assistant", "content": "Using tools..."}
-{"role": "assistant", "content": "Final answer"}'''
+        raw_output = """{"role": "assistant", "content": "Using tools..."}
+{"role": "assistant", "content": "Final answer"}"""
         result = agent._extract_grok_response(raw_output)
         assert result == "Final answer"
 
@@ -279,8 +281,8 @@ class TestKiloCodeResponseExtraction:
         from aragora.agents.cli_agents import KiloCodeAgent
 
         agent = KiloCodeAgent(name="test", provider_id="gemini-explorer")
-        raw_output = '''{"role": "assistant", "content": "Part 1"}
-{"role": "assistant", "content": "Part 2"}'''
+        raw_output = """{"role": "assistant", "content": "Part 1"}
+{"role": "assistant", "content": "Part 2"}"""
         result = agent._extract_kilocode_response(raw_output)
         assert "Part 1" in result
         assert "Part 2" in result
@@ -320,6 +322,7 @@ class TestOpenAIResponseExtraction:
 # =============================================================================
 # Error Detection Tests
 # =============================================================================
+
 
 class TestFallbackErrorDetection:
     """Tests for error classification and fallback detection."""
@@ -378,6 +381,7 @@ class TestFallbackErrorDetection:
 # Circuit Breaker Integration Tests
 # =============================================================================
 
+
 class TestCircuitBreakerIntegration:
     """Tests for circuit breaker integration."""
 
@@ -424,6 +428,7 @@ class TestCircuitBreakerIntegration:
 # OpenRouter Model Mapping Tests
 # =============================================================================
 
+
 class TestOpenRouterModelMapping:
     """Tests for OpenRouter model mapping in fallback."""
 
@@ -464,6 +469,7 @@ class TestOpenRouterModelMapping:
 # =============================================================================
 # API Agent Tests
 # =============================================================================
+
 
 class TestAnthropicAgentInitialization:
     """Tests for Anthropic API agent initialization."""
@@ -569,6 +575,7 @@ class TestOpenRouterAgentInitialization:
 # Quota Fallback Mixin Tests
 # =============================================================================
 
+
 class TestQuotaFallbackMixin:
     """Tests for the QuotaFallbackMixin."""
 
@@ -630,6 +637,7 @@ class TestQuotaFallbackMixin:
 # =============================================================================
 # Agent Fallback Chain Tests
 # =============================================================================
+
 
 class TestAgentFallbackChain:
     """Tests for AgentFallbackChain."""
@@ -754,6 +762,7 @@ class TestFallbackMetrics:
 # Critique Parsing Tests
 # =============================================================================
 
+
 class TestCritiqueParsing:
     """Tests for critique response parsing."""
 
@@ -792,6 +801,7 @@ REASONING: This is the reasoning."""
 # =============================================================================
 # Fallback Agent Creation Tests
 # =============================================================================
+
 
 class TestFallbackAgentCreation:
     """Tests for fallback agent creation."""
@@ -847,6 +857,7 @@ class TestFallbackAgentCreation:
 # Prefer API Mode Tests
 # =============================================================================
 
+
 class TestPreferAPIMode:
     """Tests for prefer_api mode (skip CLI)."""
 
@@ -868,6 +879,7 @@ class TestPreferAPIMode:
 # =============================================================================
 # KiloCode Agent Tests
 # =============================================================================
+
 
 class TestKiloCodeAgentConfiguration:
     """Tests for KiloCode agent configuration."""
@@ -911,6 +923,7 @@ class TestKiloCodeAgentConfiguration:
 # =============================================================================
 # Agent Registry Tests
 # =============================================================================
+
 
 class TestAgentRegistration:
     """Tests for agent registration in the registry."""

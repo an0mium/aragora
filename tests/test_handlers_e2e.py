@@ -28,6 +28,7 @@ from aragora.server.handlers import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def temp_nomic_dir():
     """Create a temporary nomic directory with state files."""
@@ -36,23 +37,31 @@ def temp_nomic_dir():
 
         # Create nomic state file
         state_file = nomic_dir / "nomic_state.json"
-        state_file.write_text(json.dumps({
-            "phase": "implement",
-            "stage": "executing",
-            "cycle": 1,
-            "total_tasks": 5,
-            "completed_tasks": 2,
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "phase": "implement",
+                    "stage": "executing",
+                    "cycle": 1,
+                    "total_tasks": 5,
+                    "completed_tasks": 2,
+                }
+            )
+        )
 
         # Create nomic log file
         log_file = nomic_dir / "nomic_loop.log"
-        log_file.write_text("\n".join([
-            "2026-01-05 00:00:01 Starting cycle 1",
-            "2026-01-05 00:00:02 Phase: context",
-            "2026-01-05 00:00:03 Phase: debate",
-            "2026-01-05 00:00:04 Phase: design",
-            "2026-01-05 00:00:05 Phase: implement",
-        ]))
+        log_file.write_text(
+            "\n".join(
+                [
+                    "2026-01-05 00:00:01 Starting cycle 1",
+                    "2026-01-05 00:00:02 Phase: context",
+                    "2026-01-05 00:00:03 Phase: debate",
+                    "2026-01-05 00:00:04 Phase: design",
+                    "2026-01-05 00:00:05 Phase: implement",
+                ]
+            )
+        )
 
         yield nomic_dir
 
@@ -63,7 +72,12 @@ def mock_storage():
     storage = Mock()
     storage.list_recent.return_value = [
         {"id": "debate-1", "slug": "test-debate", "task": "Test task", "created_at": "2026-01-05"},
-        {"id": "debate-2", "slug": "another-debate", "task": "Another task", "created_at": "2026-01-04"},
+        {
+            "id": "debate-2",
+            "slug": "another-debate",
+            "task": "Another task",
+            "created_at": "2026-01-04",
+        },
     ]
     storage.get_debate.return_value = {
         "id": "debate-1",
@@ -138,6 +152,7 @@ def agents_handler(mock_elo_system, temp_nomic_dir):
 # SystemHandler Tests
 # ============================================================================
 
+
 class TestSystemHandlerE2E:
     """E2E tests for SystemHandler endpoints."""
 
@@ -209,9 +224,7 @@ class TestSystemHandlerE2E:
     def test_history_cycles_with_loop_id(self, system_handler):
         """Test /api/history/cycles filters by loop_id."""
         result = system_handler.handle(
-            "/api/history/cycles",
-            {"loop_id": "loop-123", "limit": 10},
-            None
+            "/api/history/cycles", {"loop_id": "loop-123", "limit": 10}, None
         )
 
         assert result.status_code == 200
@@ -222,6 +235,7 @@ class TestSystemHandlerE2E:
 # ============================================================================
 # DebatesHandler Tests
 # ============================================================================
+
 
 class TestDebatesHandlerE2E:
     """E2E tests for DebatesHandler endpoints."""
@@ -283,9 +297,7 @@ class TestDebatesHandlerE2E:
     def test_export_json_format(self, debates_handler):
         """Test /api/debates/{id}/export/json returns debate as JSON."""
         result = debates_handler.handle(
-            "/api/debates/debate-1/export/json",
-            {"table": "summary"},
-            None
+            "/api/debates/debate-1/export/json", {"table": "summary"}, None
         )
 
         assert result.status_code == 200
@@ -294,11 +306,7 @@ class TestDebatesHandlerE2E:
 
     def test_export_invalid_format_400(self, debates_handler):
         """Test /api/debates/{id}/export/{invalid} returns 400."""
-        result = debates_handler.handle(
-            "/api/debates/debate-1/export/xml",
-            {},
-            None
-        )
+        result = debates_handler.handle("/api/debates/debate-1/export/xml", {}, None)
 
         assert result.status_code == 400
 
@@ -306,6 +314,7 @@ class TestDebatesHandlerE2E:
 # ============================================================================
 # AgentsHandler Tests
 # ============================================================================
+
 
 class TestAgentsHandlerE2E:
     """E2E tests for AgentsHandler endpoints."""
@@ -362,20 +371,12 @@ class TestAgentsHandlerE2E:
         assert result.status_code == 400
 
         # Test with 2 agents - should succeed
-        result = agents_handler.handle(
-            "/api/agent/compare",
-            {"agents": ["claude", "gemini"]},
-            None
-        )
+        result = agents_handler.handle("/api/agent/compare", {"agents": ["claude", "gemini"]}, None)
         assert result.status_code == 200
 
     def test_head_to_head_stats(self, agents_handler):
         """Test /api/agent/{name}/head-to-head/{opponent} returns stats."""
-        result = agents_handler.handle(
-            "/api/agent/claude/head-to-head/gemini",
-            {},
-            None
-        )
+        result = agents_handler.handle("/api/agent/claude/head-to-head/gemini", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -402,6 +403,7 @@ class TestAgentsHandlerE2E:
 # ============================================================================
 # Handler Routing Tests
 # ============================================================================
+
 
 class TestHandlerRoutingE2E:
     """E2E tests for handler routing behavior."""
@@ -450,6 +452,7 @@ class TestHandlerRoutingE2E:
 # Handler Result Tests
 # ============================================================================
 
+
 class TestHandlerResult:
     """Tests for HandlerResult utilities."""
 
@@ -493,6 +496,7 @@ class TestHandlerResult:
 # PulseHandler Tests
 # ============================================================================
 
+
 class TestPulseHandlerE2E:
     """E2E tests for PulseHandler endpoints."""
 
@@ -500,6 +504,7 @@ class TestPulseHandlerE2E:
     def pulse_handler(self):
         """Create PulseHandler with test context."""
         from aragora.server.handlers import PulseHandler
+
         ctx = {"storage": None, "elo_system": None, "nomic_dir": None}
         return PulseHandler(ctx)
 
@@ -511,10 +516,10 @@ class TestPulseHandlerE2E:
     def test_trending_handles_missing_module(self, pulse_handler):
         """Test /api/pulse/trending returns 503 if module unavailable."""
         # Mock the pulse module to avoid real API calls
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = MagicMock()
                         mock_manager.ingestors = {}
                         mock_manager.get_trending_topics = MagicMock(return_value=[])
@@ -531,10 +536,10 @@ class TestPulseHandlerE2E:
     def test_trending_returns_valid_json(self, pulse_handler):
         """Test /api/pulse/trending returns valid JSON."""
         # Mock the pulse module to avoid real API calls
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = MagicMock()
                         mock_manager.ingestors = {}
                         mock_manager.get_trending_topics = MagicMock(return_value=[])
@@ -555,6 +560,7 @@ class TestPulseHandlerE2E:
 # ============================================================================
 # AnalyticsHandler Tests
 # ============================================================================
+
 
 class TestAnalyticsHandlerE2E:
     """E2E tests for AnalyticsHandler endpoints."""
@@ -598,6 +604,7 @@ class TestAnalyticsHandlerE2E:
     def analytics_handler(self, mock_storage_with_debates, mock_elo_system, temp_nomic_dir):
         """Create AnalyticsHandler with test context."""
         from aragora.server.handlers import AnalyticsHandler
+
         ctx = {
             "storage": mock_storage_with_debates,
             "elo_system": mock_elo_system,
@@ -610,6 +617,7 @@ class TestAnalyticsHandlerE2E:
         """Create AnalyticsHandler without storage."""
         from aragora.server.handlers import AnalyticsHandler
         from aragora.server.handlers.base import clear_cache
+
         # Clear cache to avoid stale results from previous tests
         clear_cache()
         ctx = {"storage": None, "elo_system": None, "nomic_dir": temp_nomic_dir}
@@ -755,6 +763,7 @@ class TestAnalyticsHandlerE2E:
 # Base Handler Utilities Tests
 # ============================================================================
 
+
 class TestBaseHandlerUtilities:
     """Tests for base handler utility functions."""
 
@@ -844,6 +853,7 @@ class TestBaseHandlerUtilities:
 # ============================================================================
 # TTL Cache Tests
 # ============================================================================
+
 
 class TestTTLCache:
     """Tests for TTL cache functionality."""
@@ -939,6 +949,7 @@ class TestTTLCache:
 # BaseHandler Context Tests
 # ============================================================================
 
+
 class TestBaseHandlerContext:
     """Tests for BaseHandler context methods."""
 
@@ -1007,6 +1018,7 @@ class TestBaseHandlerContext:
 # MetricsHandler Tests
 # ============================================================================
 
+
 class TestMetricsHandlerE2E:
     """E2E tests for MetricsHandler endpoints."""
 
@@ -1014,6 +1026,7 @@ class TestMetricsHandlerE2E:
     def metrics_handler(self, mock_storage, mock_elo_system, temp_nomic_dir):
         """Create MetricsHandler with test context."""
         from aragora.server.handlers import MetricsHandler
+
         ctx = {
             "storage": mock_storage,
             "elo_system": mock_elo_system,
@@ -1115,6 +1128,7 @@ class TestMetricsHandlerE2E:
 # Metrics Request Tracking Tests
 # ============================================================================
 
+
 class TestMetricsTracking:
     """Tests for metrics request tracking."""
 
@@ -1143,6 +1157,7 @@ class TestMetricsTracking:
 # ============================================================================
 # Edge Case Tests for Debates Handler
 # ============================================================================
+
 
 class TestDebatesHandlerEdgeCases:
     """Edge case tests for DebatesHandler."""
@@ -1273,6 +1288,7 @@ class TestDebatesHandlerEdgeCases:
 # Edge Case Tests for Agents Handler
 # ============================================================================
 
+
 class TestAgentsHandlerEdgeCases:
     """Edge case tests for AgentsHandler."""
 
@@ -1338,6 +1354,7 @@ class TestAgentsHandlerEdgeCases:
 # ============================================================================
 # Edge Case Tests for System Handler
 # ============================================================================
+
 
 class TestSystemHandlerEdgeCases:
     """Edge case tests for SystemHandler."""

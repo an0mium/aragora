@@ -5,9 +5,9 @@ import os
 import sys
 
 # Set environment before importing heavy libraries
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ['TOKENIZERS_PARALLELISM'] = 'false'
-os.environ['SENTENCE_TRANSFORMERS_HOME'] = '/tmp/sentence_transformers'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/sentence_transformers"
 
 import asyncio
 from pathlib import Path
@@ -16,22 +16,28 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 print("Step 1: Importing core modules...", flush=True)
 from aragora.core import Environment
+
 print("Step 2: Environment imported", flush=True)
 
 from aragora.debate.protocol import DebateProtocol
+
 print("Step 3: DebateProtocol imported", flush=True)
 
 from aragora.agents.registry import AgentRegistry
+
 print("Step 4: AgentRegistry imported", flush=True)
 
 from aragora.agents.api_agents.gemini import GeminiAgent
+
 print("Step 5: GeminiAgent imported", flush=True)
 
 from aragora.agents.api_agents.grok import GrokAgent
+
 print("Step 6: GrokAgent imported", flush=True)
 
 print("Step 7: About to import Arena...", flush=True)
 from aragora.debate.orchestrator import Arena
+
 print("Step 8: Arena imported", flush=True)
 
 

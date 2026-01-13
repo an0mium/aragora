@@ -47,18 +47,20 @@ LOG_FORMAT = os.environ.get("ARAGORA_LOG_FORMAT", "json")  # "json" or "text"
 LOG_INCLUDE_TIMESTAMP = os.environ.get("ARAGORA_LOG_TIMESTAMP", "true").lower() == "true"
 
 # Sensitive fields to redact
-REDACT_FIELDS = frozenset({
-    "password",
-    "secret",
-    "token",
-    "api_key",
-    "apikey",
-    "authorization",
-    "cookie",
-    "credit_card",
-    "ssn",
-    "private_key",
-})
+REDACT_FIELDS = frozenset(
+    {
+        "password",
+        "secret",
+        "token",
+        "api_key",
+        "apikey",
+        "authorization",
+        "cookie",
+        "credit_card",
+        "ssn",
+        "private_key",
+    }
+)
 
 
 @dataclass
@@ -149,6 +151,7 @@ class JsonFormatter(logging.Formatter):
 
         if include_hostname:
             import socket
+
             self._hostname = socket.gethostname()
         else:
             self._hostname = None
@@ -179,11 +182,28 @@ class JsonFormatter(logging.Formatter):
 
         # Add extra fields from record (excluding standard attributes)
         standard_attrs = {
-            "name", "msg", "args", "created", "filename", "funcName",
-            "levelname", "levelno", "lineno", "module", "msecs",
-            "pathname", "process", "processName", "relativeCreated",
-            "stack_info", "exc_info", "exc_text", "thread", "threadName",
-            "taskName", "message",
+            "name",
+            "msg",
+            "args",
+            "created",
+            "filename",
+            "funcName",
+            "levelname",
+            "levelno",
+            "lineno",
+            "module",
+            "msecs",
+            "pathname",
+            "process",
+            "processName",
+            "relativeCreated",
+            "stack_info",
+            "exc_info",
+            "exc_text",
+            "thread",
+            "threadName",
+            "taskName",
+            "message",
         }
 
         extra = {}
@@ -226,9 +246,9 @@ class TextFormatter(logging.Formatter):
         request_id = ctx.get("request_id", "-")
 
         # Format timestamp
-        timestamp = datetime.fromtimestamp(
-            record.created, tz=timezone.utc
-        ).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        timestamp = datetime.fromtimestamp(record.created, tz=timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S.%f"
+        )[:-3]
 
         # Build base message
         parts = [
@@ -242,11 +262,28 @@ class TextFormatter(logging.Formatter):
 
         # Add extra fields
         standard_attrs = {
-            "name", "msg", "args", "created", "filename", "funcName",
-            "levelname", "levelno", "lineno", "module", "msecs",
-            "pathname", "process", "processName", "relativeCreated",
-            "stack_info", "exc_info", "exc_text", "thread", "threadName",
-            "taskName", "message",
+            "name",
+            "msg",
+            "args",
+            "created",
+            "filename",
+            "funcName",
+            "levelname",
+            "levelno",
+            "lineno",
+            "module",
+            "msecs",
+            "pathname",
+            "process",
+            "processName",
+            "relativeCreated",
+            "stack_info",
+            "exc_info",
+            "exc_text",
+            "thread",
+            "threadName",
+            "taskName",
+            "message",
         }
 
         extra = {}

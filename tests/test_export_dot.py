@@ -263,11 +263,7 @@ class TestDOTExporterFlow:
         """Test handles consensus not reached."""
         artifact = DebateArtifact(
             # Need at least one message for prev_node to be defined
-            trace_data={
-                "events": [
-                    {"event_type": "message", "content": "test"}
-                ]
-            },
+            trace_data={"events": [{"event_type": "message", "content": "test"}]},
             consensus_proof=ConsensusProof(
                 reached=False,
                 confidence=0.3,
@@ -362,9 +358,7 @@ class TestDOTExporterCritiques:
         """Test high severity gets red color."""
         artifact = DebateArtifact(
             trace_data={
-                "events": [
-                    {"event_type": "critique", "agent": "a", "target": "b", "severity": 0.9}
-                ]
+                "events": [{"event_type": "critique", "agent": "a", "target": "b", "severity": 0.9}]
             },
             agents=["a", "b"],
         )
@@ -377,9 +371,7 @@ class TestDOTExporterCritiques:
         """Test medium severity gets orange color."""
         artifact = DebateArtifact(
             trace_data={
-                "events": [
-                    {"event_type": "critique", "agent": "a", "target": "b", "severity": 0.5}
-                ]
+                "events": [{"event_type": "critique", "agent": "a", "target": "b", "severity": 0.5}]
             },
             agents=["a", "b"],
         )
@@ -392,9 +384,7 @@ class TestDOTExporterCritiques:
         """Test low severity gets green color."""
         artifact = DebateArtifact(
             trace_data={
-                "events": [
-                    {"event_type": "critique", "agent": "a", "target": "b", "severity": 0.2}
-                ]
+                "events": [{"event_type": "critique", "agent": "a", "target": "b", "severity": 0.2}]
             },
             agents=["a", "b"],
         )
@@ -709,11 +699,7 @@ class TestDOTExporterEdgeCases:
         artifact = DebateArtifact(
             task="日本語タスク",
             agents=["agent-日本語"],
-            trace_data={
-                "events": [
-                    {"event_type": "message", "content": "Emoji: 👍"}
-                ]
-            },
+            trace_data={"events": [{"event_type": "message", "content": "Emoji: 👍"}]},
         )
         exporter = DOTExporter(artifact)
 
@@ -736,11 +722,7 @@ class TestDOTExporterEdgeCases:
         """Test truncates very long message content."""
         long_content = "A" * 500
         artifact = DebateArtifact(
-            trace_data={
-                "events": [
-                    {"event_type": "message", "content": long_content}
-                ]
-            },
+            trace_data={"events": [{"event_type": "message", "content": long_content}]},
         )
         exporter = DOTExporter(artifact)
         content = exporter.export_flow()
@@ -774,9 +756,7 @@ class TestDOTExporterEdgeCases:
         """Test handles zero severity critique."""
         artifact = DebateArtifact(
             trace_data={
-                "events": [
-                    {"event_type": "critique", "agent": "a", "target": "b", "severity": 0}
-                ]
+                "events": [{"event_type": "critique", "agent": "a", "target": "b", "severity": 0}]
             },
             agents=["a", "b"],
         )

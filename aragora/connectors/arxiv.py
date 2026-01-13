@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # Try to import optional dependencies
 try:
     import httpx
+
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
@@ -118,6 +119,7 @@ class ArXivConnector(BaseConnector):
     async def _rate_limit(self) -> None:
         """Enforce rate limiting between requests."""
         import time
+
         now = time.time()
         elapsed = now - self._last_request_time
         if elapsed < self.rate_limit_delay:
@@ -285,15 +287,19 @@ class ArXivConnector(BaseConnector):
 
         # Title
         title_elem = entry.find("atom:title", namespaces)
-        title = title_elem.text.strip() if title_elem is not None and title_elem.text else "Untitled"
+        title = (
+            title_elem.text.strip() if title_elem is not None and title_elem.text else "Untitled"
+        )
         # Clean up whitespace in title
-        title = re.sub(r'\s+', ' ', title)
+        title = re.sub(r"\s+", " ", title)
 
         # Abstract (summary)
         summary_elem = entry.find("atom:summary", namespaces)
-        abstract = summary_elem.text.strip() if summary_elem is not None and summary_elem.text else ""
+        abstract = (
+            summary_elem.text.strip() if summary_elem is not None and summary_elem.text else ""
+        )
         # Clean up whitespace in abstract
-        abstract = re.sub(r'\s+', ' ', abstract)
+        abstract = re.sub(r"\s+", " ", abstract)
 
         # Authors
         authors = []
@@ -307,7 +313,9 @@ class ArXivConnector(BaseConnector):
 
         # Published date
         published_elem = entry.find("atom:published", namespaces)
-        published = published_elem.text if published_elem is not None and published_elem.text else None
+        published = (
+            published_elem.text if published_elem is not None and published_elem.text else None
+        )
 
         # Categories
         categories = []

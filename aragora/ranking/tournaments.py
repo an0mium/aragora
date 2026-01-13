@@ -49,6 +49,7 @@ MAX_TOURNAMENT_NAME_LENGTH = 256
 
 class TournamentStatus(str, Enum):
     """Tournament status enumeration."""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -57,6 +58,7 @@ class TournamentStatus(str, Enum):
 
 class TournamentEvent(str, Enum):
     """Types of tournament events for history tracking."""
+
     CREATED = "created"
     STARTED = "started"
     MATCH_COMPLETED = "match_completed"
@@ -67,32 +69,38 @@ class TournamentEvent(str, Enum):
 
 class TournamentError(Exception):
     """Base exception for tournament errors."""
+
     pass
 
 
 class ValidationError(TournamentError):
     """Invalid input data."""
+
     pass
 
 
 class TournamentNotFoundError(TournamentError):
     """Tournament does not exist."""
+
     pass
 
 
 class MatchNotFoundError(TournamentError):
     """Match does not exist."""
+
     pass
 
 
 class InvalidStateError(TournamentError):
     """Operation not allowed in current state."""
+
     pass
 
 
 @dataclass
 class TournamentStanding:
     """An agent's standing in a tournament."""
+
     agent: str
     wins: int = 0
     losses: int = 0
@@ -112,6 +120,7 @@ class TournamentStanding:
 @dataclass
 class TournamentMatch:
     """A match in a tournament."""
+
     match_id: str
     tournament_id: str
     round_num: int
@@ -130,6 +139,7 @@ class TournamentMatch:
 @dataclass
 class TournamentHistoryEntry:
     """An event in tournament history for audit/replay."""
+
     entry_id: str
     tournament_id: str
     event_type: TournamentEvent
@@ -150,6 +160,7 @@ class TournamentHistoryEntry:
 @dataclass
 class Tournament:
     """A tournament configuration."""
+
     tournament_id: str
     name: str
     participants: list[str]
@@ -278,7 +289,9 @@ class TournamentManager:
         if not name or not name.strip():
             raise ValidationError("Tournament name cannot be empty")
         if len(name) > MAX_TOURNAMENT_NAME_LENGTH:
-            raise ValidationError(f"Tournament name exceeds {MAX_TOURNAMENT_NAME_LENGTH} characters")
+            raise ValidationError(
+                f"Tournament name exceeds {MAX_TOURNAMENT_NAME_LENGTH} characters"
+            )
 
     def _validate_participants(self, participants: list[str]) -> None:
         """Validate participant list."""
@@ -367,13 +380,15 @@ class TournamentManager:
 
             history = []
             for row in cursor:
-                history.append(TournamentHistoryEntry(
-                    entry_id=row["entry_id"],
-                    tournament_id=row["tournament_id"],
-                    event_type=TournamentEvent(row["event_type"]),
-                    timestamp=row["timestamp"],
-                    details=json.loads(row["details"]),
-                ))
+                history.append(
+                    TournamentHistoryEntry(
+                        entry_id=row["entry_id"],
+                        tournament_id=row["tournament_id"],
+                        event_type=TournamentEvent(row["event_type"]),
+                        timestamp=row["timestamp"],
+                        details=json.loads(row["details"]),
+                    )
+                )
 
             return history
 
@@ -477,7 +492,7 @@ class TournamentManager:
         # Round-robin: every participant plays every other participant once
         position = 0
         for i, agent1 in enumerate(participants):
-            for agent2 in participants[i + 1:]:
+            for agent2 in participants[i + 1 :]:
                 match = TournamentMatch(
                     match_id=f"match_{uuid.uuid4().hex[:8]}",
                     tournament_id=tournament.tournament_id,
@@ -578,7 +593,9 @@ class TournamentManager:
         # Only create the winners bracket initially
 
         self._insert_matches(matches, tournament.tournament_id)
-        logger.info(f"Generated double elimination bracket with {len(matches)} winners bracket matches")
+        logger.info(
+            f"Generated double elimination bracket with {len(matches)} winners bracket matches"
+        )
 
     def record_match_result(
         self,
@@ -652,7 +669,9 @@ class TournamentManager:
                 conn.commit()
                 logger.info(f"Recorded result for match {match_id}: winner={winner}")
 
-    def get_current_standings(self, tournament_id: Optional[str] = None) -> list[TournamentStanding]:
+    def get_current_standings(
+        self, tournament_id: Optional[str] = None
+    ) -> list[TournamentStanding]:
         """
         Get current tournament standings.
 
@@ -782,21 +801,23 @@ class TournamentManager:
             matches = []
 
             for row in cursor:
-                matches.append(TournamentMatch(
-                    match_id=row["match_id"],
-                    tournament_id=row["tournament_id"],
-                    round_num=row["round_num"],
-                    agent1=row["agent1"],
-                    agent2=row["agent2"],
-                    winner=row["winner"],
-                    score1=row["score1"] or 0.0,
-                    score2=row["score2"] or 0.0,
-                    debate_id=row["debate_id"],
-                    bracket_position=row["bracket_position"] or 0,
-                    is_losers_bracket=bool(row["is_losers_bracket"]),
-                    created_at=row["created_at"],
-                    completed_at=row["completed_at"],
-                ))
+                matches.append(
+                    TournamentMatch(
+                        match_id=row["match_id"],
+                        tournament_id=row["tournament_id"],
+                        round_num=row["round_num"],
+                        agent1=row["agent1"],
+                        agent2=row["agent2"],
+                        winner=row["winner"],
+                        score1=row["score1"] or 0.0,
+                        score2=row["score2"] or 0.0,
+                        debate_id=row["debate_id"],
+                        bracket_position=row["bracket_position"] or 0,
+                        is_losers_bracket=bool(row["is_losers_bracket"]),
+                        created_at=row["created_at"],
+                        completed_at=row["completed_at"],
+                    )
+                )
 
             return matches
 
@@ -853,16 +874,18 @@ class TournamentManager:
 
             tournaments = []
             for row in cursor:
-                tournaments.append(Tournament(
-                    tournament_id=row["tournament_id"],
-                    name=row["name"],
-                    bracket_type=row["bracket_type"],
-                    participants=json.loads(row["participants"]),
-                    rounds_completed=row["rounds_completed"],
-                    total_rounds=row["total_rounds"],
-                    status=row["status"],
-                    created_at=row["created_at"],
-                ))
+                tournaments.append(
+                    Tournament(
+                        tournament_id=row["tournament_id"],
+                        name=row["name"],
+                        bracket_type=row["bracket_type"],
+                        participants=json.loads(row["participants"]),
+                        rounds_completed=row["rounds_completed"],
+                        total_rounds=row["total_rounds"],
+                        status=row["status"],
+                        created_at=row["created_at"],
+                    )
+                )
 
             return tournaments
 
@@ -925,7 +948,9 @@ class TournamentManager:
                         (TournamentStatus.COMPLETED.value, current_round, tournament_id),
                     )
                     self._log_event(
-                        conn, tournament_id, TournamentEvent.COMPLETED,
+                        conn,
+                        tournament_id,
+                        TournamentEvent.COMPLETED,
                         {"final_winner": winners[0] if winners else None},
                     )
                     conn.commit()
@@ -976,8 +1001,14 @@ class TournamentManager:
                 )
 
                 self._log_event(
-                    conn, tournament_id, TournamentEvent.ROUND_ADVANCED,
-                    {"from_round": current_round, "to_round": next_round, "matches_created": len(new_matches)},
+                    conn,
+                    tournament_id,
+                    TournamentEvent.ROUND_ADVANCED,
+                    {
+                        "from_round": current_round,
+                        "to_round": next_round,
+                        "matches_created": len(new_matches),
+                    },
                 )
 
                 conn.commit()
@@ -1001,7 +1032,10 @@ class TournamentManager:
         if not tournament:
             raise TournamentNotFoundError(f"Tournament {tournament_id} not found")
 
-        if tournament.status in (TournamentStatus.COMPLETED.value, TournamentStatus.CANCELLED.value):
+        if tournament.status in (
+            TournamentStatus.COMPLETED.value,
+            TournamentStatus.CANCELLED.value,
+        ):
             return False
 
         with self._lock:

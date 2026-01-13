@@ -103,9 +103,7 @@ class TestStripeClientFormEncoding:
     def test_encode_list_of_dicts(self):
         """Test encoding list of dictionaries (line_items format)."""
         client = StripeClient(api_key="sk_test")
-        result = client._encode_form_data({
-            "line_items": [{"price": "price_123", "quantity": 1}]
-        })
+        result = client._encode_form_data({"line_items": [{"price": "price_123", "quantity": 1}]})
         assert "line_items[0][price]=price_123" in result
         assert "line_items[0][quantity]=1" in result
 
@@ -144,7 +142,7 @@ class TestStripeClientRequest:
     def test_request_includes_auth_header(self, mock_urlopen):
         """Test that Authorization header is included."""
         mock_response = MagicMock()
-        mock_response.read.return_value = b'{}'
+        mock_response.read.return_value = b"{}"
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -161,7 +159,7 @@ class TestStripeClientRequest:
     def test_request_includes_idempotency_key(self, mock_urlopen):
         """Test that Idempotency-Key header is included when provided."""
         mock_response = MagicMock()
-        mock_response.read.return_value = b'{}'
+        mock_response.read.return_value = b"{}"
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -224,12 +222,14 @@ class TestStripeClientCustomers:
     def test_create_customer_success(self, mock_urlopen):
         """Test creating a customer."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "id": "cus_123",
-            "email": "test@example.com",
-            "name": "Test User",
-            "metadata": {"user_id": "u_123"},
-        }).encode()
+        mock_response.read.return_value = json.dumps(
+            {
+                "id": "cus_123",
+                "email": "test@example.com",
+                "name": "Test User",
+                "metadata": {"user_id": "u_123"},
+            }
+        ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -251,10 +251,12 @@ class TestStripeClientCustomers:
     def test_get_customer_found(self, mock_urlopen):
         """Test getting an existing customer."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "id": "cus_123",
-            "email": "test@example.com",
-        }).encode()
+        mock_response.read.return_value = json.dumps(
+            {
+                "id": "cus_123",
+                "email": "test@example.com",
+            }
+        ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -287,11 +289,13 @@ class TestStripeClientCustomers:
     def test_update_customer(self, mock_urlopen):
         """Test updating a customer."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "id": "cus_123",
-            "email": "new@example.com",
-            "name": "New Name",
-        }).encode()
+        mock_response.read.return_value = json.dumps(
+            {
+                "id": "cus_123",
+                "email": "new@example.com",
+                "name": "New Name",
+            }
+        ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -307,15 +311,19 @@ class TestStripeClientCheckout:
     """Tests for checkout sessions."""
 
     @patch("aragora.billing.stripe_client.urlopen")
-    @patch("aragora.billing.stripe_client.STRIPE_PRICES", {SubscriptionTier.PROFESSIONAL: "price_pro"})
+    @patch(
+        "aragora.billing.stripe_client.STRIPE_PRICES", {SubscriptionTier.PROFESSIONAL: "price_pro"}
+    )
     def test_create_checkout_session_success(self, mock_urlopen):
         """Test creating a checkout session."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "id": "cs_123",
-            "url": "https://checkout.stripe.com/pay/cs_123",
-            "customer": "cus_123",
-        }).encode()
+        mock_response.read.return_value = json.dumps(
+            {
+                "id": "cs_123",
+                "url": "https://checkout.stripe.com/pay/cs_123",
+                "customer": "cus_123",
+            }
+        ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -345,14 +353,18 @@ class TestStripeClientCheckout:
                 )
 
     @patch("aragora.billing.stripe_client.urlopen")
-    @patch("aragora.billing.stripe_client.STRIPE_PRICES", {SubscriptionTier.STARTER: "price_starter"})
+    @patch(
+        "aragora.billing.stripe_client.STRIPE_PRICES", {SubscriptionTier.STARTER: "price_starter"}
+    )
     def test_create_checkout_session_with_trial(self, mock_urlopen):
         """Test creating checkout session with trial period."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "id": "cs_trial",
-            "url": "https://checkout.stripe.com/pay/cs_trial",
-        }).encode()
+        mock_response.read.return_value = json.dumps(
+            {
+                "id": "cs_trial",
+                "url": "https://checkout.stripe.com/pay/cs_trial",
+            }
+        ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -376,10 +388,12 @@ class TestStripeClientBillingPortal:
     def test_create_portal_session(self, mock_urlopen):
         """Test creating a billing portal session."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "id": "bps_123",
-            "url": "https://billing.stripe.com/session/bps_123",
-        }).encode()
+        mock_response.read.return_value = json.dumps(
+            {
+                "id": "bps_123",
+                "url": "https://billing.stripe.com/session/bps_123",
+            }
+        ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -402,15 +416,17 @@ class TestStripeClientSubscriptions:
     def test_get_subscription_found(self, mock_urlopen):
         """Test getting an existing subscription."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "id": "sub_123",
-            "customer": "cus_123",
-            "status": "active",
-            "items": {"data": [{"price": {"id": "price_pro"}}]},
-            "current_period_start": 1704067200,
-            "current_period_end": 1706745600,
-            "cancel_at_period_end": False,
-        }).encode()
+        mock_response.read.return_value = json.dumps(
+            {
+                "id": "sub_123",
+                "customer": "cus_123",
+                "status": "active",
+                "items": {"data": [{"price": {"id": "price_pro"}}]},
+                "current_period_start": 1704067200,
+                "current_period_end": 1706745600,
+                "cancel_at_period_end": False,
+            }
+        ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -446,15 +462,17 @@ class TestStripeClientSubscriptions:
     def test_cancel_subscription_at_period_end(self, mock_urlopen):
         """Test canceling subscription at period end."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "id": "sub_123",
-            "customer": "cus_123",
-            "status": "active",
-            "items": {"data": [{"price": {"id": "price_pro"}}]},
-            "current_period_start": 1704067200,
-            "current_period_end": 1706745600,
-            "cancel_at_period_end": True,
-        }).encode()
+        mock_response.read.return_value = json.dumps(
+            {
+                "id": "sub_123",
+                "customer": "cus_123",
+                "status": "active",
+                "items": {"data": [{"price": {"id": "price_pro"}}]},
+                "current_period_start": 1704067200,
+                "current_period_end": 1706745600,
+                "cancel_at_period_end": True,
+            }
+        ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -468,14 +486,16 @@ class TestStripeClientSubscriptions:
     def test_cancel_subscription_immediately(self, mock_urlopen):
         """Test canceling subscription immediately."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "id": "sub_123",
-            "customer": "cus_123",
-            "status": "canceled",
-            "items": {"data": []},
-            "current_period_start": 1704067200,
-            "current_period_end": 1706745600,
-        }).encode()
+        mock_response.read.return_value = json.dumps(
+            {
+                "id": "sub_123",
+                "customer": "cus_123",
+                "status": "canceled",
+                "items": {"data": []},
+                "current_period_start": 1704067200,
+                "current_period_end": 1706745600,
+            }
+        ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -489,15 +509,17 @@ class TestStripeClientSubscriptions:
     def test_resume_subscription(self, mock_urlopen):
         """Test resuming a subscription."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "id": "sub_123",
-            "customer": "cus_123",
-            "status": "active",
-            "items": {"data": [{"price": {"id": "price_pro"}}]},
-            "current_period_start": 1704067200,
-            "current_period_end": 1706745600,
-            "cancel_at_period_end": False,
-        }).encode()
+        mock_response.read.return_value = json.dumps(
+            {
+                "id": "sub_123",
+                "customer": "cus_123",
+                "status": "active",
+                "items": {"data": [{"price": {"id": "price_pro"}}]},
+                "current_period_start": 1704067200,
+                "current_period_end": 1706745600,
+                "cancel_at_period_end": False,
+            }
+        ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -515,12 +537,14 @@ class TestStripeClientInvoices:
     def test_list_invoices(self, mock_urlopen):
         """Test listing invoices."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "data": [
-                {"id": "in_1", "amount_paid": 2000, "status": "paid"},
-                {"id": "in_2", "amount_paid": 2000, "status": "paid"},
-            ]
-        }).encode()
+        mock_response.read.return_value = json.dumps(
+            {
+                "data": [
+                    {"id": "in_1", "amount_paid": 2000, "status": "paid"},
+                    {"id": "in_2", "amount_paid": 2000, "status": "paid"},
+                ]
+            }
+        ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -714,16 +738,18 @@ class TestWebhookEventParsing:
 
     def test_parse_valid_event(self):
         """Test parsing a valid webhook event."""
-        payload = json.dumps({
-            "type": "customer.subscription.created",
-            "data": {
-                "object": {
-                    "id": "sub_123",
-                    "customer": "cus_123",
-                    "metadata": {"org_id": "org_456"},
-                }
+        payload = json.dumps(
+            {
+                "type": "customer.subscription.created",
+                "data": {
+                    "object": {
+                        "id": "sub_123",
+                        "customer": "cus_123",
+                        "metadata": {"org_id": "org_456"},
+                    }
+                },
             }
-        }).encode()
+        ).encode()
         secret = "whsec_test"
         timestamp = str(int(time.time()))
 
@@ -767,42 +793,27 @@ class TestWebhookEvent:
 
     def test_customer_id_from_customer_field(self):
         """Test extracting customer_id from customer field."""
-        event = WebhookEvent(
-            "invoice.paid",
-            {"object": {"customer": "cus_123"}}
-        )
+        event = WebhookEvent("invoice.paid", {"object": {"customer": "cus_123"}})
         assert event.customer_id == "cus_123"
 
     def test_customer_id_from_id_field(self):
         """Test extracting customer_id from id field (for customer.* events)."""
-        event = WebhookEvent(
-            "customer.created",
-            {"object": {"id": "cus_456"}}
-        )
+        event = WebhookEvent("customer.created", {"object": {"id": "cus_456"}})
         assert event.customer_id == "cus_456"
 
     def test_subscription_id_from_subscription_event(self):
         """Test extracting subscription_id from subscription events."""
-        event = WebhookEvent(
-            "customer.subscription.updated",
-            {"object": {"id": "sub_123"}}
-        )
+        event = WebhookEvent("customer.subscription.updated", {"object": {"id": "sub_123"}})
         assert event.subscription_id == "sub_123"
 
     def test_subscription_id_from_subscription_field(self):
         """Test extracting subscription_id from subscription field."""
-        event = WebhookEvent(
-            "invoice.paid",
-            {"object": {"subscription": "sub_456"}}
-        )
+        event = WebhookEvent("invoice.paid", {"object": {"subscription": "sub_456"}})
         assert event.subscription_id == "sub_456"
 
     def test_metadata_extraction(self):
         """Test metadata extraction."""
-        event = WebhookEvent(
-            "test.event",
-            {"object": {"metadata": {"key": "value"}}}
-        )
+        event = WebhookEvent("test.event", {"object": {"metadata": {"key": "value"}}})
         assert event.metadata == {"key": "value"}
 
     def test_metadata_empty_when_missing(self):

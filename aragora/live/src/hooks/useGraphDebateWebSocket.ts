@@ -5,6 +5,10 @@ import { logger } from '@/utils/logger';
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
 
+// Reconnection configuration
+const MAX_RECONNECT_ATTEMPTS = 5;
+const MAX_RECONNECT_DELAY_MS = 30000; // 30 seconds cap
+
 // Graph debate event types
 export type GraphEventType =
   | 'graph_node_added'
@@ -41,13 +45,13 @@ interface UseGraphDebateWebSocketOptions {
   wsUrl?: string;
   enabled?: boolean;
   autoReconnect?: boolean;
-  reconnectInterval?: number;
 }
 
 interface UseGraphDebateWebSocketReturn {
   status: GraphConnectionStatus;
   error: string | null;
   isConnected: boolean;
+  reconnectAttempt: number;  // Expose for UI feedback
   events: GraphDebateEvent[];
   lastEvent: GraphDebateEvent | null;
   reconnect: () => void;
@@ -59,17 +63,45 @@ export function useGraphDebateWebSocket({
   wsUrl = DEFAULT_WS_URL,
   enabled = true,
   autoReconnect = true,
-  reconnectInterval = 3000,
 }: UseGraphDebateWebSocketOptions): UseGraphDebateWebSocketReturn {
   const [status, setStatus] = useState<GraphConnectionStatus>('disconnected');
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<GraphDebateEvent[]>([]);
   const [lastEvent, setLastEvent] = useState<GraphDebateEvent | null>(null);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const maxReconnectAttempts = 5;
+  const isUnmountedRef = useRef(false);
+
+  // Clear any pending reconnection timeout
+  const clearReconnectTimeout = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Schedule reconnection with exponential backoff
+  const scheduleReconnect = useCallback(() => {
+    if (isUnmountedRef.current || !autoReconnect) return;
+    if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+      setStatus('error');
+      setError(`Connection lost. Max reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached.`);
+      return;
+    }
+
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s (capped at 30s)
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempt), MAX_RECONNECT_DELAY_MS);
+    logger.debug(`[Graph WebSocket] Scheduling reconnect attempt ${reconnectAttempt + 1} in ${delay}ms`);
+
+    clearReconnectTimeout();
+    reconnectTimeoutRef.current = setTimeout(() => {
+      if (!isUnmountedRef.current) {
+        setReconnectAttempt(prev => prev + 1);
+      }
+    }, delay);
+  }, [reconnectAttempt, autoReconnect, clearReconnectTimeout]);
 
   const handleEvent = useCallback((event: GraphDebateEvent) => {
     // Filter by debate ID if provided
@@ -115,9 +147,9 @@ export function useGraphDebateWebSocket({
       setError(null);
 
       ws.onopen = () => {
-        logger.debug('Graph WebSocket connected');
+        logger.debug(`Graph WebSocket connected (attempt ${reconnectAttempt + 1})`);
         setStatus('connected');
-        reconnectAttemptsRef.current = 0;
+        setReconnectAttempt(0);  // Reset on successful connection
 
         // Subscribe to graph events if debate ID is provided
         if (debateId) {
@@ -140,66 +172,90 @@ export function useGraphDebateWebSocket({
 
       ws.onerror = (err) => {
         logger.error('Graph WebSocket error:', err);
-        setError('Connection error');
-        setStatus('error');
+        // Don't set error status here - let onclose handle reconnection
       };
 
-      ws.onclose = () => {
-        logger.debug('Graph WebSocket closed');
-        setStatus('disconnected');
+      ws.onclose = (event) => {
+        logger.debug('Graph WebSocket closed', { code: event.code, reason: event.reason });
+        wsRef.current = null;
 
-        // Auto-reconnect logic
-        if (autoReconnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
-          reconnectAttemptsRef.current += 1;
-          const delay = reconnectInterval * Math.pow(1.5, reconnectAttemptsRef.current - 1);
-          logger.debug(`Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current})`);
+        // Normal closure (code 1000) or page navigation (1001)
+        if (event.code === 1000 || event.code === 1001) {
+          setStatus('disconnected');
+          return;
+        }
 
-          reconnectTimeoutRef.current = setTimeout(() => {
-            connect();
-          }, delay);
+        // Abnormal closure - attempt reconnection
+        if (!isUnmountedRef.current && autoReconnect) {
+          setStatus('connecting');
+          setError(`Connection lost (code: ${event.code}). Reconnecting...`);
+          scheduleReconnect();
+        } else {
+          setStatus('error');
+          setError('Connection closed');
         }
       };
     } catch (err) {
       logger.error('Failed to create Graph WebSocket:', err);
       setError(err instanceof Error ? err.message : 'Connection failed');
       setStatus('error');
+      scheduleReconnect();
     }
-  }, [enabled, wsUrl, debateId, autoReconnect, reconnectInterval, handleEvent]);
+  }, [enabled, wsUrl, debateId, autoReconnect, reconnectAttempt, handleEvent, scheduleReconnect]);
 
   const reconnect = useCallback(() => {
-    reconnectAttemptsRef.current = 0;
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
+    clearReconnectTimeout();
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
-    connect();
-  }, [connect]);
+    // Reset state
+    setStatus('connecting');
+    setError(null);
+    setEvents([]);
+    setLastEvent(null);
+    setReconnectAttempt(0);
+    // Will trigger connection via useEffect
+  }, [clearReconnectTimeout]);
 
   const clearEvents = useCallback(() => {
     setEvents([]);
     setLastEvent(null);
   }, []);
 
-  // Connect on mount and when debateId changes
+  // Track unmount state
   useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+      clearReconnectTimeout();
+    };
+  }, [clearReconnectTimeout]);
+
+  // Initial connection effect
+  useEffect(() => {
+    if (!enabled) return;
+
+    // Don't reconnect if max attempts reached
+    if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS && status === 'error') {
+      return;
+    }
+
     connect();
 
     return () => {
       if (wsRef.current) {
-        wsRef.current.close();
+        wsRef.current.close(1000, 'Component unmounted');
         wsRef.current = null;
       }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
     };
-  }, [connect]);
+  }, [enabled, connect, reconnectAttempt, status]);
 
   return {
     status,
     error,
     isConnected: status === 'connected',
+    reconnectAttempt,
     events,
     lastEvent,
     reconnect,

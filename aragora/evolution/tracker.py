@@ -8,14 +8,12 @@ the effectiveness of prompt evolution.
 from __future__ import annotations
 
 import logging
-import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
-from collections import defaultdict
 
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
 
@@ -35,65 +33,44 @@ class OutcomeRecord:
             self.recorded_at = datetime.utcnow().isoformat()
 
 
-class EvolutionTracker:
+class EvolutionTracker(SQLiteStore):
     """
     Tracks evolution performance metrics.
 
     Records debate outcomes per agent and generation, enabling
     analysis of whether evolved prompts actually improve performance.
+
+    Inherits from SQLiteStore for standardized schema management.
     """
 
-    def __init__(self, db_path: str = ":memory:"):
+    SCHEMA_NAME = "evolution_tracker"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS outcomes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent TEXT NOT NULL,
+            won INTEGER NOT NULL,
+            debate_id TEXT,
+            generation INTEGER DEFAULT 0,
+            recorded_at TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_outcomes_agent
+        ON outcomes(agent);
+
+        CREATE INDEX IF NOT EXISTS idx_outcomes_generation
+        ON outcomes(generation);
+    """
+
+    def __init__(self, db_path: str = "aragora_evolution_tracker.db"):
         """
         Initialize the evolution tracker.
 
         Args:
-            db_path: Path to SQLite database file (default: in-memory)
+            db_path: Path to SQLite database file
         """
-        self.db_path = db_path if db_path == ":memory:" else Path(db_path)
-        self._conn = None
-        self._init_db()
-
-    def _get_connection(self):
-        """Get database connection (reuse for in-memory)."""
-        if self.db_path == ":memory:":
-            if self._conn is None:
-                self._conn = sqlite3.connect(":memory:")
-            return self._conn
-        return sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        )
-
-    def _init_db(self):
-        """Initialize database schema."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS outcomes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                agent TEXT NOT NULL,
-                won INTEGER NOT NULL,
-                debate_id TEXT,
-                generation INTEGER DEFAULT 0,
-                recorded_at TEXT
-            )
-        """)
-
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_outcomes_agent
-            ON outcomes(agent)
-        """)
-
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_outcomes_generation
-            ON outcomes(generation)
-        """)
-
-        conn.commit()
-        if self.db_path != ":memory:":
-            conn.close()
+        super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
 
     def record_outcome(
         self,
@@ -118,28 +95,24 @@ class EvolutionTracker:
             generation=generation,
         )
 
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO outcomes (agent, won, debate_id, generation, recorded_at)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                record.agent,
-                1 if record.won else 0,
-                record.debate_id,
-                record.generation,
-                record.recorded_at,
-            ),
-        )
-        conn.commit()
-        if self.db_path != ":memory:":
-            conn.close()
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO outcomes (agent, won, debate_id, generation, recorded_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    record.agent,
+                    1 if record.won else 0,
+                    record.debate_id,
+                    record.generation,
+                    record.recorded_at,
+                ),
+            )
 
         logger.debug(
-            f"Recorded outcome for {agent}: {'win' if won else 'loss'} "
-            f"(gen={generation})"
+            f"Recorded outcome for {agent}: {'win' if won else 'loss'} " f"(gen={generation})"
         )
 
     def get_agent_stats(self, agent: str) -> dict:
@@ -152,29 +125,26 @@ class EvolutionTracker:
         Returns:
             Dict with wins, losses, total, win_rate
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
+        with self.connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            SELECT
-                SUM(won) as wins,
-                COUNT(*) - SUM(won) as losses,
-                COUNT(*) as total
-            FROM outcomes
-            WHERE agent = ?
-            """,
-            (agent,),
-        )
-        row = cursor.fetchone()
+            cursor.execute(
+                """
+                SELECT
+                    SUM(won) as wins,
+                    COUNT(*) - SUM(won) as losses,
+                    COUNT(*) as total
+                FROM outcomes
+                WHERE agent = ?
+                """,
+                (agent,),
+            )
+            row = cursor.fetchone()
 
-        wins = row[0] or 0
-        losses = row[1] or 0
-        total = row[2] or 0
-        win_rate = wins / total if total > 0 else 0.0
-
-        if self.db_path != ":memory:":
-            conn.close()
+            wins = row[0] or 0
+            losses = row[1] or 0
+            total = row[2] or 0
+            win_rate = wins / total if total > 0 else 0.0
 
         return {
             "agent": agent,
@@ -194,31 +164,28 @@ class EvolutionTracker:
         Returns:
             Dict with total_debates, wins, losses, win_rate, agents
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
+        with self.connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            SELECT
-                SUM(won) as wins,
-                COUNT(*) - SUM(won) as losses,
-                COUNT(*) as total,
-                COUNT(DISTINCT agent) as unique_agents
-            FROM outcomes
-            WHERE generation = ?
-            """,
-            (generation,),
-        )
-        row = cursor.fetchone()
+            cursor.execute(
+                """
+                SELECT
+                    SUM(won) as wins,
+                    COUNT(*) - SUM(won) as losses,
+                    COUNT(*) as total,
+                    COUNT(DISTINCT agent) as unique_agents
+                FROM outcomes
+                WHERE generation = ?
+                """,
+                (generation,),
+            )
+            row = cursor.fetchone()
 
-        wins = row[0] or 0
-        losses = row[1] or 0
-        total = row[2] or 0
-        unique_agents = row[3] or 0
-        win_rate = wins / total if total > 0 else 0.0
-
-        if self.db_path != ":memory:":
-            conn.close()
+            wins = row[0] or 0
+            losses = row[1] or 0
+            total = row[2] or 0
+            unique_agents = row[3] or 0
+            win_rate = wins / total if total > 0 else 0.0
 
         return {
             "generation": generation,
@@ -263,27 +230,24 @@ class EvolutionTracker:
 
     def _get_agent_generation_stats(self, agent: str, generation: int) -> dict:
         """Get stats for an agent in a specific generation."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
+        with self.connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            SELECT
-                SUM(won) as wins,
-                COUNT(*) as total
-            FROM outcomes
-            WHERE agent = ? AND generation = ?
-            """,
-            (agent, generation),
-        )
-        row = cursor.fetchone()
+            cursor.execute(
+                """
+                SELECT
+                    SUM(won) as wins,
+                    COUNT(*) as total
+                FROM outcomes
+                WHERE agent = ? AND generation = ?
+                """,
+                (agent, generation),
+            )
+            row = cursor.fetchone()
 
-        wins = row[0] or 0
-        total = row[1] or 0
-        win_rate = wins / total if total > 0 else 0.0
-
-        if self.db_path != ":memory:":
-            conn.close()
+            wins = row[0] or 0
+            total = row[1] or 0
+            win_rate = wins / total if total > 0 else 0.0
 
         return {
             "wins": wins,
@@ -293,12 +257,10 @@ class EvolutionTracker:
 
     def get_all_agents(self) -> list[str]:
         """Get list of all agents with recorded outcomes."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT agent FROM outcomes ORDER BY agent")
-        result = [row[0] for row in cursor.fetchall()]
-        if self.db_path != ":memory:":
-            conn.close()
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT DISTINCT agent FROM outcomes ORDER BY agent")
+            result = [row[0] for row in cursor.fetchall()]
         return result
 
     def get_generation_trend(self, agent: str, max_generations: int = 10) -> list[dict]:
@@ -312,25 +274,22 @@ class EvolutionTracker:
         Returns:
             List of dicts with generation and win_rate
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
+        with self.connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            SELECT generation
-            FROM outcomes
-            WHERE agent = ?
-            GROUP BY generation
-            ORDER BY generation DESC
-            LIMIT ?
-            """,
-            (agent, max_generations),
-        )
+            cursor.execute(
+                """
+                SELECT generation
+                FROM outcomes
+                WHERE agent = ?
+                GROUP BY generation
+                ORDER BY generation DESC
+                LIMIT ?
+                """,
+                (agent, max_generations),
+            )
 
-        generations = [row[0] for row in cursor.fetchall()]
-
-        if self.db_path != ":memory:":
-            conn.close()
+            generations = [row[0] for row in cursor.fetchall()]
 
         return [
             {

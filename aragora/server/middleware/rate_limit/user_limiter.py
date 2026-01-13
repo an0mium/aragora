@@ -168,13 +168,10 @@ class UserRateLimiter:
         with self._lock:
             return {
                 "action_buckets": {
-                    action: len(buckets)
-                    for action, buckets in self._user_buckets.items()
+                    action: len(buckets) for action, buckets in self._user_buckets.items()
                 },
                 "action_limits": self.action_limits,
-                "total_users": sum(
-                    len(buckets) for buckets in self._user_buckets.values()
-                ),
+                "total_users": sum(len(buckets) for buckets in self._user_buckets.values()),
             }
 
     def reset(self) -> None:
@@ -230,9 +227,7 @@ def check_user_rate_limit(
             "X-Real-IP": handler.headers.get("X-Real-IP", ""),
         }
 
-    client_ip = sanitize_rate_limit_key_component(
-        _extract_client_ip(headers, remote_ip)
-    )
+    client_ip = sanitize_rate_limit_key_component(_extract_client_ip(headers, remote_ip))
     client_key = f"ip:{client_ip}" if client_ip != "anon" else "anon"
 
     # Try to extract authenticated user

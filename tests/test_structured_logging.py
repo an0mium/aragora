@@ -329,9 +329,15 @@ class TestJsonFormatter:
             raise ValueError("test error")
         except ValueError:
             import sys
+
             record = logging.LogRecord(
-                name="test", level=logging.ERROR, pathname="",
-                lineno=1, msg="Error", args=(), exc_info=sys.exc_info()
+                name="test",
+                level=logging.ERROR,
+                pathname="",
+                lineno=1,
+                msg="Error",
+                args=(),
+                exc_info=sys.exc_info(),
             )
         formatter = JsonFormatter()
         output = formatter.format(record)
@@ -343,8 +349,13 @@ class TestJsonFormatter:
     def test_includes_source_location_for_errors(self):
         """Includes source location for ERROR level."""
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname="/app/main.py",
-            lineno=100, msg="Error", args=(), exc_info=None
+            name="test",
+            level=logging.ERROR,
+            pathname="/app/main.py",
+            lineno=100,
+            msg="Error",
+            args=(),
+            exc_info=None,
         )
         record.funcName = "handle_request"
         formatter = JsonFormatter()
@@ -423,9 +434,15 @@ class TestTextFormatter:
             raise ValueError("test error")
         except ValueError:
             import sys
+
             record = logging.LogRecord(
-                name="test", level=logging.ERROR, pathname="",
-                lineno=1, msg="Error", args=(), exc_info=sys.exc_info()
+                name="test",
+                level=logging.ERROR,
+                pathname="",
+                lineno=1,
+                msg="Error",
+                args=(),
+                exc_info=sys.exc_info(),
             )
         formatter = TextFormatter()
         output = formatter.format(record)
@@ -629,9 +646,7 @@ class TestRequestLoggingMiddleware:
 
     def test_start_request_uses_provided_request_id(self, middleware):
         """start_request uses provided request ID."""
-        ctx = middleware.start_request(
-            "GET", "/api/test", "127.0.0.1", request_id="custom-id"
-        )
+        ctx = middleware.start_request("GET", "/api/test", "127.0.0.1", request_id="custom-id")
         assert ctx["request_id"] == "custom-id"
 
     def test_start_request_sets_log_context(self, middleware):
@@ -744,8 +759,16 @@ class TestRedactFields:
     def test_all_expected_fields_present(self):
         """All expected sensitive fields are present."""
         expected = {
-            "password", "secret", "token", "api_key", "apikey",
-            "authorization", "cookie", "credit_card", "ssn", "private_key"
+            "password",
+            "secret",
+            "token",
+            "api_key",
+            "apikey",
+            "authorization",
+            "cookie",
+            "credit_card",
+            "ssn",
+            "private_key",
         }
         assert expected == REDACT_FIELDS
 

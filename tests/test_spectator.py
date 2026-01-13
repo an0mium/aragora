@@ -54,7 +54,7 @@ def test_spectator_json_format():
             agent="CriticBot",
             details="Good points",
             metric=0.8,
-            round_number=2
+            round_number=2,
         )
 
     output = captured.getvalue().strip()
@@ -75,7 +75,8 @@ def test_spectator_encoding_fallback():
     # Mock a broken output that raises UnicodeEncodeError
     class BrokenOutput:
         def write(self, data):
-            raise UnicodeEncodeError('utf-8', data, 0, 1, 'mock error')
+            raise UnicodeEncodeError("utf-8", data, 0, 1, "mock error")
+
         def flush(self):
             pass
 
@@ -104,7 +105,7 @@ def test_spectator_content_truncation():
 
 def test_spectator_no_color_detection():
     """Test that NO_COLOR environment variable disables colors."""
-    with patch.dict('os.environ', {'NO_COLOR': '1'}):
+    with patch.dict("os.environ", {"NO_COLOR": "1"}):
         stream = SpectatorStream(enabled=True, format="auto")
         # Force re-detection
         stream._detect_capabilities()

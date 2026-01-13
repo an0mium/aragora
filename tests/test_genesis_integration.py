@@ -142,9 +142,7 @@ class TestPopulationManagerBasics:
             pytest.skip("Breeding module not available")
 
         manager = PopulationManager(db_path=temp_db)
-        population = manager.get_or_create_population(
-            base_agents=["claude", "gpt4"]
-        )
+        population = manager.get_or_create_population(base_agents=["claude", "gpt4"])
 
         assert population is not None
         assert len(population.genomes) >= 2
@@ -204,11 +202,13 @@ class TestGenesisArenaIntegration:
 
         # Check that Arena.__init__ accepts population_manager as a parameter
         import inspect
+
         sig = inspect.signature(Arena.__init__)
         param_names = list(sig.parameters.keys())
 
-        assert 'population_manager' in param_names, \
-            "Arena.__init__ should accept population_manager parameter"
+        assert (
+            "population_manager" in param_names
+        ), "Arena.__init__ should accept population_manager parameter"
 
 
 class TestFitnessUpdates:
@@ -245,15 +245,19 @@ class TestFitnessUpdates:
 
         # Check that FeedbackPhase.__init__ accepts population_manager as a parameter
         import inspect
+
         sig = inspect.signature(FeedbackPhase.__init__)
         param_names = list(sig.parameters.keys())
 
-        assert 'population_manager' in param_names, \
-            "FeedbackPhase.__init__ should accept population_manager parameter"
-        assert 'auto_evolve' in param_names, \
-            "FeedbackPhase.__init__ should accept auto_evolve parameter"
-        assert 'breeding_threshold' in param_names, \
-            "FeedbackPhase.__init__ should accept breeding_threshold parameter"
+        assert (
+            "population_manager" in param_names
+        ), "FeedbackPhase.__init__ should accept population_manager parameter"
+        assert (
+            "auto_evolve" in param_names
+        ), "FeedbackPhase.__init__ should accept auto_evolve parameter"
+        assert (
+            "breeding_threshold" in param_names
+        ), "FeedbackPhase.__init__ should accept breeding_threshold parameter"
 
 
 class TestBreedingTrigger:
@@ -273,11 +277,13 @@ class TestBreedingTrigger:
 
         # Record multiple debates
         for i in range(5):
-            population.debate_history.append({
-                "debate_id": f"debate-{i}",
-                "winner": "claude",
-                "confidence": 0.8,
-            })
+            population.debate_history.append(
+                {
+                    "debate_id": f"debate-{i}",
+                    "winner": "claude",
+                    "confidence": 0.8,
+                }
+            )
 
         # After threshold, breeding should be triggered
         # The actual breeding logic is in the manager
@@ -291,14 +297,12 @@ class TestBreedingTrigger:
             pytest.skip("Breeding module not available")
 
         manager = PopulationManager(db_path=temp_db)
-        population = manager.get_or_create_population(
-            base_agents=["claude", "gpt4"]
-        )
+        population = manager.get_or_create_population(base_agents=["claude", "gpt4"])
 
         initial_count = len(population.genomes)
 
         # Trigger breeding if available
-        if hasattr(manager, 'breed_population'):
+        if hasattr(manager, "breed_population"):
             manager.breed_population()
             # Should have more genomes now
             assert len(population.genomes) >= initial_count
@@ -333,7 +337,7 @@ class TestGenesisAPIEndpoint:
 
         assert result is not None
         # Should return either success or service unavailable
-        if hasattr(result, 'status_code'):
+        if hasattr(result, "status_code"):
             status_code = result.status_code
         elif isinstance(result, tuple):
             status_code = result[1]

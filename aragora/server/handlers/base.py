@@ -120,22 +120,60 @@ from aragora.server.validation import (
 
 # Re-export DB_TIMEOUT_SECONDS for backwards compatibility
 __all__ = [
-    "DB_TIMEOUT_SECONDS", "require_auth", "require_user_auth", "require_quota", "require_storage", "require_feature",
-    "require_permission", "has_permission", "PERMISSION_MATRIX",
-    "error_response", "json_response", "handle_errors", "auto_error_response", "log_request", "ttl_cache",
-    "safe_error_message", "safe_error_response",
-    "async_ttl_cache", "clear_cache", "get_cache_stats", "CACHE_INVALIDATION_MAP", "invalidate_cache",
-    "invalidate_on_event", "invalidate_leaderboard_cache", "invalidate_agent_cache",
-    "invalidate_debate_cache", "PathMatcher", "RouteDispatcher", "safe_fetch",
-    "get_db_connection", "table_exists", "safe_get", "safe_get_nested", "safe_json_parse",
-    "get_host_header", "get_agent_name", "agent_to_dict", "validate_params",
-    "SAFE_ID_PATTERN", "SAFE_SLUG_PATTERN", "SAFE_AGENT_PATTERN",
+    "DB_TIMEOUT_SECONDS",
+    "require_auth",
+    "require_user_auth",
+    "require_quota",
+    "require_storage",
+    "require_feature",
+    "require_permission",
+    "has_permission",
+    "PERMISSION_MATRIX",
+    "error_response",
+    "json_response",
+    "handle_errors",
+    "auto_error_response",
+    "log_request",
+    "ttl_cache",
+    "safe_error_message",
+    "safe_error_response",
+    "async_ttl_cache",
+    "clear_cache",
+    "get_cache_stats",
+    "CACHE_INVALIDATION_MAP",
+    "invalidate_cache",
+    "invalidate_on_event",
+    "invalidate_leaderboard_cache",
+    "invalidate_agent_cache",
+    "invalidate_debate_cache",
+    "PathMatcher",
+    "RouteDispatcher",
+    "safe_fetch",
+    "get_db_connection",
+    "table_exists",
+    "safe_get",
+    "safe_get_nested",
+    "safe_json_parse",
+    "get_host_header",
+    "get_agent_name",
+    "agent_to_dict",
+    "validate_params",
+    "SAFE_ID_PATTERN",
+    "SAFE_SLUG_PATTERN",
+    "SAFE_AGENT_PATTERN",
     "feature_unavailable_response",
     # Parameter extraction helpers
-    "get_int_param", "get_float_param", "get_bool_param", "get_string_param",
-    "get_clamped_int_param", "get_bounded_float_param", "get_bounded_string_param",
+    "get_int_param",
+    "get_float_param",
+    "get_bool_param",
+    "get_string_param",
+    "get_clamped_int_param",
+    "get_bounded_float_param",
+    "get_bounded_string_param",
     # Handler mixins
-    "PaginatedHandlerMixin", "CachedHandlerMixin", "AuthenticatedHandlerMixin",
+    "PaginatedHandlerMixin",
+    "CachedHandlerMixin",
+    "AuthenticatedHandlerMixin",
     "BaseHandler",
     # Note: validate_json_content_type and read_json_body_validated are BaseHandler methods
 ]
@@ -166,7 +204,9 @@ def feature_unavailable_response(
     from aragora.server.handlers.features import (
         feature_unavailable_response as _feature_unavailable,
     )
+
     return _feature_unavailable(feature_id, message)
+
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +226,7 @@ logger = logging.getLogger(__name__)
 
 
 # Default host from environment (used when Host header is missing)
-_DEFAULT_HOST = os.environ.get('ARAGORA_DEFAULT_HOST', 'localhost:8080')
+_DEFAULT_HOST = os.environ.get("ARAGORA_DEFAULT_HOST", "localhost:8080")
 
 
 def get_host_header(handler, default: str | None = None) -> str:
@@ -211,7 +251,7 @@ def get_host_header(handler, default: str | None = None) -> str:
         default = _DEFAULT_HOST
     if handler is None:
         return default
-    return handler.headers.get('Host', default) if hasattr(handler, 'headers') else default
+    return handler.headers.get("Host", default) if hasattr(handler, "headers") else default
 
 
 def get_agent_name(agent: Any) -> Optional[str]:
@@ -347,9 +387,7 @@ def safe_error_response(
         trace_id = generate_trace_id()
 
     # Format error with sanitization (logs full details server-side)
-    error_dict = ErrorFormatter.format_server_error(
-        exception, context=context, trace_id=trace_id
-    )
+    error_dict = ErrorFormatter.format_server_error(exception, context=context, trace_id=trace_id)
 
     return json_response(error_dict, status=status)
 
@@ -390,21 +428,22 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
             # Checks if org has capacity for 10 debates
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             from aragora.billing.jwt_auth import extract_user_from_request
 
             # Extract handler from kwargs or args
-            handler = kwargs.get('handler')
+            handler = kwargs.get("handler")
             if handler is None and args:
                 for arg in args:
-                    if hasattr(arg, 'headers'):
+                    if hasattr(arg, "headers"):
                         handler = arg
                         break
 
             # Get user context - may already be in kwargs from @require_user_auth
-            user_ctx = kwargs.get('user')
+            user_ctx = kwargs.get("user")
 
             if user_ctx is None:
                 # Authenticate if not already done
@@ -413,9 +452,9 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
                     return error_response("Authentication required", 401)
 
                 user_store = None
-                if hasattr(handler, 'user_store'):
+                if hasattr(handler, "user_store"):
                     user_store = handler.user_store
-                elif hasattr(handler.__class__, 'user_store'):
+                elif hasattr(handler.__class__, "user_store"):
                     user_store = handler.__class__.user_store
 
                 user_ctx = extract_user_from_request(handler, user_store)
@@ -424,19 +463,19 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
                     error_msg = user_ctx.error_reason or "Authentication required"
                     return error_response(error_msg, 401)
 
-                kwargs['user'] = user_ctx
+                kwargs["user"] = user_ctx
 
             # Check organization quota
             if user_ctx.org_id:
                 try:
                     # Get organization from user store
                     user_store = None
-                    if handler and hasattr(handler, 'user_store'):
+                    if handler and hasattr(handler, "user_store"):
                         user_store = handler.user_store
-                    elif handler and hasattr(handler.__class__, 'user_store'):
+                    elif handler and hasattr(handler.__class__, "user_store"):
                         user_store = handler.__class__.user_store
 
-                    if user_store and hasattr(user_store, 'get_organization_by_id'):
+                    if user_store and hasattr(user_store, "get_organization_by_id"):
                         org = user_store.get_organization_by_id(user_ctx.org_id)
                         if org:
                             # Check if at limit
@@ -445,34 +484,45 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
                                     f"Quota exceeded for org {user_ctx.org_id}: "
                                     f"{org.debates_used_this_month}/{org.limits.debates_per_month}"
                                 )
-                                return json_response({
-                                    "error": "Monthly debate quota exceeded",
-                                    "code": "quota_exceeded",
-                                    "limit": org.limits.debates_per_month,
-                                    "used": org.debates_used_this_month,
-                                    "remaining": 0,
-                                    "tier": org.tier.value,
-                                    "upgrade_url": "/pricing",
-                                    "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Upgrade to increase your limit.",
-                                }, status=429)
+                                return json_response(
+                                    {
+                                        "error": "Monthly debate quota exceeded",
+                                        "code": "quota_exceeded",
+                                        "limit": org.limits.debates_per_month,
+                                        "used": org.debates_used_this_month,
+                                        "remaining": 0,
+                                        "tier": org.tier.value,
+                                        "upgrade_url": "/pricing",
+                                        "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Upgrade to increase your limit.",
+                                    },
+                                    status=429,
+                                )
 
                             # Check if this operation would exceed quota
-                            if org.debates_used_this_month + debate_count > org.limits.debates_per_month:
-                                remaining = org.limits.debates_per_month - org.debates_used_this_month
+                            if (
+                                org.debates_used_this_month + debate_count
+                                > org.limits.debates_per_month
+                            ):
+                                remaining = (
+                                    org.limits.debates_per_month - org.debates_used_this_month
+                                )
                                 logger.info(
                                     f"Quota insufficient for org {user_ctx.org_id}: "
                                     f"requested {debate_count}, remaining {remaining}"
                                 )
-                                return json_response({
-                                    "error": f"Insufficient quota: requested {debate_count} debates but only {remaining} remaining",
-                                    "code": "quota_insufficient",
-                                    "limit": org.limits.debates_per_month,
-                                    "used": org.debates_used_this_month,
-                                    "remaining": remaining,
-                                    "requested": debate_count,
-                                    "tier": org.tier.value,
-                                    "upgrade_url": "/pricing",
-                                }, status=429)
+                                return json_response(
+                                    {
+                                        "error": f"Insufficient quota: requested {debate_count} debates but only {remaining} remaining",
+                                        "code": "quota_insufficient",
+                                        "limit": org.limits.debates_per_month,
+                                        "used": org.debates_used_this_month,
+                                        "remaining": remaining,
+                                        "requested": debate_count,
+                                        "tier": org.tier.value,
+                                        "upgrade_url": "/pricing",
+                                    },
+                                    status=429,
+                                )
 
                 except Exception as e:
                     # Log but don't block on quota check failure
@@ -483,16 +533,16 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
 
             # Increment usage on success (status < 400)
             if user_ctx.org_id:
-                status_code = getattr(result, 'status_code', 200) if result else 200
+                status_code = getattr(result, "status_code", 200) if result else 200
                 if status_code < 400:
                     try:
                         user_store = None
-                        if handler and hasattr(handler, 'user_store'):
+                        if handler and hasattr(handler, "user_store"):
                             user_store = handler.user_store
-                        elif handler and hasattr(handler.__class__, 'user_store'):
+                        elif handler and hasattr(handler.__class__, "user_store"):
                             user_store = handler.__class__.user_store
 
-                        if user_store and hasattr(user_store, 'increment_usage'):
+                        if user_store and hasattr(user_store, "increment_usage"):
                             user_store.increment_usage(user_ctx.org_id, debate_count)
                             logger.debug(
                                 f"Incremented usage for org {user_ctx.org_id} by {debate_count}"
@@ -503,6 +553,7 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
             return result
 
         return wrapper
+
     return decorator
 
 
@@ -550,8 +601,8 @@ class PaginatedHandlerMixin:
         default_limit = default_limit or self.DEFAULT_LIMIT
         max_limit = max_limit or self.MAX_LIMIT
 
-        limit = get_int_param(query_params, 'limit', default_limit)
-        offset = get_int_param(query_params, 'offset', self.DEFAULT_OFFSET)
+        limit = get_int_param(query_params, "limit", default_limit)
+        offset = get_int_param(query_params, "offset", self.DEFAULT_OFFSET)
 
         # Clamp values
         limit = max(1, min(limit, max_limit))
@@ -579,13 +630,15 @@ class PaginatedHandlerMixin:
         Returns:
             JSON response with pagination metadata
         """
-        return json_response({
-            items_key: items,
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-            "has_more": offset + len(items) < total,
-        })
+        return json_response(
+            {
+                items_key: items,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "has_more": offset + len(items) < total,
+            }
+        )
 
 
 class CachedHandlerMixin:
@@ -683,7 +736,7 @@ class AuthenticatedHandlerMixin:
         """
         # This method is typically overridden or uses BaseHandler's method
         # When used with BaseHandler, call require_auth_or_error instead
-        if hasattr(self, 'require_auth_or_error'):
+        if hasattr(self, "require_auth_or_error"):
             user, err = self.require_auth_or_error(handler)
             if err:
                 return err
@@ -691,8 +744,9 @@ class AuthenticatedHandlerMixin:
 
         # Fallback implementation
         from aragora.billing.jwt_auth import extract_user_from_request
-        user_store = getattr(self, 'ctx', {}).get('user_store')
-        if hasattr(self.__class__, 'user_store'):
+
+        user_store = getattr(self, "ctx", {}).get("user_store")
+        if hasattr(self.__class__, "user_store"):
             user_store = self.__class__.user_store
 
         user_ctx = extract_user_from_request(handler, user_store)
@@ -805,9 +859,7 @@ class BaseHandler:
         """
         result = {}
         for segment_index, param_name, pattern in param_specs:
-            value, err = self.extract_path_param(
-                path, segment_index, param_name, pattern
-            )
+            value, err = self.extract_path_param(path, segment_index, param_name, pattern)
             if err:
                 return None, err
             result[param_name] = value
@@ -820,7 +872,7 @@ class BaseHandler:
     def get_elo_system(self) -> Optional[Any]:
         """Get ELO system instance."""
         # Check class attribute first (set by unified_server), then ctx
-        if hasattr(self.__class__, 'elo_system') and self.__class__.elo_system is not None:
+        if hasattr(self.__class__, "elo_system") and self.__class__.elo_system is not None:
             return self.__class__.elo_system
         return self.ctx.get("elo_system")
 
@@ -863,15 +915,17 @@ class BaseHandler:
         from aragora.billing.jwt_auth import extract_user_from_request
 
         user_store = None
-        if hasattr(handler, 'user_store'):
+        if hasattr(handler, "user_store"):
             user_store = handler.user_store
-        elif hasattr(self.__class__, 'user_store'):
+        elif hasattr(self.__class__, "user_store"):
             user_store = self.__class__.user_store
 
         user_ctx = extract_user_from_request(handler, user_store)
         return user_ctx if user_ctx.is_authenticated else None
 
-    def require_auth_or_error(self, handler: Any) -> Tuple[Optional[Any], Optional["HandlerResult"]]:
+    def require_auth_or_error(
+        self, handler: Any
+    ) -> Tuple[Optional[Any], Optional["HandlerResult"]]:
         """Require authentication and return user or error response.
 
         Alternative to @require_user_auth decorator for cases where you need
@@ -914,7 +968,7 @@ class BaseHandler:
         """
         max_size = max_size or self.MAX_BODY_SIZE
         try:
-            content_length = int(handler.headers.get('Content-Length', 0))
+            content_length = int(handler.headers.get("Content-Length", 0))
             if content_length <= 0:
                 return {}
             if content_length > max_size:
@@ -936,7 +990,7 @@ class BaseHandler:
         """
         max_size = max_size or self.MAX_BODY_SIZE
         try:
-            content_length = int(handler.headers.get('Content-Length', '0'))
+            content_length = int(handler.headers.get("Content-Length", "0"))
         except ValueError:
             return None
 
@@ -954,29 +1008,30 @@ class BaseHandler:
         Returns:
             None if valid, HandlerResult with 415 error if Content-Type is invalid
         """
-        if not hasattr(handler, 'headers'):
+        if not hasattr(handler, "headers"):
             return error_response("Missing Content-Type header", 415)
 
-        content_type = handler.headers.get('Content-Type', '')
+        content_type = handler.headers.get("Content-Type", "")
         # Accept application/json with or without charset
         if not content_type:
             # Allow empty Content-Type for backwards compatibility with empty bodies
-            content_length = handler.headers.get('Content-Length', '0')
-            if content_length == '0' or content_length == 0:
+            content_length = handler.headers.get("Content-Length", "0")
+            if content_length == "0" or content_length == 0:
                 return None
             return error_response("Content-Type header required for POST with body", 415)
 
         # Parse media type (ignore parameters like charset)
-        media_type = content_type.split(';')[0].strip().lower()
-        if media_type not in ('application/json', 'text/json'):
+        media_type = content_type.split(";")[0].strip().lower()
+        if media_type not in ("application/json", "text/json"):
             return error_response(
-                f"Unsupported Content-Type: {content_type}. Expected application/json",
-                415
+                f"Unsupported Content-Type: {content_type}. Expected application/json", 415
             )
 
         return None
 
-    def read_json_body_validated(self, handler, max_size: int = None) -> Tuple[Optional[dict], Optional[HandlerResult]]:
+    def read_json_body_validated(
+        self, handler, max_size: int = None
+    ) -> Tuple[Optional[dict], Optional[HandlerResult]]:
         """Read and parse JSON body with Content-Type validation.
 
         Combines Content-Type validation and body parsing into a single call.
@@ -1001,7 +1056,9 @@ class BaseHandler:
 
         return body, None
 
-    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
         """
         Handle a GET request. Override in subclasses.
 
@@ -1015,7 +1072,9 @@ class BaseHandler:
         """
         return None
 
-    def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
         """
         Handle a POST request. Override in subclasses that support POST.
 
@@ -1029,7 +1088,9 @@ class BaseHandler:
         """
         return None
 
-    def handle_delete(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle_delete(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
         """
         Handle a DELETE request. Override in subclasses that support DELETE.
 
@@ -1043,7 +1104,9 @@ class BaseHandler:
         """
         return None
 
-    def handle_patch(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle_patch(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
         """
         Handle a PATCH request. Override in subclasses that support PATCH.
 
@@ -1057,7 +1120,9 @@ class BaseHandler:
         """
         return None
 
-    def handle_put(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle_put(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
         """
         Handle a PUT request. Override in subclasses that support PUT.
 

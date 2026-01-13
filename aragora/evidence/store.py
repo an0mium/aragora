@@ -11,23 +11,68 @@ Provides persistence for evidence snippets including:
 import hashlib
 import json
 import logging
-import os
 import sqlite3
-import threading
-from contextlib import contextmanager
-from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
-from aragora.evidence.metadata import EnrichedMetadata, MetadataEnricher, Provenance, SourceType
-from aragora.evidence.quality import QualityContext, QualityScorer, QualityScores
+from aragora.evidence.metadata import MetadataEnricher
+from aragora.evidence.quality import QualityContext, QualityScorer
+from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
 
 
-class EvidenceStore:
+class EvidenceStore(SQLiteStore):
     """SQLite-based evidence persistence store."""
+
+    SCHEMA_NAME = "evidence_store"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        -- Main evidence table
+        CREATE TABLE IF NOT EXISTS evidence (
+            id TEXT PRIMARY KEY,
+            content_hash TEXT UNIQUE NOT NULL,
+            source TEXT NOT NULL,
+            title TEXT NOT NULL,
+            snippet TEXT NOT NULL,
+            url TEXT,
+            reliability_score REAL DEFAULT 0.5,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            metadata_json TEXT,
+            enriched_metadata_json TEXT,
+            quality_scores_json TEXT
+        );
+
+        -- Debate-evidence association table
+        CREATE TABLE IF NOT EXISTS debate_evidence (
+            debate_id TEXT NOT NULL,
+            evidence_id TEXT NOT NULL,
+            round_number INTEGER,
+            relevance_score REAL DEFAULT 0.5,
+            used_in_consensus BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (debate_id, evidence_id),
+            FOREIGN KEY (evidence_id) REFERENCES evidence(id)
+        );
+
+        -- Search index table for full-text search
+        CREATE VIRTUAL TABLE IF NOT EXISTS evidence_fts
+        USING fts5(
+            evidence_id,
+            title,
+            snippet,
+            topics,
+            content=''
+        );
+
+        -- Create indexes
+        CREATE INDEX IF NOT EXISTS idx_evidence_source ON evidence(source);
+        CREATE INDEX IF NOT EXISTS idx_evidence_created ON evidence(created_at);
+        CREATE INDEX IF NOT EXISTS idx_debate_evidence_debate ON debate_evidence(debate_id);
+    """
 
     DEFAULT_DB_PATH = Path.home() / ".aragora" / "evidence.db"
 
@@ -44,103 +89,11 @@ class EvidenceStore:
             enricher: Optional metadata enricher
             scorer: Optional quality scorer
         """
-        self.db_path = db_path or self.DEFAULT_DB_PATH
         self.enricher = enricher or MetadataEnricher()
         self.scorer = scorer or QualityScorer()
 
-        # Thread-local storage for connections
-        self._local = threading.local()
-
-        # Ensure directory exists
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Initialize database
-        self._init_db()
-
-    def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "connection") or self._local.connection is None:
-            self._local.connection = sqlite3.connect(
-                str(self.db_path),
-                detect_types=sqlite3.PARSE_DECLTYPES,
-            )
-            self._local.connection.row_factory = sqlite3.Row
-        return self._local.connection
-
-    @contextmanager
-    def _cursor(self):
-        """Context manager for database cursor with automatic commit."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        try:
-            yield cursor
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            cursor.close()
-
-    def _init_db(self) -> None:
-        """Initialize database schema."""
-        with self._cursor() as cursor:
-            # Main evidence table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS evidence (
-                    id TEXT PRIMARY KEY,
-                    content_hash TEXT UNIQUE NOT NULL,
-                    source TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    snippet TEXT NOT NULL,
-                    url TEXT,
-                    reliability_score REAL DEFAULT 0.5,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    metadata_json TEXT,
-                    enriched_metadata_json TEXT,
-                    quality_scores_json TEXT
-                )
-            """)
-
-            # Debate-evidence association table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS debate_evidence (
-                    debate_id TEXT NOT NULL,
-                    evidence_id TEXT NOT NULL,
-                    round_number INTEGER,
-                    relevance_score REAL DEFAULT 0.5,
-                    used_in_consensus BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (debate_id, evidence_id),
-                    FOREIGN KEY (evidence_id) REFERENCES evidence(id)
-                )
-            """)
-
-            # Search index table for full-text search
-            cursor.execute("""
-                CREATE VIRTUAL TABLE IF NOT EXISTS evidence_fts
-                USING fts5(
-                    evidence_id,
-                    title,
-                    snippet,
-                    topics,
-                    content=''
-                )
-            """)
-
-            # Create indexes
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_evidence_source
-                ON evidence(source)
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_evidence_created
-                ON evidence(created_at)
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_debate_evidence_debate
-                ON debate_evidence(debate_id)
-            """)
+        # Initialize SQLiteStore with db_path
+        super().__init__(db_path=db_path or self.DEFAULT_DB_PATH)
 
     def save_evidence(
         self,
@@ -178,7 +131,8 @@ class EvidenceStore:
         content_hash = hashlib.sha256(snippet.encode()).hexdigest()[:32]
 
         # Check for existing evidence with same content
-        with self._cursor() as cursor:
+        with self.connection() as conn:
+            cursor = conn.cursor()
             cursor.execute(
                 "SELECT id FROM evidence WHERE content_hash = ?",
                 (content_hash,),
@@ -318,7 +272,9 @@ class EvidenceStore:
         Returns:
             Evidence data or None if not found
         """
-        with self._cursor() as cursor:
+        with self.connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
             cursor.execute(
                 """
                 SELECT * FROM evidence WHERE id = ?
@@ -346,7 +302,9 @@ class EvidenceStore:
         Returns:
             List of evidence data
         """
-        with self._cursor() as cursor:
+        with self.connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
             if round_number is not None:
                 cursor.execute(
                     """
@@ -394,7 +352,9 @@ class EvidenceStore:
         Returns:
             List of matching evidence data
         """
-        with self._cursor() as cursor:
+        with self.connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
             # Use FTS for search
             base_query = """
                 SELECT e.*,
@@ -458,9 +418,24 @@ class EvidenceStore:
         """
         # Extract keywords from content
         import re
-        words = re.findall(r'\b\w{4,}\b', content.lower())
+
+        words = re.findall(r"\b\w{4,}\b", content.lower())
         # Remove common words
-        stop_words = {'this', 'that', 'with', 'from', 'have', 'been', 'were', 'they', 'their', 'which', 'would', 'could', 'should'}
+        stop_words = {
+            "this",
+            "that",
+            "with",
+            "from",
+            "have",
+            "been",
+            "were",
+            "they",
+            "their",
+            "which",
+            "would",
+            "could",
+            "should",
+        }
         keywords = [w for w in words if w not in stop_words][:10]
 
         if not keywords:
@@ -469,7 +444,9 @@ class EvidenceStore:
         # Build FTS query
         query = " OR ".join(keywords)
 
-        with self._cursor() as cursor:
+        with self.connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
             base_query = """
                 SELECT e.*,
                        bm25(evidence_fts) as fts_rank
@@ -500,7 +477,8 @@ class EvidenceStore:
             debate_id: Debate ID
             evidence_ids: List of evidence IDs used
         """
-        with self._cursor() as cursor:
+        with self.connection() as conn:
+            cursor = conn.cursor()
             cursor.executemany(
                 """
                 UPDATE debate_evidence
@@ -519,7 +497,8 @@ class EvidenceStore:
         Returns:
             True if deleted, False if not found
         """
-        with self._cursor() as cursor:
+        with self.connection() as conn:
+            cursor = conn.cursor()
             # Delete from FTS
             cursor.execute(
                 "DELETE FROM evidence_fts WHERE evidence_id = ?",
@@ -551,7 +530,8 @@ class EvidenceStore:
         Returns:
             Number of associations deleted
         """
-        with self._cursor() as cursor:
+        with self.connection() as conn:
+            cursor = conn.cursor()
             cursor.execute(
                 "DELETE FROM debate_evidence WHERE debate_id = ?",
                 (debate_id,),
@@ -564,25 +544,30 @@ class EvidenceStore:
         Returns:
             Dictionary of statistics
         """
-        with self._cursor() as cursor:
+        with self.connection() as conn:
+            cursor = conn.cursor()
             # Total evidence count
             cursor.execute("SELECT COUNT(*) as count FROM evidence")
             total_count = cursor.fetchone()["count"]
 
             # Count by source
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT source, COUNT(*) as count
                 FROM evidence
                 GROUP BY source
                 ORDER BY count DESC
-            """)
+            """
+            )
             by_source = {row["source"]: row["count"] for row in cursor.fetchall()}
 
             # Average reliability
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT AVG(reliability_score) as avg_reliability
                 FROM evidence
-            """)
+            """
+            )
             avg_reliability = cursor.fetchone()["avg_reliability"] or 0.0
 
             # Debate associations
@@ -622,11 +607,7 @@ class EvidenceStore:
 
         return data
 
-    def close(self) -> None:
-        """Close the database connection."""
-        if hasattr(self._local, "connection") and self._local.connection:
-            self._local.connection.close()
-            self._local.connection = None
+    # close() is inherited from SQLiteStore
 
 
 class InMemoryEvidenceStore:
@@ -792,7 +773,9 @@ class InMemoryEvidenceStore:
         return {
             "total_evidence": len(self._evidence),
             "by_source": by_source,
-            "average_reliability": total_reliability / len(self._evidence) if self._evidence else 0.0,
+            "average_reliability": (
+                total_reliability / len(self._evidence) if self._evidence else 0.0
+            ),
             "debate_associations": sum(len(d) for d in self._debate_evidence.values()),
             "unique_debates": len(self._debate_evidence),
         }

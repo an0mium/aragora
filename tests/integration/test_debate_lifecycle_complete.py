@@ -32,15 +32,11 @@ from aragora.memory.store import CritiqueStore
 @pytest.fixture(autouse=True)
 def mock_external_calls():
     """Mock external API calls to prevent network requests during tests."""
-    with patch.object(
-        Arena, "_gather_trending_context",
-        new_callable=AsyncMock,
-        return_value=None
-    ):
+    with patch.object(Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None):
         with patch(
             "aragora.debate.phases.context_init.ContextInitializer.initialize",
             new_callable=AsyncMock,
-            return_value=None
+            return_value=None,
         ):
             yield
 
@@ -80,7 +76,7 @@ class LifecycleMockAgent(Agent):
             issues=["Issue"],
             suggestions=["Suggestion"],
             severity=0.5,
-            reasoning="Reasoning"
+            reasoning="Reasoning",
         )
 
     async def vote(self, proposals: dict, task: str) -> Vote:
@@ -94,7 +90,7 @@ class LifecycleMockAgent(Agent):
             choice=choice,
             reasoning=f"Vote by {self.name}",
             confidence=0.8,
-            continue_debate=False
+            continue_debate=False,
         )
 
 
@@ -124,13 +120,15 @@ def lifecycle_agents():
 
     # All vote for proposer
     for agent in [proposer, critic, synthesizer]:
-        agent.vote_responses = [Vote(
-            agent=agent.name,
-            choice="proposer",
-            reasoning="Best proposal",
-            confidence=0.9,
-            continue_debate=False
-        )]
+        agent.vote_responses = [
+            Vote(
+                agent=agent.name,
+                choice="proposer",
+                reasoning="Best proposal",
+                confidence=0.9,
+                continue_debate=False,
+            )
+        ]
 
     return [proposer, critic, synthesizer]
 
@@ -175,7 +173,7 @@ class TestPhaseTransitions:
         env = Environment(
             task="Context initialization test",
             max_rounds=1,
-            context="Additional context for agents"
+            context="Additional context for agents",
         )
         protocol = DebateProtocol(rounds=1)
 
@@ -232,7 +230,7 @@ class TestCheckpointAndResume:
         await arena.run()
 
         # Arena should be able to checkpoint (method exists)
-        assert hasattr(arena, 'checkpoint_manager') or hasattr(arena, 'create_checkpoint')
+        assert hasattr(arena, "checkpoint_manager") or hasattr(arena, "create_checkpoint")
 
     @pytest.mark.asyncio
     async def test_debate_result_is_serializable(self, lifecycle_agents):
@@ -244,12 +242,12 @@ class TestCheckpointAndResume:
         result = await arena.run()
 
         # Result should have to_dict or similar
-        if hasattr(result, 'to_dict'):
+        if hasattr(result, "to_dict"):
             data = result.to_dict()
             assert isinstance(data, dict)
-        elif hasattr(result, '__dict__'):
+        elif hasattr(result, "__dict__"):
             # Can extract as dict
-            assert hasattr(result, 'task')
+            assert hasattr(result, "task")
 
 
 # =============================================================================
@@ -270,7 +268,7 @@ class TestEloLifecycleIntegration:
         result = await arena.run()
 
         # Result should have winner field
-        assert hasattr(result, 'winner')
+        assert hasattr(result, "winner")
 
     @pytest.mark.asyncio
     async def test_elo_updated_after_debate(self, lifecycle_agents, temp_db):
@@ -282,25 +280,10 @@ class TestEloLifecycleIntegration:
         protocol = DebateProtocol(rounds=2, consensus="majority")
 
         arena = Arena(env, lifecycle_agents, protocol, elo_system=elo)
-        result = await arena.run()
-
-        # Check that ELO can process the result
-        agent_names = [a.name for a in lifecycle_agents]
-        scores = {name: 0.5 for name in agent_names}
-        if result.winner:
-            scores[result.winner] = 1.0
-            for name in agent_names:
-                if name != result.winner:
-                    scores[name] = 0.0
-
-        elo.record_match(
-            debate_id="lifecycle-test",
-            participants=agent_names,
-            scores=scores,
-            domain="test"
-        )
+        await arena.run()
 
         # Verify updates
+        agent_names = [a.name for a in lifecycle_agents]
         for name in agent_names:
             rating = elo.get_rating(name)
             assert rating.debates_count >= 1
@@ -318,28 +301,21 @@ class TestEloLifecycleIntegration:
                 LifecycleMockAgent("bob", role="critic"),
             ]
             for a in agents:
-                a.vote_responses = [Vote(
-                    agent=a.name,
-                    choice="alice" if i % 2 == 0 else "bob",
-                    reasoning="Vote",
-                    confidence=0.8,
-                    continue_debate=False
-                )]
+                a.vote_responses = [
+                    Vote(
+                        agent=a.name,
+                        choice="alice" if i % 2 == 0 else "bob",
+                        reasoning="Vote",
+                        confidence=0.8,
+                        continue_debate=False,
+                    )
+                ]
 
             env = Environment(task=f"Accumulation test {i}", max_rounds=1)
             protocol = DebateProtocol(rounds=1)
 
             arena = Arena(env, agents, protocol, elo_system=elo)
-            result = await arena.run()
-
-            # Record match
-            winner = "alice" if i % 2 == 0 else "bob"
-            elo.record_match(
-                debate_id=f"acc-{i}",
-                participants=["alice", "bob"],
-                scores={winner: 1.0, "alice" if winner == "bob" else "bob": 0.0},
-                domain="test"
-            )
+            await arena.run()
 
         # Verify accumulation
         alice_rating = elo.get_rating("alice", use_cache=False)
@@ -384,8 +360,8 @@ class TestMemoryLifecycle:
         await arena.run()
 
         # Store methods should work
-        assert hasattr(store, 'get_stats')
-        assert hasattr(store, 'get_relevant')
+        assert hasattr(store, "get_stats")
+        assert hasattr(store, "get_relevant")
 
     @pytest.mark.asyncio
     async def test_memory_shared_across_debates(self, temp_db):
@@ -423,7 +399,7 @@ class TestEventLifecycle:
         await arena.run()
 
         # Arena should have emitted events
-        assert hasattr(mock_event_emitter, 'events') or hasattr(mock_event_emitter, 'emit')
+        assert hasattr(mock_event_emitter, "events") or hasattr(mock_event_emitter, "emit")
 
     @pytest.mark.asyncio
     async def test_debate_completes_with_emitter(self, lifecycle_agents, mock_event_emitter):
@@ -449,11 +425,7 @@ class TestUserParticipation:
     async def test_arena_accepts_user_votes(self, lifecycle_agents):
         """Arena should accept user votes configuration."""
         env = Environment(task="User vote test", max_rounds=2)
-        protocol = DebateProtocol(
-            rounds=2,
-            consensus="majority",
-            user_vote_weight=0.5
-        )
+        protocol = DebateProtocol(rounds=2, consensus="majority", user_vote_weight=0.5)
 
         arena = Arena(env, lifecycle_agents, protocol)
         result = await arena.run()
@@ -463,10 +435,7 @@ class TestUserParticipation:
     @pytest.mark.asyncio
     async def test_protocol_user_vote_weight(self, lifecycle_agents):
         """Protocol should support user vote weight."""
-        protocol = DebateProtocol(
-            rounds=2,
-            user_vote_weight=1.0
-        )
+        protocol = DebateProtocol(rounds=2, user_vote_weight=1.0)
 
         assert protocol.user_vote_weight == 1.0
 
@@ -495,13 +464,15 @@ class TestConsensusModesLifecycle:
         """Majority consensus should determine winner."""
         # All vote for proposer
         for agent in lifecycle_agents:
-            agent.vote_responses = [Vote(
-                agent=agent.name,
-                choice="proposer",
-                reasoning="Best",
-                confidence=0.9,
-                continue_debate=False
-            )]
+            agent.vote_responses = [
+                Vote(
+                    agent=agent.name,
+                    choice="proposer",
+                    reasoning="Best",
+                    confidence=0.9,
+                    continue_debate=False,
+                )
+            ]
 
         env = Environment(task="Majority consensus test", max_rounds=2)
         protocol = DebateProtocol(rounds=2, consensus="majority")
@@ -516,13 +487,15 @@ class TestConsensusModesLifecycle:
         """Unanimous consensus requires all to agree."""
         # All vote for same choice
         for agent in lifecycle_agents:
-            agent.vote_responses = [Vote(
-                agent=agent.name,
-                choice="proposer",
-                reasoning="Agree",
-                confidence=0.95,
-                continue_debate=False
-            )]
+            agent.vote_responses = [
+                Vote(
+                    agent=agent.name,
+                    choice="proposer",
+                    reasoning="Agree",
+                    confidence=0.95,
+                    continue_debate=False,
+                )
+            ]
 
         env = Environment(task="Unanimous test", max_rounds=2)
         protocol = DebateProtocol(rounds=2, consensus="unanimous")
@@ -570,6 +543,7 @@ class TestErrorRecoveryLifecycle:
     @pytest.mark.asyncio
     async def test_debate_handles_timeout(self, lifecycle_agents):
         """Debate should handle agent timeouts gracefully."""
+
         async def slow_generate(prompt, context=None):
             await asyncio.sleep(0.01)
             return "Response"
@@ -609,13 +583,15 @@ class TestRoundLimitsLifecycle:
         """Early stopping should reduce rounds used."""
         # Set all agents to not continue
         for agent in lifecycle_agents:
-            agent.vote_responses = [Vote(
-                agent=agent.name,
-                choice="proposer",
-                reasoning="Done",
-                confidence=0.99,
-                continue_debate=False
-            )]
+            agent.vote_responses = [
+                Vote(
+                    agent=agent.name,
+                    choice="proposer",
+                    reasoning="Done",
+                    confidence=0.99,
+                    continue_debate=False,
+                )
+            ]
 
         env = Environment(task="Early stop test", max_rounds=10)
         protocol = DebateProtocol(rounds=10, early_stopping=True)
@@ -649,19 +625,14 @@ class TestCompleteDebateFlow:
         protocol = DebateProtocol(rounds=2, consensus="majority")
 
         arena = Arena(
-            env,
-            lifecycle_agents,
-            protocol,
-            elo_system=elo,
-            memory=store,
-            event_emitter=emitter
+            env, lifecycle_agents, protocol, elo_system=elo, memory=store, event_emitter=emitter
         )
         result = await arena.run()
 
         # Verify all components worked
         assert isinstance(result, DebateResult)
-        assert hasattr(result, 'task')
-        assert hasattr(result, 'votes')
+        assert hasattr(result, "task")
+        assert hasattr(result, "votes")
 
     @pytest.mark.asyncio
     async def test_lifecycle_produces_consistent_results(self):
@@ -684,10 +655,10 @@ class TestCompleteDebateFlow:
         # All results should have same structure
         for result in results:
             assert isinstance(result, DebateResult)
-            assert hasattr(result, 'task')
-            assert hasattr(result, 'messages')
-            assert hasattr(result, 'votes')
-            assert hasattr(result, 'consensus_reached')
+            assert hasattr(result, "task")
+            assert hasattr(result, "messages")
+            assert hasattr(result, "votes")
+            assert hasattr(result, "consensus_reached")
 
 
 # =============================================================================
@@ -701,6 +672,7 @@ class TestConcurrentLifecycles:
     @pytest.mark.asyncio
     async def test_parallel_debates_complete(self):
         """Multiple debates can run in parallel."""
+
         async def run_debate(task_id: int) -> DebateResult:
             agents = [
                 LifecycleMockAgent(f"a-{task_id}", role="proposer"),
@@ -713,11 +685,7 @@ class TestConcurrentLifecycles:
             arena = Arena(env, agents, protocol)
             return await arena.run()
 
-        results = await asyncio.gather(
-            run_debate(1),
-            run_debate(2),
-            run_debate(3)
-        )
+        results = await asyncio.gather(run_debate(1), run_debate(2), run_debate(3))
 
         assert len(results) == 3
         for result in results:
@@ -742,10 +710,7 @@ class TestConcurrentLifecycles:
             arena = Arena(env, agents, protocol, elo_system=elo)
             return await arena.run()
 
-        results = await asyncio.gather(
-            run_debate_with_elo(1),
-            run_debate_with_elo(2)
-        )
+        results = await asyncio.gather(run_debate_with_elo(1), run_debate_with_elo(2))
 
         assert len(results) == 2
 

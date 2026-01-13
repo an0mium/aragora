@@ -21,20 +21,28 @@ Usage:
 from __future__ import annotations
 
 import logging
+import os
 import sqlite3
 import threading
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
+from queue import Queue, Empty
 from typing import Any, ContextManager, Optional, Union
 
 logger = logging.getLogger(__name__)
+
+# Configurable pool sizes via environment variables
+SQLITE_POOL_SIZE = int(os.getenv("ARAGORA_SQLITE_POOL_SIZE", "10"))
+POSTGRESQL_POOL_SIZE = int(os.getenv("ARAGORA_POSTGRESQL_POOL_SIZE", "5"))
+POSTGRESQL_POOL_MAX_OVERFLOW = int(os.getenv("ARAGORA_POSTGRESQL_POOL_MAX_OVERFLOW", "10"))
 
 # Optional PostgreSQL support
 try:
     import psycopg2
     from psycopg2 import pool as pg_pool
     from psycopg2.extras import RealDictCursor
+
     POSTGRESQL_AVAILABLE = True
 except ImportError:
     psycopg2 = None  # type: ignore
@@ -100,30 +108,44 @@ class SQLiteBackend(DatabaseBackend):
     """
     SQLite database backend.
 
-    Provides thread-safe access using fresh connections per operation
-    with WAL mode for better concurrent read/write performance.
+    Uses connection pooling for better performance under load.
+    Connections are reused from the pool rather than created fresh each time.
+    WAL mode is enabled for better concurrent read/write performance.
+
+    Pool size configurable via ARAGORA_SQLITE_POOL_SIZE env var.
     """
 
     def __init__(
         self,
         db_path: Union[str, Path],
         timeout: float = 30.0,
+        pool_size: int = SQLITE_POOL_SIZE,
     ):
         """
-        Initialize SQLite backend.
+        Initialize SQLite backend with connection pooling.
 
         Args:
             db_path: Path to the SQLite database file.
             timeout: Connection timeout in seconds.
+            pool_size: Number of connections to maintain in pool.
         """
         self.db_path = Path(db_path)
         self.timeout = timeout
+        self.pool_size = pool_size
+
+        # Connection pool
+        self._pool: Queue[sqlite3.Connection] = Queue(maxsize=pool_size)
+        self._pool_lock = threading.Lock()
+        self._initialized = False
 
         # Ensure parent directory exists
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Initialize with WAL mode
         self._init_database()
+
+        # Pre-populate the connection pool
+        self._init_pool()
 
     def _init_database(self) -> None:
         """Initialize database with optimal settings."""
@@ -137,8 +159,21 @@ class SQLiteBackend(DatabaseBackend):
         finally:
             conn.close()
 
-    def _get_connection(self) -> sqlite3.Connection:
-        """Get a fresh database connection."""
+    def _init_pool(self) -> None:
+        """Pre-populate the connection pool."""
+        with self._pool_lock:
+            if self._initialized:
+                return
+
+            for _ in range(self.pool_size):
+                conn = self._create_connection()
+                self._pool.put(conn)
+
+            self._initialized = True
+            logger.debug(f"SQLite connection pool initialized (size={self.pool_size})")
+
+    def _create_connection(self) -> sqlite3.Connection:
+        """Create a new database connection."""
         conn = sqlite3.connect(
             str(self.db_path),
             timeout=self.timeout,
@@ -147,9 +182,33 @@ class SQLiteBackend(DatabaseBackend):
         conn.row_factory = sqlite3.Row
         return conn
 
+    def _get_connection(self) -> sqlite3.Connection:
+        """Get a connection from the pool."""
+        try:
+            # Try to get from pool without blocking
+            conn = self._pool.get_nowait()
+        except Empty:
+            # Pool exhausted, create a new connection
+            logger.debug("SQLite pool exhausted, creating overflow connection")
+            conn = self._create_connection()
+
+        return conn
+
+    def _return_connection(self, conn: sqlite3.Connection) -> None:
+        """Return a connection to the pool."""
+        try:
+            # Try to put back in pool
+            self._pool.put_nowait(conn)
+        except Exception:
+            # Pool is full (overflow connection), close it
+            try:
+                conn.close()
+            except Exception:
+                pass
+
     @contextmanager  # type: ignore[override]
     def connection(self):  # type: ignore[override]
-        """Context manager for database operations."""
+        """Context manager for database operations with connection pooling."""
         conn = self._get_connection()
         try:
             yield conn
@@ -158,7 +217,7 @@ class SQLiteBackend(DatabaseBackend):
             conn.rollback()
             raise
         finally:
-            conn.close()
+            self._return_connection(conn)
 
     def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
         """Execute query and fetch single row."""
@@ -183,8 +242,22 @@ class SQLiteBackend(DatabaseBackend):
             conn.executemany(sql, params_list)
 
     def close(self) -> None:
-        """SQLite uses fresh connections, nothing to close."""
-        pass
+        """Close all connections in the pool."""
+        with self._pool_lock:
+            closed = 0
+            while not self._pool.empty():
+                try:
+                    conn = self._pool.get_nowait()
+                    conn.close()
+                    closed += 1
+                except Empty:
+                    break
+                except Exception:
+                    pass
+
+            self._initialized = False
+            if closed > 0:
+                logger.debug(f"SQLite connection pool closed ({closed} connections)")
 
     @property
     def backend_type(self) -> str:
@@ -200,13 +273,17 @@ class PostgreSQLBackend(DatabaseBackend):
 
     Uses connection pooling for efficient concurrent access.
     Requires psycopg2 to be installed.
+
+    Pool sizes configurable via:
+    - ARAGORA_POSTGRESQL_POOL_SIZE (min connections, default 5)
+    - ARAGORA_POSTGRESQL_POOL_MAX_OVERFLOW (additional connections, default 10)
     """
 
     def __init__(
         self,
         database_url: str,
-        pool_size: int = 5,
-        pool_max_overflow: int = 10,
+        pool_size: int = POSTGRESQL_POOL_SIZE,
+        pool_max_overflow: int = POSTGRESQL_POOL_MAX_OVERFLOW,
     ):
         """
         Initialize PostgreSQL backend.
@@ -337,6 +414,7 @@ def get_database_backend(
         # Get configuration
         try:
             from aragora.config.settings import get_settings
+
             settings = get_settings()
             db_settings = settings.database
         except Exception as e:

@@ -427,9 +427,7 @@ class TestTwitterPosterConnector:
             assert "twitter.com" in result.url
 
     @pytest.mark.asyncio
-    async def test_post_tweet_truncates_long_text(
-        self, configured_connector, mock_tweet_response
-    ):
+    async def test_post_tweet_truncates_long_text(self, configured_connector, mock_tweet_response):
         """Test that text > 280 chars is truncated."""
         long_text = "a" * 300
 
@@ -451,9 +449,7 @@ class TestTwitterPosterConnector:
             assert payload["text"].endswith("...")
 
     @pytest.mark.asyncio
-    async def test_post_tweet_error_when_credentials_missing(
-        self, unconfigured_connector
-    ):
+    async def test_post_tweet_error_when_credentials_missing(self, unconfigured_connector):
         """Test error returned when credentials missing."""
         result = await unconfigured_connector.post_tweet("Hello")
 
@@ -473,9 +469,7 @@ class TestTwitterPosterConnector:
         assert "Circuit breaker" in result.error
 
     @pytest.mark.asyncio
-    async def test_post_tweet_includes_reply_to(
-        self, configured_connector, mock_tweet_response
-    ):
+    async def test_post_tweet_includes_reply_to(self, configured_connector, mock_tweet_response):
         """Test that reply_to is included in payload."""
         mock_response = MagicMock()
         mock_response.status_code = 201
@@ -493,9 +487,7 @@ class TestTwitterPosterConnector:
             assert payload["reply"]["in_reply_to_tweet_id"] == "999"
 
     @pytest.mark.asyncio
-    async def test_post_tweet_includes_media_ids(
-        self, configured_connector, mock_tweet_response
-    ):
+    async def test_post_tweet_includes_media_ids(self, configured_connector, mock_tweet_response):
         """Test that media_ids are included in payload."""
         mock_response = MagicMock()
         mock_response.status_code = 201
@@ -550,27 +542,21 @@ class TestTwitterPosterConnector:
             mock_client.return_value.__aenter__.return_value = mock_instance
             mock_instance.post.side_effect = [success_response, fail_response]
 
-            result = await configured_connector.post_thread(
-                ["Tweet 1", "Tweet 2", "Tweet 3"]
-            )
+            result = await configured_connector.post_thread(["Tweet 1", "Tweet 2", "Tweet 3"])
 
             assert result.success is False
             assert len(result.tweets) == 2  # First success + first failure recorded
             assert "Failed at tweet 2" in result.error
 
     @pytest.mark.asyncio
-    async def test_upload_media_rejects_large_files(
-        self, configured_connector, large_image_file
-    ):
+    async def test_upload_media_rejects_large_files(self, configured_connector, large_image_file):
         """Test that files > 5MB are rejected."""
         with pytest.raises(TwitterMediaError) as exc_info:
             await configured_connector.upload_media(large_image_file)
         assert "too large" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_upload_media_raises_for_missing_files(
-        self, configured_connector, tmp_path
-    ):
+    async def test_upload_media_raises_for_missing_files(self, configured_connector, tmp_path):
         """Test that missing files raise TwitterMediaError."""
         missing_file = tmp_path / "nonexistent.png"
         with pytest.raises(TwitterMediaError) as exc_info:
@@ -622,9 +608,7 @@ class TestTwitterPosterConnector:
             assert len(result.tweets) == MAX_THREAD_LENGTH
 
     @pytest.mark.asyncio
-    async def test_post_tweet_api_error_records_circuit_failure(
-        self, configured_connector
-    ):
+    async def test_post_tweet_api_error_records_circuit_failure(self, configured_connector):
         """Test that API errors record circuit breaker failure."""
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -642,9 +626,7 @@ class TestTwitterPosterConnector:
             assert configured_connector.circuit_breaker.failures == initial_failures + 1
 
     @pytest.mark.asyncio
-    async def test_post_tweet_exception_records_circuit_failure(
-        self, configured_connector
-    ):
+    async def test_post_tweet_exception_records_circuit_failure(self, configured_connector):
         """Test that exceptions record circuit breaker failure."""
         import httpx
 
@@ -689,14 +671,10 @@ class TestDebateContentFormatter:
 
     def test_format_result_shows_consensus_status(self, formatter):
         """Test that result shows consensus/no consensus."""
-        consensus_result = formatter.format_result(
-            "Topic", ["Agent1"], consensus_reached=True
-        )
+        consensus_result = formatter.format_result("Topic", ["Agent1"], consensus_reached=True)
         assert "Consensus reached" in consensus_result
 
-        no_consensus_result = formatter.format_result(
-            "Topic", ["Agent1"], consensus_reached=False
-        )
+        no_consensus_result = formatter.format_result("Topic", ["Agent1"], consensus_reached=False)
         assert "No consensus" in no_consensus_result
 
     def test_format_result_shows_winner(self, formatter):
@@ -709,18 +687,14 @@ class TestDebateContentFormatter:
     def test_format_thread_limits_to_25_tweets(self, formatter):
         """Test that threads are limited to 25 tweets."""
         highlights = [f"Highlight {i}" for i in range(30)]
-        result = formatter.format_thread(
-            "Topic", ["Agent1"], highlights, consensus_reached=True
-        )
+        result = formatter.format_thread("Topic", ["Agent1"], highlights, consensus_reached=True)
 
         assert len(result) <= MAX_THREAD_LENGTH
 
     def test_format_thread_structure_intro_highlights_result(self, formatter):
         """Test thread structure: intro -> highlights -> result."""
         highlights = ["Key point 1", "Key point 2"]
-        result = formatter.format_thread(
-            "Topic", ["Agent1"], highlights, consensus_reached=True
-        )
+        result = formatter.format_thread("Topic", ["Agent1"], highlights, consensus_reached=True)
 
         # First tweet is intro
         assert "New AI Debate" in result[0]
@@ -735,9 +709,7 @@ class TestDebateContentFormatter:
     def test_format_handles_special_characters_and_emoji(self, formatter):
         """Test handling of special characters and emojis."""
         # Special chars in task
-        result = formatter.format_announcement(
-            "Topic with <html> & 'quotes' + emoji", ["Agent1"]
-        )
+        result = formatter.format_announcement("Topic with <html> & 'quotes' + emoji", ["Agent1"])
         assert "<html>" in result or "&" in result  # Should preserve content
 
         # Emojis in agents
@@ -789,9 +761,7 @@ class TestCreateDebateSummary:
 
     def test_includes_consensus_status(self):
         """Test that summary includes consensus status."""
-        with_consensus = create_debate_summary(
-            "Task", ["Agent1"], consensus_reached=True
-        )
+        with_consensus = create_debate_summary("Task", ["Agent1"], consensus_reached=True)
         assert "Consensus" in with_consensus
 
         without = create_debate_summary("Task", ["Agent1"], consensus_reached=False)
@@ -807,9 +777,7 @@ class TestTwitterConnectorIntegration:
     """Integration tests for Twitter connector."""
 
     @pytest.mark.asyncio
-    async def test_thread_posts_connected_tweets(
-        self, configured_connector, mock_tweet_response
-    ):
+    async def test_thread_posts_connected_tweets(self, configured_connector, mock_tweet_response):
         """Test that thread tweets are properly connected via reply_to."""
         call_count = 0
         tweet_ids = ["111", "222", "333"]
@@ -827,9 +795,7 @@ class TestTwitterConnectorIntegration:
             mock_client.return_value.__aenter__.return_value = mock_instance
             mock_instance.post.side_effect = mock_post
 
-            result = await configured_connector.post_thread(
-                ["First", "Second", "Third"]
-            )
+            result = await configured_connector.post_thread(["First", "Second", "Third"])
 
             assert result.success is True
 

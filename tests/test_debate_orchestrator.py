@@ -27,6 +27,7 @@ from aragora.debate.arena_config import ArenaConfig
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_agent():
     """Create a mock agent for testing."""
@@ -34,15 +35,17 @@ def mock_agent():
     agent.name = "test-agent"
     agent.model = "test-model"
     agent.respond = AsyncMock(return_value="Test response")
-    agent.critique = AsyncMock(return_value=Critique(
-        agent="test-agent",
-        target_agent="other-agent",
-        target_content="Original content",
-        issues=["Issue 1"],
-        suggestions=["Suggestion 1"],
-        severity=0.5,
-        reasoning="Test reasoning",
-    ))
+    agent.critique = AsyncMock(
+        return_value=Critique(
+            agent="test-agent",
+            target_agent="other-agent",
+            target_content="Original content",
+            issues=["Issue 1"],
+            suggestions=["Suggestion 1"],
+            severity=0.5,
+            reasoning="Test reasoning",
+        )
+    )
     return agent
 
 
@@ -55,15 +58,17 @@ def mock_agents(mock_agent):
         agent.name = f"agent-{i}"
         agent.model = f"model-{i}"
         agent.respond = AsyncMock(return_value=f"Response from agent-{i}")
-        agent.critique = AsyncMock(return_value=Critique(
-            agent=f"agent-{i}",
-            target_agent="other",
-            target_content="Original content",
-            issues=[f"Issue from agent-{i}"],
-            suggestions=[f"Suggestion from agent-{i}"],
-            severity=0.5,
-            reasoning=f"Reasoning from agent-{i}",
-        ))
+        agent.critique = AsyncMock(
+            return_value=Critique(
+                agent=f"agent-{i}",
+                target_agent="other",
+                target_content="Original content",
+                issues=[f"Issue from agent-{i}"],
+                suggestions=[f"Suggestion from agent-{i}"],
+                severity=0.5,
+                reasoning=f"Reasoning from agent-{i}",
+            )
+        )
         agents.append(agent)
     return agents
 
@@ -90,14 +95,16 @@ def arena(environment, mock_agents, protocol):
     Uses patching to avoid complex initialization that requires
     many subsystems to be properly configured.
     """
-    with patch.object(Arena, '_init_core'), \
-         patch.object(Arena, '_init_trackers'), \
-         patch.object(Arena, '_init_user_participation'), \
-         patch.object(Arena, '_init_roles_and_stances'), \
-         patch.object(Arena, '_init_convergence'), \
-         patch.object(Arena, '_init_caches'), \
-         patch.object(Arena, '_init_phases'), \
-         patch.object(Arena, '_init_termination_checker'):
+    with (
+        patch.object(Arena, "_init_core"),
+        patch.object(Arena, "_init_trackers"),
+        patch.object(Arena, "_init_user_participation"),
+        patch.object(Arena, "_init_roles_and_stances"),
+        patch.object(Arena, "_init_convergence"),
+        patch.object(Arena, "_init_caches"),
+        patch.object(Arena, "_init_phases"),
+        patch.object(Arena, "_init_termination_checker"),
+    ):
         arena = Arena.__new__(Arena)
         # Set minimal required attributes
         arena.env = environment
@@ -159,14 +166,16 @@ def create_arena_with_mocks(environment, agents, protocol, **kwargs):
     This allows testing parameter assignment without triggering
     complex initialization logic.
     """
-    with patch.object(Arena, '_init_core'), \
-         patch.object(Arena, '_init_trackers'), \
-         patch.object(Arena, '_init_user_participation'), \
-         patch.object(Arena, '_init_roles_and_stances'), \
-         patch.object(Arena, '_init_convergence'), \
-         patch.object(Arena, '_init_caches'), \
-         patch.object(Arena, '_init_phases'), \
-         patch.object(Arena, '_init_termination_checker'):
+    with (
+        patch.object(Arena, "_init_core"),
+        patch.object(Arena, "_init_trackers"),
+        patch.object(Arena, "_init_user_participation"),
+        patch.object(Arena, "_init_roles_and_stances"),
+        patch.object(Arena, "_init_convergence"),
+        patch.object(Arena, "_init_caches"),
+        patch.object(Arena, "_init_phases"),
+        patch.object(Arena, "_init_termination_checker"),
+    ):
         arena = Arena.__new__(Arena)
         # Set core attributes
         arena.env = environment
@@ -185,25 +194,47 @@ def create_arena_with_mocks(environment, agents, protocol, **kwargs):
 
         # Set defaults for missing optional attributes
         defaults = {
-            'memory': None, 'event_hooks': None, 'loop_id': "",
-            'agent_weights': None, 'breakpoint_manager': None,
-            'evidence_collector': None, 'persona_manager': None,
-            'relationship_tracker': None, 'moment_detector': None,
-            'trending_topic': None, 'pulse_manager': None,
-            'auto_fetch_trending': False, 'population_manager': None,
-            'auto_evolve': False, 'breeding_threshold': 0.8,
-            'checkpoint_manager': None, 'performance_monitor': None,
-            'enable_performance_monitor': False, 'enable_telemetry': False,
-            'use_airlock': False, 'airlock_config': None,
-            'agent_selector': None, 'use_performance_selection': False,
-            'prompt_evolver': None, 'enable_prompt_evolution': False,
-            'org_id': "", 'user_id': "", 'usage_tracker': None,
-            'elo_system': None, 'continuum_memory': None, 'recorder': None,
-            'position_tracker': None, 'position_ledger': None,
-            'enable_position_ledger': False, 'dissent_retriever': None,
-            'flip_detector': None, 'calibration_tracker': None,
-            'tier_analytics_tracker': None, 'debate_embeddings': None,
-            'insight_store': None, 'consensus_memory': None,
+            "memory": None,
+            "event_hooks": None,
+            "loop_id": "",
+            "agent_weights": None,
+            "breakpoint_manager": None,
+            "evidence_collector": None,
+            "persona_manager": None,
+            "relationship_tracker": None,
+            "moment_detector": None,
+            "trending_topic": None,
+            "pulse_manager": None,
+            "auto_fetch_trending": False,
+            "population_manager": None,
+            "auto_evolve": False,
+            "breeding_threshold": 0.8,
+            "checkpoint_manager": None,
+            "performance_monitor": None,
+            "enable_performance_monitor": False,
+            "enable_telemetry": False,
+            "use_airlock": False,
+            "airlock_config": None,
+            "agent_selector": None,
+            "use_performance_selection": False,
+            "prompt_evolver": None,
+            "enable_prompt_evolution": False,
+            "org_id": "",
+            "user_id": "",
+            "usage_tracker": None,
+            "elo_system": None,
+            "continuum_memory": None,
+            "recorder": None,
+            "position_tracker": None,
+            "position_ledger": None,
+            "enable_position_ledger": False,
+            "dissent_retriever": None,
+            "flip_detector": None,
+            "calibration_tracker": None,
+            "tier_analytics_tracker": None,
+            "debate_embeddings": None,
+            "insight_store": None,
+            "consensus_memory": None,
         }
         for key, default in defaults.items():
             if not hasattr(arena, key):
@@ -215,6 +246,7 @@ def create_arena_with_mocks(environment, agents, protocol, **kwargs):
 # ============================================================================
 # Domain Detection Tests
 # ============================================================================
+
 
 class TestDomainDetection:
     """Tests for _compute_domain_from_task helper.
@@ -306,6 +338,7 @@ class TestDomainDetection:
 # Arena Initialization Tests
 # ============================================================================
 
+
 class TestArenaInitialization:
     """Tests for Arena initialization.
 
@@ -332,10 +365,7 @@ class TestArenaInitialization:
     def test_with_memory(self, environment, mock_agents, protocol):
         """Test Arena with memory (CritiqueStore)."""
         mock_memory = MagicMock()
-        arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            memory=mock_memory
-        )
+        arena = create_arena_with_mocks(environment, mock_agents, protocol, memory=mock_memory)
 
         assert arena.memory == mock_memory
 
@@ -345,19 +375,13 @@ class TestArenaInitialization:
             "on_round_start": MagicMock(),
             "on_message": MagicMock(),
         }
-        arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            event_hooks=hooks
-        )
+        arena = create_arena_with_mocks(environment, mock_agents, protocol, event_hooks=hooks)
 
         assert arena.event_hooks == hooks
 
     def test_with_loop_id(self, environment, mock_agents, protocol):
         """Test Arena with loop ID for scoping."""
-        arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            loop_id="test-loop-123"
-        )
+        arena = create_arena_with_mocks(environment, mock_agents, protocol, loop_id="test-loop-123")
 
         assert arena.loop_id == "test-loop-123"
 
@@ -367,10 +391,7 @@ class TestArenaInitialization:
             failure_threshold=3,
             cooldown_seconds=30.0,
         )
-        arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            circuit_breaker=breaker
-        )
+        arena = create_arena_with_mocks(environment, mock_agents, protocol, circuit_breaker=breaker)
 
         assert arena.circuit_breaker == breaker
 
@@ -380,7 +401,9 @@ class TestArenaInitialization:
             Message(role="proposer", agent="agent-0", content="Initial message"),
         ]
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
+            environment,
+            mock_agents,
+            protocol,
         )
         arena.messages = initial
 
@@ -389,10 +412,7 @@ class TestArenaInitialization:
     def test_with_elo_system(self, environment, mock_agents, protocol):
         """Test Arena with ELO system."""
         mock_elo = MagicMock()
-        arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            elo_system=mock_elo
-        )
+        arena = create_arena_with_mocks(environment, mock_agents, protocol, elo_system=mock_elo)
 
         assert arena.elo_system == mock_elo
 
@@ -400,8 +420,7 @@ class TestArenaInitialization:
         """Test Arena with continuum memory."""
         mock_continuum = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            continuum_memory=mock_continuum
+            environment, mock_agents, protocol, continuum_memory=mock_continuum
         )
 
         assert arena.continuum_memory == mock_continuum
@@ -410,8 +429,7 @@ class TestArenaInitialization:
         """Test Arena with spectator stream."""
         mock_spectator = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            spectator=mock_spectator
+            environment, mock_agents, protocol, spectator=mock_spectator
         )
 
         assert arena.spectator == mock_spectator
@@ -419,19 +437,14 @@ class TestArenaInitialization:
     def test_with_recorder(self, environment, mock_agents, protocol):
         """Test Arena with replay recorder."""
         mock_recorder = MagicMock()
-        arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            recorder=mock_recorder
-        )
+        arena = create_arena_with_mocks(environment, mock_agents, protocol, recorder=mock_recorder)
 
         assert arena.recorder == mock_recorder
 
     def test_with_org_and_user_id(self, environment, mock_agents, protocol):
         """Test Arena with organization and user IDs."""
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            org_id="org-123",
-            user_id="user-456"
+            environment, mock_agents, protocol, org_id="org-123", user_id="user-456"
         )
 
         assert arena.org_id == "org-123"
@@ -441,6 +454,7 @@ class TestArenaInitialization:
 # ============================================================================
 # Arena.from_config Tests
 # ============================================================================
+
 
 class TestArenaFromConfig:
     """Tests for Arena.from_config factory method.
@@ -461,10 +475,7 @@ class TestArenaFromConfig:
     def test_from_config_with_loop_id(self, environment, mock_agents, protocol):
         """Test creating Arena from config with loop ID."""
         config = ArenaConfig(loop_id="config-loop-123")
-        arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            loop_id=config.loop_id
-        )
+        arena = create_arena_with_mocks(environment, mock_agents, protocol, loop_id=config.loop_id)
 
         assert arena.loop_id == "config-loop-123"
 
@@ -472,10 +483,7 @@ class TestArenaFromConfig:
         """Test creating Arena from config with memory."""
         mock_memory = MagicMock()
         config = ArenaConfig(memory=mock_memory)
-        arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            memory=config.memory
-        )
+        arena = create_arena_with_mocks(environment, mock_agents, protocol, memory=config.memory)
 
         assert arena.memory == mock_memory
 
@@ -484,8 +492,7 @@ class TestArenaFromConfig:
         mock_elo = MagicMock()
         config = ArenaConfig(elo_system=mock_elo)
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            elo_system=config.elo_system
+            environment, mock_agents, protocol, elo_system=config.elo_system
         )
 
         assert arena.elo_system == mock_elo
@@ -500,8 +507,7 @@ class TestArenaFromConfig:
         """Test creating Arena from config with telemetry enabled."""
         config = ArenaConfig(enable_telemetry=True)
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            enable_telemetry=config.enable_telemetry
+            environment, mock_agents, protocol, enable_telemetry=config.enable_telemetry
         )
 
         assert arena.enable_telemetry is True
@@ -513,9 +519,7 @@ class TestArenaFromConfig:
             user_id="user-from-config",
         )
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            org_id=config.org_id,
-            user_id=config.user_id
+            environment, mock_agents, protocol, org_id=config.org_id, user_id=config.user_id
         )
 
         assert arena.org_id == "org-from-config"
@@ -525,6 +529,7 @@ class TestArenaFromConfig:
 # ============================================================================
 # Arena Properties Tests
 # ============================================================================
+
 
 class TestArenaProperties:
     """Tests for Arena property accessors."""
@@ -556,6 +561,7 @@ class TestArenaProperties:
 # Arena Run Tests (Mocked)
 # ============================================================================
 
+
 class TestArenaRun:
     """Tests for Arena.run() method.
 
@@ -567,16 +573,18 @@ class TestArenaRun:
     async def test_run_returns_debate_result(self, arena):
         """Test that run() returns a DebateResult."""
         # Set up the arena with mocked run implementation
-        arena._run_inner = AsyncMock(return_value=DebateResult(
-            task="Test task",
-            consensus_reached=True,
-            final_answer="Test answer",
-            confidence=0.85,
-            rounds_used=3,
-            messages=[],
-            critiques=[],
-            votes=[],
-        ))
+        arena._run_inner = AsyncMock(
+            return_value=DebateResult(
+                task="Test task",
+                consensus_reached=True,
+                final_answer="Test answer",
+                confidence=0.85,
+                rounds_used=3,
+                messages=[],
+                critiques=[],
+                votes=[],
+            )
+        )
         arena.protocol.timeout_seconds = 0  # Disable timeout
 
         result = await arena.run()
@@ -587,16 +595,18 @@ class TestArenaRun:
     @pytest.mark.asyncio
     async def test_run_with_correlation_id(self, arena):
         """Test run() with correlation ID for tracing."""
-        arena._run_inner = AsyncMock(return_value=DebateResult(
-            task="Test task",
-            consensus_reached=False,
-            final_answer="",
-            confidence=0.5,
-            rounds_used=3,
-            messages=[],
-            critiques=[],
-            votes=[],
-        ))
+        arena._run_inner = AsyncMock(
+            return_value=DebateResult(
+                task="Test task",
+                consensus_reached=False,
+                final_answer="",
+                confidence=0.5,
+                rounds_used=3,
+                messages=[],
+                critiques=[],
+                votes=[],
+            )
+        )
         arena.protocol.timeout_seconds = 0
 
         result = await arena.run(correlation_id="trace-123")
@@ -614,21 +624,20 @@ class TestArenaRun:
             "on_debate_end": lambda result: hook_calls.append("end"),
         }
 
-        arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            event_hooks=hooks
-        )
+        arena = create_arena_with_mocks(environment, mock_agents, protocol, event_hooks=hooks)
         arena.hooks = hooks
-        arena._run_inner = AsyncMock(return_value=DebateResult(
-            task="Test task",
-            consensus_reached=True,
-            final_answer="Answer",
-            confidence=0.9,
-            rounds_used=2,
-            messages=[],
-            critiques=[],
-            votes=[],
-        ))
+        arena._run_inner = AsyncMock(
+            return_value=DebateResult(
+                task="Test task",
+                consensus_reached=True,
+                final_answer="Answer",
+                confidence=0.9,
+                rounds_used=2,
+                messages=[],
+                critiques=[],
+                votes=[],
+            )
+        )
         arena.protocol.timeout_seconds = 0
 
         await arena.run()
@@ -640,16 +649,18 @@ class TestArenaRun:
     async def test_run_handles_agent_errors(self, arena):
         """Test that run() handles agent errors gracefully."""
         # Simulate error result from internal run
-        arena._run_inner = AsyncMock(return_value=DebateResult(
-            task="Test task",
-            consensus_reached=False,
-            final_answer="",
-            confidence=0.0,
-            rounds_used=0,
-            messages=[],
-            critiques=[],
-            votes=[],
-        ))
+        arena._run_inner = AsyncMock(
+            return_value=DebateResult(
+                task="Test task",
+                consensus_reached=False,
+                final_answer="",
+                confidence=0.0,
+                rounds_used=0,
+                messages=[],
+                critiques=[],
+                votes=[],
+            )
+        )
         arena.protocol.timeout_seconds = 0
 
         result = await arena.run()
@@ -661,6 +672,7 @@ class TestArenaRun:
 # ============================================================================
 # Consensus Tests
 # ============================================================================
+
 
 class TestConsensus:
     """Tests for consensus mechanisms."""
@@ -691,6 +703,7 @@ class TestConsensus:
 # Event Hooks Tests
 # ============================================================================
 
+
 class TestEventHooks:
     """Tests for event hook functionality."""
 
@@ -703,10 +716,7 @@ class TestEventHooks:
             "on_critique": MagicMock(),
             "on_vote": MagicMock(),
         }
-        arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            event_hooks=hooks
-        )
+        arena = create_arena_with_mocks(environment, mock_agents, protocol, event_hooks=hooks)
 
         assert arena.event_hooks == hooks
 
@@ -720,6 +730,7 @@ class TestEventHooks:
 # Agent Weights Tests
 # ============================================================================
 
+
 class TestAgentWeights:
     """Tests for agent weight/reliability configuration."""
 
@@ -730,10 +741,7 @@ class TestAgentWeights:
             "agent-1": 0.8,
             "agent-2": 0.6,
         }
-        arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            agent_weights=weights
-        )
+        arena = create_arena_with_mocks(environment, mock_agents, protocol, agent_weights=weights)
 
         assert arena.agent_weights == weights
 
@@ -747,6 +755,7 @@ class TestAgentWeights:
 # Breakpoint Manager Tests
 # ============================================================================
 
+
 class TestBreakpointManager:
     """Tests for breakpoint manager integration."""
 
@@ -754,8 +763,7 @@ class TestBreakpointManager:
         """Test Arena with breakpoint manager."""
         mock_breakpoint = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            breakpoint_manager=mock_breakpoint
+            environment, mock_agents, protocol, breakpoint_manager=mock_breakpoint
         )
 
         assert arena.breakpoint_manager == mock_breakpoint
@@ -765,6 +773,7 @@ class TestBreakpointManager:
 # Evidence Collector Tests
 # ============================================================================
 
+
 class TestEvidenceCollector:
     """Tests for evidence collector integration."""
 
@@ -772,8 +781,7 @@ class TestEvidenceCollector:
         """Test Arena with evidence collector."""
         mock_collector = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            evidence_collector=mock_collector
+            environment, mock_agents, protocol, evidence_collector=mock_collector
         )
 
         assert arena.evidence_collector == mock_collector
@@ -783,6 +791,7 @@ class TestEvidenceCollector:
 # Persona Manager Tests
 # ============================================================================
 
+
 class TestPersonaManager:
     """Tests for persona manager integration."""
 
@@ -790,8 +799,7 @@ class TestPersonaManager:
         """Test Arena with persona manager."""
         mock_persona = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            persona_manager=mock_persona
+            environment, mock_agents, protocol, persona_manager=mock_persona
         )
 
         assert arena.persona_manager == mock_persona
@@ -801,6 +809,7 @@ class TestPersonaManager:
 # Relationship Tracker Tests
 # ============================================================================
 
+
 class TestRelationshipTracker:
     """Tests for relationship tracker integration."""
 
@@ -808,8 +817,7 @@ class TestRelationshipTracker:
         """Test Arena with relationship tracker."""
         mock_tracker = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            relationship_tracker=mock_tracker
+            environment, mock_agents, protocol, relationship_tracker=mock_tracker
         )
 
         assert arena.relationship_tracker == mock_tracker
@@ -819,6 +827,7 @@ class TestRelationshipTracker:
 # Moment Detector Tests
 # ============================================================================
 
+
 class TestMomentDetector:
     """Tests for moment detector integration."""
 
@@ -826,8 +835,7 @@ class TestMomentDetector:
         """Test Arena with moment detector."""
         mock_detector = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            moment_detector=mock_detector
+            environment, mock_agents, protocol, moment_detector=mock_detector
         )
 
         assert arena.moment_detector == mock_detector
@@ -837,6 +845,7 @@ class TestMomentDetector:
 # Trending Topic Tests
 # ============================================================================
 
+
 class TestTrendingTopic:
     """Tests for trending topic integration."""
 
@@ -845,8 +854,7 @@ class TestTrendingTopic:
         mock_topic = MagicMock()
         mock_topic.title = "Trending: AI Regulation"
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            trending_topic=mock_topic
+            environment, mock_agents, protocol, trending_topic=mock_topic
         )
 
         assert arena.trending_topic == mock_topic
@@ -855,8 +863,7 @@ class TestTrendingTopic:
         """Test Arena with pulse manager."""
         mock_pulse = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            pulse_manager=mock_pulse
+            environment, mock_agents, protocol, pulse_manager=mock_pulse
         )
 
         assert arena.pulse_manager == mock_pulse
@@ -864,8 +871,7 @@ class TestTrendingTopic:
     def test_auto_fetch_trending(self, environment, mock_agents, protocol):
         """Test Arena with auto fetch trending enabled."""
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            auto_fetch_trending=True
+            environment, mock_agents, protocol, auto_fetch_trending=True
         )
 
         assert arena.auto_fetch_trending is True
@@ -875,6 +881,7 @@ class TestTrendingTopic:
 # Population Manager Tests
 # ============================================================================
 
+
 class TestPopulationManager:
     """Tests for population manager (evolution) integration."""
 
@@ -882,8 +889,7 @@ class TestPopulationManager:
         """Test Arena with population manager."""
         mock_population = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            population_manager=mock_population
+            environment, mock_agents, protocol, population_manager=mock_population
         )
 
         assert arena.population_manager == mock_population
@@ -891,9 +897,7 @@ class TestPopulationManager:
     def test_auto_evolve_enabled(self, environment, mock_agents, protocol):
         """Test Arena with auto evolution enabled."""
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            auto_evolve=True,
-            breeding_threshold=0.9
+            environment, mock_agents, protocol, auto_evolve=True, breeding_threshold=0.9
         )
 
         assert arena.auto_evolve is True
@@ -904,6 +908,7 @@ class TestPopulationManager:
 # Checkpointing Tests
 # ============================================================================
 
+
 class TestCheckpointing:
     """Tests for debate checkpointing."""
 
@@ -911,8 +916,7 @@ class TestCheckpointing:
         """Test Arena with checkpoint manager."""
         mock_checkpoint = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            checkpoint_manager=mock_checkpoint
+            environment, mock_agents, protocol, checkpoint_manager=mock_checkpoint
         )
 
         assert arena.checkpoint_manager == mock_checkpoint
@@ -920,8 +924,7 @@ class TestCheckpointing:
     def test_enable_checkpointing(self, environment, mock_agents, protocol):
         """Test Arena with checkpointing enabled."""
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            enable_checkpointing=True
+            environment, mock_agents, protocol, enable_checkpointing=True
         )
         # Manually set attribute since we're not running real init
         arena.enable_checkpointing = True
@@ -933,6 +936,7 @@ class TestCheckpointing:
 # Performance Monitor Tests
 # ============================================================================
 
+
 class TestPerformanceMonitor:
     """Tests for performance monitoring integration."""
 
@@ -940,8 +944,7 @@ class TestPerformanceMonitor:
         """Test Arena with performance monitor."""
         mock_monitor = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            performance_monitor=mock_monitor
+            environment, mock_agents, protocol, performance_monitor=mock_monitor
         )
 
         assert arena.performance_monitor == mock_monitor
@@ -949,8 +952,7 @@ class TestPerformanceMonitor:
     def test_enable_performance_monitor(self, environment, mock_agents, protocol):
         """Test Arena with performance monitoring enabled."""
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            enable_performance_monitor=True
+            environment, mock_agents, protocol, enable_performance_monitor=True
         )
 
         assert arena.enable_performance_monitor is True
@@ -960,15 +962,13 @@ class TestPerformanceMonitor:
 # Airlock Tests
 # ============================================================================
 
+
 class TestAirlock:
     """Tests for airlock (timeout protection) integration."""
 
     def test_use_airlock_enabled(self, environment, mock_agents, protocol):
         """Test Arena with airlock enabled."""
-        arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            use_airlock=True
-        )
+        arena = create_arena_with_mocks(environment, mock_agents, protocol, use_airlock=True)
 
         assert arena.use_airlock is True
 
@@ -976,9 +976,7 @@ class TestAirlock:
         """Test Arena with airlock configuration."""
         mock_config = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            use_airlock=True,
-            airlock_config=mock_config
+            environment, mock_agents, protocol, use_airlock=True, airlock_config=mock_config
         )
 
         assert arena.airlock_config == mock_config
@@ -988,6 +986,7 @@ class TestAirlock:
 # Prompt Evolution Tests
 # ============================================================================
 
+
 class TestPromptEvolution:
     """Tests for prompt evolution integration."""
 
@@ -995,8 +994,7 @@ class TestPromptEvolution:
         """Test Arena with prompt evolver."""
         mock_evolver = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            prompt_evolver=mock_evolver
+            environment, mock_agents, protocol, prompt_evolver=mock_evolver
         )
 
         assert arena.prompt_evolver == mock_evolver
@@ -1004,8 +1002,7 @@ class TestPromptEvolution:
     def test_enable_prompt_evolution(self, environment, mock_agents, protocol):
         """Test Arena with prompt evolution enabled."""
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            enable_prompt_evolution=True
+            environment, mock_agents, protocol, enable_prompt_evolution=True
         )
 
         assert arena.enable_prompt_evolution is True
@@ -1015,6 +1012,7 @@ class TestPromptEvolution:
 # Usage Tracking Tests
 # ============================================================================
 
+
 class TestUsageTracking:
     """Tests for usage tracking integration."""
 
@@ -1022,8 +1020,7 @@ class TestUsageTracking:
         """Test Arena with usage tracker."""
         mock_tracker = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            usage_tracker=mock_tracker
+            environment, mock_agents, protocol, usage_tracker=mock_tracker
         )
 
         assert arena.usage_tracker == mock_tracker
@@ -1033,6 +1030,7 @@ class TestUsageTracking:
 # Insight Store Tests
 # ============================================================================
 
+
 class TestInsightStore:
     """Tests for insight store integration."""
 
@@ -1040,8 +1038,7 @@ class TestInsightStore:
         """Test Arena with insight store."""
         mock_store = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            insight_store=mock_store
+            environment, mock_agents, protocol, insight_store=mock_store
         )
 
         assert arena.insight_store == mock_store
@@ -1051,6 +1048,7 @@ class TestInsightStore:
 # Debate Embeddings Tests
 # ============================================================================
 
+
 class TestDebateEmbeddings:
     """Tests for debate embeddings database integration."""
 
@@ -1058,8 +1056,7 @@ class TestDebateEmbeddings:
         """Test Arena with debate embeddings."""
         mock_embeddings = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            debate_embeddings=mock_embeddings
+            environment, mock_agents, protocol, debate_embeddings=mock_embeddings
         )
 
         assert arena.debate_embeddings == mock_embeddings
@@ -1069,6 +1066,7 @@ class TestDebateEmbeddings:
 # Dissent Retriever Tests
 # ============================================================================
 
+
 class TestDissentRetriever:
     """Tests for dissent retriever integration."""
 
@@ -1076,8 +1074,7 @@ class TestDissentRetriever:
         """Test Arena with dissent retriever."""
         mock_retriever = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            dissent_retriever=mock_retriever
+            environment, mock_agents, protocol, dissent_retriever=mock_retriever
         )
 
         assert arena.dissent_retriever == mock_retriever
@@ -1087,6 +1084,7 @@ class TestDissentRetriever:
 # Flip Detector Tests
 # ============================================================================
 
+
 class TestFlipDetector:
     """Tests for flip detector integration."""
 
@@ -1094,8 +1092,7 @@ class TestFlipDetector:
         """Test Arena with flip detector."""
         mock_detector = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            flip_detector=mock_detector
+            environment, mock_agents, protocol, flip_detector=mock_detector
         )
 
         assert arena.flip_detector == mock_detector
@@ -1105,6 +1102,7 @@ class TestFlipDetector:
 # Calibration Tracker Tests
 # ============================================================================
 
+
 class TestCalibrationTracker:
     """Tests for calibration tracker integration."""
 
@@ -1112,8 +1110,7 @@ class TestCalibrationTracker:
         """Test Arena with calibration tracker."""
         mock_tracker = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            calibration_tracker=mock_tracker
+            environment, mock_agents, protocol, calibration_tracker=mock_tracker
         )
 
         assert arena.calibration_tracker == mock_tracker
@@ -1123,6 +1120,7 @@ class TestCalibrationTracker:
 # Tier Analytics Tests
 # ============================================================================
 
+
 class TestTierAnalytics:
     """Tests for tier analytics tracker integration."""
 
@@ -1130,8 +1128,7 @@ class TestTierAnalytics:
         """Test Arena with tier analytics tracker."""
         mock_tracker = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            tier_analytics_tracker=mock_tracker
+            environment, mock_agents, protocol, tier_analytics_tracker=mock_tracker
         )
 
         assert arena.tier_analytics_tracker == mock_tracker
@@ -1141,6 +1138,7 @@ class TestTierAnalytics:
 # Agent Selection Tests
 # ============================================================================
 
+
 class TestAgentSelection:
     """Tests for agent selection integration."""
 
@@ -1148,8 +1146,7 @@ class TestAgentSelection:
         """Test Arena with agent selector."""
         mock_selector = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            agent_selector=mock_selector
+            environment, mock_agents, protocol, agent_selector=mock_selector
         )
 
         assert arena.agent_selector == mock_selector
@@ -1157,8 +1154,7 @@ class TestAgentSelection:
     def test_use_performance_selection(self, environment, mock_agents, protocol):
         """Test Arena with performance-based selection enabled."""
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            use_performance_selection=True
+            environment, mock_agents, protocol, use_performance_selection=True
         )
 
         assert arena.use_performance_selection is True
@@ -1168,6 +1164,7 @@ class TestAgentSelection:
 # Position Ledger Tests
 # ============================================================================
 
+
 class TestPositionLedger:
     """Tests for position ledger integration."""
 
@@ -1175,8 +1172,7 @@ class TestPositionLedger:
         """Test Arena with position tracker."""
         mock_tracker = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            position_tracker=mock_tracker
+            environment, mock_agents, protocol, position_tracker=mock_tracker
         )
 
         assert arena.position_tracker == mock_tracker
@@ -1185,8 +1181,7 @@ class TestPositionLedger:
         """Test Arena with position ledger."""
         mock_ledger = MagicMock()
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            position_ledger=mock_ledger
+            environment, mock_agents, protocol, position_ledger=mock_ledger
         )
 
         assert arena.position_ledger == mock_ledger
@@ -1194,8 +1189,7 @@ class TestPositionLedger:
     def test_enable_position_ledger(self, environment, mock_agents, protocol):
         """Test Arena with position ledger enabled."""
         arena = create_arena_with_mocks(
-            environment, mock_agents, protocol,
-            enable_position_ledger=True
+            environment, mock_agents, protocol, enable_position_ledger=True
         )
 
         assert arena.enable_position_ledger is True

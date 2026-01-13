@@ -118,9 +118,9 @@ class BreakpointConfig:
     notification_channels: list[str] = field(default_factory=list)  # ["cli", "slack", "discord"]
 
     # Safety
-    safety_keywords: list[str] = field(default_factory=lambda: [
-        "dangerous", "harmful", "illegal", "unethical", "unsafe"
-    ])
+    safety_keywords: list[str] = field(
+        default_factory=lambda: ["dangerous", "harmful", "illegal", "unethical", "unsafe"]
+    )
 
 
 class HumanNotifier:
@@ -148,7 +148,9 @@ class HumanNotifier:
                     await self._handlers[channel](breakpoint)
                     success = True
                 except Exception as e:
-                    logger.warning(f"Notification handler '{channel}' failed: {type(e).__name__}: {e}")
+                    logger.warning(
+                        f"Notification handler '{channel}' failed: {type(e).__name__}: {e}"
+                    )
                     continue
 
         # Fallback to CLI if no handlers
@@ -222,7 +224,12 @@ class BreakpointManager:
         if confidence < self.config.min_confidence:
             return self._create_breakpoint(
                 BreakpointTrigger.LOW_CONFIDENCE,
-                debate_id, task, messages, confidence, round_num, max_rounds,
+                debate_id,
+                task,
+                messages,
+                confidence,
+                round_num,
+                max_rounds,
             )
 
         # Deadlock detection - check if last N rounds had similar content
@@ -230,14 +237,24 @@ class BreakpointManager:
             if self._detect_deadlock(messages, self.config.max_deadlock_rounds):
                 return self._create_breakpoint(
                     BreakpointTrigger.DEADLOCK,
-                    debate_id, task, messages, confidence, round_num, max_rounds,
+                    debate_id,
+                    task,
+                    messages,
+                    confidence,
+                    round_num,
+                    max_rounds,
                 )
 
         # Round limit
         if round_num >= max_rounds:
             return self._create_breakpoint(
                 BreakpointTrigger.ROUND_LIMIT,
-                debate_id, task, messages, confidence, round_num, max_rounds,
+                debate_id,
+                task,
+                messages,
+                confidence,
+                round_num,
+                max_rounds,
             )
 
         # High disagreement from critiques
@@ -246,7 +263,12 @@ class BreakpointManager:
             if avg_severity > self.config.disagreement_threshold:
                 return self._create_breakpoint(
                     BreakpointTrigger.HIGH_DISAGREEMENT,
-                    debate_id, task, messages, confidence, round_num, max_rounds,
+                    debate_id,
+                    task,
+                    messages,
+                    confidence,
+                    round_num,
+                    max_rounds,
                 )
 
         # Safety concerns
@@ -255,7 +277,12 @@ class BreakpointManager:
             if keyword in all_content:
                 return self._create_breakpoint(
                     BreakpointTrigger.SAFETY_CONCERN,
-                    debate_id, task, messages, confidence, round_num, max_rounds,
+                    debate_id,
+                    task,
+                    messages,
+                    confidence,
+                    round_num,
+                    max_rounds,
                     escalation=3,  # High priority
                 )
 
@@ -268,7 +295,7 @@ class BreakpointManager:
 
         # Get recent messages
         recent = messages[-lookback:]
-        earlier = messages[-lookback * 2:-lookback]
+        earlier = messages[-lookback * 2 : -lookback]
 
         # Simple check: are agents repeating themselves?
         recent_content = set()
@@ -306,7 +333,8 @@ class BreakpointManager:
         latest = messages[-5:] if len(messages) >= 5 else messages
         latest_dicts = [
             {"agent": m.agent, "content": m.content[:200], "round": m.round}
-            for m in latest if hasattr(m, "agent")
+            for m in latest
+            if hasattr(m, "agent")
         ]
 
         # Extract agent positions
@@ -354,23 +382,25 @@ class BreakpointManager:
             from aragora.server.stream import StreamEvent, StreamEventType
 
             snapshot = breakpoint.debate_snapshot
-            self.event_emitter.emit(StreamEvent(
-                type=StreamEventType.BREAKPOINT,
-                loop_id=self.loop_id or "",
-                data={
-                    "breakpoint_id": breakpoint.breakpoint_id,
-                    "trigger": breakpoint.trigger.value,
-                    "debate_id": snapshot.debate_id,
-                    "task": snapshot.task[:200],
-                    "round": snapshot.current_round,
-                    "confidence": snapshot.confidence,
-                    "escalation_level": breakpoint.escalation_level,
-                    "timeout_minutes": breakpoint.timeout_minutes,
-                    "agent_positions": snapshot.agent_positions,
-                    "key_disagreements": snapshot.key_disagreements,
-                    "triggered_at": breakpoint.triggered_at,
-                }
-            ))
+            self.event_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.BREAKPOINT,
+                    loop_id=self.loop_id or "",
+                    data={
+                        "breakpoint_id": breakpoint.breakpoint_id,
+                        "trigger": breakpoint.trigger.value,
+                        "debate_id": snapshot.debate_id,
+                        "task": snapshot.task[:200],
+                        "round": snapshot.current_round,
+                        "confidence": snapshot.confidence,
+                        "escalation_level": breakpoint.escalation_level,
+                        "timeout_minutes": breakpoint.timeout_minutes,
+                        "agent_positions": snapshot.agent_positions,
+                        "key_disagreements": snapshot.key_disagreements,
+                        "triggered_at": breakpoint.triggered_at,
+                    },
+                )
+            )
             logger.info(f"Emitted BREAKPOINT event for {breakpoint.breakpoint_id}")
         except Exception as e:
             logger.warning(f"Failed to emit breakpoint event: {e}")
@@ -504,22 +534,24 @@ How would you like to proceed?
             from aragora.server.stream import StreamEvent, StreamEventType
 
             guidance = breakpoint.guidance
-            self.event_emitter.emit(StreamEvent(
-                type=StreamEventType.BREAKPOINT_RESOLVED,
-                loop_id=self.loop_id or "",
-                data={
-                    "breakpoint_id": breakpoint.breakpoint_id,
-                    "trigger": breakpoint.trigger.value,
-                    "debate_id": breakpoint.debate_snapshot.debate_id,
-                    "action": guidance.action,
-                    "decision": guidance.decision,
-                    "hints": guidance.hints,
-                    "constraints": guidance.constraints,
-                    "human_id": guidance.human_id,
-                    "reasoning": guidance.reasoning[:200] if guidance.reasoning else "",
-                    "resolved_at": breakpoint.resolved_at,
-                }
-            ))
+            self.event_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.BREAKPOINT_RESOLVED,
+                    loop_id=self.loop_id or "",
+                    data={
+                        "breakpoint_id": breakpoint.breakpoint_id,
+                        "trigger": breakpoint.trigger.value,
+                        "debate_id": breakpoint.debate_snapshot.debate_id,
+                        "action": guidance.action,
+                        "decision": guidance.decision,
+                        "hints": guidance.hints,
+                        "constraints": guidance.constraints,
+                        "human_id": guidance.human_id,
+                        "reasoning": guidance.reasoning[:200] if guidance.reasoning else "",
+                        "resolved_at": breakpoint.resolved_at,
+                    },
+                )
+            )
             logger.info(f"Emitted BREAKPOINT_RESOLVED event for {breakpoint.breakpoint_id}")
         except Exception as e:
             logger.warning(f"Failed to emit breakpoint resolved event: {e}")
@@ -564,10 +596,12 @@ How would you like to proceed?
 # Decorator for marking critical decision points
 def critical_decision(reason: str = "") -> Callable[[Callable], Callable]:
     """Decorator to mark a debate point as requiring human review."""
+
     def decorator(func: Callable) -> Callable:
         func._aragora_critical = True  # type: ignore[attr-defined]
         func._aragora_critical_reason = reason  # type: ignore[attr-defined]
         return func
+
     return decorator
 
 
@@ -585,10 +619,12 @@ def breakpoint(
         async def human_tiebreaker(state: DebateState) -> Guidance:
             return await get_human_input(state.summary, state.open_questions)
     """
+
     def decorator(func: Callable) -> Callable:
         func._aragora_breakpoint = True  # type: ignore[attr-defined]
         func._aragora_breakpoint_trigger = trigger  # type: ignore[attr-defined]
         func._aragora_breakpoint_threshold = threshold  # type: ignore[attr-defined]
         func._aragora_breakpoint_message = message  # type: ignore[attr-defined]
         return func
+
     return decorator

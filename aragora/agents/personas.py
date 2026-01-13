@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Generator
 
 from aragora.config import DB_PERSONAS_PATH, DB_TIMEOUT_SECONDS
-from aragora.insights.database import InsightsDatabase
+from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager
 from aragora.utils.json_helpers import safe_json_loads
 
@@ -44,14 +44,14 @@ EXPERTISE_DOMAINS = [
 
 # Predefined personality traits
 PERSONALITY_TRAITS = [
-    "thorough",      # Catches many issues
-    "pragmatic",     # Focuses on practical solutions
-    "innovative",    # Suggests creative alternatives
+    "thorough",  # Catches many issues
+    "pragmatic",  # Focuses on practical solutions
+    "innovative",  # Suggests creative alternatives
     "conservative",  # Prefers proven approaches
-    "diplomatic",    # Balances criticism with praise
-    "direct",        # Gets straight to the point
-    "collaborative", # Builds on others' ideas
-    "contrarian",    # Challenges assumptions
+    "diplomatic",  # Balances criticism with praise
+    "direct",  # Gets straight to the point
+    "collaborative",  # Builds on others' ideas
+    "contrarian",  # Challenges assumptions
 ]
 
 
@@ -110,7 +110,7 @@ class Persona:
         }
 
 
-class PersonaManager:
+class PersonaManager(SQLiteStore):
     """
     Manages agent personas with evolving specialization.
 
@@ -118,54 +118,38 @@ class PersonaManager:
     based on agent performance in debates.
     """
 
+    SCHEMA_NAME = "personas"
+    SCHEMA_VERSION = PERSONA_SCHEMA_VERSION
+
+    INITIAL_SCHEMA = """
+        -- Personas table
+        CREATE TABLE IF NOT EXISTS personas (
+            agent_name TEXT PRIMARY KEY,
+            description TEXT,
+            traits TEXT,
+            expertise TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Performance history for learning
+        CREATE TABLE IF NOT EXISTS performance_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_name TEXT NOT NULL,
+            debate_id TEXT,
+            domain TEXT,
+            action TEXT,
+            success INTEGER,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+    """
+
     def __init__(self, db_path: str = DB_PERSONAS_PATH):
-        self.db_path = Path(db_path)
-        self.db = InsightsDatabase(db_path)
-        self._init_db()
-
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection with guaranteed cleanup."""
-        with self.db.connection() as conn:
-            yield conn
-
-    def _init_db(self) -> None:
-        """Initialize database schema using SchemaManager."""
-        with self._get_connection() as conn:
-            # Use SchemaManager for version tracking and migrations
-            manager = SchemaManager(
-                conn, "personas", current_version=PERSONA_SCHEMA_VERSION
-            )
-
-            # Initial schema (v1)
-            initial_schema = """
-                -- Personas table
-                CREATE TABLE IF NOT EXISTS personas (
-                    agent_name TEXT PRIMARY KEY,
-                    description TEXT,
-                    traits TEXT,
-                    expertise TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-
-                -- Performance history for learning
-                CREATE TABLE IF NOT EXISTS performance_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    agent_name TEXT NOT NULL,
-                    debate_id TEXT,
-                    domain TEXT,
-                    action TEXT,
-                    success INTEGER,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-            """
-
-            manager.ensure_schema(initial_schema=initial_schema)
+        super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
 
     def get_persona(self, agent_name: str) -> Persona | None:
         """Get persona for an agent."""
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -203,12 +187,10 @@ class PersonaManager:
 
         # Validate and normalize expertise
         expertise = {
-            k: max(0.0, min(1.0, v))
-            for k, v in expertise.items()
-            if k in EXPERTISE_DOMAINS
+            k: max(0.0, min(1.0, v)) for k, v in expertise.items() if k in EXPERTISE_DOMAINS
         }
 
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -256,7 +238,7 @@ class PersonaManager:
         if domain not in EXPERTISE_DOMAINS:
             return
 
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -274,7 +256,7 @@ class PersonaManager:
 
     def _update_expertise(self, agent_name: str, domain: str) -> None:
         """Update expertise score based on recent performance."""
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Get recent performance in this domain (last 50 events)
@@ -296,7 +278,7 @@ class PersonaManager:
             total_weight = 0.0
             weighted_success = 0.0
             for i, (success,) in enumerate(rows):
-                weight = 0.95 ** i  # Exponential decay
+                weight = 0.95**i  # Exponential decay
                 total_weight += weight
                 weighted_success += weight * success
 
@@ -336,7 +318,7 @@ class PersonaManager:
 
         Returns suggested traits based on observed behavior.
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Get performance stats
@@ -375,7 +357,7 @@ class PersonaManager:
 
     def get_all_personas(self) -> list[Persona]:
         """Get all personas."""
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -397,7 +379,7 @@ class PersonaManager:
 
     def get_performance_summary(self, agent_name: str) -> dict:
         """Get performance summary for an agent."""
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(

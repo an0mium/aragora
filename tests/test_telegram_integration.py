@@ -25,6 +25,7 @@ from aragora.core import DebateResult
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def telegram_config():
     """Create a basic Telegram config for testing."""
@@ -75,15 +76,13 @@ def mock_aiohttp_session():
 # TestTelegramConfig
 # ============================================================================
 
+
 class TestTelegramConfig:
     """Tests for TelegramConfig dataclass."""
 
     def test_config_with_minimal_params(self):
         """Config can be created with bot_token and chat_id."""
-        config = TelegramConfig(
-            bot_token="test_token",
-            chat_id="12345"
-        )
+        config = TelegramConfig(bot_token="test_token", chat_id="12345")
         assert config.bot_token == "test_token"
         assert config.chat_id == "12345"
 
@@ -132,6 +131,7 @@ class TestTelegramConfig:
 # TestInlineButton
 # ============================================================================
 
+
 class TestInlineButton:
     """Tests for InlineButton dataclass."""
 
@@ -155,11 +155,7 @@ class TestInlineButton:
 
     def test_button_url_takes_precedence(self):
         """URL takes precedence over callback_data."""
-        button = InlineButton(
-            text="Mixed",
-            url="https://example.com",
-            callback_data="callback"
-        )
+        button = InlineButton(text="Mixed", url="https://example.com", callback_data="callback")
         result = button.to_dict()
         # URL is checked first in to_dict
         assert result == {"text": "Mixed", "url": "https://example.com"}
@@ -168,6 +164,7 @@ class TestInlineButton:
 # ============================================================================
 # TestTelegramMessage
 # ============================================================================
+
 
 class TestTelegramMessage:
     """Tests for TelegramMessage dataclass."""
@@ -186,10 +183,12 @@ class TestTelegramMessage:
 
     def test_message_with_buttons(self, telegram_config):
         """Message with buttons includes reply_markup."""
-        buttons = [[
-            InlineButton(text="Button 1", url="https://a.com"),
-            InlineButton(text="Button 2", callback_data="action"),
-        ]]
+        buttons = [
+            [
+                InlineButton(text="Button 1", url="https://a.com"),
+                InlineButton(text="Button 2", callback_data="action"),
+            ]
+        ]
         message = TelegramMessage(text="Test", reply_markup=buttons)
         payload = message.to_payload(telegram_config)
 
@@ -201,10 +200,7 @@ class TestTelegramMessage:
 
     def test_message_with_notification_disabled(self, telegram_config):
         """Message can disable notifications."""
-        message = TelegramMessage(
-            text="Silent",
-            disable_notification=True
-        )
+        message = TelegramMessage(text="Silent", disable_notification=True)
         payload = message.to_payload(telegram_config)
         assert payload["disable_notification"] is True
 
@@ -225,6 +221,7 @@ class TestTelegramMessage:
 # ============================================================================
 # TestRateLimiting
 # ============================================================================
+
 
 class TestRateLimiting:
     """Tests for Telegram rate limiting."""
@@ -279,6 +276,7 @@ class TestRateLimiting:
 # TestHtmlEscaping
 # ============================================================================
 
+
 class TestHtmlEscaping:
     """Tests for HTML escaping in messages."""
 
@@ -316,6 +314,7 @@ class TestHtmlEscaping:
 # TestSendMessage
 # ============================================================================
 
+
 class TestSendMessage:
     """Tests for _send_message method."""
 
@@ -351,10 +350,12 @@ class TestSendMessage:
         mock_session = AsyncMock()
         mock_response = AsyncMock()
         mock_response.status = 429
-        mock_response.json = AsyncMock(return_value={
-            "ok": False,
-            "parameters": {"retry_after": 0.01}  # Very short for testing
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "ok": False,
+                "parameters": {"retry_after": 0.01},  # Very short for testing
+            }
+        )
 
         mock_session.post.return_value.__aenter__.return_value = mock_response
         mock_session.post.return_value.__aexit__.return_value = None
@@ -375,10 +376,9 @@ class TestSendMessage:
         mock_session = AsyncMock()
         mock_response = AsyncMock()
         mock_response.status = 400
-        mock_response.json = AsyncMock(return_value={
-            "ok": False,
-            "description": "Bad Request: chat not found"
-        })
+        mock_response.json = AsyncMock(
+            return_value={"ok": False, "description": "Bad Request: chat not found"}
+        )
 
         mock_session.post.return_value.__aenter__.return_value = mock_response
         mock_session.post.return_value.__aexit__.return_value = None
@@ -394,6 +394,7 @@ class TestSendMessage:
 # ============================================================================
 # TestPostDebateSummary
 # ============================================================================
+
 
 class TestPostDebateSummary:
     """Tests for post_debate_summary method."""
@@ -456,13 +457,12 @@ class TestPostDebateSummary:
 # TestSendConsensusAlert
 # ============================================================================
 
+
 class TestSendConsensusAlert:
     """Tests for send_consensus_alert method."""
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_success(
-        self, telegram_integration, mock_aiohttp_session
-    ):
+    async def test_send_consensus_alert_success(self, telegram_integration, mock_aiohttp_session):
         """Consensus alert is sent successfully."""
         telegram_integration._session = mock_aiohttp_session
 
@@ -508,13 +508,12 @@ class TestSendConsensusAlert:
 # TestSendErrorAlert
 # ============================================================================
 
+
 class TestSendErrorAlert:
     """Tests for send_error_alert method."""
 
     @pytest.mark.asyncio
-    async def test_send_error_alert_success(
-        self, telegram_integration, mock_aiohttp_session
-    ):
+    async def test_send_error_alert_success(self, telegram_integration, mock_aiohttp_session):
         """Error alert is sent successfully."""
         telegram_integration._session = mock_aiohttp_session
 
@@ -565,6 +564,7 @@ class TestSendErrorAlert:
 # TestSendLeaderboardUpdate
 # ============================================================================
 
+
 class TestSendLeaderboardUpdate:
     """Tests for send_leaderboard_update method."""
 
@@ -586,16 +586,11 @@ class TestSendLeaderboardUpdate:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_top_n(
-        self, telegram_integration, mock_aiohttp_session
-    ):
+    async def test_send_leaderboard_update_top_n(self, telegram_integration, mock_aiohttp_session):
         """Leaderboard respects top_n parameter."""
         telegram_integration._session = mock_aiohttp_session
 
-        rankings = [
-            {"name": f"agent_{i}", "elo": 1600 - i * 10, "wins": 10 - i}
-            for i in range(10)
-        ]
+        rankings = [{"name": f"agent_{i}", "elo": 1600 - i * 10, "wins": 10 - i} for i in range(10)]
 
         # Request only top 3
         result = await telegram_integration.send_leaderboard_update(rankings, top_n=3)
@@ -603,9 +598,7 @@ class TestSendLeaderboardUpdate:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_empty(
-        self, telegram_integration, mock_aiohttp_session
-    ):
+    async def test_send_leaderboard_update_empty(self, telegram_integration, mock_aiohttp_session):
         """Leaderboard handles empty rankings."""
         telegram_integration._session = mock_aiohttp_session
 
@@ -618,13 +611,12 @@ class TestSendLeaderboardUpdate:
 # TestSendDebateStarted
 # ============================================================================
 
+
 class TestSendDebateStarted:
     """Tests for send_debate_started method."""
 
     @pytest.mark.asyncio
-    async def test_send_debate_started_success(
-        self, telegram_integration, mock_aiohttp_session
-    ):
+    async def test_send_debate_started_success(self, telegram_integration, mock_aiohttp_session):
         """Debate started notification is sent successfully."""
         telegram_integration._session = mock_aiohttp_session
 
@@ -671,6 +663,7 @@ class TestSendDebateStarted:
 # TestSessionManagement
 # ============================================================================
 
+
 class TestSessionManagement:
     """Tests for aiohttp session management."""
 
@@ -679,7 +672,7 @@ class TestSessionManagement:
         """_get_session creates new session when none exists."""
         assert telegram_integration._session is None
 
-        with patch('aiohttp.ClientSession') as mock_cls:
+        with patch("aiohttp.ClientSession") as mock_cls:
             mock_session = AsyncMock()
             mock_session.closed = False
             mock_cls.return_value = mock_session
@@ -707,7 +700,7 @@ class TestSessionManagement:
         old_session.closed = True
         telegram_integration._session = old_session
 
-        with patch('aiohttp.ClientSession') as mock_cls:
+        with patch("aiohttp.ClientSession") as mock_cls:
             new_session = AsyncMock()
             new_session.closed = False
             mock_cls.return_value = new_session
@@ -732,6 +725,7 @@ class TestSessionManagement:
 # ============================================================================
 # TestConnectionHandling
 # ============================================================================
+
 
 class TestConnectionHandling:
     """Tests for connection error handling."""
@@ -783,6 +777,7 @@ class TestConnectionHandling:
 # TestEdgeCases
 # ============================================================================
 
+
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
@@ -832,7 +827,7 @@ class TestEdgeCases:
     def test_unicode_in_messages(self, telegram_integration):
         """Handles Unicode characters in messages."""
         result = DebateResult(
-            task="Test \u2605 Unicode \U0001F600",
+            task="Test \u2605 Unicode \U0001f600",
             final_answer="Answer",
             consensus_reached=True,
             rounds_used=1,

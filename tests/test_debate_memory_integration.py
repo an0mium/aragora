@@ -27,8 +27,11 @@ from aragora.storage.schema import get_wal_connection
 @dataclass
 class MockDebateResult:
     """Mock debate result for testing."""
+
     id: str = "test-debate-123"
-    final_answer: str = "The recommended approach is to use a rate limiter with token bucket algorithm."
+    final_answer: str = (
+        "The recommended approach is to use a rate limiter with token bucket algorithm."
+    )
     confidence: float = 0.85
     consensus_reached: bool = True
     rounds_used: int = 3
@@ -79,14 +82,16 @@ class TestDebateOutcomeStorage:
         assert len(entries) >= 1
 
         # Find the debate outcome entry
-        outcome_entry = next(
-            (e for e in entries if "debate_outcome" in e.id),
-            None
-        )
+        outcome_entry = next((e for e in entries if "debate_outcome" in e.id), None)
         assert outcome_entry is not None
-        assert "rate limiter" in outcome_entry.content.lower() or "recommended approach" in outcome_entry.content.lower()
+        assert (
+            "rate limiter" in outcome_entry.content.lower()
+            or "recommended approach" in outcome_entry.content.lower()
+        )
 
-    def test_store_debate_outcome_tier_selection_high_confidence(self, memory_manager, continuum_memory):
+    def test_store_debate_outcome_tier_selection_high_confidence(
+        self, memory_manager, continuum_memory
+    ):
         """High confidence multi-round debates go to FAST tier."""
         result = MockDebateResult(
             confidence=0.9,
@@ -445,7 +450,9 @@ class TestFullPipeline:
 
         # Should find relevant memory
         assert len(entries) >= 1
-        found_relevant = any("rate" in e.content.lower() or "redis" in e.content.lower() for e in entries)
+        found_relevant = any(
+            "rate" in e.content.lower() or "redis" in e.content.lower() for e in entries
+        )
         # Note: may not find if query doesn't match - that's OK for this test
         # The key is that the storage → retrieval pipeline works
 
@@ -541,6 +548,7 @@ class TestEvidenceStorage:
 
     def test_store_evidence_basic(self, memory_manager, continuum_memory):
         """store_evidence should store snippets in MEDIUM tier."""
+
         class MockSnippet:
             def __init__(self, content, source, relevance):
                 self.content = content
@@ -570,6 +578,7 @@ class TestEvidenceStorage:
 
     def test_store_evidence_filters_short_snippets(self, memory_manager, continuum_memory):
         """Short snippets should be filtered out."""
+
         class MockSnippet:
             def __init__(self, content):
                 self.content = content
@@ -578,7 +587,9 @@ class TestEvidenceStorage:
 
         snippets = [
             MockSnippet("Too short"),  # < 50 chars
-            MockSnippet("This is a longer snippet that should be stored in the memory system for future retrieval"),
+            MockSnippet(
+                "This is a longer snippet that should be stored in the memory system for future retrieval"
+            ),
         ]
 
         memory_manager.store_evidence(snippets, "Test task")
@@ -590,6 +601,7 @@ class TestEvidenceStorage:
 
     def test_store_evidence_limits_to_top_10(self, memory_manager, continuum_memory):
         """Should limit to top 10 snippets."""
+
         class MockSnippet:
             def __init__(self, content):
                 self.content = content
@@ -598,7 +610,9 @@ class TestEvidenceStorage:
 
         # Create 15 snippets
         snippets = [
-            MockSnippet(f"Snippet number {i} with enough content to pass the length filter test requirement")
+            MockSnippet(
+                f"Snippet number {i} with enough content to pass the length filter test requirement"
+            )
             for i in range(15)
         ]
 

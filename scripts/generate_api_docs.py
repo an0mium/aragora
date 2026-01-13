@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 @dataclass
 class Endpoint:
     """Represents an API endpoint."""
+
     path: str
     method: str = "GET"
     description: str = ""
@@ -41,6 +42,7 @@ class Endpoint:
 @dataclass
 class EndpointGroup:
     """Group of related endpoints."""
+
     name: str
     description: str
     endpoints: list[Endpoint] = field(default_factory=list)
@@ -56,6 +58,7 @@ def discover_handler_modules() -> list[str]:
             continue
         modules.append(f"aragora.server.handlers.{py_file.stem}")
     return modules
+
 
 HANDLER_MODULES = discover_handler_modules()
 
@@ -76,15 +79,13 @@ def extract_endpoints_from_module_docstring(module) -> list[tuple[str, str, str]
         return []
 
     endpoints = []
-    match = re.search(r'Endpoints:\s*\n((?:- [A-Z]+ /\S+.*\n?)+)', docstring)
+    match = re.search(r"Endpoints:\s*\n((?:- [A-Z]+ /\S+.*\n?)+)", docstring)
     if not match:
         return []
 
     endpoint_block = match.group(1)
-    for line in endpoint_block.strip().split('\n'):
-        endpoint_match = re.match(
-            r'^-\s*([A-Z]+)\s+(/\S+)\s*(?:-\s*(.*))?$', line.strip()
-        )
+    for line in endpoint_block.strip().split("\n"):
+        endpoint_match = re.match(r"^-\s*([A-Z]+)\s+(/\S+)\s*(?:-\s*(.*))?$", line.strip())
         if endpoint_match:
             method = endpoint_match.group(1)
             path = endpoint_match.group(2)
@@ -99,11 +100,11 @@ def extract_routes_from_handler(handler_class) -> list[str]:
     routes = []
 
     # Check for ROUTES class attribute
-    if hasattr(handler_class, 'ROUTES'):
+    if hasattr(handler_class, "ROUTES"):
         routes.extend(handler_class.ROUTES)
 
     # Check for POST_ROUTES class attribute
-    if hasattr(handler_class, 'POST_ROUTES'):
+    if hasattr(handler_class, "POST_ROUTES"):
         routes.extend(handler_class.POST_ROUTES)
 
     return routes
@@ -118,7 +119,7 @@ def extract_docstring_info(docstring: str) -> tuple[str, list[dict]]:
     if not docstring:
         return "", []
 
-    lines = docstring.strip().split('\n')
+    lines = docstring.strip().split("\n")
     description_lines = []
     parameters = []
 
@@ -129,22 +130,22 @@ def extract_docstring_info(docstring: str) -> tuple[str, list[dict]]:
     for line in lines:
         line = line.strip()
 
-        if line.lower().startswith('args:') or line.lower().startswith('parameters:'):
+        if line.lower().startswith("args:") or line.lower().startswith("parameters:"):
             in_params = True
             in_returns = False
             continue
-        elif line.lower().startswith('returns:'):
+        elif line.lower().startswith("returns:"):
             in_params = False
             in_returns = True
             continue
-        elif line.lower().startswith('raises:'):
+        elif line.lower().startswith("raises:"):
             in_params = False
             in_returns = False
             continue
 
         if in_params:
             # Match parameter definitions like "param_name: description" or "param_name (type): description"
-            param_match = re.match(r'^(\w+)\s*(?:\(([^)]+)\))?\s*:\s*(.+)?$', line)
+            param_match = re.match(r"^(\w+)\s*(?:\(([^)]+)\))?\s*:\s*(.+)?$", line)
             if param_match:
                 current_param = {
                     "name": param_match.group(1),
@@ -158,11 +159,11 @@ def extract_docstring_info(docstring: str) -> tuple[str, list[dict]]:
         elif not in_returns:
             description_lines.append(line)
 
-    description = ' '.join(description_lines).strip()
+    description = " ".join(description_lines).strip()
     # Clean up description - take first sentence or first 200 chars
     if description:
-        first_sentence = description.split('.')[0]
-        description = first_sentence[:200] + ('...' if len(first_sentence) > 200 else '')
+        first_sentence = description.split(".")[0]
+        description = first_sentence[:200] + ("..." if len(first_sentence) > 200 else "")
 
     return description, parameters
 
@@ -172,12 +173,12 @@ def check_auth_required(handler_class, method_name: str) -> bool:
     if hasattr(handler_class, method_name):
         method = getattr(handler_class, method_name)
         # Check for @require_auth decorator
-        if hasattr(method, '__wrapped__'):
+        if hasattr(method, "__wrapped__"):
             return True
         # Check method source for require_auth
         try:
             source = inspect.getsource(method)
-            if '@require_auth' in source:
+            if "@require_auth" in source:
                 return True
         except (OSError, TypeError):
             pass
@@ -202,9 +203,9 @@ def discover_endpoints() -> list[EndpointGroup]:
         module_doc = module.__doc__ or ""
         module_desc = ""
         if module_doc:
-            desc_match = re.match(r'^(.+?)(?=\n\s*Endpoints:|$)', module_doc, re.DOTALL)
+            desc_match = re.match(r"^(.+?)(?=\n\s*Endpoints:|$)", module_doc, re.DOTALL)
             if desc_match:
-                module_desc = desc_match.group(1).strip().split('\n')[0]
+                module_desc = desc_match.group(1).strip().split("\n")[0]
 
         # Find handler classes in the module
         handler_class_name = None
@@ -212,15 +213,15 @@ def discover_endpoints() -> list[EndpointGroup]:
         post_routes = []
 
         for name, obj in inspect.getmembers(module, inspect.isclass):
-            if name.endswith('Handler') and hasattr(obj, 'ROUTES'):
+            if name.endswith("Handler") and hasattr(obj, "ROUTES"):
                 handler_class_name = name
-                auth_endpoints = getattr(obj, 'AUTH_REQUIRED_ENDPOINTS', [])
-                post_routes = getattr(obj, 'POST_ROUTES', [])
+                auth_endpoints = getattr(obj, "AUTH_REQUIRED_ENDPOINTS", [])
+                post_routes = getattr(obj, "POST_ROUTES", [])
                 break
 
         # If we have module docstring endpoints, use those (preferred)
         if module_endpoints:
-            group_name = module_name.split('.')[-1].title().replace('_', ' ')
+            group_name = module_name.split(".")[-1].title().replace("_", " ")
             group = EndpointGroup(name=group_name, description=module_desc)
 
             for method, path, description in module_endpoints:
@@ -242,18 +243,18 @@ def discover_endpoints() -> list[EndpointGroup]:
 
         # Fall back to ROUTES attribute
         for name, obj in inspect.getmembers(module, inspect.isclass):
-            if name.endswith('Handler') and hasattr(obj, 'ROUTES'):
-                group_name = name.replace('Handler', '')
+            if name.endswith("Handler") and hasattr(obj, "ROUTES"):
+                group_name = name.replace("Handler", "")
                 group_desc = obj.__doc__ or f"{group_name} endpoints"
 
                 # Extract first line of docstring as description
                 if group_desc:
-                    group_desc = group_desc.strip().split('\n')[0]
+                    group_desc = group_desc.strip().split("\n")[0]
 
                 group = EndpointGroup(name=group_name, description=group_desc)
 
                 routes = extract_routes_from_handler(obj)
-                post_routes = getattr(obj, 'POST_ROUTES', [])
+                post_routes = getattr(obj, "POST_ROUTES", [])
 
                 for route in routes:
                     method = "POST" if route in post_routes else "GET"
@@ -265,17 +266,19 @@ def discover_endpoints() -> list[EndpointGroup]:
 
                     # Look for method that handles this route
                     for attr_name in dir(obj):
-                        if attr_name.startswith('_') and not attr_name.startswith('__'):
+                        if attr_name.startswith("_") and not attr_name.startswith("__"):
                             attr = getattr(obj, attr_name)
                             if callable(attr):
                                 attr_doc = attr.__doc__ or ""
                                 # Check if method handles this route
-                                if route in attr_doc or route.split('/')[-1] in attr_name:
+                                if route in attr_doc or route.split("/")[-1] in attr_name:
                                     handler_method = attr_name
                                     method_doc, params = extract_docstring_info(attr_doc)
                                     break
 
-                    auth_required = check_auth_required(obj, handler_method) if handler_method else False
+                    auth_required = (
+                        check_auth_required(obj, handler_method) if handler_method else False
+                    )
 
                     endpoint = Endpoint(
                         path=route,
@@ -307,30 +310,34 @@ def generate_markdown(groups: list[EndpointGroup]) -> str:
 
     # Generate TOC
     for group in groups:
-        anchor = group.name.lower().replace(' ', '-')
+        anchor = group.name.lower().replace(" ", "-")
         lines.append(f"- [{group.name}](#{anchor})")
 
     lines.extend(["", "---", ""])
 
     # Generate endpoint documentation
     for group in groups:
-        lines.extend([
-            f"## {group.name}",
-            "",
-            group.description,
-            "",
-        ])
+        lines.extend(
+            [
+                f"## {group.name}",
+                "",
+                group.description,
+                "",
+            ]
+        )
 
         for endpoint in group.endpoints:
             method_badge = f"`{endpoint.method}`"
             auth_badge = " 🔒" if endpoint.auth_required else ""
 
-            lines.extend([
-                f"### {method_badge} `{endpoint.path}`{auth_badge}",
-                "",
-                endpoint.description or "No description available.",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"### {method_badge} `{endpoint.path}`{auth_badge}",
+                    "",
+                    endpoint.description or "No description available.",
+                    "",
+                ]
+            )
 
             if endpoint.parameters:
                 lines.append("**Parameters:**")
@@ -338,58 +345,56 @@ def generate_markdown(groups: list[EndpointGroup]) -> str:
                 lines.append("| Name | Type | Description |")
                 lines.append("|------|------|-------------|")
                 for param in endpoint.parameters:
-                    lines.append(f"| `{param['name']}` | {param['type']} | {param['description']} |")
+                    lines.append(
+                        f"| `{param['name']}` | {param['type']} | {param['description']} |"
+                    )
                 lines.append("")
 
             if endpoint.response_example:
-                lines.extend([
-                    "**Response Example:**",
-                    "",
-                    "```json",
-                    endpoint.response_example,
-                    "```",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        "**Response Example:**",
+                        "",
+                        "```json",
+                        endpoint.response_example,
+                        "```",
+                        "",
+                    ]
+                )
 
         lines.append("---")
         lines.append("")
 
     # Add footer
-    lines.extend([
-        "## Authentication",
-        "",
-        "Endpoints marked with 🔒 require authentication.",
-        "",
-        "Include an `Authorization` header with your API token:",
-        "",
-        "```",
-        "Authorization: Bearer <your-api-token>",
-        "```",
-        "",
-        "Set `ARAGORA_API_TOKEN` environment variable to configure the token.",
-        "",
-        "---",
-        "",
-        "*Generated automatically by `scripts/generate_api_docs.py`*",
-    ])
+    lines.extend(
+        [
+            "## Authentication",
+            "",
+            "Endpoints marked with 🔒 require authentication.",
+            "",
+            "Include an `Authorization` header with your API token:",
+            "",
+            "```",
+            "Authorization: Bearer <your-api-token>",
+            "```",
+            "",
+            "Set `ARAGORA_API_TOKEN` environment variable to configure the token.",
+            "",
+            "---",
+            "",
+            "*Generated automatically by `scripts/generate_api_docs.py`*",
+        ]
+    )
 
-    return '\n'.join(lines)
+    return "\n".join(lines)
 
 
 def generate_json(groups: list[EndpointGroup]) -> str:
     """Generate JSON documentation from endpoint groups."""
-    data = {
-        "title": "Aragora API",
-        "version": "1.0.0",
-        "groups": []
-    }
+    data = {"title": "Aragora API", "version": "1.0.0", "groups": []}
 
     for group in groups:
-        group_data = {
-            "name": group.name,
-            "description": group.description,
-            "endpoints": []
-        }
+        group_data = {"name": group.name, "description": group.description, "endpoints": []}
 
         for endpoint in group.endpoints:
             endpoint_data = {
@@ -407,15 +412,15 @@ def generate_json(groups: list[EndpointGroup]) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate API documentation from handler classes"
-    )
+    parser = argparse.ArgumentParser(description="Generate API documentation from handler classes")
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output file path (default: stdout)",
     )
     parser.add_argument(
-        "--format", "-f",
+        "--format",
+        "-f",
         choices=["markdown", "json"],
         default="markdown",
         help="Output format (default: markdown)",

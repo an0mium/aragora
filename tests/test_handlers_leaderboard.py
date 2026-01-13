@@ -18,6 +18,7 @@ from aragora.server.handlers.base import clear_cache
 @dataclass
 class MockAgentReputation:
     """Mock reputation object."""
+
     agent_name: str
     reputation_score: float = 0.8
     vote_weight: float = 1.0
@@ -29,6 +30,7 @@ class MockAgentReputation:
 @dataclass
 class MockConsistencyScore:
     """Mock consistency score from FlipDetector."""
+
     total_flips: int = 2
     total_positions: int = 10
 
@@ -156,11 +158,7 @@ class TestLeaderboardView:
 
     def test_validates_domain_parameter(self, handler):
         """Validates domain parameter for security."""
-        result = handler.handle(
-            "/api/leaderboard-view",
-            {"domain": ["../../../etc/passwd"]},
-            None
-        )
+        result = handler.handle("/api/leaderboard-view", {"domain": ["../../../etc/passwd"]}, None)
 
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -169,9 +167,7 @@ class TestLeaderboardView:
     def test_validates_loop_id_parameter(self, handler):
         """Validates loop_id parameter for security."""
         result = handler.handle(
-            "/api/leaderboard-view",
-            {"loop_id": ["<script>alert(1)</script>"]},
-            None
+            "/api/leaderboard-view", {"loop_id": ["<script>alert(1)</script>"]}, None
         )
 
         assert result.status_code == 400
@@ -184,11 +180,7 @@ class TestLeaderboardView:
         handler.ctx["elo_system"].get_cached_recent_matches.return_value = []
         handler.ctx["elo_system"].get_stats.return_value = {}
 
-        result = handler.handle(
-            "/api/leaderboard-view",
-            {"domain": ["technology"]},
-            None
-        )
+        result = handler.handle("/api/leaderboard-view", {"domain": ["technology"]}, None)
 
         assert result.status_code == 200
 
@@ -252,7 +244,9 @@ class TestPartialFailures:
 
     def test_error_messages_captured(self, handler):
         """Captures error messages for failed sections."""
-        handler.ctx["elo_system"].get_cached_leaderboard.side_effect = Exception("Database connection failed")
+        handler.ctx["elo_system"].get_cached_leaderboard.side_effect = Exception(
+            "Database connection failed"
+        )
         handler.ctx["elo_system"].get_cached_recent_matches.return_value = []
         handler.ctx["elo_system"].get_stats.return_value = {}
 
@@ -278,9 +272,7 @@ class TestFetchRankings:
 
         handler._fetch_rankings(10, "technology")
 
-        handler.ctx["elo_system"].get_leaderboard.assert_called_with(
-            limit=10, domain="technology"
-        )
+        handler.ctx["elo_system"].get_leaderboard.assert_called_with(limit=10, domain="technology")
 
     def test_uses_cached_leaderboard_without_domain(self, handler):
         """Uses cached leaderboard when no domain specified."""
@@ -306,6 +298,7 @@ class TestFetchRankings:
 
     def test_handles_object_agents(self, handler):
         """Handles agent data as objects with attributes."""
+
         class MockAgent:
             def __init__(self, name, elo):
                 self.name = name
@@ -332,7 +325,7 @@ class TestFetchRankings:
         agents = [{"name": "agent1", "elo": 1500}]
         handler.ctx["elo_system"].get_cached_leaderboard.return_value = agents
 
-        with patch('aragora.insights.flip_detector.FlipDetector') as mock_detector_class:
+        with patch("aragora.insights.flip_detector.FlipDetector") as mock_detector_class:
             mock_detector = Mock()
             mock_detector.get_agents_consistency_batch.return_value = {
                 "agent1": MockConsistencyScore(total_flips=1, total_positions=10)
@@ -429,7 +422,7 @@ class TestFetchTeams:
 
     def test_returns_team_combinations(self, handler):
         """Returns team combinations from AgentSelector."""
-        with patch('aragora.routing.selection.AgentSelector') as mock_selector_class:
+        with patch("aragora.routing.selection.AgentSelector") as mock_selector_class:
             combinations = [
                 {"agents": ["a1", "a2"], "win_rate": 0.8},
                 {"agents": ["a3", "a4"], "win_rate": 0.7},

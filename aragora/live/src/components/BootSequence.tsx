@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface BootSequenceProps {
   onComplete: () => void;
@@ -8,29 +8,62 @@ interface BootSequenceProps {
 }
 
 const BOOT_LINES = [
-  { text: 'ARAGORA SYSTEM v2.0.0', delay: 0, style: 'title' },
-  { text: '========================', delay: 100, style: 'divider' },
+  { text: 'ARAGORA SYSTEM v0.8.0', delay: 0, style: 'title' },
+  { text: '═══════════════════════════════════════════════', delay: 100, style: 'divider' },
   { text: '', delay: 200, style: 'normal' },
   { text: '[INIT] Loading kernel modules...', delay: 300, style: 'system' },
-  { text: '[OK] Multi-agent debate engine', delay: 500, style: 'success' },
-  { text: '[OK] ELO rating system', delay: 700, style: 'success' },
-  { text: '[OK] Grounded personas module', delay: 900, style: 'success' },
-  { text: '[OK] Relationship tracker', delay: 1100, style: 'success' },
-  { text: '', delay: 1200, style: 'normal' },
-  { text: '[INIT] Connecting agents...', delay: 1300, style: 'system' },
-  { text: '  > Claude (Anthropic).......... READY', delay: 1500, style: 'agent' },
-  { text: '  > Gemini (Google)............. READY', delay: 1700, style: 'agent' },
-  { text: '  > Codex (OpenAI).............. READY', delay: 1900, style: 'agent' },
-  { text: '  > Grok (xAI).................. READY', delay: 2100, style: 'agent' },
-  { text: '', delay: 2200, style: 'normal' },
-  { text: '[INIT] Starting nomic loop...', delay: 2300, style: 'system' },
-  { text: '[OK] WebSocket server active', delay: 2500, style: 'success' },
-  { text: '[OK] API endpoints mounted', delay: 2700, style: 'success' },
-  { text: '', delay: 2800, style: 'normal' },
-  { text: '========================', delay: 2900, style: 'divider' },
-  { text: 'SYSTEM READY', delay: 3000, style: 'ready' },
-  { text: '', delay: 3100, style: 'normal' },
-  { text: 'Press any key to continue...', delay: 3200, style: 'prompt' },
+  { text: '[OK] Multi-agent debate engine', delay: 450, style: 'success' },
+  { text: '[OK] ELO rating system', delay: 550, style: 'success' },
+  { text: '[OK] Continuum memory (4-tier)', delay: 650, style: 'success' },
+  { text: '[OK] Calibration tracker', delay: 750, style: 'success' },
+  { text: '[OK] WebSocket streaming', delay: 850, style: 'success' },
+  { text: '', delay: 900, style: 'normal' },
+  { text: '[INIT] Connecting AI agents...', delay: 950, style: 'system' },
+  { text: '', delay: 1000, style: 'normal' },
+  { text: '  ┌─ ANTHROPIC ──────────────────────────────┐', delay: 1050, style: 'provider' },
+  { text: '  │  Claude 3.5 Sonnet.............. READY   │', delay: 1100, style: 'agent' },
+  { text: '  │  Claude 3 Opus.................. READY   │', delay: 1150, style: 'agent' },
+  { text: '  │  Claude 3 Haiku................. READY   │', delay: 1200, style: 'agent' },
+  { text: '  └──────────────────────────────────────────┘', delay: 1250, style: 'provider' },
+  { text: '', delay: 1300, style: 'normal' },
+  { text: '  ┌─ OPENAI ─────────────────────────────────┐', delay: 1350, style: 'provider' },
+  { text: '  │  GPT-4o......................... READY   │', delay: 1400, style: 'agent' },
+  { text: '  │  GPT-4 Turbo.................... READY   │', delay: 1450, style: 'agent' },
+  { text: '  │  o1-preview..................... READY   │', delay: 1500, style: 'agent' },
+  { text: '  └──────────────────────────────────────────┘', delay: 1550, style: 'provider' },
+  { text: '', delay: 1600, style: 'normal' },
+  { text: '  ┌─ GOOGLE ─────────────────────────────────┐', delay: 1650, style: 'provider' },
+  { text: '  │  Gemini 1.5 Pro................. READY   │', delay: 1700, style: 'agent' },
+  { text: '  │  Gemini 1.5 Flash............... READY   │', delay: 1750, style: 'agent' },
+  { text: '  └──────────────────────────────────────────┘', delay: 1800, style: 'provider' },
+  { text: '', delay: 1850, style: 'normal' },
+  { text: '  ┌─ XAI ────────────────────────────────────┐', delay: 1900, style: 'provider' },
+  { text: '  │  Grok-2......................... READY   │', delay: 1950, style: 'agent' },
+  { text: '  │  Grok-beta...................... READY   │', delay: 2000, style: 'agent' },
+  { text: '  └──────────────────────────────────────────┘', delay: 2050, style: 'provider' },
+  { text: '', delay: 2100, style: 'normal' },
+  { text: '  ┌─ MISTRAL ────────────────────────────────┐', delay: 2150, style: 'provider' },
+  { text: '  │  Mistral Large.................. READY   │', delay: 2200, style: 'agent' },
+  { text: '  │  Codestral...................... READY   │', delay: 2250, style: 'agent' },
+  { text: '  └──────────────────────────────────────────┘', delay: 2300, style: 'provider' },
+  { text: '', delay: 2350, style: 'normal' },
+  { text: '  ┌─ OPENROUTER (via proxy) ─────────────────┐', delay: 2400, style: 'provider' },
+  { text: '  │  DeepSeek V3.................... READY   │', delay: 2450, style: 'agent' },
+  { text: '  │  Qwen 2.5....................... READY   │', delay: 2500, style: 'agent' },
+  { text: '  │  Llama 3.3 70B.................. READY   │', delay: 2550, style: 'agent' },
+  { text: '  │  Yi-Large....................... READY   │', delay: 2600, style: 'agent' },
+  { text: '  │  Kimi (Moonshot)................ READY   │', delay: 2650, style: 'agent' },
+  { text: '  └──────────────────────────────────────────┘', delay: 2700, style: 'provider' },
+  { text: '', delay: 2750, style: 'normal' },
+  { text: '[OK] 20+ models across 7 providers online', delay: 2800, style: 'success' },
+  { text: '', delay: 2850, style: 'normal' },
+  { text: '[INIT] Starting nomic loop...', delay: 2900, style: 'system' },
+  { text: '[OK] API endpoints (106+) mounted', delay: 3000, style: 'success' },
+  { text: '[OK] Real-time event streaming active', delay: 3100, style: 'success' },
+  { text: '', delay: 3150, style: 'normal' },
+  { text: '═══════════════════════════════════════════════', delay: 3200, style: 'divider' },
+  { text: 'SYSTEM READY', delay: 3300, style: 'ready' },
+  { text: '', delay: 3400, style: 'normal' },
 ];
 
 export function BootSequence({ onComplete, skip = false }: BootSequenceProps) {
@@ -38,12 +71,39 @@ export function BootSequence({ onComplete, skip = false }: BootSequenceProps) {
   const [showCursor, setShowCursor] = useState(true);
   const [isComplete, setIsComplete] = useState(false);
 
-  // Skip boot sequence if requested
+  // Handle skip - any key or click skips immediately
+  const handleSkip = useCallback(() => {
+    onComplete();
+  }, [onComplete]);
+
+  // Skip boot sequence if requested via prop
   useEffect(() => {
     if (skip) {
       onComplete();
     }
   }, [skip, onComplete]);
+
+  // Listen for keypress or click to skip at ANY time
+  useEffect(() => {
+    if (skip) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip on any key
+      handleSkip();
+    };
+
+    const handleClick = () => {
+      handleSkip();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('click', handleClick);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('click', handleClick);
+    };
+  }, [skip, handleSkip]);
 
   // Reveal lines progressively
   useEffect(() => {
@@ -72,25 +132,15 @@ export function BootSequence({ onComplete, skip = false }: BootSequenceProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Handle keypress or click to continue
+  // Auto-continue after completion
   useEffect(() => {
     if (!isComplete) return;
 
-    const handleInteraction = () => {
+    const autoTimer = setTimeout(() => {
       onComplete();
-    };
+    }, 1500);
 
-    window.addEventListener('keydown', handleInteraction);
-    window.addEventListener('click', handleInteraction);
-
-    // Auto-continue after 2 seconds
-    const autoTimer = setTimeout(handleInteraction, 2000);
-
-    return () => {
-      window.removeEventListener('keydown', handleInteraction);
-      window.removeEventListener('click', handleInteraction);
-      clearTimeout(autoTimer);
-    };
+    return () => clearTimeout(autoTimer);
   }, [isComplete, onComplete]);
 
   if (skip) return null;
@@ -105,8 +155,10 @@ export function BootSequence({ onComplete, skip = false }: BootSequenceProps) {
         return 'text-acid-cyan';
       case 'success':
         return 'text-acid-green';
+      case 'provider':
+        return 'text-acid-cyan/70';
       case 'agent':
-        return 'text-text';
+        return 'text-text/80';
       case 'ready':
         return 'text-acid-green font-bold glow-text animate-pulse';
       case 'prompt':
@@ -117,13 +169,18 @@ export function BootSequence({ onComplete, skip = false }: BootSequenceProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-bg z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-bg z-50 flex items-center justify-center cursor-pointer">
       <div className="max-w-2xl w-full p-8 font-mono text-sm">
+        {/* Skip hint at top */}
+        <div className="text-center mb-4 text-acid-yellow/60 text-xs animate-pulse">
+          Press any key or click to skip...
+        </div>
+
         {BOOT_LINES.slice(0, visibleLines).map((line, index) => (
           <div
             key={index}
             className={`${getLineStyle(line.style)} boot-line`}
-            style={{ animationDelay: `${index * 0.05}s` }}
+            style={{ animationDelay: `${index * 0.02}s` }}
           >
             {line.text}
             {index === visibleLines - 1 && !isComplete && (

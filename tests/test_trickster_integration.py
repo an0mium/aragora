@@ -47,9 +47,7 @@ class TestHollowConsensusDetection:
         except ImportError:
             pytest.skip("Trickster module not available")
 
-        trickster = EvidencePoweredTrickster(
-            config=TricksterConfig(sensitivity=0.7)
-        )
+        trickster = EvidencePoweredTrickster(config=TricksterConfig(sensitivity=0.7))
 
         # Simulate a round with high agreement but low evidence
         round_data = {
@@ -62,7 +60,7 @@ class TestHollowConsensusDetection:
         }
 
         # Should detect hollow consensus
-        if hasattr(trickster, 'detect_hollow_consensus'):
+        if hasattr(trickster, "detect_hollow_consensus"):
             is_hollow = trickster.detect_hollow_consensus(round_data)
             # Low evidence + high agreement = hollow
             assert is_hollow is True
@@ -74,21 +72,27 @@ class TestHollowConsensusDetection:
         except ImportError:
             pytest.skip("Trickster module not available")
 
-        trickster = EvidencePoweredTrickster(
-            config=TricksterConfig(sensitivity=0.7)
-        )
+        trickster = EvidencePoweredTrickster(config=TricksterConfig(sensitivity=0.7))
 
         # Simulate a round with evidence-backed agreement
         round_data = {
             "proposals": [
-                {"agent": "claude", "content": "Based on the benchmarks, X is faster", "confidence": 0.9},
-                {"agent": "gpt4", "content": "The data supports this conclusion", "confidence": 0.85},
+                {
+                    "agent": "claude",
+                    "content": "Based on the benchmarks, X is faster",
+                    "confidence": 0.9,
+                },
+                {
+                    "agent": "gpt4",
+                    "content": "The data supports this conclusion",
+                    "confidence": 0.85,
+                },
             ],
             "evidence_count": 3,
             "disagreement_level": 0.1,
         }
 
-        if hasattr(trickster, 'detect_hollow_consensus'):
+        if hasattr(trickster, "detect_hollow_consensus"):
             is_hollow = trickster.detect_hollow_consensus(round_data)
             # Evidence present = not hollow
             assert is_hollow is False
@@ -104,11 +108,9 @@ class TestTricksterChallenge:
         except ImportError:
             pytest.skip("Trickster module not available")
 
-        trickster = EvidencePoweredTrickster(
-            config=TricksterConfig(sensitivity=0.7)
-        )
+        trickster = EvidencePoweredTrickster(config=TricksterConfig(sensitivity=0.7))
 
-        if hasattr(trickster, 'generate_challenge'):
+        if hasattr(trickster, "generate_challenge"):
             challenge = trickster.generate_challenge(
                 topic="Should we use microservices?",
                 current_consensus="Microservices are the best approach",
@@ -117,8 +119,10 @@ class TestTricksterChallenge:
             assert challenge is not None
             assert len(challenge) > 0
             # Challenge should question the consensus
-            assert any(word in challenge.lower() for word in
-                       ["consider", "what if", "evidence", "why", "assume"])
+            assert any(
+                word in challenge.lower()
+                for word in ["consider", "what if", "evidence", "why", "assume"]
+            )
 
 
 class TestTricksterWiring:
@@ -182,8 +186,8 @@ class TestTricksterEvents:
         """StreamEventType should include trickster events."""
         from aragora.server.stream.events import StreamEventType
 
-        assert hasattr(StreamEventType, 'HOLLOW_CONSENSUS')
-        assert hasattr(StreamEventType, 'TRICKSTER_INTERVENTION')
+        assert hasattr(StreamEventType, "HOLLOW_CONSENSUS")
+        assert hasattr(StreamEventType, "TRICKSTER_INTERVENTION")
 
     def test_spectator_maps_trickster_events(self):
         """Spectator should map trickster event types."""
@@ -193,10 +197,10 @@ class TestTricksterEvents:
         spectator = Spectator(loop_id="test", event_emitter=None)
 
         # Check type mapping
-        type_mapping = spectator.type_mapping if hasattr(spectator, 'type_mapping') else {}
+        type_mapping = spectator.type_mapping if hasattr(spectator, "type_mapping") else {}
 
         # Should map hollow_consensus and trickster_intervention
-        assert "hollow_consensus" in type_mapping or hasattr(spectator, '_map_event_type')
+        assert "hollow_consensus" in type_mapping or hasattr(spectator, "_map_event_type")
 
 
 class TestTricksterIntegration:
@@ -223,7 +227,7 @@ class TestTricksterIntegration:
             {"agent": "gpt4", "content": "Agreed", "confidence": 0.85},
         ]
 
-        if hasattr(trickster, 'check_and_intervene'):
+        if hasattr(trickster, "check_and_intervene"):
             intervention = await trickster.check_and_intervene(
                 proposals=proposals,
                 evidence_count=0,
@@ -244,14 +248,12 @@ class TestTricksterIntegration:
 
         from aragora.server.stream import StreamEvent, StreamEventType
 
-        trickster = EvidencePoweredTrickster(
-            config=TricksterConfig(sensitivity=0.5)
-        )
+        trickster = EvidencePoweredTrickster(config=TricksterConfig(sensitivity=0.5))
 
         mock_emitter = Mock()
 
         # Trigger intervention
-        if hasattr(trickster, 'emit_intervention_event'):
+        if hasattr(trickster, "emit_intervention_event"):
             trickster.emit_intervention_event(
                 event_emitter=mock_emitter,
                 round_num=1,
@@ -291,7 +293,7 @@ class TestNoveltyTracker:
         tracker.add_proposal("Caching is the answer")
 
         # Should detect low novelty
-        if hasattr(tracker, 'is_stale'):
+        if hasattr(tracker, "is_stale"):
             assert tracker.is_stale("Caching would help") is True
 
     def test_novelty_tracker_accepts_novel_content(self):
@@ -306,5 +308,5 @@ class TestNoveltyTracker:
         tracker.add_proposal("The solution is to use caching")
 
         # Novel content should not be stale
-        if hasattr(tracker, 'is_stale'):
+        if hasattr(tracker, "is_stale"):
             assert tracker.is_stale("We need better error handling instead") is False

@@ -145,7 +145,9 @@ class MemoryManager:
                 importance=importance,
                 metadata=metadata,
             )
-            logger.info(f"  [continuum] Stored outcome as {tier}-tier memory (importance: {importance:.2f})")
+            logger.info(
+                f"  [continuum] Stored outcome as {tier}-tier memory (importance: {importance:.2f})"
+            )
 
         except Exception as e:
             _, msg, exc_info = _build_error_action(e, "continuum")
@@ -179,22 +181,22 @@ class MemoryManager:
             # Extract agreeing/dissenting agents from votes
             agreeing_agents = []
             dissenting_agents = []
-            for vote in getattr(result, 'votes', []):
-                agent_name = getattr(vote, 'agent', None)
+            for vote in getattr(result, "votes", []):
+                agent_name = getattr(vote, "agent", None)
                 if not agent_name:
                     continue
                 # Check if vote supports consensus (vote.choice matches winner or high confidence)
-                supports = getattr(vote, 'supports_consensus', None)
+                supports = getattr(vote, "supports_consensus", None)
                 if supports is None:
                     # Fallback: check if vote.choice matches winner
-                    supports = getattr(vote, 'choice', '') == result.winner
+                    supports = getattr(vote, "choice", "") == result.winner
                 if supports:
                     agreeing_agents.append(agent_name)
                 else:
                     dissenting_agents.append(agent_name)
 
             # Get participating agents
-            participating = [a.name for a in getattr(result, 'agents', [])]
+            participating = [a.name for a in getattr(result, "agents", [])]
             if not participating:
                 participating = agreeing_agents + dissenting_agents
 
@@ -202,9 +204,9 @@ class MemoryManager:
             key_claims = []
             if belief_cruxes:
                 key_claims = belief_cruxes[:10]  # Limit to top 10
-            elif hasattr(result, 'grounded_verdict') and result.grounded_verdict:
-                claims = getattr(result.grounded_verdict, 'claims', [])
-                key_claims = [c.statement for c in claims[:5] if hasattr(c, 'statement')]
+            elif hasattr(result, "grounded_verdict") and result.grounded_verdict:
+                claims = getattr(result.grounded_verdict, "claims", [])
+                key_claims = [c.statement for c in claims[:5] if hasattr(c, "statement")]
 
             # Store consensus record
             domain = self._get_domain()
@@ -280,16 +282,16 @@ class MemoryManager:
 
             # Find the agent's last message to extract their reasoning
             agent_content = ""
-            for msg in reversed(getattr(result, 'messages', [])):
-                if getattr(msg, 'agent', None) == agent_name:
-                    agent_content = getattr(msg, 'content', '')[:500]
+            for msg in reversed(getattr(result, "messages", [])):
+                if getattr(msg, "agent", None) == agent_name:
+                    agent_content = getattr(msg, "content", "")[:500]
                     break
 
             # Find agent's vote for confidence
             agent_confidence = 0.5
-            for vote in getattr(result, 'votes', []):
-                if getattr(vote, 'agent', None) == agent_name:
-                    agent_confidence = getattr(vote, 'confidence', 0.5)
+            for vote in getattr(result, "votes", []):
+                if getattr(vote, "agent", None) == agent_name:
+                    agent_confidence = getattr(vote, "confidence", 0.5)
                     break
 
             # Determine dissent type based on confidence
@@ -335,9 +337,9 @@ class MemoryManager:
 
             for snippet in evidence_snippets[:10]:  # Limit to top 10 snippets
                 # Get content from snippet (handle different formats)
-                content = getattr(snippet, 'content', str(snippet))[:500]
-                source = getattr(snippet, 'source', 'unknown')
-                relevance = getattr(snippet, 'relevance', 0.5)
+                content = getattr(snippet, "content", str(snippet))[:500]
+                source = getattr(snippet, "source", "unknown")
+                relevance = getattr(snippet, "relevance", 0.5)
 
                 if len(content) < 50:  # Skip too-short snippets
                     continue
@@ -354,16 +356,20 @@ class MemoryManager:
                             "domain": domain,
                             "source": source,
                             "type": "evidence",
-                        }
+                        },
                     )
                     stored_count += 1
                 except Exception as e:
                     logger.debug(f"Continuum storage error (non-fatal): {e}")
 
             if stored_count > 0:
-                logger.info(f"  [continuum] Stored {stored_count} evidence snippets for future retrieval")
+                logger.info(
+                    f"  [continuum] Stored {stored_count} evidence snippets for future retrieval"
+                )
                 # Emit EVIDENCE_FOUND event for real-time panel updates
-                self._emit_evidence_found(stored_count, domain, task, evidence_snippets[:stored_count])
+                self._emit_evidence_found(
+                    stored_count, domain, task, evidence_snippets[:stored_count]
+                )
 
         except Exception as e:
             _, msg, exc_info = _build_error_action(e, "continuum")
@@ -386,23 +392,27 @@ class MemoryManager:
             # Build snippet summaries for the event
             snippet_summaries = []
             for snippet in snippets[:5]:  # Limit to 5 in event
-                content = getattr(snippet, 'content', str(snippet))[:150]
-                source = getattr(snippet, 'source', 'unknown')
-                snippet_summaries.append({
-                    "content": content,
-                    "source": source,
-                })
+                content = getattr(snippet, "content", str(snippet))[:150]
+                source = getattr(snippet, "source", "unknown")
+                snippet_summaries.append(
+                    {
+                        "content": content,
+                        "source": source,
+                    }
+                )
 
-            self.event_emitter.emit(StreamEvent(
-                type=StreamEventType.EVIDENCE_FOUND,
-                loop_id=self.loop_id,
-                data={
-                    "count": count,
-                    "domain": domain,
-                    "task": task[:100],
-                    "snippets": snippet_summaries,
-                }
-            ))
+            self.event_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.EVIDENCE_FOUND,
+                    loop_id=self.loop_id,
+                    data={
+                        "count": count,
+                        "domain": domain,
+                        "task": task[:100],
+                        "snippets": snippet_summaries,
+                    },
+                )
+            )
         except Exception as e:
             logger.debug(f"Evidence event emission error: {e}")
 
@@ -448,13 +458,17 @@ class MemoryManager:
                                 quality_after=result.confidence if success else 0.3,
                             )
                         except Exception as e:
-                            logger.debug(f"  [tier_analytics] Failed to record usage for {mem_id}: {e}")
+                            logger.debug(
+                                f"  [tier_analytics] Failed to record usage for {mem_id}: {e}"
+                            )
 
                 except Exception as e:
                     logger.debug(f"  [continuum] Failed to update memory {mem_id}: {e}")
 
             if updated_count > 0:
-                logger.info(f"  [continuum] Updated {updated_count} memories with outcome (success={success})")
+                logger.info(
+                    f"  [continuum] Updated {updated_count} memories with outcome (success={success})"
+                )
 
             # Clear tracked IDs and tiers after update
             self._retrieved_ids = []
@@ -462,7 +476,9 @@ class MemoryManager:
 
         except Exception as e:
             _, msg, exc_info = _build_error_action(e, "continuum")
-            logger.warning(f"  [continuum] Failed to update memory outcomes: {msg}", exc_info=exc_info)
+            logger.warning(
+                f"  [continuum] Failed to update memory outcomes: {msg}", exc_info=exc_info
+            )
 
     async def fetch_historical_context(self, task: str, limit: int = 3) -> str:
         """Fetch similar past debates for historical context.
@@ -492,21 +508,27 @@ class MemoryManager:
                 self._notify_spectator(
                     "memory_recall",
                     details=f"Retrieved {len(results)} similar debates (top: {top_similarity:.0%})",
-                    metric=top_similarity
+                    metric=top_similarity,
                 )
 
             # Also emit to WebSocket stream for live dashboard
             if self.event_emitter:
                 from aragora.server.stream import StreamEvent, StreamEventType
-                self.event_emitter.emit(StreamEvent(
-                    type=StreamEventType.MEMORY_RECALL,
-                    loop_id=self.loop_id,
-                    data={
-                        "query": task,
-                        "hits": [{"topic": excerpt, "similarity": round(sim, 2)} for _, excerpt, sim in results[:3]],
-                        "count": len(results)
-                    }
-                ))
+
+                self.event_emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.MEMORY_RECALL,
+                        loop_id=self.loop_id,
+                        data={
+                            "query": task,
+                            "hits": [
+                                {"topic": excerpt, "similarity": round(sim, 2)}
+                                for _, excerpt, sim in results[:3]
+                            ],
+                            "count": len(results),
+                        },
+                    )
+                )
 
             lines = ["## HISTORICAL CONTEXT (Similar Past Debates)"]
             lines.append("Learn from these previous debates on similar topics:\n")
@@ -554,15 +576,21 @@ class MemoryManager:
                 return ""
 
             # Convert Pattern objects to dict format and format for prompt
-            result = self._format_patterns_for_prompt([
-                {
-                    "category": p.issue_type,
-                    "pattern": f"{p.issue_text} → {p.suggestion_text}" if p.suggestion_text else p.issue_text,
-                    "occurrences": p.success_count,
-                    "avg_severity": p.avg_severity,
-                }
-                for p in patterns
-            ])
+            result = self._format_patterns_for_prompt(
+                [
+                    {
+                        "category": p.issue_type,
+                        "pattern": (
+                            f"{p.issue_text} → {p.suggestion_text}"
+                            if p.suggestion_text
+                            else p.issue_text
+                        ),
+                        "occurrences": p.success_count,
+                        "avg_severity": p.avg_severity,
+                    }
+                    for p in patterns
+                ]
+            )
 
             # Cache the result
             self._patterns_cache = (now, result)

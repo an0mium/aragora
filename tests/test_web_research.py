@@ -60,7 +60,7 @@ async def test_web_connector_caching():
             source_id="test",
             content="Test content 1",
             title="Test Title 1",
-            confidence=0.8
+            confidence=0.8,
         )
     ]
 
@@ -91,11 +91,11 @@ async def test_web_connector_with_test_seam():
                 source_id="http://example.com",
                 content="Test content via seam",
                 title="Seam Test Title",
-                confidence=0.9
+                confidence=0.9,
             )
         ]
 
-        with patch.object(connector, '_search_web_actual', new_callable=AsyncMock) as mock_search:
+        with patch.object(connector, "_search_web_actual", new_callable=AsyncMock) as mock_search:
             mock_search.return_value = mock_results
 
             # First search - should call _search_web_actual
@@ -120,7 +120,7 @@ async def test_web_connector_local_ip_blocking():
     assert connector._is_local_ip("http://localhost/test")
     assert connector._is_local_ip("http://127.0.0.1/test")
     assert connector._is_local_ip("http://192.168.1.1/test")  # Private IP
-    assert connector._is_local_ip("http://10.0.0.1/test")     # Private IP
+    assert connector._is_local_ip("http://10.0.0.1/test")  # Private IP
 
     # Test allowing public IPs
     assert not connector._is_local_ip("http://google.com/test")
@@ -139,7 +139,7 @@ async def test_evidence_collector_with_web_connector():
         title="AI Safety Best Practices",
         url="http://example.com/ai-safety",
         confidence=0.7,
-        authority=0.8
+        authority=0.8,
     )
 
     web_connector = MockWebConnector([mock_evidence])
@@ -218,7 +218,7 @@ async def test_research_can_be_disabled():
 
     arena = Arena(env, agents, protocol)
 
-    with patch.object(arena, '_perform_research', new_callable=AsyncMock) as mock_research:
+    with patch.object(arena, "_perform_research", new_callable=AsyncMock) as mock_research:
         try:
             await arena.run()
         except Exception:
@@ -238,7 +238,7 @@ async def test_research_failure_graceful():
     arena = Arena(env, agents, protocol)
 
     # Mock research to raise exception
-    with patch.object(arena, '_perform_research', new_callable=AsyncMock) as mock_research:
+    with patch.object(arena, "_perform_research", new_callable=AsyncMock) as mock_research:
         mock_research.side_effect = Exception("Research failed")
 
         # Run should not raise exception due to research failure
@@ -261,13 +261,10 @@ def test_evidence_formatting():
         title="Test Title",
         snippet="Test content snippet",
         url="http://example.com",
-        reliability_score=0.8
+        reliability_score=0.8,
     )
 
-    pack = EvidencePack(
-        topic_keywords=["test", "topic"],
-        snippets=[snippet]
-    )
+    pack = EvidencePack(topic_keywords=["test", "topic"], snippets=[snippet])
 
     context = pack.to_context_string()
     assert "EVID-test_1" in context

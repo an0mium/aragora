@@ -128,7 +128,11 @@ class ScheduledDebateStore(SQLiteStore):
                     record.volume,
                     record.debate_id,
                     record.created_at,
-                    1 if record.consensus_reached else 0 if record.consensus_reached is not None else None,
+                    (
+                        1
+                        if record.consensus_reached
+                        else 0 if record.consensus_reached is not None else None
+                    ),
                     record.confidence,
                     record.rounds_used,
                     record.scheduler_run_id,
@@ -270,8 +274,7 @@ class ScheduledDebateStore(SQLiteStore):
             """
         )
         analytics["by_platform"] = {
-            row[0]: {"total": row[1], "consensus_count": row[2]}
-            for row in rows
+            row[0]: {"total": row[1], "consensus_count": row[2]} for row in rows
         }
 
         # By category
@@ -285,8 +288,7 @@ class ScheduledDebateStore(SQLiteStore):
             """
         )
         analytics["by_category"] = {
-            row[0]: {"total": row[1], "consensus_count": row[2]}
-            for row in rows
+            row[0]: {"total": row[1], "consensus_count": row[2]} for row in rows
         }
 
         # Recent activity (last 7 days by day)

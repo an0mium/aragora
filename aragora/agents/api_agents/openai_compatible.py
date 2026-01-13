@@ -84,7 +84,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
     def _build_messages(self, full_prompt: str) -> list[dict]:
         """Build messages array with optional system prompt."""
         messages = [{"role": "user", "content": full_prompt}]
-        if hasattr(self, 'system_prompt') and self.system_prompt:
+        if hasattr(self, "system_prompt") and self.system_prompt:
             messages.insert(0, {"role": "system", "content": self.system_prompt})
         return messages
 
@@ -99,11 +99,11 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
             payload["stream"] = True
 
         # Apply generation parameters from persona if set (from APIAgent)
-        if hasattr(self, 'temperature') and self.temperature is not None:
+        if hasattr(self, "temperature") and self.temperature is not None:
             payload["temperature"] = self.temperature
-        if hasattr(self, 'top_p') and self.top_p is not None:
+        if hasattr(self, "top_p") and self.top_p is not None:
             payload["top_p"] = self.top_p
-        if hasattr(self, 'frequency_penalty') and self.frequency_penalty is not None:
+        if hasattr(self, "frequency_penalty") and self.frequency_penalty is not None:
             payload["frequency_penalty"] = self.frequency_penalty
 
         extra = self._build_extra_payload()
@@ -131,7 +131,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
 
     def _get_error_prefix(self) -> str:
         """Get error message prefix for this agent type."""
-        return self.agent_type.title() if hasattr(self, 'agent_type') else "API"
+        return self.agent_type.title() if hasattr(self, "agent_type") else "API"
 
     @handle_agent_errors(
         max_retries=3,

@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 class RiskLevel(Enum):
     """Risk severity levels."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -31,6 +32,7 @@ class RiskLevel(Enum):
 
 class RiskCategory(Enum):
     """Categories of risk."""
+
     TECHNICAL = "technical"
     SECURITY = "security"
     PERFORMANCE = "performance"
@@ -136,7 +138,9 @@ class RiskRegister:
             "medium": len(self.get_by_level(RiskLevel.MEDIUM)),
             "low": len(self.get_by_level(RiskLevel.LOW)),
             "unmitigated": len(self.get_unmitigated()),
-            "avg_risk_score": sum(r.risk_score for r in self.risks) / len(self.risks) if self.risks else 0,
+            "avg_risk_score": (
+                sum(r.risk_score for r in self.risks) / len(self.risks) if self.risks else 0
+            ),
         }
 
     def to_markdown(self) -> str:
@@ -226,6 +230,7 @@ class RiskAnalyzer:
 
     def __init__(self, artifact: "DebateArtifact") -> None:
         from aragora.export.artifact import DebateArtifact
+
         self.artifact: DebateArtifact = artifact
 
     def analyze(self) -> RiskRegister:
@@ -299,7 +304,7 @@ class RiskAnalyzer:
                 id="consensus-low-confidence",
                 title="Low consensus confidence",
                 description=f"Debate reached only {consensus.confidence:.0%} confidence. "
-                           f"Implementation may face challenges or require revision.",
+                f"Implementation may face challenges or require revision.",
                 level=RiskLevel.MEDIUM if consensus.confidence >= 0.5 else RiskLevel.HIGH,
                 category=RiskCategory.UNKNOWN,
                 source="consensus analysis",

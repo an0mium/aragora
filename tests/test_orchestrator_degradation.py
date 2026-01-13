@@ -21,6 +21,7 @@ class TestArenaInitDegradation:
     def mock_env(self):
         """Create a minimal Environment for testing."""
         from aragora.core import Environment
+
         return Environment(task="Test task")
 
     @pytest.fixture
@@ -40,6 +41,7 @@ class TestArenaInitDegradation:
     def mock_protocol(self):
         """Create a minimal DebateProtocol for testing."""
         from aragora.debate.protocol import DebateProtocol
+
         return DebateProtocol(rounds=1)
 
     def test_arena_init_without_continuum_memory(self, mock_env, mock_agents, mock_protocol):
@@ -294,4 +296,3 @@ class TestFullDegradationScenario:
         assert arena._get_persona_context(mock_agent) == ""
         assert arena._get_role_context(mock_agent) == ""
         assert arena._get_continuum_context() == ""
-

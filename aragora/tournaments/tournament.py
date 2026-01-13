@@ -9,21 +9,18 @@ Inspired by ChatArena's competitive environments, this module provides:
 """
 
 import asyncio
-import uuid
+import itertools
 import json
 import logging
 import sqlite3
-from contextlib import contextmanager
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Callable, Generator, Optional
 from enum import Enum
-import itertools
+from pathlib import Path
+from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
-
-from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.core import Agent, DebateResult, Environment
 from aragora.ranking.elo import EloSystem
 from aragora.tournaments.database import TournamentDatabase
@@ -128,55 +125,11 @@ class Tournament:
 
         self.matches: list[TournamentMatch] = []
         self.standings: dict[str, TournamentStanding] = {
-            name: TournamentStanding(agent_name=name)
-            for name in self.agent_names
+            name: TournamentStanding(agent_name=name) for name in self.agent_names
         }
         self.current_round = 0
         self.started_at: Optional[str] = None
         self.completed_at: Optional[str] = None
-
-        self._init_db()
-
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection with guaranteed cleanup."""
-        with self.db.connection() as conn:
-            yield conn
-
-    def _init_db(self):
-        """Initialize database schema."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS tournaments (
-                    tournament_id TEXT PRIMARY KEY,
-                    name TEXT,
-                    format TEXT,
-                    agents TEXT,
-                    tasks TEXT,
-                    standings TEXT,
-                    champion TEXT,
-                    started_at TEXT,
-                    completed_at TEXT
-                )
-            """)
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS tournament_matches (
-                    match_id TEXT PRIMARY KEY,
-                    tournament_id TEXT,
-                    round_num INTEGER,
-                    participants TEXT,
-                    task_id TEXT,
-                    scores TEXT,
-                    winner TEXT,
-                    started_at TEXT,
-                    completed_at TEXT
-                )
-            """)
-
-            conn.commit()
 
     def generate_matches(self) -> list[TournamentMatch]:
         """Generate match schedule based on tournament format."""
@@ -228,10 +181,14 @@ class Tournament:
         matches = []
 
         # For simplicity, use first task for all matches
-        task = self.tasks[0] if self.tasks else TournamentTask(
-            task_id="default",
-            description="Default task",
-            domain="general",
+        task = (
+            self.tasks[0]
+            if self.tasks
+            else TournamentTask(
+                task_id="default",
+                description="Default task",
+                domain="general",
+            )
         )
 
         # Initial round - pair up agents
@@ -396,10 +353,7 @@ class Tournament:
 
     async def _run_parallel(self, run_debate_fn: Callable):
         """Run all matches in parallel."""
-        tasks = [
-            self._run_match(match, run_debate_fn)
-            for match in self.matches
-        ]
+        tasks = [self._run_match(match, run_debate_fn) for match in self.matches]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         # Log any match failures (matches are updated in _run_match)
         for i, result in enumerate(results):
@@ -480,7 +434,7 @@ class Tournament:
 
     def _save_tournament(self, champion: str):
         """Save tournament to database."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             # Save tournament
@@ -496,16 +450,18 @@ class Tournament:
                     self.format.value,
                     json.dumps(self.agent_names),
                     json.dumps([{"id": t.task_id, "desc": t.description} for t in self.tasks]),
-                    json.dumps({
-                        name: {
-                            "wins": s.wins,
-                            "losses": s.losses,
-                            "draws": s.draws,
-                            "points": s.points,
-                            "total_score": s.total_score,
+                    json.dumps(
+                        {
+                            name: {
+                                "wins": s.wins,
+                                "losses": s.losses,
+                                "draws": s.draws,
+                                "points": s.points,
+                                "total_score": s.total_score,
+                            }
+                            for name, s in self.standings.items()
                         }
-                        for name, s in self.standings.items()
-                    }),
+                    ),
                     champion,
                     self.started_at,
                     self.completed_at,
@@ -592,25 +548,21 @@ class TournamentManager:
         self.db_path = Path(db_path)
         self.db = TournamentDatabase(db_path)
 
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection with guaranteed cleanup."""
-        with self.db.connection() as conn:
-            yield conn
-
     def get_tournament(self) -> Optional[dict]:
         """Get the tournament metadata."""
         if not self.db_path.exists():
             return None
 
         try:
-            with self._get_connection() as conn:
+            with self.db.connection() as conn:
                 cursor = conn.cursor()
 
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT tournament_id, name, format, champion, started_at, completed_at
                     FROM tournaments LIMIT 1
-                """)
+                """
+                )
                 row = cursor.fetchone()
 
                 if not row:
@@ -633,7 +585,7 @@ class TournamentManager:
             return []
 
         try:
-            with self._get_connection() as conn:
+            with self.db.connection() as conn:
                 cursor = conn.cursor()
 
                 cursor.execute("SELECT standings FROM tournaments LIMIT 1")
@@ -654,7 +606,9 @@ class TournamentManager:
                         draws=stats.get("draws", 0),
                         points=stats.get("points", 0.0),
                         total_score=stats.get("total_score", 0.0),
-                        matches_played=stats.get("wins", 0) + stats.get("losses", 0) + stats.get("draws", 0),
+                        matches_played=stats.get("wins", 0)
+                        + stats.get("losses", 0)
+                        + stats.get("draws", 0),
                     )
                     standings.append(standing)
 
@@ -670,24 +624,29 @@ class TournamentManager:
             return []
 
         try:
-            with self._get_connection() as conn:
+            with self.db.connection() as conn:
                 cursor = conn.cursor()
 
                 if limit:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT match_id, round_num, participants, task_id, scores, winner,
                                started_at, completed_at
                         FROM tournament_matches
                         ORDER BY round_num DESC, match_id DESC
                         LIMIT ?
-                    """, (limit,))
+                    """,
+                        (limit,),
+                    )
                 else:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT match_id, round_num, participants, task_id, scores, winner,
                                started_at, completed_at
                         FROM tournament_matches
                         ORDER BY round_num DESC, match_id DESC
-                    """)
+                    """
+                    )
 
                 matches = []
                 for row in cursor.fetchall():
@@ -713,16 +672,18 @@ class TournamentManager:
             return {"total_matches": 0, "decided_matches": 0, "max_round": 0}
 
         try:
-            with self._get_connection() as conn:
+            with self.db.connection() as conn:
                 cursor = conn.cursor()
 
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT
                         COUNT(*) as total_matches,
                         SUM(CASE WHEN winner IS NOT NULL THEN 1 ELSE 0 END) as decided_matches,
                         MAX(round_num) as max_round
                     FROM tournament_matches
-                """)
+                """
+                )
                 row = cursor.fetchone()
 
                 return {

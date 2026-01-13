@@ -33,8 +33,10 @@ class AragoraError(Exception):
 # Debate Errors
 # ============================================================================
 
+
 class DebateError(AragoraError):
     """Base exception for debate-related errors."""
+
     pass
 
 
@@ -48,11 +50,13 @@ class DebateNotFoundError(DebateError):
 
 class DebateConfigurationError(DebateError):
     """Raised when debate configuration is invalid."""
+
     pass
 
 
 class ConsensusError(DebateError):
     """Raised when consensus cannot be reached or is invalid."""
+
     pass
 
 
@@ -62,7 +66,7 @@ class ConsensusTimeoutError(DebateError):
     def __init__(self, timeout_seconds: float, rounds_completed: int):
         super().__init__(
             f"Consensus timed out after {timeout_seconds}s ({rounds_completed} rounds)",
-            {"timeout_seconds": timeout_seconds, "rounds_completed": rounds_completed}
+            {"timeout_seconds": timeout_seconds, "rounds_completed": rounds_completed},
         )
         self.timeout_seconds = timeout_seconds
         self.rounds_completed = rounds_completed
@@ -74,7 +78,7 @@ class VoteValidationError(DebateError):
     def __init__(self, agent_name: str, reason: str, vote_data: dict | None = None):
         super().__init__(
             f"Invalid vote from {agent_name}: {reason}",
-            {"agent_name": agent_name, "reason": reason}
+            {"agent_name": agent_name, "reason": reason},
         )
         self.agent_name = agent_name
         self.reason = reason
@@ -87,7 +91,7 @@ class PhaseExecutionError(DebateError):
     def __init__(self, phase_name: str, reason: str, recoverable: bool = False):
         super().__init__(
             f"Phase '{phase_name}' failed: {reason}",
-            {"phase_name": phase_name, "reason": reason, "recoverable": recoverable}
+            {"phase_name": phase_name, "reason": reason, "recoverable": recoverable},
         )
         self.phase_name = phase_name
         self.reason = reason
@@ -100,7 +104,7 @@ class RoundLimitExceededError(DebateError):
     def __init__(self, max_rounds: int, current_round: int):
         super().__init__(
             f"Round limit exceeded: {current_round}/{max_rounds}",
-            {"max_rounds": max_rounds, "current_round": current_round}
+            {"max_rounds": max_rounds, "current_round": current_round},
         )
         self.max_rounds = max_rounds
         self.current_round = current_round
@@ -121,7 +125,7 @@ class DebateStartError(DebateError):
     def __init__(self, debate_id: str, reason: str):
         super().__init__(
             f"Failed to start debate {debate_id}: {reason}",
-            {"debate_id": debate_id, "reason": reason}
+            {"debate_id": debate_id, "reason": reason},
         )
         self.debate_id = debate_id
         self.reason = reason
@@ -133,7 +137,7 @@ class DebateBatchError(DebateError):
     def __init__(self, operation: str, reason: str, failed_ids: list[str] | None = None):
         super().__init__(
             f"Batch operation '{operation}' failed: {reason}",
-            {"operation": operation, "reason": reason, "failed_ids": failed_ids or []}
+            {"operation": operation, "reason": reason, "failed_ids": failed_ids or []},
         )
         self.operation = operation
         self.reason = reason
@@ -146,7 +150,7 @@ class DebateExecutionError(DebateError):
     def __init__(self, debate_id: str, phase: str, reason: str):
         super().__init__(
             f"Debate {debate_id} failed during {phase}: {reason}",
-            {"debate_id": debate_id, "phase": phase, "reason": reason}
+            {"debate_id": debate_id, "phase": phase, "reason": reason},
         )
         self.debate_id = debate_id
         self.phase = phase
@@ -198,6 +202,7 @@ class AgentConfigurationError(AragoraError):
 
     Note: Configuration errors are distinct from runtime AgentErrors.
     """
+
     pass
 
 
@@ -210,7 +215,7 @@ class ConfigurationError(AragoraError):
     def __init__(self, component: str, reason: str):
         super().__init__(
             f"Configuration error in {component}: {reason}",
-            {"component": component, "reason": reason}
+            {"component": component, "reason": reason},
         )
         self.component = component
         self.reason = reason
@@ -220,10 +225,7 @@ class APIKeyError(AragoraError):
     """Raised when an API key is missing or invalid."""
 
     def __init__(self, provider: str):
-        super().__init__(
-            f"Missing or invalid API key for {provider}",
-            {"provider": provider}
-        )
+        super().__init__(f"Missing or invalid API key for {provider}", {"provider": provider})
         self.provider = provider
 
 
@@ -231,8 +233,10 @@ class APIKeyError(AragoraError):
 # Validation Errors
 # ============================================================================
 
+
 class ValidationError(AragoraError):
     """Base exception for validation errors."""
+
     pass
 
 
@@ -241,8 +245,7 @@ class InputValidationError(ValidationError):
 
     def __init__(self, field: str, reason: str):
         super().__init__(
-            f"Invalid input for '{field}': {reason}",
-            {"field": field, "reason": reason}
+            f"Invalid input for '{field}': {reason}", {"field": field, "reason": reason}
         )
         self.field = field
         self.reason = reason
@@ -253,8 +256,7 @@ class SchemaValidationError(ValidationError):
 
     def __init__(self, schema_name: str, errors: list[str]):
         super().__init__(
-            f"Schema validation failed for {schema_name}",
-            {"schema": schema_name, "errors": errors}
+            f"Schema validation failed for {schema_name}", {"schema": schema_name, "errors": errors}
         )
         self.schema_name = schema_name
         self.errors = errors
@@ -270,7 +272,7 @@ class JSONParseError(ValidationError):
             preview = raw_text[:100] + "..." if len(raw_text) > 100 else raw_text
         super().__init__(
             f"Failed to parse JSON from {source}: {reason}",
-            {"source": source, "reason": reason, "preview": preview}
+            {"source": source, "reason": reason, "preview": preview},
         )
         self.source = source
         self.reason = reason
@@ -281,13 +283,16 @@ class JSONParseError(ValidationError):
 # Storage Errors
 # ============================================================================
 
+
 class StorageError(AragoraError):
     """Base exception for storage-related errors."""
+
     pass
 
 
 class DatabaseError(StorageError):
     """Raised when a database operation fails."""
+
     pass
 
 
@@ -297,7 +302,7 @@ class DatabaseConnectionError(StorageError):
     def __init__(self, db_path: str, reason: str):
         super().__init__(
             f"Failed to connect to database at {db_path}: {reason}",
-            {"db_path": db_path, "reason": reason}
+            {"db_path": db_path, "reason": reason},
         )
         self.db_path = db_path
         self.reason = reason
@@ -308,8 +313,7 @@ class RecordNotFoundError(StorageError):
 
     def __init__(self, table: str, record_id: str):
         super().__init__(
-            f"Record not found in {table}: {record_id}",
-            {"table": table, "record_id": record_id}
+            f"Record not found in {table}: {record_id}", {"table": table, "record_id": record_id}
         )
         self.table = table
         self.record_id = record_id
@@ -319,18 +323,22 @@ class RecordNotFoundError(StorageError):
 # Memory Errors
 # ============================================================================
 
+
 class MemoryError(AragoraError):
     """Base exception for memory system errors."""
+
     pass
 
 
 class MemoryRetrievalError(MemoryError):
     """Raised when memory retrieval fails."""
+
     pass
 
 
 class MemoryStorageError(MemoryError):
     """Raised when memory storage fails."""
+
     pass
 
 
@@ -340,7 +348,7 @@ class TierTransitionError(MemoryError):
     def __init__(self, from_tier: str, to_tier: str, reason: str):
         super().__init__(
             f"Failed to transition from {from_tier} to {to_tier}: {reason}",
-            {"from_tier": from_tier, "to_tier": to_tier, "reason": reason}
+            {"from_tier": from_tier, "to_tier": to_tier, "reason": reason},
         )
         self.from_tier = from_tier
         self.to_tier = to_tier
@@ -354,8 +362,7 @@ class EmbeddingError(MemoryError):
         # Truncate text preview for error message
         preview = text_preview[:50] + "..." if len(text_preview) > 50 else text_preview
         super().__init__(
-            f"Failed to generate embedding: {reason}",
-            {"text_preview": preview, "reason": reason}
+            f"Failed to generate embedding: {reason}", {"text_preview": preview, "reason": reason}
         )
         self.reason = reason
 
@@ -366,7 +373,7 @@ class MemoryOperationError(MemoryError):
     def __init__(self, tier: str, operation: str, reason: str):
         super().__init__(
             f"Memory {tier} {operation} failed: {reason}",
-            {"tier": tier, "operation": operation, "reason": reason}
+            {"tier": tier, "operation": operation, "reason": reason},
         )
         self.tier = tier
         self.operation = operation
@@ -377,8 +384,10 @@ class MemoryOperationError(MemoryError):
 # Mode Errors
 # ============================================================================
 
+
 class ModeError(AragoraError):
     """Base exception for debate mode errors."""
+
     pass
 
 
@@ -392,6 +401,7 @@ class ModeNotFoundError(ModeError):
 
 class ModeConfigurationError(ModeError):
     """Raised when mode configuration is invalid."""
+
     pass
 
 
@@ -399,8 +409,10 @@ class ModeConfigurationError(ModeError):
 # Plugin Errors
 # ============================================================================
 
+
 class PluginError(AragoraError):
     """Base exception for plugin-related errors."""
+
     pass
 
 
@@ -418,7 +430,7 @@ class PluginExecutionError(PluginError):
     def __init__(self, plugin_name: str, reason: str):
         super().__init__(
             f"Plugin '{plugin_name}' execution failed: {reason}",
-            {"plugin_name": plugin_name, "reason": reason}
+            {"plugin_name": plugin_name, "reason": reason},
         )
         self.plugin_name = plugin_name
         self.reason = reason
@@ -428,23 +440,28 @@ class PluginExecutionError(PluginError):
 # Authentication Errors
 # ============================================================================
 
+
 class AuthError(AragoraError):
     """Base exception for authentication errors."""
+
     pass
 
 
 class AuthenticationError(AuthError):
     """Raised when authentication fails."""
+
     pass
 
 
 class AuthorizationError(AuthError):
     """Raised when authorization fails."""
+
     pass
 
 
 class TokenExpiredError(AuthError):
     """Raised when an authentication token has expired."""
+
     pass
 
 
@@ -454,7 +471,7 @@ class RateLimitExceededError(AuthError):
     def __init__(self, limit: int, window_seconds: int):
         super().__init__(
             f"Rate limit exceeded: {limit} requests per {window_seconds}s",
-            {"limit": limit, "window_seconds": window_seconds}
+            {"limit": limit, "window_seconds": window_seconds},
         )
         self.limit = limit
         self.window_seconds = window_seconds
@@ -472,8 +489,10 @@ class OAuthStateError(AuthError):
 # Infrastructure Errors
 # ============================================================================
 
+
 class InfrastructureError(AragoraError):
     """Base exception for infrastructure-related errors."""
+
     pass
 
 
@@ -494,7 +513,7 @@ class ExternalServiceError(InfrastructureError):
     def __init__(self, service: str, reason: str, status_code: int | None = None):
         super().__init__(
             f"External service '{service}' failed: {reason}",
-            {"service": service, "reason": reason, "status_code": status_code}
+            {"service": service, "reason": reason, "status_code": status_code},
         )
         self.service = service
         self.reason = reason
@@ -507,7 +526,7 @@ class CircuitBreakerError(InfrastructureError):
     def __init__(self, service: str, state: str, reason: str):
         super().__init__(
             f"Circuit breaker for {service} ({state}): {reason}",
-            {"service": service, "state": state, "reason": reason}
+            {"service": service, "state": state, "reason": reason},
         )
         self.service = service
         self.state = state
@@ -518,8 +537,10 @@ class CircuitBreakerError(InfrastructureError):
 # Nomic Errors
 # ============================================================================
 
+
 class NomicError(AragoraError):
     """Base exception for Nomic self-improvement loop errors."""
+
     pass
 
 
@@ -529,7 +550,7 @@ class NomicCycleError(NomicError):
     def __init__(self, cycle: int, phase: str, reason: str):
         super().__init__(
             f"Nomic cycle {cycle} failed in {phase}: {reason}",
-            {"cycle": cycle, "phase": phase, "reason": reason}
+            {"cycle": cycle, "phase": phase, "reason": reason},
         )
         self.cycle = cycle
         self.phase = phase
@@ -537,16 +558,186 @@ class NomicCycleError(NomicError):
 
 
 class NomicStateError(NomicError):
-    """Raised when Nomic state is invalid or corrupted."""
-    pass
+    """Raised when Nomic state is invalid or corrupted.
+
+    Examples:
+        - FileNotFoundError during state load
+        - json.JSONDecodeError for corrupted state
+        - PermissionError for state file access
+    """
+
+    def __init__(self, message: str, path: str | None = None):
+        super().__init__(message, {"path": path} if path else None)
+        self.path = path
+
+
+class NomicInitError(NomicError):
+    """Raised when a Nomic component fails to initialize.
+
+    The loop can continue with degraded functionality when these occur.
+
+    Components that may raise this:
+    - CircuitBreaker restore
+    - Constitution loader
+    - OutcomeTracker
+    - WebhookDispatcher
+    - InsightStore
+    - FlipDetector
+    """
+
+    def __init__(self, component: str, reason: str, recoverable: bool = True):
+        super().__init__(
+            f"Failed to initialize {component}: {reason}",
+            {"component": component, "reason": reason, "recoverable": recoverable},
+        )
+        self.component = component
+        self.reason = reason
+        self.recoverable = recoverable
+
+
+class NomicMemoryError(NomicError):
+    """Raised when Nomic memory operations fail.
+
+    Operations include:
+    - ContinuumMemory read/write
+    - ConsensusMemory operations
+    - InsightStore queries
+    - PositionLedger operations
+    """
+
+    def __init__(self, operation: str, reason: str, tier: str | None = None):
+        details = {"operation": operation, "reason": reason}
+        if tier:
+            details["tier"] = tier
+        super().__init__(f"Memory {operation} failed: {reason}", details)
+        self.operation = operation
+        self.reason = reason
+        self.tier = tier
+
+
+class NomicAgentError(NomicError):
+    """Raised when Nomic agent operations fail.
+
+    Operations include:
+    - Agent health checks
+    - Agent probing
+    - Team selection
+    - Persona injection
+    """
+
+    def __init__(self, agent_name: str, operation: str, reason: str):
+        super().__init__(
+            f"Agent '{agent_name}' {operation} failed: {reason}",
+            {"agent_name": agent_name, "operation": operation, "reason": reason},
+        )
+        self.agent_name = agent_name
+        self.operation = operation
+        self.reason = reason
+
+
+class NomicPhaseError(NomicError):
+    """Raised when a Nomic loop phase fails.
+
+    Phases: context, debate, design, implement, verify, commit
+    """
+
+    def __init__(self, phase: str, reason: str, stage: str | None = None, recoverable: bool = True):
+        details = {"phase": phase, "reason": reason, "recoverable": recoverable}
+        if stage:
+            details["stage"] = stage
+        super().__init__(f"Phase '{phase}' failed: {reason}", details)
+        self.phase = phase
+        self.reason = reason
+        self.stage = stage
+        self.recoverable = recoverable
+
+
+class NomicIntegrationError(NomicError):
+    """Raised when external integrations fail.
+
+    Integrations include:
+    - Webhook dispatch
+    - Supabase persistence
+    - Stream event emission
+    - Prometheus metrics
+    """
+
+    def __init__(self, integration: str, reason: str):
+        super().__init__(
+            f"Integration '{integration}' failed: {reason}",
+            {"integration": integration, "reason": reason},
+        )
+        self.integration = integration
+        self.reason = reason
+
+
+class NomicAnalyticsError(NomicError):
+    """Raised when analytics/tracking operations fail.
+
+    Non-critical - analytics can be skipped without breaking the loop.
+
+    Trackers include:
+    - ELO rating updates
+    - Calibration recording
+    - Consensus storage
+    - Risk tracking
+    """
+
+    def __init__(self, tracker: str, reason: str):
+        super().__init__(
+            f"Analytics tracker '{tracker}' failed: {reason}",
+            {"tracker": tracker, "reason": reason},
+        )
+        self.tracker = tracker
+        self.reason = reason
+
+
+class NomicVerificationError(NomicError):
+    """Raised when verification operations fail.
+
+    Includes:
+    - Syntax checking
+    - Protected file verification
+    - Formal verification (Z3/Lean)
+    - Provenance chain validation
+    """
+
+    def __init__(self, check_type: str, reason: str, file_path: str | None = None):
+        details = {"check_type": check_type, "reason": reason}
+        if file_path:
+            details["file_path"] = file_path
+        super().__init__(f"Verification '{check_type}' failed: {reason}", details)
+        self.check_type = check_type
+        self.reason = reason
+        self.file_path = file_path
+
+
+class NomicTimeoutError(NomicError):
+    """Raised when Nomic operations exceed time limits.
+
+    Includes:
+    - Phase timeouts
+    - Agent call timeouts
+    - Debate round timeouts
+    """
+
+    def __init__(self, operation: str, timeout_seconds: float):
+        super().__init__(
+            f"Operation '{operation}' timed out after {timeout_seconds}s",
+            {"operation": operation, "timeout_seconds": timeout_seconds},
+        )
+        self.operation = operation
+        self.timeout_seconds = timeout_seconds
 
 
 # ============================================================================
 # Checkpoint Errors
 # ============================================================================
 
+
 class CheckpointError(AragoraError):
     """Base exception for checkpoint operations."""
+
     pass
 
 
@@ -554,10 +745,7 @@ class CheckpointNotFoundError(CheckpointError):
     """Raised when a checkpoint cannot be found."""
 
     def __init__(self, checkpoint_id: str):
-        super().__init__(
-            f"Checkpoint not found: {checkpoint_id}",
-            {"checkpoint_id": checkpoint_id}
-        )
+        super().__init__(f"Checkpoint not found: {checkpoint_id}", {"checkpoint_id": checkpoint_id})
         self.checkpoint_id = checkpoint_id
 
 
@@ -567,7 +755,7 @@ class CheckpointCorruptedError(CheckpointError):
     def __init__(self, checkpoint_id: str, reason: str):
         super().__init__(
             f"Checkpoint corrupted: {checkpoint_id} - {reason}",
-            {"checkpoint_id": checkpoint_id, "reason": reason}
+            {"checkpoint_id": checkpoint_id, "reason": reason},
         )
         self.checkpoint_id = checkpoint_id
         self.reason = reason
@@ -579,7 +767,7 @@ class CheckpointSaveError(CheckpointError):
     def __init__(self, checkpoint_id: str, reason: str):
         super().__init__(
             f"Failed to save checkpoint {checkpoint_id}: {reason}",
-            {"checkpoint_id": checkpoint_id, "reason": reason}
+            {"checkpoint_id": checkpoint_id, "reason": reason},
         )
         self.checkpoint_id = checkpoint_id
         self.reason = reason
@@ -589,8 +777,10 @@ class CheckpointSaveError(CheckpointError):
 # Convergence Errors
 # ============================================================================
 
+
 class ConvergenceError(AragoraError):
     """Base exception for convergence detection errors."""
+
     pass
 
 
@@ -600,7 +790,7 @@ class ConvergenceBackendError(ConvergenceError):
     def __init__(self, backend_name: str, reason: str):
         super().__init__(
             f"Convergence backend '{backend_name}' failed: {reason}",
-            {"backend_name": backend_name, "reason": reason}
+            {"backend_name": backend_name, "reason": reason},
         )
         self.backend_name = backend_name
         self.reason = reason
@@ -612,7 +802,7 @@ class ConvergenceThresholdError(ConvergenceError):
     def __init__(self, threshold: float, reason: str):
         super().__init__(
             f"Invalid convergence threshold {threshold}: {reason}",
-            {"threshold": threshold, "reason": reason}
+            {"threshold": threshold, "reason": reason},
         )
         self.threshold = threshold
         self.reason = reason
@@ -622,8 +812,10 @@ class ConvergenceThresholdError(ConvergenceError):
 # Cache Errors
 # ============================================================================
 
+
 class CacheError(AragoraError):
     """Base exception for cache operations."""
+
     pass
 
 
@@ -631,10 +823,7 @@ class CacheKeyError(CacheError):
     """Raised when a cache key is invalid."""
 
     def __init__(self, key: str, reason: str):
-        super().__init__(
-            f"Invalid cache key '{key}': {reason}",
-            {"key": key, "reason": reason}
-        )
+        super().__init__(f"Invalid cache key '{key}': {reason}", {"key": key, "reason": reason})
         self.key = key
         self.reason = reason
 
@@ -645,7 +834,7 @@ class CacheCapacityError(CacheError):
     def __init__(self, current_size: int, max_size: int):
         super().__init__(
             f"Cache capacity exceeded: {current_size}/{max_size}",
-            {"current_size": current_size, "max_size": max_size}
+            {"current_size": current_size, "max_size": max_size},
         )
         self.current_size = current_size
         self.max_size = max_size
@@ -655,8 +844,10 @@ class CacheCapacityError(CacheError):
 # Streaming Errors
 # ============================================================================
 
+
 class StreamingError(AragoraError):
     """Base exception for streaming-related errors."""
+
     pass
 
 
@@ -664,10 +855,7 @@ class WebSocketError(StreamingError):
     """Raised when WebSocket connection fails."""
 
     def __init__(self, reason: str, code: int | None = None):
-        super().__init__(
-            f"WebSocket error: {reason}",
-            {"reason": reason, "code": code}
-        )
+        super().__init__(f"WebSocket error: {reason}", {"reason": reason, "code": code})
         self.reason = reason
         self.code = code
 
@@ -678,7 +866,7 @@ class StreamConnectionError(StreamingError):
     def __init__(self, stream_id: str, reason: str):
         super().__init__(
             f"Stream connection lost for {stream_id}: {reason}",
-            {"stream_id": stream_id, "reason": reason}
+            {"stream_id": stream_id, "reason": reason},
         )
         self.stream_id = stream_id
         self.reason = reason
@@ -690,7 +878,7 @@ class StreamTimeoutError(StreamingError):
     def __init__(self, stream_id: str, timeout_seconds: float):
         super().__init__(
             f"Stream {stream_id} timed out after {timeout_seconds}s",
-            {"stream_id": stream_id, "timeout_seconds": timeout_seconds}
+            {"stream_id": stream_id, "timeout_seconds": timeout_seconds},
         )
         self.stream_id = stream_id
         self.timeout_seconds = timeout_seconds
@@ -700,8 +888,10 @@ class StreamTimeoutError(StreamingError):
 # Evidence Errors
 # ============================================================================
 
+
 class EvidenceError(AragoraError):
     """Base exception for evidence-related errors."""
+
     pass
 
 
@@ -711,7 +901,7 @@ class EvidenceParseError(EvidenceError):
     def __init__(self, source: str, reason: str):
         super().__init__(
             f"Failed to parse evidence from {source}: {reason}",
-            {"source": source, "reason": reason}
+            {"source": source, "reason": reason},
         )
         self.source = source
         self.reason = reason
@@ -721,10 +911,7 @@ class EvidenceNotFoundError(EvidenceError):
     """Raised when requested evidence cannot be found."""
 
     def __init__(self, evidence_id: str):
-        super().__init__(
-            f"Evidence not found: {evidence_id}",
-            {"evidence_id": evidence_id}
-        )
+        super().__init__(f"Evidence not found: {evidence_id}", {"evidence_id": evidence_id})
         self.evidence_id = evidence_id
 
 
@@ -732,8 +919,10 @@ class EvidenceNotFoundError(EvidenceError):
 # Verification Errors
 # ============================================================================
 
+
 class VerificationError(AragoraError):
     """Base exception for formal verification errors."""
+
     pass
 
 
@@ -748,10 +937,7 @@ class VerificationTimeoutError(VerificationError):
     """Raised when verification times out."""
 
     def __init__(self, timeout_ms: int):
-        super().__init__(
-            f"Verification timed out after {timeout_ms}ms",
-            {"timeout_ms": timeout_ms}
-        )
+        super().__init__(f"Verification timed out after {timeout_ms}ms", {"timeout_ms": timeout_ms})
         self.timeout_ms = timeout_ms
 
 

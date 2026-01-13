@@ -47,11 +47,13 @@ logger = logging.getLogger(__name__)
 
 class TransitionError(Exception):
     """Raised when an invalid state transition is attempted."""
+
     pass
 
 
 class StateTimeoutError(Exception):
     """Raised when a state handler times out."""
+
     pass
 
 
@@ -181,6 +183,7 @@ class NomicStateMachine:
             return
 
         from .events import resume_event
+
         event = resume_event()
         await self._process_event(event)
 
@@ -217,7 +220,9 @@ class NomicStateMachine:
         This is the core event loop of the state machine.
         """
         self.event_log.append(event)
-        logger.debug(f"Processing event: {event.event_type.name} in state {self.current_state.name}")
+        logger.debug(
+            f"Processing event: {event.event_type.name} in state {self.current_state.name}"
+        )
 
         # Determine next state based on event
         next_state = self._determine_next_state(event)
@@ -234,7 +239,11 @@ class NomicStateMachine:
             return NomicState.CONTEXT
 
         elif event.event_type == EventType.STOP:
-            return NomicState.FAILED if current not in (NomicState.IDLE, NomicState.COMPLETED) else None
+            return (
+                NomicState.FAILED
+                if current not in (NomicState.IDLE, NomicState.COMPLETED)
+                else None
+            )
 
         elif event.event_type == EventType.PAUSE:
             return NomicState.PAUSED
@@ -294,9 +303,7 @@ class NomicStateMachine:
 
         # Validate transition
         if not is_valid_transition(current, next_state):
-            raise TransitionError(
-                f"Invalid transition from {current.name} to {next_state.name}"
-            )
+            raise TransitionError(f"Invalid transition from {current.name} to {next_state.name}")
 
         # Record state duration
         if self._state_entry_time:
@@ -363,8 +370,7 @@ class NomicStateMachine:
             # Run handler with timeout
             if timeout > 0:
                 next_state, result = await asyncio.wait_for(
-                    handler(self.context, trigger_event),
-                    timeout=timeout
+                    handler(self.context, trigger_event), timeout=timeout
                 )
             else:
                 next_state, result = await handler(self.context, trigger_event)
@@ -405,15 +411,17 @@ class NomicStateMachine:
                 event = retry_event(state.name.lower(), retry_count + 1, state_config.max_retries)
                 self.event_log.append(event)
                 # Exponential backoff
-                await asyncio.sleep(min(2 ** retry_count, 60))
+                await asyncio.sleep(min(2**retry_count, 60))
                 await self._run_state_handler(state, trigger_event)
             else:
                 # Max retries exceeded
-                self.context.errors.append({
-                    "state": state.name,
-                    "error": str(e),
-                    "timestamp": datetime.utcnow().isoformat(),
-                })
+                self.context.errors.append(
+                    {
+                        "state": state.name,
+                        "error": str(e),
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                )
                 for callback in self._on_error_callbacks:
                     try:
                         if asyncio.iscoroutinefunction(callback):
@@ -484,8 +492,7 @@ class NomicStateMachine:
             "successful_cycles": self._successful_cycles,
             "failed_cycles": self._failed_cycles,
             "success_rate": (
-                self._successful_cycles / self._total_cycles
-                if self._total_cycles > 0 else 0
+                self._successful_cycles / self._total_cycles if self._total_cycles > 0 else 0
             ),
             "event_count": len(self.event_log.events),
             "error_count": len(self.event_log.get_errors()),

@@ -15,14 +15,12 @@ from __future__ import annotations
 import json
 import logging
 import random
-import sqlite3
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
-from aragora.config import DB_LAB_PATH, DB_TIMEOUT_SECONDS
+from aragora.config import DB_LAB_PATH
 from aragora.insights.database import InsightsDatabase
 from aragora.agents.personas import (
     Persona,
@@ -125,77 +123,6 @@ class PersonaLaboratory:
         self.persona_manager = persona_manager
         self.db_path = Path(db_path)
         self.db = InsightsDatabase(db_path)
-        self._init_db()
-
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection with guaranteed cleanup."""
-        with self.db.connection() as conn:
-            yield conn
-
-    def _init_db(self) -> None:
-        """Initialize laboratory database schema."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            # Experiments table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS experiments (
-                    experiment_id TEXT PRIMARY KEY,
-                    agent_name TEXT NOT NULL,
-                    control_persona TEXT NOT NULL,
-                    variant_persona TEXT NOT NULL,
-                    hypothesis TEXT,
-                    status TEXT DEFAULT 'running',
-                    control_successes INTEGER DEFAULT 0,
-                    control_trials INTEGER DEFAULT 0,
-                    variant_successes INTEGER DEFAULT 0,
-                    variant_trials INTEGER DEFAULT 0,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    completed_at TEXT
-                )
-            """)
-
-            # Emergent traits table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS emergent_traits (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    trait_name TEXT NOT NULL,
-                    source_agents TEXT NOT NULL,
-                    supporting_evidence TEXT,
-                    confidence REAL DEFAULT 0.5,
-                    first_detected TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            # Trait transfers table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS trait_transfers (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    from_agent TEXT NOT NULL,
-                    to_agent TEXT NOT NULL,
-                    trait TEXT NOT NULL,
-                    expertise_domain TEXT,
-                    success_rate_before REAL,
-                    success_rate_after REAL,
-                    transferred_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            # Evolution history
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS evolution_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    agent_name TEXT NOT NULL,
-                    mutation_type TEXT NOT NULL,
-                    before_state TEXT NOT NULL,
-                    after_state TEXT NOT NULL,
-                    reason TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            conn.commit()
 
     # =========================================================================
     # A/B Experiments
@@ -221,7 +148,9 @@ class PersonaLaboratory:
 
         # Create variant with modifications
         variant_traits_list = variant_traits if variant_traits else control.traits.copy()
-        variant_expertise_dict = variant_expertise if variant_expertise else control.expertise.copy()
+        variant_expertise_dict = (
+            variant_expertise if variant_expertise else control.expertise.copy()
+        )
 
         variant = Persona(
             agent_name=f"{agent_name}_variant",
@@ -244,7 +173,7 @@ class PersonaLaboratory:
 
     def _save_experiment(self, exp: PersonaExperiment) -> None:
         """Save experiment to database."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -258,14 +187,18 @@ class PersonaLaboratory:
                 (
                     exp.experiment_id,
                     exp.agent_name,
-                    json.dumps({
-                        "traits": exp.control_persona.traits,
-                        "expertise": exp.control_persona.expertise,
-                    }),
-                    json.dumps({
-                        "traits": exp.variant_persona.traits,
-                        "expertise": exp.variant_persona.expertise,
-                    }),
+                    json.dumps(
+                        {
+                            "traits": exp.control_persona.traits,
+                            "expertise": exp.control_persona.expertise,
+                        }
+                    ),
+                    json.dumps(
+                        {
+                            "traits": exp.variant_persona.traits,
+                            "expertise": exp.variant_persona.expertise,
+                        }
+                    ),
                     exp.hypothesis,
                     exp.status,
                     exp.control_successes,
@@ -286,7 +219,7 @@ class PersonaLaboratory:
         success: bool,
     ):
         """Record a trial result for an experiment."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             if is_variant:
@@ -317,7 +250,7 @@ class PersonaLaboratory:
 
         If variant is significantly better, updates the agent's persona.
         """
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute("SELECT * FROM experiments WHERE experiment_id = ?", (experiment_id,))
@@ -380,7 +313,7 @@ class PersonaLaboratory:
 
     def get_running_experiments(self) -> list[PersonaExperiment]:
         """Get all running experiments."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute("SELECT * FROM experiments WHERE status = 'running'")
@@ -417,15 +350,17 @@ class PersonaLaboratory:
                 current_expertise = persona.expertise.get(domain, 0)
                 if stats["rate"] > 0.7 and current_expertise < 0.3:
                     # Agent is good at something they're not known for
-                    emergent.append(EmergentTrait(
-                        trait_name=f"emergent_{domain}_specialist",
-                        source_agents=[persona.agent_name],
-                        supporting_evidence=[
-                            f"Success rate {stats['rate']:.0%} in {domain}",
-                            f"Current labeled expertise: {current_expertise:.0%}",
-                        ],
-                        confidence=min(1.0, stats["rate"] * (stats["total"] / 30)),
-                    ))
+                    emergent.append(
+                        EmergentTrait(
+                            trait_name=f"emergent_{domain}_specialist",
+                            source_agents=[persona.agent_name],
+                            supporting_evidence=[
+                                f"Success rate {stats['rate']:.0%} in {domain}",
+                                f"Current labeled expertise: {current_expertise:.0%}",
+                            ],
+                            confidence=min(1.0, stats["rate"] * (stats["total"] / 30)),
+                        )
+                    )
 
         # Save detected traits
         for trait in emergent:
@@ -435,7 +370,7 @@ class PersonaLaboratory:
 
     def _save_emergent_trait(self, trait: EmergentTrait) -> None:
         """Save emergent trait to database."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -455,7 +390,7 @@ class PersonaLaboratory:
 
     def get_emergent_traits(self, min_confidence: float = 0.5) -> list[EmergentTrait]:
         """Get detected emergent traits above confidence threshold."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -550,7 +485,7 @@ class PersonaLaboratory:
 
     def _save_transfer(self, transfer: TraitTransfer) -> None:
         """Save trait transfer to database."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -589,7 +524,8 @@ class PersonaLaboratory:
 
         # Find domains where target is weak
         weak_domains = [
-            domain for domain, stats in target_summary.items()
+            domain
+            for domain, stats in target_summary.items()
             if stats["total"] >= 5 and stats["rate"] < 0.5
         ]
 
@@ -603,11 +539,13 @@ class PersonaLaboratory:
 
             for domain in weak_domains:
                 if domain in source_summary and source_summary[domain]["rate"] > 0.7:
-                    suggestions.append((
-                        persona.agent_name,
-                        domain,
-                        f"Source has {source_summary[domain]['rate']:.0%} success, target has {target_summary[domain]['rate']:.0%}",
-                    ))
+                    suggestions.append(
+                        (
+                            persona.agent_name,
+                            domain,
+                            f"Source has {source_summary[domain]['rate']:.0%} success, target has {target_summary[domain]['rate']:.0%}",
+                        )
+                    )
 
         return suggestions
 
@@ -682,7 +620,7 @@ class PersonaLaboratory:
         reason: str,
     ):
         """Record evolution history."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -703,7 +641,7 @@ class PersonaLaboratory:
 
     def get_evolution_history(self, agent_name: str, limit: int = 20) -> list[dict]:
         """Get evolution history for an agent."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -735,10 +673,12 @@ class PersonaLaboratory:
 
     def get_lab_stats(self) -> dict:
         """Get laboratory statistics."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("SELECT COUNT(*), SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) FROM experiments")
+            cursor.execute(
+                "SELECT COUNT(*), SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) FROM experiments"
+            )
             exp_row = cursor.fetchone()
 
             cursor.execute("SELECT COUNT(*) FROM emergent_traits WHERE confidence >= 0.5")

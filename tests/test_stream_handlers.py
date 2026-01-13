@@ -19,6 +19,7 @@ import json
 @dataclass
 class MockAgentRating:
     """Mock AgentRating for testing."""
+
     agent_name: str
     elo: float = 1500.0
     wins: int = 5
@@ -38,6 +39,7 @@ class MockAgentRating:
 @dataclass
 class MockRequest:
     """Mock aiohttp request object."""
+
     headers: Dict[str, str] = field(default_factory=dict)
     query: Dict[str, str] = field(default_factory=dict)
     match_info: Dict[str, str] = field(default_factory=dict)
@@ -49,6 +51,7 @@ class MockRequest:
 
 class MockResponse:
     """Mock aiohttp response for capturing handler output."""
+
     def __init__(self, status: int = 200, body: Any = None, headers: Dict = None):
         self.status = status
         self.body = body

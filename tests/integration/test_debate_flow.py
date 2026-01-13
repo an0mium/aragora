@@ -26,16 +26,12 @@ from aragora.memory.store import CritiqueStore
 def mock_external_calls():
     """Mock external API calls to prevent network requests during tests."""
     # Mock the Arena's trending context gathering to prevent Reddit/pulse API calls
-    with patch.object(
-        Arena, "_gather_trending_context",
-        new_callable=AsyncMock,
-        return_value=None
-    ):
+    with patch.object(Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None):
         # Mock the ContextInitializer to skip external research
         with patch(
             "aragora.debate.phases.context_init.ContextInitializer.initialize",
             new_callable=AsyncMock,
-            return_value=None
+            return_value=None,
         ):
             yield
 
@@ -65,7 +61,9 @@ class MockAgent(Agent):
         """Return mock response and track the call."""
         self.generate_calls.append({"prompt": prompt, "context": context})
         if self.generate_responses:
-            response = self.generate_responses[self._generate_call_count % len(self.generate_responses)]
+            response = self.generate_responses[
+                self._generate_call_count % len(self.generate_responses)
+            ]
             self._generate_call_count += 1
             return response
         return f"Mock response from {self.name}: {prompt[:50]}"
@@ -74,7 +72,9 @@ class MockAgent(Agent):
         """Return mock critique and track the call."""
         self.critique_calls.append({"proposal": proposal, "task": task, "context": context})
         if self.critique_responses:
-            response = self.critique_responses[self._critique_call_count % len(self.critique_responses)]
+            response = self.critique_responses[
+                self._critique_call_count % len(self.critique_responses)
+            ]
             self._critique_call_count += 1
             return response
         return Critique(
@@ -84,7 +84,7 @@ class MockAgent(Agent):
             issues=[f"Issue found by {self.name}"],
             suggestions=[f"Suggestion from {self.name}"],
             severity=0.5,
-            reasoning=f"Critique reasoning from {self.name}"
+            reasoning=f"Critique reasoning from {self.name}",
         )
 
     async def vote(self, proposals: dict, task: str) -> Vote:
@@ -100,7 +100,7 @@ class MockAgent(Agent):
             choice=choice,
             reasoning=f"Vote reasoning from {self.name}",
             confidence=0.8,
-            continue_debate=False
+            continue_debate=False,
         )
 
 
@@ -224,8 +224,7 @@ class TestMinimalDebateFlow:
 
         # At least one agent should have generated content
         assert any(
-            len(agent.generate_calls) > 0 or len(agent.vote_calls) > 0
-            for agent in basic_agents
+            len(agent.generate_calls) > 0 or len(agent.vote_calls) > 0 for agent in basic_agents
         )
 
 
@@ -281,13 +280,15 @@ class TestDebateConsensus:
         """Majority consensus should work with 3 agents."""
         # All agents vote for alice
         for agent in three_agents:
-            agent.vote_responses = [Vote(
-                agent=agent.name,
-                choice="alice",
-                reasoning="Alice's proposal is best",
-                confidence=0.8,
-                continue_debate=False
-            )]
+            agent.vote_responses = [
+                Vote(
+                    agent=agent.name,
+                    choice="alice",
+                    reasoning="Alice's proposal is best",
+                    confidence=0.8,
+                    continue_debate=False,
+                )
+            ]
 
         env = Environment(task="Consensus test", max_rounds=2)
         protocol = DebateProtocol(rounds=2, consensus="majority")
@@ -301,20 +302,24 @@ class TestDebateConsensus:
     async def test_unanimous_consensus_requirement(self, basic_agents):
         """Unanimous consensus should require all agents to agree."""
         # Both agents vote for same choice
-        basic_agents[0].vote_responses = [Vote(
-            agent="alice",
-            choice="alice",
-            reasoning="My proposal is good",
-            confidence=0.9,
-            continue_debate=False
-        )]
-        basic_agents[1].vote_responses = [Vote(
-            agent="bob",
-            choice="alice",
-            reasoning="I agree with Alice",
-            confidence=0.85,
-            continue_debate=False
-        )]
+        basic_agents[0].vote_responses = [
+            Vote(
+                agent="alice",
+                choice="alice",
+                reasoning="My proposal is good",
+                confidence=0.9,
+                continue_debate=False,
+            )
+        ]
+        basic_agents[1].vote_responses = [
+            Vote(
+                agent="bob",
+                choice="alice",
+                reasoning="I agree with Alice",
+                confidence=0.85,
+                continue_debate=False,
+            )
+        ]
 
         env = Environment(task="Unanimous test", max_rounds=2)
         protocol = DebateProtocol(rounds=2, consensus="unanimous")
@@ -333,13 +338,15 @@ class TestEarlyStopping:
         """Debate should stop early when consensus reached."""
         # Both agents vote to stop
         for agent in basic_agents:
-            agent.vote_responses = [Vote(
-                agent=agent.name,
-                choice="alice",
-                reasoning="Done",
-                confidence=0.95,
-                continue_debate=False
-            )]
+            agent.vote_responses = [
+                Vote(
+                    agent=agent.name,
+                    choice="alice",
+                    reasoning="Done",
+                    confidence=0.95,
+                    continue_debate=False,
+                )
+            ]
 
         env = Environment(task="Early stop test", max_rounds=10)
         protocol = DebateProtocol(rounds=10, early_stopping=True)
@@ -355,13 +362,15 @@ class TestEarlyStopping:
         """Debate should continue when early stopping is disabled."""
         # Even if agents want to stop, debate continues
         for agent in basic_agents:
-            agent.vote_responses = [Vote(
-                agent=agent.name,
-                choice="alice",
-                reasoning="Done",
-                confidence=0.95,
-                continue_debate=False
-            )]
+            agent.vote_responses = [
+                Vote(
+                    agent=agent.name,
+                    choice="alice",
+                    reasoning="Done",
+                    confidence=0.95,
+                    continue_debate=False,
+                )
+            ]
 
         env = Environment(task="No early stop test", max_rounds=2)
         protocol = DebateProtocol(rounds=2, early_stopping=False)
@@ -440,13 +449,15 @@ class TestMultipleAgents:
         """Single-agent debate should still complete."""
         agent = MockAgent("solo", role="proposer")
         agent.generate_responses = ["Solo proposal"]
-        agent.vote_responses = [Vote(
-            agent="solo",
-            choice="solo",
-            reasoning="I'm the only one",
-            confidence=1.0,
-            continue_debate=False
-        )]
+        agent.vote_responses = [
+            Vote(
+                agent="solo",
+                choice="solo",
+                reasoning="I'm the only one",
+                confidence=1.0,
+                continue_debate=False,
+            )
+        ]
 
         env = Environment(task="Solo test", max_rounds=1)
         protocol = DebateProtocol(rounds=1)
@@ -569,7 +580,9 @@ class TestDebateWithCircuitBreaker:
             original_generate = agent.generate
             call_count = [0]
 
-            async def flaky_generate(prompt, context=None, _orig=original_generate, _count=call_count):
+            async def flaky_generate(
+                prompt, context=None, _orig=original_generate, _count=call_count
+            ):
                 _count[0] += 1
                 if _count[0] == 1:
                     raise RuntimeError("First call fails")
@@ -620,7 +633,7 @@ class TestDebateEloIntegration:
             debate_id=f"test-{result.task[:20]}",
             participants=agent_names,
             scores=scores,
-            domain="integration_test"
+            domain="integration_test",
         )
 
         # Verify ratings were updated
@@ -656,7 +669,7 @@ class TestDebateEloIntegration:
                 debate_id=f"multi-debate-{i}",
                 participants=["alice", "bob"],
                 scores={winner: 1.0, loser: 0.0},
-                domain="test"
+                domain="test",
             )
 
         # Verify accumulated stats
@@ -795,11 +808,7 @@ class TestConcurrentDebates:
             return await arena.run()
 
         # Run 3 debates concurrently
-        results = await asyncio.gather(
-            run_debate(1),
-            run_debate(2),
-            run_debate(3)
-        )
+        results = await asyncio.gather(run_debate(1), run_debate(2), run_debate(3))
 
         # All should complete
         assert len(results) == 3
@@ -825,10 +834,7 @@ class TestConcurrentDebates:
             return await arena.run()
 
         # Run debates concurrently with shared memory
-        results = await asyncio.gather(
-            run_debate_with_memory(1),
-            run_debate_with_memory(2)
-        )
+        results = await asyncio.gather(run_debate_with_memory(1), run_debate_with_memory(2))
 
         assert len(results) == 2
         for result in results:

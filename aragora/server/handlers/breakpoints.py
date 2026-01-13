@@ -81,9 +81,7 @@ class BreakpointsHandler(BaseHandler):
             breakpoint_id, action = match.groups()
 
             # Validate breakpoint ID
-            is_valid, err = validate_path_segment(
-                breakpoint_id, "breakpoint_id", SAFE_ID_PATTERN
-            )
+            is_valid, err = validate_path_segment(breakpoint_id, "breakpoint_id", SAFE_ID_PATTERN)
             if not is_valid:
                 return error_response(err, 400)
 
@@ -99,9 +97,7 @@ class BreakpointsHandler(BaseHandler):
 
         return None
 
-    def handle_post(
-        self, path: str, body: dict, handler
-    ) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, body: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests for breakpoint resolution."""
         match = self.BREAKPOINT_PATTERN.match(path)
         if not match:
@@ -110,9 +106,7 @@ class BreakpointsHandler(BaseHandler):
         breakpoint_id, action = match.groups()
 
         # Validate breakpoint ID
-        is_valid, err = validate_path_segment(
-            breakpoint_id, "breakpoint_id", SAFE_ID_PATTERN
-        )
+        is_valid, err = validate_path_segment(breakpoint_id, "breakpoint_id", SAFE_ID_PATTERN)
         if not is_valid:
             return error_response(err, 400)
 
@@ -133,28 +127,32 @@ class BreakpointsHandler(BaseHandler):
         try:
             pending = self.breakpoint_manager.get_pending_breakpoints()
 
-            return json_response({
-                "breakpoints": [
-                    {
-                        "breakpoint_id": bp.breakpoint_id,
-                        "trigger": bp.trigger.value,
-                        "message": bp.message,
-                        "created_at": bp.created_at,
-                        "timeout_minutes": bp.timeout_minutes,
-                        "snapshot": {
-                            "debate_id": bp.snapshot.debate_id,
-                            "round_num": bp.snapshot.round_num,
-                            "task": bp.snapshot.task,
-                            "confidence": bp.snapshot.current_confidence,
-                            "agents": bp.snapshot.agent_names,
+            return json_response(
+                {
+                    "breakpoints": [
+                        {
+                            "breakpoint_id": bp.breakpoint_id,
+                            "trigger": bp.trigger.value,
+                            "message": bp.message,
+                            "created_at": bp.created_at,
+                            "timeout_minutes": bp.timeout_minutes,
+                            "snapshot": (
+                                {
+                                    "debate_id": bp.snapshot.debate_id,
+                                    "round_num": bp.snapshot.round_num,
+                                    "task": bp.snapshot.task,
+                                    "confidence": bp.snapshot.current_confidence,
+                                    "agents": bp.snapshot.agent_names,
+                                }
+                                if bp.snapshot
+                                else None
+                            ),
                         }
-                        if bp.snapshot
-                        else None,
-                    }
-                    for bp in pending
-                ],
-                "count": len(pending),
-            })
+                        for bp in pending
+                    ],
+                    "count": len(pending),
+                }
+            )
 
         except Exception as e:
             logger.exception("Failed to get pending breakpoints: %s", e)
@@ -181,30 +179,32 @@ class BreakpointsHandler(BaseHandler):
                     status=404,
                 )
 
-            return json_response({
-                "breakpoint_id": bp.breakpoint_id,
-                "trigger": bp.trigger.value,
-                "message": bp.message,
-                "status": bp.status if hasattr(bp, "status") else "pending",
-                "created_at": bp.created_at,
-                "resolved_at": bp.resolved_at if hasattr(bp, "resolved_at") else None,
-                "snapshot": {
-                    "debate_id": bp.snapshot.debate_id,
-                    "round_num": bp.snapshot.round_num,
-                    "task": bp.snapshot.task,
-                    "confidence": bp.snapshot.current_confidence,
+            return json_response(
+                {
+                    "breakpoint_id": bp.breakpoint_id,
+                    "trigger": bp.trigger.value,
+                    "message": bp.message,
+                    "status": bp.status if hasattr(bp, "status") else "pending",
+                    "created_at": bp.created_at,
+                    "resolved_at": bp.resolved_at if hasattr(bp, "resolved_at") else None,
+                    "snapshot": (
+                        {
+                            "debate_id": bp.snapshot.debate_id,
+                            "round_num": bp.snapshot.round_num,
+                            "task": bp.snapshot.task,
+                            "confidence": bp.snapshot.current_confidence,
+                        }
+                        if bp.snapshot
+                        else None
+                    ),
                 }
-                if bp.snapshot
-                else None,
-            })
+            )
 
         except Exception as e:
             logger.exception("Failed to get breakpoint status: %s", e)
             return error_response(safe_error_message(e, "get breakpoint status"), 500)
 
-    def _resolve_breakpoint(
-        self, breakpoint_id: str, body: dict
-    ) -> HandlerResult:
+    def _resolve_breakpoint(self, breakpoint_id: str, body: dict) -> HandlerResult:
         """Resolve a pending breakpoint with human guidance.
 
         Args:
@@ -227,9 +227,7 @@ class BreakpointsHandler(BaseHandler):
 
         valid_actions = ["continue", "abort", "redirect", "inject"]
         if action not in valid_actions:
-            return error_response(
-                f"Invalid action: {action}. Must be one of: {valid_actions}", 400
-            )
+            return error_response(f"Invalid action: {action}. Must be one of: {valid_actions}", 400)
 
         message = body.get("message", "")
         redirect_task = body.get("redirect_task")
@@ -248,9 +246,7 @@ class BreakpointsHandler(BaseHandler):
             )
 
             # Resolve the breakpoint
-            success = self.breakpoint_manager.resolve_breakpoint(
-                breakpoint_id, guidance
-            )
+            success = self.breakpoint_manager.resolve_breakpoint(breakpoint_id, guidance)
 
             if not success:
                 return json_response(
@@ -262,12 +258,14 @@ class BreakpointsHandler(BaseHandler):
                     status=404,
                 )
 
-            return json_response({
-                "breakpoint_id": breakpoint_id,
-                "status": "resolved",
-                "action": action,
-                "message": message,
-            })
+            return json_response(
+                {
+                    "breakpoint_id": breakpoint_id,
+                    "status": "resolved",
+                    "action": action,
+                    "message": message,
+                }
+            )
 
         except ImportError:
             return error_response("Breakpoints module not available", 503)

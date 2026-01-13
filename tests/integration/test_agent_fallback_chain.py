@@ -54,6 +54,7 @@ class MockAPIAgent(Agent):
     async def critique(self, proposal: str, task: str, context: list = None):
         """Mock critique method."""
         from aragora.core import Critique
+
         return Critique(
             agent=self.name,
             target_agent="target",
@@ -429,10 +430,7 @@ class TestConcurrentFailures:
     @pytest.mark.asyncio
     async def test_fallback_during_high_failure_rate(self):
         """Fallback should handle high concurrent failure rate."""
-        failing_agents = [
-            MockAPIAgent(f"failing_{i}", fail_count=100)
-            for i in range(5)
-        ]
+        failing_agents = [MockAPIAgent(f"failing_{i}", fail_count=100) for i in range(5)]
         reliable_agent = MockAPIAgent("reliable", response="Reliable response")
 
         async def try_agent_with_fallback():
@@ -444,10 +442,7 @@ class TestConcurrentFailures:
             return await reliable_agent.generate("test")
 
         # Run many concurrent requests
-        results = await asyncio.gather(*[
-            try_agent_with_fallback()
-            for _ in range(10)
-        ])
+        results = await asyncio.gather(*[try_agent_with_fallback() for _ in range(10)])
 
         # All should succeed via reliable agent
         assert all(r == "Reliable response" for r in results)

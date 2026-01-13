@@ -220,7 +220,11 @@ class TestPatternStorage:
 
             patterns = [
                 {"type": "issue_identification", "text": "Check for null"},
-                {"type": "improvement_suggestion", "text": "Use async/await", "source_debate": "d-1"},
+                {
+                    "type": "improvement_suggestion",
+                    "text": "Use async/await",
+                    "source_debate": "d-1",
+                },
             ]
 
             evolver.store_patterns(patterns)

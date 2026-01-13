@@ -82,9 +82,9 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"  Latest applied: {status['latest_applied'] or 'None'}")
         print(f"  Latest available: {status['latest_available'] or 'None'}")
 
-        if status['pending_versions']:
+        if status["pending_versions"]:
             print(f"\nPending migrations:")
-            for v in status['pending_versions']:
+            for v in status["pending_versions"]:
                 print(f"  - {v}")
 
         return 0

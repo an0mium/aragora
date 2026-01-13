@@ -56,7 +56,9 @@ class PhaseRecovery:
     # Individual phase timeouts (seconds) - complements cycle-level timeout
     # Configurable via environment variables: NOMIC_<PHASE>_TIMEOUT
     PHASE_TIMEOUTS = {
-        "context": int(os.environ.get("NOMIC_CONTEXT_TIMEOUT", "1200")),  # 20 min (doubled for Codex)
+        "context": int(
+            os.environ.get("NOMIC_CONTEXT_TIMEOUT", "1200")
+        ),  # 20 min (doubled for Codex)
         "debate": int(os.environ.get("NOMIC_DEBATE_TIMEOUT", "1800")),  # 30 min
         "design": int(os.environ.get("NOMIC_DESIGN_TIMEOUT", "900")),  # 15 min
         "implement": int(os.environ.get("NOMIC_IMPLEMENT_TIMEOUT", "2400")),  # 40 min
@@ -219,9 +221,7 @@ class PhaseRecovery:
                 self.record_failure(phase, e)
 
                 error_msg = f"{type(e).__name__}: {str(e)[:200]}"
-                self.log(
-                    f"  [recovery] Phase '{phase}' attempt {attempts} failed: {error_msg}"
-                )
+                self.log(f"  [recovery] Phase '{phase}' attempt {attempts} failed: {error_msg}")
 
                 if self.is_retryable(e, phase) and attempts <= config["max_retries"]:
                     delay = self.get_retry_delay(e, phase)
@@ -229,14 +229,10 @@ class PhaseRecovery:
                     await asyncio.sleep(delay)
                 else:
                     # Log full traceback for debugging
-                    logger.error(
-                        f"Phase {phase} failed after {attempts} attempts", exc_info=True
-                    )
+                    logger.error(f"Phase {phase} failed after {attempts} attempts", exc_info=True)
 
                     if self.should_trigger_rollback(phase):
-                        self.log(
-                            f"  [recovery] CRITICAL: Phase '{phase}' requires rollback"
-                        )
+                        self.log(f"  [recovery] CRITICAL: Phase '{phase}' requires rollback")
 
                     return (False, str(e))
 

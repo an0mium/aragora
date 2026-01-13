@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
 import { logger } from '@/utils/logger';
+import { API_BASE_URL } from '@/config';
 
 interface RelationshipEntry {
   agent_a: string;
@@ -19,7 +20,7 @@ interface AgentRelationshipsProps {
   compact?: boolean;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 export function AgentRelationships({
   agentName,

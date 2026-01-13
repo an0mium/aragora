@@ -22,6 +22,7 @@ from aragora.server.handlers.learning import LearningHandler
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def temp_nomic_dir():
     """Create a temporary nomic directory with cycle data."""
@@ -35,73 +36,101 @@ def temp_nomic_dir():
         # Create cycle 1
         cycle1_dir = replays_dir / "nomic-cycle-1"
         cycle1_dir.mkdir()
-        (cycle1_dir / "meta.json").write_text(json.dumps({
-            "debate_id": "debate-001",
-            "topic": "Implement security improvements",
-            "agents": [
-                {"name": "claude"},
-                {"name": "gpt4"},
-            ],
-            "started_at": "2026-01-09T10:00:00",
-            "ended_at": "2026-01-09T10:30:00",
-            "duration_ms": 1800000,
-            "status": "completed",
-            "final_verdict": "Approved security patch",
-            "event_count": 15,
-            "winner": "claude",
-            "vote_tally": {"claude": 3, "gpt4": 1},
-        }))
+        (cycle1_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "debate_id": "debate-001",
+                    "topic": "Implement security improvements",
+                    "agents": [
+                        {"name": "claude"},
+                        {"name": "gpt4"},
+                    ],
+                    "started_at": "2026-01-09T10:00:00",
+                    "ended_at": "2026-01-09T10:30:00",
+                    "duration_ms": 1800000,
+                    "status": "completed",
+                    "final_verdict": "Approved security patch",
+                    "event_count": 15,
+                    "winner": "claude",
+                    "vote_tally": {"claude": 3, "gpt4": 1},
+                }
+            )
+        )
 
         # Create cycle 2
         cycle2_dir = replays_dir / "nomic-cycle-2"
         cycle2_dir.mkdir()
-        (cycle2_dir / "meta.json").write_text(json.dumps({
-            "debate_id": "debate-002",
-            "topic": "Add performance testing",
-            "agents": [
-                {"name": "claude"},
-                {"name": "gemini"},
-            ],
-            "started_at": "2026-01-10T10:00:00",
-            "ended_at": "2026-01-10T10:45:00",
-            "duration_ms": 2700000,
-            "status": "completed",
-            "final_verdict": "Performance tests added",
-            "event_count": 20,
-            "winner": "gemini",
-            "vote_tally": {"claude": 1, "gemini": 3},
-        }))
+        (cycle2_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "debate_id": "debate-002",
+                    "topic": "Add performance testing",
+                    "agents": [
+                        {"name": "claude"},
+                        {"name": "gemini"},
+                    ],
+                    "started_at": "2026-01-10T10:00:00",
+                    "ended_at": "2026-01-10T10:45:00",
+                    "duration_ms": 2700000,
+                    "status": "completed",
+                    "final_verdict": "Performance tests added",
+                    "event_count": 20,
+                    "winner": "gemini",
+                    "vote_tally": {"claude": 1, "gemini": 3},
+                }
+            )
+        )
 
         # Create cycle 3 (failed)
         cycle3_dir = replays_dir / "nomic-cycle-3"
         cycle3_dir.mkdir()
-        (cycle3_dir / "meta.json").write_text(json.dumps({
-            "debate_id": "debate-003",
-            "topic": "Refactor API layer",
-            "agents": [
-                {"name": "claude"},
-                {"name": "gpt4"},
-            ],
-            "started_at": "2026-01-10T14:00:00",
-            "ended_at": "2026-01-10T14:20:00",
-            "duration_ms": 1200000,
-            "status": "failed",
-            "final_verdict": None,
-            "event_count": 8,
-        }))
+        (cycle3_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "debate_id": "debate-003",
+                    "topic": "Refactor API layer",
+                    "agents": [
+                        {"name": "claude"},
+                        {"name": "gpt4"},
+                    ],
+                    "started_at": "2026-01-10T14:00:00",
+                    "ended_at": "2026-01-10T14:20:00",
+                    "duration_ms": 1200000,
+                    "status": "failed",
+                    "final_verdict": None,
+                    "event_count": 8,
+                }
+            )
+        )
 
         # Create risk register
         (nomic_dir / "risk_register.jsonl").write_text(
-            json.dumps({"cycle": 1, "phase": "design", "confidence": 0.8, "task": "Security update"}) + "\n"
-            + json.dumps({"cycle": 2, "phase": "test", "confidence": 0.9, "task": "Performance tests"}) + "\n"
-            + json.dumps({"cycle": 3, "phase": "implement", "confidence": 0.2, "task": "API refactor", "error": "Syntax error in generated code"}) + "\n"
+            json.dumps(
+                {"cycle": 1, "phase": "design", "confidence": 0.8, "task": "Security update"}
+            )
+            + "\n"
+            + json.dumps(
+                {"cycle": 2, "phase": "test", "confidence": 0.9, "task": "Performance tests"}
+            )
+            + "\n"
+            + json.dumps(
+                {
+                    "cycle": 3,
+                    "phase": "implement",
+                    "confidence": 0.2,
+                    "task": "API refactor",
+                    "error": "Syntax error in generated code",
+                }
+            )
+            + "\n"
         )
 
         # Create insights database
         insight_db = nomic_dir / "insights.db"
         conn = sqlite3.connect(str(insight_db))
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE insights (
                 insight_id TEXT PRIMARY KEY,
                 debate_id TEXT,
@@ -110,13 +139,16 @@ def temp_nomic_dir():
                 confidence REAL,
                 created_at TEXT
             )
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
             INSERT INTO insights VALUES
             ('insight-001', 'debate-001', 'security', 'Use input validation', 0.9, '2026-01-09T10:30:00'),
             ('insight-002', 'debate-002', 'performance', 'Add caching layer', 0.85, '2026-01-10T10:45:00'),
             ('insight-003', 'debate-001', 'security', 'Use parameterized queries', 0.95, '2026-01-09T10:35:00')
-        """)
+        """
+        )
         conn.commit()
         conn.close()
 
@@ -139,6 +171,7 @@ def empty_handler():
 # ============================================================================
 # Route Recognition Tests
 # ============================================================================
+
 
 class TestLearningRouting:
     """Tests for learning handler route recognition."""
@@ -169,6 +202,7 @@ class TestLearningRouting:
 # ============================================================================
 # GET /api/learning/cycles Tests
 # ============================================================================
+
 
 class TestGetCycles:
     """Tests for cycle summaries endpoint."""
@@ -237,6 +271,7 @@ class TestGetCycles:
         replays_dir = temp_nomic_dir / "replays"
         for d in replays_dir.iterdir():
             import shutil
+
             shutil.rmtree(d)
 
         handler = LearningHandler({"nomic_dir": temp_nomic_dir})
@@ -250,6 +285,7 @@ class TestGetCycles:
 # ============================================================================
 # GET /api/learning/patterns Tests
 # ============================================================================
+
 
 class TestGetPatterns:
     """Tests for learned patterns endpoint."""
@@ -307,6 +343,7 @@ class TestGetPatterns:
 # GET /api/learning/agent-evolution Tests
 # ============================================================================
 
+
 class TestGetAgentEvolution:
     """Tests for agent evolution endpoint."""
 
@@ -357,6 +394,7 @@ class TestGetAgentEvolution:
 # ============================================================================
 # GET /api/learning/insights Tests
 # ============================================================================
+
 
 class TestGetInsights:
     """Tests for aggregated insights endpoint."""
@@ -424,6 +462,7 @@ class TestGetInsights:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestLearningErrorHandling:
     """Tests for error handling in learning handler."""
 
@@ -457,6 +496,7 @@ class TestLearningErrorHandling:
     def test_missing_replays_dir_handled(self, temp_nomic_dir):
         """Test missing replays directory is handled."""
         import shutil
+
         shutil.rmtree(temp_nomic_dir / "replays")
 
         handler = LearningHandler({"nomic_dir": temp_nomic_dir})
@@ -469,6 +509,7 @@ class TestLearningErrorHandling:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestLearningIntegration:
     """Integration tests for learning analytics."""
@@ -506,7 +547,10 @@ class TestLearningIntegration:
         failed_cycles = [c for c in cycles_data["cycles"] if not c["success"]]
         if failed_cycles:
             # Should have some indication of failures
-            assert len(patterns_data["failed_patterns"]) > 0 or len(patterns_data["successful_patterns"]) >= 0
+            assert (
+                len(patterns_data["failed_patterns"]) > 0
+                or len(patterns_data["successful_patterns"]) >= 0
+            )
 
     def test_limit_parameters_respected(self, handler):
         """Test limit parameters work across endpoints."""

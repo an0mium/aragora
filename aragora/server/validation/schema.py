@@ -23,9 +23,20 @@ from .entities import SAFE_AGENT_PATTERN
 # =============================================================================
 
 DEBATE_START_SCHEMA = {
-    "task": {"type": "string", "min_length": 1, "max_length": 2000, "required": False},  # Can use 'question' too
+    "task": {
+        "type": "string",
+        "min_length": 1,
+        "max_length": 2000,
+        "required": False,
+    },  # Can use 'question' too
     "question": {"type": "string", "min_length": 1, "max_length": 2000, "required": False},
-    "agents": {"type": "list", "min_length": 2, "max_length": 10, "item_type": str, "required": False},
+    "agents": {
+        "type": "list",
+        "min_length": 2,
+        "max_length": 10,
+        "item_type": str,
+        "required": False,
+    },
     "mode": {"type": "string", "max_length": 64, "required": False},
     "rounds": {"type": "int", "min_value": 1, "max_value": 20, "required": False},
     "consensus": {"type": "string", "max_length": 64, "required": False},
@@ -33,7 +44,11 @@ DEBATE_START_SCHEMA = {
 
 DEBATE_UPDATE_SCHEMA = {
     "title": {"type": "string", "max_length": 500, "required": False},
-    "status": {"type": "enum", "allowed_values": {"active", "paused", "concluded", "archived"}, "required": False},
+    "status": {
+        "type": "enum",
+        "allowed_values": {"active", "paused", "concluded", "archived"},
+        "required": False,
+    },
     "tags": {"type": "list", "max_length": 20, "item_type": str, "required": False},
 }
 
@@ -43,7 +58,13 @@ VERIFICATION_SCHEMA = {
 }
 
 PROBE_RUN_SCHEMA = {
-    "agent_name": {"type": "string", "min_length": 1, "max_length": 64, "pattern": SAFE_AGENT_PATTERN, "required": True},
+    "agent_name": {
+        "type": "string",
+        "min_length": 1,
+        "max_length": 64,
+        "pattern": SAFE_AGENT_PATTERN,
+        "required": True,
+    },
     "probe_types": {"type": "list", "max_length": 10, "item_type": str, "required": False},
     "probes_per_type": {"type": "int", "min_value": 1, "max_value": 10, "required": False},
     "model_type": {"type": "string", "max_length": 64, "required": False},
@@ -55,14 +76,29 @@ FORK_REQUEST_SCHEMA = {
 }
 
 MEMORY_CLEANUP_SCHEMA = {
-    "tier": {"type": "enum", "allowed_values": {"fast", "medium", "slow", "glacial"}, "required": False},
+    "tier": {
+        "type": "enum",
+        "allowed_values": {"fast", "medium", "slow", "glacial"},
+        "required": False,
+    },
     "archive": {"type": "string", "max_length": 10, "required": False},  # "true" or "false"
-    "max_age_hours": {"type": "float", "min_value": 0.0, "max_value": 8760.0, "required": False},  # Max 1 year
+    "max_age_hours": {
+        "type": "float",
+        "min_value": 0.0,
+        "max_value": 8760.0,
+        "required": False,
+    },  # Max 1 year
 }
 
 # Agent configuration schema
 AGENT_CONFIG_SCHEMA = {
-    "name": {"type": "string", "min_length": 1, "max_length": 64, "pattern": SAFE_AGENT_PATTERN, "required": True},
+    "name": {
+        "type": "string",
+        "min_length": 1,
+        "max_length": 64,
+        "pattern": SAFE_AGENT_PATTERN,
+        "required": True,
+    },
     "model": {"type": "string", "max_length": 100, "required": False},
     "temperature": {"type": "float", "min_value": 0.0, "max_value": 2.0, "required": False},
     "max_tokens": {"type": "int", "min_value": 1, "max_value": 100000, "required": False},
@@ -71,7 +107,13 @@ AGENT_CONFIG_SCHEMA = {
 
 # Batch debate submission schema
 BATCH_SUBMIT_SCHEMA = {
-    "items": {"type": "list", "min_length": 1, "max_length": 1000, "item_type": dict, "required": True},
+    "items": {
+        "type": "list",
+        "min_length": 1,
+        "max_length": 1000,
+        "item_type": dict,
+        "required": True,
+    },
     "webhook_url": {"type": "string", "max_length": 2000, "required": False},
     "max_parallel": {"type": "int", "min_value": 1, "max_value": 50, "required": False},
 }
@@ -102,7 +144,11 @@ ORG_INVITE_SCHEMA = {
 # Gauntlet run schema
 GAUNTLET_RUN_SCHEMA = {
     "input_content": {"type": "string", "min_length": 1, "max_length": 50000, "required": True},
-    "input_type": {"type": "enum", "allowed_values": {"spec", "code", "text", "url", "file"}, "required": False},
+    "input_type": {
+        "type": "enum",
+        "allowed_values": {"spec", "code", "text", "url", "file"},
+        "required": False,
+    },
     "agents": {"type": "list", "max_length": 10, "item_type": str, "required": False},
     "persona": {"type": "string", "max_length": 100, "required": False},
     "profile": {"type": "string", "max_length": 100, "required": False},
@@ -110,7 +156,11 @@ GAUNTLET_RUN_SCHEMA = {
 
 # Billing checkout schema
 CHECKOUT_SESSION_SCHEMA = {
-    "tier": {"type": "enum", "allowed_values": {"starter", "professional", "enterprise"}, "required": True},
+    "tier": {
+        "type": "enum",
+        "allowed_values": {"starter", "professional", "enterprise"},
+        "required": True,
+    },
     "success_url": {"type": "string", "min_length": 1, "max_length": 2000, "required": True},
     "cancel_url": {"type": "string", "min_length": 1, "max_length": 2000, "required": True},
 }
@@ -139,8 +189,17 @@ PLUGIN_INSTALL_SCHEMA = {
 
 # Sharing update schema
 SHARE_UPDATE_SCHEMA = {
-    "visibility": {"type": "enum", "allowed_values": {"private", "team", "public"}, "required": False},
-    "expires_in_hours": {"type": "int", "min_value": 0, "max_value": 8760, "required": False},  # Max 1 year
+    "visibility": {
+        "type": "enum",
+        "allowed_values": {"private", "team", "public"},
+        "required": False,
+    },
+    "expires_in_hours": {
+        "type": "int",
+        "min_value": 0,
+        "max_value": 8760,
+        "required": False,
+    },  # Max 1 year
     "allow_comments": {"type": "string", "max_length": 10, "required": False},  # bool as string
     "allow_forking": {"type": "string", "max_length": 10, "required": False},  # bool as string
 }
@@ -211,7 +270,8 @@ def validate_against_schema(data: dict, schema: dict) -> ValidationResult:
 
         if field_type == "string":
             result = validate_string_field(
-                data, field,
+                data,
+                field,
                 min_length=rules.get("min_length", 0),
                 max_length=rules.get("max_length", 1000),
                 pattern=rules.get("pattern"),
@@ -219,21 +279,24 @@ def validate_against_schema(data: dict, schema: dict) -> ValidationResult:
             )
         elif field_type == "int":
             result = validate_int_field(
-                data, field,
+                data,
+                field,
                 min_value=rules.get("min_value"),
                 max_value=rules.get("max_value"),
                 required=required,
             )
         elif field_type == "float":
             result = validate_float_field(
-                data, field,
+                data,
+                field,
                 min_value=rules.get("min_value"),
                 max_value=rules.get("max_value"),
                 required=required,
             )
         elif field_type == "list":
             result = validate_list_field(
-                data, field,
+                data,
+                field,
                 min_length=rules.get("min_length", 0),
                 max_length=rules.get("max_length", 100),
                 item_type=rules.get("item_type"),
@@ -241,7 +304,8 @@ def validate_against_schema(data: dict, schema: dict) -> ValidationResult:
             )
         elif field_type == "enum":
             result = validate_enum_field(
-                data, field,
+                data,
+                field,
                 allowed_values=rules.get("allowed_values", set()),
                 required=required,
             )

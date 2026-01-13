@@ -31,9 +31,11 @@ from aragora.spectate.stream import SpectatorStream
 # Test Fixtures
 # ============================================================================
 
+
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str = "mock-agent"
 
     async def generate(self, prompt, context=None):
@@ -71,6 +73,7 @@ def builder(environment, agents):
 # ============================================================================
 # Initialization Tests
 # ============================================================================
+
 
 class TestArenaBuilderInit:
     """Tests for ArenaBuilder initialization."""
@@ -122,6 +125,7 @@ class TestArenaBuilderInit:
 # Protocol Configuration Tests
 # ============================================================================
 
+
 class TestProtocolConfiguration:
     """Tests for protocol configuration methods."""
 
@@ -170,6 +174,7 @@ class TestProtocolConfiguration:
 # Memory Configuration Tests
 # ============================================================================
 
+
 class TestMemoryConfiguration:
     """Tests for memory configuration methods."""
 
@@ -207,6 +212,7 @@ class TestMemoryConfiguration:
 # Event Handling Tests
 # ============================================================================
 
+
 class TestEventHandling:
     """Tests for event handling configuration."""
 
@@ -238,6 +244,7 @@ class TestEventHandling:
 # ============================================================================
 # Agent Tracking Tests
 # ============================================================================
+
 
 class TestAgentTracking:
     """Tests for agent tracking configuration."""
@@ -277,6 +284,7 @@ class TestAgentTracking:
 # Position and Truth Grounding Tests
 # ============================================================================
 
+
 class TestPositionGrounding:
     """Tests for position and truth grounding configuration."""
 
@@ -309,6 +317,7 @@ class TestPositionGrounding:
 # Historical Context Tests
 # ============================================================================
 
+
 class TestHistoricalContext:
     """Tests for historical context configuration."""
 
@@ -334,6 +343,7 @@ class TestHistoricalContext:
 # ============================================================================
 # Loop Configuration Tests
 # ============================================================================
+
 
 class TestLoopConfiguration:
     """Tests for loop configuration methods."""
@@ -369,6 +379,7 @@ class TestLoopConfiguration:
 # ============================================================================
 # Composite Configuration Tests
 # ============================================================================
+
 
 class TestCompositeConfiguration:
     """Tests for composite configuration methods."""
@@ -433,6 +444,7 @@ class TestCompositeConfiguration:
 # Method Chaining Tests
 # ============================================================================
 
+
 class TestMethodChaining:
     """Tests for fluent method chaining."""
 
@@ -443,8 +455,7 @@ class TestMethodChaining:
         mock_spectator = Mock()
 
         result = (
-            builder
-            .with_protocol(protocol)
+            builder.with_protocol(protocol)
             .with_memory(mock_memory)
             .with_elo_system(mock_elo)
             .with_spectator(mock_spectator)
@@ -462,8 +473,7 @@ class TestMethodChaining:
         """Test chaining all major with_ methods."""
         # This test ensures all with_ methods return self
         result = (
-            builder
-            .with_rounds(5)
+            builder.with_rounds(5)
             .with_memory(Mock())
             .with_debate_embeddings(Mock())
             .with_insight_store(Mock())
@@ -496,6 +506,7 @@ class TestMethodChaining:
 # ============================================================================
 # Build Tests
 # ============================================================================
+
 
 class TestBuild:
     """Tests for build method."""
@@ -567,6 +578,7 @@ class TestBuild:
 # create_arena Convenience Function Tests
 # ============================================================================
 
+
 class TestCreateArena:
     """Tests for create_arena convenience function."""
 
@@ -635,6 +647,7 @@ class TestCreateArena:
 # Integration Tests
 # ============================================================================
 
+
 class TestArenaBuilderIntegration:
     """Integration tests for ArenaBuilder."""
 
@@ -648,8 +661,7 @@ class TestArenaBuilderIntegration:
 
         builder = ArenaBuilder(environment, agents)
         configured = (
-            builder
-            .with_protocol(protocol)
+            builder.with_protocol(protocol)
             .with_memory(mock_memory)
             .with_elo_system(mock_elo)
             .with_spectator(mock_spectator)

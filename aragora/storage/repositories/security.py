@@ -29,13 +29,13 @@ class SecurityRepository:
     """
 
     # Lockout thresholds
-    LOCKOUT_THRESHOLD_1 = 5   # 5 attempts -> 15 min lockout
+    LOCKOUT_THRESHOLD_1 = 5  # 5 attempts -> 15 min lockout
     LOCKOUT_THRESHOLD_2 = 10  # 10 attempts -> 1 hour lockout
     LOCKOUT_THRESHOLD_3 = 20  # 20 attempts -> 24 hour lockout
 
     # Lockout durations in seconds
-    LOCKOUT_DURATION_1 = 15 * 60       # 15 minutes
-    LOCKOUT_DURATION_2 = 60 * 60       # 1 hour
+    LOCKOUT_DURATION_1 = 15 * 60  # 15 minutes
+    LOCKOUT_DURATION_2 = 60 * 60  # 1 hour
     LOCKOUT_DURATION_3 = 24 * 60 * 60  # 24 hours
 
     def __init__(self, transaction_fn: Callable[[], "contextmanager[sqlite3.Cursor]"]) -> None:
@@ -211,6 +211,8 @@ class SecurityRepository:
         if not is_locked:
             if failed_attempts >= self.LOCKOUT_THRESHOLD_1 - 2:
                 remaining_attempts = self.LOCKOUT_THRESHOLD_1 - failed_attempts
-                info["warning"] = f"Account will be locked after {remaining_attempts} more failed attempts"
+                info["warning"] = (
+                    f"Account will be locked after {remaining_attempts} more failed attempts"
+                )
 
         return info

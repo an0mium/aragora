@@ -88,9 +88,17 @@ class RhetoricalAnalysisObserver:
     PATTERN_INDICATORS = {
         RhetoricalPattern.CONCESSION: {
             "keywords": [
-                "acknowledge", "fair point", "you're right", "i agree",
-                "valid point", "granted", "i concede", "admittedly",
-                "while true", "that said", "indeed",
+                "acknowledge",
+                "fair point",
+                "you're right",
+                "i agree",
+                "valid point",
+                "granted",
+                "i concede",
+                "admittedly",
+                "while true",
+                "that said",
+                "indeed",
             ],
             "patterns": [
                 r"\bi (must )?(acknowledge|admit|concede)\b",
@@ -105,9 +113,17 @@ class RhetoricalAnalysisObserver:
         },
         RhetoricalPattern.REBUTTAL: {
             "keywords": [
-                "however", "but", "on the contrary", "disagree",
-                "actually", "in fact", "not quite", "that's not",
-                "i would argue", "counter to", "misses",
+                "however",
+                "but",
+                "on the contrary",
+                "disagree",
+                "actually",
+                "in fact",
+                "not quite",
+                "that's not",
+                "i would argue",
+                "counter to",
+                "misses",
             ],
             "patterns": [
                 r"\b(however|but),?\s",
@@ -123,9 +139,16 @@ class RhetoricalAnalysisObserver:
         },
         RhetoricalPattern.SYNTHESIS: {
             "keywords": [
-                "combining", "both perspectives", "integrate",
-                "bringing together", "middle ground", "reconcile",
-                "common ground", "bridge", "synthesis", "merge",
+                "combining",
+                "both perspectives",
+                "integrate",
+                "bringing together",
+                "middle ground",
+                "reconcile",
+                "common ground",
+                "bridge",
+                "synthesis",
+                "merge",
             ],
             "patterns": [
                 r"\b(combin|integrat|reconcil|merg)(e|ing)\b",
@@ -140,9 +163,14 @@ class RhetoricalAnalysisObserver:
         },
         RhetoricalPattern.APPEAL_TO_AUTHORITY: {
             "keywords": [
-                "according to", "research shows", "experts say",
-                "studies indicate", "as per", "documentation states",
-                "best practices", "industry standard",
+                "according to",
+                "research shows",
+                "experts say",
+                "studies indicate",
+                "as per",
+                "documentation states",
+                "best practices",
+                "industry standard",
             ],
             "patterns": [
                 r"\baccording to\b",
@@ -157,9 +185,15 @@ class RhetoricalAnalysisObserver:
         },
         RhetoricalPattern.APPEAL_TO_EVIDENCE: {
             "keywords": [
-                "for example", "such as", "specifically",
-                "consider the case", "evidence suggests", "data shows",
-                "looking at", "we can see", "demonstrated by",
+                "for example",
+                "such as",
+                "specifically",
+                "consider the case",
+                "evidence suggests",
+                "data shows",
+                "looking at",
+                "we can see",
+                "demonstrated by",
             ],
             "patterns": [
                 r"\bfor (example|instance)\b",
@@ -174,9 +208,17 @@ class RhetoricalAnalysisObserver:
         },
         RhetoricalPattern.TECHNICAL_DEPTH: {
             "keywords": [
-                "implementation", "architecture", "algorithm",
-                "complexity", "performance", "scalability",
-                "database", "api", "protocol", "async", "threading",
+                "implementation",
+                "architecture",
+                "algorithm",
+                "complexity",
+                "performance",
+                "scalability",
+                "database",
+                "api",
+                "protocol",
+                "async",
+                "threading",
             ],
             "patterns": [
                 r"\bO\([n\d\s\*log]+\)\b",  # Big O notation
@@ -203,9 +245,15 @@ class RhetoricalAnalysisObserver:
         },
         RhetoricalPattern.ANALOGY: {
             "keywords": [
-                "like", "similar to", "just as", "analogous",
-                "think of it as", "imagine", "metaphorically",
-                "in the same way", "comparable to",
+                "like",
+                "similar to",
+                "just as",
+                "analogous",
+                "think of it as",
+                "imagine",
+                "metaphorically",
+                "in the same way",
+                "comparable to",
             ],
             "patterns": [
                 r"\b(just )?like\s+(a|the|when)\b",
@@ -221,9 +269,15 @@ class RhetoricalAnalysisObserver:
         },
         RhetoricalPattern.QUALIFICATION: {
             "keywords": [
-                "depends on", "in some cases", "typically",
-                "usually", "often", "sometimes", "it varies",
-                "context-dependent", "nuanced",
+                "depends on",
+                "in some cases",
+                "typically",
+                "usually",
+                "often",
+                "sometimes",
+                "it varies",
+                "context-dependent",
+                "nuanced",
             ],
             "patterns": [
                 r"\b(depends on|in some cases)\b",
@@ -311,14 +365,16 @@ class RhetoricalAnalysisObserver:
         # Broadcast if callback set
         if self.broadcast_callback and observations:
             try:
-                self.broadcast_callback({
-                    "type": "rhetorical_observations",
-                    "data": {
-                        "agent": agent,
-                        "round_num": round_num,
-                        "observations": [o.to_dict() for o in observations],
-                    },
-                })
+                self.broadcast_callback(
+                    {
+                        "type": "rhetorical_observations",
+                        "data": {
+                            "agent": agent,
+                            "round_num": round_num,
+                            "observations": [o.to_dict() for o in observations],
+                        },
+                    }
+                )
             except Exception as e:
                 logger.warning(f"rhetorical_broadcast_failed error={e}")
 
@@ -361,7 +417,7 @@ class RhetoricalAnalysisObserver:
         content_lower = content.lower()
 
         # Try to find a sentence containing pattern indicators
-        sentences = re.split(r'[.!?]+', content)
+        sentences = re.split(r"[.!?]+", content)
 
         for sentence in sentences:
             sentence_lower = sentence.lower()
@@ -392,6 +448,7 @@ class RhetoricalAnalysisObserver:
 
         if templates:
             import random
+
             template = random.choice(templates)
             return template.format(agent=agent)
 
@@ -472,7 +529,9 @@ class RhetoricalAnalysisObserver:
             return "technical"
 
         # Check for evidence-heavy
-        evidence = pattern_counts.get("appeal_to_evidence", 0) + pattern_counts.get("appeal_to_authority", 0)
+        evidence = pattern_counts.get("appeal_to_evidence", 0) + pattern_counts.get(
+            "appeal_to_authority", 0
+        )
         if evidence > total * 0.3:
             return "evidence-driven"
 

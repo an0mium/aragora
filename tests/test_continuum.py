@@ -667,8 +667,7 @@ class TestContinuumMemoryPromoteDemote:
         # Set high surprise
         with sqlite3.connect(cms.db_path) as conn:
             conn.execute(
-                "UPDATE continuum_memory SET surprise_score = 0.8 WHERE id = ?",
-                ("test-1",)
+                "UPDATE continuum_memory SET surprise_score = 0.8 WHERE id = ?", ("test-1",)
             )
 
         new_tier = cms.promote("test-1")
@@ -697,16 +696,14 @@ class TestContinuumMemoryPromoteDemote:
         # First promotion
         with sqlite3.connect(cms.db_path) as conn:
             conn.execute(
-                "UPDATE continuum_memory SET surprise_score = 0.8 WHERE id = ?",
-                ("test-1",)
+                "UPDATE continuum_memory SET surprise_score = 0.8 WHERE id = ?", ("test-1",)
             )
         cms.promote("test-1")
 
         # Second immediate promotion should fail (cooldown)
         with sqlite3.connect(cms.db_path) as conn:
             conn.execute(
-                "UPDATE continuum_memory SET surprise_score = 0.8 WHERE id = ?",
-                ("test-1",)
+                "UPDATE continuum_memory SET surprise_score = 0.8 WHERE id = ?", ("test-1",)
             )
         new_tier = cms.promote("test-1")
 
@@ -720,7 +717,7 @@ class TestContinuumMemoryPromoteDemote:
         with sqlite3.connect(cms.db_path) as conn:
             conn.execute(
                 "UPDATE continuum_memory SET surprise_score = 0.1, update_count = 20 WHERE id = ?",
-                ("test-1",)
+                ("test-1",),
             )
 
         new_tier = cms.demote("test-1")
@@ -745,7 +742,7 @@ class TestContinuumMemoryPromoteDemote:
         with sqlite3.connect(cms.db_path) as conn:
             conn.execute(
                 "UPDATE continuum_memory SET surprise_score = 0.0, update_count = 5 WHERE id = ?",
-                ("test-1",)
+                ("test-1",),
             )
 
         new_tier = cms.demote("test-1")
@@ -758,8 +755,7 @@ class TestContinuumMemoryPromoteDemote:
 
         with sqlite3.connect(cms.db_path) as conn:
             conn.execute(
-                "UPDATE continuum_memory SET surprise_score = 0.8 WHERE id = ?",
-                ("test-1",)
+                "UPDATE continuum_memory SET surprise_score = 0.8 WHERE id = ?", ("test-1",)
             )
 
         cms.promote("test-1")
@@ -768,7 +764,7 @@ class TestContinuumMemoryPromoteDemote:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT from_tier, to_tier, reason FROM tier_transitions WHERE memory_id = ?",
-                ("test-1",)
+                ("test-1",),
             )
             row = cursor.fetchone()
 
@@ -806,8 +802,7 @@ class TestContinuumMemoryConsolidate:
         # Set high surprise (above SLOW's 0.6 threshold)
         with sqlite3.connect(cms.db_path) as conn:
             conn.execute(
-                "UPDATE continuum_memory SET surprise_score = 0.8 WHERE id = ?",
-                ("test-1",)
+                "UPDATE continuum_memory SET surprise_score = 0.8 WHERE id = ?", ("test-1",)
             )
 
         result = cms.consolidate()
@@ -824,7 +819,7 @@ class TestContinuumMemoryConsolidate:
         with sqlite3.connect(cms.db_path) as conn:
             conn.execute(
                 "UPDATE continuum_memory SET surprise_score = 0.05, update_count = 50 WHERE id = ?",
-                ("test-1",)
+                ("test-1",),
             )
 
         result = cms.consolidate()
@@ -843,16 +838,14 @@ class TestContinuumMemoryConsolidate:
         # Set high surprise on glacial and slow, low surprise on fast
         with sqlite3.connect(cms.db_path) as conn:
             conn.execute(
-                "UPDATE continuum_memory SET surprise_score = 0.7 WHERE id = ?",
-                ("glacial-1",)
+                "UPDATE continuum_memory SET surprise_score = 0.7 WHERE id = ?", ("glacial-1",)
             )
             conn.execute(
-                "UPDATE continuum_memory SET surprise_score = 0.8 WHERE id = ?",
-                ("slow-1",)
+                "UPDATE continuum_memory SET surprise_score = 0.8 WHERE id = ?", ("slow-1",)
             )
             conn.execute(
                 "UPDATE continuum_memory SET surprise_score = 0.05, update_count = 50 WHERE id = ?",
-                ("fast-1",)
+                ("fast-1",),
             )
 
         result = cms.consolidate()

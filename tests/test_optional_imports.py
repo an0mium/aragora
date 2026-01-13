@@ -17,6 +17,7 @@ from aragora.utils.optional_imports import try_import, try_import_class, LazyImp
 # Test try_import Function
 # ============================================================================
 
+
 class TestTryImport:
     """Tests for the try_import function."""
 
@@ -39,10 +40,7 @@ class TestTryImport:
 
     def test_import_unavailable_module(self):
         """Import from a module that doesn't exist."""
-        imported, available = try_import(
-            "nonexistent.module.that.doesnt.exist",
-            "SomeClass"
-        )
+        imported, available = try_import("nonexistent.module.that.doesnt.exist", "SomeClass")
 
         assert available is False
         assert imported["SomeClass"] is None
@@ -57,9 +55,7 @@ class TestTryImport:
     def test_import_partial_failure(self):
         """When one of multiple imports fails, all should fail."""
         imported, available = try_import(
-            "json",
-            "JSONEncoder",  # exists
-            "NonexistentClass"  # doesn't exist
+            "json", "JSONEncoder", "NonexistentClass"  # exists  # doesn't exist
         )
 
         assert available is False
@@ -71,10 +67,7 @@ class TestTryImport:
         """Verify logging works when enabled."""
         with caplog.at_level(logging.DEBUG):
             imported, available = try_import(
-                "nonexistent.module",
-                "SomeClass",
-                log_on_failure=True,
-                log_level="debug"
+                "nonexistent.module", "SomeClass", log_on_failure=True, log_level="debug"
             )
 
         assert available is False
@@ -84,9 +77,7 @@ class TestTryImport:
         """Verify no logging when disabled."""
         with caplog.at_level(logging.DEBUG):
             imported, available = try_import(
-                "nonexistent.module",
-                "SomeClass",
-                log_on_failure=False
+                "nonexistent.module", "SomeClass", log_on_failure=False
             )
 
         assert available is False
@@ -120,6 +111,7 @@ class TestTryImport:
 # Test try_import_class Function
 # ============================================================================
 
+
 class TestTryImportClass:
     """Tests for the try_import_class convenience function."""
 
@@ -139,10 +131,7 @@ class TestTryImportClass:
 
     def test_import_class_from_missing_module(self):
         """Import from a module that doesn't exist."""
-        cls, available = try_import_class(
-            "nonexistent.module",
-            "SomeClass"
-        )
+        cls, available = try_import_class("nonexistent.module", "SomeClass")
 
         assert available is False
         assert cls is None
@@ -151,9 +140,7 @@ class TestTryImportClass:
         """Verify logging works for class import."""
         with caplog.at_level(logging.DEBUG):
             cls, available = try_import_class(
-                "nonexistent.module",
-                "SomeClass",
-                log_on_failure=True
+                "nonexistent.module", "SomeClass", log_on_failure=True
             )
 
         assert available is False
@@ -163,6 +150,7 @@ class TestTryImportClass:
 # ============================================================================
 # Test LazyImport Class
 # ============================================================================
+
 
 class TestLazyImport:
     """Tests for the LazyImport class."""
@@ -243,11 +231,7 @@ class TestLazyImport:
     def test_lazy_import_with_logging(self, caplog):
         """LazyImport with logging enabled."""
         with caplog.at_level(logging.DEBUG):
-            lazy = LazyImport(
-                "nonexistent.module",
-                "SomeClass",
-                log_on_failure=True
-            )
+            lazy = LazyImport("nonexistent.module", "SomeClass", log_on_failure=True)
             lazy.get("SomeClass")
 
         assert "Optional module not available" in caplog.text
@@ -256,6 +240,7 @@ class TestLazyImport:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestOptionalImportsIntegration:
     """Integration tests simulating real usage patterns."""
@@ -271,10 +256,7 @@ class TestOptionalImportsIntegration:
         #     EloSystem = None
 
         # New pattern:
-        imported, RANKING_AVAILABLE = try_import(
-            "aragora.ranking.elo",
-            "EloSystem"
-        )
+        imported, RANKING_AVAILABLE = try_import("aragora.ranking.elo", "EloSystem")
         EloSystem = imported["EloSystem"]
 
         # Works regardless of whether module exists
@@ -295,9 +277,7 @@ class TestOptionalImportsIntegration:
 
         # New pattern:
         imported, CONSENSUS_AVAILABLE = try_import(
-            "aragora.memory.consensus",
-            "ConsensusMemory",
-            "DissentRetriever"
+            "aragora.memory.consensus", "ConsensusMemory", "DissentRetriever"
         )
         ConsensusMemory = imported["ConsensusMemory"]
         DissentRetriever = imported["DissentRetriever"]
@@ -320,9 +300,7 @@ class TestOptionalImportsIntegration:
 
         # New pattern:
         _belief_imports = LazyImport(
-            "aragora.reasoning.belief",
-            "BeliefNetwork",
-            "BeliefPropagationAnalyzer"
+            "aragora.reasoning.belief", "BeliefNetwork", "BeliefPropagationAnalyzer"
         )
 
         def get_belief_network():
@@ -337,10 +315,7 @@ class TestOptionalImportsIntegration:
 
     def test_handler_pattern_with_availability_check(self):
         """Test pattern used in handlers."""
-        imported, FEATURE_AVAILABLE = try_import(
-            "aragora.some.feature",
-            "FeatureClass"
-        )
+        imported, FEATURE_AVAILABLE = try_import("aragora.some.feature", "FeatureClass")
         FeatureClass = imported["FeatureClass"]
 
         # Handler method pattern
@@ -359,6 +334,7 @@ class TestOptionalImportsIntegration:
 # Edge Cases
 # ============================================================================
 
+
 class TestEdgeCases:
     """Tests for edge cases and error conditions."""
 
@@ -374,12 +350,7 @@ class TestEdgeCases:
         for level in ["debug", "info", "warning"]:
             caplog.clear()
             with caplog.at_level(logging.DEBUG):
-                try_import(
-                    "nonexistent.module",
-                    "SomeClass",
-                    log_on_failure=True,
-                    log_level=level
-                )
+                try_import("nonexistent.module", "SomeClass", log_on_failure=True, log_level=level)
             assert "Optional module not available" in caplog.text
 
     def test_lazy_import_thread_safety(self):

@@ -34,11 +34,15 @@ def setup_replays_dir(tmp_path):
     # Create replay 1
     replay1 = replays_dir / "replay-001"
     replay1.mkdir()
-    (replay1 / "meta.json").write_text(json.dumps({
-        "topic": "AI Safety Discussion",
-        "agents": [{"name": "claude"}, {"name": "gpt4"}],
-        "schema_version": "1.1",
-    }))
+    (replay1 / "meta.json").write_text(
+        json.dumps(
+            {
+                "topic": "AI Safety Discussion",
+                "agents": [{"name": "claude"}, {"name": "gpt4"}],
+                "schema_version": "1.1",
+            }
+        )
+    )
     (replay1 / "events.jsonl").write_text(
         '{"type": "start", "timestamp": "2024-01-01T10:00:00Z"}\n'
         '{"type": "message", "agent": "claude", "content": "Hello"}\n'
@@ -48,11 +52,15 @@ def setup_replays_dir(tmp_path):
     # Create replay 2
     replay2 = replays_dir / "replay-002"
     replay2.mkdir()
-    (replay2 / "meta.json").write_text(json.dumps({
-        "topic": "Code Review Best Practices",
-        "agents": [{"name": "gemini"}],
-        "schema_version": "1.0",
-    }))
+    (replay2 / "meta.json").write_text(
+        json.dumps(
+            {
+                "topic": "Code Review Best Practices",
+                "agents": [{"name": "gemini"}],
+                "schema_version": "1.0",
+            }
+        )
+    )
     (replay2 / "events.jsonl").write_text(
         '{"type": "message", "agent": "gemini", "content": "Review..."}\n'
     )
@@ -71,6 +79,7 @@ def clear_caches():
 # ============================================================================
 # Route Matching Tests
 # ============================================================================
+
 
 class TestReplaysHandlerRouting:
     """Tests for route matching."""
@@ -105,6 +114,7 @@ class TestReplaysHandlerRouting:
 # ============================================================================
 # List Replays Tests
 # ============================================================================
+
 
 class TestListReplaysEndpoint:
     """Tests for /api/replays endpoint."""
@@ -189,6 +199,7 @@ class TestListReplaysEndpoint:
 # Get Replay Tests
 # ============================================================================
 
+
 class TestGetReplayEndpoint:
     """Tests for /api/replays/{replay_id} endpoint."""
 
@@ -262,9 +273,7 @@ class TestGetReplayEndpoint:
         replay.mkdir()
         (replay / "meta.json").write_text('{"topic": "Test"}')
         (replay / "events.jsonl").write_text(
-            '{"type": "good"}\n'
-            'not valid json\n'
-            '{"type": "also_good"}\n'
+            '{"type": "good"}\n' "not valid json\n" '{"type": "also_good"}\n'
         )
 
         result = replays_handler.handle("/api/replays/bad-events", {}, None)
@@ -278,6 +287,7 @@ class TestGetReplayEndpoint:
 # ============================================================================
 # Security Tests
 # ============================================================================
+
 
 class TestReplaysSecurity:
     """Tests for security measures."""
@@ -324,6 +334,7 @@ class TestReplaysSecurity:
 # Learning Evolution Tests
 # ============================================================================
 
+
 class TestLearningEvolutionEndpoint:
     """Tests for /api/learning/evolution endpoint."""
 
@@ -332,18 +343,22 @@ class TestLearningEvolutionEndpoint:
         # Create database with patterns
         db_path = tmp_path / "meta_learning.db"
         conn = sqlite3.connect(str(db_path))
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE meta_patterns (
                 id INTEGER PRIMARY KEY,
                 pattern_type TEXT,
                 data TEXT,
                 created_at TEXT
             )
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             INSERT INTO meta_patterns (pattern_type, data, created_at)
             VALUES ('improvement', '{"score": 0.8}', '2024-01-01T10:00:00Z')
-        """)
+        """
+        )
         conn.commit()
         conn.close()
 
@@ -352,24 +367,29 @@ class TestLearningEvolutionEndpoint:
         assert result.status_code == 200
         data = json.loads(result.body)
         assert len(data["patterns"]) == 1
-        assert data["count"] == 1
+        assert data["patterns_count"] == 1
 
     def test_respects_limit(self, replays_handler, tmp_path):
         """Should respect limit parameter."""
         db_path = tmp_path / "meta_learning.db"
         conn = sqlite3.connect(str(db_path))
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE meta_patterns (
                 id INTEGER PRIMARY KEY,
                 pattern_type TEXT,
                 created_at TEXT
             )
-        """)
+        """
+        )
         for i in range(50):
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO meta_patterns (pattern_type, created_at)
                 VALUES (?, ?)
-            """, (f"pattern_{i}", f"2024-01-{i+1:02d}T10:00:00Z"))
+            """,
+                (f"pattern_{i}", f"2024-01-{i+1:02d}T10:00:00Z"),
+            )
         conn.commit()
         conn.close()
 
@@ -382,18 +402,23 @@ class TestLearningEvolutionEndpoint:
         """Should cap limit at 100."""
         db_path = tmp_path / "meta_learning.db"
         conn = sqlite3.connect(str(db_path))
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE meta_patterns (
                 id INTEGER PRIMARY KEY,
                 pattern_type TEXT,
                 created_at TEXT
             )
-        """)
+        """
+        )
         for i in range(150):
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO meta_patterns (pattern_type, created_at)
                 VALUES (?, datetime('now'))
-            """, (f"pattern_{i}",))
+            """,
+                (f"pattern_{i}",),
+            )
         conn.commit()
         conn.close()
 
@@ -409,7 +434,7 @@ class TestLearningEvolutionEndpoint:
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["patterns"] == []
-        assert data["count"] == 0
+        assert data["patterns_count"] == 0
 
     def test_returns_empty_without_nomic_dir(self):
         """Should return empty without nomic_dir."""
@@ -436,6 +461,7 @@ class TestLearningEvolutionEndpoint:
 # ============================================================================
 # Error Message Helper Tests
 # ============================================================================
+
 
 class TestSafeErrorMessage:
     """Tests for _safe_error_message helper."""
@@ -473,6 +499,7 @@ class TestSafeErrorMessage:
 # Caching Tests
 # ============================================================================
 
+
 class TestReplaysCaching:
     """Tests for caching behavior."""
 
@@ -490,6 +517,7 @@ class TestReplaysCaching:
 # ============================================================================
 # Edge Cases
 # ============================================================================
+
 
 class TestReplaysEdgeCases:
     """Tests for edge cases."""
@@ -543,13 +571,17 @@ class TestReplaysEdgeCases:
         replays_dir.mkdir()
         replay = replays_dir / "agents-test"
         replay.mkdir()
-        (replay / "meta.json").write_text(json.dumps({
-            "topic": "Test",
-            "agents": [
-                {"name": "claude", "provider": "anthropic"},
-                {"name": "gpt4", "provider": "openai"},
-            ],
-        }))
+        (replay / "meta.json").write_text(
+            json.dumps(
+                {
+                    "topic": "Test",
+                    "agents": [
+                        {"name": "claude", "provider": "anthropic"},
+                        {"name": "gpt4", "provider": "openai"},
+                    ],
+                }
+            )
+        )
 
         result = replays_handler.handle("/api/replays", {}, None)
 

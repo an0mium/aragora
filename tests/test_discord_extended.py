@@ -50,6 +50,7 @@ def discord_integration(discord_config):
 @pytest.fixture
 def mock_response():
     """Factory for mock aiohttp responses."""
+
     def _make(status=204, headers=None, text="", json_data=None):
         response = AsyncMock()
         response.status = status
@@ -58,6 +59,7 @@ def mock_response():
         if json_data:
             response.json = AsyncMock(return_value=json_data)
         return response
+
     return _make
 
 
@@ -265,6 +267,7 @@ class TestDiscordRetryLogic:
         mock_session.post = fail_effect
 
         sleep_times = []
+
         async def track_sleep(duration):
             sleep_times.append(duration)
 
@@ -307,7 +310,9 @@ class TestDiscordRetryLogic:
         mock_session = MagicMock()
         mock_session.closed = False
         # Always return 500
-        mock_session.post = MagicMock(return_value=MockContextManager(mock_response(500, text="Error")))
+        mock_session.post = MagicMock(
+            return_value=MockContextManager(mock_response(500, text="Error"))
+        )
         integration._session = mock_session
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -352,6 +357,7 @@ class TestDiscordRetryLogic:
         mock_session.post = fail_effect
 
         sleep_calls = []
+
         async def track_sleep(duration):
             sleep_calls.append(duration)
 
@@ -404,6 +410,7 @@ class TestDiscordRetryLogic:
         mock_session.post = fail_effect
 
         sleep_times = []
+
         async def track_sleep(duration):
             sleep_times.append(duration)
 
@@ -909,9 +916,7 @@ class TestDiscordConcurrency:
         # Create mock session
         mock_session = MagicMock()
         mock_session.closed = False
-        mock_session.post = MagicMock(
-            return_value=MockContextManager(mock_response(204))
-        )
+        mock_session.post = MagicMock(return_value=MockContextManager(mock_response(204)))
         integration._session = mock_session
 
         # Send multiple webhooks concurrently
@@ -940,11 +945,9 @@ class TestDiscordConcurrency:
         # Set up mock session
         mock_session = MagicMock()
         mock_session.closed = False
-        mock_session.post = MagicMock(
-            return_value=MockContextManager(mock_response(204))
-        )
+        mock_session.post = MagicMock(return_value=MockContextManager(mock_response(204)))
 
-        with patch.object(integration, '_get_session', side_effect=tracked_get_session):
+        with patch.object(integration, "_get_session", side_effect=tracked_get_session):
             integration._session = mock_session
 
             # Send multiple webhooks concurrently
@@ -967,12 +970,10 @@ class TestDiscordConcurrency:
         integration._session = closed_session
 
         # New session to be created
-        with patch('aiohttp.ClientSession') as mock_cls:
+        with patch("aiohttp.ClientSession") as mock_cls:
             new_session = MagicMock()
             new_session.closed = False
-            new_session.post = MagicMock(
-                return_value=MockContextManager(mock_response(204))
-            )
+            new_session.post = MagicMock(return_value=MockContextManager(mock_response(204)))
             mock_cls.return_value = new_session
 
             embed = DiscordEmbed(title="Test")
@@ -998,9 +999,7 @@ class TestDiscordConcurrency:
         for integration in integrations:
             mock_session = MagicMock()
             mock_session.closed = False
-            mock_session.post = MagicMock(
-                return_value=MockContextManager(mock_response(204))
-            )
+            mock_session.post = MagicMock(return_value=MockContextManager(mock_response(204)))
             integration._session = mock_session
 
         # Send from all integrations concurrently
@@ -1008,9 +1007,7 @@ class TestDiscordConcurrency:
             embed = DiscordEmbed(title=f"Integration {idx}")
             return await integrations[idx]._send_webhook([embed])
 
-        results = await asyncio.gather(*[
-            send_from_integration(i) for i in range(3)
-        ])
+        results = await asyncio.gather(*[send_from_integration(i) for i in range(3)])
 
         # All should succeed
         assert all(results)

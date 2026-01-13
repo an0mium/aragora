@@ -98,6 +98,7 @@ class InitPhase(Enum):
             cls.PHASES: [cls.CORE, cls.TRACKERS, cls.ROLES, cls.CONVERGENCE],
         }
 
+
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
     from aragora.agents.grounded import MomentDetector
@@ -310,9 +311,7 @@ class ArenaBuilder:
         self._memory = memory
         return self
 
-    def with_debate_embeddings(
-        self, embeddings: "DebateEmbeddingsDatabase"
-    ) -> ArenaBuilder:
+    def with_debate_embeddings(self, embeddings: "DebateEmbeddingsDatabase") -> ArenaBuilder:
         """Set the debate embeddings database for historical context.
 
         Args:
@@ -410,9 +409,7 @@ class ArenaBuilder:
         self._persona_manager = manager
         return self
 
-    def with_calibration_tracker(
-        self, tracker: "CalibrationTracker"
-    ) -> ArenaBuilder:
+    def with_calibration_tracker(self, tracker: "CalibrationTracker") -> ArenaBuilder:
         """Set calibration tracker for prediction accuracy.
 
         Args:
@@ -421,9 +418,7 @@ class ArenaBuilder:
         self._calibration_tracker = tracker
         return self
 
-    def with_relationship_tracker(
-        self, tracker: "RelationshipTracker"
-    ) -> ArenaBuilder:
+    def with_relationship_tracker(self, tracker: "RelationshipTracker") -> ArenaBuilder:
         """Set relationship tracker for agent relationships.
 
         Args:
@@ -485,9 +480,7 @@ class ArenaBuilder:
         self._dissent_retriever = retriever
         return self
 
-    def with_evidence_collector(
-        self, collector: "EvidenceCollector"
-    ) -> ArenaBuilder:
+    def with_evidence_collector(self, collector: "EvidenceCollector") -> ArenaBuilder:
         """Set evidence collector for auto-collecting evidence.
 
         Args:

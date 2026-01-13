@@ -77,6 +77,7 @@ def get_cache_duration(path: str) -> Optional[int]:
 # ETag Generation
 # =============================================================================
 
+
 def generate_etag(data: Any) -> str:
     """Generate an ETag for response data.
 
@@ -153,6 +154,7 @@ def etag_matches(request_etag: Optional[str], response_etag: str) -> bool:
 # Cache Headers
 # =============================================================================
 
+
 def cache_headers(
     max_age: int = 60,
     public: bool = True,
@@ -190,9 +192,7 @@ def cache_headers(
     # Add Last-Modified
     if last_modified:
         # Format per HTTP spec (RFC 7231)
-        headers["Last-Modified"] = last_modified.strftime(
-            "%a, %d %b %Y %H:%M:%S GMT"
-        )
+        headers["Last-Modified"] = last_modified.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
     return headers
 
@@ -213,6 +213,7 @@ def no_cache_headers() -> Dict[str, str]:
 # =============================================================================
 # High-Level Utilities
 # =============================================================================
+
 
 def with_etag(
     data: T,

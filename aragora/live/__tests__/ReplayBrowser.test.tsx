@@ -112,7 +112,7 @@ describe('ReplayBrowser', () => {
 
   describe('Loading States', () => {
     it('shows panel title', async () => {
-      setupSuccessfulFetch();
+      mockFetch.mockImplementation(() => new Promise(() => {}));
       render(<ReplayBrowser />);
       expect(screen.getByText('Replay Browser')).toBeInTheDocument();
     });
@@ -126,6 +126,10 @@ describe('ReplayBrowser', () => {
           expect.stringContaining('/api/replays'),
           undefined
         );
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('AI Ethics Debate')).toBeInTheDocument();
       });
     });
   });

@@ -83,7 +83,7 @@ class TestExtractReviewFindings:
         mock_result.final_answer = "Test summary"
         mock_result.messages = []
 
-        with patch('aragora.cli.review.DisagreementReporter') as MockReporter:
+        with patch("aragora.cli.review.DisagreementReporter") as MockReporter:
             mock_report = Mock()
             mock_report.unanimous_critiques = []
             mock_report.split_opinions = []
@@ -127,7 +127,7 @@ class TestExtractReviewFindings:
 
         mock_result.critiques = [critical_critique, low_critique]
 
-        with patch('aragora.cli.review.DisagreementReporter') as MockReporter:
+        with patch("aragora.cli.review.DisagreementReporter") as MockReporter:
             mock_report = Mock()
             mock_report.unanimous_critiques = []
             mock_report.split_opinions = []
@@ -359,10 +359,7 @@ class TestCodeReviewPrompts:
 
     def test_build_review_prompt_with_context(self):
         """Build review prompt with additional context."""
-        prompt = prompts_build_review_prompt(
-            "diff",
-            additional_context="This is a Django app"
-        )
+        prompt = prompts_build_review_prompt("diff", additional_context="This is a Django app")
         assert "Django" in prompt
 
     def test_get_role_prompt(self):

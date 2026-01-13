@@ -18,9 +18,11 @@ from aragora.debate.phases.analytics_phase import AnalyticsPhase
 # Mock Classes
 # ============================================================================
 
+
 @dataclass
 class MockEnvironment:
     """Mock environment for testing."""
+
     task: str = "Test task"
     context: str = ""
     domain: str = "security"
@@ -29,6 +31,7 @@ class MockEnvironment:
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str = "test_agent"
     role: str = "proposer"
 
@@ -36,6 +39,7 @@ class MockAgent:
 @dataclass
 class MockCritique:
     """Mock critique for testing."""
+
     agent: str = "critic"
     target_agent: str = "proposer"
     issues: list = field(default_factory=list)
@@ -47,6 +51,7 @@ class MockCritique:
 @dataclass
 class MockVote:
     """Mock vote for testing."""
+
     agent: str = "voter"
     choice: str = "claude"
     confidence: float = 0.8
@@ -55,6 +60,7 @@ class MockVote:
 @dataclass
 class MockDebateResult:
     """Mock debate result for testing."""
+
     id: str = "debate_001"
     task: str = "Test task"
     messages: list = field(default_factory=list)
@@ -75,6 +81,7 @@ class MockDebateResult:
 @dataclass
 class MockDisagreementReport:
     """Mock disagreement report for testing."""
+
     unanimous_critiques: list = field(default_factory=list)
     split_opinions: list = field(default_factory=list)
 
@@ -82,6 +89,7 @@ class MockDisagreementReport:
 @dataclass
 class MockGroundedVerdict:
     """Mock grounded verdict for testing."""
+
     grounding_score: float = 0.85
     claims: list = field(default_factory=list)
 
@@ -92,6 +100,7 @@ class MockGroundedVerdict:
 # ============================================================================
 # AnalyticsPhase Construction Tests
 # ============================================================================
+
 
 class TestAnalyticsPhaseConstruction:
     """Tests for AnalyticsPhase construction."""
@@ -125,6 +134,7 @@ class TestAnalyticsPhaseConstruction:
 # ============================================================================
 # Pattern Tracking Tests
 # ============================================================================
+
 
 class TestPatternTracking:
     """Tests for failed pattern tracking."""
@@ -182,6 +192,7 @@ class TestPatternTracking:
 # Duration Tests
 # ============================================================================
 
+
 class TestDurationSetting:
     """Tests for duration calculation."""
 
@@ -203,6 +214,7 @@ class TestDurationSetting:
 # ============================================================================
 # Hook Event Tests
 # ============================================================================
+
 
 class TestHookEvents:
     """Tests for hook event emission."""
@@ -247,6 +259,7 @@ class TestHookEvents:
 # Spectator Notification Tests
 # ============================================================================
 
+
 class TestSpectatorNotification:
     """Tests for spectator notifications."""
 
@@ -270,6 +283,7 @@ class TestSpectatorNotification:
 # ============================================================================
 # Winner Determination Tests
 # ============================================================================
+
 
 class TestWinnerDetermination:
     """Tests for winner determination from vote tally."""
@@ -306,6 +320,7 @@ class TestWinnerDetermination:
 # Relationship Update Tests
 # ============================================================================
 
+
 class TestRelationshipUpdate:
     """Tests for agent relationship updates."""
 
@@ -331,6 +346,7 @@ class TestRelationshipUpdate:
 # ============================================================================
 # Disagreement Report Tests
 # ============================================================================
+
 
 class TestDisagreementReport:
     """Tests for disagreement report generation."""
@@ -361,6 +377,7 @@ class TestDisagreementReport:
 # ============================================================================
 # Grounded Verdict Tests
 # ============================================================================
+
 
 class TestGroundedVerdict:
     """Tests for grounded verdict generation."""
@@ -407,6 +424,7 @@ class TestGroundedVerdict:
 # Formal Verification Tests
 # ============================================================================
 
+
 class TestFormalVerification:
     """Tests for formal Z3 verification."""
 
@@ -439,6 +457,7 @@ class TestFormalVerification:
 # ============================================================================
 # Recording Finalization Tests
 # ============================================================================
+
 
 class TestRecordingFinalization:
     """Tests for replay recording finalization."""
@@ -493,6 +512,7 @@ class TestRecordingFinalization:
 # Completion Logging Tests
 # ============================================================================
 
+
 class TestCompletionLogging:
     """Tests for completion logging."""
 
@@ -513,6 +533,7 @@ class TestCompletionLogging:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestAnalyticsPhaseIntegration:
     """Integration tests for full analytics execution."""

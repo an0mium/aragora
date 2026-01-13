@@ -15,15 +15,11 @@ This enables the system to:
 import json
 import logging
 import sqlite3
-from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional
-import math
+from typing import Any, Dict, List
 
 from aragora.config import DB_MEMORY_PATH, DB_TIMEOUT_SECONDS
-from aragora.memory.database import MemoryDatabase
+from aragora.storage.base_store import SQLiteStore
 from aragora.utils.json_helpers import safe_json_loads
 
 logger = logging.getLogger(__name__)
@@ -32,13 +28,14 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LearningMetrics:
     """Metrics for evaluating learning efficiency."""
+
     cycles_evaluated: int = 0
     pattern_retention_rate: float = 0.0  # % of patterns still useful
-    forgetting_rate: float = 0.0         # Rate of useful pattern loss
-    learning_velocity: float = 0.0       # Speed of new pattern acquisition
-    consensus_rate: float = 0.0          # % of debates reaching consensus
+    forgetting_rate: float = 0.0  # Rate of useful pattern loss
+    learning_velocity: float = 0.0  # Speed of new pattern acquisition
+    consensus_rate: float = 0.0  # % of debates reaching consensus
     avg_cycles_to_consensus: float = 0.0
-    prediction_accuracy: float = 0.0     # Agent calibration quality
+    prediction_accuracy: float = 0.0  # Agent calibration quality
     tier_efficiency: Dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -57,6 +54,7 @@ class LearningMetrics:
 @dataclass
 class HyperparameterState:
     """Current state of tunable hyperparameters."""
+
     # Surprise calculation weights
     surprise_weight_success: float = 0.3
     surprise_weight_semantic: float = 0.3
@@ -110,7 +108,7 @@ class HyperparameterState:
         return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
 
 
-class MetaLearner:
+class MetaLearner(SQLiteStore):
     """
     Outer optimization loop that tunes the learning system itself.
 
@@ -123,6 +121,8 @@ class MetaLearner:
     3. Decay half-lives: Adjust based on retention needs
     4. Consolidation: Speed up/slow down based on stability
 
+    Inherits from SQLiteStore for standardized schema management.
+
     Usage:
         meta = MetaLearner()
 
@@ -134,54 +134,32 @@ class MetaLearner:
         cms.hyperparams.update(meta.get_current_hyperparams())
     """
 
+    SCHEMA_NAME = "meta_learner"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        -- Hyperparameter history table
+        CREATE TABLE IF NOT EXISTS meta_hyperparams (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            hyperparams TEXT NOT NULL,
+            metrics TEXT,
+            adjustment_reason TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Learning efficiency history
+        CREATE TABLE IF NOT EXISTS meta_efficiency_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cycle_number INTEGER,
+            metrics TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+    """
+
     def __init__(self, db_path: str = DB_MEMORY_PATH):
-        self.db_path = Path(db_path)
-        self.db = MemoryDatabase(db_path)
-        self._init_db()
+        super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
         self.state = self._load_state()
         self.metrics_history: List[LearningMetrics] = []
-
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection with guaranteed cleanup."""
-        with self.db.connection() as conn:
-            yield conn
-
-    def _init_db(self):
-        """Initialize meta-learning tables.
-
-        Handles database errors gracefully - if table creation fails,
-        the system will operate with in-memory defaults only.
-        """
-        try:
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-
-                # Hyperparameter history table
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS meta_hyperparams (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        hyperparams TEXT NOT NULL,
-                        metrics TEXT,
-                        adjustment_reason TEXT,
-                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-
-                # Learning efficiency history
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS meta_efficiency_log (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        cycle_number INTEGER,
-                        metrics TEXT NOT NULL,
-                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-
-                conn.commit()
-        except sqlite3.Error as e:
-            logger.warning(f"Failed to initialize meta-learning tables: {e}")
-            # Continue without persistence - will use in-memory defaults
 
     def _load_state(self) -> HyperparameterState:
         """Load the most recent hyperparameter state.
@@ -189,13 +167,15 @@ class MetaLearner:
         Returns default state if database is unavailable or corrupted.
         """
         try:
-            with self._get_connection() as conn:
+            with self.connection() as conn:
                 cursor = conn.cursor()
 
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT hyperparams FROM meta_hyperparams
                     ORDER BY created_at DESC LIMIT 1
-                """)
+                """
+                )
                 row = cursor.fetchone()
 
             if row:
@@ -214,7 +194,7 @@ class MetaLearner:
         Logs warning if save fails but doesn't raise - in-memory state is preserved.
         """
         try:
-            with self._get_connection() as conn:
+            with self.connection() as conn:
                 cursor = conn.cursor()
 
                 cursor.execute(
@@ -282,27 +262,35 @@ class MetaLearner:
 
         # Query pattern statistics from database
         try:
-            with self._get_connection() as conn:
+            with self.connection() as conn:
                 cursor = conn.cursor()
 
                 # Pattern retention: % of patterns with success_rate > 0.5
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT COUNT(*) FROM continuum_memory
                     WHERE (success_count * 1.0 / NULLIF(success_count + failure_count, 0)) > 0.5
-                """)
+                """
+                )
                 row = cursor.fetchone()
                 useful_count = (row[0] if row else 0) or 0
-                metrics.pattern_retention_rate = useful_count / total_memories if total_memories > 0 else 0
+                metrics.pattern_retention_rate = (
+                    useful_count / total_memories if total_memories > 0 else 0
+                )
 
                 # Forgetting rate: % of patterns that became less useful over time
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT COUNT(*) FROM continuum_memory
                     WHERE failure_count > success_count
                       AND update_count > 5
-                """)
+                """
+                )
                 row = cursor.fetchone()
                 forgotten_count = (row[0] if row else 0) or 0
-                metrics.forgetting_rate = forgotten_count / total_memories if total_memories > 0 else 0
+                metrics.forgetting_rate = (
+                    forgotten_count / total_memories if total_memories > 0 else 0
+                )
 
                 # Tier efficiency: success rate per tier
                 for tier in ["fast", "medium", "slow", "glacial"]:
@@ -319,10 +307,12 @@ class MetaLearner:
                     metrics.tier_efficiency[tier] = result or 0.5
 
                 # Learning velocity: new patterns per cycle
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT COUNT(*) FROM continuum_memory
                     WHERE julianday('now') - julianday(created_at) < 1
-                """)
+                """
+                )
                 row = cursor.fetchone()
                 metrics.learning_velocity = (row[0] if row else 0) or 0
         except sqlite3.Error as e:
@@ -339,7 +329,7 @@ class MetaLearner:
 
         # Log to database
         try:
-            with self._get_connection() as conn:
+            with self.connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
@@ -377,50 +367,50 @@ class MetaLearner:
         # Rule 1: Retention adjustment
         if metrics.pattern_retention_rate < 0.6:
             # Too much forgetting - slow down decay
-            self.state.slow_half_life_hours *= (1 + lr)
-            self.state.glacial_half_life_hours *= (1 + lr)
+            self.state.slow_half_life_hours *= 1 + lr
+            self.state.glacial_half_life_hours *= 1 + lr
             adjustments["half_lives"] = "increased (low retention)"
         elif metrics.pattern_retention_rate > 0.9:
             # Very high retention - can afford faster decay
-            self.state.slow_half_life_hours *= (1 - lr * 0.5)
+            self.state.slow_half_life_hours *= 1 - lr * 0.5
             adjustments["half_lives"] = "decreased (high retention)"
 
         # Rule 2: Forgetting rate adjustment
         if metrics.forgetting_rate > 0.3:
             # Too many patterns failing - lower promotion threshold
-            self.state.medium_promotion_threshold *= (1 - lr)
-            self.state.slow_promotion_threshold *= (1 - lr)
+            self.state.medium_promotion_threshold *= 1 - lr
+            self.state.slow_promotion_threshold *= 1 - lr
             adjustments["promotion_thresholds"] = "lowered (high forgetting)"
         elif metrics.forgetting_rate < 0.1:
             # Very stable - can be more selective
-            self.state.medium_promotion_threshold *= (1 + lr * 0.5)
+            self.state.medium_promotion_threshold *= 1 + lr * 0.5
             adjustments["promotion_thresholds"] = "raised (low forgetting)"
 
         # Rule 3: Tier efficiency balancing
         tier_eff = metrics.tier_efficiency
         if tier_eff.get("fast", 0.5) < tier_eff.get("slow", 0.5) - 0.1:
             # Fast tier underperforming - raise bar for promotion
-            self.state.fast_promotion_threshold *= (1 + lr)
+            self.state.fast_promotion_threshold *= 1 + lr
             adjustments["fast_threshold"] = "raised (fast tier underperforming)"
 
         # Rule 4: Calibration adjustment
         if metrics.prediction_accuracy < 0.4:
             # Poor agent calibration - reduce agent weight
-            self.state.surprise_weight_agent *= (1 - lr)
+            self.state.surprise_weight_agent *= 1 - lr
             # Redistribute to success weight
             self.state.surprise_weight_success += lr * 0.1
             adjustments["surprise_weights"] = "reduced agent weight (poor calibration)"
         elif metrics.prediction_accuracy > 0.7:
             # Good calibration - increase agent weight
-            self.state.surprise_weight_agent *= (1 + lr * 0.5)
+            self.state.surprise_weight_agent *= 1 + lr * 0.5
             adjustments["surprise_weights"] = "increased agent weight (good calibration)"
 
         # Normalize surprise weights to sum to 1.0
         total_weight = (
-            self.state.surprise_weight_success +
-            self.state.surprise_weight_semantic +
-            self.state.surprise_weight_temporal +
-            self.state.surprise_weight_agent
+            self.state.surprise_weight_success
+            + self.state.surprise_weight_semantic
+            + self.state.surprise_weight_temporal
+            + self.state.surprise_weight_agent
         )
         if total_weight > 0:
             self.state.surprise_weight_success /= total_weight
@@ -441,11 +431,19 @@ class MetaLearner:
     def _clamp_hyperparameters(self):
         """Ensure hyperparameters stay in valid ranges."""
         # Thresholds: 0.1 to 0.9
-        self.state.fast_promotion_threshold = max(0.1, min(0.9, self.state.fast_promotion_threshold))
-        self.state.medium_promotion_threshold = max(0.1, min(0.9, self.state.medium_promotion_threshold))
-        self.state.slow_promotion_threshold = max(0.1, min(0.9, self.state.slow_promotion_threshold))
+        self.state.fast_promotion_threshold = max(
+            0.1, min(0.9, self.state.fast_promotion_threshold)
+        )
+        self.state.medium_promotion_threshold = max(
+            0.1, min(0.9, self.state.medium_promotion_threshold)
+        )
+        self.state.slow_promotion_threshold = max(
+            0.1, min(0.9, self.state.slow_promotion_threshold)
+        )
         self.state.fast_demotion_threshold = max(0.1, min(0.9, self.state.fast_demotion_threshold))
-        self.state.medium_demotion_threshold = max(0.1, min(0.9, self.state.medium_demotion_threshold))
+        self.state.medium_demotion_threshold = max(
+            0.1, min(0.9, self.state.medium_demotion_threshold)
+        )
         self.state.slow_demotion_threshold = max(0.1, min(0.9, self.state.slow_demotion_threshold))
 
         # Half-lives: minimum 0.5 hours, maximum 2000 hours
@@ -456,8 +454,12 @@ class MetaLearner:
 
         # Weights: 0.05 to 0.6
         self.state.surprise_weight_success = max(0.05, min(0.6, self.state.surprise_weight_success))
-        self.state.surprise_weight_semantic = max(0.05, min(0.6, self.state.surprise_weight_semantic))
-        self.state.surprise_weight_temporal = max(0.05, min(0.6, self.state.surprise_weight_temporal))
+        self.state.surprise_weight_semantic = max(
+            0.05, min(0.6, self.state.surprise_weight_semantic)
+        )
+        self.state.surprise_weight_temporal = max(
+            0.05, min(0.6, self.state.surprise_weight_temporal)
+        )
         self.state.surprise_weight_agent = max(0.05, min(0.6, self.state.surprise_weight_agent))
 
         # Meta learning rate: 0.001 to 0.1
@@ -469,7 +471,7 @@ class MetaLearner:
         Returns empty list if database is unavailable.
         """
         try:
-            with self._get_connection() as conn:
+            with self.connection() as conn:
                 cursor = conn.cursor()
 
                 cursor.execute(
@@ -484,12 +486,14 @@ class MetaLearner:
 
                 history = []
                 for row in cursor.fetchall():
-                    history.append({
-                        "hyperparams": safe_json_loads(row[0], {}),
-                        "metrics": safe_json_loads(row[1], None),
-                        "reason": row[2],
-                        "timestamp": row[3],
-                    })
+                    history.append(
+                        {
+                            "hyperparams": safe_json_loads(row[0], {}),
+                            "metrics": safe_json_loads(row[1], None),
+                            "reason": row[2],
+                            "timestamp": row[3],
+                        }
+                    )
 
             return history
         except sqlite3.Error as e:

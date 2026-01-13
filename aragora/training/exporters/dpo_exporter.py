@@ -179,27 +179,27 @@ class DPOExporter(BaseExporter):
                 continue
 
             # Get agent responses from the debate
-            winner_response, loser_response = self._get_debate_responses(
-                debate_id, winner, loser
-            )
+            winner_response, loser_response = self._get_debate_responses(debate_id, winner, loser)
 
             if not winner_response or not loser_response:
                 continue
 
-            records.append({
-                "prompt": task,
-                "chosen": winner_response,
-                "rejected": loser_response,
-                "metadata": {
-                    "source": "head_to_head",
-                    "debate_id": debate_id,
-                    "winner": winner,
-                    "loser": loser,
-                    "winner_elo": winner_rating.elo,
-                    "loser_elo": loser_rating.elo,
-                    "elo_difference": winner_rating.elo - loser_rating.elo,
-                },
-            })
+            records.append(
+                {
+                    "prompt": task,
+                    "chosen": winner_response,
+                    "rejected": loser_response,
+                    "metadata": {
+                        "source": "head_to_head",
+                        "debate_id": debate_id,
+                        "winner": winner,
+                        "loser": loser,
+                        "winner_elo": winner_rating.elo,
+                        "loser_elo": loser_rating.elo,
+                        "elo_difference": winner_rating.elo - loser_rating.elo,
+                    },
+                }
+            )
 
         return records
 
@@ -243,18 +243,20 @@ class DPOExporter(BaseExporter):
                     f"calibration score of {bad_agent.calibration_score:.2f}."
                 )
 
-                records.append({
-                    "prompt": prompt,
-                    "chosen": chosen,
-                    "rejected": rejected,
-                    "metadata": {
-                        "source": "calibration",
-                        "good_agent": good_agent.agent_name,
-                        "bad_agent": bad_agent.agent_name,
-                        "good_calibration": good_agent.calibration_score,
-                        "bad_calibration": bad_agent.calibration_score,
-                    },
-                })
+                records.append(
+                    {
+                        "prompt": prompt,
+                        "chosen": chosen,
+                        "rejected": rejected,
+                        "metadata": {
+                            "source": "calibration",
+                            "good_agent": good_agent.agent_name,
+                            "bad_agent": bad_agent.agent_name,
+                            "good_calibration": good_agent.calibration_score,
+                            "bad_calibration": bad_agent.calibration_score,
+                        },
+                    }
+                )
 
                 if len(records) >= limit:
                     return records
@@ -307,19 +309,21 @@ class DPOExporter(BaseExporter):
                         f"specialist would catch."
                     )
 
-                    records.append({
-                        "prompt": prompt,
-                        "chosen": chosen,
-                        "rejected": rejected,
-                        "metadata": {
-                            "source": "domain",
-                            "domain": domain,
-                            "top_agent": top_agent.agent_name,
-                            "bottom_agent": bottom_agent.agent_name,
-                            "top_domain_elo": top_domain_elo,
-                            "bottom_domain_elo": bottom_domain_elo,
-                        },
-                    })
+                    records.append(
+                        {
+                            "prompt": prompt,
+                            "chosen": chosen,
+                            "rejected": rejected,
+                            "metadata": {
+                                "source": "domain",
+                                "domain": domain,
+                                "top_agent": top_agent.agent_name,
+                                "bottom_agent": bottom_agent.agent_name,
+                                "top_domain_elo": top_domain_elo,
+                                "bottom_domain_elo": bottom_domain_elo,
+                            },
+                        }
+                    )
 
                     if len(records) >= limit:
                         return records

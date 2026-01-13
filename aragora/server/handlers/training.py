@@ -17,7 +17,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-from .base import BaseHandler, HandlerResult, json_response, error_response, require_auth, handle_errors
+from .base import (
+    BaseHandler,
+    HandlerResult,
+    json_response,
+    error_response,
+    require_auth,
+    handle_errors,
+)
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -38,10 +45,9 @@ class TrainingHandler(BaseHandler):
         """Initialize with server context."""
         super().__init__(ctx)
         self._exporters: dict[str, Any] = {}
-        self._export_dir = Path(os.environ.get(
-            "ARAGORA_TRAINING_EXPORT_DIR",
-            ".nomic/training_exports"
-        ))
+        self._export_dir = Path(
+            os.environ.get("ARAGORA_TRAINING_EXPORT_DIR", ".nomic/training_exports")
+        )
         self._export_dir.mkdir(parents=True, exist_ok=True)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -65,6 +71,7 @@ class TrainingHandler(BaseHandler):
         if "sft" not in self._exporters:
             try:
                 from aragora.training import SFTExporter
+
                 self._exporters["sft"] = SFTExporter()
             except ImportError:
                 return None
@@ -75,6 +82,7 @@ class TrainingHandler(BaseHandler):
         if "dpo" not in self._exporters:
             try:
                 from aragora.training import DPOExporter
+
                 self._exporters["dpo"] = DPOExporter()
             except ImportError:
                 return None
@@ -85,6 +93,7 @@ class TrainingHandler(BaseHandler):
         if "gauntlet" not in self._exporters:
             try:
                 from aragora.training import GauntletExporter
+
                 self._exporters["gauntlet"] = GauntletExporter()
             except ImportError:
                 return None
@@ -293,7 +302,11 @@ class TrainingHandler(BaseHandler):
         # Log audit trail
         user = self.get_current_user(handler)
         if user:
-            logger.info("training_export_gauntlet user_id=%s persona=%s", user.id, query_params.get("persona", "all"))
+            logger.info(
+                "training_export_gauntlet user_id=%s persona=%s",
+                user.id,
+                query_params.get("persona", "all"),
+            )
 
         exporter = self._get_gauntlet_exporter()
         if exporter is None:
@@ -388,12 +401,14 @@ class TrainingHandler(BaseHandler):
         if self._export_dir.exists():
             for f in self._export_dir.glob("*.jsonl"):
                 file_stat = f.stat()
-                stats["exported_files"].append({
-                    "name": f.name,
-                    "size_bytes": file_stat.st_size,
-                    "created_at": datetime.fromtimestamp(file_stat.st_ctime).isoformat(),
-                    "modified_at": datetime.fromtimestamp(file_stat.st_mtime).isoformat(),
-                })
+                stats["exported_files"].append(
+                    {
+                        "name": f.name,
+                        "size_bytes": file_stat.st_size,
+                        "created_at": datetime.fromtimestamp(file_stat.st_ctime).isoformat(),
+                        "modified_at": datetime.fromtimestamp(file_stat.st_mtime).isoformat(),
+                    }
+                )
 
         # Get data counts from each exporter
         sft_exporter = self._get_sft_exporter()
@@ -462,12 +477,14 @@ class TrainingHandler(BaseHandler):
             },
         }
 
-        return json_response({
-            "formats": formats,
-            "output_formats": ["json", "jsonl"],
-            "endpoints": {
-                "sft": "/api/training/export/sft",
-                "dpo": "/api/training/export/dpo",
-                "gauntlet": "/api/training/export/gauntlet",
-            },
-        })
+        return json_response(
+            {
+                "formats": formats,
+                "output_formats": ["json", "jsonl"],
+                "endpoints": {
+                    "sft": "/api/training/export/sft",
+                    "dpo": "/api/training/export/dpo",
+                    "gauntlet": "/api/training/export/gauntlet",
+                },
+            }
+        )

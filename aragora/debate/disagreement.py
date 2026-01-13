@@ -160,11 +160,13 @@ class DisagreementReporter:
         if len(sorted_choices) >= 2:
             majority_choice, majority_agents = sorted_choices[0]
             for minority_choice, minority_agents in sorted_choices[1:]:
-                split_opinions.append((
-                    f"Vote split: '{majority_choice[:50]}...' vs '{minority_choice[:50]}...'",
-                    majority_agents,
-                    minority_agents,
-                ))
+                split_opinions.append(
+                    (
+                        f"Vote split: '{majority_choice[:50]}...' vs '{minority_choice[:50]}...'",
+                        majority_agents,
+                        minority_agents,
+                    )
+                )
 
         return split_opinions
 
@@ -194,7 +196,7 @@ class DisagreementReporter:
                     f"{vote.agent} has low confidence ({vote.confidence:.0%}) "
                     f"in '{vote.choice[:50]}...'"
                 )
-        risk_areas = risk_areas[:self.max_risk_areas]
+        risk_areas = risk_areas[: self.max_risk_areas]
 
         # High-severity critiques of the winner (issues may remain)
         severe_unaddressed = []
@@ -207,6 +209,6 @@ class DisagreementReporter:
                         f"{critique.target_agent}: "
                         f"{critique.issues[0][:100] if critique.issues else 'various issues'}"
                     )
-        risk_areas.extend(severe_unaddressed[:self.max_severe_critiques])
+        risk_areas.extend(severe_unaddressed[: self.max_severe_critiques])
 
         return risk_areas

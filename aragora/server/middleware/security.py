@@ -6,6 +6,7 @@ Consolidates security checks that were scattered in unified_server.py:
 - Query parameter whitelisting
 - JSON payload size limits
 - Request rate limiting coordination
+- Security headers for responses
 """
 
 import logging
@@ -14,6 +15,99 @@ from dataclasses import dataclass, field
 from typing import Any, Optional, FrozenSet
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Security Headers
+# =============================================================================
+
+# Headers applied to all responses
+SECURITY_HEADERS = {
+    # Prevent MIME sniffing
+    "X-Content-Type-Options": "nosniff",
+    # Prevent clickjacking
+    "X-Frame-Options": "DENY",
+    # XSS protection (legacy but still useful)
+    "X-XSS-Protection": "1; mode=block",
+    # Don't leak referrer info
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    # Control browser features
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+}
+
+# HSTS header (only in production over HTTPS)
+HSTS_HEADER = "Strict-Transport-Security"
+HSTS_VALUE = "max-age=31536000; includeSubDomains"
+
+# CSP header (configurable per environment)
+CSP_HEADER = "Content-Security-Policy"
+CSP_DEFAULT = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: https:; "
+    "font-src 'self' data:; "
+    "connect-src 'self' wss: https:; "
+    "frame-ancestors 'none';"
+)
+
+
+def get_security_headers(
+    production: bool = False,
+    enable_hsts: bool = True,
+    enable_csp: bool = False,
+    custom_csp: Optional[str] = None,
+) -> dict[str, str]:
+    """
+    Get security headers to add to HTTP responses.
+
+    Args:
+        production: Whether running in production (enables stricter headers)
+        enable_hsts: Whether to enable HSTS (only with production=True)
+        enable_csp: Whether to enable Content-Security-Policy
+        custom_csp: Custom CSP value (overrides default if provided)
+
+    Returns:
+        Dict of header name -> header value
+    """
+    headers = dict(SECURITY_HEADERS)
+
+    # Add HSTS in production
+    if production and enable_hsts:
+        headers[HSTS_HEADER] = HSTS_VALUE
+
+    # Add CSP if enabled
+    if enable_csp:
+        headers[CSP_HEADER] = custom_csp or CSP_DEFAULT
+
+    return headers
+
+
+def apply_security_headers(
+    handler,
+    production: bool = False,
+    enable_hsts: bool = True,
+    enable_csp: bool = False,
+) -> None:
+    """
+    Apply security headers to an HTTP response handler.
+
+    This is designed to work with http.server.BaseHTTPRequestHandler.
+
+    Args:
+        handler: HTTP request handler with send_header method
+        production: Whether running in production
+        enable_hsts: Whether to enable HSTS
+        enable_csp: Whether to enable CSP
+    """
+    headers = get_security_headers(
+        production=production,
+        enable_hsts=enable_hsts,
+        enable_csp=enable_csp,
+    )
+
+    for name, value in headers.items():
+        handler.send_header(name, value)
 
 
 @dataclass

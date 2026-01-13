@@ -256,7 +256,7 @@ class TestGraphNodeRelationships:
 
         agent_names = {a.name for a in agents}
         for vote in result.votes:
-            if not isinstance(vote, Exception) and hasattr(vote, 'choice'):
+            if not isinstance(vote, Exception) and hasattr(vote, "choice"):
                 # Vote choice should be a valid agent or "none"
                 assert vote.choice in agent_names or vote.choice in ["none", "unknown", "abstain"]
 
@@ -392,7 +392,7 @@ class TestDAGStructureValidation:
 
         # Messages should have agent attribution
         for msg in result.messages:
-            if hasattr(msg, 'agent'):
+            if hasattr(msg, "agent"):
                 assert msg.agent in ["alice", "bob", "carol", "system", None]
 
     @pytest.mark.asyncio
@@ -412,7 +412,7 @@ class TestDAGStructureValidation:
         # Check that we have multiple rounds of messages
         rounds_seen = set()
         for msg in result.messages:
-            if hasattr(msg, 'round'):
+            if hasattr(msg, "round"):
                 rounds_seen.add(msg.round)
 
         # At minimum should complete the debate
@@ -495,7 +495,11 @@ class TestBranchMergeConvergence:
             async def vote(self, proposals: dict, task: str) -> Vote:
                 return Vote(
                     agent=self.name,
-                    choice=self._vote_choice if self._vote_choice in proposals else list(proposals.keys())[0],
+                    choice=(
+                        self._vote_choice
+                        if self._vote_choice in proposals
+                        else list(proposals.keys())[0]
+                    ),
                     reasoning=f"Voting for {self._vote_choice}",
                     confidence=0.8,
                     continue_debate=False,
@@ -549,7 +553,8 @@ class TestBranchMergeConvergence:
         # High confidence votes should be recorded
         assert result.votes is not None
         high_conf_votes = [
-            v for v in result.votes
-            if not isinstance(v, Exception) and hasattr(v, 'confidence') and v.confidence > 0.9
+            v
+            for v in result.votes
+            if not isinstance(v, Exception) and hasattr(v, "confidence") and v.confidence > 0.9
         ]
         assert len(high_conf_votes) >= 1

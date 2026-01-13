@@ -533,6 +533,7 @@ class TestEnrichEvidenceSnippet:
 
     def test_enrich_evidence_snippet_basic(self):
         """Test enriching a mock evidence snippet."""
+
         class MockSnippet:
             snippet = "Test content for enrichment."
             url = "https://docs.python.org/test"
@@ -545,6 +546,7 @@ class TestEnrichEvidenceSnippet:
 
     def test_enrich_evidence_snippet_with_enricher(self):
         """Test enriching with custom enricher."""
+
         class MockSnippet:
             snippet = "Code example: def foo(): pass"
             url = ""

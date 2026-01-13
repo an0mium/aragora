@@ -304,7 +304,9 @@ class TestSSOHandlerCallback:
         """Test callback handles domain restriction errors."""
         mock_provider = Mock()
         mock_provider.config.callback_url = "https://app.example.com/callback"
-        mock_provider.authenticate = AsyncMock(side_effect=ValueError("DOMAIN_NOT_ALLOWED: gmail.com"))
+        mock_provider.authenticate = AsyncMock(
+            side_effect=ValueError("DOMAIN_NOT_ALLOWED: gmail.com")
+        )
 
         handler._get_provider = Mock(return_value=mock_provider)
 

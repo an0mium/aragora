@@ -241,7 +241,7 @@ class TestWeightCalculator:
         consistency.consistency_score = 1.0
         flip_detector.get_agent_consistency.return_value = consistency
 
-        get_cal_weight = MagicMock(return_value = 2.0)
+        get_cal_weight = MagicMock(return_value=2.0)
 
         calculator = WeightCalculator(
             memory=memory,

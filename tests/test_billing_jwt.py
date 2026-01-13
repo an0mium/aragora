@@ -92,8 +92,12 @@ class TestJWTPayload:
         """Token with future expiry should not be expired."""
         future = int(time.time()) + 3600
         payload = JWTPayload(
-            sub="user", email="", org_id=None,
-            role="", iat=0, exp=future,
+            sub="user",
+            email="",
+            org_id=None,
+            role="",
+            iat=0,
+            exp=future,
         )
         assert payload.is_expired is False
 
@@ -101,8 +105,12 @@ class TestJWTPayload:
         """Token with past expiry should be expired."""
         past = int(time.time()) - 3600
         payload = JWTPayload(
-            sub="user", email="", org_id=None,
-            role="", iat=0, exp=past,
+            sub="user",
+            email="",
+            org_id=None,
+            role="",
+            iat=0,
+            exp=past,
         )
         assert payload.is_expired is True
 
@@ -366,7 +374,9 @@ class TestExtractUserFromRequest:
         handler.headers = {"Authorization": "Bearer ara_validapikeywithsufficient_length"}
 
         with patch.dict(os.environ, {"ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS": "0"}):
-            with patch("aragora.server.middleware.auth.extract_client_ip", return_value="127.0.0.1"):
+            with patch(
+                "aragora.server.middleware.auth.extract_client_ip", return_value="127.0.0.1"
+            ):
                 ctx = extract_user_from_request(handler)
 
         assert ctx.authenticated is False

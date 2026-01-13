@@ -189,9 +189,7 @@ class ServiceRegistry:
         """
         with self._service_lock:
             if service_type in self._services:
-                logger.warning(
-                    f"Overwriting existing service: {service_type.__name__}"
-                )
+                logger.warning(f"Overwriting existing service: {service_type.__name__}")
             self._services[service_type] = instance
             # Remove factory if we're providing direct instance
             self._factories.pop(service_type, None)
@@ -267,9 +265,7 @@ class ServiceRegistry:
                 factory = self._factories[service_type]
                 instance = factory()
                 self._services[service_type] = instance
-                logger.debug(
-                    f"Lazily initialized service: {service_type.__name__}"
-                )
+                logger.debug(f"Lazily initialized service: {service_type.__name__}")
                 return instance
 
             # Not found - use default or raise
@@ -291,10 +287,7 @@ class ServiceRegistry:
             True if service is available.
         """
         with self._service_lock:
-            return (
-                service_type in self._services
-                or service_type in self._factories
-            )
+            return service_type in self._services or service_type in self._factories
 
     def unregister(self, service_type: Type) -> bool:
         """
@@ -345,20 +338,21 @@ class ServiceRegistry:
             for service_type in all_types:
                 has_instance = service_type in self._services
                 has_factory = service_type in self._factories
-                services_info.append({
-                    "type": service_type.__name__,
-                    "initialized": has_instance,
-                    "has_factory": has_factory,
-                })
+                services_info.append(
+                    {
+                        "type": service_type.__name__,
+                        "initialized": has_instance,
+                        "has_factory": has_factory,
+                    }
+                )
 
             return RegistryStats(
                 total_services=len(all_types),
                 singleton_count=len(all_types),  # All are singletons in basic impl
                 transient_count=0,
                 initialized_count=len(self._services),
-                pending_count=len(self._factories) - len(
-                    set(self._factories.keys()) & set(self._services.keys())
-                ),
+                pending_count=len(self._factories)
+                - len(set(self._factories.keys()) & set(self._services.keys())),
                 total_resolves=total_resolves,
                 services=services_info,
             )
@@ -386,14 +380,11 @@ class ServiceRegistry:
                             if callable(method):
                                 method()
                                 hooks_called += 1
-                                logger.debug(
-                                    f"Called {method_name}() on {service_type.__name__}"
-                                )
+                                logger.debug(f"Called {method_name}() on {service_type.__name__}")
                                 break  # Only call one cleanup method
                         except Exception as e:
                             logger.warning(
-                                f"Error calling {method_name}() on "
-                                f"{service_type.__name__}: {e}"
+                                f"Error calling {method_name}() on " f"{service_type.__name__}: {e}"
                             )
 
             logger.info(f"ServiceRegistry shutdown complete ({hooks_called} hooks called)")

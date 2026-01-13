@@ -138,6 +138,7 @@ def get_redis_client() -> Optional[Any]:
 
     try:
         import redis
+
         return redis.Redis(connection_pool=pool)
     except ImportError:
         return None

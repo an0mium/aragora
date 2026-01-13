@@ -162,7 +162,9 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                     # Handle truncation: if we have partial text, use it with a warning
                     if finish_reason == "MAX_TOKENS" and text.strip():
                         # Got partial content - use it but log warning
-                        logger.warning(f"Gemini response truncated at {len(text)} chars, using partial content")
+                        logger.warning(
+                            f"Gemini response truncated at {len(text)} chars, using partial content"
+                        )
                         return text
 
                     if not text.strip():
@@ -190,7 +192,9 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                         agent_name=self.name,
                     )
 
-    async def generate_stream(self, prompt: str, context: list[Message] | None = None) -> AsyncGenerator[str, None]:
+    async def generate_stream(
+        self, prompt: str, context: list[Message] | None = None
+    ) -> AsyncGenerator[str, None]:
         """Stream tokens from Gemini API.
 
         Yields chunks of text as they arrive from the API.
@@ -237,7 +241,9 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
 
                     # Check for quota/rate limit errors and fallback to OpenRouter
                     if self.is_quota_error(response.status, error_text):
-                        async for chunk in self.fallback_generate_stream(prompt, context, response.status):
+                        async for chunk in self.fallback_generate_stream(
+                            prompt, context, response.status
+                        ):
                             yield chunk
                         return
 
@@ -261,7 +267,7 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
 
                         # Try to parse complete JSON objects from buffer
                         # Gemini streams as a JSON array: [{...}, {...}, ...]
-                        text = buffer.decode('utf-8', errors='ignore')
+                        text = buffer.decode("utf-8", errors="ignore")
 
                         # Find complete candidate objects
                         # Max iterations guard to prevent infinite loop on malformed data
@@ -272,34 +278,34 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                             # Look for text content in the buffer
                             try:
                                 # Parse as JSON array (Gemini format)
-                                if text.strip().startswith('['):
+                                if text.strip().startswith("["):
                                     # Remove trailing incomplete parts
                                     bracket_count = 0
                                     last_complete = -1
                                     for i, c in enumerate(text):
-                                        if c == '[':
+                                        if c == "[":
                                             bracket_count += 1
-                                        elif c == ']':
+                                        elif c == "]":
                                             bracket_count -= 1
                                             if bracket_count == 0:
                                                 last_complete = i
 
                                     if last_complete > 0:
-                                        complete_json = text[:last_complete + 1]
+                                        complete_json = text[: last_complete + 1]
                                         data = json.loads(complete_json)
 
                                         # Extract text from all candidates
                                         for item in data:
-                                            if 'candidates' in item:
-                                                for candidate in item['candidates']:
-                                                    content = candidate.get('content', {})
-                                                    for part in content.get('parts', []):
-                                                        if 'text' in part:
-                                                            yield part['text']
+                                            if "candidates" in item:
+                                                for candidate in item["candidates"]:
+                                                    content = candidate.get("content", {})
+                                                    for part in content.get("parts", []):
+                                                        if "text" in part:
+                                                            yield part["text"]
 
                                         # Clear processed data from buffer
-                                        buffer = text[last_complete + 1:].encode('utf-8')
-                                        text = buffer.decode('utf-8', errors='ignore')
+                                        buffer = text[last_complete + 1 :].encode("utf-8")
+                                        text = buffer.decode("utf-8", errors="ignore")
                                     else:
                                         break
                                 else:
@@ -317,7 +323,9 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                         cause=e,
                     )
 
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
+    async def critique(
+        self, proposal: str, task: str, context: list[Message] | None = None
+    ) -> Critique:
         """Critique a proposal using Gemini."""
         critique_prompt = f"""You are a critical reviewer. Analyze this proposal for the given task.
 

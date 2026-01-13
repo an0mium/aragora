@@ -28,6 +28,7 @@ from aragora.evidence.collector import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def fresh_snippet():
     """Create a fresh evidence snippet (just fetched)."""
@@ -65,6 +66,7 @@ def collector():
 # =============================================================================
 # EvidenceSnippet Freshness Tests
 # =============================================================================
+
 
 class TestEvidenceSnippetFreshness:
     """Tests for freshness scoring."""
@@ -140,6 +142,7 @@ class TestEvidenceSnippetFreshness:
 # EvidenceSnippet Combined Score Tests
 # =============================================================================
 
+
 class TestEvidenceSnippetCombinedScore:
     """Tests for combined reliability + freshness scoring."""
 
@@ -159,6 +162,7 @@ class TestEvidenceSnippetCombinedScore:
 # EvidenceSnippet Formatting Tests
 # =============================================================================
 
+
 class TestEvidenceSnippetFormatting:
     """Tests for snippet formatting."""
 
@@ -173,11 +177,17 @@ class TestEvidenceSnippetFormatting:
     def test_to_text_block_freshness_indicator(self):
         """Should show freshness indicator."""
         fresh = EvidenceSnippet(
-            id="f", source="web", title="Fresh", snippet="c",
+            id="f",
+            source="web",
+            title="Fresh",
+            snippet="c",
             fetched_at=datetime.now(),
         )
         old = EvidenceSnippet(
-            id="o", source="web", title="Old", snippet="c",
+            id="o",
+            source="web",
+            title="Old",
+            snippet="c",
             fetched_at=datetime.now() - timedelta(days=30),
         )
 
@@ -216,6 +226,7 @@ class TestEvidenceSnippetFormatting:
 # =============================================================================
 # EvidencePack Tests
 # =============================================================================
+
 
 class TestEvidencePack:
     """Tests for EvidencePack aggregation."""
@@ -299,6 +310,7 @@ class TestEvidencePack:
 # EvidenceCollector Keyword Extraction Tests
 # =============================================================================
 
+
 class TestKeywordExtraction:
     """Tests for keyword extraction."""
 
@@ -341,6 +353,7 @@ class TestKeywordExtraction:
 # EvidenceCollector URL Extraction Tests
 # =============================================================================
 
+
 class TestUrlExtraction:
     """Tests for URL extraction."""
 
@@ -366,9 +379,7 @@ class TestUrlExtraction:
 
     def test_extract_multiple_urls(self, collector):
         """Should extract multiple URLs."""
-        urls = collector._extract_urls(
-            "Check https://a.com and https://b.org for details"
-        )
+        urls = collector._extract_urls("Check https://a.com and https://b.org for details")
         assert len(urls) >= 2
 
     def test_deduplicate_urls(self, collector):
@@ -384,6 +395,7 @@ class TestUrlExtraction:
 # =============================================================================
 # EvidenceCollector Snippet Truncation Tests
 # =============================================================================
+
 
 class TestSnippetTruncation:
     """Tests for snippet truncation."""
@@ -405,12 +417,13 @@ class TestSnippetTruncation:
         text = "First sentence. " + "x" * 900 + ". End sentence."
         result = collector._truncate_snippet(text)
         # Should end with a sentence boundary if possible
-        assert result.endswith('.') or result.endswith('...')
+        assert result.endswith(".") or result.endswith("...")
 
 
 # =============================================================================
 # EvidenceCollector Reliability Calculation Tests
 # =============================================================================
+
 
 class TestReliabilityCalculation:
     """Tests for reliability score calculation."""
@@ -448,8 +461,7 @@ class TestReliabilityCalculation:
     def test_max_reliability(self, collector):
         """Should cap reliability at 1.0."""
         score = collector._calculate_reliability(
-            "local_docs",
-            {"verified": True, "recent": True, "content": "x" * 2000}
+            "local_docs", {"verified": True, "recent": True, "content": "x" * 2000}
         )
         assert score <= 1.0
 
@@ -458,18 +470,23 @@ class TestReliabilityCalculation:
 # EvidenceCollector Snippet Ranking Tests
 # =============================================================================
 
+
 class TestSnippetRanking:
     """Tests for snippet ranking."""
 
     def test_rank_by_keyword_relevance(self, collector):
         """Should rank snippets with more keyword matches higher."""
         snippet1 = EvidenceSnippet(
-            id="1", source="web", title="AI Safety",
+            id="1",
+            source="web",
+            title="AI Safety",
             snippet="AI safety is important for AI systems",
             reliability_score=0.5,
         )
         snippet2 = EvidenceSnippet(
-            id="2", source="web", title="Random",
+            id="2",
+            source="web",
+            title="Random",
             snippet="This is random content",
             reliability_score=0.5,
         )
@@ -480,12 +497,16 @@ class TestSnippetRanking:
     def test_rank_by_reliability(self, collector):
         """Should consider reliability in ranking."""
         snippet1 = EvidenceSnippet(
-            id="1", source="web", title="Test",
+            id="1",
+            source="web",
+            title="Test",
             snippet="test content",
             reliability_score=0.9,
         )
         snippet2 = EvidenceSnippet(
-            id="2", source="web", title="Test",
+            id="2",
+            source="web",
+            title="Test",
             snippet="test content",
             reliability_score=0.3,
         )
@@ -496,13 +517,17 @@ class TestSnippetRanking:
     def test_rank_by_freshness(self, collector):
         """Should consider freshness in ranking."""
         fresh = EvidenceSnippet(
-            id="fresh", source="web", title="Test",
+            id="fresh",
+            source="web",
+            title="Test",
             snippet="test",
             reliability_score=0.5,
             fetched_at=datetime.now(),
         )
         old = EvidenceSnippet(
-            id="old", source="web", title="Test",
+            id="old",
+            source="web",
+            title="Test",
             snippet="test",
             reliability_score=0.5,
             fetched_at=datetime.now() - timedelta(days=30),
@@ -514,12 +539,16 @@ class TestSnippetRanking:
     def test_title_keyword_boost(self, collector):
         """Should boost snippets with keywords in title."""
         title_match = EvidenceSnippet(
-            id="title", source="web", title="AI Safety Guidelines",
+            id="title",
+            source="web",
+            title="AI Safety Guidelines",
             snippet="generic content here",
             reliability_score=0.5,
         )
         body_match = EvidenceSnippet(
-            id="body", source="web", title="Generic Title",
+            id="body",
+            source="web",
+            title="Generic Title",
             snippet="AI safety is discussed here",
             reliability_score=0.5,
         )
@@ -531,6 +560,7 @@ class TestSnippetRanking:
 # =============================================================================
 # EvidenceCollector Integration Tests
 # =============================================================================
+
 
 class TestEvidenceCollectorIntegration:
     """Integration tests for EvidenceCollector."""
@@ -551,10 +581,12 @@ class TestEvidenceCollectorIntegration:
     async def test_collect_evidence_with_mock_connector(self, collector):
         """Should collect evidence from mock connector."""
         mock_connector = AsyncMock()
-        mock_connector.search = AsyncMock(return_value=[
-            {"title": "Result 1", "content": "Content 1", "url": "http://a.com"},
-            {"title": "Result 2", "content": "Content 2", "url": "http://b.com"},
-        ])
+        mock_connector.search = AsyncMock(
+            return_value=[
+                {"title": "Result 1", "content": "Content 1", "url": "http://a.com"},
+                {"title": "Result 2", "content": "Content 2", "url": "http://b.com"},
+            ]
+        )
         collector.add_connector("mock", mock_connector)
 
         pack = await collector.collect_evidence("AI safety research")
@@ -577,10 +609,9 @@ class TestEvidenceCollectorIntegration:
     async def test_collect_evidence_respects_max_snippets(self, collector):
         """Should limit total snippets to max."""
         mock_connector = AsyncMock()
-        mock_connector.search = AsyncMock(return_value=[
-            {"title": f"Result {i}", "content": f"Content {i}"}
-            for i in range(20)
-        ])
+        mock_connector.search = AsyncMock(
+            return_value=[{"title": f"Result {i}", "content": f"Content {i}"} for i in range(20)]
+        )
         collector.add_connector("mock", mock_connector)
 
         pack = await collector.collect_evidence("test")

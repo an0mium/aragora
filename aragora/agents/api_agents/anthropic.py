@@ -154,7 +154,9 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                         agent_name=self.name,
                     )
 
-    async def generate_stream(self, prompt: str, context: list[Message] | None = None) -> AsyncGenerator[str, None]:
+    async def generate_stream(
+        self, prompt: str, context: list[Message] | None = None
+    ) -> AsyncGenerator[str, None]:
         """Stream tokens from Anthropic API.
 
         Yields chunks of text as they arrive from the API using SSE.
@@ -199,7 +201,9 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
                     # Check for quota/billing errors and fallback to OpenRouter
                     if self.is_quota_error(response.status, error_text):
-                        async for chunk in self.fallback_generate_stream(prompt, context, response.status):
+                        async for chunk in self.fallback_generate_stream(
+                            prompt, context, response.status
+                        ):
                             yield chunk
                         return
 
@@ -216,7 +220,9 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                 except RuntimeError as e:
                     raise AgentStreamError(str(e), agent_name=self.name)
 
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
+    async def critique(
+        self, proposal: str, task: str, context: list[Message] | None = None
+    ) -> Critique:
         """Critique a proposal using Anthropic API."""
         critique_prompt = f"""Analyze this proposal critically:
 

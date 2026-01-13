@@ -25,6 +25,7 @@ class MockAgent(Agent):
 
     async def critique(self, proposal: str, task: str, context=None):
         from aragora.core import Critique
+
         return Critique(
             author=self.name,
             target="test",

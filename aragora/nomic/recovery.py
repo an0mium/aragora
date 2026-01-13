@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 class RecoveryStrategy(Enum):
     """Strategies for recovering from errors."""
 
-    RETRY = auto()          # Retry the same state
-    SKIP = auto()           # Skip to next state
-    ROLLBACK = auto()       # Rollback to previous state
-    RESTART = auto()        # Restart from beginning
-    PAUSE = auto()          # Pause and wait for human
-    FAIL = auto()           # Mark as failed, stop
+    RETRY = auto()  # Retry the same state
+    SKIP = auto()  # Skip to next state
+    ROLLBACK = auto()  # Rollback to previous state
+    RESTART = auto()  # Restart from beginning
+    PAUSE = auto()  # Pause and wait for human
+    FAIL = auto()  # Mark as failed, stop
 
 
 @dataclass
@@ -191,7 +191,7 @@ def calculate_backoff(
 
     if jitter:
         # Add up to 25% jitter
-        delay *= (1 + random.uniform(-0.25, 0.25))
+        delay *= 1 + random.uniform(-0.25, 0.25)
 
     return delay
 
@@ -260,13 +260,15 @@ class RecoveryManager:
         )
 
         # Record decision
-        self._recovery_history.append({
-            "timestamp": datetime.utcnow().isoformat(),
-            "state": state.name,
-            "error_type": error_type,
-            "retry_count": retry_count,
-            "decision": decision.to_dict(),
-        })
+        self._recovery_history.append(
+            {
+                "timestamp": datetime.utcnow().isoformat(),
+                "state": state.name,
+                "error_type": error_type,
+                "retry_count": retry_count,
+                "decision": decision.to_dict(),
+            }
+        )
 
         return decision
 

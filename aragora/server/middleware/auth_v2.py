@@ -32,6 +32,7 @@ try:
         InvalidTokenError,
         InvalidAudienceError,
     )
+
     HAS_JWT = True
 except ImportError:
     jwt = None  # type: ignore
@@ -54,6 +55,7 @@ except ImportError:
     class InvalidAudienceError(Exception):  # type: ignore
         pass
 
+
 if TYPE_CHECKING:
     from aragora.server.handlers.base import HandlerResult
 
@@ -63,6 +65,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Data Models
 # =============================================================================
+
 
 @dataclass
 class User:
@@ -167,6 +170,7 @@ class APIKey:
 # =============================================================================
 # Supabase JWT Validator
 # =============================================================================
+
 
 class SupabaseAuthValidator:
     """
@@ -344,6 +348,7 @@ class SupabaseAuthValidator:
 # API Key Validator
 # =============================================================================
 
+
 class APIKeyValidator:
     """
     Validates API keys for programmatic access.
@@ -381,6 +386,7 @@ class APIKeyValidator:
         # Look up key in storage
         try:
             import hashlib
+
             key_hash = hashlib.sha256(key.encode()).hexdigest()
             prefix = key[:12]  # "ara_" + 8 chars
 
@@ -429,6 +435,7 @@ def get_api_key_validator() -> APIKeyValidator:
 # =============================================================================
 # Authentication Functions
 # =============================================================================
+
 
 def extract_auth_token(handler: Any) -> Optional[str]:
     """Extract Bearer token or API key from request."""
@@ -499,6 +506,7 @@ def get_current_user(handler: Any) -> Optional[User]:
 # =============================================================================
 # Decorators
 # =============================================================================
+
 
 def require_user(func: Callable) -> Callable:
     """

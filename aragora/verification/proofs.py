@@ -65,6 +65,7 @@ def _get_safe_subprocess_env() -> dict[str, str]:
 
     return safe_env
 
+
 # Patterns that could enable sandbox escape via Python introspection
 DANGEROUS_PATTERNS = [
     "__class__",
@@ -115,35 +116,70 @@ def _validate_code_safety(code: str) -> tuple[bool, str]:
             return False, f"Dangerous pattern detected: '{pattern}' is not allowed"
     return True, ""
 
+
 # Safe subset of builtins for proof execution (no imports, no file access)
 SAFE_BUILTINS = {
     # Math and logic
-    'abs': abs, 'all': all, 'any': any, 'bin': bin, 'bool': bool,
-    'divmod': divmod, 'float': float, 'hex': hex, 'int': int,
-    'len': len, 'max': max, 'min': min, 'oct': oct, 'ord': ord,
-    'pow': pow, 'round': round, 'sum': sum,
+    "abs": abs,
+    "all": all,
+    "any": any,
+    "bin": bin,
+    "bool": bool,
+    "divmod": divmod,
+    "float": float,
+    "hex": hex,
+    "int": int,
+    "len": len,
+    "max": max,
+    "min": min,
+    "oct": oct,
+    "ord": ord,
+    "pow": pow,
+    "round": round,
+    "sum": sum,
     # String/data
-    'chr': chr, 'str': str, 'repr': repr, 'ascii': ascii,
-    'format': format, 'hash': hash,
+    "chr": chr,
+    "str": str,
+    "repr": repr,
+    "ascii": ascii,
+    "format": format,
+    "hash": hash,
     # Collections
-    'dict': dict, 'frozenset': frozenset, 'list': list, 'set': set,
-    'tuple': tuple, 'range': range, 'enumerate': enumerate, 'zip': zip,
-    'filter': filter, 'map': map, 'reversed': reversed, 'sorted': sorted,
-    'slice': slice,
+    "dict": dict,
+    "frozenset": frozenset,
+    "list": list,
+    "set": set,
+    "tuple": tuple,
+    "range": range,
+    "enumerate": enumerate,
+    "zip": zip,
+    "filter": filter,
+    "map": map,
+    "reversed": reversed,
+    "sorted": sorted,
+    "slice": slice,
     # Types and inspection
-    'callable': callable, 'isinstance': isinstance, 'issubclass': issubclass,
-    'type': type, 'id': id, 'iter': iter, 'next': next,
+    "callable": callable,
+    "isinstance": isinstance,
+    "issubclass": issubclass,
+    "type": type,
+    "id": id,
+    "iter": iter,
+    "next": next,
     # Exceptions (needed for try/except in proofs)
-    'Exception': Exception, 'ValueError': ValueError, 'TypeError': TypeError,
-    'KeyError': KeyError, 'IndexError': IndexError, 'AssertionError': AssertionError,
-    'AttributeError': AttributeError, 'RuntimeError': RuntimeError,
+    "Exception": Exception,
+    "ValueError": ValueError,
+    "TypeError": TypeError,
+    "KeyError": KeyError,
+    "IndexError": IndexError,
+    "AssertionError": AssertionError,
+    "AttributeError": AttributeError,
+    "RuntimeError": RuntimeError,
     # Explicitly excluded: __import__, open, exec, eval, compile, globals, locals
 }
 
 
-def _exec_in_subprocess(
-    code: str, timeout: float = EXEC_TIMEOUT_SECONDS
-) -> dict[str, Any]:
+def _exec_in_subprocess(code: str, timeout: float = EXEC_TIMEOUT_SECONDS) -> dict[str, Any]:
     """
     Execute code in an isolated subprocess with hard timeout.
 
@@ -178,7 +214,7 @@ def _exec_in_subprocess(
 
     # Create wrapper script that captures execution results
     # Define safe builtins inside subprocess (can't serialize functions)
-    wrapper_code = f'''
+    wrapper_code = f"""
 import json
 import sys
 
@@ -245,13 +281,11 @@ except Exception as e:
         "success": False,
         "error": f"{{type(e).__name__}}: {{str(e)}}"
     }}))
-'''
+"""
 
     try:
         # Write wrapper to temp file and execute in subprocess
-        with tempfile.NamedTemporaryFile(
-            mode='w', suffix='.py', delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(wrapper_code)
             f.flush()
             temp_path = f.name
@@ -286,6 +320,7 @@ except Exception as e:
 
         finally:
             import os
+
             try:
                 os.unlink(temp_path)
             except OSError:
@@ -342,6 +377,7 @@ def _exec_with_timeout(code: str, namespace: dict, timeout: float = EXEC_TIMEOUT
 
 class ProofType(Enum):
     """Type of verification proof."""
+
     ASSERTION = "assertion"  # Python assertion/boolean check
     CODE_EXECUTION = "code_execution"  # Run code and check output
     API_CALL = "api_call"  # Fetch data from API
@@ -354,6 +390,7 @@ class ProofType(Enum):
 
 class ProofStatus(Enum):
     """Status of a verification proof."""
+
     PENDING = "pending"  # Not yet executed
     RUNNING = "running"  # Currently executing
     PASSED = "passed"  # Verification succeeded
@@ -371,6 +408,7 @@ class VerificationProof:
     Contains code or assertions that can be executed
     to verify the truthfulness of a claim.
     """
+
     id: str
     claim_id: str  # ID of the claim this verifies
     proof_type: ProofType
@@ -469,6 +507,7 @@ class VerificationProof:
 @dataclass
 class VerificationResult:
     """Result of executing a verification proof."""
+
     proof_id: str
     claim_id: str
     status: ProofStatus
@@ -589,8 +628,8 @@ class ProofExecutor:
 
         # Update proof with result
         proof.status = result.status
-        proof.output = result.output[:self.max_output_size]
-        proof.error = result.error[:self.max_output_size]
+        proof.output = result.output[: self.max_output_size]
+        proof.error = result.error[: self.max_output_size]
         proof.execution_time_ms = elapsed
 
         return result
@@ -654,9 +693,7 @@ class ProofExecutor:
                 error=str(e),
             )
 
-    async def _execute_code(
-        self, proof: VerificationProof, timeout: float
-    ) -> VerificationResult:
+    async def _execute_code(self, proof: VerificationProof, timeout: float) -> VerificationResult:
         """Execute code and capture output with timeout protection."""
 
         import io
@@ -807,6 +844,7 @@ class ClaimVerifier:
 @dataclass
 class VerificationReport:
     """Aggregated verification report for a debate."""
+
     debate_id: str
     created_at: datetime = field(default_factory=datetime.now)
 
@@ -980,6 +1018,7 @@ class ProofBuilder:
 
 
 # Convenience functions
+
 
 def create_simple_assertion(
     claim_id: str,

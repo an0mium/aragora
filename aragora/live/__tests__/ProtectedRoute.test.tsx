@@ -10,14 +10,7 @@
 
 import { render, screen, waitFor } from '@testing-library/react';
 import { ProtectedRoute } from '../src/components/auth/ProtectedRoute';
-
-// Mock next/navigation
-const mockPush = jest.fn();
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: mockPush,
-  }),
-}));
+import { mockRouter } from 'next/navigation';
 
 // Mock AuthContext
 const mockUseAuth = jest.fn();
@@ -34,6 +27,7 @@ jest.mock('../src/components/MatrixRain', () => ({
 describe('ProtectedRoute', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouter.push.mockClear();
   });
 
   describe('Loading State', () => {
@@ -76,8 +70,8 @@ describe('ProtectedRoute', () => {
       );
 
       await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith(
-          expect.stringContaining('/auth/login')
+        expect(mockRouter.push).toHaveBeenCalledWith(
+          '/auth/login?returnUrl=%2Fbilling'
         );
       });
 
@@ -101,7 +95,7 @@ describe('ProtectedRoute', () => {
         expect(screen.getByText('Protected Content')).toBeInTheDocument();
       });
 
-      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockRouter.push).not.toHaveBeenCalled();
     });
   });
 
@@ -198,8 +192,8 @@ describe('ProtectedRoute', () => {
       );
 
       await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith(
-          expect.stringContaining('/custom-return')
+        expect(mockRouter.push).toHaveBeenCalledWith(
+          '/auth/login?returnUrl=%2Fcustom-return'
         );
       });
     });

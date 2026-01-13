@@ -243,7 +243,9 @@ class TestSecurityPersona:
         prompt_text = " ".join(a.prompt.lower() for a in persona.attack_prompts)
 
         # Should mention security-related terms
-        assert any(term in prompt_text for term in ["security", "vulnerability", "attack", "threat"])
+        assert any(
+            term in prompt_text for term in ["security", "vulnerability", "attack", "threat"]
+        )
 
 
 class TestSOC2Persona:
@@ -264,7 +266,9 @@ class TestSOXPersona:
         """SOX persona has expected properties."""
         persona = SOXPersona()
 
-        assert "SOX" in persona.name or "Sarbanes" in persona.regulation or "SOX" in persona.regulation
+        assert (
+            "SOX" in persona.name or "Sarbanes" in persona.regulation or "SOX" in persona.regulation
+        )
         assert len(persona.attack_prompts) > 0
 
 
@@ -397,33 +401,39 @@ class TestPersonasRegistry:
 class TestPersonaCompleteness:
     """Tests ensuring all personas are complete."""
 
-    @pytest.mark.parametrize("persona_name", [
-        "gdpr", "hipaa", "ai_act", "security", "soc2", "sox", "pci_dss", "nist_csf"
-    ])
+    @pytest.mark.parametrize(
+        "persona_name",
+        ["gdpr", "hipaa", "ai_act", "security", "soc2", "sox", "pci_dss", "nist_csf"],
+    )
     def test_persona_has_attacks(self, persona_name):
         """Each persona has at least one attack."""
         persona = get_persona(persona_name)
         assert len(persona.attack_prompts) > 0, f"{persona_name} has no attacks"
 
-    @pytest.mark.parametrize("persona_name", [
-        "gdpr", "hipaa", "ai_act", "security", "soc2", "sox", "pci_dss", "nist_csf"
-    ])
+    @pytest.mark.parametrize(
+        "persona_name",
+        ["gdpr", "hipaa", "ai_act", "security", "soc2", "sox", "pci_dss", "nist_csf"],
+    )
     def test_persona_has_name(self, persona_name):
         """Each persona has a name."""
         persona = get_persona(persona_name)
         assert persona.name and persona.name != "Base Persona", f"{persona_name} has no custom name"
 
-    @pytest.mark.parametrize("persona_name", [
-        "gdpr", "hipaa", "ai_act", "security", "soc2", "sox", "pci_dss", "nist_csf"
-    ])
+    @pytest.mark.parametrize(
+        "persona_name",
+        ["gdpr", "hipaa", "ai_act", "security", "soc2", "sox", "pci_dss", "nist_csf"],
+    )
     def test_persona_has_regulation(self, persona_name):
         """Each persona has a regulation reference."""
         persona = get_persona(persona_name)
-        assert persona.regulation and persona.regulation != "General", f"{persona_name} has no regulation"
+        assert (
+            persona.regulation and persona.regulation != "General"
+        ), f"{persona_name} has no regulation"
 
-    @pytest.mark.parametrize("persona_name", [
-        "gdpr", "hipaa", "ai_act", "security", "soc2", "sox", "pci_dss", "nist_csf"
-    ])
+    @pytest.mark.parametrize(
+        "persona_name",
+        ["gdpr", "hipaa", "ai_act", "security", "soc2", "sox", "pci_dss", "nist_csf"],
+    )
     def test_persona_to_dict_is_complete(self, persona_name):
         """Each persona's to_dict includes required fields."""
         persona = get_persona(persona_name)

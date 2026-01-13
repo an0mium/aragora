@@ -43,12 +43,15 @@ class CustomMode(Mode):
             if base:
                 base_prompt = base.get_system_prompt() + "\n\n---\n\n"
 
-        return base_prompt + f"""## Custom Mode: {self.name}
+        return (
+            base_prompt
+            + f"""## Custom Mode: {self.name}
 
 {self.description}
 
 {self.system_prompt_additions}
 """
+        )
 
 
 class CustomModeLoader:
@@ -75,7 +78,12 @@ class CustomModeLoader:
         "debate": ToolGroup.DEBATE,
         "readonly": ToolGroup.READ | ToolGroup.BROWSER,
         "developer": ToolGroup.READ | ToolGroup.EDIT | ToolGroup.COMMAND,
-        "full": ToolGroup.READ | ToolGroup.EDIT | ToolGroup.COMMAND | ToolGroup.BROWSER | ToolGroup.MCP | ToolGroup.DEBATE,
+        "full": ToolGroup.READ
+        | ToolGroup.EDIT
+        | ToolGroup.COMMAND
+        | ToolGroup.BROWSER
+        | ToolGroup.MCP
+        | ToolGroup.DEBATE,
     }
 
     def __init__(self, search_paths: list[str] | None = None):

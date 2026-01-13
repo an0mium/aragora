@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from pydub import AudioSegment
+
     PYDUB_AVAILABLE = True
 except ImportError:
     PYDUB_AVAILABLE = False
@@ -36,13 +37,18 @@ def _detect_audio_codec(audio_file: Path) -> Optional[str]:
 
     try:
         cmd = [
-            "ffprobe", "-v", "error", "-select_streams", "a:0",
-            "-show_entries", "stream=codec_name", "-of", "csv=p=0",
-            str(audio_file)
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "a:0",
+            "-show_entries",
+            "stream=codec_name",
+            "-of",
+            "csv=p=0",
+            str(audio_file),
         ]
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=10, shell=False
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, shell=False)
         if result.returncode == 0:
             return result.stdout.strip() or None
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
@@ -170,26 +176,42 @@ def mix_audio_with_ffmpeg(audio_files: List[Path], output_path: Path) -> bool:
                 filter_inputs = "".join(f"[{i}:a]" for i in range(n))
                 filter_str = f"{filter_inputs}concat=n={n}:v=0:a=1[out]"
 
-                cmd.extend([
-                    "-filter_complex", filter_str,
-                    "-map", "[out]",
-                    "-c:a", "libmp3lame", "-q:a", "2",  # High quality MP3
-                    str(output_path)
-                ])
+                cmd.extend(
+                    [
+                        "-filter_complex",
+                        filter_str,
+                        "-map",
+                        "[out]",
+                        "-c:a",
+                        "libmp3lame",
+                        "-q:a",
+                        "2",  # High quality MP3
+                        str(output_path),
+                    ]
+                )
             else:
                 # Same codec - use concat demuxer with stream copy (faster, no quality loss)
                 file_list = os.path.join(temp_dir, "filelist.txt")
 
                 # Write file list for ffmpeg concat demuxer
-                with open(file_list, 'w') as f:
+                with open(file_list, "w") as f:
                     for audio_file in audio_files:
                         # Escape single quotes in file paths for ffmpeg concat format
                         escaped_path = str(audio_file.absolute()).replace("'", "'\\''")
                         f.write(f"file '{escaped_path}'\n")
 
                 cmd = [
-                    "ffmpeg", "-y", "-f", "concat", "-safe", "0",
-                    "-i", file_list, "-c", "copy", str(output_path)
+                    "ffmpeg",
+                    "-y",
+                    "-f",
+                    "concat",
+                    "-safe",
+                    "0",
+                    "-i",
+                    file_list,
+                    "-c",
+                    "copy",
+                    str(output_path),
                 ]
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, shell=False)

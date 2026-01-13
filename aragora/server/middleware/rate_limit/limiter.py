@@ -148,11 +148,7 @@ class RateLimiter:
         self._maybe_cleanup()
 
         normalized_endpoint = normalize_rate_limit_path(endpoint) if endpoint else None
-        config = (
-            self.get_config(normalized_endpoint)
-            if normalized_endpoint
-            else RateLimitConfig()
-        )
+        config = self.get_config(normalized_endpoint) if normalized_endpoint else RateLimitConfig()
         if not config.enabled:
             return RateLimitResult(allowed=True, limit=0)
 
@@ -160,9 +156,7 @@ class RateLimiter:
         safe_ip = sanitize_rate_limit_key_component(client_ip)
         safe_token = sanitize_rate_limit_key_component(token) if token else None
         safe_endpoint = (
-            sanitize_rate_limit_key_component(normalized_endpoint)
-            if normalized_endpoint
-            else None
+            sanitize_rate_limit_key_component(normalized_endpoint) if normalized_endpoint else None
         )
 
         # Determine the key based on config
@@ -174,9 +168,7 @@ class RateLimiter:
             bucket = self._get_or_create_endpoint_bucket(safe_endpoint, safe_ip, config)
         elif config.key_type == "endpoint" and safe_endpoint:
             key = f"ep:{safe_endpoint}"
-            bucket = self._get_or_create_endpoint_bucket(
-                safe_endpoint, "_global", config
-            )
+            bucket = self._get_or_create_endpoint_bucket(safe_endpoint, "_global", config)
         else:
             # Default to IP-based limiting
             key = f"ip:{safe_ip}"
@@ -256,9 +248,7 @@ class RateLimiter:
                 return buckets[key]
 
             max_endpoint_buckets = self.max_entries // 3
-            total_endpoint_entries = sum(
-                len(b) for b in self._endpoint_buckets.values()
-            )
+            total_endpoint_entries = sum(len(b) for b in self._endpoint_buckets.values())
             while total_endpoint_entries >= max_endpoint_buckets and len(buckets) > 0:
                 buckets.popitem(last=False)
                 total_endpoint_entries -= 1
@@ -351,16 +341,13 @@ class RateLimiter:
         """Get rate limiter statistics including observability metrics."""
         with self._lock:
             total_requests = self._requests_allowed + self._requests_rejected
-            rejection_rate = (
-                self._requests_rejected / total_requests if total_requests > 0 else 0.0
-            )
+            rejection_rate = self._requests_rejected / total_requests if total_requests > 0 else 0.0
             return {
                 # Bucket counts
                 "ip_buckets": len(self._ip_buckets),
                 "token_buckets": len(self._token_buckets),
                 "endpoint_buckets": {
-                    ep: len(buckets)
-                    for ep, buckets in self._endpoint_buckets.items()
+                    ep: len(buckets) for ep, buckets in self._endpoint_buckets.items()
                 },
                 # Configuration
                 "configured_endpoints": list(self._endpoint_configs.keys()),

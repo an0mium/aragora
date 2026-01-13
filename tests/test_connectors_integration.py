@@ -25,6 +25,7 @@ from aragora.reasoning.provenance import SourceType
 # GitHub Connector Tests
 # =============================================================================
 
+
 class TestGitHubConnectorValidation:
     """Tests for GitHubConnector input validation."""
 
@@ -106,6 +107,7 @@ class TestGitHubConnectorSearch:
     def connector(self):
         """Create a GitHub connector for testing."""
         from aragora.connectors.github import GitHubConnector
+
         return GitHubConnector(repo="owner/repo", use_gh_cli=True)
 
     @pytest.mark.asyncio
@@ -136,21 +138,25 @@ class TestGitHubConnectorSearch:
     @pytest.mark.asyncio
     async def test_search_issues_with_gh_cli(self, connector):
         """Test issue search via mocked gh CLI."""
-        mock_output = json.dumps([
-            {
-                "number": 123,
-                "title": "Test Issue",
-                "body": "Issue body content",
-                "author": {"login": "testuser"},
-                "createdAt": "2024-01-01T12:00:00Z",
-                "url": "https://github.com/owner/repo/issues/123",
-                "state": "open",
-                "labels": [{"name": "bug"}],
-            }
-        ])
+        mock_output = json.dumps(
+            [
+                {
+                    "number": 123,
+                    "title": "Test Issue",
+                    "body": "Issue body content",
+                    "author": {"login": "testuser"},
+                    "createdAt": "2024-01-01T12:00:00Z",
+                    "url": "https://github.com/owner/repo/issues/123",
+                    "state": "open",
+                    "labels": [{"name": "bug"}],
+                }
+            ]
+        )
 
         with patch.object(connector, "_check_gh_cli", return_value=True):
-            with patch.object(connector, "_run_gh", new_callable=AsyncMock, return_value=mock_output):
+            with patch.object(
+                connector, "_run_gh", new_callable=AsyncMock, return_value=mock_output
+            ):
                 results = await connector.search("test query", search_type="issues", limit=5)
 
                 assert len(results) == 1
@@ -163,21 +169,25 @@ class TestGitHubConnectorSearch:
     @pytest.mark.asyncio
     async def test_search_prs_with_merged(self, connector):
         """Test PR search includes merge status."""
-        mock_output = json.dumps([
-            {
-                "number": 456,
-                "title": "Test PR",
-                "body": "PR description",
-                "author": {"login": "contributor"},
-                "createdAt": "2024-01-15T10:00:00Z",
-                "url": "https://github.com/owner/repo/pull/456",
-                "state": "merged",
-                "mergedAt": "2024-01-16T12:00:00Z",
-            }
-        ])
+        mock_output = json.dumps(
+            [
+                {
+                    "number": 456,
+                    "title": "Test PR",
+                    "body": "PR description",
+                    "author": {"login": "contributor"},
+                    "createdAt": "2024-01-15T10:00:00Z",
+                    "url": "https://github.com/owner/repo/pull/456",
+                    "state": "merged",
+                    "mergedAt": "2024-01-16T12:00:00Z",
+                }
+            ]
+        )
 
         with patch.object(connector, "_check_gh_cli", return_value=True):
-            with patch.object(connector, "_run_gh", new_callable=AsyncMock, return_value=mock_output):
+            with patch.object(
+                connector, "_run_gh", new_callable=AsyncMock, return_value=mock_output
+            ):
                 results = await connector.search("test", search_type="prs")
 
                 assert len(results) == 1
@@ -192,16 +202,20 @@ class TestGitHubConnectorSearch:
 
         connector = GitHubConnector()  # No repo for global search
 
-        mock_output = json.dumps([
-            {
-                "path": "src/main.py",
-                "repository": {"fullName": "other/repo"},
-                "textMatches": [{"fragment": "def test_function():"}],
-            }
-        ])
+        mock_output = json.dumps(
+            [
+                {
+                    "path": "src/main.py",
+                    "repository": {"fullName": "other/repo"},
+                    "textMatches": [{"fragment": "def test_function():"}],
+                }
+            ]
+        )
 
         with patch.object(connector, "_check_gh_cli", return_value=True):
-            with patch.object(connector, "_run_gh", new_callable=AsyncMock, return_value=mock_output):
+            with patch.object(
+                connector, "_run_gh", new_callable=AsyncMock, return_value=mock_output
+            ):
                 results = await connector.search("test_function", search_type="code")
 
                 assert len(results) == 1
@@ -220,7 +234,9 @@ class TestGitHubConnectorSearch:
     async def test_search_handles_json_error(self, connector):
         """Test search handles malformed JSON gracefully."""
         with patch.object(connector, "_check_gh_cli", return_value=True):
-            with patch.object(connector, "_run_gh", new_callable=AsyncMock, return_value="not json"):
+            with patch.object(
+                connector, "_run_gh", new_callable=AsyncMock, return_value="not json"
+            ):
                 results = await connector.search("test", search_type="issues")
                 assert results == []
 
@@ -231,27 +247,30 @@ class TestGitHubConnectorFetch:
     @pytest.fixture
     def connector(self):
         from aragora.connectors.github import GitHubConnector
+
         return GitHubConnector(repo="owner/repo")
 
     @pytest.mark.asyncio
     async def test_fetch_issue_by_id(self, connector):
         """Test fetching specific issue by evidence ID."""
-        mock_output = json.dumps({
-            "number": 123,
-            "title": "Fetched Issue",
-            "body": "Full issue body",
-            "author": {"login": "author"},
-            "createdAt": "2024-01-01T12:00:00Z",
-            "url": "https://github.com/owner/repo/issues/123",
-            "state": "open",
-            "labels": [],
-            "comments": [
-                {"author": {"login": "commenter"}, "body": "Comment text"}
-            ],
-        })
+        mock_output = json.dumps(
+            {
+                "number": 123,
+                "title": "Fetched Issue",
+                "body": "Full issue body",
+                "author": {"login": "author"},
+                "createdAt": "2024-01-01T12:00:00Z",
+                "url": "https://github.com/owner/repo/issues/123",
+                "state": "open",
+                "labels": [],
+                "comments": [{"author": {"login": "commenter"}, "body": "Comment text"}],
+            }
+        )
 
         with patch.object(connector, "_check_gh_cli", return_value=True):
-            with patch.object(connector, "_run_gh", new_callable=AsyncMock, return_value=mock_output):
+            with patch.object(
+                connector, "_run_gh", new_callable=AsyncMock, return_value=mock_output
+            ):
                 evidence = await connector.fetch("gh-issue:owner/repo:123")
 
                 assert evidence is not None
@@ -262,22 +281,24 @@ class TestGitHubConnectorFetch:
     @pytest.mark.asyncio
     async def test_fetch_pr_by_id(self, connector):
         """Test fetching specific PR by evidence ID."""
-        mock_output = json.dumps({
-            "number": 456,
-            "title": "Fetched PR",
-            "body": "PR body",
-            "author": {"login": "author"},
-            "createdAt": "2024-01-01T12:00:00Z",
-            "url": "https://github.com/owner/repo/pull/456",
-            "state": "merged",
-            "mergedAt": "2024-01-02T10:00:00Z",
-            "reviews": [
-                {"author": {"login": "reviewer"}, "state": "APPROVED", "body": "LGTM"}
-            ],
-        })
+        mock_output = json.dumps(
+            {
+                "number": 456,
+                "title": "Fetched PR",
+                "body": "PR body",
+                "author": {"login": "author"},
+                "createdAt": "2024-01-01T12:00:00Z",
+                "url": "https://github.com/owner/repo/pull/456",
+                "state": "merged",
+                "mergedAt": "2024-01-02T10:00:00Z",
+                "reviews": [{"author": {"login": "reviewer"}, "state": "APPROVED", "body": "LGTM"}],
+            }
+        )
 
         with patch.object(connector, "_check_gh_cli", return_value=True):
-            with patch.object(connector, "_run_gh", new_callable=AsyncMock, return_value=mock_output):
+            with patch.object(
+                connector, "_run_gh", new_callable=AsyncMock, return_value=mock_output
+            ):
                 evidence = await connector.fetch("gh-pr:owner/repo:456")
 
                 assert evidence is not None
@@ -307,20 +328,24 @@ class TestGitHubConnectorFetch:
     @pytest.mark.asyncio
     async def test_fetch_uses_cache(self, connector):
         """Test fetch uses cache for repeated calls."""
-        mock_output = json.dumps({
-            "number": 123,
-            "title": "Cached Issue",
-            "body": "Body",
-            "author": {"login": "author"},
-            "createdAt": "2024-01-01T12:00:00Z",
-            "url": "https://github.com/owner/repo/issues/123",
-            "state": "open",
-            "labels": [],
-            "comments": [],
-        })
+        mock_output = json.dumps(
+            {
+                "number": 123,
+                "title": "Cached Issue",
+                "body": "Body",
+                "author": {"login": "author"},
+                "createdAt": "2024-01-01T12:00:00Z",
+                "url": "https://github.com/owner/repo/issues/123",
+                "state": "open",
+                "labels": [],
+                "comments": [],
+            }
+        )
 
         with patch.object(connector, "_check_gh_cli", return_value=True):
-            with patch.object(connector, "_run_gh", new_callable=AsyncMock, return_value=mock_output) as mock_run:
+            with patch.object(
+                connector, "_run_gh", new_callable=AsyncMock, return_value=mock_output
+            ) as mock_run:
                 # First call
                 evidence1 = await connector.fetch("gh-issue:owner/repo:123")
                 # Second call should use cache
@@ -371,6 +396,7 @@ class TestGitHubConnectorCLI:
 # Twitter Connector Tests
 # =============================================================================
 
+
 class TestTwitterConnectorConfiguration:
     """Tests for TwitterPosterConnector configuration."""
 
@@ -397,12 +423,15 @@ class TestTwitterConnectorConfiguration:
         """Test connector loads credentials from environment."""
         from aragora.connectors.twitter_poster import TwitterPosterConnector
 
-        with patch.dict(os.environ, {
-            "TWITTER_API_KEY": "env_key",
-            "TWITTER_API_SECRET": "env_secret",
-            "TWITTER_ACCESS_TOKEN": "env_token",
-            "TWITTER_ACCESS_SECRET": "env_access",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "TWITTER_API_KEY": "env_key",
+                "TWITTER_API_SECRET": "env_secret",
+                "TWITTER_ACCESS_TOKEN": "env_token",
+                "TWITTER_ACCESS_SECRET": "env_access",
+            },
+        ):
             connector = TwitterPosterConnector()
             assert connector.api_key == "env_key"
             assert connector.api_secret == "env_secret"
@@ -414,6 +443,7 @@ class TestTwitterConnectorOAuth:
     @pytest.fixture
     def connector(self):
         from aragora.connectors.twitter_poster import TwitterPosterConnector
+
         return TwitterPosterConnector(
             api_key="test_key",
             api_secret="test_secret",
@@ -457,6 +487,7 @@ class TestTwitterConnectorPosting:
     @pytest.fixture
     def connector(self):
         from aragora.connectors.twitter_poster import TwitterPosterConnector
+
         return TwitterPosterConnector(
             api_key="test_key",
             api_secret="test_secret",
@@ -573,6 +604,7 @@ class TestTwitterConnectorThread:
     @pytest.fixture
     def connector(self):
         from aragora.connectors.twitter_poster import TwitterPosterConnector
+
         return TwitterPosterConnector(
             api_key="test_key",
             api_secret="test_secret",
@@ -595,6 +627,7 @@ class TestTwitterConnectorThread:
 
         async def mock_post_tweet(text, reply_to=None, media_ids=None):
             from aragora.connectors.twitter_poster import TweetResult
+
             tweet_id = tweet_ids[call_count[0]]
             call_count[0] += 1
             return TweetResult(
@@ -620,6 +653,7 @@ class TestTwitterConnectorThread:
 
         async def mock_post_tweet(text, reply_to=None, media_ids=None):
             from aragora.connectors.twitter_poster import TweetResult
+
             call_count[0] += 1
             if call_count[0] == 2:
                 return TweetResult(
@@ -652,6 +686,7 @@ class TestTwitterConnectorThread:
 
         async def mock_post_tweet(text, reply_to=None, media_ids=None):
             from aragora.connectors.twitter_poster import TweetResult
+
             return TweetResult(
                 tweet_id="123",
                 text=text,
@@ -746,6 +781,7 @@ class TestTwitterContentFormatter:
 # YouTube Connector Tests
 # =============================================================================
 
+
 class TestYouTubeConnectorConfiguration:
     """Tests for YouTubeUploaderConnector configuration."""
 
@@ -771,11 +807,14 @@ class TestYouTubeConnectorConfiguration:
         """Test connector loads credentials from environment."""
         from aragora.connectors.youtube_uploader import YouTubeUploaderConnector
 
-        with patch.dict(os.environ, {
-            "YOUTUBE_CLIENT_ID": "env_client_id",
-            "YOUTUBE_CLIENT_SECRET": "env_client_secret",
-            "YOUTUBE_REFRESH_TOKEN": "env_refresh_token",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "YOUTUBE_CLIENT_ID": "env_client_id",
+                "YOUTUBE_CLIENT_SECRET": "env_client_secret",
+                "YOUTUBE_REFRESH_TOKEN": "env_refresh_token",
+            },
+        ):
             connector = YouTubeUploaderConnector()
             assert connector.client_id == "env_client_id"
             assert connector.client_secret == "env_client_secret"
@@ -871,6 +910,7 @@ class TestYouTubeConnectorOAuth:
     @pytest.fixture
     def connector(self):
         from aragora.connectors.youtube_uploader import YouTubeUploaderConnector
+
         return YouTubeUploaderConnector(
             client_id="test_client_id",
             client_secret="test_client_secret",
@@ -959,6 +999,7 @@ class TestYouTubeConnectorUpload:
     @pytest.fixture
     def connector(self):
         from aragora.connectors.youtube_uploader import YouTubeUploaderConnector
+
         connector = YouTubeUploaderConnector(
             client_id="test_client_id",
             client_secret="test_client_secret",
@@ -980,7 +1021,10 @@ class TestYouTubeConnectorUpload:
     @pytest.mark.asyncio
     async def test_upload_not_configured(self):
         """Test upload fails when not configured."""
-        from aragora.connectors.youtube_uploader import YouTubeUploaderConnector, YouTubeVideoMetadata
+        from aragora.connectors.youtube_uploader import (
+            YouTubeUploaderConnector,
+            YouTubeVideoMetadata,
+        )
 
         connector = YouTubeUploaderConnector()  # No credentials
         metadata = YouTubeVideoMetadata(title="Test", description="Test")
@@ -1069,6 +1113,7 @@ class TestYouTubeConnectorStatus:
     @pytest.fixture
     def connector(self):
         from aragora.connectors.youtube_uploader import YouTubeUploaderConnector
+
         connector = YouTubeUploaderConnector(
             client_id="test_client_id",
             client_secret="test_client_secret",
@@ -1084,11 +1129,13 @@ class TestYouTubeConnectorStatus:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "items": [{
-                "id": "video123",
-                "status": {"uploadStatus": "processed"},
-                "processingDetails": {"processingStatus": "succeeded"},
-            }]
+            "items": [
+                {
+                    "id": "video123",
+                    "status": {"uploadStatus": "processed"},
+                    "processingDetails": {"processingStatus": "succeeded"},
+                }
+            ]
         }
 
         with patch("httpx.AsyncClient") as MockClient:
@@ -1142,7 +1189,10 @@ class TestYouTubeMetadataFromDebate:
 
     def test_create_metadata_truncates_long_task(self):
         """Test metadata truncates long task titles."""
-        from aragora.connectors.youtube_uploader import create_video_metadata_from_debate, MAX_TITLE_LENGTH
+        from aragora.connectors.youtube_uploader import (
+            create_video_metadata_from_debate,
+            MAX_TITLE_LENGTH,
+        )
 
         long_task = "x" * 200
         metadata = create_video_metadata_from_debate(
@@ -1159,6 +1209,7 @@ class TestYouTubeMetadataFromDebate:
 # Base Connector Tests
 # =============================================================================
 
+
 class TestBaseConnectorCache:
     """Tests for BaseConnector caching."""
 
@@ -1166,6 +1217,7 @@ class TestBaseConnectorCache:
     def connector(self):
         """Create a concrete connector for testing cache."""
         from aragora.connectors.github import GitHubConnector
+
         return GitHubConnector(repo="owner/repo")
 
     def test_cache_put_and_get(self, connector):
@@ -1319,6 +1371,7 @@ class TestConnectorFreshness:
     @pytest.fixture
     def connector(self):
         from aragora.connectors.github import GitHubConnector
+
         return GitHubConnector(repo="owner/repo")
 
     def test_freshness_recent(self, connector):
@@ -1342,6 +1395,7 @@ class TestConnectorFreshness:
 # =============================================================================
 # Error Handling Tests
 # =============================================================================
+
 
 class TestConnectorErrors:
     """Tests for connector error classes."""

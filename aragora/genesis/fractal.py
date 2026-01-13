@@ -56,6 +56,7 @@ class FractalResult:
     @property
     def debate_tree(self) -> dict:
         """Get the debate tree structure."""
+
         def build_tree(debate_id: str) -> dict:
             children = [sd for sd in self.sub_debates if sd.parent_debate_id == debate_id]
             return {
@@ -66,11 +67,12 @@ class FractalResult:
                         "tension": child.tension.description,
                         "success": child.success,
                         "depth": child.depth,
-                        "children": build_tree(child.debate_id)["children"]
+                        "children": build_tree(child.debate_id)["children"],
                     }
                     for child in children
-                ]
+                ],
             }
+
         return build_tree(self.root_debate_id)
 
     def get_all_debate_ids(self) -> list[str]:
@@ -178,8 +180,7 @@ class FractalOrchestrator:
         # Check for unresolved tensions
         tensions = self._extract_tensions(result)
         high_priority_tensions = [
-            t for t in tensions
-            if self._tension_severity(t) >= self.tension_threshold
+            t for t in tensions if self._tension_severity(t) >= self.tension_threshold
         ]
 
         # Spawn sub-debates for high-priority tensions (if under depth limit)
@@ -223,10 +224,11 @@ class FractalOrchestrator:
             evolved_genomes=self._evolved_genomes if depth == 0 else [],
             total_depth=max(
                 depth,
-                max((sd.depth for sd in self._sub_debates), default=0) if self._sub_debates else 0
+                max((sd.depth for sd in self._sub_debates), default=0) if self._sub_debates else 0,
             ),
             tensions_resolved=sum(1 for sd in sub_debate_results if sd.success),
-            tensions_unresolved=len(high_priority_tensions) - sum(1 for sd in sub_debate_results if sd.success),
+            tensions_unresolved=len(high_priority_tensions)
+            - sum(1 for sd in sub_debate_results if sd.success),
         )
 
     async def _spawn_sub_debate(
@@ -268,6 +270,7 @@ class FractalOrchestrator:
 
         # Convert genomes to agents
         from aragora.agents.base import create_agent
+
         specialist_agents = []
         for genome in specialists:
             try:
@@ -278,7 +281,7 @@ class FractalOrchestrator:
                 )
                 # Inject genome context into agent's system prompt
                 context = genome.to_persona().to_prompt_context()
-                if hasattr(agent, 'system_prompt'):
+                if hasattr(agent, "system_prompt"):
                     agent.system_prompt = f"{agent.system_prompt}\n\n{context}"
                 specialist_agents.append(agent)
             except Exception as e:
@@ -359,13 +362,15 @@ class FractalOrchestrator:
         # Look for explicit tensions in dissenting views
         for i, dissent in enumerate(result.dissenting_views):
             if dissent and len(dissent) > 50:  # Non-trivial dissent
-                tensions.append(UnresolvedTension(
-                    tension_id=f"tension-{i}",
-                    description=dissent[:200],
-                    agents_involved=[],  # Would need to track this
-                    options=[],
-                    impact="May affect consensus quality",
-                ))
+                tensions.append(
+                    UnresolvedTension(
+                        tension_id=f"tension-{i}",
+                        description=dissent[:200],
+                        agents_involved=[],  # Would need to track this
+                        options=[],
+                        impact="May affect consensus quality",
+                    )
+                )
 
         # Look for disagreement patterns in critiques
         high_severity_critiques = [c for c in result.critiques if c.severity > 0.7]
@@ -381,13 +386,15 @@ class FractalOrchestrator:
 
             for key, critiques in issue_groups.items():
                 if len(critiques) >= 2:  # Multiple agents raised this
-                    tensions.append(UnresolvedTension(
-                        tension_id=f"critique-tension-{len(tensions)}",
-                        description=key,
-                        agents_involved=[c.agent for c in critiques],
-                        options=[s for c in critiques for s in c.suggestions[:1]],
-                        impact="Multiple agents raised concerns",
-                    ))
+                    tensions.append(
+                        UnresolvedTension(
+                            tension_id=f"critique-tension-{len(tensions)}",
+                            description=key,
+                            agents_involved=[c.agent for c in critiques],
+                            options=[s for c in critiques for s in c.suggestions[:1]],
+                            impact="Multiple agents raised concerns",
+                        )
+                    )
 
         return tensions
 
@@ -436,7 +443,9 @@ class FractalOrchestrator:
         """Build a focused task from a tension."""
         options_str = ""
         if tension.options:
-            options_str = "\n\nOptions to consider:\n" + "\n".join(f"- {o}" for o in tension.options)
+            options_str = "\n\nOptions to consider:\n" + "\n".join(
+                f"- {o}" for o in tension.options
+            )
 
         return f"""Resolve this specific technical tension:
 
@@ -448,9 +457,7 @@ Impact: {tension.impact}
 Provide a clear recommendation with justification. Focus on this specific point only."""
 
     def _synthesize_results(
-        self,
-        parent_result: DebateResult,
-        sub_results: list[SubDebateResult]
+        self, parent_result: DebateResult, sub_results: list[SubDebateResult]
     ) -> DebateResult:
         """Merge sub-debate conclusions back into parent result."""
         # Build synthesis from sub-debate resolutions
@@ -478,8 +485,7 @@ Provide a clear recommendation with justification. Focus on this specific point 
             # Check if this genome's agent contributed to consensus
             agent_name = genome.name
             contributed = any(
-                m.agent == agent_name or agent_name in m.agent
-                for m in result.messages
+                m.agent == agent_name or agent_name in m.agent for m in result.messages
             )
 
             if contributed:
@@ -487,15 +493,11 @@ Provide a clear recommendation with justification. Focus on this specific point 
                     genome.genome_id,
                     consensus_win=consensus_reached,
                     critique_accepted=any(
-                        c.agent == agent_name and c.severity < 0.5
-                        for c in result.critiques
+                        c.agent == agent_name and c.severity < 0.5 for c in result.critiques
                     ),
                 )
 
     def should_spawn(self, tensions: list[UnresolvedTension]) -> bool:
         """Check if sub-debate is warranted based on tensions."""
-        high_priority = [
-            t for t in tensions
-            if self._tension_severity(t) >= self.tension_threshold
-        ]
+        high_priority = [t for t in tensions if self._tension_severity(t) >= self.tension_threshold]
         return len(high_priority) > 0

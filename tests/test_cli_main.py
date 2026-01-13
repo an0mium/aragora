@@ -90,6 +90,7 @@ class TestGetEventEmitter:
     def test_returns_none_on_url_error(self):
         """Should return None on URL error."""
         import urllib.error
+
         with patch("urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
             result = get_event_emitter_if_available()
@@ -370,12 +371,14 @@ class TestDemoTasks:
         """Should have rate-limiter demo defined."""
         # Access demo tasks by reading the function code structure
         from aragora.cli import main
+
         # The demo tasks are defined in cmd_demo
         assert hasattr(main, "cmd_demo")
 
     def test_auth_demo_exists(self):
         """Should have auth demo defined."""
         from aragora.cli.main import cmd_demo
+
         args = argparse.Namespace(name="auth")
 
         with patch("aragora.cli.main.asyncio.run") as mock_run:
@@ -392,6 +395,7 @@ class TestDemoTasks:
     def test_cache_demo_exists(self):
         """Should have cache demo defined."""
         from aragora.cli.main import cmd_demo
+
         args = argparse.Namespace(name="cache")
 
         with patch("aragora.cli.main.asyncio.run") as mock_run:
@@ -542,6 +546,7 @@ class TestEdgeCases:
     def test_cmd_templates_import(self):
         """Should import templates module."""
         from aragora.cli.main import cmd_templates
+
         args = argparse.Namespace()
 
         with patch("aragora.templates.list_templates") as mock_list:

@@ -18,6 +18,7 @@ from aragora.server.handlers.base import clear_cache
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_elo_system():
     """Create a mock ELO system."""
@@ -65,7 +66,7 @@ def mock_auth():
     mock_user.user_id = "test-user-123"
     mock_user.org_id = "test-org-456"
     mock_user.email = "test@example.com"
-    with patch('aragora.billing.jwt_auth.extract_user_from_request', return_value=mock_user):
+    with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_user):
         yield
 
 
@@ -80,6 +81,7 @@ def clear_caches():
 # ============================================================================
 # Route Matching Tests
 # ============================================================================
+
 
 class TestProbesRouting:
     """Tests for route matching."""
@@ -100,6 +102,7 @@ class TestProbesRouting:
 # ============================================================================
 # POST /api/probes/capability Tests
 # ============================================================================
+
 
 class TestCapabilityProbe:
     """Tests for POST /api/probes/capability endpoint."""
@@ -148,7 +151,7 @@ class TestCapabilityProbe:
             pytest.skip("Prober or agent module not available")
 
         mock_handler.rfile = Mock()
-        mock_handler.rfile.read.return_value = b'{}'
+        mock_handler.rfile.read.return_value = b"{}"
 
         result = probes_handler.handle_post("/api/probes/capability", {}, mock_handler)
         assert result is not None
@@ -173,7 +176,7 @@ class TestCapabilityProbe:
 
     def test_probe_invalid_json(self, probes_handler, mock_handler):
         mock_handler.rfile = Mock()
-        mock_handler.rfile.read.return_value = b'not json'
+        mock_handler.rfile.read.return_value = b"not json"
 
         result = probes_handler.handle_post("/api/probes/capability", {}, mock_handler)
         assert result is not None
@@ -186,7 +189,9 @@ class TestCapabilityProbe:
             pytest.skip("Prober or agent module not available")
 
         mock_handler.rfile = Mock()
-        mock_handler.rfile.read.return_value = b'{"agent_name": "test", "probe_types": ["invalid_type"]}'
+        mock_handler.rfile.read.return_value = (
+            b'{"agent_name": "test", "probe_types": ["invalid_type"]}'
+        )
 
         result = probes_handler.handle_post("/api/probes/capability", {}, mock_handler)
         assert result is not None
@@ -215,6 +220,7 @@ class TestCapabilityProbe:
 # ============================================================================
 # Security Tests
 # ============================================================================
+
 
 class TestProbesSecurity:
     """Security tests for probes endpoints."""
@@ -248,6 +254,7 @@ class TestProbesSecurity:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestProbesErrorHandling:
     """Tests for error handling."""
 
@@ -258,7 +265,7 @@ class TestProbesErrorHandling:
 
     def test_handle_returns_none_for_unhandled_route(self, probes_handler, mock_handler):
         mock_handler.rfile = Mock()
-        mock_handler.rfile.read.return_value = b'{}'
+        mock_handler.rfile.read.return_value = b"{}"
 
         result = probes_handler.handle_post("/api/other/endpoint", {}, mock_handler)
         assert result is None
@@ -268,15 +275,18 @@ class TestProbesErrorHandling:
 # Handler Import Tests
 # ============================================================================
 
+
 class TestProbesHandlerImport:
     """Test ProbesHandler import and export."""
 
     def test_handler_importable(self):
         """ProbesHandler can be imported from handlers package."""
         from aragora.server.handlers import ProbesHandler
+
         assert ProbesHandler is not None
 
     def test_handler_in_all_exports(self):
         """ProbesHandler is in __all__ exports."""
         from aragora.server.handlers import __all__
+
         assert "ProbesHandler" in __all__

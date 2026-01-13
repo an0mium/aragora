@@ -46,7 +46,7 @@ class MockAgent:
             issues=["test issue"],
             suggestions=["test suggestion"],
             severity=0.5,
-            reasoning="test reasoning"
+            reasoning="test reasoning",
         )
 
     async def vote(self, proposals: dict, task: str) -> Vote:
@@ -56,7 +56,9 @@ class MockAgent:
 
 def create_mock_agents(count: int = 3) -> list[MockAgent]:
     """Create a list of mock agents."""
-    return [MockAgent(f"agent-{i}", role="proposer" if i % 2 == 0 else "critic") for i in range(count)]
+    return [
+        MockAgent(f"agent-{i}", role="proposer" if i % 2 == 0 else "critic") for i in range(count)
+    ]
 
 
 def create_test_context(agents: list = None) -> DebateContext:
@@ -174,7 +176,7 @@ class TestPhaseExecutionOrder:
                 agent=agent.name,
                 choice=list(proposals.keys())[0],
                 confidence=0.8,
-                reasoning="Test vote"
+                reasoning="Test vote",
             )
 
         async def mock_with_timeout(coro, agent_name, timeout_seconds=90.0):
@@ -247,10 +249,7 @@ class TestContextStatePropagation:
 
         async def mock_vote(agent, proposals, task):
             return Vote(
-                agent="test",
-                choice=list(proposals.keys())[0],
-                confidence=0.8,
-                reasoning="test"
+                agent="test", choice=list(proposals.keys())[0], confidence=0.8, reasoning="test"
             )
 
         # Now consensus phase should have access to proposals
@@ -639,12 +638,14 @@ class TestFullPipelineIntegration:
             calibration_tracker=None,
             position_tracker=None,
             user_votes=[],
-            vote_with_agent=AsyncMock(return_value=Vote(
-                agent="voter",
-                choice=list(ctx.proposals.keys())[0],
-                confidence=0.9,
-                reasoning="Selected best"
-            )),
+            vote_with_agent=AsyncMock(
+                return_value=Vote(
+                    agent="voter",
+                    choice=list(ctx.proposals.keys())[0],
+                    confidence=0.9,
+                    reasoning="Selected best",
+                )
+            ),
             with_timeout=mock_with_timeout,
             notify_spectator=MagicMock(),
         )

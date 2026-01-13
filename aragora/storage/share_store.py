@@ -132,7 +132,11 @@ class ShareLinkStore(SQLiteStore):
                 (
                     token,
                     settings.debate_id,
-                    settings.visibility.value if hasattr(settings.visibility, 'value') else settings.visibility,
+                    (
+                        settings.visibility.value
+                        if hasattr(settings.visibility, "value")
+                        else settings.visibility
+                    ),
                     settings.owner_id,
                     settings.org_id,
                     settings.created_at,
@@ -336,15 +340,11 @@ class ShareLinkStore(SQLiteStore):
         stats["total"] = row[0] if row else 0
 
         # By visibility
-        rows = self.fetch_all(
-            "SELECT visibility, COUNT(*) FROM share_links GROUP BY visibility"
-        )
+        rows = self.fetch_all("SELECT visibility, COUNT(*) FROM share_links GROUP BY visibility")
         stats["by_visibility"] = {row[0]: row[1] for row in rows}
 
         # With active tokens
-        row = self.fetch_one(
-            "SELECT COUNT(*) FROM share_links WHERE token IS NOT NULL"
-        )
+        row = self.fetch_one("SELECT COUNT(*) FROM share_links WHERE token IS NOT NULL")
         stats["with_tokens"] = row[0] if row else 0
 
         # Expired (but not yet cleaned up)

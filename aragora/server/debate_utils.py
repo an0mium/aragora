@@ -198,11 +198,7 @@ def increment_cleanup_counter() -> bool:
     return False
 
 
-def wrap_agent_for_streaming(
-    agent: Any,
-    emitter: SyncEventEmitter,
-    debate_id: str
-) -> Any:
+def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: str) -> Any:
     """Wrap an agent to emit token streaming events.
 
     If the agent has a generate_stream() method, we override its generate()
@@ -217,7 +213,7 @@ def wrap_agent_for_streaming(
         The agent with wrapped generate method (or unchanged if no streaming support)
     """
     # Check if agent supports streaming
-    if not hasattr(agent, 'generate_stream'):
+    if not hasattr(agent, "generate_stream"):
         return agent
 
     # Store original generate method
@@ -226,15 +222,17 @@ def wrap_agent_for_streaming(
     async def streaming_generate(prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Streaming wrapper that emits TOKEN_* events."""
         # Emit start event
-        emitter.emit(StreamEvent(
-            type=StreamEventType.TOKEN_START,
-            data={
-                "debate_id": debate_id,
-                "agent": agent.name,
-                "timestamp": datetime.now().isoformat(),
-            },
-            agent=agent.name,
-        ))
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.TOKEN_START,
+                data={
+                    "debate_id": debate_id,
+                    "agent": agent.name,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                agent=agent.name,
+            )
+        )
 
         full_response = ""
         try:
@@ -242,41 +240,47 @@ def wrap_agent_for_streaming(
             async for token in agent.generate_stream(prompt, context):
                 full_response += token
                 # Emit token delta event
-                emitter.emit(StreamEvent(
-                    type=StreamEventType.TOKEN_DELTA,
+                emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.TOKEN_DELTA,
+                        data={
+                            "debate_id": debate_id,
+                            "agent": agent.name,
+                            "token": token,
+                        },
+                        agent=agent.name,
+                    )
+                )
+
+            # Emit end event
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.TOKEN_END,
                     data={
                         "debate_id": debate_id,
                         "agent": agent.name,
-                        "token": token,
+                        "full_response": full_response,
                     },
                     agent=agent.name,
-                ))
-
-            # Emit end event
-            emitter.emit(StreamEvent(
-                type=StreamEventType.TOKEN_END,
-                data={
-                    "debate_id": debate_id,
-                    "agent": agent.name,
-                    "full_response": full_response,
-                },
-                agent=agent.name,
-            ))
+                )
+            )
 
             return full_response
 
         except Exception as e:
             # Emit error as end event
-            emitter.emit(StreamEvent(
-                type=StreamEventType.TOKEN_END,
-                data={
-                    "debate_id": debate_id,
-                    "agent": agent.name,
-                    "error": _safe_error_message(e, f"token streaming for {agent.name}"),
-                    "full_response": full_response,
-                },
-                agent=agent.name,
-            ))
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.TOKEN_END,
+                    data={
+                        "debate_id": debate_id,
+                        "agent": agent.name,
+                        "error": _safe_error_message(e, f"token streaming for {agent.name}"),
+                        "full_response": full_response,
+                    },
+                    agent=agent.name,
+                )
+            )
             # Fall back to non-streaming
             if full_response:
                 return full_response

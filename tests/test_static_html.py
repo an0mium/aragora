@@ -16,6 +16,7 @@ from aragora.export.artifact import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def minimal_artifact():
     """Create minimal DebateArtifact for testing."""
@@ -75,9 +76,21 @@ def artifact_with_graph():
         task="Task with graph",
         graph_data={
             "nodes": {
-                "n1": {"node_type": "root", "agent_id": "claude", "content": "Initial proposal content"},
-                "n2": {"node_type": "proposal", "agent_id": "gemini", "content": "Counter proposal"},
-                "n3": {"node_type": "critique", "agent_id": "claude", "content": "Objection to counter"},
+                "n1": {
+                    "node_type": "root",
+                    "agent_id": "claude",
+                    "content": "Initial proposal content",
+                },
+                "n2": {
+                    "node_type": "proposal",
+                    "agent_id": "gemini",
+                    "content": "Counter proposal",
+                },
+                "n3": {
+                    "node_type": "critique",
+                    "agent_id": "claude",
+                    "content": "Objection to counter",
+                },
                 "n4": {"node_type": "synthesis", "agent_id": "gemini", "content": "Combined view"},
             },
             "edges": [{"from": "n1", "to": "n2"}, {"from": "n2", "to": "n3"}],
@@ -94,10 +107,30 @@ def artifact_with_timeline():
         task="Task with timeline",
         trace_data={
             "events": [
-                {"event_type": "agent_proposal", "agent": "claude", "round_num": 1, "content": {"content": "Proposal text here"}},
-                {"event_type": "agent_critique", "agent": "gemini", "round_num": 1, "content": {"issues": ["Issue 1", "Issue 2"]}},
-                {"event_type": "agent_synthesis", "agent": "claude", "round_num": 2, "content": {"content": "Synthesis combining views"}},
-                {"event_type": "debate_start", "agent": "system", "round_num": 0, "content": {}},  # Should be skipped
+                {
+                    "event_type": "agent_proposal",
+                    "agent": "claude",
+                    "round_num": 1,
+                    "content": {"content": "Proposal text here"},
+                },
+                {
+                    "event_type": "agent_critique",
+                    "agent": "gemini",
+                    "round_num": 1,
+                    "content": {"issues": ["Issue 1", "Issue 2"]},
+                },
+                {
+                    "event_type": "agent_synthesis",
+                    "agent": "claude",
+                    "round_num": 2,
+                    "content": {"content": "Synthesis combining views"},
+                },
+                {
+                    "event_type": "debate_start",
+                    "agent": "system",
+                    "round_num": 0,
+                    "content": {},
+                },  # Should be skipped
             ],
         },
         agents=["claude", "gemini"],
@@ -113,8 +146,22 @@ def artifact_with_provenance():
         provenance_data={
             "chain": {
                 "records": [
-                    {"id": "rec-1", "source_type": "agent", "source_id": "claude", "content": "First evidence", "content_hash": "abc123", "previous_hash": None},
-                    {"id": "rec-2", "source_type": "web", "source_id": "https://example.com", "content": "Second evidence", "content_hash": "def456", "previous_hash": "abc123"},
+                    {
+                        "id": "rec-1",
+                        "source_type": "agent",
+                        "source_id": "claude",
+                        "content": "First evidence",
+                        "content_hash": "abc123",
+                        "previous_hash": None,
+                    },
+                    {
+                        "id": "rec-2",
+                        "source_type": "web",
+                        "source_id": "https://example.com",
+                        "content": "Second evidence",
+                        "content_hash": "def456",
+                        "previous_hash": "abc123",
+                    },
                 ],
             },
         },
@@ -167,13 +214,24 @@ def full_artifact():
         },
         trace_data={
             "events": [
-                {"event_type": "agent_proposal", "agent": "claude", "round_num": 1, "content": {"content": "Text"}},
+                {
+                    "event_type": "agent_proposal",
+                    "agent": "claude",
+                    "round_num": 1,
+                    "content": {"content": "Text"},
+                },
             ],
         },
         provenance_data={
             "chain": {
                 "records": [
-                    {"id": "rec-1", "source_type": "agent", "source_id": "claude", "content": "Evidence", "content_hash": "abc123"},
+                    {
+                        "id": "rec-1",
+                        "source_type": "agent",
+                        "source_id": "claude",
+                        "content": "Evidence",
+                        "content_hash": "abc123",
+                    },
                 ],
             },
         },
@@ -211,6 +269,7 @@ def full_exporter(full_artifact):
 # StaticHTMLExporter Initialization Tests
 # =============================================================================
 
+
 class TestStaticHTMLExporterInit:
     """Tests for StaticHTMLExporter initialization."""
 
@@ -235,6 +294,7 @@ class TestStaticHTMLExporterInit:
 # =============================================================================
 # StaticHTMLExporter._escape Tests (Security Critical)
 # =============================================================================
+
 
 class TestStaticHTMLExporterEscape:
     """Tests for _escape method - XSS prevention."""
@@ -261,7 +321,7 @@ class TestStaticHTMLExporterEscape:
         """Should escape " to &quot;."""
         result = exporter._escape('say "hello"')
         assert "&quot;" in result
-        assert 'say &quot;hello&quot;' == result
+        assert "say &quot;hello&quot;" == result
 
     def test_escapes_single_quote(self, exporter):
         """Should escape ' to &#39;."""
@@ -314,6 +374,7 @@ class TestStaticHTMLExporterEscape:
 # StaticHTMLExporter.generate Tests
 # =============================================================================
 
+
 class TestStaticHTMLExporterGenerate:
     """Tests for generate method."""
 
@@ -347,7 +408,10 @@ class TestStaticHTMLExporterGenerate:
         assert "<title>" in html
         assert "</title>" in html
         # Script tags should be escaped
-        assert "<script>" not in html.split("<title>")[1].split("</title>")[0] or "&lt;script&gt;" in html
+        assert (
+            "<script>" not in html.split("<title>")[1].split("</title>")[0]
+            or "&lt;script&gt;" in html
+        )
 
     def test_contains_all_major_sections(self, exporter):
         """Should contain all major sections."""
@@ -366,6 +430,7 @@ class TestStaticHTMLExporterGenerate:
 # =============================================================================
 # StaticHTMLExporter._generate_styles Tests
 # =============================================================================
+
 
 class TestStaticHTMLExporterGenerateStyles:
     """Tests for _generate_styles method."""
@@ -394,9 +459,16 @@ class TestStaticHTMLExporterGenerateStyles:
         styles = exporter._generate_styles()
 
         required_classes = [
-            ".tab", ".tab-panel", ".graph-container", ".graph-node",
-            ".timeline", ".timeline-item", ".provenance-item",
-            ".verification-item", ".stats", ".stat",
+            ".tab",
+            ".tab-panel",
+            ".graph-container",
+            ".graph-node",
+            ".timeline",
+            ".timeline-item",
+            ".provenance-item",
+            ".verification-item",
+            ".stats",
+            ".stat",
         ]
         for cls in required_classes:
             assert cls in styles, f"Missing class selector: {cls}"
@@ -405,6 +477,7 @@ class TestStaticHTMLExporterGenerateStyles:
 # =============================================================================
 # StaticHTMLExporter._generate_header Tests
 # =============================================================================
+
 
 class TestStaticHTMLExporterGenerateHeader:
     """Tests for _generate_header method."""
@@ -450,6 +523,7 @@ class TestStaticHTMLExporterGenerateHeader:
 # StaticHTMLExporter._generate_task_section Tests
 # =============================================================================
 
+
 class TestStaticHTMLExporterGenerateTaskSection:
     """Tests for _generate_task_section method."""
 
@@ -474,6 +548,7 @@ class TestStaticHTMLExporterGenerateTaskSection:
 # =============================================================================
 # StaticHTMLExporter._generate_tabs Tests
 # =============================================================================
+
 
 class TestStaticHTMLExporterGenerateTabs:
     """Tests for _generate_tabs method."""
@@ -506,6 +581,7 @@ class TestStaticHTMLExporterGenerateTabs:
 # =============================================================================
 # StaticHTMLExporter._generate_graph_view Tests
 # =============================================================================
+
 
 class TestStaticHTMLExporterGenerateGraphView:
     """Tests for _generate_graph_view method."""
@@ -548,6 +624,7 @@ class TestStaticHTMLExporterGenerateGraphView:
 # StaticHTMLExporter._render_graph_nodes Tests
 # =============================================================================
 
+
 class TestStaticHTMLExporterRenderGraphNodes:
     """Tests for _render_graph_nodes method."""
 
@@ -586,7 +663,7 @@ class TestStaticHTMLExporterRenderGraphNodes:
         exporter = StaticHTMLExporter(artifact_with_graph)
         result = exporter._render_graph_nodes()
 
-        assert '<script>alert' not in result or '&lt;script&gt;' in result
+        assert "<script>alert" not in result or "&lt;script&gt;" in result
 
     def test_contains_agent_name(self, artifact_with_graph):
         """Should contain agent name."""
@@ -608,6 +685,7 @@ class TestStaticHTMLExporterRenderGraphNodes:
 # =============================================================================
 # StaticHTMLExporter._generate_timeline_view Tests
 # =============================================================================
+
 
 class TestStaticHTMLExporterGenerateTimelineView:
     """Tests for _generate_timeline_view method."""
@@ -677,6 +755,7 @@ class TestStaticHTMLExporterGenerateTimelineView:
 # StaticHTMLExporter._generate_provenance_view Tests
 # =============================================================================
 
+
 class TestStaticHTMLExporterGenerateProvenanceView:
     """Tests for _generate_provenance_view method."""
 
@@ -702,7 +781,16 @@ class TestStaticHTMLExporterGenerateProvenanceView:
             task="test",
             provenance_data={
                 "chain": {
-                    "records": [{"id": f"rec-{i}", "source_type": "agent", "source_id": "x", "content": f"content {i}", "content_hash": f"hash{i}"} for i in range(15)],
+                    "records": [
+                        {
+                            "id": f"rec-{i}",
+                            "source_type": "agent",
+                            "source_id": "x",
+                            "content": f"content {i}",
+                            "content_hash": f"hash{i}",
+                        }
+                        for i in range(15)
+                    ],
                 },
             },
         )
@@ -733,6 +821,7 @@ class TestStaticHTMLExporterGenerateProvenanceView:
 # =============================================================================
 # StaticHTMLExporter._generate_verification_view Tests
 # =============================================================================
+
 
 class TestStaticHTMLExporterGenerateVerificationView:
     """Tests for _generate_verification_view method."""
@@ -783,6 +872,7 @@ class TestStaticHTMLExporterGenerateVerificationView:
 # StaticHTMLExporter._generate_stats Tests
 # =============================================================================
 
+
 class TestStaticHTMLExporterGenerateStats:
     """Tests for _generate_stats method."""
 
@@ -829,6 +919,7 @@ class TestStaticHTMLExporterGenerateStats:
 # StaticHTMLExporter._generate_footer Tests
 # =============================================================================
 
+
 class TestStaticHTMLExporterGenerateFooter:
     """Tests for _generate_footer method."""
 
@@ -856,6 +947,7 @@ class TestStaticHTMLExporterGenerateFooter:
 # =============================================================================
 # StaticHTMLExporter._generate_scripts Tests
 # =============================================================================
+
 
 class TestStaticHTMLExporterGenerateScripts:
     """Tests for _generate_scripts method."""
@@ -895,6 +987,7 @@ class TestStaticHTMLExporterGenerateScripts:
 # StaticHTMLExporter.save Tests
 # =============================================================================
 
+
 class TestStaticHTMLExporterSave:
     """Tests for save method."""
 
@@ -926,6 +1019,7 @@ class TestStaticHTMLExporterSave:
 # =============================================================================
 # export_to_html Function Tests
 # =============================================================================
+
 
 class TestExportToHtml:
     """Tests for export_to_html convenience function."""

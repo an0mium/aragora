@@ -11,6 +11,7 @@ class TestVerificationHandlerRouting:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.verification import VerificationHandler
+
         ctx = {}
         return VerificationHandler(ctx)
 
@@ -28,6 +29,7 @@ class TestVerificationStatusEndpoint:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.verification import VerificationHandler
+
         ctx = {}
         return VerificationHandler(ctx)
 
@@ -49,11 +51,14 @@ class TestVerificationStatusEndpoint:
             "backends": [
                 {"name": "z3", "available": True},
                 {"name": "lean", "available": False},
-            ]
+            ],
         }
 
         with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", True):
-            with patch("aragora.server.handlers.verification.get_formal_verification_manager", return_value=mock_manager):
+            with patch(
+                "aragora.server.handlers.verification.get_formal_verification_manager",
+                return_value=mock_manager,
+            ):
                 result = handler.handle("/api/verification/status", {}, None)
                 assert result.status_code == 200
                 data = json.loads(result.body)
@@ -62,11 +67,15 @@ class TestVerificationStatusEndpoint:
 
     def test_status_handles_exception(self, handler):
         """Returns error when exception occurs."""
+
         def raise_error():
             raise RuntimeError("Backend error")
 
         with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", True):
-            with patch("aragora.server.handlers.verification.get_formal_verification_manager", side_effect=raise_error):
+            with patch(
+                "aragora.server.handlers.verification.get_formal_verification_manager",
+                side_effect=raise_error,
+            ):
                 result = handler.handle("/api/verification/status", {}, None)
                 assert result.status_code == 500
                 data = json.loads(result.body)
@@ -79,6 +88,7 @@ class TestVerificationFormalVerifyEndpoint:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.verification import VerificationHandler
+
         ctx = {}
         return VerificationHandler(ctx)
 
@@ -107,7 +117,7 @@ class TestVerificationFormalVerifyEndpoint:
     def test_formal_verify_missing_claim(self, handler, mock_handler):
         """Returns 400 when claim is missing."""
         mock_handler.rfile = Mock()
-        mock_handler.rfile.read.return_value = b'{}'
+        mock_handler.rfile.read.return_value = b"{}"
 
         with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", True):
             result = handler.handle_post("/api/verification/formal-verify", {}, mock_handler)
@@ -119,7 +129,9 @@ class TestVerificationFormalVerifyEndpoint:
     def test_formal_verify_success(self, handler, mock_handler):
         """Returns verification result on success."""
         mock_handler.rfile = Mock()
-        mock_handler.rfile.read.return_value = b'{"claim": "All integers greater than 0 are positive"}'
+        mock_handler.rfile.read.return_value = (
+            b'{"claim": "All integers greater than 0 are positive"}'
+        )
 
         mock_result = Mock()
         mock_result.to_dict.return_value = {
@@ -132,12 +144,17 @@ class TestVerificationFormalVerifyEndpoint:
         mock_manager.attempt_formal_verification = Mock(return_value=mock_result)
 
         import asyncio
+
         async def mock_verify(*args, **kwargs):
             return mock_result
+
         mock_manager.attempt_formal_verification = mock_verify
 
         with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", True):
-            with patch("aragora.server.handlers.verification.get_formal_verification_manager", return_value=mock_manager):
+            with patch(
+                "aragora.server.handlers.verification.get_formal_verification_manager",
+                return_value=mock_manager,
+            ):
                 result = handler.handle_post("/api/verification/formal-verify", {}, mock_handler)
                 assert result.status_code == 200
                 data = json.loads(result.body)
@@ -150,9 +167,11 @@ class TestVerificationHandlerImport:
     def test_handler_importable(self):
         """VerificationHandler can be imported from handlers package."""
         from aragora.server.handlers import VerificationHandler
+
         assert VerificationHandler is not None
 
     def test_handler_in_all_exports(self):
         """VerificationHandler is in __all__ exports."""
         from aragora.server.handlers import __all__
+
         assert "VerificationHandler" in __all__

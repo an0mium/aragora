@@ -32,9 +32,11 @@ _features_limiter = RateLimiter(requests_per_minute=100)
 # Feature Registry
 # =============================================================================
 
+
 @dataclass
 class FeatureInfo:
     """Information about an optional feature."""
+
     name: str
     description: str
     requires: list[str]  # List of module/class names required
@@ -206,6 +208,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
 # Feature Detection
 # =============================================================================
 
+
 def _check_feature_available(feature_id: str) -> tuple[bool, Optional[str]]:
     """
     Check if a feature's required components are available.
@@ -273,6 +276,7 @@ def _check_requirement(requirement: str) -> tuple[bool, Optional[str]]:
 def _check_pulse() -> tuple[bool, Optional[str]]:
     try:
         from aragora.pulse.manager import PulseManager
+
         return True, None
     except ImportError:
         return False, "Pulse module not installed"
@@ -281,6 +285,7 @@ def _check_pulse() -> tuple[bool, Optional[str]]:
 def _check_genesis() -> tuple[bool, Optional[str]]:
     try:
         from aragora.genesis.ledger import GenesisLedger
+
         return True, None
     except ImportError:
         return False, "Genesis module not installed"
@@ -289,6 +294,7 @@ def _check_genesis() -> tuple[bool, Optional[str]]:
 def _check_z3() -> tuple[bool, Optional[str]]:
     try:
         import z3
+
         return True, None
     except ImportError:
         return False, "z3-solver not installed"
@@ -297,11 +303,16 @@ def _check_z3() -> tuple[bool, Optional[str]]:
 def _check_lean() -> tuple[bool, Optional[str]]:
     """Check if Lean 4 theorem prover is available."""
     import shutil
+
     lean_path = shutil.which("lean")
     if lean_path is None:
-        return False, "Lean 4 not installed (install from https://leanprover.github.io/lean4/doc/setup.html)"
+        return (
+            False,
+            "Lean 4 not installed (install from https://leanprover.github.io/lean4/doc/setup.html)",
+        )
     try:
         from aragora.verification.formal import LeanBackend
+
         backend = LeanBackend()
         if backend.is_available:
             return True, None
@@ -315,6 +326,7 @@ def _check_lean() -> tuple[bool, Optional[str]]:
 def _check_laboratory() -> tuple[bool, Optional[str]]:
     try:
         from aragora.genesis.laboratory import PersonaLaboratory
+
         return True, None
     except ImportError:
         return False, "PersonaLaboratory not available"
@@ -323,6 +335,7 @@ def _check_laboratory() -> tuple[bool, Optional[str]]:
 def _check_calibration() -> tuple[bool, Optional[str]]:
     try:
         from aragora.ranking.calibration import CalibrationTracker
+
         return True, None
     except ImportError:
         return False, "CalibrationTracker not available"
@@ -331,6 +344,7 @@ def _check_calibration() -> tuple[bool, Optional[str]]:
 def _check_evolution() -> tuple[bool, Optional[str]]:
     try:
         from aragora.genesis.prompt_evolver import PromptEvolver
+
         return True, None
     except ImportError:
         return False, "PromptEvolver not available"
@@ -339,6 +353,7 @@ def _check_evolution() -> tuple[bool, Optional[str]]:
 def _check_red_team() -> tuple[bool, Optional[str]]:
     try:
         from aragora.debate.red_team import RedTeamMode
+
         return True, None
     except ImportError:
         return False, "RedTeamMode not available"
@@ -347,6 +362,7 @@ def _check_red_team() -> tuple[bool, Optional[str]]:
 def _check_probes() -> tuple[bool, Optional[str]]:
     try:
         from aragora.debate.capability_probes import ProbeRunner
+
         return True, None
     except ImportError:
         return False, "ProbeRunner not available"
@@ -355,6 +371,7 @@ def _check_probes() -> tuple[bool, Optional[str]]:
 def _check_continuum() -> tuple[bool, Optional[str]]:
     try:
         from aragora.memory.continuum import ContinuumMemory
+
         return True, None
     except ImportError:
         return False, "ContinuumMemory not available"
@@ -363,6 +380,7 @@ def _check_continuum() -> tuple[bool, Optional[str]]:
 def _check_consensus() -> tuple[bool, Optional[str]]:
     try:
         from aragora.memory.consensus import ConsensusMemory
+
         return True, None
     except ImportError:
         return False, "ConsensusMemory not available"
@@ -371,6 +389,7 @@ def _check_consensus() -> tuple[bool, Optional[str]]:
 def _check_insights() -> tuple[bool, Optional[str]]:
     try:
         from aragora.memory.insights import InsightStore
+
         return True, None
     except ImportError:
         return False, "InsightStore not available"
@@ -379,6 +398,7 @@ def _check_insights() -> tuple[bool, Optional[str]]:
 def _check_moments() -> tuple[bool, Optional[str]]:
     try:
         from aragora.debate.moments import MomentDetector
+
         return True, None
     except ImportError:
         return False, "MomentDetector not available"
@@ -387,6 +407,7 @@ def _check_moments() -> tuple[bool, Optional[str]]:
 def _check_tournaments() -> tuple[bool, Optional[str]]:
     try:
         from aragora.ranking.tournaments import TournamentRunner
+
         return True, None
     except ImportError:
         return False, "TournamentRunner not available"
@@ -395,6 +416,7 @@ def _check_tournaments() -> tuple[bool, Optional[str]]:
 def _check_elo() -> tuple[bool, Optional[str]]:
     try:
         from aragora.ranking.elo import ELOSystem
+
         return True, None
     except ImportError:
         return False, "ELOSystem not available"
@@ -403,6 +425,7 @@ def _check_elo() -> tuple[bool, Optional[str]]:
 def _check_crux() -> tuple[bool, Optional[str]]:
     try:
         from aragora.reasoning.crux import CruxAnalyzer
+
         return True, None
     except ImportError:
         return False, "CruxAnalyzer not available"
@@ -411,6 +434,7 @@ def _check_crux() -> tuple[bool, Optional[str]]:
 def _check_rhetorical() -> tuple[bool, Optional[str]]:
     try:
         from aragora.debate.rhetorical_observer import RhetoricalObserver
+
         return True, None
     except ImportError:
         return False, "RhetoricalObserver not available"
@@ -419,6 +443,7 @@ def _check_rhetorical() -> tuple[bool, Optional[str]]:
 def _check_trickster() -> tuple[bool, Optional[str]]:
     try:
         from aragora.debate.trickster import EvidencePoweredTrickster
+
         return True, None
     except ImportError:
         return False, "Trickster not available"
@@ -446,9 +471,7 @@ def get_all_features() -> dict[str, dict[str, Any]]:
 def get_available_features() -> list[str]:
     """Get list of feature IDs that are currently available."""
     return [
-        feature_id
-        for feature_id in FEATURE_REGISTRY
-        if _check_feature_available(feature_id)[0]
+        feature_id for feature_id in FEATURE_REGISTRY if _check_feature_available(feature_id)[0]
     ]
 
 
@@ -465,6 +488,7 @@ def get_unavailable_features() -> dict[str, str]:
 # =============================================================================
 # Standard Error Helper
 # =============================================================================
+
 
 def feature_unavailable_response(
     feature_id: str,
@@ -509,6 +533,7 @@ def feature_unavailable_response(
 # =============================================================================
 # Handler
 # =============================================================================
+
 
 class FeaturesHandler(BaseHandler):
     """Handler for feature availability endpoints."""
@@ -597,21 +622,25 @@ class FeaturesHandler(BaseHandler):
         available = get_available_features()
         unavailable = get_unavailable_features()
 
-        return json_response({
-            "available_count": len(available),
-            "unavailable_count": len(unavailable),
-            "available": available,
-            "unavailable": list(unavailable.keys()),
-            "categories": self._get_categories(),
-        })
+        return json_response(
+            {
+                "available_count": len(available),
+                "unavailable_count": len(unavailable),
+                "available": available,
+                "unavailable": list(unavailable.keys()),
+                "categories": self._get_categories(),
+            }
+        )
 
     def _get_available(self) -> HandlerResult:
         """Get list of available features."""
         available = get_available_features()
-        return json_response({
-            "features": available,
-            "count": len(available),
-        })
+        return json_response(
+            {
+                "features": available,
+                "count": len(available),
+            }
+        )
 
     def _get_all_features(self) -> HandlerResult:
         """Get full feature matrix."""
@@ -625,11 +654,13 @@ class FeaturesHandler(BaseHandler):
                 by_category[category] = []
             by_category[category].append(info)
 
-        return json_response({
-            "features": features,
-            "by_category": by_category,
-            "total": len(features),
-        })
+        return json_response(
+            {
+                "features": features,
+                "by_category": by_category,
+                "total": len(features),
+            }
+        )
 
     def _get_feature_status(self, feature_id: str) -> HandlerResult:
         """Get status of a specific feature."""
@@ -643,18 +674,20 @@ class FeaturesHandler(BaseHandler):
         feature = FEATURE_REGISTRY[feature_id]
         available, reason = _check_feature_available(feature_id)
 
-        return json_response({
-            "id": feature_id,
-            "name": feature.name,
-            "description": feature.description,
-            "category": feature.category,
-            "status": feature.status,
-            "available": available,
-            "reason": reason,
-            "install_hint": feature.install_hint if not available else None,
-            "endpoints": feature.endpoints,
-            "requires": feature.requires,
-        })
+        return json_response(
+            {
+                "id": feature_id,
+                "name": feature.name,
+                "description": feature.description,
+                "category": feature.category,
+                "status": feature.status,
+                "available": available,
+                "reason": reason,
+                "install_hint": feature.install_hint if not available else None,
+                "endpoints": feature.endpoints,
+                "requires": feature.requires,
+            }
+        )
 
     def _get_categories(self) -> dict[str, int]:
         """Get feature count by category."""
@@ -694,12 +727,14 @@ class FeaturesHandler(BaseHandler):
             stability = stability_map.get(handler_name, "experimental")
             by_stability[stability].append(handler_name)
 
-        return json_response({
-            "handlers": stability_map,
-            "by_stability": by_stability,
-            "counts": {level: len(handlers) for level, handlers in by_stability.items()},
-            "total": len(ALL_HANDLERS),
-        })
+        return json_response(
+            {
+                "handlers": stability_map,
+                "by_stability": by_stability,
+                "counts": {level: len(handlers) for level, handlers in by_stability.items()},
+                "total": len(ALL_HANDLERS),
+            }
+        )
 
     def _handle_config(self, handler=None) -> HandlerResult:
         """Handle feature configuration requests (GET/POST).
@@ -712,17 +747,17 @@ class FeaturesHandler(BaseHandler):
         """
         from aragora.billing.jwt_auth import extract_user_from_request
 
-        method = getattr(handler, 'command', 'GET') if handler else 'GET'
+        method = getattr(handler, "command", "GET") if handler else "GET"
 
         # Get user context if authenticated
-        user_store = self.ctx.get('user_store')
+        user_store = self.ctx.get("user_store")
         user_ctx = None
         if user_store and handler:
             user_ctx = extract_user_from_request(handler, user_store)
 
-        if method == 'GET':
+        if method == "GET":
             return self._get_config(user_ctx, user_store)
-        elif method == 'POST':
+        elif method == "POST":
             return self._update_config(handler, user_ctx, user_store)
         else:
             return error_response(f"Method {method} not allowed", status=405)
@@ -747,22 +782,28 @@ class FeaturesHandler(BaseHandler):
 
         for feature_id, info in features.items():
             if feature_id in preferences:
-                feature_toggles.append({
-                    "id": feature_id,
-                    "name": info["name"],
-                    "description": info["description"],
-                    "category": info["category"],
-                    "available": info["available"],
-                    "enabled": preferences.get(feature_id, False) if info["available"] else False,
-                    "install_hint": info.get("install_hint"),
-                })
+                feature_toggles.append(
+                    {
+                        "id": feature_id,
+                        "name": info["name"],
+                        "description": info["description"],
+                        "category": info["category"],
+                        "available": info["available"],
+                        "enabled": (
+                            preferences.get(feature_id, False) if info["available"] else False
+                        ),
+                        "install_hint": info.get("install_hint"),
+                    }
+                )
 
-        return json_response({
-            "preferences": preferences,
-            "feature_toggles": feature_toggles,
-            "is_authenticated": user_ctx.is_authenticated if user_ctx else False,
-            "defaults": self.DEFAULT_PREFERENCES,
-        })
+        return json_response(
+            {
+                "preferences": preferences,
+                "feature_toggles": feature_toggles,
+                "is_authenticated": user_ctx.is_authenticated if user_ctx else False,
+                "defaults": self.DEFAULT_PREFERENCES,
+            }
+        )
 
     def _update_config(self, handler, user_ctx, user_store) -> HandlerResult:
         """Update user's feature configuration."""
@@ -770,9 +811,9 @@ class FeaturesHandler(BaseHandler):
 
         # Parse request body
         try:
-            content_length = int(handler.headers.get('Content-Length', 0))
-            body = handler.rfile.read(content_length) if content_length > 0 else b'{}'
-            updates = json_module.loads(body.decode('utf-8'))
+            content_length = int(handler.headers.get("Content-Length", 0))
+            body = handler.rfile.read(content_length) if content_length > 0 else b"{}"
+            updates = json_module.loads(body.decode("utf-8"))
         except (json_module.JSONDecodeError, ValueError) as e:
             return error_response(f"Invalid JSON body: {e}", status=400)
 
@@ -812,19 +853,23 @@ class FeaturesHandler(BaseHandler):
                     code="SAVE_FAILED",
                 )
 
-            return json_response({
-                "success": True,
-                "updated": list(updates.keys()),
-                "message": "Preferences saved to account",
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "updated": list(updates.keys()),
+                    "message": "Preferences saved to account",
+                }
+            )
         else:
             # For guests, just acknowledge (frontend handles localStorage)
-            return json_response({
-                "success": True,
-                "updated": list(updates.keys()),
-                "message": "Preferences acknowledged (save locally for guests)",
-                "is_authenticated": False,
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "updated": list(updates.keys()),
+                    "message": "Preferences acknowledged (save locally for guests)",
+                    "is_authenticated": False,
+                }
+            )
 
 
 # Export for use by other handlers

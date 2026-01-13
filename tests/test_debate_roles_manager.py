@@ -15,6 +15,7 @@ from aragora.debate.roles_manager import RolesManager
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_protocol():
     """Create a mock DebateProtocol."""
@@ -55,7 +56,7 @@ def mock_prompt_builder():
 @pytest.fixture
 def roles_manager(mock_agents, mock_protocol):
     """Create a basic RolesManager."""
-    with patch.object(RolesManager, '_init_role_systems'):
+    with patch.object(RolesManager, "_init_role_systems"):
         manager = RolesManager(
             agents=mock_agents,
             protocol=mock_protocol,
@@ -70,12 +71,13 @@ def roles_manager(mock_agents, mock_protocol):
 # Initialization Tests
 # ============================================================================
 
+
 class TestRolesManagerInit:
     """Tests for RolesManager initialization."""
 
     def test_basic_init(self, mock_agents, mock_protocol):
         """Test basic initialization."""
-        with patch.object(RolesManager, '_init_role_systems'):
+        with patch.object(RolesManager, "_init_role_systems"):
             manager = RolesManager(
                 agents=mock_agents,
                 protocol=mock_protocol,
@@ -86,7 +88,7 @@ class TestRolesManagerInit:
 
     def test_init_with_prompt_builder(self, mock_agents, mock_protocol, mock_prompt_builder):
         """Test initialization with prompt builder."""
-        with patch.object(RolesManager, '_init_role_systems'):
+        with patch.object(RolesManager, "_init_role_systems"):
             manager = RolesManager(
                 agents=mock_agents,
                 protocol=mock_protocol,
@@ -97,7 +99,7 @@ class TestRolesManagerInit:
     def test_init_with_calibration_tracker(self, mock_agents, mock_protocol):
         """Test initialization with calibration tracker."""
         mock_tracker = MagicMock()
-        with patch.object(RolesManager, '_init_role_systems'):
+        with patch.object(RolesManager, "_init_role_systems"):
             manager = RolesManager(
                 agents=mock_agents,
                 protocol=mock_protocol,
@@ -108,7 +110,7 @@ class TestRolesManagerInit:
     def test_init_with_persona_manager(self, mock_agents, mock_protocol):
         """Test initialization with persona manager."""
         mock_personas = MagicMock()
-        with patch.object(RolesManager, '_init_role_systems'):
+        with patch.object(RolesManager, "_init_role_systems"):
             manager = RolesManager(
                 agents=mock_agents,
                 protocol=mock_protocol,
@@ -132,6 +134,7 @@ class TestRolesManagerInit:
 # ============================================================================
 # Init Role Systems Tests
 # ============================================================================
+
 
 class TestInitRoleSystems:
     """Tests for _init_role_systems method."""
@@ -175,6 +178,7 @@ class TestInitRoleSystems:
 # ============================================================================
 # Assign Initial Roles Tests
 # ============================================================================
+
 
 class TestAssignInitialRoles:
     """Tests for assign_initial_roles method."""
@@ -249,6 +253,7 @@ class TestAssignInitialRoles:
 # Assign Stances Tests
 # ============================================================================
 
+
 class TestAssignStances:
     """Tests for assign_stances method."""
 
@@ -301,6 +306,7 @@ class TestAssignStances:
 # Apply Agreement Intensity Tests
 # ============================================================================
 
+
 class TestApplyAgreementIntensity:
     """Tests for apply_agreement_intensity method."""
 
@@ -337,6 +343,7 @@ class TestApplyAgreementIntensity:
 # ============================================================================
 # Get Agreement Intensity Guidance Tests
 # ============================================================================
+
 
 class TestGetAgreementIntensityGuidance:
     """Tests for _get_agreement_intensity_guidance method."""
@@ -382,6 +389,7 @@ class TestGetAgreementIntensityGuidance:
 # Get Stance Guidance Tests
 # ============================================================================
 
+
 class TestGetStanceGuidance:
     """Tests for get_stance_guidance method."""
 
@@ -419,6 +427,7 @@ class TestGetStanceGuidance:
 # Rotate Roles for Round Tests
 # ============================================================================
 
+
 class TestRotateRolesForRound:
     """Tests for rotate_roles_for_round method."""
 
@@ -445,6 +454,7 @@ class TestRotateRolesForRound:
 # ============================================================================
 # Match Roles for Task Tests
 # ============================================================================
+
 
 class TestMatchRolesForTask:
     """Tests for match_roles_for_task method."""
@@ -474,6 +484,7 @@ class TestMatchRolesForTask:
 # Integration Tests
 # ============================================================================
 
+
 class TestRolesManagerIntegration:
     """Integration tests for RolesManager."""
 
@@ -481,7 +492,7 @@ class TestRolesManagerIntegration:
         """Test full initialization with role assignment and stances."""
         mock_protocol.asymmetric_stances = True
 
-        with patch.object(RolesManager, '_init_role_systems'):
+        with patch.object(RolesManager, "_init_role_systems"):
             manager = RolesManager(
                 agents=mock_agents,
                 protocol=mock_protocol,
@@ -520,6 +531,7 @@ class TestRolesManagerIntegration:
 # Edge Cases Tests
 # ============================================================================
 
+
 class TestRolesManagerEdgeCases:
     """Tests for edge cases."""
 
@@ -531,7 +543,7 @@ class TestRolesManagerEdgeCases:
         single_agent.stance = ""
         single_agent.system_prompt = ""
 
-        with patch.object(RolesManager, '_init_role_systems'):
+        with patch.object(RolesManager, "_init_role_systems"):
             manager = RolesManager(
                 agents=[single_agent],
                 protocol=mock_protocol,
@@ -545,15 +557,16 @@ class TestRolesManagerEdgeCases:
 
     def test_two_agents(self, mock_protocol):
         """Test with two agents."""
-        agents = [MagicMock(name=f"agent-{i}", role="", stance="", system_prompt="")
-                  for i in range(2)]
+        agents = [
+            MagicMock(name=f"agent-{i}", role="", stance="", system_prompt="") for i in range(2)
+        ]
         for i, agent in enumerate(agents):
             agent.name = f"agent-{i}"
             agent.role = ""
             agent.stance = ""
             agent.system_prompt = ""
 
-        with patch.object(RolesManager, '_init_role_systems'):
+        with patch.object(RolesManager, "_init_role_systems"):
             manager = RolesManager(
                 agents=agents,
                 protocol=mock_protocol,
@@ -572,15 +585,18 @@ class TestRolesManagerEdgeCases:
 # Module Exports Tests
 # ============================================================================
 
+
 class TestModuleExports:
     """Tests for module exports."""
 
     def test_all_exports(self):
         """Test __all__ exports RolesManager."""
         from aragora.debate import roles_manager
+
         assert "RolesManager" in roles_manager.__all__
 
     def test_import(self):
         """Test RolesManager can be imported."""
         from aragora.debate.roles_manager import RolesManager as RM
+
         assert RM is RolesManager

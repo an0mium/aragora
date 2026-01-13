@@ -7,20 +7,28 @@ Complete reference for Aragora WebSocket events.
 ### Endpoint
 
 ```
-ws://localhost:8080/ws/debate/{debate_id}
-wss://api.aragora.io/ws/debate/{debate_id}  # Production
+ws://localhost:8765/ws
+wss://api.aragora.ai/ws  # Production
 ```
+
+The WebSocket server accepts `/` or `/ws`. The live UI uses `/ws`.
 
 ### Authentication
 
-Include the API token in the connection URL or headers:
+If `ARAGORA_API_TOKEN` is set, include an `Authorization: Bearer` header during the handshake:
 
-```javascript
-// URL parameter
-const ws = new WebSocket('wss://api.aragora.io/ws/debate/123?token=YOUR_TOKEN');
+```bash
+wscat -c ws://localhost:8765/ws -H "Authorization: Bearer $ARAGORA_API_TOKEN"
+```
 
-// Or via Sec-WebSocket-Protocol (supported by some clients)
-const ws = new WebSocket('wss://api.aragora.io/ws/debate/123', ['bearer', 'YOUR_TOKEN']);
+Browser clients cannot set custom headers; use a server-side proxy if auth is enforced.
+
+### Subscribing to a Debate
+
+After connecting, subscribe to a debate:
+
+```json
+{"type": "subscribe", "debate_id": "dbt_abc123"}
 ```
 
 ### Connection Lifecycle
@@ -81,7 +89,7 @@ Signals the beginning of a debate.
   "timestamp": "2024-01-15T10:30:01.000Z",
   "data": {
     "task": "Should we use microservices architecture?",
-    "agents": ["claude", "gpt-4", "gemini"],
+    "agents": ["anthropic-api", "openai-api", "gemini"],
     "max_rounds": 5,
     "consensus_threshold": 0.8,
     "protocol": {
@@ -105,7 +113,7 @@ Signals the start of a new debate round.
   "data": {
     "round": 1,
     "phase": "proposal",
-    "agents_participating": ["claude", "gpt-4", "gemini"],
+    "agents_participating": ["anthropic-api", "openai-api", "gemini"],
     "time_limit_seconds": 120
   }
 }
@@ -121,7 +129,7 @@ An agent has submitted a message.
   "debate_id": "dbt_abc123",
   "timestamp": "2024-01-15T10:30:15.000Z",
   "data": {
-    "agent_id": "claude",
+    "agent_id": "anthropic-api",
     "round": 1,
     "message_type": "proposal",
     "content": "I propose we adopt a hybrid approach...",
@@ -150,8 +158,8 @@ An agent has critiqued another agent's message.
   "debate_id": "dbt_abc123",
   "timestamp": "2024-01-15T10:31:00.000Z",
   "data": {
-    "critic_id": "gpt-4",
-    "target_agent_id": "claude",
+    "critic_id": "openai-api",
+    "target_agent_id": "anthropic-api",
     "target_round": 1,
     "severity": "medium",
     "content": "While the scalability argument is valid, it overlooks...",
@@ -174,10 +182,10 @@ Voting results from agents or users.
     "voter_type": "agent",
     "voter_id": "gemini",
     "votes": {
-      "claude": 0.7,
-      "gpt-4": 0.3
+      "anthropic-api": 0.7,
+      "openai-api": 0.3
     },
-    "reasoning": "Claude's proposal better addresses scalability concerns"
+    "reasoning": "anthropic-api's proposal better addresses scalability concerns"
   }
 }
 ```
@@ -196,7 +204,7 @@ Consensus has been reached (or failed).
     "round": 3,
     "conclusion": "Adopt microservices with careful service boundary design",
     "confidence": 0.87,
-    "supporting_agents": ["claude", "gpt-4"],
+    "supporting_agents": ["anthropic-api", "openai-api"],
     "dissenting_agents": ["gemini"],
     "convergence_type": "semantic"
   }
@@ -271,7 +279,7 @@ An error occurred during the debate.
   "timestamp": "2024-01-15T10:34:00.000Z",
   "data": {
     "code": "AGENT_TIMEOUT",
-    "message": "Agent gpt-4 timed out after 60 seconds",
+    "message": "Agent openai-api timed out after 60 seconds",
     "severity": "warning",
     "recoverable": true
   }
@@ -289,7 +297,7 @@ Submit a user vote on proposals.
   "type": "vote",
   "data": {
     "round": 1,
-    "votes": { "claude": 0.8, "gpt-4": 0.2 },
+    "votes": { "anthropic-api": 0.8, "openai-api": 0.2 },
     "comment": "Claude's argument is more compelling"
   }
 }

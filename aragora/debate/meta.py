@@ -149,17 +149,19 @@ class MetaCritiqueAnalyzer:
                 )
 
                 if similarity > self.REPETITION_THRESHOLD:
-                    observations.append(MetaObservation(
-                        observation_type="issue",
-                        description=f"{agent} repeated similar content across rounds",
-                        severity=0.6,
-                        round_range=(agent_msgs[i - 1].round, agent_msgs[i].round),
-                        agents_involved=[agent],
-                        evidence=[
-                            f"Round {agent_msgs[i-1].round}: {agent_msgs[i-1].content[:100]}...",
-                            f"Round {agent_msgs[i].round}: {agent_msgs[i].content[:100]}...",
-                        ],
-                    ))
+                    observations.append(
+                        MetaObservation(
+                            observation_type="issue",
+                            description=f"{agent} repeated similar content across rounds",
+                            severity=0.6,
+                            round_range=(agent_msgs[i - 1].round, agent_msgs[i].round),
+                            agents_involved=[agent],
+                            evidence=[
+                                f"Round {agent_msgs[i-1].round}: {agent_msgs[i-1].content[:100]}...",
+                                f"Round {agent_msgs[i].round}: {agent_msgs[i].content[:100]}...",
+                            ],
+                        )
+                    )
 
         return observations
 
@@ -180,14 +182,16 @@ class MetaCritiqueAnalyzer:
             overlap = len(proposal_terms & critique_terms) / max(len(proposal_terms), 1)
 
             if overlap < 0.1:  # Very low overlap
-                observations.append(MetaObservation(
-                    observation_type="issue",
-                    description=f"{critique.agent}'s critique may not address the actual proposal",
-                    severity=0.5,
-                    round_range=(0, 0),  # We don't track round in Critique
-                    agents_involved=[critique.agent, critique.target_agent],
-                    evidence=[f"Low term overlap: {overlap:.0%}"],
-                ))
+                observations.append(
+                    MetaObservation(
+                        observation_type="issue",
+                        description=f"{critique.agent}'s critique may not address the actual proposal",
+                        severity=0.5,
+                        round_range=(0, 0),  # We don't track round in Critique
+                        agents_involved=[critique.agent, critique.target_agent],
+                        evidence=[f"Low term overlap: {overlap:.0%}"],
+                    )
+                )
 
         return observations
 
@@ -211,14 +215,16 @@ class MetaCritiqueAnalyzer:
             late_content = " ".join(positions_by_round.get(rounds[-1], []))
 
             if self._text_similarity(early_content, late_content) > 0.7:
-                observations.append(MetaObservation(
-                    observation_type="pattern",
-                    description="Debate may have returned to initial positions (circular)",
-                    severity=0.7,
-                    round_range=(rounds[0], rounds[-1]),
-                    agents_involved=[],
-                    evidence=["High similarity between first and last rounds"],
-                ))
+                observations.append(
+                    MetaObservation(
+                        observation_type="pattern",
+                        description="Debate may have returned to initial positions (circular)",
+                        severity=0.7,
+                        round_range=(rounds[0], rounds[-1]),
+                        agents_involved=[],
+                        evidence=["High similarity between first and last rounds"],
+                    )
+                )
 
         return observations
 
@@ -237,8 +243,7 @@ class MetaCritiqueAnalyzer:
             # Find the next message from the target agent
             target_agent = critique.target_agent
             subsequent_msgs = [
-                m for m in messages
-                if m.agent == target_agent and m.role == "proposer"
+                m for m in messages if m.agent == target_agent and m.role == "proposer"
             ]
 
             if not subsequent_msgs:
@@ -260,14 +265,16 @@ class MetaCritiqueAnalyzer:
             overlap = len(suggestion_words & response_words)
 
             if len(suggestion_words) > 3 and overlap < 2:
-                observations.append(MetaObservation(
-                    observation_type="issue",
-                    description=f"Suggestions from {critique.agent} may have been ignored",
-                    severity=0.4,
-                    round_range=(0, 0),
-                    agents_involved=[critique.agent, target_agent],
-                    evidence=[f"Low overlap between suggestions and response"],
-                ))
+                observations.append(
+                    MetaObservation(
+                        observation_type="issue",
+                        description=f"Suggestions from {critique.agent} may have been ignored",
+                        severity=0.4,
+                        round_range=(0, 0),
+                        agents_involved=[critique.agent, target_agent],
+                        evidence=[f"Low overlap between suggestions and response"],
+                    )
+                )
 
         return observations
 
@@ -280,9 +287,11 @@ class MetaCritiqueAnalyzer:
 
         for r in sorted(rounds):
             round_msgs = [m for m in result.messages if m.round == r]
-            round_critiques = [c for c in result.critiques if any(
-                m.round == r and m.agent == c.target_agent for m in round_msgs
-            )]
+            round_critiques = [
+                c
+                for c in result.critiques
+                if any(m.round == r and m.agent == c.target_agent for m in round_msgs)
+            ]
 
             # A round is productive if:
             # 1. Critiques were raised
@@ -318,14 +327,14 @@ class MetaCritiqueAnalyzer:
         total_rounds = len(productive) + len(unproductive)
         if total_rounds > 0:
             productive_ratio = len(productive) / total_rounds
-            score *= (0.5 + 0.5 * productive_ratio)
+            score *= 0.5 + 0.5 * productive_ratio
 
         # Bonus for reaching consensus
         if result.consensus_reached:
             score = min(1.0, score + 0.1)
 
         # Factor in confidence
-        score *= (0.5 + 0.5 * result.confidence)
+        score *= 0.5 + 0.5 * result.confidence
 
         return max(0.0, min(1.0, score))
 
@@ -353,9 +362,7 @@ class MetaCritiqueAnalyzer:
 
         # Ignored critiques
         if any("ignored" in o.description.lower() for o in issues):
-            recommendations.append(
-                "Require proposers to explicitly acknowledge each critique"
-            )
+            recommendations.append("Require proposers to explicitly acknowledge each critique")
 
         # Circular arguments
         if any("circular" in o.description.lower() for o in observations):
@@ -371,9 +378,7 @@ class MetaCritiqueAnalyzer:
 
         # No consensus
         if not result.consensus_reached:
-            recommendations.append(
-                "Try a different consensus mechanism or allow minority reports"
-            )
+            recommendations.append("Try a different consensus mechanism or allow minority reports")
 
         return recommendations[:5]  # Limit to top 5
 
@@ -404,15 +409,14 @@ class MetaCritiqueAnalyzer:
 
     def _semantic_similarity(self, text1: str, text2: str) -> float:
         """Calculate semantic similarity using embeddings."""
+
         def get_embedding(text: str) -> list[float]:
             # Use cache to avoid redundant API calls
             cache_key = text[:500]  # Truncate for cache key
             if cache_key not in self._embedding_cache:
                 # Run async embed in sync context
                 # Use run_async() for safe sync/async bridging
-                embedding = run_async(
-                    self._embedding_provider.embed(text[:2000])
-                )
+                embedding = run_async(self._embedding_provider.embed(text[:2000]))
                 self._embedding_cache[cache_key] = embedding
             return self._embedding_cache[cache_key]
 
@@ -426,15 +430,19 @@ class MetaCritiqueAnalyzer:
 
         This can be used with any agent to get deeper insights.
         """
-        messages_summary = "\n".join([
-            f"[Round {m.round}] {m.agent} ({m.role}): {m.content[:150]}..."
-            for m in result.messages[:20]
-        ])
+        messages_summary = "\n".join(
+            [
+                f"[Round {m.round}] {m.agent} ({m.role}): {m.content[:150]}..."
+                for m in result.messages[:20]
+            ]
+        )
 
-        critiques_summary = "\n".join([
-            f"- {c.agent} → {c.target_agent}: {', '.join(c.issues[:2])}"
-            for c in result.critiques[:10]
-        ])
+        critiques_summary = "\n".join(
+            [
+                f"- {c.agent} → {c.target_agent}: {', '.join(c.issues[:2])}"
+                for c in result.critiques[:10]
+            ]
+        )
 
         return f"""Analyze this debate as a meta-observer. Your job is to evaluate the debate PROCESS, not the content.
 

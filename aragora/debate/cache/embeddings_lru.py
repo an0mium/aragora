@@ -114,9 +114,7 @@ class EmbeddingCache:
             import sqlite3
 
             conn = sqlite3.connect(self.db_path, timeout=10.0)
-            cursor = conn.execute(
-                "SELECT embedding FROM embeddings WHERE text_hash = ?", (key,)
-            )
+            cursor = conn.execute("SELECT embedding FROM embeddings WHERE text_hash = ?", (key,))
             row = cursor.fetchone()
             conn.close()
 

@@ -4,6 +4,11 @@
 
 ## Current State
 
+### Stabilization Target (0.8.1)
+- Canonical onboarding path (START_HERE -> GETTING_STARTED) and doc consistency
+- Test tiers + CI alignment for fast/local vs full runs
+- Runtime data hygiene (prefer `.nomic` via `ARAGORA_DATA_DIR`, cleanup script)
+
 ### Test Status
 - **Total Tests**: 12,349 collected (massive expansion via parametrized tests)
 - **Frontend Tests**: 34 Jest tests (DebateListPanel, AgentComparePanel)
@@ -35,15 +40,17 @@
 - **Position Ledger**: Implemented in `aragora/agents/grounded.py`
 - **NomicIntegration**: Fully wired up (probing, belief analysis, checkpointing, staleness)
 
-### Active Agents (6 default, 20+ total)
+### Active Agents (default config, 8 total)
 | Agent | Model | API |
 |-------|-------|-----|
-| `grok` | Grok 4 | xAI |
-| `anthropic-api` | Claude Opus 4.5 | Anthropic |
-| `openai-api` | GPT-4o | OpenAI |
-| `deepseek` | DeepSeek V3.2 | OpenRouter |
-| `mistral-api` | Mistral Large | Mistral |
-| `gemini` | Gemini 2.5 | Google |
+| `grok` | grok-3 | xAI |
+| `anthropic-api` | claude-opus-4-5-20251101 | Anthropic |
+| `openai-api` | gpt-5.2 | OpenAI |
+| `deepseek` | deepseek/deepseek-chat-v3-0324 | OpenRouter |
+| `mistral-api` | mistral-large-2512 | Mistral |
+| `gemini` | gemini-3-pro-preview | Google |
+| `qwen-max` | qwen/qwen-max | OpenRouter |
+| `kimi` | moonshot-v1-8k | Moonshot |
 
 ### Recent Changes (2026-01-10)
 - **Mistral API Integration**:

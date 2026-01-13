@@ -22,6 +22,7 @@ from aragora.insights.flip_detector import (
 # FlipEvent Tests
 # ============================================================================
 
+
 class TestFlipEvent:
     """Tests for FlipEvent dataclass."""
 
@@ -74,6 +75,7 @@ class TestFlipEvent:
 # ============================================================================
 # AgentConsistencyScore Tests
 # ============================================================================
+
 
 class TestAgentConsistencyScore:
     """Tests for AgentConsistencyScore dataclass."""
@@ -156,6 +158,7 @@ class TestAgentConsistencyScore:
 # FlipDetector Tests
 # ============================================================================
 
+
 class TestFlipDetector:
     """Tests for FlipDetector class."""
 
@@ -183,9 +186,7 @@ class TestFlipDetector:
         assert cursor.fetchone() is not None
 
         # Check for positions table
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='positions'"
-        )
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='positions'")
         assert cursor.fetchone() is not None
 
         conn.close()
@@ -215,7 +216,8 @@ class TestFlipDetector:
         flip_type = detector._classify_flip_type(
             "X is good",
             "X is bad",
-            0.8, 0.7,
+            0.8,
+            0.7,
         )
         assert flip_type == "contradiction"
 
@@ -224,7 +226,8 @@ class TestFlipDetector:
         flip_type = detector._classify_flip_type(
             "X is true",
             "I was wrong about X",
-            0.9, 0.3,
+            0.9,
+            0.3,
         )
         assert flip_type == "retraction"
 
@@ -233,7 +236,8 @@ class TestFlipDetector:
         flip_type = detector._classify_flip_type(
             "X is always true",
             "X is sometimes true in some cases",
-            0.9, 0.7,
+            0.9,
+            0.7,
         )
         assert flip_type == "qualification"
 
@@ -242,7 +246,8 @@ class TestFlipDetector:
         flip_type = detector._classify_flip_type(
             "The approach is mostly correct and efficient",
             "The approach is mostly correct and efficient overall",
-            0.8, 0.8,
+            0.8,
+            0.8,
         )
         assert flip_type == "refinement"
 
@@ -385,6 +390,7 @@ class TestFlipDetector:
 # UI Formatting Tests
 # ============================================================================
 
+
 class TestUIFormatting:
     """Tests for UI formatting functions."""
 
@@ -428,11 +434,18 @@ class TestUIFormatting:
             ("refinement", "\U0001f527"),  # 🔧
         ]:
             flip = FlipEvent(
-                id="f", agent_name="a", original_claim="c1", new_claim="c2",
-                original_confidence=0.5, new_confidence=0.5,
-                original_debate_id="d1", new_debate_id="d2",
-                original_position_id="p1", new_position_id="p2",
-                similarity_score=0.5, flip_type=flip_type,
+                id="f",
+                agent_name="a",
+                original_claim="c1",
+                new_claim="c2",
+                original_confidence=0.5,
+                new_confidence=0.5,
+                original_debate_id="d1",
+                new_debate_id="d2",
+                original_position_id="p1",
+                new_position_id="p2",
+                similarity_score=0.5,
+                flip_type=flip_type,
             )
             formatted = format_flip_for_ui(flip)
             assert formatted["type_emoji"] == emoji

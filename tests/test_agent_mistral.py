@@ -124,23 +124,21 @@ class TestMistralGenerate:
         """Test successful API response."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "choices": [{
-                "message": {"content": "Hello from Mistral!"}
-            }],
-            "usage": {
-                "prompt_tokens": 10,
-                "completion_tokens": 5
+        mock_response.json = AsyncMock(
+            return_value={
+                "choices": [{"message": {"content": "Hello from Mistral!"}}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
             }
-        })
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.generate("Test prompt")
@@ -152,18 +150,21 @@ class TestMistralGenerate:
         """Test that token usage is recorded from response."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "choices": [{"message": {"content": "Response"}}],
-            "usage": {"prompt_tokens": 100, "completion_tokens": 50}
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "choices": [{"message": {"content": "Response"}}],
+                "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+            }
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             with patch.object(agent, "_record_token_usage") as mock_record:
@@ -186,10 +187,11 @@ class TestMistralGenerate:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_mistral_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_mistral_response), __aexit__=AsyncMock()
+            )
+        )
 
         mock_fallback = AsyncMock()
         mock_fallback.generate = AsyncMock(return_value="Fallback response")
@@ -209,10 +211,12 @@ class TestMistralGenerate:
 
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "choices": [{"message": {"content": "Response with context"}}],
-            "usage": {}
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "choices": [{"message": {"content": "Response with context"}}],
+                "usage": {},
+            }
+        )
 
         captured_payload = None
 
@@ -220,8 +224,7 @@ class TestMistralGenerate:
             nonlocal captured_payload
             captured_payload = kwargs.get("json", {})
             return MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response),
-                __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
             )
 
         mock_session = MagicMock()
@@ -269,10 +272,11 @@ class TestMistralStreaming:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         async def fallback_stream():
             yield "Fallback"
@@ -300,10 +304,11 @@ class TestMistralStreaming:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             # May raise or yield error - verify error is detected
@@ -403,20 +408,21 @@ class TestCodestralGenerate:
         """Test Codestral successful generation."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "choices": [{
-                "message": {"content": "def hello(): return 'world'"}
-            }],
-            "usage": {}
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "choices": [{"message": {"content": "def hello(): return 'world'"}}],
+                "usage": {},
+            }
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.generate("Write a hello function")

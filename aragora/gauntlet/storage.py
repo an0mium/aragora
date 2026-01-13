@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GauntletMetadata:
     """Summary metadata for a stored Gauntlet result."""
+
     gauntlet_id: str
     input_hash: str
     input_summary: str
@@ -170,28 +171,34 @@ class GauntletStorage:
             The gauntlet_id of the saved result
         """
         # Handle both result.py and config.py GauntletResult types
-        gauntlet_id = getattr(result, 'gauntlet_id', None) or getattr(result, 'id', f"gauntlet-{id(result)}")
-        input_hash = getattr(result, 'input_hash', '')
-        input_summary = getattr(result, 'input_summary', '')[:500] if hasattr(result, 'input_summary') else ''
+        gauntlet_id = getattr(result, "gauntlet_id", None) or getattr(
+            result, "id", f"gauntlet-{id(result)}"
+        )
+        input_hash = getattr(result, "input_hash", "")
+        input_summary = (
+            getattr(result, "input_summary", "")[:500] if hasattr(result, "input_summary") else ""
+        )
         if not input_hash and input_summary:
             input_hash = hashlib.sha256(input_summary.encode()).hexdigest()
 
         # Get verdict - handle different result types
-        verdict = 'unknown'
-        if hasattr(result, 'verdict'):
-            verdict = result.verdict.value if hasattr(result.verdict, 'value') else str(result.verdict)
-        elif hasattr(result, 'passed'):
-            verdict = 'pass' if result.passed else 'fail'
+        verdict = "unknown"
+        if hasattr(result, "verdict"):
+            verdict = (
+                result.verdict.value if hasattr(result.verdict, "value") else str(result.verdict)
+            )
+        elif hasattr(result, "passed"):
+            verdict = "pass" if result.passed else "fail"
 
-        confidence = getattr(result, 'confidence', 0.5)
-        robustness = getattr(result, 'robustness_score', 0.5)
+        confidence = getattr(result, "confidence", 0.5)
+        robustness = getattr(result, "robustness_score", 0.5)
 
         # Count findings by severity
         critical = high = medium = low = 0
-        critical_findings = getattr(result, 'critical_findings', None)
-        high_findings = getattr(result, 'high_findings', None)
-        medium_findings = getattr(result, 'medium_findings', None)
-        low_findings = getattr(result, 'low_findings', None)
+        critical_findings = getattr(result, "critical_findings", None)
+        high_findings = getattr(result, "high_findings", None)
+        medium_findings = getattr(result, "medium_findings", None)
+        low_findings = getattr(result, "low_findings", None)
 
         def _len_if_list(value: Any) -> int:
             if isinstance(value, (list, tuple, set)):
@@ -212,63 +219,63 @@ class GauntletStorage:
             high = _len_if_list(high_findings)
             medium = _len_if_list(medium_findings)
             low = _len_if_list(low_findings)
-        elif hasattr(result, 'risk_summary'):
+        elif hasattr(result, "risk_summary"):
             risk_summary = result.risk_summary
             if isinstance(risk_summary, dict):
-                critical = risk_summary.get('critical', 0)
-                high = risk_summary.get('high', 0)
-                medium = risk_summary.get('medium', 0)
-                low = risk_summary.get('low', 0)
+                critical = risk_summary.get("critical", 0)
+                high = risk_summary.get("high", 0)
+                medium = risk_summary.get("medium", 0)
+                low = risk_summary.get("low", 0)
             else:
-                critical = _coerce_count(getattr(risk_summary, 'critical', 0))
-                high = _coerce_count(getattr(risk_summary, 'high', 0))
-                medium = _coerce_count(getattr(risk_summary, 'medium', 0))
-                low = _coerce_count(getattr(risk_summary, 'low', 0))
-        elif hasattr(result, 'severity_counts'):
+                critical = _coerce_count(getattr(risk_summary, "critical", 0))
+                high = _coerce_count(getattr(risk_summary, "high", 0))
+                medium = _coerce_count(getattr(risk_summary, "medium", 0))
+                low = _coerce_count(getattr(risk_summary, "low", 0))
+        elif hasattr(result, "severity_counts"):
             counts = result.severity_counts
             if isinstance(counts, dict):
-                critical = counts.get('critical', 0)
-                high = counts.get('high', 0)
-                medium = counts.get('medium', 0)
-                low = counts.get('low', 0)
+                critical = counts.get("critical", 0)
+                high = counts.get("high", 0)
+                medium = counts.get("medium", 0)
+                low = counts.get("low", 0)
 
         critical = _coerce_count(critical)
         high = _coerce_count(high)
         medium = _coerce_count(medium)
         low = _coerce_count(low)
 
-        total = getattr(result, 'total_findings', None)
+        total = getattr(result, "total_findings", None)
         if total is None:
             total = critical + high + medium + low
-            vulnerabilities = getattr(result, 'vulnerabilities', None)
+            vulnerabilities = getattr(result, "vulnerabilities", None)
             if isinstance(vulnerabilities, (list, tuple, set)):
                 total = len(vulnerabilities)
             else:
-                findings = getattr(result, 'findings', None)
+                findings = getattr(result, "findings", None)
                 if isinstance(findings, (list, tuple, set)):
                     total = len(findings)
         total = _coerce_count(total)
 
-        agents = getattr(result, 'agents_used', None)
+        agents = getattr(result, "agents_used", None)
         if agents is None:
-            agents = getattr(result, 'agents_involved', [])
+            agents = getattr(result, "agents_involved", [])
         if not isinstance(agents, list):
             try:
                 agents = list(agents)
             except TypeError:
                 agents = []
         agents = [str(agent) for agent in agents]
-        template = getattr(result, 'template_used', None)
-        duration = getattr(result, 'duration_seconds', 0)
+        template = getattr(result, "template_used", None)
+        duration = getattr(result, "duration_seconds", 0)
 
         # Serialize result to JSON
-        if hasattr(result, 'to_dict'):
+        if hasattr(result, "to_dict"):
             result_dict = result.to_dict()
         else:
             result_dict = {
-                'gauntlet_id': gauntlet_id,
-                'verdict': verdict,
-                'confidence': confidence,
+                "gauntlet_id": gauntlet_id,
+                "verdict": verdict,
+                "confidence": confidence,
             }
 
         # Use UPSERT syntax that works for both SQLite and PostgreSQL
@@ -314,24 +321,27 @@ class GauntletStorage:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
 
-        self._backend.execute_write(sql, (
-            gauntlet_id,
-            input_hash,
-            input_summary,
-            json.dumps(result_dict, default=str),
-            verdict,
-            confidence,
-            robustness,
-            critical,
-            high,
-            medium,
-            low,
-            total,
-            json.dumps(agents),
-            template,
-            duration,
-            org_id,
-        ))
+        self._backend.execute_write(
+            sql,
+            (
+                gauntlet_id,
+                input_hash,
+                input_summary,
+                json.dumps(result_dict, default=str),
+                verdict,
+                confidence,
+                robustness,
+                critical,
+                high,
+                medium,
+                low,
+                total,
+                json.dumps(agents),
+                template,
+                duration,
+                org_id,
+            ),
+        )
 
         logger.info(f"Saved gauntlet result: {gauntlet_id}")
         return gauntlet_id
@@ -349,14 +359,12 @@ class GauntletStorage:
         """
         if org_id:
             row = self._backend.fetch_one(
-                "SELECT result_json FROM gauntlet_results "
-                "WHERE gauntlet_id = ? AND org_id = ?",
-                (gauntlet_id, org_id)
+                "SELECT result_json FROM gauntlet_results " "WHERE gauntlet_id = ? AND org_id = ?",
+                (gauntlet_id, org_id),
             )
         else:
             row = self._backend.fetch_one(
-                "SELECT result_json FROM gauntlet_results WHERE gauntlet_id = ?",
-                (gauntlet_id,)
+                "SELECT result_json FROM gauntlet_results WHERE gauntlet_id = ?", (gauntlet_id,)
             )
 
         return json.loads(row[0]) if row else None
@@ -399,9 +407,9 @@ class GauntletStorage:
             query += " AND verdict = ?"
             params.append(verdict)
 
-        if min_severity == 'critical':
+        if min_severity == "critical":
             query += " AND critical_count > 0"
-        elif min_severity == 'high':
+        elif min_severity == "high":
             query += " AND (critical_count > 0 OR high_count > 0)"
 
         query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
@@ -421,21 +429,23 @@ class GauntletStorage:
             except (ValueError, TypeError):
                 created = datetime.now()
 
-            results.append(GauntletMetadata(
-                gauntlet_id=row[0],
-                input_hash=row[1],
-                input_summary=row[2] or '',
-                verdict=row[3],
-                confidence=row[4] or 0,
-                robustness_score=row[5] or 0,
-                critical_count=row[6] or 0,
-                high_count=row[7] or 0,
-                total_findings=row[8] or 0,
-                agents_used=json.loads(row[9]) if row[9] else [],
-                template_used=row[10],
-                created_at=created,
-                duration_seconds=row[12] or 0,
-            ))
+            results.append(
+                GauntletMetadata(
+                    gauntlet_id=row[0],
+                    input_hash=row[1],
+                    input_summary=row[2] or "",
+                    verdict=row[3],
+                    confidence=row[4] or 0,
+                    robustness_score=row[5] or 0,
+                    critical_count=row[6] or 0,
+                    high_count=row[7] or 0,
+                    total_findings=row[8] or 0,
+                    agents_used=json.loads(row[9]) if row[9] else [],
+                    template_used=row[10],
+                    created_at=created,
+                    duration_seconds=row[12] or 0,
+                )
+            )
 
         return results
 
@@ -488,21 +498,23 @@ class GauntletStorage:
             except (ValueError, TypeError):
                 created = datetime.now()
 
-            results.append(GauntletMetadata(
-                gauntlet_id=row[0],
-                input_hash=row[1],
-                input_summary=row[2] or '',
-                verdict=row[3],
-                confidence=row[4] or 0,
-                robustness_score=row[5] or 0,
-                critical_count=row[6] or 0,
-                high_count=row[7] or 0,
-                total_findings=row[8] or 0,
-                agents_used=json.loads(row[9]) if row[9] else [],
-                template_used=row[10],
-                created_at=created,
-                duration_seconds=row[12] or 0,
-            ))
+            results.append(
+                GauntletMetadata(
+                    gauntlet_id=row[0],
+                    input_hash=row[1],
+                    input_summary=row[2] or "",
+                    verdict=row[3],
+                    confidence=row[4] or 0,
+                    robustness_score=row[5] or 0,
+                    critical_count=row[6] or 0,
+                    high_count=row[7] or 0,
+                    total_findings=row[8] or 0,
+                    agents_used=json.loads(row[9]) if row[9] else [],
+                    template_used=row[10],
+                    created_at=created,
+                    duration_seconds=row[12] or 0,
+                )
+            )
 
         return results
 
@@ -531,16 +543,17 @@ class GauntletStorage:
 
         # Extract comparable metrics
         def extract_metrics(r: dict) -> dict:
-            risk = r.get('risk_summary', {})
+            risk = r.get("risk_summary", {})
             return {
-                'verdict': r.get('verdict', 'unknown'),
-                'confidence': r.get('confidence', 0),
-                'robustness_score': r.get('robustness_score', 0) or r.get('attack_summary', {}).get('robustness_score', 0),
-                'critical': risk.get('critical', 0),
-                'high': risk.get('high', 0),
-                'medium': risk.get('medium', 0),
-                'low': risk.get('low', 0),
-                'total': risk.get('total', 0),
+                "verdict": r.get("verdict", "unknown"),
+                "confidence": r.get("confidence", 0),
+                "robustness_score": r.get("robustness_score", 0)
+                or r.get("attack_summary", {}).get("robustness_score", 0),
+                "critical": risk.get("critical", 0),
+                "high": risk.get("high", 0),
+                "medium": risk.get("medium", 0),
+                "low": risk.get("low", 0),
+                "total": risk.get("total", 0),
             }
 
         m1 = extract_metrics(result1)
@@ -548,27 +561,25 @@ class GauntletStorage:
 
         # Calculate deltas (positive = improvement in result1)
         return {
-            'result1_id': id1,
-            'result2_id': id2,
-            'verdict_changed': m1['verdict'] != m2['verdict'],
-            'verdict_improved': (
-                m1['verdict'] == 'pass' and m2['verdict'] != 'pass'
-            ),
-            'deltas': {
-                'confidence': m1['confidence'] - m2['confidence'],
-                'robustness': m1['robustness_score'] - m2['robustness_score'],
-                'critical': m2['critical'] - m1['critical'],  # Reduction is good
-                'high': m2['high'] - m1['high'],
-                'medium': m2['medium'] - m1['medium'],
-                'low': m2['low'] - m1['low'],
-                'total': m2['total'] - m1['total'],
+            "result1_id": id1,
+            "result2_id": id2,
+            "verdict_changed": m1["verdict"] != m2["verdict"],
+            "verdict_improved": (m1["verdict"] == "pass" and m2["verdict"] != "pass"),
+            "deltas": {
+                "confidence": m1["confidence"] - m2["confidence"],
+                "robustness": m1["robustness_score"] - m2["robustness_score"],
+                "critical": m2["critical"] - m1["critical"],  # Reduction is good
+                "high": m2["high"] - m1["high"],
+                "medium": m2["medium"] - m1["medium"],
+                "low": m2["low"] - m1["low"],
+                "total": m2["total"] - m1["total"],
             },
-            'metrics_1': m1,
-            'metrics_2': m2,
-            'improved': (
-                m1['critical'] <= m2['critical'] and
-                m1['high'] <= m2['high'] and
-                m1['robustness_score'] >= m2['robustness_score']
+            "metrics_1": m1,
+            "metrics_2": m2,
+            "improved": (
+                m1["critical"] <= m2["critical"]
+                and m1["high"] <= m2["high"]
+                and m1["robustness_score"] >= m2["robustness_score"]
             ),
         }
 
@@ -591,12 +602,11 @@ class GauntletStorage:
         if org_id:
             self._backend.execute_write(
                 "DELETE FROM gauntlet_results WHERE gauntlet_id = ? AND org_id = ?",
-                (gauntlet_id, org_id)
+                (gauntlet_id, org_id),
             )
         else:
             self._backend.execute_write(
-                "DELETE FROM gauntlet_results WHERE gauntlet_id = ?",
-                (gauntlet_id,)
+                "DELETE FROM gauntlet_results WHERE gauntlet_id = ?", (gauntlet_id,)
             )
 
         logger.info(f"Deleted gauntlet result: {gauntlet_id}")

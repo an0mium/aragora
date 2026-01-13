@@ -34,6 +34,7 @@ from aragora.server.stream import (
 # StreamEvent Tests
 # ============================================================================
 
+
 class TestStreamEvent:
     """Tests for StreamEvent data class."""
 
@@ -133,6 +134,7 @@ class TestStreamEventType:
 # ============================================================================
 # SyncEventEmitter Tests
 # ============================================================================
+
 
 class TestSyncEventEmitter:
     """Tests for SyncEventEmitter thread-safe event queue."""
@@ -289,6 +291,7 @@ class TestSyncEventEmitter:
 # TokenBucket Tests
 # ============================================================================
 
+
 class TestTokenBucket:
     """Tests for TokenBucket rate limiter."""
 
@@ -363,6 +366,7 @@ class TestTokenBucket:
 # AudienceInbox Tests
 # ============================================================================
 
+
 class TestAudienceInbox:
     """Tests for AudienceInbox message queue."""
 
@@ -399,21 +403,27 @@ class TestAudienceInbox:
         inbox = AudienceInbox()
 
         # Add some votes
-        inbox.put(AudienceMessage(
-            type="vote",
-            loop_id="loop-1",
-            payload={"choice": "A", "intensity": 8},
-        ))
-        inbox.put(AudienceMessage(
-            type="vote",
-            loop_id="loop-1",
-            payload={"choice": "A", "intensity": 6},
-        ))
-        inbox.put(AudienceMessage(
-            type="vote",
-            loop_id="loop-1",
-            payload={"choice": "B", "intensity": 5},
-        ))
+        inbox.put(
+            AudienceMessage(
+                type="vote",
+                loop_id="loop-1",
+                payload={"choice": "A", "intensity": 8},
+            )
+        )
+        inbox.put(
+            AudienceMessage(
+                type="vote",
+                loop_id="loop-1",
+                payload={"choice": "A", "intensity": 6},
+            )
+        )
+        inbox.put(
+            AudienceMessage(
+                type="vote",
+                loop_id="loop-1",
+                payload={"choice": "B", "intensity": 5},
+            )
+        )
 
         summary = inbox.get_summary(loop_id="loop-1")
 
@@ -427,17 +437,21 @@ class TestAudienceInbox:
         inbox = AudienceInbox()
 
         # High intensity vote for A
-        inbox.put(AudienceMessage(
-            type="vote",
-            loop_id="loop-1",
-            payload={"choice": "A", "intensity": 10},
-        ))
+        inbox.put(
+            AudienceMessage(
+                type="vote",
+                loop_id="loop-1",
+                payload={"choice": "A", "intensity": 10},
+            )
+        )
         # Low intensity vote for B
-        inbox.put(AudienceMessage(
-            type="vote",
-            loop_id="loop-1",
-            payload={"choice": "B", "intensity": 1},
-        ))
+        inbox.put(
+            AudienceMessage(
+                type="vote",
+                loop_id="loop-1",
+                payload={"choice": "B", "intensity": 1},
+            )
+        )
 
         summary = inbox.get_summary(loop_id="loop-1")
 
@@ -463,11 +477,13 @@ class TestAudienceInbox:
         """Test suggestion messages are collected."""
         inbox = AudienceInbox()
 
-        inbox.put(AudienceMessage(
-            type="suggestion",
-            loop_id="loop-1",
-            payload={"text": "Consider edge cases"},
-        ))
+        inbox.put(
+            AudienceMessage(
+                type="suggestion",
+                loop_id="loop-1",
+                payload={"text": "Consider edge cases"},
+            )
+        )
 
         messages = inbox.get_all()
 
@@ -479,6 +495,7 @@ class TestAudienceInbox:
 # ============================================================================
 # AudienceMessage Tests
 # ============================================================================
+
 
 class TestAudienceMessage:
     """Tests for AudienceMessage data class."""
@@ -512,6 +529,7 @@ class TestAudienceMessage:
 # ============================================================================
 # normalize_intensity Tests
 # ============================================================================
+
 
 class TestNormalizeIntensity:
     """Tests for normalize_intensity utility function."""
@@ -562,6 +580,7 @@ class TestNormalizeIntensity:
 # ============================================================================
 # create_arena_hooks Tests
 # ============================================================================
+
 
 class TestCreateArenaHooks:
     """Tests for create_arena_hooks factory function."""
@@ -623,6 +642,7 @@ class TestCreateArenaHooks:
 # _safe_error_message Tests
 # ============================================================================
 
+
 class TestSafeErrorMessage:
     """Tests for _safe_error_message utility function."""
 
@@ -658,6 +678,7 @@ class TestSafeErrorMessage:
 # ThreadPoolExecutor Race Condition Tests (Round 25 fix)
 # ============================================================================
 
+
 class TestDebateExecutorRaceCondition:
     """Tests for ThreadPoolExecutor race condition fix in stream.py.
 
@@ -673,8 +694,8 @@ class TestDebateExecutorRaceCondition:
         """
         from aragora.server import stream
 
-        assert hasattr(stream, '_debate_executor_lock')
-        assert hasattr(stream, '_debate_executor')
+        assert hasattr(stream, "_debate_executor_lock")
+        assert hasattr(stream, "_debate_executor")
         # Lock should be a threading.Lock
         assert isinstance(stream._debate_executor_lock, type(threading.Lock()))
 

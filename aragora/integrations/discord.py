@@ -3,6 +3,7 @@ Discord integration for aragora debates.
 Posts debate summaries and consensus alerts using Discord webhooks.
 Uses Discord's rich embed format for message formatting.
 """
+
 import logging
 import json
 from dataclasses import dataclass, field
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DiscordConfig:
     """Configuration for Discord integration."""
+
     webhook_url: str
     username: str = "Aragora Debates"
     avatar_url: str = ""
@@ -35,6 +37,7 @@ class DiscordConfig:
 @dataclass
 class DiscordEmbed:
     """Discord embed structure."""
+
     title: str = ""
     description: str = ""
     color: int = 0x5865F2  # Discord blurple
@@ -74,11 +77,11 @@ class DiscordIntegration:
 
     # Colors for different event types
     COLORS = {
-        "debate_start": 0x57F287,   # Green
-        "consensus": 0x5865F2,       # Blurple
-        "no_consensus": 0xFEE75C,    # Yellow
-        "error": 0xED4245,           # Red
-        "agent_join": 0x3BA55C,      # Lighter green
+        "debate_start": 0x57F287,  # Green
+        "consensus": 0x5865F2,  # Blurple
+        "no_consensus": 0xFEE75C,  # Yellow
+        "error": 0xED4245,  # Red
+        "agent_join": 0x3BA55C,  # Lighter green
         "round_complete": 0xEB459E,  # Pink
     }
 
@@ -90,9 +93,7 @@ class DiscordIntegration:
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30)
-            )
+            self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30))
         return self._session
 
     async def close(self) -> None:
@@ -104,10 +105,7 @@ class DiscordIntegration:
         """Simple rate limiting check."""
         now = asyncio.get_event_loop().time()
         # Remove requests older than 1 minute
-        self._request_times = [
-            t for t in self._request_times
-            if now - t < 60
-        ]
+        self._request_times = [t for t in self._request_times if now - t < 60]
         if len(self._request_times) >= self.config.rate_limit_per_minute:
             wait_time = 60 - (now - self._request_times[0])
             if wait_time > 0:
@@ -170,7 +168,7 @@ class DiscordIntegration:
         """Truncate text to Discord's field limit."""
         if len(text) <= max_length:
             return text
-        return text[:max_length - 3] + "..."
+        return text[: max_length - 3] + "..."
 
     async def send_debate_start(
         self,
@@ -189,19 +187,23 @@ class DiscordIntegration:
         )
 
         if self.config.include_agent_details and agents:
-            embed.fields.append({
-                "name": "Participating Agents",
-                "value": ", ".join(agents[:10]) + ("..." if len(agents) > 10 else ""),
-                "inline": True,
-            })
+            embed.fields.append(
+                {
+                    "name": "Participating Agents",
+                    "value": ", ".join(agents[:10]) + ("..." if len(agents) > 10 else ""),
+                    "inline": True,
+                }
+            )
 
         rounds = config.get("rounds", "N/A")
         consensus = config.get("consensus_mode", "majority")
-        embed.fields.append({
-            "name": "Configuration",
-            "value": f"Rounds: {rounds} | Mode: {consensus}",
-            "inline": True,
-        })
+        embed.fields.append(
+            {
+                "name": "Configuration",
+                "value": f"Rounds: {rounds} | Mode: {consensus}",
+                "inline": True,
+            }
+        )
 
         return await self._send_webhook([embed])
 
@@ -224,23 +226,25 @@ class DiscordIntegration:
             footer={"text": f"Debate: {debate_id[:8]}..."},
         )
 
-        embed.fields.append({
-            "name": "Confidence",
-            "value": f"{confidence:.1%}" if isinstance(confidence, float) else str(confidence),
-            "inline": True,
-        })
+        embed.fields.append(
+            {
+                "name": "Confidence",
+                "value": f"{confidence:.1%}" if isinstance(confidence, float) else str(confidence),
+                "inline": True,
+            }
+        )
 
         if self.config.include_vote_breakdown:
             votes = result.get("votes", {})
             if votes:
-                vote_text = "\n".join(
-                    f"{choice}: {count}" for choice, count in votes.items()
+                vote_text = "\n".join(f"{choice}: {count}" for choice, count in votes.items())
+                embed.fields.append(
+                    {
+                        "name": "Vote Breakdown",
+                        "value": self._truncate(vote_text, 1024),
+                        "inline": True,
+                    }
                 )
-                embed.fields.append({
-                    "name": "Vote Breakdown",
-                    "value": self._truncate(vote_text, 1024),
-                    "inline": True,
-                })
 
         return await self._send_webhook([embed])
 
@@ -260,23 +264,25 @@ class DiscordIntegration:
         )
 
         rounds_completed = final_state.get("rounds_completed", "N/A")
-        embed.fields.append({
-            "name": "Rounds Completed",
-            "value": str(rounds_completed),
-            "inline": True,
-        })
+        embed.fields.append(
+            {
+                "name": "Rounds Completed",
+                "value": str(rounds_completed),
+                "inline": True,
+            }
+        )
 
         if self.config.include_vote_breakdown:
             votes = final_state.get("final_votes", {})
             if votes:
-                vote_text = "\n".join(
-                    f"{choice}: {count}" for choice, count in votes.items()
+                vote_text = "\n".join(f"{choice}: {count}" for choice, count in votes.items())
+                embed.fields.append(
+                    {
+                        "name": "Final Votes",
+                        "value": self._truncate(vote_text, 1024),
+                        "inline": True,
+                    }
                 )
-                embed.fields.append({
-                    "name": "Final Votes",
-                    "value": self._truncate(vote_text, 1024),
-                    "inline": True,
-                })
 
         return await self._send_webhook([embed])
 
@@ -300,11 +306,13 @@ class DiscordIntegration:
 
         if details:
             for key, value in list(details.items())[:5]:  # Max 5 detail fields
-                embed.fields.append({
-                    "name": key,
-                    "value": self._truncate(str(value), 256),
-                    "inline": True,
-                })
+                embed.fields.append(
+                    {
+                        "name": key,
+                        "value": self._truncate(str(value), 256),
+                        "inline": True,
+                    }
+                )
 
         return await self._send_webhook([embed])
 
@@ -330,11 +338,13 @@ class DiscordIntegration:
                 f"**{agent}:** {self._truncate(position, 100)}"
                 for agent, position in list(agent_positions.items())[:5]
             )
-            embed.fields.append({
-                "name": "Agent Positions",
-                "value": self._truncate(positions_text, 1024),
-                "inline": False,
-            })
+            embed.fields.append(
+                {
+                    "name": "Agent Positions",
+                    "value": self._truncate(positions_text, 1024),
+                    "inline": False,
+                }
+            )
 
         return await self._send_webhook([embed])
 

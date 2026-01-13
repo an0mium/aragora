@@ -24,13 +24,19 @@ from typing import Any, Callable, Optional
 from enum import Enum
 
 from aragora.reasoning.provenance import (
-    ProvenanceRecord, ProvenanceChain, ProvenanceManager,
-    SourceType, TransformationType, Citation, CitationGraph,
+    ProvenanceRecord,
+    ProvenanceChain,
+    ProvenanceManager,
+    SourceType,
+    TransformationType,
+    Citation,
+    CitationGraph,
 )
 
 
 class StalenessStatus(Enum):
     """Status of evidence freshness."""
+
     FRESH = "fresh"  # Evidence still valid
     STALE = "stale"  # Evidence has changed
     UNKNOWN = "unknown"  # Cannot determine
@@ -41,6 +47,7 @@ class StalenessStatus(Enum):
 @dataclass
 class GitSourceInfo:
     """Git-specific source information for code evidence."""
+
     repo_path: str
     file_path: str
     line_start: int
@@ -74,6 +81,7 @@ class GitSourceInfo:
 @dataclass
 class WebSourceInfo:
     """Web-specific source information for URL evidence."""
+
     url: str
     fetch_timestamp: str
     content_hash: str
@@ -97,6 +105,7 @@ class WebSourceInfo:
 @dataclass
 class StalenessCheck:
     """Result of checking evidence staleness."""
+
     evidence_id: str
     status: StalenessStatus
     checked_at: str
@@ -128,6 +137,7 @@ class StalenessCheck:
 @dataclass
 class RevalidationTrigger:
     """Trigger for re-debate based on stale evidence."""
+
     trigger_id: str
     claim_id: str
     evidence_ids: list[str]
@@ -169,7 +179,10 @@ class GitProvenanceTracker:
                 shell=False,
             )
             if result.returncode != 0:
-                return False, result.stderr.strip() or f"git command failed (exit {result.returncode})"
+                return (
+                    False,
+                    result.stderr.strip() or f"git command failed (exit {result.returncode})",
+                )
             return True, result.stdout.strip()
         except subprocess.TimeoutExpired:
             return False, "git command timed out after 30s"
@@ -197,10 +210,9 @@ class GitProvenanceTracker:
         line_end: int,
     ) -> list[dict]:
         """Get git blame for specific lines."""
-        success, output = self._run_git([
-            "blame", "-L", f"{line_start},{line_end}",
-            "--porcelain", file_path
-        ])
+        success, output = self._run_git(
+            ["blame", "-L", f"{line_start},{line_end}", "--porcelain", file_path]
+        )
 
         if not success:
             return []
@@ -210,7 +222,7 @@ class GitProvenanceTracker:
         current_commit = None
 
         for line in lines:
-            if re.match(r'^[0-9a-f]{40}', line):
+            if re.match(r"^[0-9a-f]{40}", line):
                 parts = line.split()
                 current_commit = {
                     "sha": parts[0],
@@ -242,9 +254,7 @@ class GitProvenanceTracker:
         commit = self.get_current_commit() or "unknown"
 
         # Get commit details
-        success, commit_info = self._run_git([
-            "log", "-1", "--format=%H|%an|%ad|%s", commit
-        ])
+        success, commit_info = self._run_git(["log", "-1", "--format=%H|%an|%ad|%s", commit])
 
         commit_timestamp = None
         commit_author = None
@@ -309,12 +319,8 @@ class GitProvenanceTracker:
             )
 
         # Extract relevant lines
-        original_lines = original.split("\n")[
-            source_info.line_start - 1:source_info.line_end
-        ]
-        current_lines = current.split("\n")[
-            source_info.line_start - 1:source_info.line_end
-        ]
+        original_lines = original.split("\n")[source_info.line_start - 1 : source_info.line_end]
+        current_lines = current.split("\n")[source_info.line_start - 1 : source_info.line_end]
 
         original_hash = hashlib.sha256("\n".join(original_lines).encode()).hexdigest()
         current_hash = hashlib.sha256("\n".join(current_lines).encode()).hexdigest()
@@ -336,11 +342,9 @@ class GitProvenanceTracker:
                 changed_lines.append((source_info.line_start + i, curr))
 
         # Count commits between original and current
-        success, log = self._run_git([
-            "rev-list", "--count",
-            f"{source_info.commit_sha}..HEAD",
-            "--", source_info.file_path
-        ])
+        success, log = self._run_git(
+            ["rev-list", "--count", f"{source_info.commit_sha}..HEAD", "--", source_info.file_path]
+        )
         commits_behind = int(log) if success and log.isdigit() else 0
 
         return StalenessCheck(
@@ -476,9 +480,7 @@ class EnhancedProvenanceManager(ProvenanceManager):
     ) -> ProvenanceRecord:
         """Record code evidence with git provenance."""
         # Get git info
-        git_info = self.git_tracker.record_code_evidence(
-            file_path, line_start, line_end, content
-        )
+        git_info = self.git_tracker.record_code_evidence(file_path, line_start, line_end, content)
 
         # Create provenance record
         record = self.record_evidence(
@@ -559,9 +561,7 @@ class EnhancedProvenanceManager(ProvenanceManager):
             if citation.evidence_id in self.staleness_checks:
                 checks.append(self.staleness_checks[citation.evidence_id])
             elif citation.evidence_id in self.git_sources:
-                check = self.git_tracker.check_staleness(
-                    self.git_sources[citation.evidence_id]
-                )
+                check = self.git_tracker.check_staleness(self.git_sources[citation.evidence_id])
                 self.staleness_checks[citation.evidence_id] = check
                 checks.append(check)
 
@@ -580,7 +580,8 @@ class EnhancedProvenanceManager(ProvenanceManager):
 
         for claim_id in claim_ids:
             stale_checks = [
-                check for check in self.check_claim_evidence_staleness(claim_id)
+                check
+                for check in self.check_claim_evidence_staleness(claim_id)
                 if check.status == StalenessStatus.STALE
             ]
 
@@ -681,13 +682,15 @@ class EnhancedProvenanceManager(ProvenanceManager):
         """Export enhanced provenance data."""
         base_export = self.export()
 
-        base_export.update({
-            "git_sources": {k: v.to_dict() for k, v in self.git_sources.items()},
-            "web_sources": {k: v.to_dict() for k, v in self.web_sources.items()},
-            "staleness_checks": {k: v.to_dict() for k, v in self.staleness_checks.items()},
-            "triggers": [t.to_dict() for t in self.triggers],
-            "living_document_status": self.get_living_document_status(),
-        })
+        base_export.update(
+            {
+                "git_sources": {k: v.to_dict() for k, v in self.git_sources.items()},
+                "web_sources": {k: v.to_dict() for k, v in self.web_sources.items()},
+                "staleness_checks": {k: v.to_dict() for k, v in self.staleness_checks.items()},
+                "triggers": [t.to_dict() for t in self.triggers],
+                "living_document_status": self.get_living_document_status(),
+            }
+        )
 
         return base_export
 
@@ -718,12 +721,14 @@ class ProvenanceValidator:
         }
 
         # Overall pass/fail
-        results["passed"] = all([
-            results["chain_integrity"]["valid"],
-            results["evidence_coverage"]["ratio"] > 0.5,
-            len(results["circular_dependencies"]) == 0,
-            results["staleness"]["freshness_ratio"] > 0.7,
-        ])
+        results["passed"] = all(
+            [
+                results["chain_integrity"]["valid"],
+                results["evidence_coverage"]["ratio"] > 0.5,
+                len(results["circular_dependencies"]) == 0,
+                results["staleness"]["freshness_ratio"] > 0.7,
+            ]
+        )
 
         return results
 
@@ -740,8 +745,7 @@ class ProvenanceValidator:
         """Check evidence coverage across claims."""
         total_claims = len(self.manager.graph.claim_citations)
         claims_with_evidence = sum(
-            1 for citations in self.manager.graph.claim_citations.values()
-            if citations
+            1 for citations in self.manager.graph.claim_citations.values() if citations
         )
 
         return {

@@ -143,10 +143,12 @@ class ContextPhase:
                 timeout=600,
                 mode="architect",
             )
-            exploration_tasks.extend([
-                self._gather_with_agent(gemini_explorer, "gemini", "Kilo Code"),
-                self._gather_with_agent(grok_explorer, "grok", "Kilo Code"),
-            ])
+            exploration_tasks.extend(
+                [
+                    self._gather_with_agent(gemini_explorer, "gemini", "Kilo Code"),
+                    self._gather_with_agent(grok_explorer, "grok", "Kilo Code"),
+                ]
+            )
 
         # Run all agents in parallel
         results = await asyncio.gather(*exploration_tasks, return_exceptions=True)
@@ -171,10 +173,16 @@ class ContextPhase:
 
         phase_duration = time.perf_counter() - phase_start
         success = len(combined_context) > 0
-        self._log(f"  Context gathered from {len(combined_context)} agents in {phase_duration:.1f}s")
+        self._log(
+            f"  Context gathered from {len(combined_context)} agents in {phase_duration:.1f}s"
+        )
         self._stream_emit(
-            "on_phase_end", "context", self.cycle_count, success,
-            phase_duration, {"agents": len(combined_context), "context_length": len(gathered_context)}
+            "on_phase_end",
+            "context",
+            self.cycle_count,
+            success,
+            phase_duration,
+            {"agents": len(combined_context), "context_length": len(gathered_context)},
         )
 
         # Record metrics if configured
@@ -219,12 +227,7 @@ What's genuinely missing (not already implemented).
 
 CRITICAL: Be thorough. Features you miss here may be accidentally proposed for recreation."""
 
-    async def _gather_with_agent(
-        self,
-        agent: Any,
-        name: str,
-        harness: str
-    ) -> Tuple[str, str, str]:
+    async def _gather_with_agent(self, agent: Any, name: str, harness: str) -> Tuple[str, str, str]:
         """Run exploration with one agent."""
         agent_start = time.perf_counter()
         try:
@@ -234,7 +237,9 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
             self._log(f"  {name}: complete ({len(result) if result else 0} chars)", agent=name)
             # Emit agent's full exploration result
             if result:
-                self._stream_emit("on_log_message", result, level="info", phase="context", agent=name)
+                self._stream_emit(
+                    "on_log_message", result, level="info", phase="context", agent=name
+                )
             return (name, harness, result if result else "No response")
         except Exception as e:
             self._log(f"  {name}: error - {e}", agent=name)

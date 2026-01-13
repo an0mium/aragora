@@ -27,8 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Optional formal verification imports
 _fv_imports, FORMAL_VERIFICATION_AVAILABLE = try_import(
-    "aragora.verification.formal",
-    "FormalVerificationManager", "get_formal_verification_manager"
+    "aragora.verification.formal", "FormalVerificationManager", "get_formal_verification_manager"
 )
 get_formal_verification_manager = _fv_imports.get("get_formal_verification_manager")
 
@@ -72,18 +71,22 @@ class VerificationHandler(BaseHandler):
         Returns availability of Z3 and Lean backends.
         """
         if not FORMAL_VERIFICATION_AVAILABLE:
-            return json_response({
-                "available": False,
-                "hint": "Install z3-solver: pip install z3-solver",
-                "backends": [],
-            })
+            return json_response(
+                {
+                    "available": False,
+                    "hint": "Install z3-solver: pip install z3-solver",
+                    "backends": [],
+                }
+            )
 
         manager = get_formal_verification_manager()
         status = manager.status_report()
-        return json_response({
-            "available": status.get("any_available", False),
-            "backends": status.get("backends", []),
-        })
+        return json_response(
+            {
+                "available": status.get("any_available", False),
+                "backends": status.get("backends", []),
+            }
+        )
 
     @rate_limit(requests_per_minute=10, burst=3, limiter_name="formal_verification")
     @handle_errors("formal verification")
@@ -103,10 +106,13 @@ class VerificationHandler(BaseHandler):
             proof_hash: Hash of the proof (if found)
         """
         if not FORMAL_VERIFICATION_AVAILABLE:
-            return json_response({
-                "error": "Formal verification not available",
-                "hint": "Install z3-solver: pip install z3-solver"
-            }, status=503)
+            return json_response(
+                {
+                    "error": "Formal verification not available",
+                    "hint": "Install z3-solver: pip install z3-solver",
+                },
+                status=503,
+            )
 
         # Read request body
         body = self.read_json_body(handler)
@@ -118,11 +124,11 @@ class VerificationHandler(BaseHandler):
         if not validation_result.is_valid:
             return error_response(validation_result.error, status=400)
 
-        claim = body.get('claim', '').strip()
+        claim = body.get("claim", "").strip()
 
-        claim_type = body.get('claim_type')
-        context = body.get('context', '')
-        timeout = min(_safe_float(body.get('timeout', 30), 30.0), 120.0)
+        claim_type = body.get("claim_type")
+        context = body.get("context", "")
+        timeout = min(_safe_float(body.get("timeout", 30), 30.0), 120.0)
 
         # Get the formal verification manager
         manager = get_formal_verification_manager()
@@ -130,10 +136,13 @@ class VerificationHandler(BaseHandler):
         # Check backend availability
         status_report = manager.status_report()
         if not status_report.get("any_available"):
-            return json_response({
-                "error": "No formal verification backends available",
-                "backends": status_report.get("backends", []),
-            }, status=503)
+            return json_response(
+                {
+                    "error": "No formal verification backends available",
+                    "backends": status_report.get("backends", []),
+                },
+                status=503,
+            )
 
         # Run verification asynchronously
         # Use run_async() for safe sync/async bridging

@@ -36,7 +36,11 @@ from aragora.config import (
 from aragora.ranking.database import EloDatabase
 from aragora.ranking.leaderboard_engine import LeaderboardEngine
 from aragora.ranking.calibration_engine import CalibrationEngine, DomainCalibrationEngine
-from aragora.ranking.relationships import RelationshipTracker, RelationshipStats, RelationshipMetrics
+from aragora.ranking.relationships import (
+    RelationshipTracker,
+    RelationshipStats,
+    RelationshipMetrics,
+)
 from aragora.ranking.redteam import RedTeamIntegrator, RedTeamResult, VulnerabilitySummary
 from aragora.ranking.elo_core import (
     expected_score,
@@ -177,7 +181,9 @@ class EloSystem:
 
     # Class-level cache for leaderboard data (shared across instances)
     _leaderboard_cache: TTLCache[list] = TTLCache(maxsize=50, ttl_seconds=CACHE_TTL_LEADERBOARD)
-    _rating_cache: TTLCache[AgentRating] = TTLCache(maxsize=200, ttl_seconds=CACHE_TTL_RECENT_MATCHES)
+    _rating_cache: TTLCache[AgentRating] = TTLCache(
+        maxsize=200, ttl_seconds=CACHE_TTL_RECENT_MATCHES
+    )
     _stats_cache: TTLCache[dict] = TTLCache(maxsize=10, ttl_seconds=CACHE_TTL_LB_STATS)
     _calibration_cache: TTLCache[list] = TTLCache(maxsize=20, ttl_seconds=CACHE_TTL_CALIBRATION_LB)
 
@@ -201,7 +207,9 @@ class EloSystem:
 
         # Calibration engines for tournament and domain-specific calibration
         self._calibration_engine = CalibrationEngine(db_path=resolved_path, elo_system=self)
-        self._domain_calibration_engine = DomainCalibrationEngine(db_path=resolved_path, elo_system=self)
+        self._domain_calibration_engine = DomainCalibrationEngine(
+            db_path=resolved_path, elo_system=self
+        )
 
     @property
     def relationship_tracker(self) -> RelationshipTracker:
@@ -309,7 +317,7 @@ class EloSystem:
             cursor = conn.cursor()
 
             # Use parameterized IN clause
-            placeholders = ','.join('?' * len(agent_names))
+            placeholders = ",".join("?" * len(agent_names))
             cursor.execute(
                 f"""
                 SELECT agent_name, elo, domain_elos, wins, losses, draws,
@@ -507,9 +515,7 @@ class EloSystem:
         self._stats_cache.clear()
         self._calibration_cache.clear()
 
-    def _record_elo_history_batch(
-        self, entries: list[tuple[str, float, str | None]]
-    ) -> None:
+    def _record_elo_history_batch(self, entries: list[tuple[str, float, str | None]]) -> None:
         """Record multiple ELO history entries in a single transaction.
 
         Args:
@@ -574,9 +580,7 @@ class EloSystem:
         debate_id: str,
     ) -> tuple[list["AgentRating"], list[tuple[str, float, str]]]:
         """Apply ELO changes to ratings and prepare for batch save."""
-        return apply_elo_changes(
-            elo_changes, ratings, winner, domain, debate_id, DEFAULT_ELO
-        )
+        return apply_elo_changes(elo_changes, ratings, winner, domain, debate_id, DEFAULT_ELO)
 
     def _compute_calibration_k_multipliers(
         self,
@@ -665,6 +669,7 @@ class EloSystem:
         Returns:
             Dict of agent -> ELO change
         """
+
         def _build_scores(win: str, lose: str, is_draw: bool) -> dict[str, float]:
             if is_draw:
                 return {win: 0.5, lose: 0.5}
@@ -683,7 +688,11 @@ class EloSystem:
             if not winner_name or not loser_name:
                 raise ValueError("winner and loser must be provided for legacy record_match calls")
             if scores is None or isinstance(scores, bool):
-                draw_flag = draw if draw is not None else bool(scores) if isinstance(scores, bool) else False
+                draw_flag = (
+                    draw
+                    if draw is not None
+                    else bool(scores) if isinstance(scores, bool) else False
+                )
                 scores = _build_scores(winner_name, loser_name, draw_flag)
             participants_list = [winner_name, loser_name]
             debate_id = _generate_match_id(participants_list)
@@ -717,9 +726,7 @@ class EloSystem:
             existing = cursor.fetchone()
             if existing:
                 # Match already recorded - return cached ELO changes
-                logger.debug(
-                    "Skipping duplicate record_match for debate_id=%s", debate_id
-                )
+                logger.debug("Skipping duplicate record_match for debate_id=%s", debate_id)
                 return safe_json_loads(existing[0], {})
 
         # Determine winner (highest score)
@@ -733,7 +740,9 @@ class EloSystem:
         ratings = self.get_ratings_batch(participants_list)
 
         # Compute calibration-based K-factor multipliers
-        k_multipliers = self._compute_calibration_k_multipliers(participants_list, calibration_tracker)
+        k_multipliers = self._compute_calibration_k_multipliers(
+            participants_list, calibration_tracker
+        )
 
         # Calculate pairwise ELO changes (with calibration adjustments if provided)
         elo_changes = self._calculate_pairwise_elo_changes(
@@ -758,6 +767,7 @@ class EloSystem:
         # Invalidate related caches so API returns fresh data
         try:
             from aragora.server.handlers.base import invalidate_on_event
+
             invalidate_on_event("match_recorded")
         except ImportError:
             pass  # Handlers may not be available in all contexts
@@ -793,7 +803,9 @@ class EloSystem:
             )
             conn.commit()
 
-    def _record_elo_history(self, agent_name: str, elo: float, debate_id: str | None = None) -> None:
+    def _record_elo_history(
+        self, agent_name: str, elo: float, debate_id: str | None = None
+    ) -> None:
         """Record ELO at a point in time."""
         with self._db.connection() as conn:
             cursor = conn.cursor()
@@ -832,9 +844,9 @@ class EloSystem:
         }
 
         # Atomic write: write to temp file then rename
-        temp_path = snapshot_path.with_suffix('.tmp')
+        temp_path = snapshot_path.with_suffix(".tmp")
         try:
-            with open(temp_path, 'w') as f:
+            with open(temp_path, "w") as f:
                 json.dump(data, f)
             temp_path.rename(snapshot_path)
         except Exception as e:
@@ -864,7 +876,9 @@ class EloSystem:
             except json.JSONDecodeError as e:
                 logger.debug(f"ELO snapshot corrupted, falling back to database: {e}")
             except (PermissionError, OSError) as e:
-                logger.warning(f"Cannot read ELO snapshot (I/O error), falling back to database: {e}")
+                logger.warning(
+                    f"Cannot read ELO snapshot (I/O error), falling back to database: {e}"
+                )
 
         # Fall back to database
         leaderboard = self.get_leaderboard(limit)
@@ -901,7 +915,9 @@ class EloSystem:
             except json.JSONDecodeError as e:
                 logger.debug(f"Recent matches snapshot corrupted, falling back to database: {e}")
             except (PermissionError, OSError) as e:
-                logger.warning(f"Cannot read recent matches snapshot (I/O error), falling back: {e}")
+                logger.warning(
+                    f"Cannot read recent matches snapshot (I/O error), falling back: {e}"
+                )
 
         # Fall back to database
         return self.get_recent_matches(limit)
@@ -978,7 +994,9 @@ class EloSystem:
         """Resolve tournament and update calibration scores. Delegates to CalibrationEngine."""
         return self._calibration_engine.resolve_tournament(tournament_id, actual_winner)
 
-    def get_calibration_leaderboard(self, limit: int = 20, use_cache: bool = True) -> list[AgentRating]:
+    def get_calibration_leaderboard(
+        self, limit: int = 20, use_cache: bool = True
+    ) -> list[AgentRating]:
         """
         Get agents ranked by calibration score.
 
@@ -1034,9 +1052,7 @@ class EloSystem:
         self._calibration_cache.set(cache_key, result)
         return result
 
-    def get_agent_calibration_history(
-        self, agent_name: str, limit: int = 50
-    ) -> list[dict]:
+    def get_agent_calibration_history(self, agent_name: str, limit: int = 50) -> list[dict]:
         """Get recent predictions made by an agent."""
         with self._db.connection() as conn:
             cursor = conn.cursor()
@@ -1084,7 +1100,9 @@ class EloSystem:
         """Get calibration statistics for an agent. Delegates to DomainCalibrationEngine."""
         return self._domain_calibration_engine.get_domain_stats(agent_name, domain)
 
-    def get_calibration_by_bucket(self, agent_name: str, domain: Optional[str] = None) -> list[dict]:
+    def get_calibration_by_bucket(
+        self, agent_name: str, domain: Optional[str] = None
+    ) -> list[dict]:
         """Get calibration broken down by confidence bucket. Delegates to DomainCalibrationEngine."""
         buckets = self._domain_calibration_engine.get_calibration_curve(agent_name, domain)
         # Convert BucketStats to dict for backwards compatibility
@@ -1420,8 +1438,13 @@ class EloSystem:
         logger.info(
             "verification_elo_update agent=%s domain=%s verified=%d disproven=%d "
             "change=%.1f old_elo=%.1f new_elo=%.1f",
-            agent_name, domain, verified_count, disproven_count,
-            net_change, old_elo, rating.elo,
+            agent_name,
+            domain,
+            verified_count,
+            disproven_count,
+            net_change,
+            old_elo,
+            rating.elo,
         )
 
         return net_change
@@ -1458,12 +1481,14 @@ class EloSystem:
             if prev_elo is not None:
                 change = elo - prev_elo
                 total_impact += change
-                history.append({
-                    "debate_id": debate_id,
-                    "elo": elo,
-                    "change": change,
-                    "created_at": created_at,
-                })
+                history.append(
+                    {
+                        "debate_id": debate_id,
+                        "elo": elo,
+                        "change": change,
+                        "created_at": created_at,
+                    }
+                )
             prev_elo = elo
 
         return {

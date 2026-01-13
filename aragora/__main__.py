@@ -16,10 +16,12 @@ def main():
         # Remove 'doctor' from args and run doctor command
         sys.argv = [sys.argv[0]] + sys.argv[2:]
         from aragora.cli.doctor import main as doctor_main
+
         sys.exit(doctor_main())
     else:
         # Fall through to main CLI
         from aragora.cli.main import main as cli_main
+
         cli_main()
 
 

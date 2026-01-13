@@ -116,15 +116,21 @@ class TestConsensusProof:
         """Test confidence at boundary values."""
         # Zero confidence
         proof_zero = ConsensusProof(
-            reached=False, confidence=0.0, vote_breakdown={},
-            final_answer="", rounds_used=1,
+            reached=False,
+            confidence=0.0,
+            vote_breakdown={},
+            final_answer="",
+            rounds_used=1,
         )
         assert proof_zero.confidence == 0.0
 
         # Full confidence
         proof_full = ConsensusProof(
-            reached=True, confidence=1.0, vote_breakdown={},
-            final_answer="", rounds_used=1,
+            reached=True,
+            confidence=1.0,
+            vote_breakdown={},
+            final_answer="",
+            rounds_used=1,
         )
         assert proof_full.confidence == 1.0
 
@@ -187,7 +193,10 @@ class TestVerificationResult:
     def test_status_verified(self):
         """Test verified status."""
         result = VerificationResult(
-            claim_id="v1", claim_text="claim", status="verified", method="z3",
+            claim_id="v1",
+            claim_text="claim",
+            status="verified",
+            method="z3",
             proof_trace="QED",
         )
         assert result.status == "verified"
@@ -196,7 +205,10 @@ class TestVerificationResult:
     def test_status_refuted(self):
         """Test refuted status."""
         result = VerificationResult(
-            claim_id="v2", claim_text="claim", status="refuted", method="z3",
+            claim_id="v2",
+            claim_text="claim",
+            status="refuted",
+            method="z3",
             counterexample="x=0",
         )
         assert result.status == "refuted"
@@ -205,7 +217,10 @@ class TestVerificationResult:
     def test_status_timeout(self):
         """Test timeout status."""
         result = VerificationResult(
-            claim_id="v3", claim_text="complex claim", status="timeout", method="z3",
+            claim_id="v3",
+            claim_text="complex claim",
+            status="timeout",
+            method="z3",
             duration_ms=60000,
         )
         assert result.status == "timeout"
@@ -213,7 +228,10 @@ class TestVerificationResult:
     def test_status_undecidable(self):
         """Test undecidable status."""
         result = VerificationResult(
-            claim_id="v4", claim_text="Godel sentence", status="undecidable", method="lean",
+            claim_id="v4",
+            claim_text="Godel sentence",
+            status="undecidable",
+            method="lean",
         )
         assert result.status == "undecidable"
 
@@ -243,7 +261,10 @@ class TestVerificationResult:
     def test_to_dict_minimal(self):
         """Test to_dict with minimal fields."""
         result = VerificationResult(
-            claim_id="min", claim_text="text", status="timeout", method="z3",
+            claim_id="min",
+            claim_text="text",
+            status="timeout",
+            method="z3",
         )
         d = result.to_dict()
         assert d["proof_trace"] is None
@@ -255,7 +276,10 @@ class TestVerificationResult:
         """Test with very long claim text."""
         long_text = "Claim: " + "x" * 5000
         result = VerificationResult(
-            claim_id="long", claim_text=long_text, status="verified", method="z3",
+            claim_id="long",
+            claim_text=long_text,
+            status="verified",
+            method="z3",
         )
         assert result.claim_text == long_text
 
@@ -263,7 +287,10 @@ class TestVerificationResult:
         """Test special characters in claim text."""
         special = "∀x ∈ ℝ: x² ≥ 0 ∧ (x = 0 → x² = 0)"
         result = VerificationResult(
-            claim_id="special", claim_text=special, status="verified", method="lean",
+            claim_id="special",
+            claim_text=special,
+            status="verified",
+            method="lean",
         )
         assert result.claim_text == special
         assert result.to_dict()["claim_text"] == special
@@ -697,9 +724,7 @@ class TestArtifactBuilder:
 
     def test_with_verification_minimal(self):
         """Test with_verification with minimal args."""
-        artifact = (ArtifactBuilder()
-            .with_verification("c1", "Claim 1", "verified")
-            .build())
+        artifact = ArtifactBuilder().with_verification("c1", "Claim 1", "verified").build()
 
         assert len(artifact.verification_results) == 1
         v = artifact.verification_results[0]
@@ -710,22 +735,26 @@ class TestArtifactBuilder:
 
     def test_with_verification_custom_method(self):
         """Test with_verification with custom method."""
-        artifact = (ArtifactBuilder()
-            .with_verification("c1", "Claim", "refuted", method="lean")
-            .build())
+        artifact = (
+            ArtifactBuilder().with_verification("c1", "Claim", "refuted", method="lean").build()
+        )
 
         assert artifact.verification_results[0].method == "lean"
 
     def test_with_verification_kwargs(self):
         """Test with_verification passes kwargs."""
-        artifact = (ArtifactBuilder()
+        artifact = (
+            ArtifactBuilder()
             .with_verification(
-                "c1", "Claim", "verified",
+                "c1",
+                "Claim",
+                "verified",
                 proof_trace="QED",
                 duration_ms=100,
                 metadata={"key": "val"},
             )
-            .build())
+            .build()
+        )
 
         v = artifact.verification_results[0]
         assert v.proof_trace == "QED"
@@ -734,11 +763,13 @@ class TestArtifactBuilder:
 
     def test_multiple_verifications(self):
         """Test adding multiple verifications."""
-        artifact = (ArtifactBuilder()
+        artifact = (
+            ArtifactBuilder()
             .with_verification("c1", "Claim 1", "verified")
             .with_verification("c2", "Claim 2", "refuted")
             .with_verification("c3", "Claim 3", "timeout")
-            .build())
+            .build()
+        )
 
         assert len(artifact.verification_results) == 3
 
@@ -747,15 +778,9 @@ class TestArtifactBuilder:
         graph = {"nodes": {}}
         trace = {"events": []}
 
-        a1 = (ArtifactBuilder()
-            .with_graph(graph)
-            .with_trace(trace)
-            .build())
+        a1 = ArtifactBuilder().with_graph(graph).with_trace(trace).build()
 
-        a2 = (ArtifactBuilder()
-            .with_trace(trace)
-            .with_graph(graph)
-            .build())
+        a2 = ArtifactBuilder().with_trace(trace).with_graph(graph).build()
 
         assert a1.graph_data == a2.graph_data
         assert a1.trace_data == a2.trace_data

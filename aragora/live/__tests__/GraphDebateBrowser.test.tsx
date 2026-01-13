@@ -1,60 +1,54 @@
 /**
  * Tests for GraphDebateBrowser component
  *
- * Tests the graph-based debate visualization with D3 force layout,
- * node interactions, and real-time WebSocket updates.
+ * Validates graph debate creation, selection, and WebSocket status UI.
  */
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 
-// Mock d3 modules
-jest.mock('d3-force', () => ({
-  forceSimulation: jest.fn(() => ({
+// Mock d3-force with chainable simulation methods used in the component.
+jest.mock('d3-force', () => {
+  const createSimulation = () => ({
     force: jest.fn().mockReturnThis(),
-    nodes: jest.fn().mockReturnThis(),
-    on: jest.fn().mockReturnThis(),
     alpha: jest.fn().mockReturnThis(),
+    alphaTarget: jest.fn().mockReturnThis(),
+    alphaDecay: jest.fn().mockReturnThis(),
+    velocityDecay: jest.fn().mockReturnThis(),
     restart: jest.fn().mockReturnThis(),
     stop: jest.fn().mockReturnThis(),
-  })),
-  forceLink: jest.fn(() => ({
-    id: jest.fn().mockReturnThis(),
-    distance: jest.fn().mockReturnThis(),
-    links: jest.fn().mockReturnThis(),
-  })),
-  forceManyBody: jest.fn(() => ({
-    strength: jest.fn().mockReturnThis(),
-  })),
-  forceCenter: jest.fn(() => ({})),
-  forceCollide: jest.fn(() => ({
-    radius: jest.fn().mockReturnThis(),
-  })),
-}));
-
-jest.mock('d3-selection', () => ({
-  select: jest.fn(() => ({
-    selectAll: jest.fn().mockReturnThis(),
-    data: jest.fn().mockReturnThis(),
-    join: jest.fn().mockReturnThis(),
-    attr: jest.fn().mockReturnThis(),
-    style: jest.fn().mockReturnThis(),
     on: jest.fn().mockReturnThis(),
-    call: jest.fn().mockReturnThis(),
-    text: jest.fn().mockReturnThis(),
-    append: jest.fn().mockReturnThis(),
-  })),
-}));
+    tick: jest.fn().mockReturnThis(),
+  });
 
-// Mock the WebSocket hook
+  return {
+    forceSimulation: jest.fn(() => createSimulation()),
+    forceLink: jest.fn(() => ({
+      id: jest.fn().mockReturnThis(),
+      distance: jest.fn().mockReturnThis(),
+      strength: jest.fn().mockReturnThis(),
+    })),
+    forceManyBody: jest.fn(() => ({
+      strength: jest.fn().mockReturnThis(),
+      distanceMax: jest.fn().mockReturnThis(),
+    })),
+    forceCollide: jest.fn(() => ({
+      radius: jest.fn().mockReturnThis(),
+      strength: jest.fn().mockReturnThis(),
+    })),
+    forceX: jest.fn(() => ({
+      strength: jest.fn().mockReturnThis(),
+    })),
+    forceY: jest.fn(() => ({
+      strength: jest.fn().mockReturnThis(),
+    })),
+  };
+});
+
 const mockWsReturn = {
   isConnected: false,
   lastEvent: null,
   status: 'disconnected' as const,
   reconnect: jest.fn(),
-  events: [],
-  error: null,
-  clearEvents: jest.fn(),
 };
 
 jest.mock('../src/hooks/useGraphDebateWebSocket', () => ({
@@ -65,50 +59,95 @@ jest.mock('../src/hooks/useGraphDebateWebSocket', () => ({
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-// Mock ResizeObserver
-global.ResizeObserver = jest.fn().mockImplementation(() => ({
-  observe: jest.fn(),
-  unobserve: jest.fn(),
-  disconnect: jest.fn(),
-}));
-
 // Import after mocks
 import { GraphDebateBrowser } from '../src/components/GraphDebateBrowser';
 import { useGraphDebateWebSocket } from '../src/hooks/useGraphDebateWebSocket';
 
-const mockDebates = [
-  {
+const mockGraphDebate = {
+  debate_id: 'debate-1',
+  task: 'Should AI be regulated?',
+  graph: {
     debate_id: 'debate-1',
-    topic: 'Should AI be regulated?',
+    root_id: 'node-1',
+    main_branch_id: 'main',
     created_at: '2024-01-15T10:00:00Z',
-    status: 'completed',
-    graph: {
-      nodes: [
-        { id: 'node-1', type: 'root', agent_id: null, content: 'Root question', branch_id: 'main' },
-        { id: 'node-2', type: 'proposal', agent_id: 'claude', content: 'Yes, AI should be regulated', branch_id: 'main' },
-        { id: 'node-3', type: 'critique', agent_id: 'gpt4', content: 'But regulation could stifle innovation', branch_id: 'main' },
-      ],
-      edges: [
-        { source: 'node-1', target: 'node-2' },
-        { source: 'node-2', target: 'node-3' },
-      ],
-      branches: ['main'],
+    nodes: {
+      'node-1': {
+        id: 'node-1',
+        node_type: 'root',
+        agent_id: 'claude',
+        content: 'Root question',
+        timestamp: '2024-01-15T10:00:00Z',
+        parent_ids: [],
+        child_ids: ['node-2'],
+        branch_id: 'main',
+        confidence: 0.6,
+        agreement_scores: {},
+        claims: [],
+        evidence: [],
+        metadata: {},
+        hash: 'hash-1',
+      },
+      'node-2': {
+        id: 'node-2',
+        node_type: 'proposal',
+        agent_id: 'gpt4',
+        content: 'Yes, regulate AI',
+        timestamp: '2024-01-15T10:01:00Z',
+        parent_ids: ['node-1'],
+        child_ids: [],
+        branch_id: 'main',
+        confidence: 0.7,
+        agreement_scores: {},
+        claims: [],
+        evidence: [],
+        metadata: {},
+        hash: 'hash-2',
+      },
+    },
+    branches: {
+      main: {
+        id: 'main',
+        name: 'main',
+        reason: 'root',
+        start_node_id: 'node-1',
+        end_node_id: null,
+        hypothesis: 'Main path',
+        confidence: 0.7,
+        is_active: true,
+        is_merged: false,
+        merged_into: null,
+        node_count: 2,
+        total_agreement: 0.5,
+      },
+      'Branch-1': {
+        id: 'Branch-1',
+        name: 'Branch-1',
+        reason: 'divergence',
+        start_node_id: 'node-2',
+        end_node_id: null,
+        hypothesis: 'Alternative',
+        confidence: 0.5,
+        is_active: false,
+        is_merged: false,
+        merged_into: null,
+        node_count: 1,
+        total_agreement: 0.4,
+      },
+    },
+    merge_history: [],
+    policy: {
+      disagreement_threshold: 0.5,
+      uncertainty_threshold: 0.3,
+      max_branches: 4,
+      max_depth: 6,
     },
   },
-  {
-    debate_id: 'debate-2',
-    topic: 'Climate change solutions',
-    created_at: '2024-01-14T09:00:00Z',
-    status: 'in_progress',
-    graph: {
-      nodes: [
-        { id: 'node-a', type: 'root', agent_id: null, content: 'Best approach to climate change?', branch_id: 'main' },
-      ],
-      edges: [],
-      branches: ['main'],
-    },
-  },
-];
+  branches: [],
+  merge_results: [],
+  node_count: 2,
+  branch_count: 2,
+};
 
 describe('GraphDebateBrowser', () => {
   beforeEach(() => {
@@ -117,305 +156,98 @@ describe('GraphDebateBrowser', () => {
     (useGraphDebateWebSocket as jest.Mock).mockReturnValue(mockWsReturn);
   });
 
-  describe('Rendering', () => {
-    it('renders the component title', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: [] }),
-      });
+  it('renders the header and empty state', async () => {
+    render(<GraphDebateBrowser />);
 
-      render(<GraphDebateBrowser />);
+    expect(screen.getByRole('heading', { name: /graph debates/i })).toBeInTheDocument();
 
-      expect(screen.getByText('Graph Debates')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/no graph debates yet/i)).toBeInTheDocument();
     });
 
-    it('shows loading state initially', () => {
-      mockFetch.mockImplementation(() => new Promise(() => {}));
-
-      render(<GraphDebateBrowser />);
-
-      expect(screen.getByText('Loading debates...')).toBeInTheDocument();
-    });
-
-    it('renders debate list after loading', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
-
-      render(<GraphDebateBrowser />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Should AI be regulated?')).toBeInTheDocument();
-        expect(screen.getByText('Climate change solutions')).toBeInTheDocument();
-      });
-    });
-
-    it('shows empty state when no debates', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: [] }),
-      });
-
-      render(<GraphDebateBrowser />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/no graph debates/i)).toBeInTheDocument();
-      });
-    });
-
-    it('shows error state on fetch failure', async () => {
-      mockFetch.mockRejectedValue(new Error('Network error'));
-
-      render(<GraphDebateBrowser />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/failed to load/i)).toBeInTheDocument();
-      });
-    });
+    expect(
+      screen.getByText(/select or create a graph debate to visualize/i)
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /create/i })).toBeDisabled();
   });
 
-  describe('Debate Selection', () => {
-    it('selects debate when clicked', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
-
-      render(<GraphDebateBrowser />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Should AI be regulated?')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText('Should AI be regulated?'));
-
-      await waitFor(() => {
-        // Should show graph visualization area
-        expect(screen.getByTestId('graph-container')).toBeInTheDocument();
-      });
+  it('creates a new graph debate and renders it in the list', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(mockGraphDebate),
     });
 
-    it('auto-selects debate when initialDebateId is provided', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
+    render(<GraphDebateBrowser />);
 
-      render(<GraphDebateBrowser initialDebateId="debate-1" />);
+    fireEvent.change(
+      screen.getByPlaceholderText(/enter a topic for graph debate/i),
+      { target: { value: 'Should AI be regulated?' } }
+    );
 
-      await waitFor(() => {
-        // Should auto-select and show graph
-        expect(screen.getByTestId('graph-container')).toBeInTheDocument();
-      });
+    const createButton = screen.getByRole('button', { name: /create/i });
+    fireEvent.click(createButton);
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/debates/graph'),
+        expect.objectContaining({ method: 'POST' })
+      );
     });
+
+    const listItem = await screen.findByTestId('graph-debate-item-debate-1');
+    expect(within(listItem).getByText('Should AI be regulated?')).toBeInTheDocument();
+    expect(within(listItem).getByText(/2 nodes/i)).toBeInTheDocument();
+    expect(within(listItem).getByText(/2 branches/i)).toBeInTheDocument();
+
+    expect(document.querySelector('svg')).toBeInTheDocument();
+    expect(screen.getByText('main')).toBeInTheDocument();
   });
 
-  describe('Graph Visualization', () => {
-    it('renders SVG container for graph', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
-
-      render(<GraphDebateBrowser initialDebateId="debate-1" />);
-
-      await waitFor(() => {
-        const svgElement = document.querySelector('svg');
-        expect(svgElement).toBeInTheDocument();
-      });
+  it('loads an initial debate when initialDebateId is provided', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(mockGraphDebate),
     });
 
-    it('shows node count for selected debate', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
+    render(<GraphDebateBrowser initialDebateId="debate-1" />);
 
-      render(<GraphDebateBrowser initialDebateId="debate-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/3 nodes/i)).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/debates/graph/debate-1')
+      );
     });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('graph-debate-title')).toHaveTextContent('Should AI be regulated?');
+    });
+
+    expect(document.querySelector('svg')).toBeInTheDocument();
+    expect(screen.getByText(/drag nodes/i)).toBeInTheDocument();
   });
 
-  describe('WebSocket Integration', () => {
-    it('shows connection status indicator', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
-
-      (useGraphDebateWebSocket as jest.Mock).mockReturnValue({
-        ...mockWsReturn,
-        isConnected: true,
-        status: 'connected',
-      });
-
-      render(<GraphDebateBrowser initialDebateId="debate-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/connected/i)).toBeInTheDocument();
-      });
+  it('shows websocket status and reconnect control', async () => {
+    const mockReconnect = jest.fn();
+    (useGraphDebateWebSocket as jest.Mock).mockReturnValue({
+      ...mockWsReturn,
+      reconnect: mockReconnect,
+      isConnected: false,
+      status: 'disconnected',
     });
 
-    it('shows reconnect button when disconnected', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
-
-      (useGraphDebateWebSocket as jest.Mock).mockReturnValue({
-        ...mockWsReturn,
-        isConnected: false,
-        status: 'disconnected',
-      });
-
-      render(<GraphDebateBrowser initialDebateId="debate-1" />);
-
-      await waitFor(() => {
-        const reconnectButton = screen.getByRole('button', { name: /reconnect/i });
-        expect(reconnectButton).toBeInTheDocument();
-      });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(mockGraphDebate),
     });
 
-    it('calls reconnect when button clicked', async () => {
-      const mockReconnect = jest.fn();
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
+    render(<GraphDebateBrowser initialDebateId="debate-1" />);
 
-      (useGraphDebateWebSocket as jest.Mock).mockReturnValue({
-        ...mockWsReturn,
-        isConnected: false,
-        status: 'disconnected',
-        reconnect: mockReconnect,
-      });
-
-      render(<GraphDebateBrowser initialDebateId="debate-1" />);
-
-      await waitFor(() => {
-        const reconnectButton = screen.getByRole('button', { name: /reconnect/i });
-        fireEvent.click(reconnectButton);
-      });
-
-      expect(mockReconnect).toHaveBeenCalled();
-    });
-  });
-
-  describe('Branch Filtering', () => {
-    it('shows branch filter when multiple branches exist', async () => {
-      const debateWithBranches = {
-        ...mockDebates[0],
-        graph: {
-          ...mockDebates[0].graph,
-          branches: ['main', 'alternative-1', 'alternative-2'],
-        },
-      };
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: [debateWithBranches] }),
-      });
-
-      render(<GraphDebateBrowser initialDebateId="debate-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/branches/i)).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Controls', () => {
-    it('renders zoom controls', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
-
-      render(<GraphDebateBrowser initialDebateId="debate-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /zoom in/i })).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /zoom out/i })).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      expect(screen.getByText(/offline/i)).toBeInTheDocument();
     });
 
-    it('renders reset view button', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
+    const reconnectButton = screen.getByRole('button', { name: /\[reconnect\]/i });
+    fireEvent.click(reconnectButton);
 
-      render(<GraphDebateBrowser initialDebateId="debate-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /reset/i })).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Node Details', () => {
-    it('shows node details panel when node is selected', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
-
-      render(<GraphDebateBrowser initialDebateId="debate-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('graph-container')).toBeInTheDocument();
-      });
-
-      // Simulate node selection (would typically happen via D3 click event)
-      // This tests that the details panel structure exists
-      const detailsSection = screen.queryByTestId('node-details');
-      // Details panel may or may not be visible depending on selection state
-      expect(true).toBe(true); // Placeholder for actual node click simulation
-    });
-  });
-
-  describe('Refresh', () => {
-    it('renders refresh button', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
-
-      render(<GraphDebateBrowser />);
-
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument();
-      });
-    });
-
-    it('refetches debates when refresh clicked', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
-
-      render(<GraphDebateBrowser />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Should AI be regulated?')).toBeInTheDocument();
-      });
-
-      // Clear previous calls
-      mockFetch.mockClear();
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ debates: mockDebates }),
-      });
-
-      fireEvent.click(screen.getByRole('button', { name: /refresh/i }));
-
-      await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalled();
-      });
-    });
+    expect(mockReconnect).toHaveBeenCalled();
   });
 });

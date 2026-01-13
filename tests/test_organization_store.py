@@ -37,7 +37,8 @@ def temp_db():
 def db_with_schema(temp_db):
     """Create database with required schema."""
     conn = sqlite3.connect(str(temp_db))
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS organizations (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -52,8 +53,10 @@ def db_with_schema(temp_db):
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
-    """)
-    conn.execute("""
+    """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS org_invitations (
             id TEXT PRIMARY KEY,
             org_id TEXT NOT NULL,
@@ -67,8 +70,10 @@ def db_with_schema(temp_db):
             accepted_by TEXT,
             accepted_at TEXT
         )
-    """)
-    conn.execute("""
+    """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
             email TEXT NOT NULL,
@@ -76,7 +81,8 @@ def db_with_schema(temp_db):
             org_id TEXT,
             role TEXT DEFAULT 'member'
         )
-    """)
+    """
+    )
     conn.commit()
     conn.close()
     yield temp_db
@@ -97,6 +103,7 @@ def mock_update_user():
 @pytest.fixture
 def mock_row_to_user():
     """Mock row_to_user callback."""
+
     def converter(row):
         return User(
             id=row["id"],
@@ -105,6 +112,7 @@ def mock_row_to_user():
             org_id=row["org_id"],
             role=row["role"],
         )
+
     return converter
 
 
@@ -121,6 +129,7 @@ def store_with_callbacks(db_with_schema, mock_update_user, mock_row_to_user):
 # =============================================================================
 # Organization CRUD Tests
 # =============================================================================
+
 
 class TestOrganizationCRUD:
     """Test basic organization CRUD operations."""
@@ -338,6 +347,7 @@ class TestOrganizationMembers:
 # Invitation Tests
 # =============================================================================
 
+
 class TestInvitationCRUD:
     """Test invitation CRUD operations."""
 
@@ -550,6 +560,7 @@ class TestInvitationCleanup:
 # Connection Management Tests
 # =============================================================================
 
+
 class TestConnectionManagement:
     """Test database connection management."""
 
@@ -560,6 +571,7 @@ class TestConnectionManagement:
 
     def test_external_connection(self, db_with_schema):
         """Test using external connection factory."""
+
         def get_conn():
             conn = sqlite3.connect(str(db_with_schema), check_same_thread=False)
             conn.row_factory = sqlite3.Row

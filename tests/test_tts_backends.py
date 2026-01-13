@@ -160,10 +160,11 @@ class TestTTSConfig:
 
     def test_from_env_aragora_prefix_takes_precedence(self):
         """ARAGORA_ prefixed vars take precedence."""
-        with patch.dict(os.environ, {
-            "ARAGORA_ELEVENLABS_API_KEY": "aragora-key",
-            "ELEVENLABS_API_KEY": "other-key"
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ELEVENLABS_API_KEY": "aragora-key", "ELEVENLABS_API_KEY": "other-key"},
+            clear=True,
+        ):
             config = TTSConfig.from_env()
             assert config.elevenlabs_api_key == "aragora-key"
 
@@ -176,17 +177,17 @@ class TestTTSConfig:
     def test_from_env_voice_map_json(self):
         """from_env parses voice map JSON."""
         voice_map = {"narrator": "custom-voice-id"}
-        with patch.dict(os.environ, {
-            "ARAGORA_ELEVENLABS_VOICE_MAP": '{"narrator": "custom-voice-id"}'
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ELEVENLABS_VOICE_MAP": '{"narrator": "custom-voice-id"}'},
+            clear=True,
+        ):
             config = TTSConfig.from_env()
             assert config.elevenlabs_voice_map == voice_map
 
     def test_from_env_invalid_voice_map_defaults_empty(self):
         """Invalid voice map JSON defaults to empty dict."""
-        with patch.dict(os.environ, {
-            "ARAGORA_ELEVENLABS_VOICE_MAP": "not json"
-        }, clear=True):
+        with patch.dict(os.environ, {"ARAGORA_ELEVENLABS_VOICE_MAP": "not json"}, clear=True):
             config = TTSConfig.from_env()
             assert config.elevenlabs_voice_map == {}
 
@@ -235,10 +236,7 @@ class TestElevenLabsBackend:
 
     def test_get_voice_id_from_config_map(self):
         """Voice ID from config map takes precedence."""
-        config = TTSConfig(
-            elevenlabs_api_key="key",
-            elevenlabs_voice_map={"narrator": "custom-id"}
-        )
+        config = TTSConfig(elevenlabs_api_key="key", elevenlabs_voice_map={"narrator": "custom-id"})
         backend = ElevenLabsBackend(config)
         assert backend.get_voice_id("narrator") == "custom-id"
 
@@ -256,10 +254,7 @@ class TestElevenLabsBackend:
 
     def test_get_voice_id_uses_config_default(self):
         """Uses config default voice ID."""
-        config = TTSConfig(
-            elevenlabs_api_key="key",
-            elevenlabs_default_voice_id="config-default"
-        )
+        config = TTSConfig(elevenlabs_api_key="key", elevenlabs_default_voice_id="config-default")
         backend = ElevenLabsBackend(config)
         # Unknown voice should use config default
         assert backend.get_voice_id("unknown") == "config-default"
@@ -384,10 +379,7 @@ class TestPollyBackend:
     @pytest.mark.asyncio
     async def test_synthesize_includes_lexicons(self, tmp_path):
         """Lexicons included in Polly request."""
-        config = TTSConfig(
-            polly_region="us-east-1",
-            polly_lexicons=["lex1", "lex2"]
-        )
+        config = TTSConfig(polly_region="us-east-1", polly_lexicons=["lex1", "lex2"])
         backend = PollyBackend(config)
 
         mock_stream = MagicMock()

@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
 class AuditEventType(Enum):
     """Types of audit events."""
+
     GAUNTLET_START = "gauntlet_start"
     GAUNTLET_END = "gauntlet_end"
     REDTEAM_START = "redteam_start"
@@ -52,6 +53,7 @@ class AuditEventType(Enum):
 @dataclass
 class AuditEvent:
     """A single event in the audit trail."""
+
     event_id: str
     event_type: AuditEventType
     timestamp: str
@@ -148,13 +150,16 @@ class AuditTrail:
     @property
     def checksum(self) -> str:
         """Generate integrity checksum for the trail."""
-        content = json.dumps({
-            "trail_id": self.trail_id,
-            "gauntlet_id": self.gauntlet_id,
-            "verdict": self.verdict,
-            "events_count": len(self.events),
-            "total_findings": self.total_findings,
-        }, sort_keys=True)
+        content = json.dumps(
+            {
+                "trail_id": self.trail_id,
+                "gauntlet_id": self.gauntlet_id,
+                "verdict": self.verdict,
+                "events_count": len(self.events),
+                "total_findings": self.total_findings,
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
     def verify_integrity(self) -> bool:
@@ -193,23 +198,33 @@ class AuditTrail:
         writer = csv.writer(output)
 
         # Header
-        writer.writerow([
-            "event_id", "timestamp", "event_type", "source",
-            "description", "severity", "agent", "parent_event_id"
-        ])
+        writer.writerow(
+            [
+                "event_id",
+                "timestamp",
+                "event_type",
+                "source",
+                "description",
+                "severity",
+                "agent",
+                "parent_event_id",
+            ]
+        )
 
         # Events
         for event in self.events:
-            writer.writerow([
-                event.event_id,
-                event.timestamp,
-                event.event_type.value,
-                event.source,
-                event.description,
-                event.severity,
-                event.agent or "",
-                event.parent_event_id or "",
-            ])
+            writer.writerow(
+                [
+                    event.event_id,
+                    event.timestamp,
+                    event.event_type.value,
+                    event.source,
+                    event.description,
+                    event.severity,
+                    event.agent or "",
+                    event.parent_event_id or "",
+                ]
+            )
 
         return output.getvalue()
 
@@ -249,13 +264,15 @@ class AuditTrail:
         for agent in self.agents_involved:
             lines.append(f"- {agent}")
 
-        lines.extend([
-            "",
-            "---",
-            "",
-            "## Event Timeline",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "---",
+                "",
+                "## Event Timeline",
+                "",
+            ]
+        )
 
         # Group events by type
         for event in self.events:
@@ -272,11 +289,13 @@ class AuditTrail:
                     lines.append(f"- {k}: {v}")
             lines.append("")
 
-        lines.extend([
-            "---",
-            "",
-            f"*Integrity checksum: `{self.checksum}`*",
-        ])
+        lines.extend(
+            [
+                "---",
+                "",
+                f"*Integrity checksum: `{self.checksum}`*",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -461,7 +480,9 @@ class AuditTrailGenerator:
 
         # Add verification events
         if result.verified_claims:
-            trail.verifications_attempted = len(result.verified_claims) + len(result.unverified_claims)
+            trail.verifications_attempted = len(result.verified_claims) + len(
+                result.unverified_claims
+            )
             trail.verifications_successful = len([v for v in result.verified_claims if v.verified])
 
             for claim in result.verified_claims[:5]:  # Limit

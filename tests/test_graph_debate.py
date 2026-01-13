@@ -253,14 +253,20 @@ class TestConvergenceScorer:
 
         nodes_a = [
             DebateNode(
-                id="a1", node_type=NodeType.PROPOSAL, agent_id="agent",
-                content="content", claims=["claim1", "claim2"],
+                id="a1",
+                node_type=NodeType.PROPOSAL,
+                agent_id="agent",
+                content="content",
+                claims=["claim1", "claim2"],
             )
         ]
         nodes_b = [
             DebateNode(
-                id="b1", node_type=NodeType.PROPOSAL, agent_id="agent",
-                content="content", claims=["claim1", "claim2"],
+                id="b1",
+                node_type=NodeType.PROPOSAL,
+                agent_id="agent",
+                content="content",
+                claims=["claim1", "claim2"],
             )
         ]
 
@@ -277,14 +283,20 @@ class TestConvergenceScorer:
 
         nodes_a = [
             DebateNode(
-                id="a1", node_type=NodeType.PROPOSAL, agent_id="agent",
-                content="content", claims=["claim1", "claim2"],
+                id="a1",
+                node_type=NodeType.PROPOSAL,
+                agent_id="agent",
+                content="content",
+                claims=["claim1", "claim2"],
             )
         ]
         nodes_b = [
             DebateNode(
-                id="b1", node_type=NodeType.PROPOSAL, agent_id="agent",
-                content="content", claims=["claim3", "claim4"],
+                id="b1",
+                node_type=NodeType.PROPOSAL,
+                agent_id="agent",
+                content="content",
+                claims=["claim3", "claim4"],
             )
         ]
 
@@ -312,8 +324,11 @@ class TestConvergenceScorer:
 
         nodes = [
             DebateNode(
-                id="1", node_type=NodeType.PROPOSAL, agent_id="agent",
-                content="same content", claims=["same claim"],
+                id="1",
+                node_type=NodeType.PROPOSAL,
+                agent_id="agent",
+                content="same content",
+                claims=["same claim"],
             )
         ]
 
@@ -783,11 +798,15 @@ class TestGraphDebateOrchestrator:
 
         nodes = [
             DebateNode(
-                id="1", node_type=NodeType.PROPOSAL, agent_id="agent1",
+                id="1",
+                node_type=NodeType.PROPOSAL,
+                agent_id="agent1",
                 content="First content",
             ),
             DebateNode(
-                id="2", node_type=NodeType.CRITIQUE, agent_id="agent2",
+                id="2",
+                node_type=NodeType.CRITIQUE,
+                agent_id="agent2",
                 content="Second content",
             ),
         ]
@@ -804,14 +823,20 @@ class TestGraphDebateOrchestrator:
 
         nodes_a = [
             DebateNode(
-                id="a1", node_type=NodeType.PROPOSAL, agent_id="agent",
-                content="Conclusion A", claims=["claim1", "common"],
+                id="a1",
+                node_type=NodeType.PROPOSAL,
+                agent_id="agent",
+                content="Conclusion A",
+                claims=["claim1", "common"],
             ),
         ]
         nodes_b = [
             DebateNode(
-                id="b1", node_type=NodeType.PROPOSAL, agent_id="agent",
-                content="Conclusion B", claims=["claim2", "common"],
+                id="b1",
+                node_type=NodeType.PROPOSAL,
+                agent_id="agent",
+                content="Conclusion B",
+                claims=["claim2", "common"],
             ),
         ]
 
@@ -826,7 +851,9 @@ class TestGraphDebateOrchestrator:
 
         leaves = [
             DebateNode(
-                id="1", node_type=NodeType.CONCLUSION, agent_id="agent",
+                id="1",
+                node_type=NodeType.CONCLUSION,
+                agent_id="agent",
                 content="Final answer",
             ),
         ]
@@ -842,12 +869,20 @@ class TestGraphDebateOrchestrator:
 
         leaves = [
             DebateNode(
-                id="1", node_type=NodeType.CONCLUSION, agent_id="agent",
-                content="Path 1 conclusion", confidence=0.8, claims=["claim1"],
+                id="1",
+                node_type=NodeType.CONCLUSION,
+                agent_id="agent",
+                content="Path 1 conclusion",
+                confidence=0.8,
+                claims=["claim1"],
             ),
             DebateNode(
-                id="2", node_type=NodeType.CONCLUSION, agent_id="agent",
-                content="Path 2 conclusion", confidence=0.7, claims=["claim2"],
+                id="2",
+                node_type=NodeType.CONCLUSION,
+                agent_id="agent",
+                content="Path 2 conclusion",
+                confidence=0.7,
+                claims=["claim2"],
             ),
         ]
 

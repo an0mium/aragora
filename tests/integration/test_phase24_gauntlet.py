@@ -60,7 +60,7 @@ class TestGauntletDeprecation:
         import importlib
 
         # Remove from cache to allow reimport
-        modules_to_remove = [k for k in sys.modules if k.startswith('aragora.modes.gauntlet')]
+        modules_to_remove = [k for k in sys.modules if k.startswith("aragora.modes.gauntlet")]
         for mod in modules_to_remove:
             del sys.modules[mod]
 
@@ -69,12 +69,11 @@ class TestGauntletDeprecation:
 
             # Force reimport to trigger deprecation
             import aragora.modes.gauntlet as gauntlet_mod  # noqa: F401
+
             importlib.reload(gauntlet_mod)
 
             # Check that a deprecation warning was issued
-            deprecation_warnings = [
-                x for x in w if issubclass(x.category, DeprecationWarning)
-            ]
+            deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
             assert len(deprecation_warnings) >= 1, f"Expected deprecation warning, got: {w}"
 
             # Check the message mentions the new location

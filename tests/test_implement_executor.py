@@ -240,6 +240,7 @@ class TestHybridExecutorTimeout:
         """Returns default timeout when feature flag disabled."""
         # Need to re-import to pick up env change
         from aragora.implement import executor as executor_module
+
         exec = HybridExecutor(repo_path, claude_timeout=999)
 
         # When COMPLEXITY_TIMEOUT is disabled, we can't easily test this
@@ -411,9 +412,7 @@ class TestHybridExecutorTaskRetry:
     async def test_execute_task_with_retry_succeeds_first_attempt(self, executor, simple_task):
         """Doesn't retry if first attempt succeeds."""
         with patch.object(executor, "execute_task") as mock_execute:
-            mock_execute.return_value = TaskResult(
-                task_id=simple_task.id, success=True, diff=""
-            )
+            mock_execute.return_value = TaskResult(task_id=simple_task.id, success=True, diff="")
             result = await executor.execute_task_with_retry(simple_task)
 
         assert result.success is True
@@ -468,9 +467,7 @@ class TestHybridExecutorPlanExecution:
         completed = set()
 
         with patch.object(executor, "execute_task_with_retry") as mock_execute:
-            mock_execute.return_value = TaskResult(
-                task_id=simple_task.id, success=True, diff=""
-            )
+            mock_execute.return_value = TaskResult(task_id=simple_task.id, success=True, diff="")
             results = await executor.execute_plan(tasks, completed)
 
         assert len(results) == 1
@@ -508,9 +505,7 @@ class TestHybridExecutorPlanExecution:
         completed = {"task-1", "task-2"}  # Dependencies already complete
 
         with patch.object(executor, "execute_task_with_retry") as mock_execute:
-            mock_execute.return_value = TaskResult(
-                task_id=complex_task.id, success=True, diff=""
-            )
+            mock_execute.return_value = TaskResult(task_id=complex_task.id, success=True, diff="")
             results = await executor.execute_plan(tasks, completed)
 
         assert len(results) == 1
@@ -549,9 +544,7 @@ class TestHybridExecutorPlanExecution:
         completed = set()
 
         with patch.object(executor, "execute_task_with_retry") as mock_execute:
-            mock_execute.return_value = TaskResult(
-                task_id="t1", success=False, error="Failed"
-            )
+            mock_execute.return_value = TaskResult(task_id="t1", success=False, error="Failed")
             results = await executor.execute_plan(tasks, completed, stop_on_failure=True)
 
         assert len(results) == 1  # Only first task attempted
@@ -568,9 +561,7 @@ class TestHybridExecutorPlanExecution:
             callback_called.append(task_id)
 
         with patch.object(executor, "execute_task_with_retry") as mock_execute:
-            mock_execute.return_value = TaskResult(
-                task_id=simple_task.id, success=True, diff=""
-            )
+            mock_execute.return_value = TaskResult(task_id=simple_task.id, success=True, diff="")
             await executor.execute_plan(tasks, completed, on_task_complete=callback)
 
         assert simple_task.id in callback_called
@@ -610,9 +601,7 @@ class TestHybridExecutorParallelExecution:
         completed = set()
 
         with patch.object(executor, "execute_task_with_retry") as mock_execute:
-            mock_execute.return_value = TaskResult(
-                task_id="any", success=True, diff=""
-            )
+            mock_execute.return_value = TaskResult(task_id="any", success=True, diff="")
             results = await executor.execute_plan_parallel(tasks, completed, max_parallel=2)
 
         # Both tasks should complete
@@ -689,8 +678,11 @@ class TestHybridExecutorIntegration:
             id="t1", description="Base task", files=["base.py"], complexity="simple"
         )
         task2 = ImplementTask(
-            id="t2", description="Dependent task", files=["dependent.py"],
-            complexity="moderate", dependencies=["t1"]
+            id="t2",
+            description="Dependent task",
+            files=["dependent.py"],
+            complexity="moderate",
+            dependencies=["t1"],
         )
         tasks = [task1, task2]
         completed = set()

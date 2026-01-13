@@ -28,6 +28,7 @@ class HandlerResult:
         body: Raw bytes of the response body
         headers: Optional HTTP headers to include
     """
+
     status_code: int
     content_type: str
     body: bytes
@@ -57,7 +58,7 @@ def json_response(
         return json_response({"items": items, "count": len(items)})
         return json_response({"created": True}, status=201)
     """
-    body = json.dumps(data, default=str).encode('utf-8')
+    body = json.dumps(data, default=str).encode("utf-8")
     return HandlerResult(
         status_code=status,
         content_type="application/json",
@@ -145,7 +146,7 @@ def html_response(
     return HandlerResult(
         status_code=status,
         content_type="text/html; charset=utf-8",
-        body=content.encode('utf-8'),
+        body=content.encode("utf-8"),
         headers=headers or {},
     )
 

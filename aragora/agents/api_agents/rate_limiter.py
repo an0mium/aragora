@@ -27,6 +27,7 @@ class ExponentialBackoff:
     When quota is exhausted (429/403), uses exponential backoff to avoid
     hammering the API. Each consecutive failure doubles the delay up to max_delay.
     """
+
     base_delay: float = 1.0  # Initial delay in seconds
     max_delay: float = 60.0  # Maximum delay cap
     jitter: float = 0.1  # Jitter factor (0.1 = 10% random variance)
@@ -36,7 +37,7 @@ class ExponentialBackoff:
     def get_delay(self) -> float:
         """Calculate next delay with exponential backoff and jitter."""
         with self._lock:
-            delay = min(self.base_delay * (2 ** self.failure_count), self.max_delay)
+            delay = min(self.base_delay * (2**self.failure_count), self.max_delay)
             jitter_amount = delay * self.jitter
             return delay + random.uniform(0, jitter_amount)
 
@@ -44,7 +45,7 @@ class ExponentialBackoff:
         """Record a failure and return the delay to wait."""
         with self._lock:
             self.failure_count += 1
-            delay = min(self.base_delay * (2 ** self.failure_count), self.max_delay)
+            delay = min(self.base_delay * (2**self.failure_count), self.max_delay)
             jitter_amount = delay * self.jitter
             final_delay = delay + random.uniform(0, jitter_amount)
             logger.info(f"backoff_failure count={self.failure_count} delay={final_delay:.1f}s")
@@ -67,6 +68,7 @@ class ExponentialBackoff:
 @dataclass
 class OpenRouterTier:
     """Rate limit configuration for an OpenRouter pricing tier."""
+
     name: str
     requests_per_minute: int
     tokens_per_minute: int = 0  # 0 = unlimited
@@ -86,6 +88,7 @@ OPENROUTER_TIERS = {
 @dataclass
 class ProviderTier:
     """Rate limit configuration for an API provider."""
+
     name: str
     requests_per_minute: int
     tokens_per_minute: int = 0  # 0 = unlimited
@@ -142,7 +145,9 @@ class OpenRouterRateLimiter:
         # Exponential backoff for quota exhaustion recovery
         self._backoff = ExponentialBackoff(base_delay=2.0, max_delay=60.0, jitter=0.15)
 
-        logger.debug(f"OpenRouter rate limiter initialized: tier={self.tier.name}, rpm={self.tier.requests_per_minute}")
+        logger.debug(
+            f"OpenRouter rate limiter initialized: tier={self.tier.name}, rpm={self.tier.requests_per_minute}"
+        )
 
     def _refill(self) -> None:
         """Refill tokens based on elapsed time."""
@@ -167,7 +172,9 @@ class OpenRouterRateLimiter:
             backoff_delay = self._backoff.get_delay()
             remaining = deadline - time.monotonic()
             if backoff_delay > remaining:
-                logger.warning(f"Backoff delay {backoff_delay:.1f}s exceeds timeout {remaining:.1f}s")
+                logger.warning(
+                    f"Backoff delay {backoff_delay:.1f}s exceeds timeout {remaining:.1f}s"
+                )
                 return False
             logger.info(f"rate_limiter_backoff_wait delay={backoff_delay:.1f}s")
             await asyncio.sleep(backoff_delay)
@@ -213,19 +220,25 @@ class OpenRouterRateLimiter:
                 try:
                     self._api_limit = int(headers["X-RateLimit-Limit"])
                 except ValueError as e:
-                    logger.warning(f"Failed to parse X-RateLimit-Limit header: {headers.get('X-RateLimit-Limit')!r} - {e}")
+                    logger.warning(
+                        f"Failed to parse X-RateLimit-Limit header: {headers.get('X-RateLimit-Limit')!r} - {e}"
+                    )
 
             if "X-RateLimit-Remaining" in headers:
                 try:
                     self._api_remaining = int(headers["X-RateLimit-Remaining"])
                 except ValueError as e:
-                    logger.warning(f"Failed to parse X-RateLimit-Remaining header: {headers.get('X-RateLimit-Remaining')!r} - {e}")
+                    logger.warning(
+                        f"Failed to parse X-RateLimit-Remaining header: {headers.get('X-RateLimit-Remaining')!r} - {e}"
+                    )
 
             if "X-RateLimit-Reset" in headers:
                 try:
                     self._api_reset = float(headers["X-RateLimit-Reset"])
                 except ValueError as e:
-                    logger.warning(f"Failed to parse X-RateLimit-Reset header: {headers.get('X-RateLimit-Reset')!r} - {e}")
+                    logger.warning(
+                        f"Failed to parse X-RateLimit-Reset header: {headers.get('X-RateLimit-Reset')!r} - {e}"
+                    )
 
     def release_on_error(self) -> None:
         """Release a token back on request error (optional, for retries)."""
@@ -357,21 +370,16 @@ class ProviderRateLimiter:
 
         # Get default tier for provider
         default_tier = PROVIDER_DEFAULT_TIERS.get(
-            self.provider,
-            ProviderTier(name=self.provider, requests_per_minute=100, burst_size=10)
+            self.provider, ProviderTier(name=self.provider, requests_per_minute=100, burst_size=10)
         )
 
         # Allow environment variable overrides
         env_prefix = f"ARAGORA_{self.provider.upper()}"
         self.requests_per_minute = (
-            rpm
-            or int(os.environ.get(f"{env_prefix}_RPM", 0))
-            or default_tier.requests_per_minute
+            rpm or int(os.environ.get(f"{env_prefix}_RPM", 0)) or default_tier.requests_per_minute
         )
         self.burst_size = (
-            burst
-            or int(os.environ.get(f"{env_prefix}_BURST", 0))
-            or default_tier.burst_size
+            burst or int(os.environ.get(f"{env_prefix}_BURST", 0)) or default_tier.burst_size
         )
 
         self._tokens = float(self.burst_size)
@@ -465,7 +473,9 @@ class ProviderRateLimiter:
                         pass
 
             for remaining_header in [
-                "X-RateLimit-Remaining", "x-ratelimit-remaining", "RateLimit-Remaining"
+                "X-RateLimit-Remaining",
+                "x-ratelimit-remaining",
+                "RateLimit-Remaining",
             ]:
                 if remaining_header in headers:
                     try:
@@ -565,10 +575,7 @@ class ProviderRateLimiterRegistry:
         self._lock = threading.Lock()
 
     def get(
-        self,
-        provider: str,
-        rpm: Optional[int] = None,
-        burst: Optional[int] = None
+        self, provider: str, rpm: Optional[int] = None, burst: Optional[int] = None
     ) -> ProviderRateLimiter:
         """Get or create a rate limiter for a provider.
 
@@ -591,9 +598,7 @@ class ProviderRateLimiterRegistry:
             # Double-check after acquiring lock
             if provider not in self._limiters:
                 self._limiters[provider] = ProviderRateLimiter(
-                    provider=provider,
-                    rpm=rpm,
-                    burst=burst
+                    provider=provider, rpm=rpm, burst=burst
                 )
                 logger.debug(f"Created rate limiter for provider: {provider}")
             return self._limiters[provider]
@@ -616,10 +621,7 @@ class ProviderRateLimiterRegistry:
     def stats(self) -> Dict[str, dict]:
         """Get statistics for all registered rate limiters."""
         with self._lock:
-            return {
-                provider: limiter.stats
-                for provider, limiter in self._limiters.items()
-            }
+            return {provider: limiter.stats for provider, limiter in self._limiters.items()}
 
     def providers(self) -> list:
         """Get list of registered provider names."""
@@ -633,9 +635,7 @@ _provider_registry_lock = threading.Lock()
 
 
 def get_provider_limiter(
-    provider: str,
-    rpm: Optional[int] = None,
-    burst: Optional[int] = None
+    provider: str, rpm: Optional[int] = None, burst: Optional[int] = None
 ) -> ProviderRateLimiter:
     """Get a rate limiter for a specific API provider.
 

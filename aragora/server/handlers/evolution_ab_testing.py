@@ -36,6 +36,7 @@ try:
         ABTestManager,
         ABTestStatus,
     )
+
     AB_TESTING_AVAILABLE = True
 except ImportError as e:
     AB_TESTING_AVAILABLE = False
@@ -190,10 +191,12 @@ class EvolutionABTestingHandler(BaseHandler):
             # Get all tests (need to add this method or query directly)
             tests = self._get_all_tests(limit, status)
 
-        return json_response({
-            "tests": [t.to_dict() for t in tests],
-            "count": len(tests),
-        })
+        return json_response(
+            {
+                "tests": [t.to_dict() for t in tests],
+                "count": len(tests),
+            }
+        )
 
     def _get_all_tests(self, limit: int, status: Optional[str] = None) -> list:
         """Get all tests with optional status filter."""
@@ -252,17 +255,21 @@ class EvolutionABTestingHandler(BaseHandler):
 
         test = self.manager.get_active_test(agent)
         if not test:
-            return json_response({
-                "agent": agent,
-                "has_active_test": False,
-                "test": None,
-            })
+            return json_response(
+                {
+                    "agent": agent,
+                    "has_active_test": False,
+                    "test": None,
+                }
+            )
 
-        return json_response({
-            "agent": agent,
-            "has_active_test": True,
-            "test": test.to_dict(),
-        })
+        return json_response(
+            {
+                "agent": agent,
+                "has_active_test": True,
+                "test": test.to_dict(),
+            }
+        )
 
     @handle_errors("create A/B test")
     def _create_test(self, body: dict) -> HandlerResult:
@@ -301,10 +308,13 @@ class EvolutionABTestingHandler(BaseHandler):
                 metadata=body.get("metadata"),
             )
 
-            return json_response({
-                "message": "A/B test created",
-                "test": test.to_dict(),
-            }, status=201)
+            return json_response(
+                {
+                    "message": "A/B test created",
+                    "test": test.to_dict(),
+                },
+                status=201,
+            )
 
         except ValueError as e:
             # Business logic conflict (e.g., duplicate test, invalid state)
@@ -355,10 +365,12 @@ class EvolutionABTestingHandler(BaseHandler):
         if not updated_test:
             return error_response("Failed to record result", 500)
 
-        return json_response({
-            "message": "Result recorded",
-            "test": updated_test.to_dict(),
-        })
+        return json_response(
+            {
+                "message": "Result recorded",
+                "test": updated_test.to_dict(),
+            }
+        )
 
     @handle_errors("conclude A/B test")
     def _conclude_test(self, test_id: str, body: dict) -> HandlerResult:
@@ -375,16 +387,18 @@ class EvolutionABTestingHandler(BaseHandler):
         try:
             result = self.manager.conclude_test(test_id, force=force)
 
-            return json_response({
-                "message": "A/B test concluded",
-                "result": {
-                    "test_id": result.test_id,
-                    "winner": result.winner,
-                    "confidence": result.confidence,
-                    "recommendation": result.recommendation,
-                    "stats": result.stats,
-                },
-            })
+            return json_response(
+                {
+                    "message": "A/B test concluded",
+                    "result": {
+                        "test_id": result.test_id,
+                        "winner": result.winner,
+                        "confidence": result.confidence,
+                        "recommendation": result.recommendation,
+                        "stats": result.stats,
+                    },
+                }
+            )
 
         except ValueError as e:
             logger.warning(f"A/B test conclusion failed: {type(e).__name__}: {e}")
@@ -408,7 +422,9 @@ class EvolutionABTestingHandler(BaseHandler):
                 404,
             )
 
-        return json_response({
-            "message": "A/B test cancelled",
-            "test_id": test_id,
-        })
+        return json_response(
+            {
+                "message": "A/B test cancelled",
+                "test_id": test_id,
+            }
+        )

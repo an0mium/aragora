@@ -96,7 +96,7 @@ HIGH ISSUES:
   - Redis session store lacks encryption at rest
 
 Duration: 45.2s
-Agents: claude, gpt-4, gemini
+Agents: anthropic-api, openai-api, gemini
 ```
 
 ---

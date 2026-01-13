@@ -29,7 +29,7 @@ Multi-timescale learning system that organizes memories into fast, medium, and s
 from aragora.memory.continuum import ContinuumMemory
 
 memory = ContinuumMemory(db_path="continuum.db")
-memory.store("Important insight", tier="FAST", agent="claude")
+memory.store("Important insight", tier="FAST", agent="anthropic-api")
 recent = memory.retrieve(tier="FAST", limit=10)
 ```
 
@@ -48,7 +48,7 @@ Records all cycle events for later analysis and replay.
 from aragora.replay.replay import DebateRecorder, DebateReplayer
 
 recorder = DebateRecorder(storage_dir="replays")
-filepath = recorder.save_debate(result, metadata={"agents": ["claude", "codex"]})
+filepath = recorder.save_debate(result, metadata={"agents": ["anthropic-api", "codex"]})
 
 replayer = DebateReplayer(storage_dir="replays")
 debates = replayer.list_debates()
@@ -94,8 +94,8 @@ from aragora.visualization.mapper import ArgumentCartographer
 
 cartographer = ArgumentCartographer()
 cartographer.start_debate("debate-123", task="Design a cache")
-cartographer.add_proposal("claude", "Use Redis with LRU")
-cartographer.add_critique("codex", "claude", ["No failover strategy"], severity=0.7)
+cartographer.add_proposal("anthropic-api", "Use Redis with LRU")
+cartographer.add_critique("codex", "anthropic-api", ["No failover strategy"], severity=0.7)
 graph = cartographer.get_graph()
 ```
 
@@ -156,8 +156,8 @@ Per-agent persistent memory that survives across debates.
 from aragora.memory.stream import MemoryStream
 
 stream = MemoryStream(db_path="streams.db")
-stream.add_memory("claude", "User prefers functional style")
-memories = stream.get_memories("claude", limit=10)
+stream.add_memory("anthropic-api", "User prefers functional style")
+memories = stream.get_memories("anthropic-api", limit=10)
 ```
 
 ### LocalDocsConnector
@@ -228,17 +228,17 @@ breaker = AgentCircuitBreaker(
 )
 
 # Check before calling agent
-if breaker.is_open("claude"):
+if breaker.is_open("anthropic-api"):
     print("Agent tripped - skipping")
 else:
     try:
         result = await agent.call()
-        breaker.record_success("claude")
+        breaker.record_success("anthropic-api")
     except Exception:
-        breaker.record_failure("claude")
+        breaker.record_failure("anthropic-api")
 
 # Get circuit status
-status = breaker.get_status()  # {"claude": {"open": True, "failures": 3}}
+status = breaker.get_status()  # {"anthropic-api": {"open": True, "failures": 3}}
 ```
 
 **States:**
@@ -318,7 +318,7 @@ Periodic competitive benchmarking between agents.
 ```python
 from aragora.competition.tournament import Tournament
 
-tournament = Tournament(agents=["claude", "codex", "gemini"])
+tournament = Tournament(agents=["anthropic-api", "codex", "gemini"])
 results = await tournament.run(tasks=benchmark_tasks)
 rankings = tournament.get_rankings()
 ```
@@ -363,8 +363,8 @@ Persistent skill tracking using Elo ratings.
 from aragora.ranking.elo import EloSystem
 
 elo = EloSystem(db_path="elo.db")
-elo.record_match(winner="claude", loser="codex", domain="security")
-rating = elo.get_rating("claude")
+elo.record_match(winner="anthropic-api", loser="codex", domain="security")
+rating = elo.get_rating("anthropic-api")
 ```
 
 ### AgentSelector
@@ -535,9 +535,9 @@ Audit logs with deterministic replay capability.
 ```python
 from aragora.debate.traces import DebateTracer
 
-tracer = DebateTracer(debate_id="d123", task="Design API", agents=["claude", "codex"])
-tracer.record_proposal("claude", "Use REST with versioning")
-tracer.record_critique("codex", "claude", issues=["No GraphQL support"])
+tracer = DebateTracer(debate_id="d123", task="Design API", agents=["anthropic-api", "codex"])
+tracer.record_proposal("anthropic-api", "Use REST with versioning")
+tracer.record_critique("codex", "anthropic-api", issues=["No GraphQL support"])
 trace = tracer.finalize({"consensus": True})
 ```
 
@@ -555,12 +555,12 @@ from aragora.agents.laboratory import PersonaLaboratory
 
 lab = PersonaLaboratory(persona_manager=personas, db_path="lab.db")
 experiment = lab.create_experiment(
-    agent="claude",
+    agent="anthropic-api",
     variant_traits=["more_concise", "code_focused"]
 )
 lab.record_trial(experiment.id, is_control=False, success=True)
 emergent = lab.detect_emergent_traits()
-lab.cross_pollinate_traits("claude", "codex", "security_focus")
+lab.cross_pollinate_traits("anthropic-api", "codex", "security_focus")
 ```
 
 ### SemanticRetriever
@@ -767,8 +767,8 @@ Semantic position reversal detection that tracks when agents change their positi
 from aragora.insights.flip_detector import FlipDetector
 
 detector = FlipDetector(db_path="positions.db")
-flips = detector.detect_flips_for_agent("claude", lookback_positions=50)
-consistency = detector.get_agent_consistency("claude")
+flips = detector.detect_flips_for_agent("anthropic-api", lookback_positions=50)
+consistency = detector.get_agent_consistency("anthropic-api")
 print(f"Consistency score: {consistency.consistency_score:.2%}")
 ```
 
@@ -787,7 +787,7 @@ Truth-grounded persona tracking that links agent identities to verifiable perfor
 from aragora.agents.grounded import GroundedPersonaManager
 
 manager = GroundedPersonaManager(db_path="personas.db")
-identity = manager.get_grounded_identity("claude")
+identity = manager.get_grounded_identity("anthropic-api")
 print(f"Win rate: {identity.win_rate:.2%}")
 print(f"Calibration: {identity.calibration_score:.2f}")
 ```
@@ -807,8 +807,8 @@ Central system for maintaining epistemic accountability across debates.
 from aragora.agents.truth_grounding import TruthGroundingSystem
 
 system = TruthGroundingSystem(db_path="grounding.db")
-system.record_position("claude", "claim-123", 0.85, "debate-456")
-accuracy = system.compute_calibration("claude")
+system.record_position("anthropic-api", "claim-123", 0.85, "debate-456")
+accuracy = system.compute_calibration("anthropic-api")
 ```
 
 ### CalibrationTracker
@@ -820,11 +820,11 @@ Tracks prediction accuracy using Brier scoring and ECE (Expected Calibration Err
 from aragora.agents.calibration import CalibrationTracker
 
 tracker = CalibrationTracker(db_path="calibration.db")
-tracker.record_prediction("claude", confidence=0.85, correct=True, domain="security")
-summary = tracker.get_calibration_summary("claude")
+tracker.record_prediction("anthropic-api", confidence=0.85, correct=True, domain="security")
+summary = tracker.get_calibration_summary("anthropic-api")
 print(f"Brier score: {summary['brier_score']:.4f}")
 print(f"ECE: {summary['ece']:.4f}")
-curve = tracker.get_calibration_curve("claude")  # For visualization
+curve = tracker.get_calibration_curve("anthropic-api")  # For visualization
 ```
 
 **Key Metrics:**
@@ -1075,7 +1075,7 @@ ledger = PositionLedger(db_path="personas.db")
 
 # Record a position
 position_id = ledger.record_position(
-    agent_name="claude",
+    agent_name="anthropic-api",
     claim="Microservices are better for this use case",
     confidence=0.85,
     debate_id="debate-123",
@@ -1084,7 +1084,7 @@ position_id = ledger.record_position(
 )
 
 # Get agent's position history
-positions = ledger.get_agent_positions("claude", limit=50)
+positions = ledger.get_agent_positions("anthropic-api", limit=50)
 
 # Resolve position outcome after debate
 ledger.resolve_position(position_id, outcome="correct")  # or "incorrect", "pending"
@@ -1113,23 +1113,23 @@ tracker = RelationshipTracker(db_path="personas.db")
 # Update from debate results
 tracker.update_from_debate(
     debate_id="debate-123",
-    participants=["claude", "gemini", "codex"],
-    winner="claude",
-    votes={"claude": "option_a", "gemini": "option_a", "codex": "option_b"},
+    participants=["anthropic-api", "gemini", "codex"],
+    winner="anthropic-api",
+    votes={"anthropic-api": "option_a", "gemini": "option_a", "codex": "option_b"},
     critiques=[
-        {"agent": "codex", "target": "claude"},
+        {"agent": "codex", "target": "anthropic-api"},
         {"agent": "gemini", "target": "codex"},
     ],
 )
 
 # Get relationship between two agents
-rel = tracker.get_relationship("claude", "gemini")
+rel = tracker.get_relationship("anthropic-api", "gemini")
 print(f"Alliance score: {rel.alliance_score:.2f}")
 print(f"Rivalry score: {rel.rivalry_score:.2f}")
 print(f"Influence score: {rel.influence_score:.2f}")
 
 # Get agent's full network
-network = tracker.get_agent_network("claude")
+network = tracker.get_agent_network("anthropic-api")
 # Returns: {allies: [...], rivals: [...], influences: [...], influenced_by: [...]}
 ```
 
@@ -1165,7 +1165,7 @@ if moment:
 
 # Detect calibration vindication
 moment = detector.detect_calibration_vindication(
-    agent_name="claude",
+    agent_name="anthropic-api",
     prediction_confidence=0.92,
     was_correct=True,
     domain="security",
@@ -1181,7 +1181,7 @@ moment = detector.detect_streak_achievement(
 )
 
 # Get narrative summary
-summary = detector.get_narrative_summary("claude", limit=5)
+summary = detector.get_narrative_summary("anthropic-api", limit=5)
 # Returns formatted markdown of agent's defining moments
 ```
 
@@ -1210,7 +1210,7 @@ synthesizer = PersonaSynthesizer(
 )
 
 # Generate complete grounded persona
-persona = synthesizer.synthesize("claude")
+persona = synthesizer.synthesize("anthropic-api")
 
 print(persona.identity_summary)
 # "claude is a well-calibrated architect (Brier: 0.12) with expertise in
@@ -1227,7 +1227,7 @@ print(persona.relationship_brief)
 # {"allies": ["gemini"], "rivals": ["codex"], "influences": ["grok"]}
 
 # Get opponent briefing for debate prep
-briefing = synthesizer.get_opponent_briefing("claude", opponent="codex")
+briefing = synthesizer.get_opponent_briefing("anthropic-api", opponent="codex")
 # Returns strategic information about how claude typically debates codex
 ```
 
@@ -1397,9 +1397,9 @@ except AragoraError as e:
 **Exception Details:**
 All exceptions include `message` and `details` fields:
 ```python
-raise AgentResponseError("claude", "Connection refused")
-# Error: Agent 'claude' failed to respond: Connection refused
-# Details: {"agent_name": "claude", "reason": "Connection refused"}
+raise AgentResponseError("anthropic-api", "Connection refused")
+# Error: Agent 'anthropic-api' failed to respond: Connection refused
+# Details: {"agent_name": "anthropic-api", "reason": "Connection refused"}
 ```
 
 ---
@@ -1596,12 +1596,12 @@ from aragora.monitoring.simple_observer import SimpleObserver
 observer = SimpleObserver()
 
 # Record events
-observer.record_attempt("claude")
-observer.record_completion("claude")
+observer.record_attempt("anthropic-api")
+observer.record_completion("anthropic-api")
 observer.record_timeout("openai")
 
 # Get metrics
-rate = observer.get_failure_rate("claude")
+rate = observer.get_failure_rate("anthropic-api")
 report = observer.get_report()
 ```
 
@@ -1673,15 +1673,17 @@ Shared utilities for agent implementations.
 Automatic fallback when provider quota exceeded.
 
 ```python
+from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.fallback import QuotaFallbackMixin
 
-class MyAgent(QuotaFallbackMixin, BaseAgent):
-    async def generate(self, prompt):
+class MyAgent(QuotaFallbackMixin, APIAgent):
+    async def generate(self, prompt, context=None):
         try:
-            return await self._primary_generate(prompt)
+            return await self._primary_generate(prompt, context)
         except Exception as e:
-            if self._is_quota_error(e):
-                return await self._fallback_generate(prompt)
+            status_code = getattr(e, "status", 0)
+            if self.is_quota_error(status_code, str(e)):
+                return await self.fallback_generate(prompt, context, status_code)
             raise
 ```
 
@@ -1696,11 +1698,12 @@ class MyAgent(QuotaFallbackMixin, BaseAgent):
 Shared SSE parsing logic for API agents.
 
 ```python
+from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.streaming import StreamingMixin
 
-class MyStreamingAgent(StreamingMixin, BaseAgent):
-    async def stream_generate(self, prompt):
-        async for chunk in self._parse_sse_stream(response):
+class MyStreamingAgent(APIAgent, StreamingMixin):
+    async def stream_generate(self, response):
+        async for chunk in self.parse_sse_stream(response, format_type="openai"):
             yield chunk
 ```
 
@@ -1923,7 +1926,7 @@ curl -X POST https://api.aragora.ai/api/debates/graph \
   -H "Content-Type: application/json" \
   -d '{
     "task": "Design a distributed caching system",
-    "agents": ["claude", "gpt4"],
+    "agents": ["anthropic-api", "openai-api"],
     "max_rounds": 5,
     "branch_policy": {
       "min_disagreement": 0.7,
@@ -1957,7 +1960,7 @@ curl -X POST https://api.aragora.ai/api/debates/matrix \
   -H "Content-Type: application/json" \
   -d '{
     "task": "Design a rate limiter",
-    "agents": ["claude", "gpt4"],
+    "agents": ["anthropic-api", "openai-api"],
     "scenarios": [
       {"name": "High throughput", "parameters": {"rps": 10000}},
       {"name": "Low latency", "parameters": {"latency_ms": 10}},

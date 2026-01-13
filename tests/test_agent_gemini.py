@@ -109,26 +109,23 @@ class TestGeminiGenerate:
         """Test successful API response."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "candidates": [{
-                "content": {
-                    "parts": [{"text": "Hello from Gemini!"}]
-                },
-                "finishReason": "STOP"
-            }],
-            "usageMetadata": {
-                "promptTokenCount": 10,
-                "candidatesTokenCount": 5
+        mock_response.json = AsyncMock(
+            return_value={
+                "candidates": [
+                    {"content": {"parts": [{"text": "Hello from Gemini!"}]}, "finishReason": "STOP"}
+                ],
+                "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5},
             }
-        })
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.generate("Test prompt")
@@ -140,24 +137,23 @@ class TestGeminiGenerate:
         """Test that token usage is recorded from response."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "candidates": [{
-                "content": {"parts": [{"text": "Response"}]},
-                "finishReason": "STOP"
-            }],
-            "usageMetadata": {
-                "promptTokenCount": 100,
-                "candidatesTokenCount": 50
+        mock_response.json = AsyncMock(
+            return_value={
+                "candidates": [
+                    {"content": {"parts": [{"text": "Response"}]}, "finishReason": "STOP"}
+                ],
+                "usageMetadata": {"promptTokenCount": 100, "candidatesTokenCount": 50},
             }
-        })
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             with patch.object(agent, "_record_token_usage") as mock_record:
@@ -180,10 +176,11 @@ class TestGeminiGenerate:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_gemini_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_gemini_response), __aexit__=AsyncMock()
+            )
+        )
 
         mock_fallback = AsyncMock()
         mock_fallback.generate = AsyncMock(return_value="Fallback response")
@@ -201,20 +198,18 @@ class TestGeminiGenerate:
         """Test empty response is handled appropriately."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "candidates": [{
-                "content": {"parts": []},
-                "finishReason": "STOP"
-            }]
-        })
+        mock_response.json = AsyncMock(
+            return_value={"candidates": [{"content": {"parts": []}, "finishReason": "STOP"}]}
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             # Decorator may catch and return None, error string, or raise
@@ -229,20 +224,18 @@ class TestGeminiGenerate:
         """Test SAFETY finish reason is handled appropriately."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "candidates": [{
-                "content": {"parts": []},
-                "finishReason": "SAFETY"
-            }]
-        })
+        mock_response.json = AsyncMock(
+            return_value={"candidates": [{"content": {"parts": []}, "finishReason": "SAFETY"}]}
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             # Decorator may catch and return None, error string, or raise
@@ -256,21 +249,26 @@ class TestGeminiGenerate:
         """Test MAX_TOKENS with partial content returns that content."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "candidates": [{
-                "content": {"parts": [{"text": "Partial response..."}]},
-                "finishReason": "MAX_TOKENS"
-            }],
-            "usageMetadata": {}
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "candidates": [
+                    {
+                        "content": {"parts": [{"text": "Partial response..."}]},
+                        "finishReason": "MAX_TOKENS",
+                    }
+                ],
+                "usageMetadata": {},
+            }
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.generate("Test prompt")
@@ -283,13 +281,17 @@ class TestGeminiGenerate:
 
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "candidates": [{
-                "content": {"parts": [{"text": "Response with context"}]},
-                "finishReason": "STOP"
-            }],
-            "usageMetadata": {}
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "candidates": [
+                    {
+                        "content": {"parts": [{"text": "Response with context"}]},
+                        "finishReason": "STOP",
+                    }
+                ],
+                "usageMetadata": {},
+            }
+        )
 
         captured_payload = None
 
@@ -297,8 +299,7 @@ class TestGeminiGenerate:
             nonlocal captured_payload
             captured_payload = kwargs.get("json", {})
             return MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response),
-                __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
             )
 
         mock_session = MagicMock()
@@ -345,14 +346,18 @@ class TestGeminiStreaming:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         chunks = []
         with patch("aiohttp.ClientSession", return_value=mock_session):
-            with patch("aragora.agents.api_agents.common.iter_chunks_with_timeout", return_value=mock_iter()):
+            with patch(
+                "aragora.agents.api_agents.common.iter_chunks_with_timeout",
+                return_value=mock_iter(),
+            ):
                 async for chunk in agent.generate_stream("Test prompt"):
                     chunks.append(chunk)
 
@@ -371,10 +376,11 @@ class TestGeminiStreaming:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             # May raise or yield error - verify error is detected
@@ -408,10 +414,11 @@ class TestGeminiStreaming:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         async def fallback_stream():
             yield "Fallback"

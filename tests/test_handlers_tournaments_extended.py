@@ -34,6 +34,7 @@ from aragora.server.handlers.utils.rate_limit import RateLimiter
 @dataclass
 class MockStanding:
     """Mock tournament standing matching actual TournamentManager output."""
+
     agent: str
     wins: int
     losses: int
@@ -82,11 +83,13 @@ def mock_handler():
 @pytest.fixture
 def mock_handler_factory():
     """Factory for creating mock handlers with different IPs."""
+
     def create(ip: str = "192.168.1.100"):
         handler = Mock()
         handler.client_address = (ip, 12345)
         handler.headers = {}
         return handler
+
     return create
 
 
@@ -180,7 +183,9 @@ class TestTournamentRateLimiting:
         body = json.loads(result.body)
         assert "rate limit" in body.get("error", "").lower()
 
-    def test_rate_limit_different_endpoints_same_limiter(self, tournament_ctx, mock_handler_factory):
+    def test_rate_limit_different_endpoints_same_limiter(
+        self, tournament_ctx, mock_handler_factory
+    ):
         """Both tournament endpoints share the same rate limiter."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
         (tournaments_dir / "test.db").touch()
@@ -482,8 +487,7 @@ class TestTournamentEdgeCases:
             mock_manager = Mock()
             # Create 500 participants
             mock_manager.get_current_standings.return_value = [
-                MockStanding.create(f"agent_{i}", i % 10, i % 5, i % 3)
-                for i in range(500)
+                MockStanding.create(f"agent_{i}", i % 10, i % 5, i % 3) for i in range(500)
             ]
             MockManager.return_value = mock_manager
 
@@ -532,9 +536,7 @@ class TestTournamentEdgeCases:
             if "corrupt" in db_path:
                 mock.get_current_standings.side_effect = Exception("DB corrupt")
             else:
-                mock.get_current_standings.return_value = [
-                    MockStanding.create("agent", 1, 0, 0)
-                ]
+                mock.get_current_standings.return_value = [MockStanding.create("agent", 1, 0, 0)]
             return mock
 
         with patch("aragora.server.handlers.tournaments.TournamentManager", side_effect=mock_init):
@@ -734,7 +736,7 @@ class TestTournamentInputValidation:
 
         malicious_ids = [
             "test'; DROP TABLE tournaments;--",
-            "test\" OR \"1\"=\"1",
+            'test" OR "1"="1',
             "test; DELETE FROM *;",
         ]
 

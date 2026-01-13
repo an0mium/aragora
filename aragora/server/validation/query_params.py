@@ -16,33 +16,67 @@ logger = logging.getLogger(__name__)
 DEFAULT_QUERY_STRING_MAX_LENGTH = 256
 
 # Allowed sort columns for common endpoints (whitelist)
-ALLOWED_SORT_COLUMNS = frozenset({
-    # Common
-    "id", "name", "created_at", "updated_at", "timestamp",
-    # Debates
-    "task", "status", "rounds", "duration", "consensus_reached",
-    # Agents
-    "agent", "agent_name", "elo", "reliability", "score", "wins", "losses",
-    # Rankings
-    "rating", "rank", "votes", "flip_rate", "acceptance_rate",
-    # Memory
-    "importance", "recency", "freshness", "tier",
-})
+ALLOWED_SORT_COLUMNS = frozenset(
+    {
+        # Common
+        "id",
+        "name",
+        "created_at",
+        "updated_at",
+        "timestamp",
+        # Debates
+        "task",
+        "status",
+        "rounds",
+        "duration",
+        "consensus_reached",
+        # Agents
+        "agent",
+        "agent_name",
+        "elo",
+        "reliability",
+        "score",
+        "wins",
+        "losses",
+        # Rankings
+        "rating",
+        "rank",
+        "votes",
+        "flip_rate",
+        "acceptance_rate",
+        # Memory
+        "importance",
+        "recency",
+        "freshness",
+        "tier",
+    }
+)
 
 # Allowed sort directions
 ALLOWED_SORT_DIRECTIONS = frozenset({"asc", "desc", "ASC", "DESC"})
 
 # Allowed filter operators (for query building)
-ALLOWED_FILTER_OPERATORS = frozenset({
-    "eq", "ne", "gt", "gte", "lt", "lte",  # Comparison
-    "contains", "startswith", "endswith",   # String matching
-    "in", "not_in",                         # Set membership
-})
+ALLOWED_FILTER_OPERATORS = frozenset(
+    {
+        "eq",
+        "ne",
+        "gt",
+        "gte",
+        "lt",
+        "lte",  # Comparison
+        "contains",
+        "startswith",
+        "endswith",  # String matching
+        "in",
+        "not_in",  # Set membership
+    }
+)
 
 
 # =============================================================================
 # Query Parameter Parsing (parse_qs format with list values)
 # =============================================================================
+
 
 def parse_int_param(
     query: Dict[str, list],
@@ -177,6 +211,7 @@ def parse_string_param(
 # Simple Query Value Parsing (for aiohttp-style query dicts)
 # =============================================================================
 
+
 def safe_query_int(
     query: Any,
     key: str,
@@ -246,6 +281,7 @@ def safe_query_float(
 # =============================================================================
 # Sort Parameter Validation
 # =============================================================================
+
 
 def validate_sort_param(
     query: Any,
@@ -362,6 +398,7 @@ def validate_sort_params(
 # Safe String Parameter with Length Validation
 # =============================================================================
 
+
 def safe_query_string(
     query: Any,
     key: str,
@@ -468,8 +505,20 @@ def validate_search_query(
     # Block SQL injection keywords (case-insensitive)
     if block_sql_keywords:
         sql_keywords = [
-            "select", "insert", "update", "delete", "drop", "union",
-            "exec", "execute", "xp_", "sp_", "--", ";--", "/*", "*/",
+            "select",
+            "insert",
+            "update",
+            "delete",
+            "drop",
+            "union",
+            "exec",
+            "execute",
+            "xp_",
+            "sp_",
+            "--",
+            ";--",
+            "/*",
+            "*/",
         ]
         lower_query = sanitized.lower()
         for keyword in sql_keywords:

@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 try:
     import jwt
     from jwt import PyJWKClient
+
     HAS_JWT = True
 except ImportError:
     jwt = None
@@ -61,6 +62,7 @@ except ImportError:
 # Optional: httpx for async HTTP
 try:
     import httpx
+
     HAS_HTTPX = True
 except ImportError:
     httpx = None
@@ -107,16 +109,18 @@ class OIDCConfig(SSOConfig):
     allowed_audiences: List[str] = field(default_factory=list)
 
     # Claim mapping (OIDC claim -> user field)
-    claim_mapping: Dict[str, str] = field(default_factory=lambda: {
-        "sub": "id",
-        "email": "email",
-        "name": "name",
-        "given_name": "first_name",
-        "family_name": "last_name",
-        "preferred_username": "username",
-        "groups": "groups",
-        "roles": "roles",
-    })
+    claim_mapping: Dict[str, str] = field(
+        default_factory=lambda: {
+            "sub": "id",
+            "email": "email",
+            "name": "name",
+            "given_name": "first_name",
+            "family_name": "last_name",
+            "preferred_username": "username",
+            "groups": "groups",
+            "roles": "roles",
+        }
+    )
 
     def __post_init__(self):
         if not self.provider_type:
@@ -187,8 +191,7 @@ class OIDCProvider(SSOProvider):
         errors = config.validate()
         if errors:
             raise SSOConfigurationError(
-                f"Invalid OIDC configuration: {', '.join(errors)}",
-                {"errors": errors}
+                f"Invalid OIDC configuration: {', '.join(errors)}", {"errors": errors}
             )
 
         # PKCE state (code_verifier stored by state)
@@ -215,8 +218,7 @@ class OIDCProvider(SSOProvider):
             return {}
 
         discovery_url = urljoin(
-            self.config.issuer_url.rstrip("/") + "/",
-            ".well-known/openid-configuration"
+            self.config.issuer_url.rstrip("/") + "/", ".well-known/openid-configuration"
         )
 
         try:
@@ -228,6 +230,7 @@ class OIDCProvider(SSOProvider):
             else:
                 # Fallback to sync requests
                 import urllib.request
+
                 with urllib.request.urlopen(discovery_url, timeout=10) as resp:
                     self._discovery_cache = json.loads(resp.read().decode())
 
@@ -346,8 +349,7 @@ class OIDCProvider(SSOProvider):
         # Validate state
         if state and not self.validate_state(state):
             raise SSOAuthenticationError(
-                "Invalid or expired state parameter",
-                {"code": "INVALID_STATE"}
+                "Invalid or expired state parameter", {"code": "INVALID_STATE"}
             )
 
         # Get PKCE code verifier
@@ -365,7 +367,7 @@ class OIDCProvider(SSOProvider):
         if not self.is_domain_allowed(user.email):
             raise SSOAuthenticationError(
                 f"Email domain not allowed: {user.email.split('@')[-1]}",
-                {"code": "DOMAIN_NOT_ALLOWED"}
+                {"code": "DOMAIN_NOT_ALLOWED"},
             )
 
         logger.info(f"OIDC authentication successful for {user.email}")
@@ -402,10 +404,7 @@ class OIDCProvider(SSOProvider):
             if HAS_HTTPX:
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
-                        token_endpoint,
-                        data=data,
-                        headers=headers,
-                        timeout=30.0
+                        token_endpoint, data=data, headers=headers, timeout=30.0
                     )
                     response.raise_for_status()
                     return response.json()
@@ -416,10 +415,7 @@ class OIDCProvider(SSOProvider):
 
                 req_data = urllib.parse.urlencode(data).encode()
                 req = urllib.request.Request(
-                    token_endpoint,
-                    data=req_data,
-                    headers=headers,
-                    method="POST"
+                    token_endpoint, data=req_data, headers=headers, method="POST"
                 )
                 with urllib.request.urlopen(req, timeout=30) as resp:
                     return json.loads(resp.read().decode())
@@ -492,15 +488,12 @@ class OIDCProvider(SSOProvider):
         try:
             if HAS_HTTPX:
                 async with httpx.AsyncClient() as client:
-                    response = await client.get(
-                        userinfo_endpoint,
-                        headers=headers,
-                        timeout=10.0
-                    )
+                    response = await client.get(userinfo_endpoint, headers=headers, timeout=10.0)
                     response.raise_for_status()
                     return response.json()
             else:
                 import urllib.request
+
                 req = urllib.request.Request(userinfo_endpoint, headers=headers)
                 with urllib.request.urlopen(req, timeout=10) as resp:
                     return json.loads(resp.read().decode())
@@ -598,22 +591,15 @@ class OIDCProvider(SSOProvider):
         try:
             if HAS_HTTPX:
                 async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        token_endpoint,
-                        data=data,
-                        timeout=30.0
-                    )
+                    response = await client.post(token_endpoint, data=data, timeout=30.0)
                     response.raise_for_status()
                     tokens = response.json()
             else:
                 import urllib.request
                 import urllib.parse
+
                 req_data = urllib.parse.urlencode(data).encode()
-                req = urllib.request.Request(
-                    token_endpoint,
-                    data=req_data,
-                    method="POST"
-                )
+                req = urllib.request.Request(token_endpoint, data=req_data, method="POST")
                 with urllib.request.urlopen(req, timeout=30) as resp:
                     tokens = json.loads(resp.read().decode())
 

@@ -21,6 +21,7 @@ import hashlib
 
 class CitationType(Enum):
     """Type of citation source."""
+
     ACADEMIC_PAPER = "academic_paper"
     BOOK = "book"
     CONFERENCE = "conference"
@@ -38,6 +39,7 @@ class CitationType(Enum):
 
 class CitationQuality(Enum):
     """Quality level of a citation."""
+
     PEER_REVIEWED = "peer_reviewed"  # Highest quality
     AUTHORITATIVE = "authoritative"  # Official but not peer-reviewed
     REPUTABLE = "reputable"  # Well-known source
@@ -53,6 +55,7 @@ class ScholarlyEvidence:
 
     Designed for rigorous citation tracking in high-stakes debates.
     """
+
     id: str = ""
 
     # Source identification
@@ -177,6 +180,7 @@ class ScholarlyEvidence:
 @dataclass
 class CitedClaim:
     """A claim with supporting citations."""
+
     claim_text: str
     claim_id: str = ""
     citations: list[ScholarlyEvidence] = field(default_factory=list)
@@ -211,6 +215,7 @@ class GroundedVerdict:
 
     Heavy3-inspired: "Delivers verdicts with scholarly references."
     """
+
     verdict: str
     confidence: float
     claims: list[CitedClaim] = field(default_factory=list)
@@ -303,7 +308,7 @@ class CitationExtractor:
     def extract_claims(self, text: str) -> list[str]:
         """Extract sentences that contain claim patterns."""
         claims = []
-        sentences = re.split(r'[.!?]+', text)
+        sentences = re.split(r"[.!?]+", text)
 
         for sentence in sentences:
             sentence = sentence.strip()
@@ -330,11 +335,13 @@ class CitationExtractor:
             elif any(word in claim.lower() for word in ["suggests", "may", "could"]):
                 priority = "low"
 
-            needs.append({
-                "claim": claim,
-                "priority": priority,
-                "suggested_source_types": self._suggest_source_types(claim),
-            })
+            needs.append(
+                {
+                    "claim": claim,
+                    "priority": priority,
+                    "suggested_source_types": self._suggest_source_types(claim),
+                }
+            )
 
         return needs
 

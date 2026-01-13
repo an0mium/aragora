@@ -64,10 +64,7 @@ class AggregatedVotes:
         """Get vote distribution as percentages."""
         if self.total_weighted <= 0:
             return {}
-        return {
-            choice: count / self.total_weighted
-            for choice, count in self.vote_counts.items()
-        }
+        return {choice: count / self.total_weighted for choice, count in self.vote_counts.items()}
 
 
 class VoteAggregator:
@@ -133,9 +130,7 @@ class VoteAggregator:
         vote_groups, choice_mapping = self._compute_vote_groups(votes)
 
         # Step 2: Count weighted agent votes
-        vote_counts, total_weighted = self._count_weighted_votes(
-            votes, choice_mapping, weights
-        )
+        vote_counts, total_weighted = self._count_weighted_votes(votes, choice_mapping, weights)
         agent_votes_count = len([v for v in votes if not isinstance(v, Exception)])
 
         # Step 3: Add user votes
@@ -167,8 +162,7 @@ class VoteAggregator:
         if not self._group_similar_votes:
             # No grouping - identity mapping
             choices = set(
-                v.choice for v in votes
-                if not isinstance(v, Exception) and hasattr(v, 'choice')
+                v.choice for v in votes if not isinstance(v, Exception) and hasattr(v, "choice")
             )
             return {c: [c] for c in choices}, {c: c for c in choices}
 
@@ -177,8 +171,7 @@ class VoteAggregator:
         except Exception as e:
             logger.warning(f"Vote grouping failed: {e}")
             choices = set(
-                v.choice for v in votes
-                if not isinstance(v, Exception) and hasattr(v, 'choice')
+                v.choice for v in votes if not isinstance(v, Exception) and hasattr(v, "choice")
             )
             return {c: [c] for c in choices}, {c: c for c in choices}
 
@@ -215,7 +208,7 @@ class VoteAggregator:
         for vote in votes:
             if isinstance(vote, Exception):
                 continue
-            if not hasattr(vote, 'choice') or not hasattr(vote, 'agent'):
+            if not hasattr(vote, "choice") or not hasattr(vote, "agent"):
                 continue
 
             canonical = choice_mapping.get(vote.choice, vote.choice)
@@ -257,9 +250,7 @@ class VoteAggregator:
             # Calculate weight
             if self._user_vote_multiplier:
                 try:
-                    intensity_multiplier = self._user_vote_multiplier(
-                        intensity, self.protocol
-                    )
+                    intensity_multiplier = self._user_vote_multiplier(intensity, self.protocol)
                 except Exception as e:
                     logger.warning("User vote multiplier failed, using 1.0: %s", e)
                     intensity_multiplier = 1.0
@@ -298,7 +289,7 @@ class VoteAggregator:
         for vote in votes:
             if isinstance(vote, Exception):
                 continue
-            if not hasattr(vote, 'choice'):
+            if not hasattr(vote, "choice"):
                 continue
 
             canonical = choice_mapping.get(vote.choice, vote.choice)

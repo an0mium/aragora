@@ -195,13 +195,7 @@ class TestEventSerialization:
             type=StreamEventType.CONSENSUS,
             data={
                 "scores": {"agent_a": 0.8, "agent_b": 0.6},
-                "metadata": {
-                    "nested": {
-                        "deeply": {
-                            "value": 42
-                        }
-                    }
-                },
+                "metadata": {"nested": {"deeply": {"value": 42}}},
             },
         )
 
@@ -288,18 +282,17 @@ class TestSyncEventEmitter:
         def emit_events(thread_id):
             try:
                 for i in range(10):  # Fewer events to avoid queue overflow
-                    emitter.emit(StreamEvent(
-                        StreamEventType.AGENT_MESSAGE,
-                        {"thread": thread_id, "index": i},
-                    ))
+                    emitter.emit(
+                        StreamEvent(
+                            StreamEventType.AGENT_MESSAGE,
+                            {"thread": thread_id, "index": i},
+                        )
+                    )
             except Exception as e:
                 errors.append(e)
 
         # Start multiple threads
-        threads = [
-            threading.Thread(target=emit_events, args=(i,))
-            for i in range(5)
-        ]
+        threads = [threading.Thread(target=emit_events, args=(i,)) for i in range(5)]
 
         for t in threads:
             t.start()

@@ -35,7 +35,9 @@ def sample_result() -> DebateResult:
         duration_seconds=120.5,
         messages=[
             Message(role="proposer", agent="claude", content="Unit tests are essential.", round=0),
-            Message(role="proposer", agent="gemini", content="Integration tests matter more.", round=0),
+            Message(
+                role="proposer", agent="gemini", content="Integration tests matter more.", round=0
+            ),
             Message(role="critic", agent="codex", content="Both have valid points.", round=1),
             Message(role="synthesizer", agent="claude", content="We need all types.", round=2),
         ],
@@ -118,7 +120,7 @@ class TestHTMLGeneration:
         html = generate_html_report(sample_result)
 
         assert "<!DOCTYPE html>" in html
-        assert "<html lang=\"en\">" in html
+        assert '<html lang="en">' in html
         assert "</html>" in html
         assert "<head>" in html
         assert "<body>" in html
@@ -217,7 +219,7 @@ class TestHTMLGeneration:
         """HTML contains generation timestamp."""
         html = generate_html_report(sample_result)
         # Should contain current date in some format
-        today = datetime.now().strftime('%Y-%m-%d')
+        today = datetime.now().strftime("%Y-%m-%d")
         assert today in html
 
 
@@ -517,7 +519,7 @@ class TestEdgeCases:
                 Message(
                     role="proposer",
                     agent="agent1",
-                    content="Unicode: \u2603 \u2764 \U0001F600",
+                    content="Unicode: \u2603 \u2764 \U0001f600",
                     round=0,
                 ),
             ],

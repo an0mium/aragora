@@ -347,11 +347,11 @@ class PostgresBackend(DatabaseBackend):
                 password=config.pg_password,
             )
             self._initialized = True
-            logger.info(f"PostgreSQL backend initialized (psycopg2) - {config.pg_host}:{config.pg_port}")
-        except ImportError:
-            logger.warning(
-                "psycopg2 not installed. Install with: pip install psycopg2-binary"
+            logger.info(
+                f"PostgreSQL backend initialized (psycopg2) - {config.pg_host}:{config.pg_port}"
             )
+        except ImportError:
+            logger.warning("psycopg2 not installed. Install with: pip install psycopg2-binary")
 
     @property
     def placeholder(self) -> str:
@@ -367,8 +367,7 @@ class PostgresBackend(DatabaseBackend):
         """Get a connection from the pool."""
         if not self._initialized or self._sync_pool is None:
             raise ConfigurationError(
-                component="PostgreSQL",
-                reason="Backend not initialized. Call initialize() first"
+                component="PostgreSQL", reason="Backend not initialized. Call initialize() first"
             )
 
         return self._sync_pool.getconn()
@@ -383,8 +382,7 @@ class PostgresBackend(DatabaseBackend):
         """Context manager for database connections."""
         if not self._initialized:
             raise ConfigurationError(
-                component="PostgreSQL",
-                reason="Backend not initialized. Call initialize() first"
+                component="PostgreSQL", reason="Backend not initialized. Call initialize() first"
             )
 
         conn = self.connect()

@@ -105,23 +105,21 @@ class TestGrokGenerate:
         """Test successful API response."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "choices": [{
-                "message": {"content": "Hello from Grok!"}
-            }],
-            "usage": {
-                "prompt_tokens": 10,
-                "completion_tokens": 5
+        mock_response.json = AsyncMock(
+            return_value={
+                "choices": [{"message": {"content": "Hello from Grok!"}}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
             }
-        })
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.generate("Test prompt")
@@ -144,10 +142,11 @@ class TestGrokGenerate:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_grok_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_grok_response), __aexit__=AsyncMock()
+            )
+        )
 
         mock_fallback = AsyncMock()
         mock_fallback.generate = AsyncMock(return_value="Fallback response")
@@ -189,10 +188,11 @@ class TestGrokStreaming:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         async def fallback_stream():
             yield "Fallback"

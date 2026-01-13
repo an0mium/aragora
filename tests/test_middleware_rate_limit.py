@@ -40,6 +40,7 @@ from aragora.services import ServiceRegistry
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture(autouse=True)
 def reset_services():
     """Reset ServiceRegistry and rate limiters before each test."""
@@ -63,6 +64,7 @@ def tier_limiter():
 # ============================================================================
 # TokenBucket Tests
 # ============================================================================
+
 
 class TestTokenBucket:
     """Tests for TokenBucket class."""
@@ -169,6 +171,7 @@ class TestTokenBucket:
 # RateLimitConfig Tests
 # ============================================================================
 
+
 class TestRateLimitConfig:
     """Tests for RateLimitConfig dataclass."""
 
@@ -197,6 +200,7 @@ class TestRateLimitConfig:
 # ============================================================================
 # RateLimitResult Tests
 # ============================================================================
+
 
 class TestRateLimitResult:
     """Tests for RateLimitResult dataclass."""
@@ -229,6 +233,7 @@ class TestRateLimitResult:
 # ============================================================================
 # RateLimiter Tests
 # ============================================================================
+
 
 class TestRateLimiter:
     """Tests for RateLimiter class."""
@@ -296,11 +301,7 @@ class TestRateLimiter:
         """Test token-based rate limiting."""
         rate_limiter.configure_endpoint("/api/auth", 10, key_type="token")
 
-        result = rate_limiter.allow(
-            "192.168.1.1",
-            endpoint="/api/auth",
-            token="user-token-123"
-        )
+        result = rate_limiter.allow("192.168.1.1", endpoint="/api/auth", token="user-token-123")
         assert result.allowed is True
         assert "token:" in result.key
 
@@ -406,6 +407,7 @@ class TestRateLimiter:
 # RateLimiterRegistry Tests
 # ============================================================================
 
+
 class TestRateLimiterRegistry:
     """Tests for RateLimiterRegistry class."""
 
@@ -488,6 +490,7 @@ class TestRateLimiterRegistry:
 # TierRateLimiter Tests
 # ============================================================================
 
+
 class TestTierRateLimiter:
     """Tests for TierRateLimiter class."""
 
@@ -534,10 +537,12 @@ class TestTierRateLimiter:
     def test_allow_tier_isolation(self, tier_limiter):
         """Test different tiers have isolated buckets."""
         # Create custom limiter with low limits for testing
-        limiter = TierRateLimiter(tier_limits={
-            "free": (2, 2),
-            "premium": (100, 100),
-        })
+        limiter = TierRateLimiter(
+            tier_limits={
+                "free": (2, 2),
+                "premium": (100, 100),
+            }
+        )
 
         # Exhaust free tier limit
         limiter.allow("user-1", "free")
@@ -582,6 +587,7 @@ class TestTierRateLimiter:
 # Convenience Functions Tests
 # ============================================================================
 
+
 class TestConvenienceFunctions:
     """Tests for module-level convenience functions."""
 
@@ -625,6 +631,7 @@ class TestConvenienceFunctions:
 # Rate Limit Headers Tests
 # ============================================================================
 
+
 class TestRateLimitHeaders:
     """Tests for rate_limit_headers function."""
 
@@ -665,11 +672,13 @@ class TestRateLimitHeaders:
 # Rate Limit Decorator Tests
 # ============================================================================
 
+
 class TestRateLimitDecorator:
     """Tests for rate_limit decorator."""
 
     def test_decorator_allows_under_limit(self):
         """Test decorated function executes under limit."""
+
         @rate_limit(requests_per_minute=100)
         def handler(handler_arg):
             return {"status": "ok"}
@@ -706,6 +715,7 @@ class TestRateLimitDecorator:
 
     def test_decorator_per_ip_isolation(self):
         """Test decorator isolates by IP."""
+
         @rate_limit(requests_per_minute=1, burst=1, limiter_name="test_isolation")
         def handler(handler_arg):
             return {"status": "ok"}
@@ -728,6 +738,7 @@ class TestRateLimitDecorator:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestRateLimitIntegration:
     """Integration tests for rate limiting."""
@@ -768,10 +779,12 @@ class TestRateLimitIntegration:
 
     def test_tier_rate_limiting(self):
         """Test tier-based rate limiting."""
-        limiter = TierRateLimiter(tier_limits={
-            "free": (2, 2),
-            "premium": (10, 10),
-        })
+        limiter = TierRateLimiter(
+            tier_limits={
+                "free": (2, 2),
+                "premium": (10, 10),
+            }
+        )
 
         # Free user hits limit quickly
         limiter.allow("free-user", "free")

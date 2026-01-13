@@ -115,28 +115,31 @@ class TestConsensusOutcome:
 
     def test_from_row(self):
         """from_row should deserialize from database row."""
+
         # Create a mock row
         class MockRow(dict):
             def __getitem__(self, key):
                 return dict.get(self, key)
 
-        row = MockRow({
-            "debate_id": "debate-1",
-            "consensus_text": "Test",
-            "consensus_confidence": 0.85,
-            "implementation_attempted": 1,
-            "implementation_succeeded": 1,
-            "tests_passed": 10,
-            "tests_failed": 0,
-            "rollback_triggered": 0,
-            "time_to_failure": None,
-            "failure_reason": None,
-            "timestamp": "2024-01-01T00:00:00",
-            "agents_participating": '["claude"]',
-            "rounds_completed": 3,
-            "trickster_interventions": 1,
-            "evidence_coverage": 0.8,
-        })
+        row = MockRow(
+            {
+                "debate_id": "debate-1",
+                "consensus_text": "Test",
+                "consensus_confidence": 0.85,
+                "implementation_attempted": 1,
+                "implementation_succeeded": 1,
+                "tests_passed": 10,
+                "tests_failed": 0,
+                "rollback_triggered": 0,
+                "time_to_failure": None,
+                "failure_reason": None,
+                "timestamp": "2024-01-01T00:00:00",
+                "agents_participating": '["claude"]',
+                "rounds_completed": 3,
+                "trickster_interventions": 1,
+                "evidence_coverage": 0.8,
+            }
+        )
 
         outcome = ConsensusOutcome.from_row(row)
 
@@ -228,9 +231,7 @@ class TestOutcomeTrackerInit:
     def test_creates_schema(self, tracker, temp_db_path):
         """Should create required tables."""
         with sqlite3.connect(temp_db_path) as conn:
-            cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            )
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = [row[0] for row in cursor.fetchall()]
 
         assert "outcomes" in tables
@@ -238,9 +239,7 @@ class TestOutcomeTrackerInit:
     def test_creates_indexes(self, tracker, temp_db_path):
         """Should create required indexes."""
         with sqlite3.connect(temp_db_path) as conn:
-            cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='index'"
-            )
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='index'")
             indexes = [row[0] for row in cursor.fetchall()]
 
         assert "idx_outcomes_confidence" in indexes
@@ -401,22 +400,28 @@ class TestSuccessRateByConfidence:
         """Should calculate success rates by bucket."""
         # Add outcomes with varying confidence
         for conf, success in [
-            (0.75, True), (0.72, True), (0.78, False),  # 0.7-0.8 bucket
-            (0.85, True), (0.88, True), (0.82, True),   # 0.8-0.9 bucket
+            (0.75, True),
+            (0.72, True),
+            (0.78, False),  # 0.7-0.8 bucket
+            (0.85, True),
+            (0.88, True),
+            (0.82, True),  # 0.8-0.9 bucket
         ]:
-            tracker.record_outcome(ConsensusOutcome(
-                debate_id=f"debate-{conf}-{success}",
-                consensus_text="Test",
-                consensus_confidence=conf,
-                implementation_attempted=True,
-                implementation_succeeded=success,
-            ))
+            tracker.record_outcome(
+                ConsensusOutcome(
+                    debate_id=f"debate-{conf}-{success}",
+                    consensus_text="Test",
+                    consensus_confidence=conf,
+                    implementation_attempted=True,
+                    implementation_succeeded=success,
+                )
+            )
 
         result = tracker.get_success_rate_by_confidence()
 
         # 0.7-0.8: 2 success out of 3
         assert "0.7-0.8" in result
-        assert result["0.7-0.8"] == pytest.approx(2/3, rel=0.01)
+        assert result["0.7-0.8"] == pytest.approx(2 / 3, rel=0.01)
 
         # 0.8-0.9: 3 success out of 3
         assert "0.8-0.9" in result
@@ -445,13 +450,15 @@ class TestCalibrationCurve:
         # Add outcomes at specific confidence levels
         # Use enumerate for unique debate_ids
         for i, conf in enumerate([0.75, 0.85, 0.86, 0.95]):
-            tracker.record_outcome(ConsensusOutcome(
-                debate_id=f"debate-bucket-{i}",
-                consensus_text="Test",
-                consensus_confidence=conf,
-                implementation_attempted=True,
-                implementation_succeeded=True,
-            ))
+            tracker.record_outcome(
+                ConsensusOutcome(
+                    debate_id=f"debate-bucket-{i}",
+                    consensus_text="Test",
+                    consensus_confidence=conf,
+                    implementation_attempted=True,
+                    implementation_succeeded=True,
+                )
+            )
 
         result = tracker.get_calibration_curve(num_buckets=10)
 
@@ -478,22 +485,26 @@ class TestFailurePatterns:
     def test_counts_failure_reasons(self, tracker):
         """Should count failure reasons."""
         # Add failures with reasons
-        for i, reason in enumerate([
-            "Type error",
-            "Type error",
-            "Type error",
-            "Timeout",
-            "Timeout",
-            "Connection failed",
-        ]):
-            tracker.record_outcome(ConsensusOutcome(
-                debate_id=f"fail-{i}",
-                consensus_text="Test",
-                consensus_confidence=0.5,
-                implementation_attempted=True,
-                implementation_succeeded=False,
-                failure_reason=reason,
-            ))
+        for i, reason in enumerate(
+            [
+                "Type error",
+                "Type error",
+                "Type error",
+                "Timeout",
+                "Timeout",
+                "Connection failed",
+            ]
+        ):
+            tracker.record_outcome(
+                ConsensusOutcome(
+                    debate_id=f"fail-{i}",
+                    consensus_text="Test",
+                    consensus_confidence=0.5,
+                    implementation_attempted=True,
+                    implementation_succeeded=False,
+                    failure_reason=reason,
+                )
+            )
 
         result = tracker.get_failure_patterns(limit=10)
 
@@ -506,14 +517,16 @@ class TestFailurePatterns:
     def test_respects_limit(self, tracker):
         """Should respect limit parameter."""
         for i in range(10):
-            tracker.record_outcome(ConsensusOutcome(
-                debate_id=f"fail-{i}",
-                consensus_text="Test",
-                consensus_confidence=0.5,
-                implementation_attempted=True,
-                implementation_succeeded=False,
-                failure_reason=f"Reason {i}",
-            ))
+            tracker.record_outcome(
+                ConsensusOutcome(
+                    debate_id=f"fail-{i}",
+                    consensus_text="Test",
+                    consensus_confidence=0.5,
+                    implementation_attempted=True,
+                    implementation_succeeded=False,
+                    failure_reason=f"Reason {i}",
+                )
+            )
 
         result = tracker.get_failure_patterns(limit=3)
 
@@ -535,32 +548,38 @@ class TestOverallStats:
     def test_calculates_stats(self, tracker):
         """Should calculate correct statistics."""
         # Add mix of outcomes
-        tracker.record_outcome(ConsensusOutcome(
-            debate_id="d1",
-            consensus_text="T",
-            consensus_confidence=0.8,
-            implementation_attempted=True,
-            implementation_succeeded=True,
-            tests_passed=10,
-            tests_failed=0,
-        ))
-        tracker.record_outcome(ConsensusOutcome(
-            debate_id="d2",
-            consensus_text="T",
-            consensus_confidence=0.7,
-            implementation_attempted=True,
-            implementation_succeeded=False,
-            tests_passed=5,
-            tests_failed=3,
-            rollback_triggered=True,
-        ))
-        tracker.record_outcome(ConsensusOutcome(
-            debate_id="d3",
-            consensus_text="T",
-            consensus_confidence=0.6,
-            implementation_attempted=False,
-            implementation_succeeded=False,
-        ))
+        tracker.record_outcome(
+            ConsensusOutcome(
+                debate_id="d1",
+                consensus_text="T",
+                consensus_confidence=0.8,
+                implementation_attempted=True,
+                implementation_succeeded=True,
+                tests_passed=10,
+                tests_failed=0,
+            )
+        )
+        tracker.record_outcome(
+            ConsensusOutcome(
+                debate_id="d2",
+                consensus_text="T",
+                consensus_confidence=0.7,
+                implementation_attempted=True,
+                implementation_succeeded=False,
+                tests_passed=5,
+                tests_failed=3,
+                rollback_triggered=True,
+            )
+        )
+        tracker.record_outcome(
+            ConsensusOutcome(
+                debate_id="d3",
+                consensus_text="T",
+                consensus_confidence=0.6,
+                implementation_attempted=False,
+                implementation_succeeded=False,
+            )
+        )
 
         stats = tracker.get_overall_stats()
 
@@ -585,13 +604,15 @@ class TestIsOverconfident:
     def test_false_with_few_samples(self, tracker):
         """Should return False with < 5 samples."""
         for i in range(3):
-            tracker.record_outcome(ConsensusOutcome(
-                debate_id=f"d{i}",
-                consensus_text="T",
-                consensus_confidence=0.9,
-                implementation_attempted=True,
-                implementation_succeeded=False,
-            ))
+            tracker.record_outcome(
+                ConsensusOutcome(
+                    debate_id=f"d{i}",
+                    consensus_text="T",
+                    consensus_confidence=0.9,
+                    implementation_attempted=True,
+                    implementation_succeeded=False,
+                )
+            )
 
         result = tracker.is_overconfident(threshold=0.7)
         assert result is False  # Not enough samples
@@ -600,13 +621,15 @@ class TestIsOverconfident:
         """Should return True when system is overconfident."""
         # High confidence, low success rate
         for i in range(10):
-            tracker.record_outcome(ConsensusOutcome(
-                debate_id=f"d{i}",
-                consensus_text="T",
-                consensus_confidence=0.9,  # 90% confident
-                implementation_attempted=True,
-                implementation_succeeded=(i < 3),  # Only 30% success
-            ))
+            tracker.record_outcome(
+                ConsensusOutcome(
+                    debate_id=f"d{i}",
+                    consensus_text="T",
+                    consensus_confidence=0.9,  # 90% confident
+                    implementation_attempted=True,
+                    implementation_succeeded=(i < 3),  # Only 30% success
+                )
+            )
 
         result = tracker.is_overconfident(threshold=0.7)
         assert result is True  # 90% conf vs 30% success
@@ -615,13 +638,15 @@ class TestIsOverconfident:
         """Should return False when well calibrated."""
         # High confidence, high success rate
         for i in range(10):
-            tracker.record_outcome(ConsensusOutcome(
-                debate_id=f"d{i}",
-                consensus_text="T",
-                consensus_confidence=0.85,  # 85% confident
-                implementation_attempted=True,
-                implementation_succeeded=(i < 8),  # 80% success
-            ))
+            tracker.record_outcome(
+                ConsensusOutcome(
+                    debate_id=f"d{i}",
+                    consensus_text="T",
+                    consensus_confidence=0.85,  # 85% confident
+                    implementation_attempted=True,
+                    implementation_succeeded=(i < 8),  # 80% success
+                )
+            )
 
         result = tracker.is_overconfident(threshold=0.7)
         assert result is False  # Within 10% margin
@@ -639,13 +664,15 @@ class TestCalibrationAdjustment:
         """Should return < 1.0 for overconfidence."""
         # High confidence, low success
         for i in range(10):
-            tracker.record_outcome(ConsensusOutcome(
-                debate_id=f"d{i}",
-                consensus_text="T",
-                consensus_confidence=0.85,  # 85% confident
-                implementation_attempted=True,
-                implementation_succeeded=(i < 5),  # 50% success
-            ))
+            tracker.record_outcome(
+                ConsensusOutcome(
+                    debate_id=f"d{i}",
+                    consensus_text="T",
+                    consensus_confidence=0.85,  # 85% confident
+                    implementation_attempted=True,
+                    implementation_succeeded=(i < 5),  # 50% success
+                )
+            )
 
         adjustment = tracker.get_calibration_adjustment()
         assert adjustment < 1.0  # Should recommend increasing sensitivity
@@ -654,13 +681,15 @@ class TestCalibrationAdjustment:
         """Should return > 1.0 for underconfidence."""
         # Low confidence, high success
         for i in range(10):
-            tracker.record_outcome(ConsensusOutcome(
-                debate_id=f"d{i}",
-                consensus_text="T",
-                consensus_confidence=0.75,  # 75% confident
-                implementation_attempted=True,
-                implementation_succeeded=True,  # 100% success
-            ))
+            tracker.record_outcome(
+                ConsensusOutcome(
+                    debate_id=f"d{i}",
+                    consensus_text="T",
+                    consensus_confidence=0.75,  # 75% confident
+                    implementation_attempted=True,
+                    implementation_succeeded=True,  # 100% success
+                )
+            )
 
         adjustment = tracker.get_calibration_adjustment()
         assert adjustment > 1.0  # Should recommend decreasing sensitivity
@@ -669,13 +698,15 @@ class TestCalibrationAdjustment:
         """Adjustment should be clamped to reasonable range."""
         # Extreme overconfidence
         for i in range(10):
-            tracker.record_outcome(ConsensusOutcome(
-                debate_id=f"d{i}",
-                consensus_text="T",
-                consensus_confidence=0.95,
-                implementation_attempted=True,
-                implementation_succeeded=False,
-            ))
+            tracker.record_outcome(
+                ConsensusOutcome(
+                    debate_id=f"d{i}",
+                    consensus_text="T",
+                    consensus_confidence=0.95,
+                    implementation_attempted=True,
+                    implementation_succeeded=False,
+                )
+            )
 
         adjustment = tracker.get_calibration_adjustment()
         assert 0.5 <= adjustment <= 1.5

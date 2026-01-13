@@ -9,9 +9,7 @@ import threading
 
 import pytest
 
-from aragora.server.stream import (
-    TokenBucket, AudienceInbox, AudienceMessage, normalize_intensity
-)
+from aragora.server.stream import TokenBucket, AudienceInbox, AudienceMessage, normalize_intensity
 from aragora.debate.protocol import DebateProtocol, user_vote_multiplier
 
 
@@ -53,7 +51,9 @@ class TestAudienceInbox:
         # Add some messages
         messages = [
             AudienceMessage(type="vote", loop_id="test-loop", payload={"choice": "option1"}),
-            AudienceMessage(type="suggestion", loop_id="test-loop", payload={"suggestion": "Great idea!"}),
+            AudienceMessage(
+                type="suggestion", loop_id="test-loop", payload={"suggestion": "Great idea!"}
+            ),
             AudienceMessage(type="vote", loop_id="test-loop", payload={"choice": "option2"}),
         ]
 
@@ -82,9 +82,7 @@ class TestAudienceInbox:
         def producer():
             for i in range(100):
                 msg = AudienceMessage(
-                    type="vote",
-                    loop_id="test-loop",
-                    payload={"choice": f"option{i}"}
+                    type="vote", loop_id="test-loop", payload={"choice": f"option{i}"}
                 )
                 inbox.put(msg)
 
@@ -154,9 +152,15 @@ class TestAudienceInbox:
         inbox = AudienceInbox()
 
         # Add votes for different loops
-        inbox.put(AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "X", "intensity": 5}))
-        inbox.put(AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "Y", "intensity": 7}))
-        inbox.put(AudienceMessage(type="vote", loop_id="loop2", payload={"choice": "X", "intensity": 3}))
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "X", "intensity": 5})
+        )
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "Y", "intensity": 7})
+        )
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop2", payload={"choice": "X", "intensity": 3})
+        )
 
         # Filter by loop1
         summary1 = inbox.get_summary(loop_id="loop1")
@@ -186,7 +190,7 @@ class TestNormalizeIntensity:
 
     def test_clamping(self):
         """Test intensity clamping at boundaries."""
-        assert normalize_intensity(0) == 1   # Below min
+        assert normalize_intensity(0) == 1  # Below min
         assert normalize_intensity(11) == 10  # Above max
         assert normalize_intensity(-5) == 1  # Negative
 

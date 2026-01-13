@@ -24,6 +24,7 @@ from aragora.reasoning.claims import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def source_reference():
     """Create a sample SourceReference."""
@@ -84,6 +85,7 @@ def kernel_with_claims(kernel):
 # ClaimType Enum Tests
 # =============================================================================
 
+
 class TestClaimTypeEnum:
     """Tests for ClaimType enum."""
 
@@ -109,6 +111,7 @@ class TestClaimTypeEnum:
 # RelationType Enum Tests
 # =============================================================================
 
+
 class TestRelationTypeEnum:
     """Tests for RelationType enum."""
 
@@ -133,6 +136,7 @@ class TestRelationTypeEnum:
 # EvidenceType Enum Tests
 # =============================================================================
 
+
 class TestEvidenceTypeEnum:
     """Tests for EvidenceType enum."""
 
@@ -156,6 +160,7 @@ class TestEvidenceTypeEnum:
 # =============================================================================
 # SourceReference Dataclass Tests
 # =============================================================================
+
 
 class TestSourceReference:
     """Tests for SourceReference dataclass."""
@@ -184,6 +189,7 @@ class TestSourceReference:
 # =============================================================================
 # TypedEvidence Dataclass Tests
 # =============================================================================
+
 
 class TestTypedEvidence:
     """Tests for TypedEvidence dataclass."""
@@ -236,6 +242,7 @@ class TestTypedEvidence:
 # TypedClaim Dataclass Tests
 # =============================================================================
 
+
 class TestTypedClaim:
     """Tests for TypedClaim dataclass."""
 
@@ -253,14 +260,24 @@ class TestTypedClaim:
 
     def test_evidence_strength_calculates_average(self, typed_claim, source_reference):
         """evidence_strength should calculate average of evidence strengths."""
-        typed_claim.evidence.append(TypedEvidence(
-            evidence_id="e1", evidence_type=EvidenceType.DATA,
-            content="data1", source=source_reference, strength=0.6,
-        ))
-        typed_claim.evidence.append(TypedEvidence(
-            evidence_id="e2", evidence_type=EvidenceType.ARGUMENT,
-            content="arg1", source=source_reference, strength=0.8,
-        ))
+        typed_claim.evidence.append(
+            TypedEvidence(
+                evidence_id="e1",
+                evidence_type=EvidenceType.DATA,
+                content="data1",
+                source=source_reference,
+                strength=0.6,
+            )
+        )
+        typed_claim.evidence.append(
+            TypedEvidence(
+                evidence_id="e2",
+                evidence_type=EvidenceType.ARGUMENT,
+                content="arg1",
+                source=source_reference,
+                strength=0.8,
+            )
+        )
 
         assert typed_claim.evidence_strength == 0.7  # (0.6 + 0.8) / 2
 
@@ -317,6 +334,7 @@ class TestTypedClaim:
 # ClaimRelation Dataclass Tests
 # =============================================================================
 
+
 class TestClaimRelation:
     """Tests for ClaimRelation dataclass."""
 
@@ -372,6 +390,7 @@ class TestClaimRelation:
 # ArgumentChain Dataclass Tests
 # =============================================================================
 
+
 class TestArgumentChain:
     """Tests for ArgumentChain dataclass."""
 
@@ -414,6 +433,7 @@ class TestArgumentChain:
 # =============================================================================
 # fast_extract_claims Function Tests
 # =============================================================================
+
 
 class TestFastExtractClaims:
     """Tests for fast_extract_claims function."""
@@ -510,6 +530,7 @@ class TestFastExtractClaims:
 # fast_extract_claims_cached Function Tests
 # =============================================================================
 
+
 class TestFastExtractClaimsCached:
     """Tests for fast_extract_claims_cached function."""
 
@@ -542,6 +563,7 @@ class TestFastExtractClaimsCached:
 # ClaimsKernel Initialization Tests
 # =============================================================================
 
+
 class TestClaimsKernelInitialization:
     """Tests for ClaimsKernel initialization."""
 
@@ -567,6 +589,7 @@ class TestClaimsKernelInitialization:
 # =============================================================================
 # ClaimsKernel.add_claim Tests
 # =============================================================================
+
 
 class TestClaimsKernelAddClaim:
     """Tests for ClaimsKernel.add_claim method."""
@@ -629,6 +652,7 @@ class TestClaimsKernelAddClaim:
 # ClaimsKernel.add_evidence Tests
 # =============================================================================
 
+
 class TestClaimsKernelAddEvidence:
     """Tests for ClaimsKernel.add_evidence method."""
 
@@ -636,8 +660,12 @@ class TestClaimsKernelAddEvidence:
         """Should create evidence with unique ID."""
         claim = kernel.add_claim("Test claim", "claude")
         evidence = kernel.add_evidence(
-            claim.claim_id, "Supporting data", EvidenceType.DATA,
-            "agent", "claude", 0.7,
+            claim.claim_id,
+            "Supporting data",
+            EvidenceType.DATA,
+            "agent",
+            "claude",
+            0.7,
         )
 
         assert evidence.evidence_id == "test-debate-e0001"
@@ -646,8 +674,11 @@ class TestClaimsKernelAddEvidence:
         """Should add evidence to the claim."""
         claim = kernel.add_claim("Test claim", "claude")
         evidence = kernel.add_evidence(
-            claim.claim_id, "Supporting data", EvidenceType.DATA,
-            "agent", "claude",
+            claim.claim_id,
+            "Supporting data",
+            EvidenceType.DATA,
+            "agent",
+            "claude",
         )
 
         assert len(kernel.claims[claim.claim_id].evidence) == 1
@@ -656,8 +687,11 @@ class TestClaimsKernelAddEvidence:
     def test_returns_evidence_for_missing_claim(self, kernel):
         """Should return evidence but not add it if claim missing."""
         evidence = kernel.add_evidence(
-            "nonexistent-claim", "Data", EvidenceType.DATA,
-            "agent", "claude",
+            "nonexistent-claim",
+            "Data",
+            EvidenceType.DATA,
+            "agent",
+            "claude",
         )
 
         # Evidence is still created
@@ -668,8 +702,12 @@ class TestClaimsKernelAddEvidence:
         """Should create SourceReference correctly."""
         claim = kernel.add_claim("Test claim", "claude")
         evidence = kernel.add_evidence(
-            claim.claim_id, "Data from tool", EvidenceType.TOOL_OUTPUT,
-            "tool", "python-repl", 0.9,
+            claim.claim_id,
+            "Data from tool",
+            EvidenceType.TOOL_OUTPUT,
+            "tool",
+            "python-repl",
+            0.9,
         )
 
         assert evidence.source.source_type == "tool"
@@ -679,6 +717,7 @@ class TestClaimsKernelAddEvidence:
 # =============================================================================
 # ClaimsKernel.add_relation Tests
 # =============================================================================
+
 
 class TestClaimsKernelAddRelation:
     """Tests for ClaimsKernel.add_relation method."""
@@ -720,7 +759,9 @@ class TestClaimsKernelAddRelation:
         c1 = kernel.add_claim("Claim 1", "claude")
         c2 = kernel.add_claim("Claim 2", "gemini")
         relation = kernel.add_relation(
-            c2.claim_id, c1.claim_id, RelationType.SUPPORTS,
+            c2.claim_id,
+            c1.claim_id,
+            RelationType.SUPPORTS,
             explanation="This provides strong support",
         )
 
@@ -731,6 +772,7 @@ class TestClaimsKernelAddRelation:
 # ClaimsKernel.challenge_claim Tests
 # =============================================================================
 
+
 class TestClaimsKernelChallengeClaim:
     """Tests for ClaimsKernel.challenge_claim method."""
 
@@ -738,7 +780,9 @@ class TestClaimsKernelChallengeClaim:
         """Should create an OBJECTION claim."""
         original = kernel.add_claim("Original claim", "claude")
         objection = kernel.challenge_claim(
-            original.claim_id, "gemini", "This is wrong because...",
+            original.claim_id,
+            "gemini",
+            "This is wrong because...",
         )
 
         assert objection.claim_type == ClaimType.OBJECTION
@@ -749,13 +793,14 @@ class TestClaimsKernelChallengeClaim:
         """Should add CONTRADICTS relation."""
         original = kernel.add_claim("Original claim", "claude")
         objection = kernel.challenge_claim(
-            original.claim_id, "gemini", "This is wrong",
+            original.claim_id,
+            "gemini",
+            "This is wrong",
         )
 
         # Find the contradiction relation
         contradictions = [
-            r for r in kernel.relations.values()
-            if r.relation_type == RelationType.CONTRADICTS
+            r for r in kernel.relations.values() if r.relation_type == RelationType.CONTRADICTS
         ]
         assert len(contradictions) == 1
         assert contradictions[0].source_claim_id == objection.claim_id
@@ -765,7 +810,9 @@ class TestClaimsKernelChallengeClaim:
         """Should add evidence to objection if provided."""
         original = kernel.add_claim("Original claim", "claude")
         objection = kernel.challenge_claim(
-            original.claim_id, "gemini", "This is wrong",
+            original.claim_id,
+            "gemini",
+            "This is wrong",
             evidence="Here's why it's wrong...",
         )
 
@@ -777,6 +824,7 @@ class TestClaimsKernelChallengeClaim:
 # ClaimsKernel.synthesize_claims Tests
 # =============================================================================
 
+
 class TestClaimsKernelSynthesizeClaims:
     """Tests for ClaimsKernel.synthesize_claims method."""
 
@@ -785,7 +833,9 @@ class TestClaimsKernelSynthesizeClaims:
         c1 = kernel.add_claim("Point A", "claude")
         c2 = kernel.add_claim("Point B", "gemini")
         synthesis = kernel.synthesize_claims(
-            [c1.claim_id, c2.claim_id], "gpt", "Combining A and B...",
+            [c1.claim_id, c2.claim_id],
+            "gpt",
+            "Combining A and B...",
         )
 
         assert synthesis.claim_type == ClaimType.SYNTHESIS
@@ -796,7 +846,9 @@ class TestClaimsKernelSynthesizeClaims:
         c1 = kernel.add_claim("Point A", "claude")
         c2 = kernel.add_claim("Point B", "gemini")
         synthesis = kernel.synthesize_claims(
-            [c1.claim_id, c2.claim_id], "gpt", "Combining A and B...",
+            [c1.claim_id, c2.claim_id],
+            "gpt",
+            "Combining A and B...",
         )
 
         assert synthesis.premises == [c1.claim_id, c2.claim_id]
@@ -806,13 +858,14 @@ class TestClaimsKernelSynthesizeClaims:
         c1 = kernel.add_claim("Point A", "claude")
         c2 = kernel.add_claim("Point B", "gemini")
         synthesis = kernel.synthesize_claims(
-            [c1.claim_id, c2.claim_id], "gpt", "Combining A and B...",
+            [c1.claim_id, c2.claim_id],
+            "gpt",
+            "Combining A and B...",
         )
 
         # Should have 2 support relations
         support_relations = [
-            r for r in kernel.relations.values()
-            if r.relation_type == RelationType.SUPPORTS
+            r for r in kernel.relations.values() if r.relation_type == RelationType.SUPPORTS
         ]
         assert len(support_relations) == 2
 
@@ -824,6 +877,7 @@ class TestClaimsKernelSynthesizeClaims:
 # =============================================================================
 # ClaimsKernel Query Methods Tests
 # =============================================================================
+
 
 class TestClaimsKernelQueryMethods:
     """Tests for ClaimsKernel query methods."""
@@ -884,7 +938,9 @@ class TestClaimsKernelQueryMethods:
     def test_calculate_claim_strength_includes_support(self, kernel):
         """calculate_claim_strength should add strength from support relations."""
         main = kernel.add_claim("Main claim", "claude", ClaimType.PROPOSAL, confidence=0.7)
-        support = kernel.add_claim("Supporting claim", "gemini", ClaimType.ASSERTION, confidence=0.8)
+        support = kernel.add_claim(
+            "Supporting claim", "gemini", ClaimType.ASSERTION, confidence=0.8
+        )
         kernel.add_relation(support.claim_id, main.claim_id, RelationType.SUPPORTS)
 
         strength = kernel.calculate_claim_strength(main.claim_id)
@@ -920,6 +976,7 @@ class TestClaimsKernelQueryMethods:
 # =============================================================================
 # ClaimsKernel.get_evidence_coverage Tests
 # =============================================================================
+
 
 class TestClaimsKernelGetEvidenceCoverage:
     """Tests for ClaimsKernel.get_evidence_coverage method."""
@@ -963,6 +1020,7 @@ class TestClaimsKernelGetEvidenceCoverage:
 # ClaimsKernel Serialization Tests
 # =============================================================================
 
+
 class TestClaimsKernelSerialization:
     """Tests for ClaimsKernel serialization methods."""
 
@@ -991,9 +1049,16 @@ class TestClaimsKernelSerialization:
         # Relations should have string values for relation_type
         for rel in parsed["relations"].values():
             assert isinstance(rel["relation_type"], str)
-            assert rel["relation_type"] in ["supports", "contradicts", "refines",
-                                            "depends_on", "answers", "supersedes",
-                                            "elaborates", "qualifies"]
+            assert rel["relation_type"] in [
+                "supports",
+                "contradicts",
+                "refines",
+                "depends_on",
+                "answers",
+                "supersedes",
+                "elaborates",
+                "qualifies",
+            ]
 
     def test_generate_summary_produces_markdown(self, kernel_with_claims):
         """generate_summary should produce markdown summary."""
@@ -1021,6 +1086,7 @@ class TestClaimsKernelSerialization:
 # =============================================================================
 # ClaimsKernel Edge Cases
 # =============================================================================
+
 
 class TestClaimsKernelEdgeCases:
     """Tests for edge cases in ClaimsKernel."""

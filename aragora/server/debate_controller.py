@@ -72,9 +72,10 @@ class DebateRequest:
         Raises:
             ValueError: If required fields are missing or invalid
         """
-        question = data.get("question", "").strip()
+        question = data.get("question") or data.get("task") or ""
+        question = str(question).strip()
         if not question:
-            raise ValueError("question field is required")
+            raise ValueError("question or task field is required")
         if len(question) > 10000:
             raise ValueError("question must be under 10,000 characters")
 
@@ -101,6 +102,8 @@ class DebateResponse:
 
     success: bool
     debate_id: Optional[str] = None
+    status: Optional[str] = None
+    task: Optional[str] = None
     error: Optional[str] = None
     status_code: int = 200
 
@@ -109,6 +112,10 @@ class DebateResponse:
         result: dict[str, Any] = {"success": self.success}
         if self.debate_id:
             result["debate_id"] = str(self.debate_id)
+        if self.status:
+            result["status"] = str(self.status)
+        if self.task:
+            result["task"] = str(self.task)
         if self.error:
             result["error"] = str(self.error)
         return result
@@ -177,9 +184,7 @@ class DebateController:
         agents_str = request.agents_str
         if request.auto_select and self.auto_select_fn:
             try:
-                agents_str = self.auto_select_fn(
-                    request.question, request.auto_select_config
-                )
+                agents_str = self.auto_select_fn(request.question, request.auto_select_config)
             except Exception as e:
                 logger.warning(f"Auto-select failed, using defaults: {e}")
 
@@ -229,6 +234,8 @@ class DebateController:
         return DebateResponse(
             success=True,
             debate_id=debate_id,
+            status="created",
+            task=request.question,
             status_code=200,
         )
 
@@ -259,7 +266,7 @@ class DebateController:
 
             # Run debate with timeout
             # Use protocol timeout if configured, otherwise use global default
-            protocol_timeout = getattr(arena.protocol, 'timeout_seconds', 0)
+            protocol_timeout = getattr(arena.protocol, "timeout_seconds", 0)
             timeout = (
                 protocol_timeout
                 if isinstance(protocol_timeout, (int, float)) and protocol_timeout > 0
@@ -281,9 +288,7 @@ class DebateController:
                     "consensus_reached": result.consensus_reached,
                     "confidence": result.confidence,
                     "grounded_verdict": (
-                        result.grounded_verdict.to_dict()
-                        if result.grounded_verdict
-                        else None
+                        result.grounded_verdict.to_dict() if result.grounded_verdict else None
                     ),
                 },
             )

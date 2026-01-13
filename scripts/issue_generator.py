@@ -301,7 +301,11 @@ class IssueGenerator:
         issues = []
 
         deprecated_patterns = [
-            (r"from typing import Optional", "Use X | None instead of Optional[X] (Python 3.10+)", 4),
+            (
+                r"from typing import Optional",
+                "Use X | None instead of Optional[X] (Python 3.10+)",
+                4,
+            ),
             (r"asyncio\.get_event_loop\(\)", "Use asyncio.get_running_loop() instead", 3),
             (r"\.format\(", "Consider using f-strings instead of .format()", 5),
             (r"os\.path\.", "Consider using pathlib.Path instead of os.path", 5),
@@ -372,13 +376,15 @@ def save_issue_attempt(nomic_dir: Path, issue: Issue, outcome: str, cycle: int) 
     from datetime import datetime
 
     history = load_issue_history(nomic_dir)
-    history.append({
-        "id": issue.id,
-        "title": issue.title,
-        "cycle": cycle,
-        "outcome": outcome,
-        "timestamp": datetime.now().isoformat(),
-    })
+    history.append(
+        {
+            "id": issue.id,
+            "title": issue.title,
+            "cycle": cycle,
+            "outcome": outcome,
+            "timestamp": datetime.now().isoformat(),
+        }
+    )
 
     history_file = nomic_dir / "issue_history.json"
     history_file.write_text(json.dumps(history, indent=2))

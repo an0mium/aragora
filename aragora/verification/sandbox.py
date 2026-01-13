@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 class SandboxStatus(Enum):
     """Status of sandbox execution."""
+
     SUCCESS = "success"
     TIMEOUT = "timeout"
     MEMORY_LIMIT = "memory_limit"
@@ -42,6 +43,7 @@ class SandboxStatus(Enum):
 @dataclass
 class SandboxResult:
     """Result of sandboxed execution."""
+
     status: SandboxStatus
     stdout: str = ""
     stderr: str = ""
@@ -58,6 +60,7 @@ class SandboxResult:
 @dataclass
 class SandboxConfig:
     """Configuration for sandbox execution."""
+
     timeout_seconds: float = 30.0
     memory_mb: int = 512
     max_output_bytes: int = 1024 * 1024  # 1MB
@@ -407,6 +410,7 @@ class ProofSandbox:
                 status=SandboxStatus.SETUP_FAILED,
                 error_message=f"Unknown language: {language}. Supported: z3, lean",
             )
+
 
 # Convenience function
 async def run_sandboxed(

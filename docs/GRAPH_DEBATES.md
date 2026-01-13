@@ -22,7 +22,7 @@ Run a graph-structured debate with automatic branching.
 ```json
 {
   "task": "Should we prioritize renewable energy or nuclear power?",
-  "agents": ["claude", "gpt4", "gemini"],
+  "agents": ["anthropic-api", "openai-api", "gemini"],
   "max_rounds": 5,
   "branch_policy": {
     "min_disagreement": 0.7,
@@ -38,7 +38,7 @@ Run a graph-structured debate with automatic branching.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `task` | string | required | The debate topic or question |
-| `agents` | string[] | `["claude", "gpt4"]` | Agent names to participate |
+| `agents` | string[] | `["anthropic-api", "openai-api"]` | Agent names to participate |
 | `max_rounds` | int | 5 | Maximum rounds per branch |
 | `branch_policy` | object | see below | Branching configuration |
 
@@ -62,7 +62,7 @@ Run a graph-structured debate with automatic branching.
     "nodes": [
       {
         "id": "node-001",
-        "agent": "claude",
+        "agent": "anthropic-api",
         "round": 1,
         "branch_id": "main",
         "content": "...",
@@ -210,7 +210,7 @@ async def run_graph_debate():
             "https://api.aragora.ai/api/debates/graph",
             json={
                 "task": "Should AI models be open-source or closed?",
-                "agents": ["claude", "gpt4", "gemini"],
+                "agents": ["anthropic-api", "openai-api", "gemini"],
                 "max_rounds": 4,
                 "branch_policy": {
                     "min_disagreement": 0.6,

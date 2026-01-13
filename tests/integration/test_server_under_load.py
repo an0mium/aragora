@@ -585,9 +585,7 @@ class TestGracefulDegradation:
         await asyncio.gather(*tasks)
 
         # High priority should generally finish first
-        high_priority_positions = [
-            i for i, (_, p) in enumerate(processed_order) if p == "high"
-        ]
+        high_priority_positions = [i for i, (_, p) in enumerate(processed_order) if p == "high"]
         avg_position = sum(high_priority_positions) / len(high_priority_positions)
         # High priority should be in first half on average
         assert avg_position < 5

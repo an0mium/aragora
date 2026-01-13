@@ -441,6 +441,7 @@ class TestDebateStreamConnection:
         with patch("aragora.client.websocket.asyncio.create_task"):
             with patch.dict("sys.modules", {"websockets": MagicMock()}):
                 import sys
+
                 sys.modules["websockets"].connect = mock_connect
 
                 stream = DebateStream("ws://localhost", "d1")
@@ -452,11 +453,13 @@ class TestDebateStreamConnection:
     @pytest.mark.asyncio
     async def test_connect_timeout_raises_connection_error(self):
         """Timeout raises ConnectionError."""
+
         async def slow_connect(*args, **kwargs):
             await asyncio.sleep(10)
 
         with patch.dict("sys.modules", {"websockets": MagicMock()}):
             import sys
+
             sys.modules["websockets"].connect = slow_connect
 
             stream = DebateStream("ws://localhost", "d1")
@@ -468,11 +471,13 @@ class TestDebateStreamConnection:
     @pytest.mark.asyncio
     async def test_connect_failure_raises_connection_error(self):
         """Connection failure raises error."""
+
         async def failing_connect(*args, **kwargs):
             raise Exception("Connection refused")
 
         with patch.dict("sys.modules", {"websockets": MagicMock()}):
             import sys
+
             sys.modules["websockets"].connect = failing_connect
 
             stream = DebateStream("ws://localhost", "d1")
@@ -627,6 +632,7 @@ class TestDebateStreamReconnection:
         with patch("aragora.client.websocket.asyncio.create_task"):
             with patch.dict("sys.modules", {"websockets": MagicMock()}):
                 import sys
+
                 sys.modules["websockets"].connect = mock_connect
 
                 await stream.connect()
@@ -652,12 +658,14 @@ class TestDebateStreamReceiveLoop:
         callback = Mock()
         stream.on("vote", callback)
 
-        message = json.dumps({
-            "type": "vote",
-            "debate_id": "d1",
-            "timestamp": "2024-01-01",
-            "data": {"choice": "approve"},
-        })
+        message = json.dumps(
+            {
+                "type": "vote",
+                "debate_id": "d1",
+                "timestamp": "2024-01-01",
+                "data": {"choice": "approve"},
+            }
+        )
 
         # Simulate receiving message
         mock_ws = AsyncMock()

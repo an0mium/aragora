@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ErrorWithRetry } from './RetryButton';
+import { withErrorBoundary } from './PanelErrorBoundary';
 import { fetchWithRetry } from '@/utils/retry';
+import { API_BASE_URL } from '@/config';
 
 interface TierStats {
   count: number;
@@ -25,6 +27,24 @@ interface TierTransition {
   to_tier: string;
   count: number;
   timestamp?: string;
+}
+
+interface CritiqueEntry {
+  id?: string;
+  debate_id?: string;
+  agent?: string;
+  target_agent?: string;
+  critique_type?: string;
+  content: string;
+  severity?: string;
+  created_at?: string;
+}
+
+interface ArchiveStats {
+  total_archived: number;
+  by_tier: Record<string, number>;
+  oldest_entry?: string;
+  newest_entry?: string;
 }
 
 interface MemoryStats {
@@ -50,7 +70,7 @@ interface MemoryExplorerPanelProps {
   backendConfig?: BackendConfig;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 const TIER_COLORS: Record<string, string> = {
   fast: 'text-acid-red',
@@ -73,26 +93,30 @@ const TIER_DESCRIPTIONS: Record<string, string> = {
   glacial: 'Long-term patterns (TTL: ~1 week)',
 };
 
-export function MemoryExplorerPanel({ backendConfig }: MemoryExplorerPanelProps) {
+function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProps) {
   const apiBase = backendConfig?.apiUrl || DEFAULT_API_BASE;
 
   const [stats, setStats] = useState<MemoryStats | null>(null);
   const [pressure, setPressure] = useState<MemoryPressure | null>(null);
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
+  const [critiques, setCritiques] = useState<CritiqueEntry[]>([]);
+  const [archiveStats, setArchiveStats] = useState<ArchiveStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [usingDemoData, setUsingDemoData] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'search' | 'transitions'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'search' | 'critiques' | 'transitions'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTiers, setSelectedTiers] = useState<string[]>(['fast', 'medium', 'slow', 'glacial']);
   const [minImportance, setMinImportance] = useState(0);
+  const [critiqueFilter, setCritiqueFilter] = useState({ agent: '', debateId: '' });
 
   const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
-      const [statsRes, pressureRes] = await Promise.allSettled([
+      const [statsRes, pressureRes, archiveRes] = await Promise.allSettled([
         fetchWithRetry(`${apiBase}/api/memory/tier-stats`, undefined, { maxRetries: 2 }),
         fetchWithRetry(`${apiBase}/api/memory/pressure`, undefined, { maxRetries: 2 }),
+        fetchWithRetry(`${apiBase}/api/memory/archive-stats`, undefined, { maxRetries: 2 }),
       ]);
 
       if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
@@ -119,6 +143,11 @@ export function MemoryExplorerPanel({ backendConfig }: MemoryExplorerPanelProps)
         setPressure(data);
       }
 
+      if (archiveRes.status === 'fulfilled' && archiveRes.value.ok) {
+        const data = await archiveRes.value.json();
+        setArchiveStats(data);
+      }
+
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch memory stats');
@@ -135,8 +164,9 @@ export function MemoryExplorerPanel({ backendConfig }: MemoryExplorerPanelProps)
 
     try {
       const tiersParam = selectedTiers.join(',');
+      // Use the newer /api/memory/search endpoint
       const response = await fetchWithRetry(
-        `${apiBase}/api/memory/continuum/retrieve?query=${encodeURIComponent(searchQuery)}&tiers=${tiersParam}&limit=20&min_importance=${minImportance}`,
+        `${apiBase}/api/memory/search?q=${encodeURIComponent(searchQuery)}&tier=${tiersParam}&limit=20&min_importance=${minImportance}`,
         undefined,
         { maxRetries: 2 }
       );
@@ -150,6 +180,30 @@ export function MemoryExplorerPanel({ backendConfig }: MemoryExplorerPanelProps)
     }
   }, [apiBase, searchQuery, selectedTiers, minImportance]);
 
+  const fetchCritiques = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ limit: '30' });
+      if (critiqueFilter.agent) params.append('agent', critiqueFilter.agent);
+      if (critiqueFilter.debateId) params.append('debate_id', critiqueFilter.debateId);
+
+      const response = await fetchWithRetry(
+        `${apiBase}/api/memory/critiques?${params.toString()}`,
+        undefined,
+        { maxRetries: 2 }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setCritiques(data.critiques || []);
+      } else {
+        setCritiques([]);
+      }
+    } catch (err) {
+      console.error('Fetching critiques failed:', err);
+      setCritiques([]);
+    }
+  }, [apiBase, critiqueFilter]);
+
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
@@ -162,6 +216,13 @@ export function MemoryExplorerPanel({ backendConfig }: MemoryExplorerPanelProps)
     }, 300);
     return () => clearTimeout(debounce);
   }, [searchQuery, selectedTiers, minImportance, activeTab, searchMemories]);
+
+  useEffect(() => {
+    if (activeTab === 'critiques') {
+      const debounce = setTimeout(fetchCritiques, 300);
+      return () => clearTimeout(debounce);
+    }
+  }, [activeTab, critiqueFilter, fetchCritiques]);
 
   if (loading && !stats) {
     return (
@@ -207,7 +268,7 @@ export function MemoryExplorerPanel({ backendConfig }: MemoryExplorerPanelProps)
 
       {/* Tab Navigation */}
       <div className="flex gap-2 border-b border-acid-green/20 pb-2">
-        {(['overview', 'search', 'transitions'] as const).map((tab) => (
+        {(['overview', 'search', 'critiques', 'transitions'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -304,6 +365,37 @@ export function MemoryExplorerPanel({ backendConfig }: MemoryExplorerPanelProps)
               );
             })}
           </div>
+
+          {/* Archive Stats */}
+          {archiveStats && archiveStats.total_archived > 0 && (
+            <div className="card p-4">
+              <h3 className="font-mono text-acid-cyan mb-4">Archive Statistics</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-mono text-acid-cyan">{archiveStats.total_archived}</div>
+                  <div className="text-xs font-mono text-text-muted">Archived</div>
+                </div>
+                {Object.entries(archiveStats.by_tier || {}).map(([tier, count]) => (
+                  <div key={tier} className="text-center">
+                    <div className={`text-2xl font-mono ${TIER_COLORS[tier.toLowerCase()] || 'text-text'}`}>
+                      {count}
+                    </div>
+                    <div className="text-xs font-mono text-text-muted capitalize">{tier}</div>
+                  </div>
+                ))}
+              </div>
+              {(archiveStats.oldest_entry || archiveStats.newest_entry) && (
+                <div className="mt-4 pt-4 border-t border-acid-cyan/20 flex justify-between text-xs font-mono text-text-muted">
+                  {archiveStats.oldest_entry && (
+                    <span>Oldest: {new Date(archiveStats.oldest_entry).toLocaleDateString()}</span>
+                  )}
+                  {archiveStats.newest_entry && (
+                    <span>Newest: {new Date(archiveStats.newest_entry).toLocaleDateString()}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -410,6 +502,112 @@ export function MemoryExplorerPanel({ backendConfig }: MemoryExplorerPanelProps)
         </div>
       )}
 
+      {/* Critiques Tab */}
+      {activeTab === 'critiques' && (
+        <div className="space-y-4">
+          {/* Critique Filters */}
+          <div className="card p-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-mono text-xs text-text-muted mb-2">
+                  Filter by Agent
+                </label>
+                <input
+                  type="text"
+                  value={critiqueFilter.agent}
+                  onChange={(e) => setCritiqueFilter(prev => ({ ...prev, agent: e.target.value }))}
+                  placeholder="Agent name..."
+                  className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                />
+              </div>
+              <div>
+                <label className="block font-mono text-xs text-text-muted mb-2">
+                  Filter by Debate ID
+                </label>
+                <input
+                  type="text"
+                  value={critiqueFilter.debateId}
+                  onChange={(e) => setCritiqueFilter(prev => ({ ...prev, debateId: e.target.value }))}
+                  placeholder="Debate ID..."
+                  className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Critiques List */}
+          <div className="card p-4">
+            <h3 className="font-mono text-acid-green mb-4">
+              Agent Critiques ({critiques.length})
+            </h3>
+            {critiques.length === 0 ? (
+              <p className="text-text-muted font-mono text-sm">
+                No critiques found. Critiques are recorded when agents analyze and critique
+                each other&apos;s arguments during debates.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {critiques.map((critique, idx) => (
+                  <div
+                    key={critique.id || idx}
+                    className={`p-4 bg-surface rounded border ${
+                      critique.severity === 'high' ? 'border-acid-red/40' :
+                      critique.severity === 'medium' ? 'border-acid-yellow/40' :
+                      'border-acid-green/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-xs text-acid-cyan">
+                          {critique.agent || 'Unknown'}
+                        </span>
+                        {critique.target_agent && (
+                          <>
+                            <span className="text-text-muted">→</span>
+                            <span className="font-mono text-xs text-acid-yellow">
+                              {critique.target_agent}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {critique.critique_type && (
+                          <span className="px-2 py-0.5 bg-surface rounded text-xs font-mono text-text-muted">
+                            {critique.critique_type}
+                          </span>
+                        )}
+                        {critique.severity && (
+                          <span className={`px-2 py-0.5 rounded text-xs font-mono ${
+                            critique.severity === 'high' ? 'bg-acid-red/20 text-acid-red' :
+                            critique.severity === 'medium' ? 'bg-acid-yellow/20 text-acid-yellow' :
+                            'bg-acid-green/20 text-acid-green'
+                          }`}>
+                            {critique.severity}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="font-mono text-sm text-text line-clamp-3">
+                      {critique.content}
+                    </p>
+                    {critique.debate_id && (
+                      <p className="font-mono text-xs text-text-muted mt-2">
+                        Debate: {critique.debate_id}
+                      </p>
+                    )}
+                    {critique.created_at && (
+                      <p className="font-mono text-xs text-text-muted mt-1">
+                        {new Date(critique.created_at).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Transitions Tab */}
       {activeTab === 'transitions' && stats && (
         <div className="card p-4">
@@ -469,3 +667,6 @@ export function MemoryExplorerPanel({ backendConfig }: MemoryExplorerPanelProps)
     </div>
   );
 }
+
+// Wrap with error boundary for graceful error handling
+export const MemoryExplorerPanel = withErrorBoundary(MemoryExplorerPanelComponent, 'Memory Explorer');

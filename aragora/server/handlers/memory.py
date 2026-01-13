@@ -35,7 +35,7 @@ from .utils.rate_limit import rate_limit, RateLimiter, get_client_ip
 
 # Rate limiters for memory endpoints
 _retrieve_limiter = RateLimiter(requests_per_minute=60)  # Read operations
-_stats_limiter = RateLimiter(requests_per_minute=30)     # Stats operations
+_stats_limiter = RateLimiter(requests_per_minute=30)  # Stats operations
 _mutation_limiter = RateLimiter(requests_per_minute=10)  # State-changing operations
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 # Optional import for memory functionality
 try:
     from aragora.memory.continuum import ContinuumMemory, MemoryTier
+
     CONTINUUM_AVAILABLE = True
 except ImportError:
     CONTINUUM_AVAILABLE = False
@@ -52,6 +53,7 @@ except ImportError:
 # Optional import for critique store
 try:
     from aragora.memory.store import CritiqueStore
+
     CRITIQUE_STORE_AVAILABLE = True
 except ImportError:
     CRITIQUE_STORE_AVAILABLE = False
@@ -186,9 +188,13 @@ class MemoryHandler(BaseHandler):
             return error_response("Continuum memory not initialized", 503)
 
         query = get_bounded_string_param(params, "query", "", max_length=500)
-        tiers_param = get_bounded_string_param(params, "tiers", "fast,medium,slow,glacial", max_length=100)
+        tiers_param = get_bounded_string_param(
+            params, "tiers", "fast,medium,slow,glacial", max_length=100
+        )
         limit = get_clamped_int_param(params, "limit", 10, min_val=1, max_val=100)
-        min_importance = get_bounded_float_param(params, "min_importance", 0.0, min_val=0.0, max_val=1.0)
+        min_importance = get_bounded_float_param(
+            params, "min_importance", 0.0, min_val=0.0, max_val=1.0
+        )
 
         # Parse tiers
         tier_names = [t.strip() for t in tiers_param.split(",")]
@@ -210,25 +216,27 @@ class MemoryHandler(BaseHandler):
             min_importance=min_importance,
         )
 
-        return json_response({
-            "memories": [
-                {
-                    "id": m.id,
-                    "tier": m.tier.name.lower(),
-                    "content": m.content[:500] + "..." if len(m.content) > 500 else m.content,
-                    "importance": m.importance,
-                    "surprise_score": getattr(m, "surprise_score", 0.0),
-                    "consolidation_score": getattr(m, "consolidation_score", 0.0),
-                    "update_count": getattr(m, "update_count", 0),
-                    "created_at": str(m.created_at) if hasattr(m, "created_at") else None,
-                    "updated_at": str(m.updated_at) if hasattr(m, "updated_at") else None,
-                }
-                for m in memories
-            ],
-            "count": len(memories),
-            "query": query,
-            "tiers": [t.name.lower() for t in tiers],
-        })
+        return json_response(
+            {
+                "memories": [
+                    {
+                        "id": m.id,
+                        "tier": m.tier.name.lower(),
+                        "content": m.content[:500] + "..." if len(m.content) > 500 else m.content,
+                        "importance": m.importance,
+                        "surprise_score": getattr(m, "surprise_score", 0.0),
+                        "consolidation_score": getattr(m, "consolidation_score", 0.0),
+                        "update_count": getattr(m, "update_count", 0),
+                        "created_at": str(m.created_at) if hasattr(m, "created_at") else None,
+                        "updated_at": str(m.updated_at) if hasattr(m, "updated_at") else None,
+                    }
+                    for m in memories
+                ],
+                "count": len(memories),
+                "query": query,
+                "tiers": [t.name.lower() for t in tiers],
+            }
+        )
 
     @handle_errors("memory consolidation")
     def _trigger_consolidation(self) -> HandlerResult:
@@ -247,13 +255,15 @@ class MemoryHandler(BaseHandler):
 
         duration = time.time() - start
 
-        return json_response({
-            "success": True,
-            "entries_processed": result.get("processed", 0),
-            "entries_promoted": result.get("promoted", 0),
-            "entries_consolidated": result.get("consolidated", 0),
-            "duration_seconds": round(duration, 2),
-        })
+        return json_response(
+            {
+                "success": True,
+                "entries_processed": result.get("processed", 0),
+                "entries_promoted": result.get("promoted", 0),
+                "entries_consolidated": result.get("consolidated", 0),
+                "duration_seconds": round(duration, 2),
+            }
+        )
 
     @handle_errors("memory cleanup")
     def _trigger_cleanup(self, params: dict) -> HandlerResult:
@@ -270,7 +280,9 @@ class MemoryHandler(BaseHandler):
         # Parse parameters
         tier_param = get_bounded_string_param(params, "tier", "", max_length=50)
         archive_param = get_bounded_string_param(params, "archive", "true", max_length=10)
-        max_age = get_bounded_float_param(params, "max_age_hours", 0, min_val=0.0, max_val=8760.0)  # Max 1 year
+        max_age = get_bounded_float_param(
+            params, "max_age_hours", 0, min_val=0.0, max_val=8760.0
+        )  # Max 1 year
 
         # Convert tier parameter
         tier = None
@@ -297,12 +309,14 @@ class MemoryHandler(BaseHandler):
 
         duration = time.time() - start
 
-        return json_response({
-            "success": True,
-            "expired": expired_result,
-            "tier_limits": limits_result,
-            "duration_seconds": round(duration, 2),
-        })
+        return json_response(
+            {
+                "success": True,
+                "expired": expired_result,
+                "tier_limits": limits_result,
+                "duration_seconds": round(duration, 2),
+            }
+        )
 
     @handle_errors("tier stats retrieval")
     def _get_tier_stats(self) -> HandlerResult:
@@ -315,11 +329,13 @@ class MemoryHandler(BaseHandler):
             return error_response("Continuum memory not initialized", 503)
 
         stats = continuum.get_stats()
-        return json_response({
-            "tiers": stats.get("by_tier", {}),
-            "total_memories": stats.get("total_memories", 0),
-            "transitions": stats.get("transitions", []),
-        })
+        return json_response(
+            {
+                "tiers": stats.get("by_tier", {}),
+                "total_memories": stats.get("total_memories", 0),
+                "transitions": stats.get("transitions", []),
+            }
+        )
 
     @handle_errors("archive stats retrieval")
     def _get_archive_stats(self) -> HandlerResult:
@@ -439,16 +455,15 @@ class MemoryHandler(BaseHandler):
             return error_response("Continuum memory not initialized", 503)
 
         # Check if delete method exists on continuum
-        if not hasattr(continuum, 'delete'):
+        if not hasattr(continuum, "delete"):
             return error_response("Memory deletion not supported", 501)
 
         try:
             success = continuum.delete(memory_id)
             if success:
-                return json_response({
-                    "success": True,
-                    "message": f"Memory {memory_id} deleted successfully"
-                })
+                return json_response(
+                    {"success": True, "message": f"Memory {memory_id} deleted successfully"}
+                )
             else:
                 return error_response(f"Memory not found: {memory_id}", 404)
         except Exception as e:
@@ -512,24 +527,28 @@ class MemoryHandler(BaseHandler):
             limit = info["limit"]
             utilization = count / limit if limit > 0 else 0.0
 
-            tiers.append({
-                "id": tier_name.lower(),
-                "name": info["name"],
-                "description": info["description"],
-                "ttl_seconds": info["ttl_seconds"],
-                "ttl_human": self._format_ttl(info["ttl_seconds"]),
-                "count": count,
-                "limit": limit,
-                "utilization": round(utilization, 3),
-                "avg_importance": tier_data.get("avg_importance", 0.0),
-                "avg_surprise": tier_data.get("avg_surprise", 0.0),
-            })
+            tiers.append(
+                {
+                    "id": tier_name.lower(),
+                    "name": info["name"],
+                    "description": info["description"],
+                    "ttl_seconds": info["ttl_seconds"],
+                    "ttl_human": self._format_ttl(info["ttl_seconds"]),
+                    "count": count,
+                    "limit": limit,
+                    "utilization": round(utilization, 3),
+                    "avg_importance": tier_data.get("avg_importance", 0.0),
+                    "avg_surprise": tier_data.get("avg_surprise", 0.0),
+                }
+            )
 
-        return json_response({
-            "tiers": tiers,
-            "total_memories": stats.get("total_memories", 0),
-            "transitions_24h": len(stats.get("transitions", [])),
-        })
+        return json_response(
+            {
+                "tiers": tiers,
+                "total_memories": stats.get("total_memories", 0),
+                "transitions_24h": len(stats.get("transitions", [])),
+            }
+        )
 
     def _format_ttl(self, seconds: int) -> str:
         """Format TTL in human-readable form."""
@@ -566,7 +585,9 @@ class MemoryHandler(BaseHandler):
 
         tier_param = get_bounded_string_param(params, "tier", "", max_length=100)
         limit = get_clamped_int_param(params, "limit", 20, min_val=1, max_val=100)
-        min_importance = get_bounded_float_param(params, "min_importance", 0.0, min_val=0.0, max_val=1.0)
+        min_importance = get_bounded_float_param(
+            params, "min_importance", 0.0, min_val=0.0, max_val=1.0
+        )
         sort_by = get_bounded_string_param(params, "sort", "relevance", max_length=20)
 
         # Parse tiers
@@ -597,27 +618,31 @@ class MemoryHandler(BaseHandler):
 
         results = []
         for m in memories:
-            results.append({
-                "id": m.id,
-                "tier": m.tier.name.lower(),
-                "content": m.content[:300] + "..." if len(m.content) > 300 else m.content,
-                "importance": round(getattr(m, "importance", 0.0), 3),
-                "surprise_score": round(getattr(m, "surprise_score", 0.0), 3),
-                "created_at": str(m.created_at) if hasattr(m, "created_at") else None,
-                "updated_at": str(m.updated_at) if hasattr(m, "updated_at") else None,
-                "metadata": getattr(m, "metadata", {}),
-            })
+            results.append(
+                {
+                    "id": m.id,
+                    "tier": m.tier.name.lower(),
+                    "content": m.content[:300] + "..." if len(m.content) > 300 else m.content,
+                    "importance": round(getattr(m, "importance", 0.0), 3),
+                    "surprise_score": round(getattr(m, "surprise_score", 0.0), 3),
+                    "created_at": str(m.created_at) if hasattr(m, "created_at") else None,
+                    "updated_at": str(m.updated_at) if hasattr(m, "updated_at") else None,
+                    "metadata": getattr(m, "metadata", {}),
+                }
+            )
 
-        return json_response({
-            "query": query,
-            "results": results,
-            "count": len(results),
-            "tiers_searched": [t.name.lower() for t in tiers],
-            "filters": {
-                "min_importance": min_importance,
-                "sort": sort_by,
-            },
-        })
+        return json_response(
+            {
+                "query": query,
+                "results": results,
+                "count": len(results),
+                "tiers_searched": [t.name.lower() for t in tiers],
+                "filters": {
+                    "min_importance": min_importance,
+                    "sort": sort_by,
+                },
+            }
+        )
 
     @handle_errors("get critiques")
     def _get_critiques(self, params: dict) -> HandlerResult:
@@ -653,36 +678,44 @@ class MemoryHandler(BaseHandler):
                 critiques = store.get_recent_critiques(limit=limit + offset)
 
             # Apply offset and limit
-            critiques = critiques[offset:offset + limit]
+            critiques = critiques[offset : offset + limit]
 
             results = []
             for c in critiques:
-                results.append({
-                    "id": getattr(c, "id", None),
-                    "debate_id": getattr(c, "debate_id", None),
-                    "agent": getattr(c, "agent", None),
-                    "target_agent": getattr(c, "target_agent", None),
-                    "critique_type": getattr(c, "critique_type", None),
-                    "content": getattr(c, "content", "")[:300],
-                    "severity": getattr(c, "severity", 0.0),
-                    "accepted": getattr(c, "accepted", None),
-                    "created_at": str(c.created_at) if hasattr(c, "created_at") else None,
-                })
+                results.append(
+                    {
+                        "id": getattr(c, "id", None),
+                        "debate_id": getattr(c, "debate_id", None),
+                        "agent": getattr(c, "agent", None),
+                        "target_agent": getattr(c, "target_agent", None),
+                        "critique_type": getattr(c, "critique_type", None),
+                        "content": getattr(c, "content", "")[:300],
+                        "severity": getattr(c, "severity", 0.0),
+                        "accepted": getattr(c, "accepted", None),
+                        "created_at": str(c.created_at) if hasattr(c, "created_at") else None,
+                    }
+                )
 
             # Get total count for pagination
-            total = len(store.get_recent_critiques(limit=10000)) if not debate_id and not agent else len(results)
+            total = (
+                len(store.get_recent_critiques(limit=10000))
+                if not debate_id and not agent
+                else len(results)
+            )
 
-            return json_response({
-                "critiques": results,
-                "count": len(results),
-                "total": total,
-                "offset": offset,
-                "limit": limit,
-                "filters": {
-                    "debate_id": debate_id or None,
-                    "agent": agent or None,
-                },
-            })
+            return json_response(
+                {
+                    "critiques": results,
+                    "count": len(results),
+                    "total": total,
+                    "offset": offset,
+                    "limit": limit,
+                    "filters": {
+                        "debate_id": debate_id or None,
+                        "agent": agent or None,
+                    },
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to get critiques: {e}")

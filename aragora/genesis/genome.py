@@ -10,26 +10,25 @@ Extends Persona with genetic-specific fields for:
 
 import hashlib
 import json
-import sqlite3
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Generator, Optional
-
-from aragora.config import DB_TIMEOUT_SECONDS
+from typing import Optional
 from aragora.agents.personas import EXPERTISE_DOMAINS, PERSONALITY_TRAITS, Persona
 from aragora.genesis.database import GenesisDatabase
 
 
 def generate_genome_id(traits: dict, expertise: dict, parents: list[str]) -> str:
     """Generate a unique genome ID from its characteristics."""
-    content = json.dumps({
-        "traits": sorted(traits.items()),
-        "expertise": sorted(expertise.items()),
-        "parents": sorted(parents),
-        "timestamp": datetime.now().isoformat()
-    }, sort_keys=True)
+    content = json.dumps(
+        {
+            "traits": sorted(traits.items()),
+            "expertise": sorted(expertise.items()),
+            "parents": sorted(parents),
+            "timestamp": datetime.now().isoformat(),
+        },
+        sort_keys=True,
+    )
     return hashlib.sha256(content.encode()).hexdigest()[:12]
 
 
@@ -45,14 +44,14 @@ class AgentGenome:
     """
 
     genome_id: str
-    name: str                                    # Agent name (e.g., "claude-grok-security-v1")
-    traits: dict[str, float] = field(default_factory=dict)   # trait -> weight 0-1
-    expertise: dict[str, float] = field(default_factory=dict) # domain -> score 0-1
-    model_preference: str = "claude"             # Preferred model backend
+    name: str  # Agent name (e.g., "claude-grok-security-v1")
+    traits: dict[str, float] = field(default_factory=dict)  # trait -> weight 0-1
+    expertise: dict[str, float] = field(default_factory=dict)  # domain -> score 0-1
+    model_preference: str = "claude"  # Preferred model backend
     parent_genomes: list[str] = field(default_factory=list)  # Parent genome IDs
-    generation: int = 0                          # How many generations from base
-    fitness_score: float = 0.5                   # Updated by debate outcomes
-    birth_debate_id: Optional[str] = None        # Debate where this genome was created
+    generation: int = 0  # How many generations from base
+    fitness_score: float = 0.5  # Updated by debate outcomes
+    birth_debate_id: Optional[str] = None  # Debate where this genome was created
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -101,10 +100,12 @@ class AgentGenome:
         sorted_exp = sorted(self.expertise.items(), key=lambda x: x[1], reverse=True)
         return sorted_exp[:top_n]
 
-    def update_fitness(self,
-                       consensus_win: bool = False,
-                       critique_accepted: bool = False,
-                       prediction_correct: bool = False) -> None:
+    def update_fitness(
+        self,
+        consensus_win: bool = False,
+        critique_accepted: bool = False,
+        prediction_correct: bool = False,
+    ) -> None:
         """Update fitness based on debate outcome."""
         self.debates_participated += 1
 
@@ -122,11 +123,7 @@ class AgentGenome:
             prediction_rate = self.predictions_correct / max(1, self.debates_participated)
 
             # Weighted combination
-            self.fitness_score = (
-                0.4 * consensus_rate +
-                0.3 * critique_rate +
-                0.3 * prediction_rate
-            )
+            self.fitness_score = 0.4 * consensus_rate + 0.3 * critique_rate + 0.3 * prediction_rate
 
         self.updated_at = datetime.now()
 
@@ -136,8 +133,7 @@ class AgentGenome:
         all_traits = set(self.traits.keys()) | set(other.traits.keys())
         if all_traits:
             trait_sim = sum(
-                1 - abs(self.traits.get(t, 0) - other.traits.get(t, 0))
-                for t in all_traits
+                1 - abs(self.traits.get(t, 0) - other.traits.get(t, 0)) for t in all_traits
             ) / len(all_traits)
         else:
             trait_sim = 1.0
@@ -146,8 +142,7 @@ class AgentGenome:
         all_domains = set(self.expertise.keys()) | set(other.expertise.keys())
         if all_domains:
             exp_sim = sum(
-                1 - abs(self.expertise.get(d, 0) - other.expertise.get(d, 0))
-                for d in all_domains
+                1 - abs(self.expertise.get(d, 0) - other.expertise.get(d, 0)) for d in all_domains
             ) / len(all_domains)
         else:
             exp_sim = 1.0
@@ -187,8 +182,16 @@ class AgentGenome:
             generation=data.get("generation", 0),
             fitness_score=data.get("fitness_score", 0.5),
             birth_debate_id=data.get("birth_debate_id"),
-            created_at=datetime.fromisoformat(data["created_at"]) if "created_at" in data else datetime.now(),
-            updated_at=datetime.fromisoformat(data["updated_at"]) if "updated_at" in data else datetime.now(),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if "created_at" in data
+                else datetime.now()
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"])
+                if "updated_at" in data
+                else datetime.now()
+            ),
             consensus_contributions=data.get("consensus_contributions", 0),
             critiques_accepted=data.get("critiques_accepted", 0),
             predictions_correct=data.get("predictions_correct", 0),
@@ -207,59 +210,15 @@ class GenomeStore:
 
     def __init__(self, db_path: str = ".nomic/genesis.db"):
         self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.db = GenesisDatabase(db_path)
-        self._init_db()
-
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection with guaranteed cleanup."""
-        with self.db.connection() as conn:
-            yield conn
-
-    def _init_db(self) -> None:
-        """Initialize database schema."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS genomes (
-                    genome_id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    traits TEXT,
-                    expertise TEXT,
-                    model_preference TEXT,
-                    parent_genomes TEXT,
-                    generation INTEGER DEFAULT 0,
-                    fitness_score REAL DEFAULT 0.5,
-                    birth_debate_id TEXT,
-                    created_at TEXT,
-                    updated_at TEXT,
-                    consensus_contributions INTEGER DEFAULT 0,
-                    critiques_accepted INTEGER DEFAULT 0,
-                    predictions_correct INTEGER DEFAULT 0,
-                    debates_participated INTEGER DEFAULT 0
-                )
-            """)
-
-            # Index for fast lookups
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_genomes_fitness
-                ON genomes(fitness_score DESC)
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_genomes_generation
-                ON genomes(generation)
-            """)
-
-            conn.commit()
 
     def save(self, genome: AgentGenome) -> None:
         """Save or update a genome."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO genomes (
                     genome_id, name, traits, expertise, model_preference,
                     parent_genomes, generation, fitness_score, birth_debate_id,
@@ -273,29 +232,31 @@ class GenomeStore:
                     critiques_accepted = excluded.critiques_accepted,
                     predictions_correct = excluded.predictions_correct,
                     debates_participated = excluded.debates_participated
-            """, (
-                genome.genome_id,
-                genome.name,
-                json.dumps(genome.traits),
-                json.dumps(genome.expertise),
-                genome.model_preference,
-                json.dumps(genome.parent_genomes),
-                genome.generation,
-                genome.fitness_score,
-                genome.birth_debate_id,
-                genome.created_at.isoformat(),
-                genome.updated_at.isoformat(),
-                genome.consensus_contributions,
-                genome.critiques_accepted,
-                genome.predictions_correct,
-                genome.debates_participated,
-            ))
+            """,
+                (
+                    genome.genome_id,
+                    genome.name,
+                    json.dumps(genome.traits),
+                    json.dumps(genome.expertise),
+                    genome.model_preference,
+                    json.dumps(genome.parent_genomes),
+                    genome.generation,
+                    genome.fitness_score,
+                    genome.birth_debate_id,
+                    genome.created_at.isoformat(),
+                    genome.updated_at.isoformat(),
+                    genome.consensus_contributions,
+                    genome.critiques_accepted,
+                    genome.predictions_correct,
+                    genome.debates_participated,
+                ),
+            )
 
             conn.commit()
 
     def get(self, genome_id: str) -> Optional[AgentGenome]:
         """Get a genome by ID."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute("SELECT * FROM genomes WHERE genome_id = ?", (genome_id,))
@@ -308,12 +269,11 @@ class GenomeStore:
 
     def get_by_name(self, name: str) -> Optional[AgentGenome]:
         """Get the latest genome with a given name."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
-                "SELECT * FROM genomes WHERE name = ? ORDER BY generation DESC LIMIT 1",
-                (name,)
+                "SELECT * FROM genomes WHERE name = ? ORDER BY generation DESC LIMIT 1", (name,)
             )
             row = cursor.fetchone()
 
@@ -324,20 +284,17 @@ class GenomeStore:
 
     def get_top_by_fitness(self, n: int = 10) -> list[AgentGenome]:
         """Get top genomes by fitness score."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute(
-                "SELECT * FROM genomes ORDER BY fitness_score DESC LIMIT ?",
-                (n,)
-            )
+            cursor.execute("SELECT * FROM genomes ORDER BY fitness_score DESC LIMIT ?", (n,))
             rows = cursor.fetchall()
 
         return [self._row_to_genome(row) for row in rows]
 
     def get_all(self) -> list[AgentGenome]:
         """Get all genomes."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute("SELECT * FROM genomes")
@@ -365,7 +322,7 @@ class GenomeStore:
 
     def delete(self, genome_id: str) -> bool:
         """Delete a genome."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute("DELETE FROM genomes WHERE genome_id = ?", (genome_id,))

@@ -111,6 +111,7 @@ class TestRequirePermissionDecorator:
 
     def test_decorator_returns_401_when_no_handler(self):
         """Decorator should return 401 when no handler is provided."""
+
         @require_permission("debates:read")
         def test_func():
             return "success"
@@ -129,9 +130,7 @@ class TestRequirePermissionDecorator:
         def test_func(handler):
             return "success"
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_ctx = MagicMock()
             mock_ctx.is_authenticated = False
             mock_ctx.error_reason = None
@@ -150,9 +149,7 @@ class TestRequirePermissionDecorator:
         def test_func(handler, user=None):
             return "success"
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_ctx = MagicMock()
             mock_ctx.is_authenticated = True
             mock_ctx.user_id = "user123"
@@ -173,9 +170,7 @@ class TestRequirePermissionDecorator:
         def test_func(handler, user=None):
             return ("success", 200)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_ctx = MagicMock()
             mock_ctx.is_authenticated = True
             mock_ctx.user_id = "user123"
@@ -199,9 +194,7 @@ class TestRequirePermissionDecorator:
             received_user = user
             return ("success", 200)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_ctx = MagicMock()
             mock_ctx.is_authenticated = True
             mock_ctx.user_id = "user123"
@@ -222,9 +215,7 @@ class TestRequirePermissionDecorator:
         def test_func(handler, user=None):
             return ("success", 200)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_ctx = MagicMock()
             mock_ctx.is_authenticated = True
             mock_ctx.user_id = "owner123"

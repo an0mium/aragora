@@ -49,26 +49,30 @@ KNOWN_DATABASES = [
 ]
 
 # Whitelist of allowed table names for cleanup operations (SQL injection prevention)
-ALLOWED_CLEANUP_TABLES = frozenset({
-    "match_history",
-    "memories",
-    "embeddings",
-    "traces",
-    "debates",
-    "critiques",
-    "patterns",
-    "ratings",
-    "positions",
-    "consensus",
-    "suggestions",
-})
+ALLOWED_CLEANUP_TABLES = frozenset(
+    {
+        "match_history",
+        "memories",
+        "embeddings",
+        "traces",
+        "debates",
+        "critiques",
+        "patterns",
+        "ratings",
+        "positions",
+        "consensus",
+        "suggestions",
+    }
+)
 
 # Allowed timestamp column names
-ALLOWED_TIMESTAMP_COLUMNS = frozenset({
-    "created_at",
-    "timestamp",
-    "recorded_at",
-})
+ALLOWED_TIMESTAMP_COLUMNS = frozenset(
+    {
+        "created_at",
+        "timestamp",
+        "recorded_at",
+    }
+)
 
 
 class DatabaseMaintenance:
@@ -151,7 +155,9 @@ class DatabaseMaintenance:
 
         elapsed = time.time() - start
         success_count = sum(results.values())
-        logger.info(f"[maintenance] VACUUM: {success_count}/{len(results)} databases in {elapsed:.1f}s")
+        logger.info(
+            f"[maintenance] VACUUM: {success_count}/{len(results)} databases in {elapsed:.1f}s"
+        )
 
         self._last_vacuum = datetime.now()
         return results
@@ -237,7 +243,7 @@ class DatabaseMaintenance:
                     # Check if table exists (parameterized query)
                     cursor.execute(
                         "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                        (table_name,)
+                        (table_name,),
                     )
                     if not cursor.fetchone():
                         continue
@@ -248,14 +254,15 @@ class DatabaseMaintenance:
                         try:
                             # Safe: table_name validated against whitelist, col from whitelist
                             cursor.execute(
-                                f"DELETE FROM {table_name} WHERE {col} < ?",
-                                (cutoff_str,)
+                                f"DELETE FROM {table_name} WHERE {col} < ?", (cutoff_str,)
                             )
                             deleted = cursor.rowcount
                             if deleted > 0:
                                 conn.commit()
                                 results[f"{db_name}:{table_name}"] = deleted
-                                logger.info(f"[maintenance] Cleaned {deleted} old records from {db_name}:{table_name}")
+                                logger.info(
+                                    f"[maintenance] Cleaned {deleted} old records from {db_name}:{table_name}"
+                                )
                             break
                         except sqlite3.OperationalError:
                             continue  # Column doesn't exist, try next
@@ -305,6 +312,7 @@ def run_startup_maintenance(db_dir: Path | str = DEFAULT_DB_DIR) -> dict:
     if state_file.exists():
         try:
             import json
+
             with open(state_file) as f:
                 state = json.load(f)
                 last_analyze = datetime.fromisoformat(state.get("last_analyze", "2000-01-01"))
@@ -319,11 +327,15 @@ def run_startup_maintenance(db_dir: Path | str = DEFAULT_DB_DIR) -> dict:
         # Save state
         try:
             import json
+
             with open(state_file, "w") as f:
-                json.dump({
-                    "last_analyze": datetime.now().isoformat(),
-                    "last_startup": datetime.now().isoformat(),
-                }, f)
+                json.dump(
+                    {
+                        "last_analyze": datetime.now().isoformat(),
+                        "last_startup": datetime.now().isoformat(),
+                    },
+                    f,
+                )
         except OSError as e:
             logger.debug(f"Could not save maintenance state: {e}")
 
@@ -354,6 +366,7 @@ def schedule_maintenance(
     if state_file.exists():
         try:
             import json
+
             with open(state_file) as f:
                 state = json.load(f)
         except (OSError, json.JSONDecodeError) as e:
@@ -380,7 +393,9 @@ def schedule_maintenance(
     # Check if cleanup is due (weekly)
     last_cleanup = datetime.fromisoformat(state.get("last_cleanup", "2000-01-01"))
     if now - last_cleanup >= timedelta(days=7):
-        logger.info(f"[maintenance] Cleaning up records older than {cleanup_retention_days} days...")
+        logger.info(
+            f"[maintenance] Cleaning up records older than {cleanup_retention_days} days..."
+        )
         results["cleanup"] = maintenance.cleanup_old_data(days=cleanup_retention_days)
         results["tasks_run"].append("cleanup")
         state["last_cleanup"] = now.isoformat()
@@ -389,6 +404,7 @@ def schedule_maintenance(
     if results["tasks_run"]:
         try:
             import json
+
             with open(state_file, "w") as f:
                 json.dump(state, f, indent=2)
         except OSError as e:

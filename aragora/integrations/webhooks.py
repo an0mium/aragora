@@ -43,15 +43,15 @@ def _safe_log(level: int, msg: str) -> None:
         # Check all handlers in the chain (root + logger-specific)
         all_handlers = list(logging.root.handlers) + list(logger.handlers)
         for handler in all_handlers:
-            if hasattr(handler, 'stream'):
+            if hasattr(handler, "stream"):
                 stream = handler.stream
                 if stream is None:
                     return
                 # Check if stream is closed
-                if hasattr(stream, 'closed') and stream.closed:
+                if hasattr(stream, "closed") and stream.closed:
                     return
                 # Additional check for sys.stdout/stderr being replaced
-                if hasattr(stream, 'fileno'):
+                if hasattr(stream, "fileno"):
                     try:
                         stream.fileno()
                     except (ValueError, OSError):
@@ -64,23 +64,25 @@ def _safe_log(level: int, msg: str) -> None:
 
 
 # Default event types that webhooks receive (low-frequency, high-value)
-DEFAULT_EVENT_TYPES = frozenset({
-    "debate_start",
-    "debate_end",
-    "consensus",
-    "cycle_start",
-    "cycle_end",
-    "verification_result",
-    "error",
-    "proposal_accepted",
-    "proposal_rejected",
-    # Gauntlet events
-    "gauntlet_start",
-    "gauntlet_complete",
-    "gauntlet_finding",
-    "gauntlet_verdict",
-    "decision_receipt_generated",
-})
+DEFAULT_EVENT_TYPES = frozenset(
+    {
+        "debate_start",
+        "debate_end",
+        "consensus",
+        "cycle_start",
+        "cycle_end",
+        "verification_result",
+        "error",
+        "proposal_accepted",
+        "proposal_rejected",
+        # Gauntlet events
+        "gauntlet_start",
+        "gauntlet_complete",
+        "gauntlet_finding",
+        "gauntlet_verdict",
+        "decision_receipt_generated",
+    }
+)
 
 
 class AragoraJSONEncoder(json.JSONEncoder):
@@ -110,6 +112,7 @@ class AragoraJSONEncoder(json.JSONEncoder):
 @dataclass
 class WebhookConfig:
     """Configuration for a single webhook endpoint."""
+
     name: str
     url: str
     secret: str = ""
@@ -229,7 +232,9 @@ def load_webhook_configs() -> List[WebhookConfig]:
                 try:
                     configs.append(WebhookConfig.from_dict(item))
                 except (ValueError, TypeError) as e:
-                    logger.warning(f"Skipping invalid webhook config at index {i} in {config_path}: {e}")
+                    logger.warning(
+                        f"Skipping invalid webhook config at index {i} in {config_path}: {e}"
+                    )
             return configs
         except (json.JSONDecodeError, IOError) as e:
             logger.warning(f"Failed to load webhook config from {config_path}: {e}")
@@ -257,7 +262,9 @@ class WebhookDispatcher:
 
         # Allow localhost for testing (via constructor or env var)
         if allow_localhost is None:
-            self._allow_localhost = os.environ.get("ARAGORA_WEBHOOK_ALLOW_LOCALHOST", "").lower() in ("1", "true", "yes")
+            self._allow_localhost = os.environ.get(
+                "ARAGORA_WEBHOOK_ALLOW_LOCALHOST", ""
+            ).lower() in ("1", "true", "yes")
         else:
             self._allow_localhost = allow_localhost
 
@@ -277,7 +284,9 @@ class WebhookDispatcher:
         # Thread pool for parallel webhook delivery (prevents one slow webhook from blocking others)
         # Max workers = number of webhook configs, capped at 10 to prevent resource exhaustion
         max_workers = min(len(configs), 10) if configs else 4
-        self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="webhook-deliver")
+        self._executor = ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="webhook-deliver"
+        )
 
         # Semaphore to limit pending deliveries and provide backpressure
         # Without this, executor queue can grow unbounded under sustained load
@@ -297,9 +306,7 @@ class WebhookDispatcher:
         self._shutdown_event.clear()  # Reset shutdown signal
         self._started = True
         self._worker = threading.Thread(
-            target=self._worker_loop,
-            daemon=True,
-            name="aragora-webhook-dispatcher"
+            target=self._worker_loop, daemon=True, name="aragora-webhook-dispatcher"
         )
         self._worker.start()
 
@@ -333,7 +340,7 @@ class WebhookDispatcher:
                 f"Webhook dispatcher stopped. "
                 f"Delivered: {self._delivery_count}, "
                 f"Failed: {self._failure_count}, "
-                f"Dropped: {self._drop_count}"
+                f"Dropped: {self._drop_count}",
             )
 
     def enqueue(self, event_dict: Dict[str, Any]) -> bool:
@@ -372,24 +379,28 @@ class WebhookDispatcher:
         return True
 
     # Cloud metadata endpoints to block (SSRF targets)
-    BLOCKED_METADATA_IPS = frozenset([
-        # AWS
-        "169.254.169.254",
-        "fd00:ec2::254",
-        # GCP
-        "metadata.google.internal",
-        # Azure
-        "169.254.169.254",  # Same as AWS
-        # DigitalOcean
-        "169.254.169.254",  # Same as AWS
-    ])
+    BLOCKED_METADATA_IPS = frozenset(
+        [
+            # AWS
+            "169.254.169.254",
+            "fd00:ec2::254",
+            # GCP
+            "metadata.google.internal",
+            # Azure
+            "169.254.169.254",  # Same as AWS
+            # DigitalOcean
+            "169.254.169.254",  # Same as AWS
+        ]
+    )
 
-    BLOCKED_METADATA_HOSTNAMES = frozenset([
-        "metadata.google.internal",
-        "metadata.goog",
-        "169.254.169.254",
-        "instance-data",
-    ])
+    BLOCKED_METADATA_HOSTNAMES = frozenset(
+        [
+            "metadata.google.internal",
+            "metadata.goog",
+            "169.254.169.254",
+            "instance-data",
+        ]
+    )
 
     def _validate_webhook_url(self, url: str) -> tuple[bool, str]:
         """Validate webhook URL is not pointing to internal services (SSRF protection).
@@ -424,13 +435,13 @@ class WebhookDispatcher:
             return False, f"Blocked metadata hostname: {parsed.hostname}"
 
         # Block hostnames ending with internal suffixes
-        blocked_suffixes = ('.internal', '.local', '.localhost', '.lan')
+        blocked_suffixes = (".internal", ".local", ".localhost", ".lan")
         if any(hostname_lower.endswith(suffix) for suffix in blocked_suffixes):
             return False, f"Internal hostname not allowed: {parsed.hostname}"
 
         # Skip IP validation only for actual localhost (for testing)
         # Don't bypass ALL validation - only skip for specific localhost identifiers
-        if self._allow_localhost and hostname_lower in ('localhost', '127.0.0.1', '::1'):
+        if self._allow_localhost and hostname_lower in ("localhost", "127.0.0.1", "::1"):
             return True, ""
 
         # Try to resolve hostname and check all returned IPs (IPv4 and IPv6)
@@ -562,7 +573,7 @@ class WebhookDispatcher:
                     if retry_after and retry_after.isdigit():
                         backoff = min(float(retry_after), 60.0)  # Cap at 60s
                     else:
-                        backoff = cfg.backoff_base_s * (2 ** attempt) + random.uniform(0, 0.5)
+                        backoff = cfg.backoff_base_s * (2**attempt) + random.uniform(0, 0.5)
 
                     if attempt < cfg.max_retries - 1:
                         logger.debug(
@@ -582,7 +593,7 @@ class WebhookDispatcher:
             except (urllib.error.URLError, TimeoutError, OSError) as e:
                 # Network errors: retry
                 if attempt < cfg.max_retries - 1:
-                    backoff = cfg.backoff_base_s * (2 ** attempt) + random.uniform(0, 0.5)
+                    backoff = cfg.backoff_base_s * (2**attempt) + random.uniform(0, 0.5)
                     logger.debug(
                         f"Webhook {cfg.name} attempt {attempt+1} failed: {e}, "
                         f"retrying in {backoff:.1f}s"

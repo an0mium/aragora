@@ -23,6 +23,7 @@ from aragora.server.handlers.base import (
 # Test generate_trace_id
 # ============================================================================
 
+
 class TestGenerateTraceId:
     """Tests for trace ID generation."""
 
@@ -51,6 +52,7 @@ class TestGenerateTraceId:
 # ============================================================================
 # Test _map_exception_to_status
 # ============================================================================
+
 
 class TestMapExceptionToStatus:
     """Tests for exception to HTTP status mapping."""
@@ -110,6 +112,7 @@ class TestMapExceptionToStatus:
 # Test error_response with headers
 # ============================================================================
 
+
 class TestErrorResponseHeaders:
     """Tests for error_response with header support."""
 
@@ -136,6 +139,7 @@ class TestErrorResponseHeaders:
 # Test json_response with headers
 # ============================================================================
 
+
 class TestJsonResponseHeaders:
     """Tests for json_response with header support."""
 
@@ -147,11 +151,7 @@ class TestJsonResponseHeaders:
 
     def test_json_response_with_headers(self):
         """JSON response with custom headers."""
-        result = json_response(
-            {"key": "value"},
-            200,
-            headers={"X-Custom": "header"}
-        )
+        result = json_response({"key": "value"}, 200, headers={"X-Custom": "header"})
         assert result.headers == {"X-Custom": "header"}
 
 
@@ -159,11 +159,13 @@ class TestJsonResponseHeaders:
 # Test handle_errors decorator
 # ============================================================================
 
+
 class TestHandleErrorsDecorator:
     """Tests for the handle_errors decorator."""
 
     def test_successful_call_passes_through(self):
         """Successful function calls should return normally."""
+
         @handle_errors("test operation")
         def success_func():
             return json_response({"success": True})
@@ -174,6 +176,7 @@ class TestHandleErrorsDecorator:
 
     def test_exception_returns_error_response(self):
         """Exceptions should be caught and return error response."""
+
         @handle_errors("test operation")
         def failing_func():
             raise ValueError("test error")
@@ -184,6 +187,7 @@ class TestHandleErrorsDecorator:
 
     def test_exception_includes_trace_id(self):
         """Error responses should include X-Trace-Id header."""
+
         @handle_errors("test operation")
         def failing_func():
             raise ValueError("test error")
@@ -194,6 +198,7 @@ class TestHandleErrorsDecorator:
 
     def test_file_not_found_returns_404(self):
         """FileNotFoundError should result in 404 status."""
+
         @handle_errors("resource lookup")
         def not_found_func():
             raise FileNotFoundError("missing file")
@@ -203,6 +208,7 @@ class TestHandleErrorsDecorator:
 
     def test_permission_error_returns_403(self):
         """PermissionError should result in 403 status."""
+
         @handle_errors("access check")
         def permission_func():
             raise PermissionError("access denied")
@@ -212,6 +218,7 @@ class TestHandleErrorsDecorator:
 
     def test_timeout_error_returns_504(self):
         """TimeoutError should result in 504 status."""
+
         @handle_errors("remote call")
         def timeout_func():
             raise TimeoutError("operation timed out")
@@ -221,6 +228,7 @@ class TestHandleErrorsDecorator:
 
     def test_unknown_error_returns_500(self):
         """Unknown exceptions should result in 500 status."""
+
         @handle_errors("general operation")
         def unknown_func():
             raise RuntimeError("unexpected error")
@@ -230,6 +238,7 @@ class TestHandleErrorsDecorator:
 
     def test_custom_default_status(self):
         """Custom default status should be used."""
+
         @handle_errors("service unavailable", default_status=503)
         def unavailable_func():
             raise RuntimeError("service down")
@@ -239,6 +248,7 @@ class TestHandleErrorsDecorator:
 
     def test_logs_exception_details(self, caplog):
         """Decorator should log exception details."""
+
         @handle_errors("test context")
         def failing_func():
             raise ValueError("detailed error message")
@@ -251,6 +261,7 @@ class TestHandleErrorsDecorator:
 
     def test_logs_trace_id(self, caplog):
         """Decorator should log trace ID."""
+
         @handle_errors("traceable operation")
         def failing_func():
             raise ValueError("error")
@@ -263,6 +274,7 @@ class TestHandleErrorsDecorator:
 
     def test_preserves_function_args(self):
         """Decorator should pass through function arguments."""
+
         @handle_errors("parameterized operation")
         def func_with_args(a, b, c=None):
             return json_response({"a": a, "b": b, "c": c})
@@ -272,6 +284,7 @@ class TestHandleErrorsDecorator:
 
     def test_preserves_function_name(self):
         """Decorator should preserve function name."""
+
         @handle_errors("named operation")
         def my_special_function():
             pass
@@ -280,6 +293,7 @@ class TestHandleErrorsDecorator:
 
     def test_works_with_class_methods(self):
         """Decorator should work with class instance methods."""
+
         class TestHandler:
             @handle_errors("method operation")
             def handle_request(self, query_params):
@@ -303,11 +317,13 @@ class TestHandleErrorsDecorator:
 # Test sanitization integration
 # ============================================================================
 
+
 class TestSanitizationIntegration:
     """Tests for error message sanitization in decorator."""
 
     def test_error_message_sanitized(self):
         """Error messages should be sanitized (no internal paths)."""
+
         @handle_errors("file operation")
         def file_func():
             raise FileNotFoundError("/secret/internal/path/file.txt")
@@ -319,6 +335,7 @@ class TestSanitizationIntegration:
 
     def test_value_error_sanitized(self):
         """ValueError should get sanitized message."""
+
         @handle_errors("validation")
         def validate_func():
             raise ValueError("Invalid API key: sk-12345secret")
@@ -331,6 +348,7 @@ class TestSanitizationIntegration:
 # ============================================================================
 # Test concurrent trace IDs
 # ============================================================================
+
 
 class TestConcurrentTraceIds:
     """Tests for trace ID uniqueness under concurrent access."""
@@ -366,11 +384,13 @@ class TestConcurrentTraceIds:
 # Test edge cases
 # ============================================================================
 
+
 class TestEdgeCases:
     """Tests for edge cases in error handling."""
 
     def test_exception_with_no_message(self):
         """Exceptions without messages should be handled."""
+
         @handle_errors("empty error")
         def empty_error_func():
             raise ValueError()
@@ -381,6 +401,7 @@ class TestEdgeCases:
 
     def test_exception_with_non_string_message(self):
         """Exceptions with non-string messages should be handled."""
+
         @handle_errors("non-string error")
         def non_string_func():
             raise ValueError({"complex": "error"})
@@ -390,6 +411,7 @@ class TestEdgeCases:
 
     def test_nested_exception(self):
         """Nested exceptions should be handled."""
+
         @handle_errors("nested error")
         def nested_func():
             try:
@@ -402,6 +424,7 @@ class TestEdgeCases:
 
     def test_keyboard_interrupt_propagates(self):
         """KeyboardInterrupt should propagate, not be caught."""
+
         @handle_errors("interrupt test")
         def interrupt_func():
             raise KeyboardInterrupt()
@@ -411,10 +434,10 @@ class TestEdgeCases:
 
     def test_system_exit_propagates(self):
         """SystemExit should propagate, not be caught."""
+
         @handle_errors("exit test")
         def exit_func():
             raise SystemExit(1)
 
         with pytest.raises(SystemExit):
             exit_func()
-

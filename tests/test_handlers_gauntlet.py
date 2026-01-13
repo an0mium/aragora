@@ -24,7 +24,8 @@ import aragora.server.handlers.gauntlet as gauntlet_module
 
 # Import rate limiting module for clearing between tests
 import importlib
-_rate_limit_mod = importlib.import_module('aragora.server.handlers.utils.rate_limit')
+
+_rate_limit_mod = importlib.import_module("aragora.server.handlers.utils.rate_limit")
 
 
 def run_async(coro):
@@ -59,9 +60,11 @@ def create_mock_handler(path: str = "/api/gauntlet/run") -> Mock:
 # Mock Classes for Gauntlet Types
 # ============================================================================
 
+
 @dataclass
 class MockGauntletRun:
     """Mock in-memory gauntlet run."""
+
     gauntlet_id: str = "gauntlet-20260111120000-abc123"
     status: str = "completed"
     input_type: str = "spec"
@@ -70,20 +73,22 @@ class MockGauntletRun:
     persona: str = "gdpr"
     profile: str = "default"
     created_at: str = "2026-01-11T12:00:00"
-    result: dict = field(default_factory=lambda: {
-        "gauntlet_id": "gauntlet-20260111120000-abc123",
-        "verdict": "PASS",
-        "confidence": 0.85,
-        "risk_score": 0.15,
-        "robustness_score": 0.9,
-        "coverage_score": 0.75,
-        "total_findings": 3,
-        "critical_count": 0,
-        "high_count": 1,
-        "medium_count": 2,
-        "low_count": 0,
-        "findings": [],
-    })
+    result: dict = field(
+        default_factory=lambda: {
+            "gauntlet_id": "gauntlet-20260111120000-abc123",
+            "verdict": "PASS",
+            "confidence": 0.85,
+            "risk_score": 0.15,
+            "robustness_score": 0.9,
+            "coverage_score": 0.75,
+            "total_findings": 3,
+            "critical_count": 0,
+            "high_count": 1,
+            "medium_count": 2,
+            "low_count": 0,
+            "findings": [],
+        }
+    )
 
 
 class MockDecisionReceipt:
@@ -114,12 +119,17 @@ class MockDecisionReceipt:
 
     @classmethod
     def from_mode_result(cls, result, input_hash=None):
-        return cls(gauntlet_id=result.get("gauntlet_id", "unknown") if isinstance(result, dict) else "unknown")
+        return cls(
+            gauntlet_id=(
+                result.get("gauntlet_id", "unknown") if isinstance(result, dict) else "unknown"
+            )
+        )
 
 
 @dataclass
 class MockRiskHeatmap:
     """Mock RiskHeatmap for tests."""
+
     cells: list = field(default_factory=list)
     categories: list = field(default_factory=list)
     severities: list = field(default_factory=lambda: ["critical", "high", "medium", "low"])
@@ -143,6 +153,7 @@ class MockRiskHeatmap:
 # ============================================================================
 # Test Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_gauntlet_run():
@@ -208,6 +219,7 @@ def clear_caches():
 # Route Matching Tests
 # ============================================================================
 
+
 class TestGauntletHandlerRouting:
     """Tests for route matching."""
 
@@ -229,11 +241,15 @@ class TestGauntletHandlerRouting:
 
     def test_can_handle_receipt(self, gauntlet_handler):
         """Should handle GET /api/gauntlet/{id}/receipt."""
-        assert gauntlet_handler.can_handle("/api/gauntlet/gauntlet-12345-abc/receipt", "GET") is True
+        assert (
+            gauntlet_handler.can_handle("/api/gauntlet/gauntlet-12345-abc/receipt", "GET") is True
+        )
 
     def test_can_handle_heatmap(self, gauntlet_handler):
         """Should handle GET /api/gauntlet/{id}/heatmap."""
-        assert gauntlet_handler.can_handle("/api/gauntlet/gauntlet-12345-abc/heatmap", "GET") is True
+        assert (
+            gauntlet_handler.can_handle("/api/gauntlet/gauntlet-12345-abc/heatmap", "GET") is True
+        )
 
     def test_can_handle_delete(self, gauntlet_handler):
         """Should handle DELETE /api/gauntlet/{id}."""
@@ -248,6 +264,7 @@ class TestGauntletHandlerRouting:
 # ============================================================================
 # Personas Endpoint Tests
 # ============================================================================
+
 
 class TestGauntletPersonas:
     """Tests for GET /api/gauntlet/personas endpoint."""
@@ -264,14 +281,14 @@ class TestGauntletPersonas:
 
     def test_list_personas_structure(self, gauntlet_handler):
         """Should return properly structured personas."""
-        with patch('aragora.gauntlet.personas.list_personas', return_value=['gdpr', 'hipaa']):
+        with patch("aragora.gauntlet.personas.list_personas", return_value=["gdpr", "hipaa"]):
             mock_persona = Mock()
             mock_persona.name = "GDPR"
             mock_persona.description = "GDPR compliance"
             mock_persona.regulation = "GDPR"
             mock_persona.attack_prompts = []
 
-            with patch('aragora.gauntlet.personas.get_persona', return_value=mock_persona):
+            with patch("aragora.gauntlet.personas.get_persona", return_value=mock_persona):
                 result = run_async(gauntlet_handler.handle("/api/gauntlet/personas", "GET", None))
 
                 assert result.status_code == 200
@@ -283,12 +300,13 @@ class TestGauntletPersonas:
 # Results List Tests
 # ============================================================================
 
+
 class TestGauntletResultsList:
     """Tests for GET /api/gauntlet/results endpoint."""
 
     def test_list_results_empty(self, gauntlet_handler):
         """Should return empty list when no results."""
-        with patch.object(gauntlet_module, '_get_storage') as mock_storage:
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
             mock_store = Mock()
             mock_store.list_recent.return_value = []
             mock_store.count.return_value = 0
@@ -303,15 +321,19 @@ class TestGauntletResultsList:
 
     def test_list_results_with_pagination(self, gauntlet_handler):
         """Should support pagination params."""
-        mock_handler = mock_handler_with_query("/api/gauntlet/results", {"limit": "10", "offset": "5"})
+        mock_handler = mock_handler_with_query(
+            "/api/gauntlet/results", {"limit": "10", "offset": "5"}
+        )
 
-        with patch.object(gauntlet_module, '_get_storage') as mock_storage:
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
             mock_store = Mock()
             mock_store.list_recent.return_value = []
             mock_store.count.return_value = 0
             mock_storage.return_value = mock_store
 
-            result = run_async(gauntlet_handler.handle("/api/gauntlet/results", "GET", mock_handler))
+            result = run_async(
+                gauntlet_handler.handle("/api/gauntlet/results", "GET", mock_handler)
+            )
 
             assert result.status_code == 200
             data = json.loads(result.body)
@@ -323,6 +345,7 @@ class TestGauntletResultsList:
 # Status Endpoint Tests
 # ============================================================================
 
+
 class TestGauntletStatus:
     """Tests for GET /api/gauntlet/{id} endpoint."""
 
@@ -330,9 +353,9 @@ class TestGauntletStatus:
         """Should return status from in-memory storage."""
         gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
 
-        result = run_async(gauntlet_handler.handle(
-            "/api/gauntlet/gauntlet-20260111120000-abc123", "GET", None
-        ))
+        result = run_async(
+            gauntlet_handler.handle("/api/gauntlet/gauntlet-20260111120000-abc123", "GET", None)
+        )
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -341,22 +364,20 @@ class TestGauntletStatus:
 
     def test_get_status_not_found(self, gauntlet_handler):
         """Should return 404 for unknown gauntlet."""
-        with patch.object(gauntlet_module, '_get_storage') as mock_storage:
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
             mock_store = Mock()
             mock_store.get.return_value = None
             mock_storage.return_value = mock_store
 
-            result = run_async(gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-nonexistent-000000", "GET", None
-            ))
+            result = run_async(
+                gauntlet_handler.handle("/api/gauntlet/gauntlet-nonexistent-000000", "GET", None)
+            )
 
             assert result.status_code == 404
 
     def test_get_status_invalid_id(self, gauntlet_handler):
         """Should return 400 for invalid gauntlet ID."""
-        result = run_async(gauntlet_handler.handle(
-            "/api/gauntlet/invalid-id-format", "GET", None
-        ))
+        result = run_async(gauntlet_handler.handle("/api/gauntlet/invalid-id-format", "GET", None))
 
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -367,6 +388,7 @@ class TestGauntletStatus:
 # Receipt Endpoint Tests
 # ============================================================================
 
+
 class TestGauntletReceipt:
     """Tests for GET /api/gauntlet/{id}/receipt endpoint."""
 
@@ -374,12 +396,12 @@ class TestGauntletReceipt:
         """Should return receipt as JSON (default)."""
         gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
 
-        with patch('aragora.gauntlet.receipt.DecisionReceipt', MockDecisionReceipt):
-            result = run_async(gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
-                "GET",
-                None
-            ))
+        with patch("aragora.gauntlet.receipt.DecisionReceipt", MockDecisionReceipt):
+            result = run_async(
+                gauntlet_handler.handle(
+                    "/api/gauntlet/gauntlet-20260111120000-abc123/receipt", "GET", None
+                )
+            )
 
             assert result.status_code == 200
             data = json.loads(result.body)
@@ -389,16 +411,15 @@ class TestGauntletReceipt:
         """Should return receipt as markdown."""
         gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
         mock_handler = mock_handler_with_query(
-            "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
-            {"format": "md"}
+            "/api/gauntlet/gauntlet-20260111120000-abc123/receipt", {"format": "md"}
         )
 
-        with patch('aragora.gauntlet.receipt.DecisionReceipt', MockDecisionReceipt):
-            result = run_async(gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
-                "GET",
-                mock_handler
-            ))
+        with patch("aragora.gauntlet.receipt.DecisionReceipt", MockDecisionReceipt):
+            result = run_async(
+                gauntlet_handler.handle(
+                    "/api/gauntlet/gauntlet-20260111120000-abc123/receipt", "GET", mock_handler
+                )
+            )
 
             # Result is a tuple (body, status, headers) for non-JSON
             if isinstance(result, tuple):
@@ -411,16 +432,15 @@ class TestGauntletReceipt:
         """Should return receipt as HTML."""
         gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
         mock_handler = mock_handler_with_query(
-            "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
-            {"format": "html"}
+            "/api/gauntlet/gauntlet-20260111120000-abc123/receipt", {"format": "html"}
         )
 
-        with patch('aragora.gauntlet.receipt.DecisionReceipt', MockDecisionReceipt):
-            result = run_async(gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
-                "GET",
-                mock_handler
-            ))
+        with patch("aragora.gauntlet.receipt.DecisionReceipt", MockDecisionReceipt):
+            result = run_async(
+                gauntlet_handler.handle(
+                    "/api/gauntlet/gauntlet-20260111120000-abc123/receipt", "GET", mock_handler
+                )
+            )
 
             # Result is a tuple (body, status, headers) for non-JSON
             if isinstance(result, tuple):
@@ -431,26 +451,24 @@ class TestGauntletReceipt:
 
     def test_get_receipt_not_found(self, gauntlet_handler):
         """Should return 404 for unknown gauntlet."""
-        with patch.object(gauntlet_module, '_get_storage') as mock_storage:
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
             mock_store = Mock()
             mock_store.get.return_value = None
             mock_storage.return_value = mock_store
 
-            result = run_async(gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-nonexistent-000000/receipt",
-                "GET",
-                None
-            ))
+            result = run_async(
+                gauntlet_handler.handle(
+                    "/api/gauntlet/gauntlet-nonexistent-000000/receipt", "GET", None
+                )
+            )
 
             assert result.status_code == 404
 
     def test_get_receipt_invalid_id(self, gauntlet_handler):
         """Should return 400 for invalid gauntlet ID."""
-        result = run_async(gauntlet_handler.handle(
-            "/api/gauntlet/invalid-format/receipt",
-            "GET",
-            None
-        ))
+        result = run_async(
+            gauntlet_handler.handle("/api/gauntlet/invalid-format/receipt", "GET", None)
+        )
 
         assert result.status_code == 400
 
@@ -459,6 +477,7 @@ class TestGauntletReceipt:
 # Heatmap Endpoint Tests
 # ============================================================================
 
+
 class TestGauntletHeatmap:
     """Tests for GET /api/gauntlet/{id}/heatmap endpoint."""
 
@@ -466,23 +485,21 @@ class TestGauntletHeatmap:
         """Should return heatmap as JSON (default)."""
         gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
 
-        with patch('aragora.gauntlet.heatmap.RiskHeatmap', MockRiskHeatmap):
-            with patch('aragora.gauntlet.heatmap.HeatmapCell', Mock):
-                result = run_async(gauntlet_handler.handle(
-                    "/api/gauntlet/gauntlet-20260111120000-abc123/heatmap",
-                    "GET",
-                    None
-                ))
+        with patch("aragora.gauntlet.heatmap.RiskHeatmap", MockRiskHeatmap):
+            with patch("aragora.gauntlet.heatmap.HeatmapCell", Mock):
+                result = run_async(
+                    gauntlet_handler.handle(
+                        "/api/gauntlet/gauntlet-20260111120000-abc123/heatmap", "GET", None
+                    )
+                )
 
                 assert result.status_code == 200
 
     def test_get_heatmap_invalid_id(self, gauntlet_handler):
         """Should return 400 for invalid gauntlet ID."""
-        result = run_async(gauntlet_handler.handle(
-            "/api/gauntlet/invalid-format/heatmap",
-            "GET",
-            None
-        ))
+        result = run_async(
+            gauntlet_handler.handle("/api/gauntlet/invalid-format/heatmap", "GET", None)
+        )
 
         assert result.status_code == 400
 
@@ -490,6 +507,7 @@ class TestGauntletHeatmap:
 # ============================================================================
 # Run Endpoint Tests (POST)
 # ============================================================================
+
 
 class TestGauntletRun:
     """Tests for POST /api/gauntlet/run endpoint."""
@@ -499,7 +517,7 @@ class TestGauntletRun:
         mock_handler = create_mock_handler("/api/gauntlet/run")
 
         # Mock read_json_body to return empty dict
-        with patch.object(gauntlet_handler, 'read_json_body', return_value={}):
+        with patch.object(gauntlet_handler, "read_json_body", return_value={}):
             result = run_async(gauntlet_handler.handle("/api/gauntlet/run", "POST", mock_handler))
 
             assert result.status_code == 400
@@ -510,10 +528,14 @@ class TestGauntletRun:
         """Should return 202 Accepted with gauntlet ID."""
         mock_handler = create_mock_handler("/api/gauntlet/run")
 
-        with patch.object(gauntlet_handler, 'read_json_body', return_value={
-            "input_content": "Test content to validate",
-            "input_type": "spec",
-        }):
+        with patch.object(
+            gauntlet_handler,
+            "read_json_body",
+            return_value={
+                "input_content": "Test content to validate",
+                "input_type": "spec",
+            },
+        ):
             result = run_async(gauntlet_handler.handle("/api/gauntlet/run", "POST", mock_handler))
 
             assert result.status_code == 202
@@ -526,6 +548,7 @@ class TestGauntletRun:
 # Delete Endpoint Tests
 # ============================================================================
 
+
 class TestGauntletDelete:
     """Tests for DELETE /api/gauntlet/{id} endpoint."""
 
@@ -533,14 +556,16 @@ class TestGauntletDelete:
         """Should delete from in-memory storage."""
         gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
 
-        with patch.object(gauntlet_module, '_get_storage') as mock_storage:
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
             mock_store = Mock()
             mock_store.delete.return_value = True
             mock_storage.return_value = mock_store
 
-            result = run_async(gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-20260111120000-abc123", "DELETE", None
-            ))
+            result = run_async(
+                gauntlet_handler.handle(
+                    "/api/gauntlet/gauntlet-20260111120000-abc123", "DELETE", None
+                )
+            )
 
             assert result.status_code == 200
             data = json.loads(result.body)
@@ -548,22 +573,20 @@ class TestGauntletDelete:
 
     def test_delete_not_found(self, gauntlet_handler):
         """Should return 404 for unknown gauntlet."""
-        with patch.object(gauntlet_module, '_get_storage') as mock_storage:
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
             mock_store = Mock()
             mock_store.delete.return_value = False
             mock_storage.return_value = mock_store
 
-            result = run_async(gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-nonexistent-000000", "DELETE", None
-            ))
+            result = run_async(
+                gauntlet_handler.handle("/api/gauntlet/gauntlet-nonexistent-000000", "DELETE", None)
+            )
 
             assert result.status_code == 404
 
     def test_delete_invalid_id(self, gauntlet_handler):
         """Should return 400 for invalid gauntlet ID."""
-        result = run_async(gauntlet_handler.handle(
-            "/api/gauntlet/invalid-format", "DELETE", None
-        ))
+        result = run_async(gauntlet_handler.handle("/api/gauntlet/invalid-format", "DELETE", None))
 
         assert result.status_code == 400
 
@@ -572,16 +595,15 @@ class TestGauntletDelete:
 # Security Tests
 # ============================================================================
 
+
 class TestGauntletSecurity:
     """Security and edge case tests."""
 
     def test_path_traversal_in_id(self, gauntlet_handler):
         """Should reject path traversal attempts."""
-        result = run_async(gauntlet_handler.handle(
-            "/api/gauntlet/../../../etc/passwd",
-            "GET",
-            None
-        ))
+        result = run_async(
+            gauntlet_handler.handle("/api/gauntlet/../../../etc/passwd", "GET", None)
+        )
 
         # Should return 400 for invalid ID format
         assert result.status_code == 400
@@ -591,15 +613,15 @@ class TestGauntletSecurity:
         gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
         mock_handler = mock_handler_with_query(
             "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
-            {"format": "<script>alert(1)</script>"}
+            {"format": "<script>alert(1)</script>"},
         )
 
-        with patch('aragora.gauntlet.receipt.DecisionReceipt', MockDecisionReceipt):
-            result = run_async(gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
-                "GET",
-                mock_handler
-            ))
+        with patch("aragora.gauntlet.receipt.DecisionReceipt", MockDecisionReceipt):
+            result = run_async(
+                gauntlet_handler.handle(
+                    "/api/gauntlet/gauntlet-20260111120000-abc123/receipt", "GET", mock_handler
+                )
+            )
 
             # Should default to JSON for invalid format
             assert result.status_code == 200
@@ -608,16 +630,15 @@ class TestGauntletSecurity:
         """Should handle overly long format parameter."""
         gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
         mock_handler = mock_handler_with_query(
-            "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
-            {"format": "x" * 100}
+            "/api/gauntlet/gauntlet-20260111120000-abc123/receipt", {"format": "x" * 100}
         )
 
-        with patch('aragora.gauntlet.receipt.DecisionReceipt', MockDecisionReceipt):
-            result = run_async(gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
-                "GET",
-                mock_handler
-            ))
+        with patch("aragora.gauntlet.receipt.DecisionReceipt", MockDecisionReceipt):
+            result = run_async(
+                gauntlet_handler.handle(
+                    "/api/gauntlet/gauntlet-20260111120000-abc123/receipt", "GET", mock_handler
+                )
+            )
 
             # Should default to JSON
             assert result.status_code == 200
@@ -627,6 +648,7 @@ class TestGauntletSecurity:
 # Integration Tests
 # ============================================================================
 
+
 class TestGauntletIntegration:
     """Integration tests for full workflows."""
 
@@ -634,20 +656,26 @@ class TestGauntletIntegration:
         """Test running gauntlet then getting status."""
         mock_handler = create_mock_handler("/api/gauntlet/run")
 
-        with patch.object(gauntlet_handler, 'read_json_body', return_value={
-            "input_content": "Test content",
-            "input_type": "spec",
-        }):
-            run_result = run_async(gauntlet_handler.handle("/api/gauntlet/run", "POST", mock_handler))
+        with patch.object(
+            gauntlet_handler,
+            "read_json_body",
+            return_value={
+                "input_content": "Test content",
+                "input_type": "spec",
+            },
+        ):
+            run_result = run_async(
+                gauntlet_handler.handle("/api/gauntlet/run", "POST", mock_handler)
+            )
 
             assert run_result.status_code == 202
             data = json.loads(run_result.body)
             gauntlet_id = data["gauntlet_id"]
 
             # Status should be available immediately
-            status_result = run_async(gauntlet_handler.handle(
-                f"/api/gauntlet/{gauntlet_id}", "GET", None
-            ))
+            status_result = run_async(
+                gauntlet_handler.handle(f"/api/gauntlet/{gauntlet_id}", "GET", None)
+            )
 
             assert status_result.status_code == 200
             status_data = json.loads(status_result.body)
@@ -658,16 +686,16 @@ class TestGauntletIntegration:
         gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
 
         # Get status
-        status_result = run_async(gauntlet_handler.handle(
-            "/api/gauntlet/gauntlet-20260111120000-abc123", "GET", None
-        ))
+        status_result = run_async(
+            gauntlet_handler.handle("/api/gauntlet/gauntlet-20260111120000-abc123", "GET", None)
+        )
         assert status_result.status_code == 200
 
         # Get receipt
-        with patch('aragora.gauntlet.receipt.DecisionReceipt', MockDecisionReceipt):
-            receipt_result = run_async(gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
-                "GET",
-                None
-            ))
+        with patch("aragora.gauntlet.receipt.DecisionReceipt", MockDecisionReceipt):
+            receipt_result = run_async(
+                gauntlet_handler.handle(
+                    "/api/gauntlet/gauntlet-20260111120000-abc123/receipt", "GET", None
+                )
+            )
             assert receipt_result.status_code == 200

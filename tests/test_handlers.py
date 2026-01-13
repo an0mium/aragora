@@ -33,28 +33,29 @@ from aragora.server.handlers.base import (
 # Base Handler Utilities
 # ============================================================================
 
+
 class TestGetIntParam:
     """Tests for get_int_param utility."""
 
     def test_returns_default_when_missing(self):
         """Test default is returned when key missing."""
-        assert get_int_param({}, 'limit', 10) == 10
+        assert get_int_param({}, "limit", 10) == 10
 
     def test_parses_valid_integer(self):
         """Test parsing valid integer."""
-        assert get_int_param({'limit': '25'}, 'limit', 10) == 25
+        assert get_int_param({"limit": "25"}, "limit", 10) == 25
 
     def test_parses_negative_value(self):
         """Test parsing negative integer."""
-        assert get_int_param({'limit': '-5'}, 'limit', 10) == -5
+        assert get_int_param({"limit": "-5"}, "limit", 10) == -5
 
     def test_handles_invalid_string(self):
         """Test handling invalid string."""
-        assert get_int_param({'limit': 'abc'}, 'limit', 10) == 10
+        assert get_int_param({"limit": "abc"}, "limit", 10) == 10
 
     def test_handles_none(self):
         """Test handling None value."""
-        assert get_int_param({'limit': None}, 'limit', 10) == 10
+        assert get_int_param({"limit": None}, "limit", 10) == 10
 
 
 class TestGetFloatParam:
@@ -62,15 +63,15 @@ class TestGetFloatParam:
 
     def test_returns_default_when_missing(self):
         """Test default is returned when key missing."""
-        assert get_float_param({}, 'threshold', 0.5) == 0.5
+        assert get_float_param({}, "threshold", 0.5) == 0.5
 
     def test_parses_valid_float(self):
         """Test parsing valid float."""
-        assert get_float_param({'threshold': '0.75'}, 'threshold', 0.5) == 0.75
+        assert get_float_param({"threshold": "0.75"}, "threshold", 0.5) == 0.75
 
     def test_handles_invalid_string(self):
         """Test handling invalid string."""
-        assert get_float_param({'threshold': 'abc'}, 'threshold', 0.5) == 0.5
+        assert get_float_param({"threshold": "abc"}, "threshold", 0.5) == 0.5
 
 
 class TestGetBoolParam:
@@ -78,16 +79,16 @@ class TestGetBoolParam:
 
     def test_true_values(self):
         """Test various true representations."""
-        assert get_bool_param({'flag': 'true'}, 'flag', False) is True
-        assert get_bool_param({'flag': '1'}, 'flag', False) is True
-        assert get_bool_param({'flag': 'yes'}, 'flag', False) is True
-        assert get_bool_param({'flag': 'on'}, 'flag', False) is True
+        assert get_bool_param({"flag": "true"}, "flag", False) is True
+        assert get_bool_param({"flag": "1"}, "flag", False) is True
+        assert get_bool_param({"flag": "yes"}, "flag", False) is True
+        assert get_bool_param({"flag": "on"}, "flag", False) is True
 
     def test_false_values(self):
         """Test various false representations."""
-        assert get_bool_param({'flag': 'false'}, 'flag', True) is False
-        assert get_bool_param({'flag': '0'}, 'flag', True) is False
-        assert get_bool_param({'flag': 'no'}, 'flag', True) is False
+        assert get_bool_param({"flag": "false"}, "flag", True) is False
+        assert get_bool_param({"flag": "0"}, "flag", True) is False
+        assert get_bool_param({"flag": "no"}, "flag", True) is False
 
 
 class TestBoundedTTLCache:
@@ -238,6 +239,7 @@ class TestJsonResponse:
     def test_serializes_complex_types(self):
         """Test serialization of complex types."""
         from datetime import datetime
+
         result = json_response({"time": datetime(2024, 1, 1)})
         assert b"2024-01-01" in result.body
 
@@ -256,6 +258,7 @@ class TestErrorResponse:
 # ============================================================================
 # ConsensusHandler Tests
 # ============================================================================
+
 
 class TestConsensusHandler:
     """Tests for ConsensusHandler."""
@@ -326,6 +329,7 @@ class TestConsensusHandler:
 # BeliefHandler Tests
 # ============================================================================
 
+
 class TestBeliefHandler:
     """Tests for BeliefHandler."""
 
@@ -387,9 +391,7 @@ class TestBeliefHandler:
                 mock_pt.load.return_value = Mock(get_claim_support=Mock(return_value=None))
                 # Should parse debate-123 and claim-456 from path
                 result = handler.handle(
-                    "/api/provenance/debate-123/claims/claim-456/support",
-                    {},
-                    Mock()
+                    "/api/provenance/debate-123/claims/claim-456/support", {}, Mock()
                 )
                 # Will fail due to nomic_dir not existing, but validates parsing
                 assert result is not None
@@ -398,6 +400,7 @@ class TestBeliefHandler:
 # ============================================================================
 # Handler Integration Tests
 # ============================================================================
+
 
 class TestHandlerRouting:
     """Tests for handler routing in unified server."""
@@ -414,6 +417,7 @@ class TestHandlerRouting:
             ConsensusHandler,
             BeliefHandler,
         )
+
         # All imports should succeed
         assert DebatesHandler is not None
         assert ConsensusHandler is not None
@@ -424,8 +428,8 @@ class TestHandlerRouting:
         from aragora.server.unified_server import UnifiedHandler
 
         # Check handler class variables exist
-        assert hasattr(UnifiedHandler, '_consensus_handler')
-        assert hasattr(UnifiedHandler, '_belief_handler')
+        assert hasattr(UnifiedHandler, "_consensus_handler")
+        assert hasattr(UnifiedHandler, "_belief_handler")
 
     def test_handler_result_structure(self):
         """Test HandlerResult has required fields."""
@@ -443,6 +447,7 @@ class TestHandlerRouting:
 # Security Tests
 # ============================================================================
 
+
 class TestHandlerSecurity:
     """Tests for handler security measures."""
 
@@ -456,11 +461,7 @@ class TestHandlerSecurity:
         # Attempt path traversal in debate_id
         assert belief_handler.can_handle("/api/belief-network/../etc/passwd/cruxes") is True
         # But the handler should reject invalid IDs
-        result = belief_handler.handle(
-            "/api/belief-network/../etc/passwd/cruxes",
-            {},
-            Mock()
-        )
+        result = belief_handler.handle("/api/belief-network/../etc/passwd/cruxes", {}, Mock())
         # Should either return None (not handling) or 400 (bad request)
         assert result is None or result.status_code in (400, 503)
 
@@ -478,6 +479,7 @@ class TestHandlerSecurity:
 # ============================================================================
 # Error Handling Tests
 # ============================================================================
+
 
 class TestErrorHandling:
     """Tests for error handling in handlers."""
@@ -517,6 +519,7 @@ class TestErrorHandling:
 # AgentsHandler Tests
 # ============================================================================
 
+
 class TestAgentsHandler:
     """Tests for AgentsHandler."""
 
@@ -525,6 +528,7 @@ class TestAgentsHandler:
         """Create handler with mock context."""
         from aragora.server.handlers import AgentsHandler
         from aragora.server.handlers.base import clear_cache
+
         clear_cache()
         ctx = {
             "storage": Mock(),
@@ -572,6 +576,7 @@ class TestAgentsHandler:
         """Test returns 503 when ELO system unavailable."""
         from aragora.server.handlers import AgentsHandler
         from aragora.server.handlers.base import clear_cache
+
         clear_cache()
         ctx = {"storage": None, "elo_system": None, "nomic_dir": None}
         handler = AgentsHandler(ctx)
@@ -588,6 +593,7 @@ class TestAgentsHandler:
 # AnalyticsHandler Tests
 # ============================================================================
 
+
 class TestAnalyticsHandler:
     """Tests for AnalyticsHandler."""
 
@@ -596,6 +602,7 @@ class TestAnalyticsHandler:
         """Create handler with mock context."""
         from aragora.server.handlers import AnalyticsHandler
         from aragora.server.handlers.base import clear_cache
+
         clear_cache()
         ctx = {
             "storage": Mock(),
@@ -636,6 +643,7 @@ class TestAnalyticsHandler:
 # DebatesHandler Tests
 # ============================================================================
 
+
 class TestDebatesHandler:
     """Tests for DebatesHandler."""
 
@@ -643,6 +651,7 @@ class TestDebatesHandler:
     def handler(self):
         """Create handler with mock context."""
         from aragora.server.handlers import DebatesHandler
+
         ctx = {
             "storage": Mock(),
             "nomic_dir": Path("/tmp/test"),
@@ -675,6 +684,7 @@ class TestDebatesHandler:
 # SystemHandler Tests
 # ============================================================================
 
+
 class TestSystemHandler:
     """Tests for SystemHandler."""
 
@@ -682,6 +692,7 @@ class TestSystemHandler:
     def handler(self):
         """Create handler with mock context."""
         from aragora.server.handlers import SystemHandler
+
         ctx = {
             "storage": Mock(),
             "nomic_dir": Path("/tmp/test"),
@@ -717,6 +728,7 @@ class TestSystemHandler:
 # PulseHandler Tests
 # ============================================================================
 
+
 class TestPulseHandler:
     """Tests for PulseHandler."""
 
@@ -724,6 +736,7 @@ class TestPulseHandler:
     def handler(self):
         """Create handler with mock context."""
         from aragora.server.handlers import PulseHandler
+
         ctx = {
             "nomic_dir": Path("/tmp/test"),
         }
@@ -747,6 +760,7 @@ class TestPulseHandler:
 # MetricsHandler Tests
 # ============================================================================
 
+
 class TestMetricsHandler:
     """Tests for MetricsHandler."""
 
@@ -754,6 +768,7 @@ class TestMetricsHandler:
     def handler(self):
         """Create handler with mock context."""
         from aragora.server.handlers import MetricsHandler
+
         ctx = {
             "storage": Mock(),
             "elo_system": Mock(),
@@ -787,6 +802,7 @@ class TestMetricsHandler:
 # CritiqueHandler Tests
 # ============================================================================
 
+
 class TestCritiqueHandler:
     """Tests for CritiqueHandler."""
 
@@ -794,6 +810,7 @@ class TestCritiqueHandler:
     def handler(self):
         """Create handler with mock context."""
         from aragora.server.handlers import CritiqueHandler
+
         ctx = {
             "nomic_dir": Path("/tmp/test"),
         }
@@ -842,6 +859,7 @@ class TestCritiqueHandler:
 # GenesisHandler Tests
 # ============================================================================
 
+
 class TestGenesisHandler:
     """Tests for GenesisHandler."""
 
@@ -849,6 +867,7 @@ class TestGenesisHandler:
     def handler(self):
         """Create handler with mock context."""
         from aragora.server.handlers import GenesisHandler
+
         ctx = {
             "nomic_dir": Path("/tmp/test"),
         }
@@ -903,6 +922,7 @@ class TestGenesisHandler:
 # ReplaysHandler Tests
 # ============================================================================
 
+
 class TestReplaysHandler:
     """Tests for ReplaysHandler."""
 
@@ -956,12 +976,13 @@ class TestReplaysHandler:
         meta = {
             "topic": "Test Topic",
             "agents": [{"name": "Agent1"}, {"name": "Agent2"}],
-            "schema_version": "2.0"
+            "schema_version": "2.0",
         }
         (replay_dir / "meta.json").write_text(json.dumps(meta))
 
         # Need to clear cache to get fresh results
         from aragora.server.handlers.base import clear_cache
+
         clear_cache()
 
         result = handler.handle("/api/replays", {}, Mock())
@@ -999,13 +1020,12 @@ class TestReplaysHandler:
         events = [
             {"type": "start", "timestamp": 0},
             {"type": "argument", "content": "Hello"},
-            {"type": "end", "timestamp": 100}
+            {"type": "end", "timestamp": 100},
         ]
-        (replay_dir / "events.jsonl").write_text(
-            "\n".join(json.dumps(e) for e in events)
-        )
+        (replay_dir / "events.jsonl").write_text("\n".join(json.dumps(e) for e in events))
 
         from aragora.server.handlers.base import clear_cache
+
         clear_cache()
 
         result = handler.handle("/api/replays/test-replay", {}, Mock())

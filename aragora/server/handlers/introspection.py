@@ -37,9 +37,7 @@ _introspection_limiter = RateLimiter(requests_per_minute=20)
 get_agent_introspection, INTROSPECTION_AVAILABLE = try_import_class(
     "aragora.introspection", "get_agent_introspection"
 )
-CritiqueStore, CRITIQUE_STORE_AVAILABLE = try_import_class(
-    "aragora.memory.store", "CritiqueStore"
-)
+CritiqueStore, CRITIQUE_STORE_AVAILABLE = try_import_class("aragora.memory.store", "CritiqueStore")
 PersonaManager, PERSONA_MANAGER_AVAILABLE = try_import_class(
     "aragora.agents.personas", "PersonaManager"
 )
@@ -59,7 +57,11 @@ class IntrospectionHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in ("/api/introspection/all", "/api/introspection/leaderboard", "/api/introspection/agents"):
+        if path in (
+            "/api/introspection/all",
+            "/api/introspection/leaderboard",
+            "/api/introspection/agents",
+        ):
             return True
         if path.startswith("/api/introspection/agents/"):
             return True
@@ -76,7 +78,7 @@ class IntrospectionHandler(BaseHandler):
         if path == "/api/introspection/all":
             return self._get_all_introspection()
         elif path == "/api/introspection/leaderboard":
-            limit = get_int_param(query_params, 'limit', 10)
+            limit = get_int_param(query_params, "limit", 10)
             return self._get_introspection_leaderboard(min(limit, 50))
         elif path == "/api/introspection/agents":
             return self._list_agents()
@@ -143,7 +145,9 @@ class IntrospectionHandler(BaseHandler):
                         reputation = memory.get_agent_reputation(agent)  # type: ignore[union-attr]
                         if reputation:
                             agent_info["reputation_score"] = getattr(reputation, "score", 0.5)
-                            agent_info["total_critiques"] = getattr(reputation, "total_critiques", 0)
+                            agent_info["total_critiques"] = getattr(
+                                reputation, "total_critiques", 0
+                            )
                     except Exception as e:
                         logger.debug(f"Failed to get reputation for {agent}: {e}")
 
@@ -152,10 +156,12 @@ class IntrospectionHandler(BaseHandler):
             # Sort by reputation score descending
             agent_list.sort(key=lambda x: x.get("reputation_score", 0), reverse=True)
 
-            return json_response({
-                "agents": agent_list,
-                "count": len(agent_list),
-            })
+            return json_response(
+                {
+                    "agents": agent_list,
+                    "count": len(agent_list),
+                }
+            )
         except Exception as e:
             logger.error(f"Error listing agents: {e}", exc_info=True)
             return error_response("Failed to list agents", 500)
@@ -201,10 +207,12 @@ class IntrospectionHandler(BaseHandler):
                     logger.debug(f"Error getting introspection for {agent}: {e}")
                     continue
 
-            return json_response({
-                "agents": snapshots,
-                "count": len(snapshots),
-            })
+            return json_response(
+                {
+                    "agents": snapshots,
+                    "count": len(snapshots),
+                }
+            )
         except Exception as e:
             logger.error(f"Error getting all introspection: {e}", exc_info=True)
             return error_response("Failed to get introspection data", 500)
@@ -237,10 +245,12 @@ class IntrospectionHandler(BaseHandler):
             # Sort by reputation score descending
             snapshots.sort(key=lambda x: x.get("reputation_score", 0), reverse=True)
 
-            return json_response({
-                "leaderboard": snapshots[:limit],
-                "total_agents": len(snapshots),
-            })
+            return json_response(
+                {
+                    "leaderboard": snapshots[:limit],
+                    "total_agents": len(snapshots),
+                }
+            )
         except Exception as e:
             logger.error(f"Error getting introspection leaderboard: {e}", exc_info=True)
             return error_response("Failed to get leaderboard", 500)

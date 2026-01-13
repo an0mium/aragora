@@ -49,9 +49,7 @@ class TestSaveDebateVisualization:
 
     def test_exports_mermaid_format(self, cartographer, tmp_path):
         """Test exports mermaid format file."""
-        results = save_debate_visualization(
-            cartographer, tmp_path, "test", formats=["mermaid"]
-        )
+        results = save_debate_visualization(cartographer, tmp_path, "test", formats=["mermaid"])
 
         mermaid_path = Path(results["mermaid"])
         assert mermaid_path.exists()
@@ -62,9 +60,7 @@ class TestSaveDebateVisualization:
 
     def test_exports_json_format(self, cartographer, tmp_path):
         """Test exports json format file."""
-        results = save_debate_visualization(
-            cartographer, tmp_path, "test", formats=["json"]
-        )
+        results = save_debate_visualization(cartographer, tmp_path, "test", formats=["json"])
 
         json_path = Path(results["json"])
         assert json_path.exists()
@@ -77,9 +73,7 @@ class TestSaveDebateVisualization:
 
     def test_exports_html_format(self, cartographer, tmp_path):
         """Test exports html format file."""
-        results = save_debate_visualization(
-            cartographer, tmp_path, "test", formats=["html"]
-        )
+        results = save_debate_visualization(cartographer, tmp_path, "test", formats=["html"])
 
         html_path = Path(results["html"])
         assert html_path.exists()
@@ -134,9 +128,7 @@ class TestSaveDebateVisualization:
     def test_empty_formats_list_uses_defaults(self, cartographer, tmp_path):
         """Test empty formats list uses default formats (mermaid, json)."""
         # In Python, empty list is falsy so `formats or default` uses default
-        results = save_debate_visualization(
-            cartographer, tmp_path, "test", formats=[]
-        )
+        results = save_debate_visualization(cartographer, tmp_path, "test", formats=[])
 
         # Due to Python's truthiness, [] triggers the default formats
         assert "mermaid" in results
@@ -162,9 +154,7 @@ class TestSaveDebateVisualization:
 
     def test_json_includes_full_content(self, cartographer, tmp_path):
         """Test JSON export includes full content."""
-        results = save_debate_visualization(
-            cartographer, tmp_path, "test", formats=["json"]
-        )
+        results = save_debate_visualization(cartographer, tmp_path, "test", formats=["json"])
 
         content = Path(results["json"]).read_text()
         data = json.loads(content)
@@ -175,18 +165,14 @@ class TestSaveDebateVisualization:
     def test_overwrites_existing_files(self, cartographer, tmp_path):
         """Test overwrites existing files."""
         # Create initial files
-        results1 = save_debate_visualization(
-            cartographer, tmp_path, "test", formats=["mermaid"]
-        )
+        results1 = save_debate_visualization(cartographer, tmp_path, "test", formats=["mermaid"])
         initial_content = Path(results1["mermaid"]).read_text()
 
         # Add more data
         cartographer.update_from_message("agent3", "Another message", "", 2)
 
         # Save again
-        results2 = save_debate_visualization(
-            cartographer, tmp_path, "test", formats=["mermaid"]
-        )
+        results2 = save_debate_visualization(cartographer, tmp_path, "test", formats=["mermaid"])
         new_content = Path(results2["mermaid"]).read_text()
 
         # Content should be different
@@ -194,9 +180,7 @@ class TestSaveDebateVisualization:
 
     def test_path_accepts_string(self, cartographer, tmp_path):
         """Test accepts string path."""
-        results = save_debate_visualization(
-            cartographer, str(tmp_path), "test", formats=["json"]
-        )
+        results = save_debate_visualization(cartographer, str(tmp_path), "test", formats=["json"])
 
         assert Path(results["json"]).exists()
 
@@ -286,7 +270,7 @@ class TestGenerateStandaloneHTML:
         """Test includes mermaid diagram content."""
         html = generate_standalone_html(cartographer_with_topic)
 
-        assert "class=\"mermaid\"" in html
+        assert 'class="mermaid"' in html
         assert "graph" in html  # Mermaid diagram starts with graph
 
     def test_includes_legend(self, cartographer_with_topic):
@@ -343,7 +327,7 @@ class TestGenerateStandaloneHTML:
         html = generate_standalone_html(cart)
 
         assert "<!DOCTYPE html>" in html
-        assert "<div class=\"mermaid\">" in html
+        assert '<div class="mermaid">' in html
 
     def test_special_characters_in_topic_escaped(self):
         """Test special characters in topic don't break HTML."""
@@ -381,10 +365,10 @@ class TestGenerateStandaloneHTML:
         """Test has proper container structure."""
         html = generate_standalone_html(cartographer_with_topic)
 
-        assert "class=\"container\"" in html
-        assert "class=\"stats\"" in html
-        assert "class=\"mermaid\"" in html
-        assert "class=\"legend\"" in html
+        assert 'class="container"' in html
+        assert 'class="stats"' in html
+        assert 'class="mermaid"' in html
+        assert 'class="legend"' in html
 
 
 class TestExporterIntegration:
@@ -398,9 +382,7 @@ class TestExporterIntegration:
         cart.update_from_message("agent2", "Counter argument", "critic", 1)
         cart.update_from_vote("agent3", "yes", 1)
 
-        results = save_debate_visualization(
-            cart, tmp_path, "integration", formats=["json"]
-        )
+        results = save_debate_visualization(cart, tmp_path, "integration", formats=["json"])
 
         # Load and verify
         with open(results["json"]) as f:

@@ -10,17 +10,17 @@ import re
 from typing import Optional, Tuple
 
 # Safe string patterns for different entity types
-SAFE_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,64}$')
-SAFE_ID_PATTERN_WITH_DOTS = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$')
-SAFE_SLUG_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,128}$')
-SAFE_AGENT_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,32}$')
+SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+SAFE_ID_PATTERN_WITH_DOTS = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
+SAFE_SLUG_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,128}$")
+SAFE_AGENT_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,32}$")
 
 # Specific patterns for structured IDs
-SAFE_GAUNTLET_ID_PATTERN = re.compile(r'^gauntlet-\d{14}-[a-f0-9]{6}$')
-SAFE_TOKEN_PATTERN = re.compile(r'^[A-Za-z0-9_-]{16,64}$')
-SAFE_BATCH_ID_PATTERN = re.compile(r'^batch_[a-zA-Z0-9]{6,32}$')
-SAFE_SHARE_TOKEN_PATTERN = re.compile(r'^[A-Za-z0-9_-]{16,32}$')
-SAFE_SESSION_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{8,64}$')
+SAFE_GAUNTLET_ID_PATTERN = re.compile(r"^gauntlet-\d{14}-[a-f0-9]{6}$")
+SAFE_TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+SAFE_BATCH_ID_PATTERN = re.compile(r"^batch_[a-zA-Z0-9]{6,32}$")
+SAFE_SHARE_TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{16,32}$")
+SAFE_SESSION_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{8,64}$")
 
 
 def validate_path_segment(
@@ -235,7 +235,7 @@ def validate_no_path_traversal(path: str) -> Tuple[bool, Optional[str]]:
         if not is_valid:
             return error_response(err, 400)
     """
-    if '..' in path:
+    if ".." in path:
         return False, "Path traversal not allowed"
     return True, None
 

@@ -5,6 +5,7 @@ import { getAgentColors } from '@/utils/agentColors';
 import { TranscriptMessageCard } from './TranscriptMessageCard';
 import { DebateForkPanel } from './DebateForkPanel';
 import { BroadcastPanel } from '@/components/broadcast';
+import { logger } from '@/utils/logger';
 import type { ArchivedDebateViewProps, TranscriptMessage } from './types';
 
 export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateViewProps) {
@@ -89,11 +90,11 @@ export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateVi
           debateId={debate.id}
           messageCount={messageCount}
           onForkCreated={(result) => {
-            console.log('Fork created:', result);
+            logger.debug('Fork created:', result);
             // Could navigate to the new fork or show a success message
           }}
           onFollowupCreated={(result) => {
-            console.log('Follow-up created:', result);
+            logger.debug('Follow-up created:', result);
             // Could navigate to the new follow-up debate
           }}
         />

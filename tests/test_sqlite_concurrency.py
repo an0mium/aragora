@@ -187,8 +187,9 @@ class TestConcurrentWrites:
         def write_row(row_id):
             try:
                 conn = get_wal_connection(temp_db)
-                conn.execute("INSERT INTO test_data (id, value) VALUES (?, ?)",
-                            (row_id, f"value_{row_id}"))
+                conn.execute(
+                    "INSERT INTO test_data (id, value) VALUES (?, ?)", (row_id, f"value_{row_id}")
+                )
                 conn.commit()
                 conn.close()
                 with lock:
@@ -243,8 +244,7 @@ class TestCritiqueStoreConcurrency:
 
         # Concurrent updates for the same agent (potential conflict)
         threads = [
-            threading.Thread(target=update_reputation, args=("test-agent",))
-            for _ in range(10)
+            threading.Thread(target=update_reputation, args=("test-agent",)) for _ in range(10)
         ]
 
         for t in threads:
@@ -301,7 +301,9 @@ class TestContinuumMemoryConcurrency:
                 pass
 
         # Most stores should succeed with WAL mode and unique IDs
-        assert success_count[0] >= 15, f"Too many failures: {len(errors)} errors, {success_count[0]} successes"
+        assert (
+            success_count[0] >= 15
+        ), f"Too many failures: {len(errors)} errors, {success_count[0]} successes"
 
 
 class TestWalFileCreation:

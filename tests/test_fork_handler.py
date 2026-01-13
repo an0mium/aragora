@@ -13,6 +13,7 @@ from aragora.server.fork_handler import ForkBridgeHandler
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def fork_handler():
     """Create ForkBridgeHandler with mock dependencies."""
@@ -58,6 +59,7 @@ def valid_fork_data():
 # Fork Registration Tests
 # =============================================================================
 
+
 class TestForkRegistration:
     """Tests for fork registration and retrieval."""
 
@@ -91,10 +93,7 @@ class TestForkRegistration:
             fork_handler.register_fork(f"fork-{thread_id}", {"id": thread_id})
             results.append(thread_id)
 
-        threads = [
-            threading.Thread(target=register_fork, args=(i,))
-            for i in range(num_threads)
-        ]
+        threads = [threading.Thread(target=register_fork, args=(i,)) for i in range(num_threads)]
         for t in threads:
             t.start()
         for t in threads:
@@ -109,6 +108,7 @@ class TestForkRegistration:
 # =============================================================================
 # Fork ID Validation Tests
 # =============================================================================
+
 
 class TestForkIdValidation:
     """Tests for fork_id validation in handle_start_fork."""
@@ -177,6 +177,7 @@ class TestForkIdValidation:
 # Message Validation Tests
 # =============================================================================
 
+
 class TestMessageValidation:
     """Tests for initial_messages validation."""
 
@@ -203,7 +204,7 @@ class TestMessageValidation:
         # Validate filtering logic manually (as done in fork_handler)
         validated = []
         for msg in messages[:1000]:
-            if isinstance(msg, dict) and isinstance(msg.get('content'), str):
+            if isinstance(msg, dict) and isinstance(msg.get("content"), str):
                 validated.append(msg)
 
         assert len(validated) == 1
@@ -217,7 +218,7 @@ class TestMessageValidation:
         # Apply the same truncation logic as fork_handler
         validated = []
         for msg in messages[:1000]:  # Truncate at 1000
-            if isinstance(msg, dict) and isinstance(msg.get('content'), str):
+            if isinstance(msg, dict) and isinstance(msg.get("content"), str):
                 validated.append(msg)
 
         assert len(validated) == 1000
@@ -236,6 +237,7 @@ class TestMessageValidation:
 # =============================================================================
 # Agent Configuration Tests
 # =============================================================================
+
 
 class TestAgentConfiguration:
     """Tests for agent configuration in fork data."""
@@ -277,6 +279,7 @@ class TestAgentConfiguration:
 # Debate Lifecycle Tests
 # =============================================================================
 
+
 class TestDebateLifecycle:
     """Tests for fork debate lifecycle."""
 
@@ -317,7 +320,9 @@ class TestDebateLifecycle:
 
         # Force an error by not setting up imports
         # The ImportError will be caught and cleanup should happen
-        with patch('aragora.server.fork_handler._ensure_imports', side_effect=ImportError("Test error")):
+        with patch(
+            "aragora.server.fork_handler._ensure_imports", side_effect=ImportError("Test error")
+        ):
             result = await fork_handler.handle_start_fork(mock_ws, {"fork_id": "error-test"})
 
         assert result is False
@@ -328,6 +333,7 @@ class TestDebateLifecycle:
 # =============================================================================
 # WebSocket Communication Tests
 # =============================================================================
+
 
 class TestWebSocketCommunication:
     """Tests for WebSocket message sending."""
@@ -370,8 +376,8 @@ class TestWebSocketCommunication:
                 "loop_id": "fork_test-123",
                 "fork_id": "test-123",
                 "hypothesis": "Test hypothesis",
-                "status": "running"
-            }
+                "status": "running",
+            },
         }
 
         # Verify structure matches what code would send
@@ -384,6 +390,7 @@ class TestWebSocketCommunication:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases and error handling."""

@@ -424,6 +424,7 @@ class TestSSOSettings:
         with pytest.raises(ValidationError):
             # Invalid provider type via direct instantiation
             import os
+
             os.environ["ARAGORA_SSO_PROVIDER_TYPE"] = "invalid_provider"
             try:
                 SSOSettings()
@@ -543,6 +544,7 @@ class TestGetSSOProvider:
 
         # Module-level check
         import aragora.auth.sso as sso_module
+
         assert sso_module._sso_initialized is False
         assert sso_module._sso_provider is None
 
@@ -550,7 +552,11 @@ class TestGetSSOProvider:
 class TestSAMLResponseParsing:
     """Test SAML response parsing scenarios."""
 
-    def _create_saml_response(self, name_id: str = "user@example.com", status: str = "urn:oasis:names:tc:SAML:2.0:status:Success") -> str:
+    def _create_saml_response(
+        self,
+        name_id: str = "user@example.com",
+        status: str = "urn:oasis:names:tc:SAML:2.0:status:Success",
+    ) -> str:
         """Create a test SAML response XML."""
         xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
@@ -764,11 +770,18 @@ class TestHTTPSEnforcement:
             result = await handler.handle_callback(MagicMock(), {"code": "auth-code"})
 
             # Should fail with insecure callback error
-            status = result.get("status") if isinstance(result, dict) else getattr(result, "status_code", 200)
+            status = (
+                result.get("status")
+                if isinstance(result, dict)
+                else getattr(result, "status_code", 200)
+            )
             assert status == 400
-            body = result.get("body", {}) if isinstance(result, dict) else getattr(result, "body", {})
+            body = (
+                result.get("body", {}) if isinstance(result, dict) else getattr(result, "body", {})
+            )
             if isinstance(body, bytes):
                 import json
+
                 body = json.loads(body.decode())
             assert "INSECURE_CALLBACK_URL" in str(body)
         finally:
@@ -804,12 +817,19 @@ class TestHTTPSEnforcement:
         result = await handler.handle_callback(MagicMock(), {"code": "auth-code"})
 
         # Should proceed (though it may fail for other reasons like no IdP)
-        status = result.get("status") if isinstance(result, dict) else getattr(result, "status_code", 200)
+        status = (
+            result.get("status")
+            if isinstance(result, dict)
+            else getattr(result, "status_code", 200)
+        )
         # Not 400 for INSECURE_CALLBACK_URL
         if status == 400:
-            body = result.get("body", {}) if isinstance(result, dict) else getattr(result, "body", {})
+            body = (
+                result.get("body", {}) if isinstance(result, dict) else getattr(result, "body", {})
+            )
             if isinstance(body, bytes):
                 import json
+
                 body = json.loads(body.decode())
             assert "INSECURE_CALLBACK_URL" not in str(body)
 
@@ -822,7 +842,9 @@ class TestPEMCertificateValidation:
         from aragora.config.settings import SSOSettings
         import os
 
-        os.environ["ARAGORA_SSO_IDP_CERTIFICATE"] = "-----BEGIN CERTIFICATE-----\nMIIC...\n-----END CERTIFICATE-----"
+        os.environ["ARAGORA_SSO_IDP_CERTIFICATE"] = (
+            "-----BEGIN CERTIFICATE-----\nMIIC...\n-----END CERTIFICATE-----"
+        )
         try:
             settings = SSOSettings()
             assert settings.idp_certificate.startswith("-----BEGIN")
@@ -972,17 +994,21 @@ class TestSSOSecurityEdgeCases:
         handler._provider = provider
 
         # Simulate IdP error response
-        result = await handler.handle_callback(MagicMock(), {
-            "error": "access_denied",
-            "error_description": "User denied access"
-        })
+        result = await handler.handle_callback(
+            MagicMock(), {"error": "access_denied", "error_description": "User denied access"}
+        )
 
-        status = result.get("status") if isinstance(result, dict) else getattr(result, "status_code", 200)
+        status = (
+            result.get("status")
+            if isinstance(result, dict)
+            else getattr(result, "status_code", 200)
+        )
         assert status == 401
 
         body = result.get("body", {}) if isinstance(result, dict) else getattr(result, "body", {})
         if isinstance(body, bytes):
             import json
+
             body = json.loads(body.decode())
         assert "SSO_IDP_ERROR" in str(body)
 
@@ -1014,17 +1040,21 @@ class TestSSOSecurityEdgeCases:
 
         provider.authenticate = mock_authenticate
 
-        result = await handler.handle_callback(MagicMock(), {
-            "code": "auth-code",
-            "state": "expired-state"
-        })
+        result = await handler.handle_callback(
+            MagicMock(), {"code": "auth-code", "state": "expired-state"}
+        )
 
-        status = result.get("status") if isinstance(result, dict) else getattr(result, "status_code", 200)
+        status = (
+            result.get("status")
+            if isinstance(result, dict)
+            else getattr(result, "status_code", 200)
+        )
         assert status == 401
 
         body = result.get("body", {}) if isinstance(result, dict) else getattr(result, "body", {})
         if isinstance(body, bytes):
             import json
+
             body = json.loads(body.decode())
         assert "SSO_SESSION_EXPIRED" in str(body)
 
@@ -1038,13 +1068,13 @@ class TestSSOSecurityEdgeCases:
 
         # Should not error even without provider
         import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
-            handler.handle_logout(MagicMock(), {})
-        )
+
+        result = asyncio.get_event_loop().run_until_complete(handler.handle_logout(MagicMock(), {}))
 
         body = result.get("body", {}) if isinstance(result, dict) else getattr(result, "body", {})
         if isinstance(body, bytes):
             import json
+
             body = json.loads(body.decode())
         assert body.get("success") is True
 

@@ -414,6 +414,7 @@ class TestAgentFallbackChain:
         """No fallback agent without OPENROUTER_API_KEY."""
         # Remove the key if present
         import os
+
         os.environ.pop("OPENROUTER_API_KEY", None)
 
         class TestAgent(QuotaFallbackMixin):
@@ -541,7 +542,9 @@ class TestGracefulDegradation:
 
     def test_recovery_from_degraded_state(self):
         """System recovers from degraded state."""
-        breaker = get_circuit_breaker("recovering-service", failure_threshold=2, cooldown_seconds=0.1)
+        breaker = get_circuit_breaker(
+            "recovering-service", failure_threshold=2, cooldown_seconds=0.1
+        )
 
         # Open circuit
         breaker.record_failure()

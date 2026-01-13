@@ -23,12 +23,14 @@ def main():
     if args.api_port is not None:
         args.http_port = args.api_port
 
-    asyncio.run(run_unified_server(
-        http_port=args.http_port,
-        ws_port=args.port,
-        static_dir=args.static_dir,
-        nomic_dir=args.nomic_dir,
-    ))
+    asyncio.run(
+        run_unified_server(
+            http_port=args.http_port,
+            ws_port=args.port,
+            static_dir=args.static_dir,
+            nomic_dir=args.nomic_dir,
+        )
+    )
 
 
 if __name__ == "__main__":

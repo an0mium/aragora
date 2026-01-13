@@ -20,18 +20,18 @@ class ToolGroup(Flag):
     NONE = 0
 
     # Core file operations
-    READ = auto()       # Read files, glob, grep
-    EDIT = auto()       # Edit, write files
+    READ = auto()  # Read files, glob, grep
+    EDIT = auto()  # Edit, write files
 
     # Execution
-    COMMAND = auto()    # Execute shell commands
+    COMMAND = auto()  # Execute shell commands
 
     # External access
-    BROWSER = auto()    # Web fetch, search
+    BROWSER = auto()  # Web fetch, search
 
     # Advanced capabilities
-    MCP = auto()        # MCP server tools
-    DEBATE = auto()     # Participate in debates
+    MCP = auto()  # MCP server tools
+    DEBATE = auto()  # Participate in debates
 
     # Composite groups for convenience
     @classmethod
@@ -56,20 +56,16 @@ TOOL_GROUP_MAP: dict[str, ToolGroup] = {
     "read": ToolGroup.READ,
     "glob": ToolGroup.READ,
     "grep": ToolGroup.READ,
-
     # Edit tools
     "edit": ToolGroup.EDIT,
     "write": ToolGroup.EDIT,
     "notebook_edit": ToolGroup.EDIT,
-
     # Command tools
     "bash": ToolGroup.COMMAND,
     "kill_shell": ToolGroup.COMMAND,
-
     # Browser tools
     "web_fetch": ToolGroup.BROWSER,
     "web_search": ToolGroup.BROWSER,
-
     # Debate tools
     "debate": ToolGroup.DEBATE,
     "arena": ToolGroup.DEBATE,

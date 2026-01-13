@@ -20,6 +20,7 @@ from aragora.debate.forking import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def fork_detector():
     """Create ForkDetector instance."""
@@ -60,8 +61,12 @@ def sample_result():
 def agreeing_messages():
     """Create messages where agents agree."""
     return [
-        Message(role="proposer", agent="claude", content="I think we should use REST APIs.", round=1),
-        Message(role="critic", agent="gemini", content="I agree, REST APIs are a good choice.", round=1),
+        Message(
+            role="proposer", agent="claude", content="I think we should use REST APIs.", round=1
+        ),
+        Message(
+            role="critic", agent="gemini", content="I agree, REST APIs are a good choice.", round=1
+        ),
     ]
 
 
@@ -69,8 +74,18 @@ def agreeing_messages():
 def disagreeing_messages():
     """Create messages where agents fundamentally disagree."""
     return [
-        Message(role="proposer", agent="claude", content="I propose we use microservices for scalability.", round=2),
-        Message(role="critic", agent="gemini", content="I disagree. A monolith is better. Wrong approach for this scale.", round=2),
+        Message(
+            role="proposer",
+            agent="claude",
+            content="I propose we use microservices for scalability.",
+            round=2,
+        ),
+        Message(
+            role="critic",
+            agent="gemini",
+            content="I disagree. A monolith is better. Wrong approach for this scale.",
+            round=2,
+        ),
     ]
 
 
@@ -78,7 +93,12 @@ def disagreeing_messages():
 def tech_disagreement_messages():
     """Create messages with different tech choices."""
     return [
-        Message(role="proposer", agent="claude", content="We should use SQL databases for reliability.", round=2),
+        Message(
+            role="proposer",
+            agent="claude",
+            content="We should use SQL databases for reliability.",
+            round=2,
+        ),
         Message(role="critic", agent="gemini", content="I prefer NoSQL for flexibility.", round=2),
     ]
 
@@ -124,6 +144,7 @@ def sample_branches(sample_message):
 # ForkPoint Dataclass Tests
 # =============================================================================
 
+
 class TestForkPoint:
     """Tests for ForkPoint dataclass."""
 
@@ -162,6 +183,7 @@ class TestForkPoint:
 # =============================================================================
 # Branch Dataclass Tests
 # =============================================================================
+
 
 class TestBranch:
     """Tests for Branch dataclass."""
@@ -227,6 +249,7 @@ class TestBranch:
 # ForkDecision Dataclass Tests
 # =============================================================================
 
+
 class TestForkDecision:
     """Tests for ForkDecision dataclass."""
 
@@ -264,6 +287,7 @@ class TestForkDecision:
 # =============================================================================
 # MergeResult Dataclass Tests
 # =============================================================================
+
 
 class TestMergeResult:
     """Tests for MergeResult dataclass."""
@@ -304,6 +328,7 @@ class TestMergeResult:
 # =============================================================================
 # ForkDetector.should_fork Tests
 # =============================================================================
+
 
 class TestForkDetectorShouldFork:
     """Tests for ForkDetector.should_fork method."""
@@ -352,7 +377,9 @@ class TestForkDetectorShouldFork:
         # Messages with mild disagreement
         messages = [
             Message(role="proposer", agent="claude", content="I think option A is good.", round=2),
-            Message(role="critic", agent="gemini", content="However, option B has merits too.", round=2),
+            Message(
+                role="critic", agent="gemini", content="However, option B has merits too.", round=2
+            ),
         ]
 
         decision = fork_detector.should_fork(
@@ -383,7 +410,12 @@ class TestForkDetectorShouldFork:
         """should_fork limits branches to max 3."""
         # Create messages from 5 agents all disagreeing
         messages = [
-            Message(role="proposer", agent=f"agent{i}", content=f"I disagree with everyone. Wrong approach.", round=2)
+            Message(
+                role="proposer",
+                agent=f"agent{i}",
+                content=f"I disagree with everyone. Wrong approach.",
+                round=2,
+            )
             for i in range(5)
         ]
 
@@ -425,6 +457,7 @@ class TestForkDetectorShouldFork:
 # ForkDetector._detect_disagreements Tests
 # =============================================================================
 
+
 class TestForkDetectorDetectDisagreements:
     """Tests for ForkDetector._detect_disagreements method."""
 
@@ -446,7 +479,9 @@ class TestForkDetectorDetectDisagreements:
         """_detect_disagreements detects explicit disagreement phrases."""
         latest_by_agent = {
             "claude": Message(role="proposer", agent="claude", content="Use REST", round=1),
-            "gemini": Message(role="critic", agent="gemini", content="I disagree. GraphQL is better.", round=1),
+            "gemini": Message(
+                role="critic", agent="gemini", content="I disagree. GraphQL is better.", round=1
+            ),
         }
 
         disagreements = fork_detector._detect_disagreements(latest_by_agent)
@@ -458,9 +493,18 @@ class TestForkDetectorDetectDisagreements:
         """_detect_disagreements pairs all agents correctly."""
         # Use strong disagreement phrases to ensure detection
         latest_by_agent = {
-            "claude": Message(role="proposer", agent="claude", content="We should use microservices", round=1),
-            "gemini": Message(role="critic", agent="gemini", content="I disagree. We should not. Monolith is better.", round=1),
-            "gpt": Message(role="critic", agent="gpt", content="I also disagree. Incorrect approach.", round=1),
+            "claude": Message(
+                role="proposer", agent="claude", content="We should use microservices", round=1
+            ),
+            "gemini": Message(
+                role="critic",
+                agent="gemini",
+                content="I disagree. We should not. Monolith is better.",
+                round=1,
+            ),
+            "gpt": Message(
+                role="critic", agent="gpt", content="I also disagree. Incorrect approach.", round=1
+            ),
         }
 
         disagreements = fork_detector._detect_disagreements(latest_by_agent)
@@ -479,7 +523,9 @@ class TestForkDetectorDetectDisagreements:
     def test_score_threshold_filters(self, fork_detector):
         """_detect_disagreements filters disagreements below 0.3 score."""
         latest_by_agent = {
-            "claude": Message(role="proposer", agent="claude", content="Nice weather today", round=1),
+            "claude": Message(
+                role="proposer", agent="claude", content="Nice weather today", round=1
+            ),
             "gemini": Message(role="critic", agent="gemini", content="Indeed it is", round=1),
         }
 
@@ -493,6 +539,7 @@ class TestForkDetectorDetectDisagreements:
 # =============================================================================
 # ForkDetector._calculate_disagreement Tests
 # =============================================================================
+
 
 class TestForkDetectorCalculateDisagreement:
     """Tests for ForkDetector._calculate_disagreement method."""
@@ -509,7 +556,9 @@ class TestForkDetectorCalculateDisagreement:
     def test_detects_disagreement_phrases(self, fork_detector):
         """_calculate_disagreement adds 0.2 for disagreement phrases."""
         msg_a = Message(role="proposer", agent="claude", content="Use REST", round=1)
-        msg_b = Message(role="critic", agent="gemini", content="I disagree with that approach", round=1)
+        msg_b = Message(
+            role="critic", agent="gemini", content="I disagree with that approach", round=1
+        )
 
         score, reason = fork_detector._calculate_disagreement(msg_a, msg_b)
 
@@ -529,7 +578,9 @@ class TestForkDetectorCalculateDisagreement:
     def test_detects_different_tech_choices(self, fork_detector):
         """_calculate_disagreement adds 0.3 for different tech choices."""
         # Use exact tech_terms from the code: microservice vs monolith
-        msg_a = Message(role="proposer", agent="claude", content="Use microservice architecture", round=1)
+        msg_a = Message(
+            role="proposer", agent="claude", content="Use microservice architecture", round=1
+        )
         msg_b = Message(role="critic", agent="gemini", content="Use a monolith instead", round=1)
 
         score, reason = fork_detector._calculate_disagreement(msg_a, msg_b)
@@ -541,14 +592,16 @@ class TestForkDetectorCalculateDisagreement:
         """_calculate_disagreement caps score at 1.0."""
         # Message with multiple disagreement indicators
         msg_a = Message(
-            role="proposer", agent="claude",
+            role="proposer",
+            agent="claude",
             content="We should use SQL with REST and sync processing",
-            round=1
+            round=1,
         )
         msg_b = Message(
-            role="critic", agent="gemini",
+            role="critic",
+            agent="gemini",
             content="I disagree. We should not use that. NoSQL with GraphQL and async is better. Wrong approach entirely.",
-            round=1
+            round=1,
         )
 
         score, reason = fork_detector._calculate_disagreement(msg_a, msg_b)
@@ -560,15 +613,17 @@ class TestForkDetectorCalculateDisagreement:
 # ForkDetector._extract_approach Tests
 # =============================================================================
 
+
 class TestForkDetectorExtractApproach:
     """Tests for ForkDetector._extract_approach method."""
 
     def test_extracts_after_i_propose(self, fork_detector):
         """_extract_approach extracts text after 'I propose'."""
         msg = Message(
-            role="proposer", agent="claude",
+            role="proposer",
+            agent="claude",
             content="After analysis, I propose we use microservices. This will help scale.",
-            round=1
+            round=1,
         )
 
         approach = fork_detector._extract_approach(msg)
@@ -578,9 +633,10 @@ class TestForkDetectorExtractApproach:
     def test_extracts_after_my_approach(self, fork_detector):
         """_extract_approach extracts text after 'My approach'."""
         msg = Message(
-            role="proposer", agent="claude",
+            role="proposer",
+            agent="claude",
             content="Given the requirements, my approach is to use event sourcing. It fits well.",
-            round=1
+            round=1,
         )
 
         approach = fork_detector._extract_approach(msg)
@@ -590,9 +646,10 @@ class TestForkDetectorExtractApproach:
     def test_falls_back_to_first_100_chars(self, fork_detector):
         """_extract_approach falls back to first 100 chars."""
         msg = Message(
-            role="proposer", agent="claude",
+            role="proposer",
+            agent="claude",
             content="This is a message without any proposal markers. It just discusses options.",
-            round=1
+            round=1,
         )
 
         approach = fork_detector._extract_approach(msg)
@@ -604,6 +661,7 @@ class TestForkDetectorExtractApproach:
 # =============================================================================
 # DebateForker.fork Tests
 # =============================================================================
+
 
 class TestDebateForkerFork:
     """Tests for DebateForker.fork method."""
@@ -640,7 +698,9 @@ class TestDebateForkerFork:
             # Should be deep copies, not references
             assert branch.messages is not messages
 
-    def test_creates_fork_point_with_correct_data(self, forker, sample_fork_decision, sample_message):
+    def test_creates_fork_point_with_correct_data(
+        self, forker, sample_fork_decision, sample_message
+    ):
         """fork creates ForkPoint with correct round/reason."""
         forker.fork(
             parent_debate_id="debate-123",
@@ -684,6 +744,7 @@ class TestDebateForkerFork:
 # DebateForker.run_branches Tests
 # =============================================================================
 
+
 class TestDebateForkerRunBranches:
     """Tests for DebateForker.run_branches method."""
 
@@ -710,6 +771,7 @@ class TestDebateForkerRunBranches:
     @pytest.mark.asyncio
     async def test_populates_result_on_branches(self, forker, sample_branches):
         """run_branches populates result on each branch."""
+
         async def mock_run_debate(env, agents, initial_messages=None):
             return DebateResult(consensus_reached=True, confidence=0.9, rounds_used=2)
 
@@ -748,6 +810,7 @@ class TestDebateForkerRunBranches:
     @pytest.mark.asyncio
     async def test_returns_only_completed_branches(self, forker, sample_branches):
         """run_branches returns only completed branches."""
+
         async def mock_run_debate(env, agents, initial_messages=None):
             if "branch-1" in env.task:
                 raise Exception("Failed")
@@ -772,6 +835,7 @@ class TestDebateForkerRunBranches:
 # =============================================================================
 # DebateForker.merge Tests
 # =============================================================================
+
 
 class TestDebateForkerMerge:
     """Tests for DebateForker.merge method."""
@@ -841,6 +905,7 @@ class TestDebateForkerMerge:
 # DebateForker._score_branch Tests
 # =============================================================================
 
+
 class TestDebateForkerScoreBranch:
     """Tests for DebateForker._score_branch method."""
 
@@ -909,16 +974,28 @@ class TestDebateForkerScoreBranch:
 
     def test_penalizes_high_severity_critiques(self, forker):
         """_score_branch penalizes high severity critiques."""
-        low_severity = [Critique(
-            agent="x", target_agent="y", target_content="test",
-            issues=["minor issue"], suggestions=["fix it"],
-            severity=0.2, reasoning="Minor concern"
-        )]
-        high_severity = [Critique(
-            agent="x", target_agent="y", target_content="test",
-            issues=["major issue"], suggestions=["urgent fix"],
-            severity=0.9, reasoning="Critical problem"
-        )]
+        low_severity = [
+            Critique(
+                agent="x",
+                target_agent="y",
+                target_content="test",
+                issues=["minor issue"],
+                suggestions=["fix it"],
+                severity=0.2,
+                reasoning="Minor concern",
+            )
+        ]
+        high_severity = [
+            Critique(
+                agent="x",
+                target_agent="y",
+                target_content="test",
+                issues=["major issue"],
+                suggestions=["urgent fix"],
+                severity=0.9,
+                reasoning="Critical problem",
+            )
+        ]
 
         branch_low = Branch(
             branch_id="test",
@@ -927,8 +1004,7 @@ class TestDebateForkerScoreBranch:
             hypothesis="test",
             lead_agent="test",
             result=DebateResult(
-                consensus_reached=True, confidence=0.8, rounds_used=3,
-                critiques=low_severity
+                consensus_reached=True, confidence=0.8, rounds_used=3, critiques=low_severity
             ),
         )
         branch_high = Branch(
@@ -938,8 +1014,7 @@ class TestDebateForkerScoreBranch:
             hypothesis="test",
             lead_agent="test",
             result=DebateResult(
-                consensus_reached=True, confidence=0.8, rounds_used=3,
-                critiques=high_severity
+                consensus_reached=True, confidence=0.8, rounds_used=3, critiques=high_severity
             ),
         )
 
@@ -952,6 +1027,7 @@ class TestDebateForkerScoreBranch:
 # =============================================================================
 # DebateForker Helper Methods Tests
 # =============================================================================
+
 
 class TestDebateForkerHelpers:
     """Tests for DebateForker helper methods."""
@@ -1001,7 +1077,9 @@ class TestDebateForkerHelpers:
         assert len(insights) >= 1
         assert "claude" in insights[0].lower()
 
-    def test_get_fork_history_and_branches_return_stored(self, forker, sample_fork_decision, sample_message):
+    def test_get_fork_history_and_branches_return_stored(
+        self, forker, sample_fork_decision, sample_message
+    ):
         """get_fork_history and get_branches return stored data."""
         forker.fork(
             parent_debate_id="debate-xyz",

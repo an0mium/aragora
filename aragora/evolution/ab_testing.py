@@ -14,10 +14,10 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
 from typing import Optional
 
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +149,7 @@ class ABTestResult:
     stats: dict = field(default_factory=dict)
 
 
-class ABTestManager:
+class ABTestManager(SQLiteStore):
     """
     Manages A/B tests for prompt evolution.
 
@@ -157,6 +157,40 @@ class ABTestManager:
     - Test creation and lifecycle management
     - Result recording and aggregation
     - Statistical analysis for decision making
+
+    Inherits from SQLiteStore for standardized schema management.
+    """
+
+    SCHEMA_NAME = "ab_testing"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS ab_tests (
+            id TEXT PRIMARY KEY,
+            agent TEXT NOT NULL,
+            baseline_prompt_version INTEGER NOT NULL,
+            evolved_prompt_version INTEGER NOT NULL,
+            baseline_wins INTEGER DEFAULT 0,
+            evolved_wins INTEGER DEFAULT 0,
+            baseline_debates INTEGER DEFAULT 0,
+            evolved_debates INTEGER DEFAULT 0,
+            started_at TEXT,
+            concluded_at TEXT,
+            status TEXT DEFAULT 'active',
+            metadata TEXT,
+            UNIQUE(agent, status)
+        );
+
+        CREATE TABLE IF NOT EXISTS ab_test_debates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            test_id TEXT NOT NULL,
+            debate_id TEXT NOT NULL,
+            variant TEXT NOT NULL,
+            won INTEGER NOT NULL,
+            recorded_at TEXT,
+            FOREIGN KEY (test_id) REFERENCES ab_tests(id),
+            UNIQUE(test_id, debate_id)
+        );
     """
 
     def __init__(self, db_path: str = "ab_tests.db"):
@@ -166,49 +200,7 @@ class ABTestManager:
         Args:
             db_path: Path to SQLite database file
         """
-        self.db_path = Path(db_path)
-        self._init_db()
-
-    def _init_db(self):
-        """Initialize database schema."""
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS ab_tests (
-                    id TEXT PRIMARY KEY,
-                    agent TEXT NOT NULL,
-                    baseline_prompt_version INTEGER NOT NULL,
-                    evolved_prompt_version INTEGER NOT NULL,
-                    baseline_wins INTEGER DEFAULT 0,
-                    evolved_wins INTEGER DEFAULT 0,
-                    baseline_debates INTEGER DEFAULT 0,
-                    evolved_debates INTEGER DEFAULT 0,
-                    started_at TEXT,
-                    concluded_at TEXT,
-                    status TEXT DEFAULT 'active',
-                    metadata TEXT,
-                    UNIQUE(agent, status) -- Only one active test per agent
-                )
-            """)
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS ab_test_debates (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    test_id TEXT NOT NULL,
-                    debate_id TEXT NOT NULL,
-                    variant TEXT NOT NULL,  -- 'baseline' or 'evolved'
-                    won INTEGER NOT NULL,   -- 1 if won, 0 if lost
-                    recorded_at TEXT,
-                    FOREIGN KEY (test_id) REFERENCES ab_tests(id),
-                    UNIQUE(test_id, debate_id)
-                )
-            """)
-
-            conn.commit()
+        super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
 
     def start_test(
         self,
@@ -235,9 +227,7 @@ class ABTestManager:
         # Check for existing active test
         existing = self.get_active_test(agent)
         if existing:
-            raise ValueError(
-                f"Agent {agent} already has an active test: {existing.id}"
-            )
+            raise ValueError(f"Agent {agent} already has an active test: {existing.id}")
 
         test = ABTest(
             id=str(uuid.uuid4()),
@@ -247,10 +237,7 @@ class ABTestManager:
             metadata=metadata or {},
         )
 
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -269,21 +256,16 @@ class ABTestManager:
                     json.dumps(test.metadata),
                 ),
             )
-            conn.commit()
 
         logger.info(
-            f"Started A/B test {test.id} for {agent}: "
-            f"v{baseline_version} vs v{evolved_version}"
+            f"Started A/B test {test.id} for {agent}: " f"v{baseline_version} vs v{evolved_version}"
         )
 
         return test
 
     def get_test(self, test_id: str) -> Optional[ABTest]:
         """Get a specific A/B test by ID."""
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 f"SELECT {AB_TEST_COLUMNS} FROM ab_tests WHERE id = ?",
@@ -297,10 +279,7 @@ class ABTestManager:
 
     def get_active_test(self, agent: str) -> Optional[ABTest]:
         """Get the active A/B test for an agent, if any."""
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 f"SELECT {AB_TEST_COLUMNS} FROM ab_tests WHERE agent = ? AND status = 'active'",
@@ -314,10 +293,7 @@ class ABTestManager:
 
     def get_agent_tests(self, agent: str, limit: int = 10) -> list[ABTest]:
         """Get all tests for an agent."""
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 f"""
@@ -358,10 +334,7 @@ class ABTestManager:
         if variant not in ("baseline", "evolved"):
             raise ValueError(f"Invalid variant: {variant}")
 
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Record the debate
@@ -381,9 +354,7 @@ class ABTestManager:
                     ),
                 )
             except sqlite3.IntegrityError:
-                logger.warning(
-                    f"Debate {debate_id} already recorded for test {test.id}"
-                )
+                logger.warning(f"Debate {debate_id} already recorded for test {test.id}")
                 return test
 
             # Update test counters
@@ -408,11 +379,7 @@ class ABTestManager:
                     (1 if won else 0, test.id),
                 )
 
-            conn.commit()
-
-        logger.info(
-            f"Recorded {variant} {'win' if won else 'loss'} for test {test.id}"
-        )
+        logger.info(f"Recorded {variant} {'win' if won else 'loss'} for test {test.id}")
 
         return self.get_test(test.id)
 
@@ -473,10 +440,7 @@ class ABTestManager:
             )
 
         # Update test status
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -487,7 +451,6 @@ class ABTestManager:
                 """,
                 (datetime.utcnow().isoformat(), test_id),
             )
-            conn.commit()
 
         result = ABTestResult(
             test_id=test_id,
@@ -504,18 +467,14 @@ class ABTestManager:
         )
 
         logger.info(
-            f"Concluded A/B test {test_id}: winner={winner}, "
-            f"confidence={confidence:.2f}"
+            f"Concluded A/B test {test_id}: winner={winner}, " f"confidence={confidence:.2f}"
         )
 
         return result
 
     def cancel_test(self, test_id: str) -> bool:
         """Cancel an active test without concluding."""
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -526,8 +485,6 @@ class ABTestManager:
                 """,
                 (datetime.utcnow().isoformat(), test_id),
             )
-            conn.commit()
-
             return cursor.rowcount > 0
 
     def get_variant_for_debate(self, agent: str) -> Optional[str]:

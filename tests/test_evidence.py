@@ -171,18 +171,14 @@ class TestKeywordExtraction:
 
     def test_basic_extraction(self, collector):
         """Should extract keywords from task."""
-        keywords = collector._extract_keywords(
-            "Design a rate limiting system for APIs"
-        )
+        keywords = collector._extract_keywords("Design a rate limiting system for APIs")
 
         assert len(keywords) > 0
         assert any("rate" in k or "limit" in k or "system" in k for k in keywords)
 
     def test_stop_words_removed(self, collector):
         """Stop words should be filtered out."""
-        keywords = collector._extract_keywords(
-            "The quick brown fox jumps over the lazy dog"
-        )
+        keywords = collector._extract_keywords("The quick brown fox jumps over the lazy dog")
 
         stop_words = {"the", "a", "an", "and", "or", "but", "in", "on"}
         for kw in keywords:
@@ -190,9 +186,7 @@ class TestKeywordExtraction:
 
     def test_short_words_removed(self, collector):
         """Words shorter than 3 chars should be filtered."""
-        keywords = collector._extract_keywords(
-            "I am a test of the keyword extraction"
-        )
+        keywords = collector._extract_keywords("I am a test of the keyword extraction")
 
         for kw in keywords:
             assert len(kw) >= 3
@@ -282,9 +276,7 @@ class TestSnippetRanking:
         """Snippets with more keyword matches should rank higher."""
         snippets = [
             EvidenceSnippet("1", "web", "No matches", "Unrelated content"),
-            EvidenceSnippet(
-                "2", "web", "API rate limiting", "Rate limiting for APIs"
-            ),
+            EvidenceSnippet("2", "web", "API rate limiting", "Rate limiting for APIs"),
         ]
 
         ranked = collector._rank_snippets(snippets, ["rate", "limiting", "api"])
@@ -305,12 +297,8 @@ class TestSnippetRanking:
     def test_reliability_considered(self, collector):
         """Reliability score should factor into ranking."""
         snippets = [
-            EvidenceSnippet(
-                "1", "web", "Keyword match", "keyword", reliability_score=0.3
-            ),
-            EvidenceSnippet(
-                "2", "docs", "Keyword match", "keyword", reliability_score=0.9
-            ),
+            EvidenceSnippet("1", "web", "Keyword match", "keyword", reliability_score=0.3),
+            EvidenceSnippet("2", "docs", "Keyword match", "keyword", reliability_score=0.9),
         ]
 
         ranked = collector._rank_snippets(snippets, ["keyword"])
@@ -382,9 +370,7 @@ class TestAsyncCollection:
         collector.add_connector("conn2", mock2)
 
         # Only enable conn1
-        pack = await collector.collect_evidence(
-            "test", enabled_connectors=["conn1"]
-        )
+        pack = await collector.collect_evidence("test", enabled_connectors=["conn1"])
 
         mock1.search.assert_called_once()
         mock2.search.assert_not_called()
@@ -397,10 +383,7 @@ class TestAsyncCollection:
         # Create connector returning many results
         mock_connector = Mock()
         mock_connector.search = AsyncMock(
-            return_value=[
-                {"title": f"Result {i}", "content": f"Content {i}"}
-                for i in range(10)
-            ]
+            return_value=[{"title": f"Result {i}", "content": f"Content {i}"} for i in range(10)]
         )
 
         collector.add_connector("test", mock_connector)

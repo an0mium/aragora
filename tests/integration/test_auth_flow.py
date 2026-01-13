@@ -41,6 +41,7 @@ from aragora.server.handlers.base import HandlerResult
 def reset_rate_limiters():
     """Reset rate limiters before each test to avoid cross-test interference."""
     from aragora.server.handlers.utils.rate_limit import _limiters
+
     # Clear the internal buckets of all existing limiters
     for limiter in _limiters.values():
         limiter.clear()
@@ -61,6 +62,7 @@ def temp_db_path():
 def user_store(temp_db_path):
     """Create a UserStore with temporary database."""
     from aragora.storage.user_store import UserStore
+
     store = UserStore(str(temp_db_path))
     return store
 
@@ -176,11 +178,13 @@ class TestRegistrationFlow:
 
     def test_successful_registration(self, auth_handler, user_store):
         """User can register with valid credentials."""
-        request = create_mock_request(body={
-            "email": "newuser@example.com",
-            "password": "SecurePass123!",
-            "name": "New User",
-        })
+        request = create_mock_request(
+            body={
+                "email": "newuser@example.com",
+                "password": "SecurePass123!",
+                "name": "New User",
+            }
+        )
 
         result = auth_handler._handle_register(request)
         data, status = parse_result(result)
@@ -199,11 +203,13 @@ class TestRegistrationFlow:
 
     def test_registration_with_organization(self, auth_handler, user_store):
         """User can register with organization name."""
-        request = create_mock_request(body={
-            "email": "orguser@example.com",
-            "password": "SecurePass123!",
-            "organization": "Test Org",
-        })
+        request = create_mock_request(
+            body={
+                "email": "orguser@example.com",
+                "password": "SecurePass123!",
+                "organization": "Test Org",
+            }
+        )
 
         result = auth_handler._handle_register(request)
         data, status = parse_result(result)
@@ -217,10 +223,12 @@ class TestRegistrationFlow:
 
     def test_duplicate_email_rejected(self, auth_handler, registered_user):
         """Registration with existing email should fail."""
-        request = create_mock_request(body={
-            "email": "existing@example.com",
-            "password": "NewPass456!",
-        })
+        request = create_mock_request(
+            body={
+                "email": "existing@example.com",
+                "password": "NewPass456!",
+            }
+        )
 
         result = auth_handler._handle_register(request)
         data, status = parse_result(result)
@@ -230,10 +238,12 @@ class TestRegistrationFlow:
 
     def test_invalid_email_rejected(self, auth_handler):
         """Registration with invalid email should fail."""
-        request = create_mock_request(body={
-            "email": "not-an-email",
-            "password": "SecurePass123!",
-        })
+        request = create_mock_request(
+            body={
+                "email": "not-an-email",
+                "password": "SecurePass123!",
+            }
+        )
 
         result = auth_handler._handle_register(request)
         data, status = parse_result(result)
@@ -243,10 +253,12 @@ class TestRegistrationFlow:
 
     def test_weak_password_rejected(self, auth_handler):
         """Registration with weak password should fail."""
-        request = create_mock_request(body={
-            "email": "newuser@example.com",
-            "password": "weak",
-        })
+        request = create_mock_request(
+            body={
+                "email": "newuser@example.com",
+                "password": "weak",
+            }
+        )
 
         result = auth_handler._handle_register(request)
         data, status = parse_result(result)
@@ -265,10 +277,12 @@ class TestLoginFlow:
 
     def test_successful_login(self, auth_handler, registered_user):
         """User can login with valid credentials."""
-        request = create_mock_request(body={
-            "email": "existing@example.com",
-            "password": "TestPass123!",
-        })
+        request = create_mock_request(
+            body={
+                "email": "existing@example.com",
+                "password": "TestPass123!",
+            }
+        )
 
         result = auth_handler._handle_login(request)
         data, status = parse_result(result)
@@ -280,10 +294,12 @@ class TestLoginFlow:
 
     def test_wrong_password_rejected(self, auth_handler, registered_user):
         """Login with wrong password should fail."""
-        request = create_mock_request(body={
-            "email": "existing@example.com",
-            "password": "WrongPassword123!",
-        })
+        request = create_mock_request(
+            body={
+                "email": "existing@example.com",
+                "password": "WrongPassword123!",
+            }
+        )
 
         result = auth_handler._handle_login(request)
         data, status = parse_result(result)
@@ -293,10 +309,12 @@ class TestLoginFlow:
 
     def test_nonexistent_user_rejected(self, auth_handler):
         """Login with non-existent user should fail with same error."""
-        request = create_mock_request(body={
-            "email": "noone@example.com",
-            "password": "SomePass123!",
-        })
+        request = create_mock_request(
+            body={
+                "email": "noone@example.com",
+                "password": "SomePass123!",
+            }
+        )
 
         result = auth_handler._handle_login(request)
         data, status = parse_result(result)
@@ -325,10 +343,12 @@ class TestTokenLifecycle:
 
     def test_access_token_valid_after_login(self, auth_handler, registered_user):
         """Access token should be valid immediately after login."""
-        request = create_mock_request(body={
-            "email": "existing@example.com",
-            "password": "TestPass123!",
-        })
+        request = create_mock_request(
+            body={
+                "email": "existing@example.com",
+                "password": "TestPass123!",
+            }
+        )
 
         result = auth_handler._handle_login(request)
         data, status = parse_result(result)
@@ -343,10 +363,12 @@ class TestTokenLifecycle:
     def test_refresh_token_generates_new_access(self, auth_handler, registered_user):
         """Refresh token should generate new access token."""
         # First login to get tokens
-        login_request = create_mock_request(body={
-            "email": "existing@example.com",
-            "password": "TestPass123!",
-        })
+        login_request = create_mock_request(
+            body={
+                "email": "existing@example.com",
+                "password": "TestPass123!",
+            }
+        )
         login_result = auth_handler._handle_login(login_request)
         login_data, _ = parse_result(login_result)
         refresh_token = login_data["tokens"]["refresh_token"]
@@ -355,9 +377,11 @@ class TestTokenLifecycle:
         time.sleep(1.1)
 
         # Use refresh token
-        refresh_request = create_mock_request(body={
-            "refresh_token": refresh_token,
-        })
+        refresh_request = create_mock_request(
+            body={
+                "refresh_token": refresh_token,
+            }
+        )
         refresh_result = auth_handler._handle_refresh(refresh_request)
         refresh_data, status = parse_result(refresh_result)
 
@@ -417,10 +441,12 @@ class TestLogoutFlow:
     def test_logout_invalidates_token(self, auth_handler, registered_user):
         """Logout should invalidate the current token."""
         # Login first
-        login_request = create_mock_request(body={
-            "email": "existing@example.com",
-            "password": "TestPass123!",
-        })
+        login_request = create_mock_request(
+            body={
+                "email": "existing@example.com",
+                "password": "TestPass123!",
+            }
+        )
         login_result = auth_handler._handle_login(login_request)
         login_data, _ = parse_result(login_result)
         access_token = login_data["tokens"]["access_token"]
@@ -511,20 +537,24 @@ class TestFullAuthenticationFlow:
     def test_register_login_access_logout(self, auth_handler, user_store):
         """Complete flow: register → login → access protected → logout."""
         # 1. Register new user
-        reg_request = create_mock_request(body={
-            "email": "flowtest@example.com",
-            "password": "FlowTest123!",
-            "name": "Flow Test User",
-        })
+        reg_request = create_mock_request(
+            body={
+                "email": "flowtest@example.com",
+                "password": "FlowTest123!",
+                "name": "Flow Test User",
+            }
+        )
         reg_result = auth_handler._handle_register(reg_request)
         reg_data, reg_status = parse_result(reg_result)
         assert reg_status == 201
 
         # 2. Login with credentials
-        login_request = create_mock_request(body={
-            "email": "flowtest@example.com",
-            "password": "FlowTest123!",
-        })
+        login_request = create_mock_request(
+            body={
+                "email": "flowtest@example.com",
+                "password": "FlowTest123!",
+            }
+        )
         login_result = auth_handler._handle_login(login_request)
         login_data, login_status = parse_result(login_result)
         assert login_status == 200
@@ -551,18 +581,22 @@ class TestFullAuthenticationFlow:
     def test_token_refresh_maintains_access(self, auth_handler, registered_user):
         """Access should work after token refresh."""
         # Login
-        login_request = create_mock_request(body={
-            "email": "existing@example.com",
-            "password": "TestPass123!",
-        })
+        login_request = create_mock_request(
+            body={
+                "email": "existing@example.com",
+                "password": "TestPass123!",
+            }
+        )
         login_result = auth_handler._handle_login(login_request)
         login_data, _ = parse_result(login_result)
         refresh_token = login_data["tokens"]["refresh_token"]
 
         # Refresh tokens
-        refresh_request = create_mock_request(body={
-            "refresh_token": refresh_token,
-        })
+        refresh_request = create_mock_request(
+            body={
+                "refresh_token": refresh_token,
+            }
+        )
         refresh_result = auth_handler._handle_refresh(refresh_request)
         refresh_data, _ = parse_result(refresh_result)
         new_access_token = refresh_data["tokens"]["access_token"]
@@ -590,10 +624,12 @@ class TestAuthErrorHandling:
     def test_missing_user_store_returns_503(self, temp_db_path):
         """Missing user store should return 503."""
         handler = AuthHandler({})  # No user store
-        request = create_mock_request(body={
-            "email": "test@example.com",
-            "password": "TestPass123!",
-        })
+        request = create_mock_request(
+            body={
+                "email": "test@example.com",
+                "password": "TestPass123!",
+            }
+        )
 
         result = handler._handle_register(request)
         data, status = parse_result(result)
@@ -630,10 +666,12 @@ class TestConcurrentAccess:
         for i in range(3):
             if i > 0:
                 time.sleep(1.1)  # Ensure different iat timestamp
-            request = create_mock_request(body={
-                "email": "existing@example.com",
-                "password": "TestPass123!",
-            })
+            request = create_mock_request(
+                body={
+                    "email": "existing@example.com",
+                    "password": "TestPass123!",
+                }
+            )
             result = auth_handler._handle_login(request)
             data, status = parse_result(result)
             assert status == 200

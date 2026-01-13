@@ -186,7 +186,9 @@ class AudienceInbox:
                     histograms[choice][intensity] = histograms[choice].get(intensity, 0) + 1
 
                     # Global conviction distribution
-                    conviction_distribution[intensity] = conviction_distribution.get(intensity, 0) + 1
+                    conviction_distribution[intensity] = (
+                        conviction_distribution.get(intensity, 0) + 1
+                    )
 
                 elif msg.type == "suggestion":
                     suggestions += 1
@@ -304,7 +306,9 @@ class SyncEventEmitter:
             try:
                 self._queue.get_nowait()
                 self._overflow_count += 1
-                logger.warning(f"[stream] Queue overflow, dropped event (total: {self._overflow_count})")
+                logger.warning(
+                    f"[stream] Queue overflow, dropped event (total: {self._overflow_count})"
+                )
             except queue.Empty:
                 pass
 
@@ -379,34 +383,40 @@ class SyncEventEmitter:
                     try:
                         data = redactor(data)
                         # Emit redaction notification
-                        self.emit(StreamEvent(
-                            type=StreamEventType.TELEMETRY_REDACTION,
-                            data={"agent": agent, "event_type": event_type.value},
-                            agent=agent,
-                            round=round_num,
-                        ))
+                        self.emit(
+                            StreamEvent(
+                                type=StreamEventType.TELEMETRY_REDACTION,
+                                data={"agent": agent, "event_type": event_type.value},
+                                agent=agent,
+                                round=round_num,
+                            )
+                        )
                     except Exception as e:
                         logger.warning(f"[telemetry] Redaction failed: {e}")
                         # On redaction failure, suppress the event for security
                         return False
 
             # Emit the event
-            self.emit(StreamEvent(
-                type=event_type,
-                data=data,
-                agent=agent,
-                round=round_num,
-            ))
+            self.emit(
+                StreamEvent(
+                    type=event_type,
+                    data=data,
+                    agent=agent,
+                    round=round_num,
+                )
+            )
             return True
 
         except ImportError:
             # TelemetryConfig not available, emit without telemetry controls
-            self.emit(StreamEvent(
-                type=event_type,
-                data=data,
-                agent=agent,
-                round=round_num,
-            ))
+            self.emit(
+                StreamEvent(
+                    type=event_type,
+                    data=data,
+                    agent=agent,
+                    round=round_num,
+                )
+            )
             return True
         except Exception as e:
             logger.error(f"[telemetry] broadcast_event failed: {e}")

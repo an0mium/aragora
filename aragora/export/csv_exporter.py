@@ -38,20 +38,22 @@ class CSVExporter:
         writer = csv.writer(output)
 
         # Header
-        writer.writerow(['debate_id', 'round', 'agent', 'role', 'content', 'timestamp'])
+        writer.writerow(["debate_id", "round", "agent", "role", "content", "timestamp"])
 
         # Extract messages from trace
-        if self.artifact.trace_data and 'events' in self.artifact.trace_data:
-            for event in self.artifact.trace_data['events']:
-                if event.get('event_type') == 'message':
-                    writer.writerow([
-                        self.artifact.debate_id,
-                        event.get('round', 0),
-                        event.get('agent', ''),
-                        event.get('role', ''),
-                        event.get('content', ''),
-                        event.get('timestamp', ''),
-                    ])
+        if self.artifact.trace_data and "events" in self.artifact.trace_data:
+            for event in self.artifact.trace_data["events"]:
+                if event.get("event_type") == "message":
+                    writer.writerow(
+                        [
+                            self.artifact.debate_id,
+                            event.get("round", 0),
+                            event.get("agent", ""),
+                            event.get("role", ""),
+                            event.get("content", ""),
+                            event.get("timestamp", ""),
+                        ]
+                    )
 
         content = output.getvalue()
         if output_path:
@@ -68,23 +70,36 @@ class CSVExporter:
         writer = csv.writer(output)
 
         # Header
-        writer.writerow(['debate_id', 'round', 'critic', 'target', 'severity', 'issue_count', 'issues', 'accepted'])
+        writer.writerow(
+            [
+                "debate_id",
+                "round",
+                "critic",
+                "target",
+                "severity",
+                "issue_count",
+                "issues",
+                "accepted",
+            ]
+        )
 
         # Extract critiques from trace
-        if self.artifact.trace_data and 'events' in self.artifact.trace_data:
-            for event in self.artifact.trace_data['events']:
-                if event.get('event_type') == 'critique':
-                    issues = event.get('issues', [])
-                    writer.writerow([
-                        self.artifact.debate_id,
-                        event.get('round', 0),
-                        event.get('agent', ''),
-                        event.get('target', ''),
-                        event.get('severity', 0),
-                        len(issues),
-                        '; '.join(issues) if isinstance(issues, list) else str(issues),
-                        event.get('accepted', ''),
-                    ])
+        if self.artifact.trace_data and "events" in self.artifact.trace_data:
+            for event in self.artifact.trace_data["events"]:
+                if event.get("event_type") == "critique":
+                    issues = event.get("issues", [])
+                    writer.writerow(
+                        [
+                            self.artifact.debate_id,
+                            event.get("round", 0),
+                            event.get("agent", ""),
+                            event.get("target", ""),
+                            event.get("severity", 0),
+                            len(issues),
+                            "; ".join(issues) if isinstance(issues, list) else str(issues),
+                            event.get("accepted", ""),
+                        ]
+                    )
 
         content = output.getvalue()
         if output_path:
@@ -101,18 +116,22 @@ class CSVExporter:
         writer = csv.writer(output)
 
         # Header
-        writer.writerow(['debate_id', 'agent', 'agreed_with_consensus', 'final_answer', 'confidence'])
+        writer.writerow(
+            ["debate_id", "agent", "agreed_with_consensus", "final_answer", "confidence"]
+        )
 
         if self.artifact.consensus_proof:
             cp = self.artifact.consensus_proof
             for agent, agreed in cp.vote_breakdown.items():
-                writer.writerow([
-                    self.artifact.debate_id,
-                    agent,
-                    agreed,
-                    cp.final_answer[:100],
-                    cp.confidence,
-                ])
+                writer.writerow(
+                    [
+                        self.artifact.debate_id,
+                        agent,
+                        agreed,
+                        cp.final_answer[:100],
+                        cp.confidence,
+                    ]
+                )
 
         content = output.getvalue()
         if output_path:
@@ -129,34 +148,38 @@ class CSVExporter:
         writer = csv.writer(output)
 
         # Header
-        writer.writerow([
-            'debate_id',
-            'artifact_id',
-            'task',
-            'agents',
-            'rounds',
-            'messages',
-            'critiques',
-            'consensus_reached',
-            'confidence',
-            'duration_seconds',
-            'created_at',
-        ])
+        writer.writerow(
+            [
+                "debate_id",
+                "artifact_id",
+                "task",
+                "agents",
+                "rounds",
+                "messages",
+                "critiques",
+                "consensus_reached",
+                "confidence",
+                "duration_seconds",
+                "created_at",
+            ]
+        )
 
         cp = self.artifact.consensus_proof
-        writer.writerow([
-            self.artifact.debate_id,
-            self.artifact.artifact_id,
-            self.artifact.task[:200],
-            ';'.join(self.artifact.agents),
-            self.artifact.rounds,
-            self.artifact.message_count,
-            self.artifact.critique_count,
-            cp.reached if cp else '',
-            cp.confidence if cp else '',
-            self.artifact.duration_seconds,
-            self.artifact.created_at,
-        ])
+        writer.writerow(
+            [
+                self.artifact.debate_id,
+                self.artifact.artifact_id,
+                self.artifact.task[:200],
+                ";".join(self.artifact.agents),
+                self.artifact.rounds,
+                self.artifact.message_count,
+                self.artifact.critique_count,
+                cp.reached if cp else "",
+                cp.confidence if cp else "",
+                self.artifact.duration_seconds,
+                self.artifact.created_at,
+            ]
+        )
 
         content = output.getvalue()
         if output_path:
@@ -173,28 +196,32 @@ class CSVExporter:
         writer = csv.writer(output)
 
         # Header
-        writer.writerow([
-            'debate_id',
-            'claim_id',
-            'claim_text',
-            'status',
-            'method',
-            'duration_ms',
-            'has_proof',
-            'has_counterexample',
-        ])
+        writer.writerow(
+            [
+                "debate_id",
+                "claim_id",
+                "claim_text",
+                "status",
+                "method",
+                "duration_ms",
+                "has_proof",
+                "has_counterexample",
+            ]
+        )
 
         for v in self.artifact.verification_results:
-            writer.writerow([
-                self.artifact.debate_id,
-                v.claim_id,
-                v.claim_text[:200],
-                v.status,
-                v.method,
-                v.duration_ms,
-                bool(v.proof_trace),
-                bool(v.counterexample),
-            ])
+            writer.writerow(
+                [
+                    self.artifact.debate_id,
+                    v.claim_id,
+                    v.claim_text[:200],
+                    v.status,
+                    v.method,
+                    v.duration_ms,
+                    bool(v.proof_trace),
+                    bool(v.counterexample),
+                ]
+            )
 
         content = output.getvalue()
         if output_path:
@@ -213,24 +240,24 @@ class CSVExporter:
 
         messages_path = output_dir / f"{self.artifact.artifact_id}_messages.csv"
         self.export_messages(messages_path)
-        outputs['messages'] = messages_path
+        outputs["messages"] = messages_path
 
         critiques_path = output_dir / f"{self.artifact.artifact_id}_critiques.csv"
         self.export_critiques(critiques_path)
-        outputs['critiques'] = critiques_path
+        outputs["critiques"] = critiques_path
 
         votes_path = output_dir / f"{self.artifact.artifact_id}_votes.csv"
         self.export_votes(votes_path)
-        outputs['votes'] = votes_path
+        outputs["votes"] = votes_path
 
         summary_path = output_dir / f"{self.artifact.artifact_id}_summary.csv"
         self.export_summary(summary_path)
-        outputs['summary'] = summary_path
+        outputs["summary"] = summary_path
 
         if self.artifact.verification_results:
             verifications_path = output_dir / f"{self.artifact.artifact_id}_verifications.csv"
             self.export_verifications(verifications_path)
-            outputs['verifications'] = verifications_path
+            outputs["verifications"] = verifications_path
 
         return outputs
 
@@ -264,7 +291,9 @@ def export_debate_to_csv(
     elif table == "verifications":
         return exporter.export_verifications(output_path)
     else:
-        raise ValueError(f"Unknown table: {table}. Use 'messages', 'critiques', 'votes', 'summary', or 'verifications'")
+        raise ValueError(
+            f"Unknown table: {table}. Use 'messages', 'critiques', 'votes', 'summary', or 'verifications'"
+        )
 
 
 def export_multiple_debates(
@@ -308,9 +337,9 @@ def export_multiple_debates(
             content = exporter.export_votes()
 
         # Skip header line
-        lines = content.split('\n')
+        lines = content.split("\n")
         if len(lines) > 1:
-            output.write('\n'.join(lines[1:]))
+            output.write("\n".join(lines[1:]))
 
     content = output.getvalue()
     output_path.write_text(content)

@@ -25,11 +25,12 @@ from aragora.reasoning.provenance import (
 
 class ReliabilityLevel(Enum):
     """Qualitative reliability levels."""
-    VERY_HIGH = "very_high"    # >= 0.9
-    HIGH = "high"              # >= 0.7
-    MEDIUM = "medium"          # >= 0.5
-    LOW = "low"                # >= 0.3
-    VERY_LOW = "very_low"      # < 0.3
+
+    VERY_HIGH = "very_high"  # >= 0.9
+    HIGH = "high"  # >= 0.7
+    MEDIUM = "medium"  # >= 0.5
+    LOW = "low"  # >= 0.3
+    VERY_LOW = "very_low"  # < 0.3
     SPECULATIVE = "speculative"  # No evidence
 
 
@@ -46,8 +47,8 @@ class ClaimReliability:
 
     # Component scores
     evidence_coverage: float = 0.0  # How much evidence supports this
-    source_quality: float = 0.0      # Average quality of sources
-    consistency: float = 1.0         # 1.0 = no contradictions
+    source_quality: float = 0.0  # Average quality of sources
+    consistency: float = 1.0  # 1.0 = no contradictions
     verification_status: float = 0.0  # Formal verification score
 
     # Counts
@@ -184,9 +185,7 @@ class ReliabilityScorer:
 
             if citation.support_type == "supports":
                 result.supporting_evidence += 1
-                supporting_scores.append(
-                    ev_reliability.reliability_score * citation.relevance
-                )
+                supporting_scores.append(ev_reliability.reliability_score * citation.relevance)
             elif citation.support_type == "contradicts":
                 result.contradicting_evidence += 1
                 contradicting_count += 1
@@ -194,7 +193,9 @@ class ReliabilityScorer:
         # Compute component scores
         if supporting_scores:
             result.source_quality = sum(supporting_scores) / len(supporting_scores)
-            result.evidence_coverage = min(1.0, len(supporting_scores) / 3)  # 3+ sources = full coverage
+            result.evidence_coverage = min(
+                1.0, len(supporting_scores) / 3
+            )  # 3+ sources = full coverage
         else:
             result.source_quality = 0.0
             result.evidence_coverage = 0.0
@@ -216,10 +217,10 @@ class ReliabilityScorer:
 
         # Compute final reliability score
         result.reliability_score = (
-            self.WEIGHTS["evidence_coverage"] * result.evidence_coverage +
-            self.WEIGHTS["source_quality"] * result.source_quality +
-            self.WEIGHTS["consistency"] * result.consistency +
-            self.WEIGHTS["verification"] * result.verification_status
+            self.WEIGHTS["evidence_coverage"] * result.evidence_coverage
+            + self.WEIGHTS["source_quality"] * result.source_quality
+            + self.WEIGHTS["consistency"] * result.consistency
+            + self.WEIGHTS["verification"] * result.verification_status
         )
 
         # Set confidence (how sure we are about the score)
@@ -269,10 +270,10 @@ class ReliabilityScorer:
 
         # Combine scores
         reliability = (
-            0.4 * authority +
-            0.3 * record.confidence +
-            0.2 * freshness +
-            0.1 * (1.0 if chain_verified else 0.5)
+            0.4 * authority
+            + 0.3 * record.confidence
+            + 0.2 * freshness
+            + 0.1 * (1.0 if chain_verified else 0.5)
         )
 
         return EvidenceReliability(
@@ -389,13 +390,8 @@ class ReliabilityScorer:
                 "chain_integrity": chain_valid,
                 "chain_errors": len(chain_errors),
             },
-            "claims": {
-                claim_id: result.to_dict()
-                for claim_id, result in results.items()
-            },
-            "warnings": [
-                w for r in results.values() for w in r.warnings
-            ],
+            "claims": {claim_id: result.to_dict() for claim_id, result in results.items()},
+            "warnings": [w for r in results.values() for w in r.warnings],
         }
 
 

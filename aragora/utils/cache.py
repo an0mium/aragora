@@ -203,7 +203,11 @@ def lru_cache_with_ttl(
         def wrapper(*args, **kwargs) -> T:
             # Build cache key
             # Skip 'self' for methods by checking if first arg is an object
-            skip_first = args and hasattr(args[0], "__class__") and not isinstance(args[0], (str, int, float, bool, list, dict, tuple))
+            skip_first = (
+                args
+                and hasattr(args[0], "__class__")
+                and not isinstance(args[0], (str, int, float, bool, list, dict, tuple))
+            )
             cache_args = args[1:] if skip_first else args
 
             # Create hashable key
@@ -245,6 +249,7 @@ def cached_property_ttl(ttl_seconds: float = 300.0):
             def expensive_computation(self) -> dict:
                 return self._compute_expensive_thing()
     """
+
     def decorator(func: Callable[[Any], T]) -> property:
         attr_name = f"_cached_{func.__name__}"
         time_attr = f"_cached_{func.__name__}_time"
@@ -321,6 +326,7 @@ def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool 
         def _get_leaderboard(self, limit: int):
             ...
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
         def wrapper(*args, **kwargs) -> T:
@@ -340,7 +346,9 @@ def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool 
             _handler_cache.set(cache_key, result)
             logger.debug(f"Cache miss, stored {cache_key}")
             return result
+
         return wrapper
+
     return decorator
 
 
@@ -375,7 +383,9 @@ def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first:
             _handler_cache.set(cache_key, result)
             logger.debug(f"Cache miss, stored {cache_key}")
             return result
+
         return wrapper  # type: ignore
+
     return decorator
 
 

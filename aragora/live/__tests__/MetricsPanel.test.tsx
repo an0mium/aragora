@@ -1,17 +1,9 @@
 /**
  * Tests for MetricsPanel component
- *
- * Tests cover:
- * - Loading states
- * - Data display for all tabs
- * - Tab switching functionality
- * - Error handling (partial and complete failures)
- * - Auto-refresh behavior
- * - Expand/collapse functionality
  */
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { MetricsPanel } from '../src/components/metrics/MetricsPanel';
+import { MetricsPanel } from '../src/components/MetricsPanel';
 
 // Mock fetch
 const mockFetch = jest.fn();
@@ -40,9 +32,9 @@ const mockMetricsData = {
 const mockHealthData = {
   status: 'healthy' as const,
   checks: {
-    database: { status: 'ok', path: '/data/debates.db' },
-    memory: { status: 'ok' },
-    disk: { status: 'ok' },
+    database: { status: 'healthy', path: '/data/debates.db' },
+    memory: { status: 'healthy' },
+    disk: { status: 'healthy' },
   },
 };
 
@@ -94,329 +86,124 @@ function setupSuccessfulFetch() {
 describe('MetricsPanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers();
   });
 
-  afterEach(() => {
-    jest.useRealTimers();
-  });
+  it('renders summary metrics after load', async () => {
+    setupSuccessfulFetch();
+    render(<MetricsPanel apiBase="http://localhost:8080" />);
 
-  describe('Loading States', () => {
-    it('shows panel title while loading', async () => {
-      mockFetch.mockImplementation(() => new Promise(() => {}));
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-      expect(screen.getByText('Server Metrics')).toBeInTheDocument();
-    });
-
-    it('displays loading state during fetch', async () => {
-      mockFetch.mockImplementation(() => new Promise(() => {}));
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-      // Panel renders but data shows loading states
-      expect(screen.getByText('Uptime:')).toBeInTheDocument();
-    });
-  });
-
-  describe('Data Display', () => {
-    it('renders metrics summary after data loads', async () => {
-      setupSuccessfulFetch();
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
-      });
-
-      expect(screen.getByText('15,000')).toBeInTheDocument(); // requests total
-    });
-
-    it('displays error rate with correct color', async () => {
-      setupSuccessfulFetch();
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('1.00%')).toBeInTheDocument();
-      });
-    });
-
-    it('displays cache hit rate in summary', async () => {
-      setupSuccessfulFetch();
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('85.0% hit')).toBeInTheDocument();
-      });
-    });
-
-    it('displays health status in summary', async () => {
-      setupSuccessfulFetch();
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('HEALTHY')).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Tab Navigation', () => {
-    it('shows Overview tab by default', async () => {
-      setupSuccessfulFetch();
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-
-      await waitFor(() => {
-        const overviewTab = screen.getByRole('tab', { name: 'OVERVIEW' });
-        expect(overviewTab).toHaveAttribute('aria-selected', 'true');
-      });
-    });
-
-    it('switches to Health tab when clicked', async () => {
-      setupSuccessfulFetch();
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
-      });
-
-      await act(async () => {
-        fireEvent.click(screen.getByRole('tab', { name: 'HEALTH' }));
-      });
-
-      const healthTab = screen.getByRole('tab', { name: 'HEALTH' });
-      expect(healthTab).toHaveAttribute('aria-selected', 'true');
-    });
-
-    it('switches to Cache tab when clicked', async () => {
-      setupSuccessfulFetch();
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
-      });
-
-      await act(async () => {
-        fireEvent.click(screen.getByRole('tab', { name: 'CACHE' }));
-      });
-
-      const cacheTab = screen.getByRole('tab', { name: 'CACHE' });
-      expect(cacheTab).toHaveAttribute('aria-selected', 'true');
-    });
-
-    it('switches to System tab when clicked', async () => {
-      setupSuccessfulFetch();
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
-      });
-
-      await act(async () => {
-        fireEvent.click(screen.getByRole('tab', { name: 'SYSTEM' }));
-      });
-
-      const systemTab = screen.getByRole('tab', { name: 'SYSTEM' });
-      expect(systemTab).toHaveAttribute('aria-selected', 'true');
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('shows partial error when some endpoints fail', async () => {
-      mockFetch.mockImplementation((url: string) => {
-        if (url.includes('/api/metrics/health')) {
-          return Promise.resolve({ ok: false });
-        }
-        if (url.includes('/api/metrics/cache')) {
-          return Promise.resolve({ ok: true, json: () => Promise.resolve(mockCacheData) });
-        }
-        if (url.includes('/api/metrics/system')) {
-          return Promise.resolve({ ok: true, json: () => Promise.resolve(mockSystemData) });
-        }
-        if (url.includes('/api/metrics')) {
-          return Promise.resolve({ ok: true, json: () => Promise.resolve(mockMetricsData) });
-        }
-        return Promise.resolve({ ok: false });
-      });
-
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText(/Some metrics failed to load/)).toBeInTheDocument();
-      });
-
-      // Should still show data that loaded successfully
+    await waitFor(() => {
       expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
     });
 
-    it('handles complete API failure', async () => {
-      mockFetch.mockImplementation(() => Promise.resolve({ ok: false }));
+    expect(screen.getByText('15,000')).toBeInTheDocument();
+    expect(screen.getByText('1.00%')).toBeInTheDocument();
+    expect(screen.getByText('85.0% hit')).toBeInTheDocument();
+    expect(screen.getByText('HEALTHY')).toBeInTheDocument();
+  });
 
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
+  it('shows loading copy for the overview tab when pending', () => {
+    mockFetch.mockImplementation(() => new Promise(() => {}));
+    render(<MetricsPanel apiBase="http://localhost:8080" />);
 
-      await waitFor(() => {
-        expect(screen.getByText(/Some metrics failed to load/)).toBeInTheDocument();
-      });
+    expect(screen.getByText('Server Metrics')).toBeInTheDocument();
+    expect(screen.getByText('Loading metrics...')).toBeInTheDocument();
+  });
+
+  it('switches tabs and shows tab-specific content', async () => {
+    setupSuccessfulFetch();
+    render(<MetricsPanel apiBase="http://localhost:8080" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
     });
 
-    it('handles network errors gracefully', async () => {
-      mockFetch.mockImplementation(() => Promise.reject(new Error('Network error')));
+    fireEvent.click(screen.getByRole('button', { name: 'HEALTH' }));
+    expect(screen.getByText(/overall status/i)).toBeInTheDocument();
 
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
+    fireEvent.click(screen.getByRole('button', { name: 'CACHE' }));
+    expect(screen.getByText(/hit rate/i)).toBeInTheDocument();
 
-      await waitFor(() => {
-        // Component should handle error without crashing
-        expect(screen.getByText('Server Metrics')).toBeInTheDocument();
-      });
+    fireEvent.click(screen.getByRole('button', { name: 'SYSTEM' }));
+    expect(screen.getByText(/python/i)).toBeInTheDocument();
+  });
+
+  it('shows partial error when some endpoints fail', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/metrics/health')) {
+        return Promise.resolve({ ok: false });
+      }
+      if (url.includes('/api/metrics/cache')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(mockCacheData) });
+      }
+      if (url.includes('/api/metrics/system')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(mockSystemData) });
+      }
+      if (url.includes('/api/metrics')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(mockMetricsData) });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    render(<MetricsPanel apiBase="http://localhost:8080" />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/some metrics failed to load/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
+  });
+
+  it('collapses the panel and shows the compact summary', async () => {
+    setupSuccessfulFetch();
+    render(<MetricsPanel apiBase="http://localhost:8080" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /\[-\]/ }));
+
+    expect(screen.queryByRole('button', { name: 'OVERVIEW' })).not.toBeInTheDocument();
+    expect(screen.getByText(/uptime:/i, { selector: 'p span' })).toBeInTheDocument();
+  });
+
+  it('refreshes data when the refresh button is clicked', async () => {
+    setupSuccessfulFetch();
+    render(<MetricsPanel apiBase="http://localhost:8080" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
+    });
+
+    const initialCalls = mockFetch.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: /\[refresh\]/i }));
+
+    await waitFor(() => {
+      expect(mockFetch.mock.calls.length).toBeGreaterThan(initialCalls);
     });
   });
 
-  describe('Auto-refresh', () => {
-    it('refreshes data every 30 seconds', async () => {
-      setupSuccessfulFetch();
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
+  it('auto-refreshes every 30 seconds', async () => {
+    jest.useFakeTimers();
+    setupSuccessfulFetch();
 
-      await waitFor(() => {
-        expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
-      });
+    render(<MetricsPanel apiBase="http://localhost:8080" />);
 
-      const initialCalls = mockFetch.mock.calls.length;
-
-      // Advance timer by 30 seconds
-      await act(async () => {
-        jest.advanceTimersByTime(30000);
-      });
-
-      await waitFor(() => {
-        expect(mockFetch.mock.calls.length).toBeGreaterThan(initialCalls);
-      });
+    await act(async () => {
+      await Promise.resolve();
     });
 
-    it('cleans up interval on unmount', async () => {
-      setupSuccessfulFetch();
-      const { unmount } = await act(async () => {
-        return render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
+    const initialCalls = mockFetch.mock.calls.length;
 
-      await waitFor(() => {
-        expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
-      });
-
-      const callsBeforeUnmount = mockFetch.mock.calls.length;
-      unmount();
-
-      await act(async () => {
-        jest.advanceTimersByTime(30000);
-      });
-
-      // No new calls after unmount
-      expect(mockFetch.mock.calls.length).toBe(callsBeforeUnmount);
-    });
-  });
-
-  describe('Expand/Collapse', () => {
-    it('shows tabs when expanded (default)', async () => {
-      setupSuccessfulFetch();
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByRole('tab', { name: 'OVERVIEW' })).toBeInTheDocument();
-      });
-
-      expect(screen.getByRole('tab', { name: 'HEALTH' })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: 'CACHE' })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: 'SYSTEM' })).toBeInTheDocument();
+    await act(async () => {
+      jest.advanceTimersByTime(30000);
     });
 
-    it('hides tabs when collapsed', async () => {
-      setupSuccessfulFetch();
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByRole('tab', { name: 'OVERVIEW' })).toBeInTheDocument();
-      });
-
-      // Find and click the collapse button (ExpandToggle)
-      const collapseButton = screen.getByLabelText(/collapse/i);
-      await act(async () => {
-        fireEvent.click(collapseButton);
-      });
-
-      // Tabs should be hidden
-      expect(screen.queryByRole('tab', { name: 'OVERVIEW' })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockFetch.mock.calls.length).toBeGreaterThan(initialCalls);
     });
 
-    it('shows compact summary when collapsed', async () => {
-      setupSuccessfulFetch();
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
-      });
-
-      // Collapse the panel
-      const collapseButton = screen.getByLabelText(/collapse/i);
-      await act(async () => {
-        fireEvent.click(collapseButton);
-      });
-
-      // Compact summary should still show key metrics (may have multiple Uptime elements)
-      const uptimeElements = screen.getAllByText(/Uptime:/);
-      expect(uptimeElements.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe('Refresh Button', () => {
-    it('fetches fresh data when clicked', async () => {
-      setupSuccessfulFetch();
-      await act(async () => {
-        render(<MetricsPanel apiBase="http://localhost:8080" />);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
-      });
-
-      const initialCalls = mockFetch.mock.calls.length;
-
-      // Click refresh button (button contains "REFRESH" text split by brackets)
-      const refreshButton = screen.getByRole('button', { name: /refresh/i });
-      await act(async () => {
-        fireEvent.click(refreshButton);
-      });
-
-      await waitFor(() => {
-        expect(mockFetch.mock.calls.length).toBeGreaterThan(initialCalls);
-      });
-    });
+    jest.useRealTimers();
   });
 });

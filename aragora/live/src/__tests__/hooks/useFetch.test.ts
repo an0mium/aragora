@@ -31,11 +31,15 @@ describe('useFetch', () => {
       expect(result.current.data).toBe('initial');
     });
 
-    it('should start loading when immediate is true', () => {
-      const fetcher = jest.fn().mockResolvedValue('data');
+    it('should start loading when immediate is true', async () => {
+      const fetcher = jest.fn(() => new Promise(() => {}));
       const { result } = renderHook(() =>
         useFetch(fetcher, { immediate: true })
       );
+
+      await act(async () => {
+        await Promise.resolve();
+      });
 
       expect(result.current.loading).toBe(true);
     });

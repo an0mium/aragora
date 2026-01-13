@@ -28,6 +28,7 @@ class TaskComplexity(Enum):
 @dataclass
 class Message:
     """A message in a debate."""
+
     role: str  # "proposer", "critic", "synthesizer", etc.
     agent: str  # agent name
     content: str
@@ -41,6 +42,7 @@ class Message:
 @dataclass
 class Critique:
     """A critique of a proposal or response."""
+
     agent: str
     target_agent: str
     target_content: str
@@ -74,6 +76,7 @@ Reasoning: {self.reasoning}"""
 @dataclass
 class Vote:
     """A vote for a proposal."""
+
     agent: str
     choice: str  # which proposal/agent they vote for
     reasoning: str
@@ -89,6 +92,7 @@ class DisagreementReport:
     Inspired by Heavy3.ai's insight: "When all models agree your argument is weak—fix it.
     When they disagree, you see the risk before you commit."
     """
+
     # Issues all agents unanimously agree on - high confidence problems
     unanimous_critiques: list[str] = field(default_factory=list)
 
@@ -109,7 +113,9 @@ class DisagreementReport:
         lines = ["=== Disagreement Report ==="]
 
         if self.unanimous_critiques:
-            lines.append(f"\n🚨 UNANIMOUS ISSUES ({len(self.unanimous_critiques)}) - Address these:")
+            lines.append(
+                f"\n🚨 UNANIMOUS ISSUES ({len(self.unanimous_critiques)}) - Address these:"
+            )
             for critique in self.unanimous_critiques[:5]:
                 lines.append(f"  • {critique[:200]}")
 
@@ -132,6 +138,7 @@ class DisagreementReport:
 @dataclass
 class DebateResult:
     """The result of a multi-agent debate."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     debate_id: str = ""
     task: str = ""
@@ -162,13 +169,23 @@ class DebateResult:
     # Evidence grounding (Heavy3-inspired)
     grounded_verdict: Optional[Any] = None  # GroundedVerdict from aragora.reasoning.citations
     # Belief network analysis - identifies key claims that drive disagreement
-    debate_cruxes: list[dict[str, Any]] = field(default_factory=list)  # From BeliefPropagationAnalyzer
-    evidence_suggestions: list[dict[str, Any]] = field(default_factory=list)  # Claims needing evidence
+    debate_cruxes: list[dict[str, Any]] = field(
+        default_factory=list
+    )  # From BeliefPropagationAnalyzer
+    evidence_suggestions: list[dict[str, Any]] = field(
+        default_factory=list
+    )  # Claims needing evidence
     # Verification results - claim verification during consensus
-    verification_results: dict[str, int] = field(default_factory=dict)  # Agent -> verified_claim_count
-    verification_bonuses: dict[str, float] = field(default_factory=dict)  # Agent -> vote_bonus_applied
+    verification_results: dict[str, int] = field(
+        default_factory=dict
+    )  # Agent -> verified_claim_count
+    verification_bonuses: dict[str, float] = field(
+        default_factory=dict
+    )  # Agent -> vote_bonus_applied
     # Novelty tracking - semantic distance from prior proposals
-    per_agent_novelty: dict[str, list[float]] = field(default_factory=dict)  # Agent -> novelty by round
+    per_agent_novelty: dict[str, list[float]] = field(
+        default_factory=dict
+    )  # Agent -> novelty by round
     avg_novelty: float = 1.0  # Average novelty (1.0 = fresh ideas, 0.0 = repetitive)
     # Formal verification result (from Lean4/Z3)
     formal_verification: Optional[dict[str, Any]] = None  # FormalProofResult.to_dict()
@@ -247,7 +264,7 @@ Final Answer:
 
         if self.grounded_verdict:
             base += f"\n\nGrounding Score: {self.grounded_verdict.grounding_score:.0%}"
-            if hasattr(self.grounded_verdict, 'all_citations'):
+            if hasattr(self.grounded_verdict, "all_citations"):
                 base += f" ({len(self.grounded_verdict.all_citations)} citations)"
 
         return base
@@ -256,6 +273,7 @@ Final Answer:
 @dataclass
 class Environment:
     """Defines a task environment for debate."""
+
     task: str
     context: str = ""  # additional context
     roles: list[str] = field(default_factory=lambda: ["proposer", "critic", "synthesizer"])
@@ -289,7 +307,9 @@ class Agent(ABC):
         pass
 
     @abstractmethod
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
+    async def critique(
+        self, proposal: str, task: str, context: list[Message] | None = None
+    ) -> Critique:
         """Critique a proposal."""
         pass
 
@@ -309,7 +329,7 @@ REASONING: <brief explanation>"""
 
         response = await self.generate(prompt)
         # Parse response (simple extraction)
-        lines = response.strip().split('\n')
+        lines = response.strip().split("\n")
         choice = ""
         confidence = 0.5
         reasoning = ""
@@ -348,6 +368,7 @@ REASONING: <brief explanation>"""
 def __getattr__(name: str):
     if name == "DebateProtocol":
         from aragora.debate.protocol import DebateProtocol
+
         return DebateProtocol
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

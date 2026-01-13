@@ -147,14 +147,12 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "ReplaysHandler": Stability.STABLE,
     "FeaturesHandler": Stability.STABLE,
     "AuthHandler": Stability.STABLE,
-
     # Extended - Stable
     "TournamentHandler": Stability.STABLE,
     "CritiqueHandler": Stability.STABLE,
     "RelationshipHandler": Stability.STABLE,
     "DashboardHandler": Stability.STABLE,
     "RoutingHandler": Stability.STABLE,
-
     # Promoted to Stable (Jan 2026) - tested in production
     "BillingHandler": Stability.STABLE,  # Transaction tests, Stripe webhooks
     "OAuthHandler": Stability.STABLE,  # OAuth flow tests, Google integration
@@ -166,7 +164,6 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "BeliefHandler": Stability.STABLE,  # Belief networks - 4 test files
     "CalibrationHandler": Stability.STABLE,  # Agent calibration - 4 test files
     "PersonaHandler": Stability.STABLE,  # Agent personas - 2 test files
-
     # Promoted to Stable (Jan 2026) - comprehensive test coverage
     "GraphDebatesHandler": Stability.STABLE,  # 7 test files, 95+ tests
     "MatrixDebatesHandler": Stability.STABLE,  # Handler tests + integration
@@ -180,7 +177,6 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "InsightsHandler": Stability.STABLE,  # 3 test files, 110+ tests
     "ReviewsHandler": Stability.STABLE,  # 18 tests, shareable code reviews
     "FormalVerificationHandler": Stability.STABLE,  # 18 tests, Z3/Lean backends
-
     # Promoted to Stable (Jan 2026) - from Preview
     "OrganizationsHandler": Stability.STABLE,  # 49 tests, team management
     "SocialMediaHandler": Stability.STABLE,  # 31 tests, OAuth flows

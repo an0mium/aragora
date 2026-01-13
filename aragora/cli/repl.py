@@ -148,6 +148,7 @@ class AragoraREPL:
         """Show debate statistics."""
         try:
             from aragora.memory.store import CritiqueStore
+
             store = CritiqueStore(db_path=self.db_path)
             stats = store.get_stats()
 
@@ -163,6 +164,7 @@ class AragoraREPL:
         """Show recent debate history."""
         try:
             from aragora.memory.store import CritiqueStore
+
             store = CritiqueStore(db_path=self.db_path)
             recent = store.get_recent_debates(limit=5)
 
@@ -191,6 +193,7 @@ class AragoraREPL:
         """Query memory for related content."""
         try:
             from aragora.memory.store import CritiqueStore
+
             store = CritiqueStore(db_path=self.db_path)
             results = store.search(query, limit=5)
 

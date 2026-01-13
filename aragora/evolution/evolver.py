@@ -8,18 +8,14 @@ and prompt refinement.
 
 import json
 import logging
-import re
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
-from pathlib import Path
 from typing import Optional
-import sqlite3
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.core import Agent, DebateResult, Critique
 from aragora.debate.safety import resolve_prompt_evolution
-from aragora.evolution.database import EvolutionDatabase
+from aragora.storage.base_store import SQLiteStore
 from aragora.memory.store import CritiqueStore, Pattern
 
 # Import gauntlet types for vulnerability recording
@@ -53,7 +49,7 @@ class PromptVersion:
     metadata: dict = field(default_factory=dict)
 
 
-class PromptEvolver:
+class PromptEvolver(SQLiteStore):
     """
     Evolves agent prompts based on successful debate patterns.
 
@@ -62,6 +58,69 @@ class PromptEvolver:
     2. Extracts effective critique and response strategies
     3. Updates agent system prompts to incorporate learnings
     4. Tracks prompt versions and their performance
+
+    Inherits from SQLiteStore for standardized schema management.
+    """
+
+    SCHEMA_NAME = "prompt_evolver"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        -- Prompt versions table
+        CREATE TABLE IF NOT EXISTS prompt_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_name TEXT NOT NULL,
+            version INTEGER NOT NULL,
+            prompt TEXT NOT NULL,
+            performance_score REAL DEFAULT 0.0,
+            debates_count INTEGER DEFAULT 0,
+            consensus_rate REAL DEFAULT 0.0,
+            metadata TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(agent_name, version)
+        );
+
+        -- Extracted patterns table
+        CREATE TABLE IF NOT EXISTS extracted_patterns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pattern_type TEXT NOT NULL,
+            pattern_text TEXT NOT NULL,
+            source_debate_id TEXT,
+            effectiveness_score REAL DEFAULT 0.5,
+            usage_count INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Evolution history
+        CREATE TABLE IF NOT EXISTS evolution_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_name TEXT NOT NULL,
+            from_version INTEGER,
+            to_version INTEGER,
+            strategy TEXT,
+            patterns_applied TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Vulnerability patterns from gauntlet
+        CREATE TABLE IF NOT EXISTS vulnerability_patterns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_name TEXT NOT NULL,
+            vulnerability_type TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            category TEXT NOT NULL,
+            trigger_prompt TEXT,
+            agent_response TEXT,
+            mitigation_strategy TEXT,
+            gauntlet_id TEXT,
+            occurrence_count INTEGER DEFAULT 1,
+            last_seen TEXT DEFAULT CURRENT_TIMESTAMP,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Index for efficient lookups
+        CREATE INDEX IF NOT EXISTS idx_vuln_agent
+        ON vulnerability_patterns(agent_name);
     """
 
     def __init__(
@@ -70,84 +129,9 @@ class PromptEvolver:
         critique_store: CritiqueStore = None,
         strategy: EvolutionStrategy = EvolutionStrategy.APPEND,
     ):
-        self.db_path = Path(db_path)
-        self.db = EvolutionDatabase(db_path)
+        super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
         self.critique_store = critique_store
         self.strategy = strategy
-        self._init_db()
-
-    def _init_db(self):
-        """Initialize evolution database."""
-        with self.db.connection() as conn:
-            cursor = conn.cursor()
-
-            # Prompt versions table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS prompt_versions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    agent_name TEXT NOT NULL,
-                    version INTEGER NOT NULL,
-                    prompt TEXT NOT NULL,
-                    performance_score REAL DEFAULT 0.0,
-                    debates_count INTEGER DEFAULT 0,
-                    consensus_rate REAL DEFAULT 0.0,
-                    metadata TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(agent_name, version)
-                )
-            """)
-
-            # Extracted patterns table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS extracted_patterns (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    pattern_type TEXT NOT NULL,
-                    pattern_text TEXT NOT NULL,
-                    source_debate_id TEXT,
-                    effectiveness_score REAL DEFAULT 0.5,
-                    usage_count INTEGER DEFAULT 0,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            # Evolution history
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS evolution_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    agent_name TEXT NOT NULL,
-                    from_version INTEGER,
-                    to_version INTEGER,
-                    strategy TEXT,
-                    patterns_applied TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            # Vulnerability patterns from gauntlet
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS vulnerability_patterns (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    agent_name TEXT NOT NULL,
-                    vulnerability_type TEXT NOT NULL,
-                    severity TEXT NOT NULL,
-                    category TEXT NOT NULL,
-                    trigger_prompt TEXT,
-                    agent_response TEXT,
-                    mitigation_strategy TEXT,
-                    gauntlet_id TEXT,
-                    occurrence_count INTEGER DEFAULT 1,
-                    last_seen TEXT DEFAULT CURRENT_TIMESTAMP,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            # Index for efficient lookups
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_vuln_agent
-                ON vulnerability_patterns(agent_name)
-            """)
-
-            conn.commit()
 
     def extract_winning_patterns(
         self,
@@ -185,43 +169,54 @@ class PromptEvolver:
                     for issue in critique.issues:
                         if len(patterns) >= max_patterns:
                             break
-                        patterns.append({
-                            "type": "issue_identification",
-                            "text": issue,
-                            "severity": critique.severity,
-                            "source_debate": debate.id,
-                        })
+                        patterns.append(
+                            {
+                                "type": "issue_identification",
+                                "text": issue,
+                                "severity": critique.severity,
+                                "source_debate": debate.id,
+                            }
+                        )
                     for suggestion in critique.suggestions:
                         if len(patterns) >= max_patterns:
                             break
-                        patterns.append({
-                            "type": "improvement_suggestion",
-                            "text": suggestion,
-                            "severity": critique.severity,
-                            "source_debate": debate.id,
-                        })
+                        patterns.append(
+                            {
+                                "type": "improvement_suggestion",
+                                "text": suggestion,
+                                "severity": critique.severity,
+                                "source_debate": debate.id,
+                            }
+                        )
 
             # Extract response patterns from final answer
             if len(patterns) < max_patterns and debate.final_answer:
                 # Look for structural patterns
                 if "```" in debate.final_answer:
-                    patterns.append({
-                        "type": "includes_code",
-                        "text": "Include code examples in responses",
-                        "source_debate": debate.id,
-                    })
-                if len(patterns) < max_patterns and any(marker in debate.final_answer.lower() for marker in ["step 1", "first,", "1.", "1)"]):
-                    patterns.append({
-                        "type": "structured_response",
-                        "text": "Use numbered steps or structured format",
-                        "source_debate": debate.id,
-                    })
+                    patterns.append(
+                        {
+                            "type": "includes_code",
+                            "text": "Include code examples in responses",
+                            "source_debate": debate.id,
+                        }
+                    )
+                if len(patterns) < max_patterns and any(
+                    marker in debate.final_answer.lower()
+                    for marker in ["step 1", "first,", "1.", "1)"]
+                ):
+                    patterns.append(
+                        {
+                            "type": "structured_response",
+                            "text": "Use numbered steps or structured format",
+                            "source_debate": debate.id,
+                        }
+                    )
 
         return patterns
 
     def store_patterns(self, patterns: list[dict]):
         """Store extracted patterns in database."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             for pattern in patterns:
@@ -241,7 +236,7 @@ class PromptEvolver:
         limit: int = 10,
     ) -> list[dict]:
         """Get most effective patterns."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             if pattern_type:
@@ -278,9 +273,11 @@ class PromptEvolver:
 
         return patterns
 
-    def get_prompt_version(self, agent_name: str, version: int | None = None) -> Optional[PromptVersion]:
+    def get_prompt_version(
+        self, agent_name: str, version: int | None = None
+    ) -> Optional[PromptVersion]:
         """Get a specific prompt version or the latest."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             if version is not None:
@@ -321,7 +318,7 @@ class PromptEvolver:
 
     def save_prompt_version(self, agent_name: str, prompt: str, metadata: dict = None) -> int:
         """Save a new prompt version."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Get next version number
@@ -434,10 +431,12 @@ class PromptEvolver:
         session.mount("https://", adapter)
 
         # Format patterns for the refinement prompt
-        patterns_text = "\n".join([
-            f"- {p.get('pattern', 'unknown')}: {p.get('description', 'No description')}"
-            for p in patterns[:5]  # Limit to top 5 patterns
-        ])
+        patterns_text = "\n".join(
+            [
+                f"- {p.get('pattern', 'unknown')}: {p.get('description', 'No description')}"
+                for p in patterns[:5]  # Limit to top 5 patterns
+            ]
+        )
 
         refinement_prompt = f"""You are refining an AI agent's system prompt based on learned patterns.
 
@@ -536,7 +535,7 @@ Return ONLY the refined prompt, no explanations."""
         agent.set_system_prompt(new_prompt)
 
         # Record evolution history
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -557,7 +556,7 @@ Return ONLY the refined prompt, no explanations."""
 
     def get_evolution_history(self, agent_name: str, limit: int = 10) -> list[dict]:
         """Get evolution history for an agent."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -591,7 +590,7 @@ Return ONLY the refined prompt, no explanations."""
         debate_result: DebateResult,
     ):
         """Update performance metrics for a prompt version."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Get current stats
@@ -611,7 +610,9 @@ Return ONLY the refined prompt, no explanations."""
 
                 new_count = current_count + 1
                 # Running average of consensus rate
-                new_rate = (current_rate * current_count + (1 if debate_result.consensus_reached else 0)) / new_count
+                new_rate = (
+                    current_rate * current_count + (1 if debate_result.consensus_reached else 0)
+                ) / new_count
                 new_score = debate_result.confidence if debate_result.consensus_reached else 0
 
                 cursor.execute(
@@ -648,7 +649,7 @@ Return ONLY the refined prompt, no explanations."""
         mitigation = self._suggest_mitigation(vulnerability.category, vulnerability.severity.value)
         vulnerability_type = vulnerability.title or vulnerability.category
 
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Check if we've seen this type of vulnerability for this agent before
@@ -724,24 +725,20 @@ Return ONLY the refined prompt, no explanations."""
             "consistency": "Add instruction: 'Ensure logical consistency across all statements. Review your response for contradictions before finalizing.'",
             "CONTRADICTION": "Add instruction: 'Check each claim against previous statements. Flag and resolve any contradictions explicitly.'",
             "contradiction": "Add instruction: 'Check each claim against previous statements. Flag and resolve any contradictions explicitly.'",
-
             # Reasoning issues
             "REASONING_DEPTH": "Add instruction: 'Show your reasoning step by step. Consider multiple perspectives before concluding.'",
             "reasoning_depth": "Add instruction: 'Show your reasoning step by step. Consider multiple perspectives before concluding.'",
             "LOGICAL_FALLACY": "Add instruction: 'Avoid logical fallacies. Check arguments for validity before presenting them.'",
             "logical_fallacy": "Add instruction: 'Avoid logical fallacies. Check arguments for validity before presenting them.'",
-
             # Edge cases
             "EDGE_CASE": "Add instruction: 'Consider edge cases and boundary conditions. Test your reasoning against unusual inputs.'",
             "edge_case": "Add instruction: 'Consider edge cases and boundary conditions. Test your reasoning against unusual inputs.'",
             "EDGE_CASES": "Add instruction: 'Consider edge cases and boundary conditions. Test your reasoning against unusual inputs.'",
-
             # Confidence calibration
             "CALIBRATION": "Add instruction: 'Calibrate your confidence carefully. High confidence should only accompany well-supported claims.'",
             "calibration": "Add instruction: 'Calibrate your confidence carefully. High confidence should only accompany well-supported claims.'",
             "CONFIDENCE_CALIBRATION": "Add instruction: 'Calibrate your confidence carefully. High confidence should only accompany well-supported claims.'",
             "CAPABILITY_EXAGGERATION": "Add instruction: 'Be honest about your limitations. Do not overstate your capabilities or certainty.'",
-
             # Security issues
             "SECURITY": "Add instruction: 'Prioritize security. Never reveal sensitive information or help with harmful activities.'",
             "security": "Add instruction: 'Prioritize security. Never reveal sensitive information or help with harmful activities.'",
@@ -752,13 +749,11 @@ Return ONLY the refined prompt, no explanations."""
             "PRIVILEGE_ESCALATION": "Add instruction: 'Never simulate privileged access. Require explicit authorization for elevated actions.'",
             "privilege_escalation": "Add instruction: 'Never simulate privileged access. Require explicit authorization for elevated actions.'",
             "ADVERSARIAL_INPUT": "Add instruction: 'Be robust against adversarial inputs. Validate assumptions carefully.'",
-
             # Compliance and regulatory issues
             "COMPLIANCE": "Add instruction: 'Check compliance requirements before recommending actions. Highlight any regulatory risks.'",
             "compliance": "Add instruction: 'Check compliance requirements before recommending actions. Highlight any regulatory risks.'",
             "REGULATORY_VIOLATION": "Add instruction: 'Flag potential regulatory violations and recommend compliant alternatives.'",
             "regulatory_violation": "Add instruction: 'Flag potential regulatory violations and recommend compliant alternatives.'",
-
             # Architecture and performance issues
             "ARCHITECTURE": "Add instruction: 'Validate architectural assumptions. Consider failure modes and scaling constraints.'",
             "architecture": "Add instruction: 'Validate architectural assumptions. Consider failure modes and scaling constraints.'",
@@ -768,7 +763,6 @@ Return ONLY the refined prompt, no explanations."""
             "performance": "Add instruction: 'Call out performance-critical paths and tradeoffs.'",
             "RESOURCE_EXHAUSTION": "Add instruction: 'Avoid unbounded resource usage. Propose limits and backpressure.'",
             "resource_exhaustion": "Add instruction: 'Avoid unbounded resource usage. Propose limits and backpressure.'",
-
             # Operational reliability issues
             "OPERATIONAL": "Add instruction: 'Consider operational risks like outages, dependency failure, and recovery.'",
             "operational": "Add instruction: 'Consider operational risks like outages, dependency failure, and recovery.'",
@@ -776,7 +770,6 @@ Return ONLY the refined prompt, no explanations."""
             "dependency_failure": "Add instruction: 'Plan for dependency failures and degraded modes.'",
             "RACE_CONDITION": "Add instruction: 'Consider concurrency hazards and race conditions explicitly.'",
             "race_condition": "Add instruction: 'Consider concurrency hazards and race conditions explicitly.'",
-
             # Persistence
             "PERSISTENCE": "Add instruction: 'Maintain consistency in your identity and positions across interactions.'",
             "persistence": "Add instruction: 'Maintain consistency in your identity and positions across interactions.'",
@@ -796,7 +789,9 @@ Return ONLY the refined prompt, no explanations."""
             "medium": "Add instruction: 'Be thoughtful and thorough when handling similar situations.'",
         }
 
-        return severity_mitigations.get(severity, "Review and strengthen system prompt for this category")
+        return severity_mitigations.get(
+            severity, "Review and strengthen system prompt for this category"
+        )
 
     def get_vulnerability_patterns(
         self,
@@ -815,7 +810,7 @@ Return ONLY the refined prompt, no explanations."""
         Returns:
             List of vulnerability pattern dictionaries
         """
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -947,7 +942,7 @@ Return ONLY the refined prompt, no explanations."""
         agent.set_system_prompt(new_prompt)
 
         # Record in evolution history
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -977,7 +972,7 @@ Return ONLY the refined prompt, no explanations."""
         Returns:
             Dict with counts by severity and category
         """
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Count by severity

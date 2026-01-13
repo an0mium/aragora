@@ -8,10 +8,10 @@ import os
 import sys
 
 # Disable heavy ML imports
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ['TOKENIZERS_PARALLELISM'] = 'false'
-os.environ['SENTENCE_TRANSFORMERS_HOME'] = '/tmp/sentence_transformers'
-os.environ['TRANSFORMERS_OFFLINE'] = '1'  # Don't download models
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/sentence_transformers"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"  # Don't download models
 
 import asyncio
 import json
@@ -24,6 +24,7 @@ print("Importing modules...", flush=True)
 from aragora.agents.registry import AgentRegistry
 from aragora.agents.api_agents.gemini import GeminiAgent  # noqa: F401
 from aragora.agents.api_agents.grok import GrokAgent  # noqa: F401
+
 print("Imports complete.", flush=True)
 
 
@@ -185,10 +186,12 @@ async def run_direct_debate():
                 prompt = full_prompt
             else:
                 # Include previous responses
-                prev_context = "\n\n".join([
-                    f"**{m['agent']}**: {m['content'][:500]}..."
-                    for m in round_messages[-len(agents):]
-                ])
+                prev_context = "\n\n".join(
+                    [
+                        f"**{m['agent']}**: {m['content'][:500]}..."
+                        for m in round_messages[-len(agents) :]
+                    ]
+                )
                 prompt = f"""Based on the previous discussion:
 
 {prev_context}
@@ -203,24 +206,28 @@ Original question: {full_prompt[:1000]}..."""
                 # Generate response
                 response = await agent.generate(prompt, context=None)
 
-                round_messages.append({
-                    "agent": agent.name,
-                    "round": round_num,
-                    "content": response,
-                    "timestamp": datetime.now().isoformat(),
-                })
+                round_messages.append(
+                    {
+                        "agent": agent.name,
+                        "round": round_num,
+                        "content": response,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
 
                 print(f"\n{agent.name} response ({len(response)} chars):", flush=True)
                 print(response[:500] + "..." if len(response) > 500 else response, flush=True)
 
             except Exception as e:
                 print(f"Error from {agent.name}: {e}", flush=True)
-                round_messages.append({
-                    "agent": agent.name,
-                    "round": round_num,
-                    "content": f"Error: {e}",
-                    "timestamp": datetime.now().isoformat(),
-                })
+                round_messages.append(
+                    {
+                        "agent": agent.name,
+                        "round": round_num,
+                        "content": f"Error: {e}",
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
 
         rounds.append(round_messages)
 
@@ -248,12 +255,16 @@ Original question: {full_prompt[:1000]}..."""
     # Save JSON for further processing
     json_path = output_dir / f"debate_{timestamp}.json"
     with open(json_path, "w") as f:
-        json.dump({
-            "timestamp": timestamp,
-            "agents": [a.name for a in agents],
-            "context": COMPANY_CONTEXT,
-            "rounds": rounds,
-        }, f, indent=2)
+        json.dump(
+            {
+                "timestamp": timestamp,
+                "agents": [a.name for a in agents],
+                "context": COMPANY_CONTEXT,
+                "rounds": rounds,
+            },
+            f,
+            indent=2,
+        )
 
     print(f"JSON saved to: {json_path}")
 

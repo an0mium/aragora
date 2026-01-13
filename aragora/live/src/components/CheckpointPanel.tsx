@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { fetchWithRetry } from '@/utils/retry';
+import { API_BASE_URL } from '@/config';
 
 interface Checkpoint {
   checkpoint_id: string;
@@ -40,7 +41,7 @@ interface CheckpointPanelProps {
   onResume?: (checkpointId: string) => void;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 const STATUS_STYLES: Record<string, { text: string; bg: string }> = {
   complete: { text: 'text-acid-green', bg: 'bg-acid-green/20' },

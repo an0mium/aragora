@@ -19,6 +19,7 @@ from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def handler():
     """Create MatrixDebatesHandler instance."""
@@ -29,20 +30,26 @@ def handler():
 def mock_storage():
     """Create mock storage with async methods."""
     storage = Mock()
-    storage.get_matrix_debate = AsyncMock(return_value={
-        "matrix_id": "matrix-123",
-        "task": "Test task",
-        "scenario_count": 2,
-        "results": [],
-    })
-    storage.get_matrix_scenarios = AsyncMock(return_value=[
-        {"scenario_name": "Baseline", "is_baseline": True},
-        {"scenario_name": "Alternative", "is_baseline": False},
-    ])
-    storage.get_matrix_conclusions = AsyncMock(return_value={
-        "universal": ["All scenarios agree on X"],
-        "conditional": [{"condition": "When Y", "conclusion": "Z"}],
-    })
+    storage.get_matrix_debate = AsyncMock(
+        return_value={
+            "matrix_id": "matrix-123",
+            "task": "Test task",
+            "scenario_count": 2,
+            "results": [],
+        }
+    )
+    storage.get_matrix_scenarios = AsyncMock(
+        return_value=[
+            {"scenario_name": "Baseline", "is_baseline": True},
+            {"scenario_name": "Alternative", "is_baseline": False},
+        ]
+    )
+    storage.get_matrix_conclusions = AsyncMock(
+        return_value={
+            "universal": ["All scenarios agree on X"],
+            "conditional": [{"condition": "When Y", "conclusion": "Z"}],
+        }
+    )
     return storage
 
 
@@ -59,6 +66,7 @@ def mock_handler_obj(mock_storage):
 # Route Recognition Tests
 # ============================================================================
 
+
 class TestMatrixDebatesRouting:
     """Tests for matrix debates route recognition."""
 
@@ -74,6 +82,7 @@ class TestMatrixDebatesRouting:
 # ============================================================================
 # GET /api/debates/matrix/{id} Tests
 # ============================================================================
+
 
 class TestGetMatrixDebate:
     """Tests for getting specific matrix debate."""
@@ -123,6 +132,7 @@ class TestGetMatrixDebate:
 # GET /api/debates/matrix/{id}/scenarios Tests
 # ============================================================================
 
+
 class TestGetScenarios:
     """Tests for getting debate scenarios."""
 
@@ -157,6 +167,7 @@ class TestGetScenarios:
 # GET /api/debates/matrix/{id}/conclusions Tests
 # ============================================================================
 
+
 class TestGetConclusions:
     """Tests for getting debate conclusions."""
 
@@ -190,6 +201,7 @@ class TestGetConclusions:
 # ============================================================================
 # POST /api/debates/matrix Tests
 # ============================================================================
+
 
 class TestRunMatrixDebate:
     """Tests for running matrix debates."""
@@ -235,6 +247,7 @@ class TestRunMatrixDebate:
 # ============================================================================
 # Helper Method Tests
 # ============================================================================
+
 
 class TestMatrixDebateHelpers:
     """Tests for helper methods."""
@@ -282,6 +295,7 @@ class TestMatrixDebateHelpers:
 # ============================================================================
 # Error Handling Tests
 # ============================================================================
+
 
 class TestMatrixDebatesErrorHandling:
     """Tests for error handling in matrix debates handler."""

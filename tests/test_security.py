@@ -444,23 +444,14 @@ class TestBearerHeaderParsing:
         valid_token = config.generate_token("loop")
 
         # Correct case
-        result = config.extract_token_from_request(
-            {"Authorization": f"Bearer {valid_token}"},
-            {}
-        )
+        result = config.extract_token_from_request({"Authorization": f"Bearer {valid_token}"}, {})
         assert result == valid_token
 
         # Wrong case should not extract
-        result = config.extract_token_from_request(
-            {"Authorization": f"bearer {valid_token}"},
-            {}
-        )
+        result = config.extract_token_from_request({"Authorization": f"bearer {valid_token}"}, {})
         assert result is None
 
-        result = config.extract_token_from_request(
-            {"Authorization": f"BEARER {valid_token}"},
-            {}
-        )
+        result = config.extract_token_from_request({"Authorization": f"BEARER {valid_token}"}, {})
         assert result is None
 
     def test_bearer_with_extra_spaces(self):
@@ -469,8 +460,7 @@ class TestBearerHeaderParsing:
 
         # Extra leading spaces in token
         result = config.extract_token_from_request(
-            {"Authorization": "Bearer  token_with_space"},
-            {}
+            {"Authorization": "Bearer  token_with_space"}, {}
         )
         assert result == " token_with_space"  # Includes the extra space
 
@@ -478,10 +468,7 @@ class TestBearerHeaderParsing:
         """Bearer with empty value should return empty string."""
         config = AuthConfig()
 
-        result = config.extract_token_from_request(
-            {"Authorization": "Bearer "},
-            {}
-        )
+        result = config.extract_token_from_request({"Authorization": "Bearer "}, {})
         assert result == ""
 
     def test_query_param_fallback(self):
@@ -490,7 +477,7 @@ class TestBearerHeaderParsing:
 
         result = config.extract_token_from_request(
             {"Authorization": "Basic abc123"},  # Not Bearer
-            {"token": ["query_token"]}  # Should be ignored for security
+            {"token": ["query_token"]},  # Should be ignored for security
         )
         # Query params are NOT supported (they appear in logs)
         assert result is None
@@ -500,8 +487,7 @@ class TestBearerHeaderParsing:
         config = AuthConfig()
 
         result = config.extract_token_from_request(
-            {"Authorization": "Bearer header_token"},
-            {"token": ["query_token"]}
+            {"Authorization": "Bearer header_token"}, {"token": ["query_token"]}
         )
         assert result == "header_token"
 
@@ -510,8 +496,7 @@ class TestBearerHeaderParsing:
         config = AuthConfig()
 
         result = config.extract_token_from_request(
-            {},
-            {"token": ["fallback"]}  # Should be ignored for security
+            {}, {"token": ["fallback"]}  # Should be ignored for security
         )
         # Query params are NOT supported for security reasons
         assert result is None
@@ -559,10 +544,7 @@ class TestRateLimitCleanupUnderLoad:
                 errors.append(e)
 
         # Multiple threads adding tokens rapidly
-        threads = [
-            threading.Thread(target=make_requests, args=(f"thread_{j}",))
-            for j in range(5)
-        ]
+        threads = [threading.Thread(target=make_requests, args=(f"thread_{j}",)) for j in range(5)]
 
         for t in threads:
             t.start()
@@ -587,10 +569,7 @@ class TestRateLimitCleanupUnderLoad:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=make_requests, args=(j,))
-            for j in range(5)
-        ]
+        threads = [threading.Thread(target=make_requests, args=(j,)) for j in range(5)]
 
         for t in threads:
             t.start()
@@ -751,11 +730,13 @@ class TestQueryParameterValidation:
         """Test multiple parameters are validated."""
         from aragora.server.unified_server import _validate_query_params
 
-        valid, error = _validate_query_params({
-            "limit": ["50"],
-            "offset": ["10"],
-            "agent": ["claude"],
-        })
+        valid, error = _validate_query_params(
+            {
+                "limit": ["50"],
+                "offset": ["10"],
+                "agent": ["claude"],
+            }
+        )
         assert valid is True
 
 
@@ -1066,7 +1047,7 @@ class TestNestedPayloadAttacks:
 
         # Create extremely deep nesting that might hit recursion limit
         depth = 500  # Safe depth that won't hit limit
-        nested_str = '{"a":' * depth + '1' + '}' * depth
+        nested_str = '{"a":' * depth + "1" + "}" * depth
 
         # Should parse successfully at this depth
         parsed = json.loads(nested_str)
@@ -1196,6 +1177,7 @@ class TestGlobPatternInjection:
     def storage(self):
         """Create temporary storage."""
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = f.name
         yield DebateStorage(db_path)
@@ -1289,6 +1271,7 @@ class TestAudioPathSecurity:
     def storage(self):
         """Create temporary storage."""
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = f.name
         yield DebateStorage(db_path)
@@ -1433,8 +1416,7 @@ class TestMemoryExhaustionPrevention:
                 errors.append(e)
 
         threads = [
-            threading.Thread(target=exhaust_memory, args=(f"thread_{j}",))
-            for j in range(10)
+            threading.Thread(target=exhaust_memory, args=(f"thread_{j}",)) for j in range(10)
         ]
 
         for t in threads:

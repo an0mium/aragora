@@ -64,19 +64,29 @@ class TestPulseIngestorExpansion:
 
         # Create mock ingestors that return sample data
         mock_twitter = AsyncMock(spec=TwitterIngestor)
-        mock_twitter.fetch_trending = AsyncMock(return_value=[
-            TrendingTopic(platform="twitter", topic="Twitter Topic", volume=100, category="tech")
-        ])
+        mock_twitter.fetch_trending = AsyncMock(
+            return_value=[
+                TrendingTopic(
+                    platform="twitter", topic="Twitter Topic", volume=100, category="tech"
+                )
+            ]
+        )
 
         mock_hn = AsyncMock(spec=HackerNewsIngestor)
-        mock_hn.fetch_trending = AsyncMock(return_value=[
-            TrendingTopic(platform="hackernews", topic="HN Topic", volume=50, category="ai")
-        ])
+        mock_hn.fetch_trending = AsyncMock(
+            return_value=[
+                TrendingTopic(platform="hackernews", topic="HN Topic", volume=50, category="ai")
+            ]
+        )
 
         mock_reddit = AsyncMock(spec=RedditIngestor)
-        mock_reddit.fetch_trending = AsyncMock(return_value=[
-            TrendingTopic(platform="reddit", topic="Reddit Topic", volume=200, category="programming")
-        ])
+        mock_reddit.fetch_trending = AsyncMock(
+            return_value=[
+                TrendingTopic(
+                    platform="reddit", topic="Reddit Topic", volume=200, category="programming"
+                )
+            ]
+        )
 
         manager.add_ingestor("twitter", mock_twitter)
         manager.add_ingestor("hackernews", mock_hn)
@@ -96,11 +106,13 @@ class TestPulseIngestorExpansion:
         manager = PulseManager()
 
         mock_ingestor = AsyncMock()
-        mock_ingestor.fetch_trending = AsyncMock(return_value=[
-            TrendingTopic(platform="test", topic="Low", volume=10, category=""),
-            TrendingTopic(platform="test", topic="High", volume=1000, category=""),
-            TrendingTopic(platform="test", topic="Medium", volume=100, category=""),
-        ])
+        mock_ingestor.fetch_trending = AsyncMock(
+            return_value=[
+                TrendingTopic(platform="test", topic="Low", volume=10, category=""),
+                TrendingTopic(platform="test", topic="High", volume=1000, category=""),
+                TrendingTopic(platform="test", topic="Medium", volume=100, category=""),
+            ]
+        )
 
         manager.add_ingestor("test", mock_ingestor)
         topics = await manager.get_trending_topics()
@@ -143,7 +155,9 @@ class TestTrendingTopicInjection:
         agent.propose = AsyncMock(return_value="Test proposal")
         agent.critique = AsyncMock(return_value=MagicMock(reasoning="Test critique", severity=0.5))
         agent.revise = AsyncMock(return_value="Revised proposal")
-        agent.vote = AsyncMock(return_value=MagicMock(choice="test_agent", reasoning="Test", confidence=0.8))
+        agent.vote = AsyncMock(
+            return_value=MagicMock(choice="test_agent", reasoning="Test", confidence=0.8)
+        )
         return agent
 
     @pytest.fixture
@@ -200,7 +214,7 @@ class TestTrendingTopicInjection:
 
         # Manually trigger the _run_inner logic that injects context
         # We check that the injection code path exists
-        assert hasattr(arena, 'trending_topic')
+        assert hasattr(arena, "trending_topic")
         assert arena.trending_topic.topic == "AI Safety Debate"
 
     def test_topic_to_debate_prompt(self, sample_topic):
@@ -226,8 +240,8 @@ class TestPulseAPIIntegration:
         }
 
         # Verify the data structure is valid
-        assert data.get('use_trending') is True
-        assert data.get('trending_category') == "tech"
+        assert data.get("use_trending") is True
+        assert data.get("trending_category") == "tech"
 
     def test_debate_api_accepts_trending_category(self):
         """Test /api/debate accepts trending_category filter."""
@@ -237,7 +251,7 @@ class TestPulseAPIIntegration:
             "trending_category": "ai",
         }
 
-        assert data.get('trending_category') == "ai"
+        assert data.get("trending_category") == "ai"
 
 
 class TestPulseContextFormatting:
@@ -253,7 +267,9 @@ class TestPulseContextFormatting:
         # Format like orchestrator does
         trending_context = "## TRENDING CONTEXT\nCurrent trending topics that may be relevant:\n"
         for t in topics[:5]:
-            trending_context += f"- {t.topic} ({t.platform}, {t.volume:,} engagement, {t.category})\n"
+            trending_context += (
+                f"- {t.topic} ({t.platform}, {t.volume:,} engagement, {t.category})\n"
+            )
 
         assert "## TRENDING CONTEXT" in trending_context
         assert "#AIDebate" in trending_context
@@ -328,9 +344,9 @@ class TestPulseCircuitBreaker:
         hackernews = HackerNewsIngestor()
         reddit = RedditIngestor()
 
-        assert hasattr(twitter, 'circuit_breaker')
-        assert hasattr(hackernews, 'circuit_breaker')
-        assert hasattr(reddit, 'circuit_breaker')
+        assert hasattr(twitter, "circuit_breaker")
+        assert hasattr(hackernews, "circuit_breaker")
+        assert hasattr(reddit, "circuit_breaker")
 
     @pytest.mark.asyncio
     async def test_circuit_breaker_prevents_cascade(self):
@@ -345,9 +361,11 @@ class TestPulseCircuitBreaker:
 
         # Create a working ingestor
         mock_working = AsyncMock()
-        mock_working.fetch_trending = AsyncMock(return_value=[
-            TrendingTopic(platform="working", topic="Works", volume=100, category="test")
-        ])
+        mock_working.fetch_trending = AsyncMock(
+            return_value=[
+                TrendingTopic(platform="working", topic="Works", volume=100, category="test")
+            ]
+        )
 
         manager.add_ingestor("failing", mock_failing)
         manager.add_ingestor("working", mock_working)

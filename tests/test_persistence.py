@@ -415,9 +415,7 @@ class TestSupabaseClientOperations:
 
         client = SupabaseClient()
 
-        events = [
-            StreamEvent(loop_id="test", cycle=1, event_type="test", event_data={})
-        ]
+        events = [StreamEvent(loop_id="test", cycle=1, event_type="test", event_data={})]
 
         result = await client.save_events_batch(events)
 

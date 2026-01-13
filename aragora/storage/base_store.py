@@ -204,10 +204,7 @@ class SQLiteStore(BaseDatabase, ABC):
         if not id_column.replace("_", "").isalnum():
             raise ValueError(f"Invalid column name: {id_column}")
 
-        row = self.fetch_one(
-            f"SELECT 1 FROM {table} WHERE {id_column} = ?",
-            (id_value,)
-        )
+        row = self.fetch_one(f"SELECT 1 FROM {table} WHERE {id_column} = ?", (id_value,))
         return row is not None
 
     def count(self, table: str, where: str = "", params: tuple = ()) -> int:
@@ -248,10 +245,7 @@ class SQLiteStore(BaseDatabase, ABC):
             raise ValueError(f"Invalid column name: {id_column}")
 
         with self.connection() as conn:
-            cursor = conn.execute(
-                f"DELETE FROM {table} WHERE {id_column} = ?",
-                (id_value,)
-            )
+            cursor = conn.execute(f"DELETE FROM {table} WHERE {id_column} = ?", (id_value,))
             return cursor.rowcount > 0
 
     def safe_add_column(
@@ -291,8 +285,7 @@ class SQLiteStore(BaseDatabase, ABC):
         """
         try:
             row = self.fetch_one(
-                "SELECT version FROM _schema_versions WHERE module = ?",
-                (self.SCHEMA_NAME,)
+                "SELECT version FROM _schema_versions WHERE module = ?", (self.SCHEMA_NAME,)
             )
             return row[0] if row else 0
         except sqlite3.OperationalError:

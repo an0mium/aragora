@@ -86,6 +86,13 @@ function setupSuccessfulFetch() {
   });
 }
 
+const renderWithTierStats = async () => {
+  render(<MemoryInspector apiBase="http://localhost:8080" />);
+  await waitFor(() => {
+    expect(screen.getByText('FAST')).toBeInTheDocument();
+  });
+};
+
 describe('MemoryInspector', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -94,13 +101,13 @@ describe('MemoryInspector', () => {
   describe('Loading States', () => {
     it('shows panel title', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
       expect(screen.getByText('Continuum Memory')).toBeInTheDocument();
     });
 
     it('fetches tier stats on mount', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
@@ -113,7 +120,7 @@ describe('MemoryInspector', () => {
   describe('Tier Overview', () => {
     it('displays all 4 tier buttons', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       await waitFor(() => {
         expect(screen.getByText('FAST')).toBeInTheDocument();
@@ -125,7 +132,7 @@ describe('MemoryInspector', () => {
 
     it('shows entry counts for each tier', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       await waitFor(() => {
         expect(screen.getByText('50 entries')).toBeInTheDocument();
@@ -137,7 +144,7 @@ describe('MemoryInspector', () => {
 
     it('calculates total memories correctly', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       await waitFor(() => {
         // 50 + 120 + 300 + 80 = 550
@@ -149,7 +156,7 @@ describe('MemoryInspector', () => {
   describe('Tier Selection', () => {
     it('has fast and medium selected by default', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       await waitFor(() => {
         expect(screen.getByText('FAST')).toBeInTheDocument();
@@ -163,7 +170,7 @@ describe('MemoryInspector', () => {
 
     it('toggles tier selection on click', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       await waitFor(() => {
         expect(screen.getByText('SLOW')).toBeInTheDocument();
@@ -182,7 +189,7 @@ describe('MemoryInspector', () => {
 
     it('deselects tier on second click', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       await waitFor(() => {
         expect(screen.getByText('FAST')).toBeInTheDocument();
@@ -203,14 +210,14 @@ describe('MemoryInspector', () => {
   describe('Search Functionality', () => {
     it('shows search input', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       expect(screen.getByPlaceholderText('Search memories...')).toBeInTheDocument();
     });
 
     it('shows error for empty search', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       fireEvent.click(screen.getByText('SEARCH'));
 
@@ -221,7 +228,7 @@ describe('MemoryInspector', () => {
 
     it('performs search with query', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       const input = screen.getByPlaceholderText('Search memories...');
       fireEvent.change(input, { target: { value: 'reasoning' } });
@@ -236,7 +243,7 @@ describe('MemoryInspector', () => {
 
     it('includes selected tiers in search request', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       const input = screen.getByPlaceholderText('Search memories...');
       fireEvent.change(input, { target: { value: 'test' } });
@@ -254,7 +261,7 @@ describe('MemoryInspector', () => {
   describe('Search Results', () => {
     it('displays search results', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       const input = screen.getByPlaceholderText('Search memories...');
       fireEvent.change(input, { target: { value: 'reasoning' } });
@@ -268,7 +275,7 @@ describe('MemoryInspector', () => {
 
     it('shows importance percentages', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       const input = screen.getByPlaceholderText('Search memories...');
       fireEvent.change(input, { target: { value: 'test' } });
@@ -282,7 +289,7 @@ describe('MemoryInspector', () => {
 
     it('shows consolidation scores', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       const input = screen.getByPlaceholderText('Search memories...');
       fireEvent.change(input, { target: { value: 'test' } });
@@ -296,7 +303,7 @@ describe('MemoryInspector', () => {
 
     it('shows update counts', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       const input = screen.getByPlaceholderText('Search memories...');
       fireEvent.change(input, { target: { value: 'test' } });
@@ -319,7 +326,7 @@ describe('MemoryInspector', () => {
         return Promise.resolve({ ok: false });
       });
 
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       const input = screen.getByPlaceholderText('Search memories...');
       fireEvent.change(input, { target: { value: 'nonexistent' } });
@@ -334,14 +341,14 @@ describe('MemoryInspector', () => {
   describe('Consolidation', () => {
     it('shows consolidate button', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       expect(screen.getByText('CONSOLIDATE')).toBeInTheDocument();
     });
 
     it('sends POST request on consolidate click', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       fireEvent.click(screen.getByText('CONSOLIDATE'));
 
@@ -355,7 +362,7 @@ describe('MemoryInspector', () => {
 
     it('shows consolidation success feedback', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       fireEvent.click(screen.getByText('CONSOLIDATE'));
 
@@ -367,7 +374,7 @@ describe('MemoryInspector', () => {
 
     it('shows consolidation stats', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       fireEvent.click(screen.getByText('CONSOLIDATE'));
 
@@ -394,7 +401,7 @@ describe('MemoryInspector', () => {
         return Promise.resolve({ ok: false });
       });
 
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       fireEvent.click(screen.getByText('CONSOLIDATE'));
 
@@ -405,7 +412,7 @@ describe('MemoryInspector', () => {
 
     it('refreshes tier stats after consolidation', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       await waitFor(() => {
         expect(screen.getByText('FAST')).toBeInTheDocument();
@@ -441,7 +448,7 @@ describe('MemoryInspector', () => {
         return Promise.resolve({ ok: false });
       });
 
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       const input = screen.getByPlaceholderText('Search memories...');
       fireEvent.change(input, { target: { value: 'test' } });
@@ -466,7 +473,7 @@ describe('MemoryInspector', () => {
         return Promise.resolve({ ok: false });
       });
 
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       fireEvent.click(screen.getByText('CONSOLIDATE'));
 
@@ -479,7 +486,7 @@ describe('MemoryInspector', () => {
   describe('Expand/Collapse', () => {
     it('collapses panel when collapse button clicked', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       fireEvent.click(screen.getByText('[-]'));
 
@@ -489,7 +496,7 @@ describe('MemoryInspector', () => {
 
     it('shows tier legend when collapsed', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       fireEvent.click(screen.getByText('[-]'));
 
@@ -499,7 +506,7 @@ describe('MemoryInspector', () => {
 
     it('expands panel when expand button clicked', async () => {
       setupSuccessfulFetch();
-      render(<MemoryInspector apiBase="http://localhost:8080" />);
+      await renderWithTierStats();
 
       // Collapse first
       fireEvent.click(screen.getByText('[-]'));

@@ -83,6 +83,7 @@ def get_plan_limits(plan: str) -> Dict[str, Any]:
 # Workspace Management
 # =============================================================================
 
+
 class WorkspaceManager:
     """
     Manages workspace operations and isolation.
@@ -228,6 +229,7 @@ def get_workspace_manager() -> WorkspaceManager:
 # Decorators
 # =============================================================================
 
+
 def require_workspace(func: Callable) -> Callable:
     """
     Decorator that requires authenticated user with workspace access.
@@ -351,6 +353,7 @@ def tenant_scoped(func: Callable) -> Callable:
 # =============================================================================
 # Utility Functions
 # =============================================================================
+
 
 def scope_query(query: Any, workspace_id: str) -> Any:
     """

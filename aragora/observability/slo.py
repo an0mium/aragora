@@ -111,9 +111,7 @@ def get_slo_targets() -> Dict[str, SLOTarget]:
     availability_target = float(
         os.getenv("SLO_AVAILABILITY_TARGET", str(DEFAULT_AVAILABILITY_TARGET))
     )
-    latency_p99_ms = float(
-        os.getenv("SLO_LATENCY_P99_TARGET_MS", str(DEFAULT_LATENCY_P99_MS))
-    )
+    latency_p99_ms = float(os.getenv("SLO_LATENCY_P99_TARGET_MS", str(DEFAULT_LATENCY_P99_MS)))
     debate_success_target = float(
         os.getenv("SLO_DEBATE_SUCCESS_TARGET", str(DEFAULT_DEBATE_SUCCESS_TARGET))
     )
@@ -334,14 +332,16 @@ def _record_measurement(
     _measurement_window = [m for m in _measurement_window if m["timestamp"] > cutoff]
 
     # Add new measurement
-    _measurement_window.append({
-        "timestamp": now,
-        "total_requests": total_requests,
-        "successful_requests": successful_requests,
-        "latency_p99": latency_p99,
-        "total_debates": total_debates,
-        "successful_debates": successful_debates,
-    })
+    _measurement_window.append(
+        {
+            "timestamp": now,
+            "total_requests": total_requests,
+            "successful_requests": successful_requests,
+            "latency_p99": latency_p99,
+            "total_debates": total_debates,
+            "successful_debates": successful_debates,
+        }
+    )
 
 
 def check_availability_slo(
@@ -657,22 +657,26 @@ def format_slo_report(status: SLOStatus) -> str:
         ("Debate Success", status.debate_success),
     ]:
         status_icon = "[OK]" if result.compliant else "[!!]"
-        lines.extend([
-            f"{status_icon} {result.name}",
-            f"    Target: {result.target:.4f}",
-            f"    Current: {result.current:.4f}",
-            f"    Compliance: {result.compliance_percentage:.1f}%",
-            f"    Error Budget: {result.error_budget_remaining:.1f}% remaining",
-            f"    Burn Rate: {result.burn_rate:.2f}x",
-            "",
-        ])
+        lines.extend(
+            [
+                f"{status_icon} {result.name}",
+                f"    Target: {result.target:.4f}",
+                f"    Current: {result.current:.4f}",
+                f"    Compliance: {result.compliance_percentage:.1f}%",
+                f"    Error Budget: {result.error_budget_remaining:.1f}% remaining",
+                f"    Burn Rate: {result.burn_rate:.2f}x",
+                "",
+            ]
+        )
 
     overall = "HEALTHY" if status.overall_healthy else "DEGRADED"
-    lines.extend([
-        "-" * 60,
-        f"Overall Status: {overall}",
-        "=" * 60,
-    ])
+    lines.extend(
+        [
+            "-" * 60,
+            f"Overall Status: {overall}",
+            "=" * 60,
+        ]
+    )
 
     return "\n".join(lines)
 

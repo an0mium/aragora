@@ -45,8 +45,8 @@ class Evidence:
 
     # Reliability indicators
     confidence: float = 0.5  # Base confidence in source
-    freshness: float = 1.0   # How recent (1.0 = current, decays over time)
-    authority: float = 0.5   # Source authority (0-1)
+    freshness: float = 1.0  # How recent (1.0 = current, decays over time)
+    authority: float = 0.5  # Source authority (0-1)
 
     # Additional context
     metadata: dict = field(default_factory=dict)
@@ -60,11 +60,7 @@ class Evidence:
     def reliability_score(self) -> float:
         """Combined reliability score."""
         # Weighted combination of factors
-        return (
-            0.4 * self.confidence +
-            0.3 * self.freshness +
-            0.3 * self.authority
-        )
+        return 0.4 * self.confidence + 0.3 * self.freshness + 0.3 * self.authority
 
     def to_dict(self) -> dict:
         return {
@@ -169,7 +165,8 @@ class BaseConnector(ABC):
         """Clear expired entries from cache. Returns count cleared."""
         now = time.time()
         expired_keys = [
-            key for key, (cached_time, _) in self._cache.items()
+            key
+            for key, (cached_time, _) in self._cache.items()
             if now - cached_time > self._cache_ttl
         ]
         for key in expired_keys:
@@ -181,8 +178,7 @@ class BaseConnector(ABC):
         now = time.time()
         total = len(self._cache)
         expired = sum(
-            1 for cached_time, _ in self._cache.values()
-            if now - cached_time > self._cache_ttl
+            1 for cached_time, _ in self._cache.values() if now - cached_time > self._cache_ttl
         )
         return {
             "total_entries": total,

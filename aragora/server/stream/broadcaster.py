@@ -143,7 +143,8 @@ class ClientManager:
         now = time.time()
         with self._rate_limiters_lock:
             stale_keys = [
-                k for k, v in self._rate_limiter_last_access.items()
+                k
+                for k, v in self._rate_limiter_last_access.items()
                 if now - v > self.config.rate_limiter_ttl
             ]
             for k in stale_keys:
@@ -253,12 +254,14 @@ class DebateStateCache:
             return
 
         state = self.debate_states[loop_id]
-        state["messages"].append({
-            "agent": event.agent,
-            "role": event.data.get("role"),
-            "round": event.round,
-            "content": event.data.get("content"),
-        })
+        state["messages"].append(
+            {
+                "agent": event.agent,
+                "role": event.data.get("role"),
+                "round": event.round,
+                "content": event.data.get("content"),
+            }
+        )
         # Cap at last 1000 messages
         if len(state["messages"]) > 1000:
             state["messages"] = state["messages"][-1000:]
@@ -308,8 +311,10 @@ class DebateStateCache:
         removed = 0
         with self._lock:
             stale_keys = [
-                k for k, v in self.debate_states.items()
-                if v.get("ended") and now - self._last_access.get(k, 0) > self.config.debate_states_ttl
+                k
+                for k, v in self.debate_states.items()
+                if v.get("ended")
+                and now - self._last_access.get(k, 0) > self.config.debate_states_ttl
             ]
             for k in stale_keys:
                 self.debate_states.pop(k, None)
@@ -372,11 +377,7 @@ class LoopRegistry:
         with self._lock:
             # LRU eviction if at capacity
             if len(self.active_loops) >= self.config.max_active_loops:
-                oldest = min(
-                    self._last_access,
-                    key=self._last_access.get,
-                    default=None
-                )
+                oldest = min(self._last_access, key=self._last_access.get, default=None)
                 if oldest:
                     self.active_loops.pop(oldest, None)
                     self._last_access.pop(oldest, None)
@@ -400,10 +401,7 @@ class LoopRegistry:
         return False
 
     def update_state(
-        self,
-        loop_id: str,
-        cycle: Optional[int] = None,
-        phase: Optional[str] = None
+        self, loop_id: str, cycle: Optional[int] = None, phase: Optional[str] = None
     ) -> bool:
         """Update loop state.
 
@@ -454,8 +452,7 @@ class LoopRegistry:
         removed = 0
         with self._lock:
             stale_keys = [
-                k for k, v in self._last_access.items()
-                if now - v > self.config.active_loops_ttl
+                k for k, v in self._last_access.items() if now - v > self.config.active_loops_ttl
             ]
             for k in stale_keys:
                 self.active_loops.pop(k, None)

@@ -21,10 +21,11 @@ from enum import Enum
 
 class CostTier(Enum):
     """Model cost tiers."""
-    FREE = "free"           # Open source, local
-    CHEAP = "cheap"         # GPT-3.5, Claude Haiku, Gemini Flash
-    STANDARD = "standard"   # GPT-4o, Claude Sonnet
-    EXPENSIVE = "expensive" # GPT-4, Claude Opus, Gemini Pro
+
+    FREE = "free"  # Open source, local
+    CHEAP = "cheap"  # GPT-3.5, Claude Haiku, Gemini Flash
+    STANDARD = "standard"  # GPT-4o, Claude Sonnet
+    EXPENSIVE = "expensive"  # GPT-4, Claude Opus, Gemini Pro
 
 
 @dataclass
@@ -32,13 +33,13 @@ class AutotuneConfig:
     """Configuration for autotuner behavior."""
 
     # Budget limits
-    max_cost_dollars: float = 1.0       # Max spend per debate
-    max_tokens: int = 100000            # Max tokens used
-    max_rounds: int = 5                 # Hard limit on rounds
-    max_duration_seconds: float = 300   # 5 minute timeout
+    max_cost_dollars: float = 1.0  # Max spend per debate
+    max_tokens: int = 100000  # Max tokens used
+    max_rounds: int = 5  # Hard limit on rounds
+    max_duration_seconds: float = 300  # 5 minute timeout
 
     # Early-stop thresholds
-    early_stop_support_variance: float = 0.1    # Stop if variance < this
+    early_stop_support_variance: float = 0.1  # Stop if variance < this
     early_stop_verification_density: float = 0.7  # Stop if density > this
     early_stop_consensus_confidence: float = 0.85  # Stop if confidence > this
 
@@ -47,12 +48,14 @@ class AutotuneConfig:
     min_rounds_before_stop: int = 1
 
     # Cost weights ($ per 1K tokens, approximate)
-    cost_per_1k_tokens: dict[CostTier, float] = field(default_factory=lambda: {
-        CostTier.FREE: 0.0,
-        CostTier.CHEAP: 0.0005,      # ~$0.50 per 1M
-        CostTier.STANDARD: 0.003,    # ~$3 per 1M
-        CostTier.EXPENSIVE: 0.03,    # ~$30 per 1M
-    })
+    cost_per_1k_tokens: dict[CostTier, float] = field(
+        default_factory=lambda: {
+            CostTier.FREE: 0.0,
+            CostTier.CHEAP: 0.0005,  # ~$0.50 per 1M
+            CostTier.STANDARD: 0.003,  # ~$3 per 1M
+            CostTier.EXPENSIVE: 0.03,  # ~$30 per 1M
+        }
+    )
 
     # Default model tiers
     default_tier: CostTier = CostTier.STANDARD
@@ -107,13 +110,15 @@ class RunMetrics:
             self.avg_support_score = avg
             self.support_score_variance = variance
 
-        self.round_metrics.append({
-            "round": round_num,
-            "tokens": tokens,
-            "messages": messages,
-            "avg_support_score": self.avg_support_score,
-            "variance": self.support_score_variance,
-        })
+        self.round_metrics.append(
+            {
+                "round": round_num,
+                "tokens": tokens,
+                "messages": messages,
+                "avg_support_score": self.avg_support_score,
+                "variance": self.support_score_variance,
+            }
+        )
 
     def to_dict(self) -> dict:
         return {
@@ -137,6 +142,7 @@ class RunMetrics:
 
 class StopReason(Enum):
     """Why the autotuner decided to stop."""
+
     MAX_ROUNDS = "max_rounds"
     MAX_COST = "max_cost"
     MAX_TOKENS = "max_tokens"
@@ -150,6 +156,7 @@ class StopReason(Enum):
 @dataclass
 class AutotuneDecision:
     """Decision from the autotuner."""
+
     should_continue: bool
     stop_reason: Optional[StopReason] = None
     recommended_tier: CostTier = CostTier.STANDARD
@@ -183,9 +190,7 @@ class Autotuner:
         """Mark debate end."""
         if self._start_time:
             self.metrics.ended_at = datetime.now().isoformat()
-            self.metrics.duration_seconds = (
-                datetime.now() - self._start_time
-            ).total_seconds()
+            self.metrics.duration_seconds = (datetime.now() - self._start_time).total_seconds()
 
     def record_round(
         self,
@@ -264,8 +269,10 @@ class Autotuner:
                 )
 
             # Quality threshold reached
-            if (self.metrics.support_score_variance < self.config.early_stop_support_variance
-                and self.metrics.verification_density >= self.config.early_stop_verification_density):
+            if (
+                self.metrics.support_score_variance < self.config.early_stop_support_variance
+                and self.metrics.verification_density >= self.config.early_stop_verification_density
+            ):
                 return AutotuneDecision(
                     should_continue=False,
                     stop_reason=StopReason.QUALITY_THRESHOLD,
@@ -305,7 +312,8 @@ class Autotuner:
             "cost_remaining": self.config.max_cost_dollars - self.metrics.estimated_cost,
             "tokens_remaining": self.config.max_tokens - self.metrics.tokens_used,
             "rounds_remaining": self.config.max_rounds - self.metrics.rounds_completed,
-            "budget_used_percent": (self.metrics.estimated_cost / self.config.max_cost_dollars) * 100,
+            "budget_used_percent": (self.metrics.estimated_cost / self.config.max_cost_dollars)
+            * 100,
         }
 
     def suggest_rounds(self) -> int:

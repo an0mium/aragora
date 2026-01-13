@@ -104,10 +104,18 @@ MIGRATION_MAP = {
             "debates": {
                 "target_table": "debates",
                 "columns": [
-                    "id", "slug", "task", "agents", "artifact_json",
-                    "consensus_reached", "confidence", "view_count",
-                    "audio_path", "audio_generated_at", "audio_duration_seconds",
-                    "created_at"
+                    "id",
+                    "slug",
+                    "task",
+                    "agents",
+                    "artifact_json",
+                    "consensus_reached",
+                    "confidence",
+                    "view_count",
+                    "audio_path",
+                    "audio_generated_at",
+                    "audio_duration_seconds",
+                    "created_at",
                 ],
             },
         },
@@ -117,10 +125,7 @@ MIGRATION_MAP = {
         "tables": {
             "debate_metadata": {
                 "target_table": "debate_metadata",
-                "columns": [
-                    "debate_id", "config_hash", "task_hash",
-                    "metadata_json", "created_at"
-                ],
+                "columns": ["debate_id", "config_hash", "task_hash", "metadata_json", "created_at"],
             },
         },
     },
@@ -130,15 +135,27 @@ MIGRATION_MAP = {
             "traces": {
                 "target_table": "traces",
                 "columns": [
-                    "trace_id", "debate_id", "task", "agents", "random_seed",
-                    "checksum", "trace_json", "started_at", "completed_at"
+                    "trace_id",
+                    "debate_id",
+                    "task",
+                    "agents",
+                    "random_seed",
+                    "checksum",
+                    "trace_json",
+                    "started_at",
+                    "completed_at",
                 ],
             },
             "trace_events": {
                 "target_table": "trace_events",
                 "columns": [
-                    "event_id", "trace_id", "event_type", "round_num",
-                    "agent", "content", "timestamp"
+                    "event_id",
+                    "trace_id",
+                    "event_type",
+                    "round_num",
+                    "agent",
+                    "content",
+                    "timestamp",
                 ],
             },
         },
@@ -149,15 +166,29 @@ MIGRATION_MAP = {
             "tournaments": {
                 "target_table": "tournaments",
                 "columns": [
-                    "tournament_id", "name", "format", "agents", "tasks",
-                    "standings", "champion", "started_at", "completed_at"
+                    "tournament_id",
+                    "name",
+                    "format",
+                    "agents",
+                    "tasks",
+                    "standings",
+                    "champion",
+                    "started_at",
+                    "completed_at",
                 ],
             },
             "tournament_matches": {
                 "target_table": "tournament_matches",
                 "columns": [
-                    "match_id", "tournament_id", "round_num", "participants",
-                    "task_id", "scores", "winner", "started_at", "completed_at"
+                    "match_id",
+                    "tournament_id",
+                    "round_num",
+                    "participants",
+                    "task_id",
+                    "scores",
+                    "winner",
+                    "started_at",
+                    "completed_at",
                 ],
             },
         },
@@ -167,9 +198,7 @@ MIGRATION_MAP = {
         "tables": {
             "embeddings": {
                 "target_table": "embeddings",
-                "columns": [
-                    "id", "text_hash", "text", "embedding", "provider", "created_at"
-                ],
+                "columns": ["id", "text_hash", "text", "embedding", "provider", "created_at"],
             },
         },
     },
@@ -179,23 +208,41 @@ MIGRATION_MAP = {
             "positions": {
                 "target_table": "positions",
                 "columns": [
-                    "id", "agent_name", "claim", "confidence", "debate_id",
-                    "round_num", "outcome", "reversed", "reversal_debate_id",
-                    "domain", "created_at", "resolved_at"
+                    "id",
+                    "agent_name",
+                    "claim",
+                    "confidence",
+                    "debate_id",
+                    "round_num",
+                    "outcome",
+                    "reversed",
+                    "reversal_debate_id",
+                    "domain",
+                    "created_at",
+                    "resolved_at",
                 ],
             },
             "detected_flips": {
                 "target_table": "detected_flips",
                 "columns": [
-                    "id", "agent_name", "original_claim", "new_claim",
-                    "original_confidence", "new_confidence", "original_debate_id",
-                    "new_debate_id", "original_position_id", "new_position_id",
-                    "similarity_score", "flip_type", "domain", "detected_at"
+                    "id",
+                    "agent_name",
+                    "original_claim",
+                    "new_claim",
+                    "original_confidence",
+                    "new_confidence",
+                    "original_debate_id",
+                    "new_debate_id",
+                    "original_position_id",
+                    "new_position_id",
+                    "similarity_score",
+                    "flip_type",
+                    "domain",
+                    "detected_at",
                 ],
             },
         },
     },
-
     # =========================================================================
     # MEMORY.DB
     # =========================================================================
@@ -205,35 +252,66 @@ MIGRATION_MAP = {
             "memories": {
                 "target_table": "continuum_memory",
                 "columns": [
-                    "id", "tier", "content", "importance", "surprise_score",
-                    "consolidation_score", "update_count", "success_count",
-                    "failure_count", "semantic_centroid", "last_promotion_at",
-                    "expires_at", "metadata", "created_at", "updated_at"
+                    "id",
+                    "tier",
+                    "content",
+                    "importance",
+                    "surprise_score",
+                    "consolidation_score",
+                    "update_count",
+                    "success_count",
+                    "failure_count",
+                    "semantic_centroid",
+                    "last_promotion_at",
+                    "expires_at",
+                    "metadata",
+                    "created_at",
+                    "updated_at",
                 ],
                 "transform": "_transform_continuum_memory",
             },
             "tier_transitions": {
                 "target_table": "tier_transitions",
                 "columns": [
-                    "id", "memory_id", "from_tier", "to_tier", "reason",
-                    "surprise_score", "created_at"
+                    "id",
+                    "memory_id",
+                    "from_tier",
+                    "to_tier",
+                    "reason",
+                    "surprise_score",
+                    "created_at",
                 ],
             },
             "archive": {
                 "target_table": "continuum_memory_archive",
                 "columns": [
-                    "id", "tier", "content", "importance", "surprise_score",
-                    "consolidation_score", "update_count", "success_count",
-                    "failure_count", "semantic_centroid", "created_at",
-                    "updated_at", "archived_at", "archive_reason", "metadata"
+                    "id",
+                    "tier",
+                    "content",
+                    "importance",
+                    "surprise_score",
+                    "consolidation_score",
+                    "update_count",
+                    "success_count",
+                    "failure_count",
+                    "semantic_centroid",
+                    "created_at",
+                    "updated_at",
+                    "archived_at",
+                    "archive_reason",
+                    "metadata",
                 ],
             },
             "meta_learning_state": {
                 "target_table": "meta_learning_state",
                 "columns": [
-                    "id", "hyperparams", "learning_efficiency",
-                    "pattern_retention_rate", "forgetting_rate",
-                    "cycles_evaluated", "created_at"
+                    "id",
+                    "hyperparams",
+                    "learning_efficiency",
+                    "pattern_retention_rate",
+                    "forgetting_rate",
+                    "cycles_evaluated",
+                    "created_at",
                 ],
             },
         },
@@ -244,16 +322,30 @@ MIGRATION_MAP = {
             "memories": {
                 "target_table": "memories",
                 "columns": [
-                    "id", "agent_name", "memory_type", "content", "context",
-                    "importance", "decay_rate", "embedding", "debate_id",
-                    "created_at", "expires_at"
+                    "id",
+                    "agent_name",
+                    "memory_type",
+                    "content",
+                    "context",
+                    "importance",
+                    "decay_rate",
+                    "embedding",
+                    "debate_id",
+                    "created_at",
+                    "expires_at",
                 ],
             },
             "reflection_schedule": {
                 "target_table": "reflection_schedule",
                 "columns": [
-                    "id", "agent_name", "reflection_type", "scheduled_for",
-                    "completed_at", "memory_ids", "result", "created_at"
+                    "id",
+                    "agent_name",
+                    "reflection_type",
+                    "scheduled_for",
+                    "completed_at",
+                    "memory_ids",
+                    "result",
+                    "created_at",
                 ],
             },
         },
@@ -264,19 +356,42 @@ MIGRATION_MAP = {
             "consensus": {
                 "target_table": "consensus",
                 "columns": [
-                    "id", "topic", "topic_hash", "conclusion", "strength",
-                    "confidence", "domain", "tags", "timestamp", "data",
-                    "supporting_agents", "opposing_agents", "evidence",
-                    "debate_ids", "stability_score", "last_challenged_at",
-                    "created_at", "updated_at"
+                    "id",
+                    "topic",
+                    "topic_hash",
+                    "conclusion",
+                    "strength",
+                    "confidence",
+                    "domain",
+                    "tags",
+                    "timestamp",
+                    "data",
+                    "supporting_agents",
+                    "opposing_agents",
+                    "evidence",
+                    "debate_ids",
+                    "stability_score",
+                    "last_challenged_at",
+                    "created_at",
+                    "updated_at",
                 ],
             },
             "dissent": {
                 "target_table": "dissent",
                 "columns": [
-                    "id", "debate_id", "agent_id", "dissent_type", "content",
-                    "confidence", "timestamp", "data", "reasoning", "strength",
-                    "resolved", "resolved_at", "created_at"
+                    "id",
+                    "debate_id",
+                    "agent_id",
+                    "dissent_type",
+                    "content",
+                    "confidence",
+                    "timestamp",
+                    "data",
+                    "reasoning",
+                    "strength",
+                    "resolved",
+                    "resolved_at",
+                    "created_at",
                 ],
             },
         },
@@ -287,35 +402,68 @@ MIGRATION_MAP = {
             "debates": {
                 "target_table": "debates",
                 "columns": [
-                    "id", "task", "final_answer", "consensus_reached",
-                    "confidence", "rounds_used", "duration_seconds", "created_at"
+                    "id",
+                    "task",
+                    "final_answer",
+                    "consensus_reached",
+                    "confidence",
+                    "rounds_used",
+                    "duration_seconds",
+                    "created_at",
                 ],
             },
             "critiques": {
                 "target_table": "critiques",
                 "columns": [
-                    "id", "debate_id", "agent", "target_agent", "issues",
-                    "suggestions", "severity", "reasoning", "led_to_improvement",
-                    "expected_usefulness", "actual_usefulness", "prediction_error",
-                    "created_at"
+                    "id",
+                    "debate_id",
+                    "agent",
+                    "target_agent",
+                    "issues",
+                    "suggestions",
+                    "severity",
+                    "reasoning",
+                    "led_to_improvement",
+                    "expected_usefulness",
+                    "actual_usefulness",
+                    "prediction_error",
+                    "created_at",
                 ],
             },
             "patterns": {
                 "target_table": "patterns",
                 "columns": [
-                    "id", "issue_type", "issue_text", "suggestion_text",
-                    "success_count", "failure_count", "avg_severity",
-                    "surprise_score", "base_rate", "avg_prediction_error",
-                    "prediction_count", "example_task", "created_at", "updated_at"
+                    "id",
+                    "issue_type",
+                    "issue_text",
+                    "suggestion_text",
+                    "success_count",
+                    "failure_count",
+                    "avg_severity",
+                    "surprise_score",
+                    "base_rate",
+                    "avg_prediction_error",
+                    "prediction_count",
+                    "example_task",
+                    "created_at",
+                    "updated_at",
                 ],
             },
             "patterns_archive": {
                 "target_table": "patterns_archive",
                 "columns": [
-                    "id", "issue_type", "issue_text", "suggestion_text",
-                    "success_count", "failure_count", "avg_severity",
-                    "surprise_score", "example_task", "created_at",
-                    "updated_at", "archived_at"
+                    "id",
+                    "issue_type",
+                    "issue_text",
+                    "suggestion_text",
+                    "success_count",
+                    "failure_count",
+                    "avg_severity",
+                    "surprise_score",
+                    "example_task",
+                    "created_at",
+                    "updated_at",
+                    "archived_at",
                 ],
             },
             "pattern_embeddings": {
@@ -325,9 +473,15 @@ MIGRATION_MAP = {
             "agent_reputation": {
                 "target_table": "agent_reputation",
                 "columns": [
-                    "agent_name", "proposals_made", "proposals_accepted",
-                    "critiques_given", "critiques_valuable", "total_predictions",
-                    "total_prediction_error", "calibration_score", "updated_at"
+                    "agent_name",
+                    "proposals_made",
+                    "proposals_accepted",
+                    "critiques_given",
+                    "critiques_valuable",
+                    "total_predictions",
+                    "total_prediction_error",
+                    "calibration_score",
+                    "updated_at",
                 ],
             },
         },
@@ -337,9 +491,7 @@ MIGRATION_MAP = {
         "tables": {
             "embeddings": {
                 "target_table": "semantic_embeddings",
-                "columns": [
-                    "id", "text_hash", "text", "embedding", "provider", "created_at"
-                ],
+                "columns": ["id", "text_hash", "text", "embedding", "provider", "created_at"],
             },
         },
     },
@@ -349,21 +501,32 @@ MIGRATION_MAP = {
             "suggestion_injections": {
                 "target_table": "suggestion_injections",
                 "columns": [
-                    "id", "debate_id", "user_id", "suggestion_type", "content",
-                    "target_agent", "accepted", "impact_score", "created_at"
+                    "id",
+                    "debate_id",
+                    "user_id",
+                    "suggestion_type",
+                    "content",
+                    "target_agent",
+                    "accepted",
+                    "impact_score",
+                    "created_at",
                 ],
             },
             "contributor_stats": {
                 "target_table": "contributor_stats",
                 "columns": [
-                    "user_id", "suggestions_total", "suggestions_accepted",
-                    "acceptance_rate", "impact_score_sum", "last_contribution_at",
-                    "created_at", "updated_at"
+                    "user_id",
+                    "suggestions_total",
+                    "suggestions_accepted",
+                    "acceptance_rate",
+                    "impact_score_sum",
+                    "last_contribution_at",
+                    "created_at",
+                    "updated_at",
                 ],
             },
         },
     },
-
     # =========================================================================
     # ANALYTICS.DB
     # =========================================================================
@@ -373,30 +536,49 @@ MIGRATION_MAP = {
             "ratings": {
                 "target_table": "ratings",
                 "columns": [
-                    "agent_name", "elo", "domain_elos", "wins", "losses", "draws",
-                    "debates_count", "critiques_accepted", "critiques_total",
-                    "calibration_correct", "calibration_total", "calibration_brier_sum",
-                    "updated_at"
+                    "agent_name",
+                    "elo",
+                    "domain_elos",
+                    "wins",
+                    "losses",
+                    "draws",
+                    "debates_count",
+                    "critiques_accepted",
+                    "critiques_total",
+                    "calibration_correct",
+                    "calibration_total",
+                    "calibration_brier_sum",
+                    "updated_at",
                 ],
             },
             "matches": {
                 "target_table": "matches",
                 "columns": [
-                    "id", "debate_id", "winner", "participants", "domain",
-                    "scores", "elo_changes", "created_at"
+                    "id",
+                    "debate_id",
+                    "winner",
+                    "participants",
+                    "domain",
+                    "scores",
+                    "elo_changes",
+                    "created_at",
                 ],
             },
             "elo_history": {
                 "target_table": "elo_history",
-                "columns": [
-                    "id", "agent_name", "elo", "debate_id", "created_at"
-                ],
+                "columns": ["id", "agent_name", "elo", "debate_id", "created_at"],
             },
             "calibration_predictions": {
                 "target_table": "calibration_predictions",
                 "columns": [
-                    "id", "tournament_id", "predictor_agent", "predicted_winner",
-                    "confidence", "actual_winner", "resolved_at", "created_at"
+                    "id",
+                    "tournament_id",
+                    "predictor_agent",
+                    "predicted_winner",
+                    "confidence",
+                    "actual_winner",
+                    "resolved_at",
+                    "created_at",
                 ],
             },
         },
@@ -407,15 +589,23 @@ MIGRATION_MAP = {
             "domain_calibration": {
                 "target_table": "domain_calibration",
                 "columns": [
-                    "agent_name", "domain", "total_predictions", "total_correct",
-                    "brier_sum", "updated_at"
+                    "agent_name",
+                    "domain",
+                    "total_predictions",
+                    "total_correct",
+                    "brier_sum",
+                    "updated_at",
                 ],
             },
             "calibration_buckets": {
                 "target_table": "calibration_buckets",
                 "columns": [
-                    "agent_name", "domain", "bucket_key", "predictions",
-                    "correct", "brier_sum"
+                    "agent_name",
+                    "domain",
+                    "bucket_key",
+                    "predictions",
+                    "correct",
+                    "brier_sum",
                 ],
             },
         },
@@ -426,31 +616,57 @@ MIGRATION_MAP = {
             "insights": {
                 "target_table": "insights",
                 "columns": [
-                    "id", "type", "title", "description", "confidence",
-                    "debate_id", "agents_involved", "evidence", "metadata",
-                    "created_at"
+                    "id",
+                    "type",
+                    "title",
+                    "description",
+                    "confidence",
+                    "debate_id",
+                    "agents_involved",
+                    "evidence",
+                    "metadata",
+                    "created_at",
                 ],
             },
             "debate_summaries": {
                 "target_table": "debate_summaries",
                 "columns": [
-                    "debate_id", "topic", "summary", "key_arguments",
-                    "consensus_reached", "final_positions", "duration_seconds",
-                    "rounds_completed", "created_at"
+                    "debate_id",
+                    "topic",
+                    "summary",
+                    "key_arguments",
+                    "consensus_reached",
+                    "final_positions",
+                    "duration_seconds",
+                    "rounds_completed",
+                    "created_at",
                 ],
             },
             "pattern_clusters": {
                 "target_table": "pattern_clusters",
                 "columns": [
-                    "id", "cluster_name", "pattern_type", "centroid",
-                    "member_count", "sample_patterns", "created_at", "updated_at"
+                    "id",
+                    "cluster_name",
+                    "pattern_type",
+                    "centroid",
+                    "member_count",
+                    "sample_patterns",
+                    "created_at",
+                    "updated_at",
                 ],
             },
             "agent_performance_history": {
                 "target_table": "agent_performance_history",
                 "columns": [
-                    "id", "agent_name", "metric_name", "metric_value", "period",
-                    "period_start", "period_end", "sample_size", "created_at"
+                    "id",
+                    "agent_name",
+                    "metric_name",
+                    "metric_value",
+                    "period",
+                    "period_start",
+                    "period_end",
+                    "sample_size",
+                    "created_at",
                 ],
             },
         },
@@ -461,24 +677,42 @@ MIGRATION_MAP = {
             "prompt_versions": {
                 "target_table": "prompt_versions",
                 "columns": [
-                    "id", "prompt_name", "version", "content", "parent_version",
-                    "fitness_score", "usage_count", "success_rate", "metadata",
-                    "created_at"
+                    "id",
+                    "prompt_name",
+                    "version",
+                    "content",
+                    "parent_version",
+                    "fitness_score",
+                    "usage_count",
+                    "success_rate",
+                    "metadata",
+                    "created_at",
                 ],
             },
             "evolution_history": {
                 "target_table": "evolution_history",
                 "columns": [
-                    "id", "prompt_name", "from_version", "to_version",
-                    "mutation_type", "fitness_delta", "created_at"
+                    "id",
+                    "prompt_name",
+                    "from_version",
+                    "to_version",
+                    "mutation_type",
+                    "fitness_delta",
+                    "created_at",
                 ],
             },
             "extracted_patterns": {
                 "target_table": "extracted_patterns",
                 "columns": [
-                    "id", "source_type", "source_id", "pattern_text",
-                    "pattern_type", "frequency", "effectiveness_score",
-                    "embedding", "created_at"
+                    "id",
+                    "source_type",
+                    "source_id",
+                    "pattern_text",
+                    "pattern_type",
+                    "frequency",
+                    "effectiveness_score",
+                    "embedding",
+                    "created_at",
                 ],
             },
         },
@@ -489,21 +723,31 @@ MIGRATION_MAP = {
             "meta_hyperparams": {
                 "target_table": "meta_hyperparams",
                 "columns": [
-                    "id", "param_name", "param_value", "context",
-                    "effectiveness", "sample_size", "created_at", "updated_at"
+                    "id",
+                    "param_name",
+                    "param_value",
+                    "context",
+                    "effectiveness",
+                    "sample_size",
+                    "created_at",
+                    "updated_at",
                 ],
             },
             "meta_efficiency_log": {
                 "target_table": "meta_efficiency_log",
                 "columns": [
-                    "id", "cycle_id", "learning_rate", "pattern_retention_rate",
-                    "forgetting_rate", "convergence_speed", "hyperparams_snapshot",
-                    "created_at"
+                    "id",
+                    "cycle_id",
+                    "learning_rate",
+                    "pattern_retention_rate",
+                    "forgetting_rate",
+                    "convergence_speed",
+                    "hyperparams_snapshot",
+                    "created_at",
                 ],
             },
         },
     },
-
     # =========================================================================
     # AGENTS.DB
     # =========================================================================
@@ -513,15 +757,24 @@ MIGRATION_MAP = {
             "personas": {
                 "target_table": "personas",
                 "columns": [
-                    "agent_name", "description", "traits", "expertise",
-                    "created_at", "updated_at"
+                    "agent_name",
+                    "description",
+                    "traits",
+                    "expertise",
+                    "created_at",
+                    "updated_at",
                 ],
             },
             "performance_history": {
                 "target_table": "performance_history",
                 "columns": [
-                    "id", "agent_name", "debate_id", "domain", "action",
-                    "success", "created_at"
+                    "id",
+                    "agent_name",
+                    "debate_id",
+                    "domain",
+                    "action",
+                    "success",
+                    "created_at",
                 ],
             },
         },
@@ -532,11 +785,19 @@ MIGRATION_MAP = {
             "relationships": {
                 "target_table": "agent_relationships",
                 "columns": [
-                    "agent_a", "agent_b", "debate_count", "agreement_count",
-                    "critique_count_a_to_b", "critique_count_b_to_a",
-                    "critique_accepted_a_to_b", "critique_accepted_b_to_a",
-                    "position_changes_a_after_b", "position_changes_b_after_a",
-                    "a_wins_over_b", "b_wins_over_a", "updated_at"
+                    "agent_a",
+                    "agent_b",
+                    "debate_count",
+                    "agreement_count",
+                    "critique_count_a_to_b",
+                    "critique_count_b_to_a",
+                    "critique_accepted_a_to_b",
+                    "critique_accepted_b_to_a",
+                    "position_changes_a_after_b",
+                    "position_changes_b_after_a",
+                    "a_wins_over_b",
+                    "b_wins_over_a",
+                    "updated_at",
                 ],
             },
         },
@@ -547,17 +808,29 @@ MIGRATION_MAP = {
             "position_history": {
                 "target_table": "position_history",
                 "columns": [
-                    "id", "debate_id", "agent_name", "position_type",
-                    "position_text", "round_num", "confidence",
-                    "was_winning_position", "verified_correct", "created_at"
+                    "id",
+                    "debate_id",
+                    "agent_name",
+                    "position_type",
+                    "position_text",
+                    "round_num",
+                    "confidence",
+                    "was_winning_position",
+                    "verified_correct",
+                    "created_at",
                 ],
             },
             "debate_outcomes": {
                 "target_table": "debate_outcomes",
                 "columns": [
-                    "debate_id", "winning_agent", "winning_position",
-                    "consensus_confidence", "verified_at", "verification_result",
-                    "verification_source", "created_at"
+                    "debate_id",
+                    "winning_agent",
+                    "winning_position",
+                    "consensus_confidence",
+                    "verified_at",
+                    "verification_result",
+                    "verification_source",
+                    "created_at",
                 ],
             },
         },
@@ -568,32 +841,54 @@ MIGRATION_MAP = {
             "experiments": {
                 "target_table": "experiments",
                 "columns": [
-                    "experiment_id", "agent_name", "control_persona",
-                    "variant_persona", "hypothesis", "status",
-                    "control_successes", "control_trials",
-                    "variant_successes", "variant_trials",
-                    "created_at", "completed_at"
+                    "experiment_id",
+                    "agent_name",
+                    "control_persona",
+                    "variant_persona",
+                    "hypothesis",
+                    "status",
+                    "control_successes",
+                    "control_trials",
+                    "variant_successes",
+                    "variant_trials",
+                    "created_at",
+                    "completed_at",
                 ],
             },
             "emergent_traits": {
                 "target_table": "emergent_traits",
                 "columns": [
-                    "id", "trait_name", "source_agents", "supporting_evidence",
-                    "confidence", "first_detected"
+                    "id",
+                    "trait_name",
+                    "source_agents",
+                    "supporting_evidence",
+                    "confidence",
+                    "first_detected",
                 ],
             },
             "trait_transfers": {
                 "target_table": "trait_transfers",
                 "columns": [
-                    "id", "from_agent", "to_agent", "trait", "expertise_domain",
-                    "success_rate_before", "success_rate_after", "transferred_at"
+                    "id",
+                    "from_agent",
+                    "to_agent",
+                    "trait",
+                    "expertise_domain",
+                    "success_rate_before",
+                    "success_rate_after",
+                    "transferred_at",
                 ],
             },
             "agent_evolution_history": {
                 "target_table": "agent_evolution_history",
                 "columns": [
-                    "id", "agent_name", "mutation_type", "before_state",
-                    "after_state", "reason", "created_at"
+                    "id",
+                    "agent_name",
+                    "mutation_type",
+                    "before_state",
+                    "after_state",
+                    "reason",
+                    "created_at",
                 ],
             },
         },
@@ -604,18 +899,31 @@ MIGRATION_MAP = {
             "genomes": {
                 "target_table": "genomes",
                 "columns": [
-                    "genome_id", "name", "traits", "expertise", "model_preference",
-                    "parent_genomes", "generation", "fitness_score", "birth_debate_id",
-                    "consensus_contributions", "critiques_accepted",
-                    "predictions_correct", "debates_participated",
-                    "created_at", "updated_at"
+                    "genome_id",
+                    "name",
+                    "traits",
+                    "expertise",
+                    "model_preference",
+                    "parent_genomes",
+                    "generation",
+                    "fitness_score",
+                    "birth_debate_id",
+                    "consensus_contributions",
+                    "critiques_accepted",
+                    "predictions_correct",
+                    "debates_participated",
+                    "created_at",
+                    "updated_at",
                 ],
             },
             "populations": {
                 "target_table": "populations",
                 "columns": [
-                    "population_id", "genome_ids", "generation",
-                    "debate_history", "created_at"
+                    "population_id",
+                    "genome_ids",
+                    "generation",
+                    "debate_history",
+                    "created_at",
                 ],
             },
             "active_population": {
@@ -625,8 +933,12 @@ MIGRATION_MAP = {
             "genesis_events": {
                 "target_table": "genesis_events",
                 "columns": [
-                    "event_id", "event_type", "timestamp", "parent_event_id",
-                    "content_hash", "data"
+                    "event_id",
+                    "event_type",
+                    "timestamp",
+                    "parent_event_id",
+                    "content_hash",
+                    "data",
                 ],
             },
         },
@@ -827,9 +1139,7 @@ class DatabaseConsolidator:
                 # Get or create target connection
                 if target_db_name not in target_conns:
                     if not dry_run:
-                        target_conns[target_db_name] = self._create_target_db(
-                            target_db_name
-                        )
+                        target_conns[target_db_name] = self._create_target_db(target_db_name)
                     else:
                         # For dry run, just track stats without writing
                         target_conns[target_db_name] = None
@@ -850,9 +1160,7 @@ class DatabaseConsolidator:
                     if dry_run:
                         # Just count rows for dry run
                         try:
-                            cursor = source_conn.execute(
-                                f"SELECT COUNT(*) FROM {source_table}"
-                            )
+                            cursor = source_conn.execute(f"SELECT COUNT(*) FROM {source_table}")
                             count = cursor.fetchone()[0]
                             stats = MigrationStats(
                                 table_name=source_table,
@@ -928,9 +1236,7 @@ class DatabaseConsolidator:
                 db_report = {"tables": {}, "size_bytes": db_path.stat().st_size}
 
                 # Get all tables
-                cursor = conn.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table'"
-                )
+                cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
                 tables = [row["name"] for row in cursor.fetchall()]
 
                 for table in tables:
@@ -991,7 +1297,8 @@ def main() -> int:
         help="Skip backup creation (not recommended)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose logging",
     )
@@ -1028,8 +1335,10 @@ def main() -> int:
 
         print("\nMigration plan:")
         for stat in result.stats:
-            print(f"  {stat.source_db}:{stat.table_name} -> "
-                  f"{stat.target_db} ({stat.rows_read} rows)")
+            print(
+                f"  {stat.source_db}:{stat.table_name} -> "
+                f"{stat.target_db} ({stat.rows_read} rows)"
+            )
 
         return 0
 

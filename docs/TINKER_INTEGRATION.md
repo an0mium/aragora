@@ -284,7 +284,7 @@ print(f"Statistically significant: {result.is_significant}")
 results = await evaluator.evaluate_on_benchmark(
     agent=my_agent,
     benchmark_tasks=standard_tasks,
-    baseline_agents=[claude, gpt4, gemini],
+    baseline_agents=["anthropic-api", "openai-api", "gemini"],
     trials_per_task=5,
 )
 

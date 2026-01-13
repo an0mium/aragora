@@ -60,25 +60,25 @@ class StreamingMixin:
         """
         buffer = ""
         async for chunk in response.content.iter_any():
-            buffer += chunk.decode('utf-8', errors='ignore')
+            buffer += chunk.decode("utf-8", errors="ignore")
 
             # Prevent unbounded buffer growth (DoS protection)
             if len(buffer) > MAX_STREAM_BUFFER_SIZE:
                 raise StreamingError("Streaming buffer exceeded maximum size (1MB limit)")
 
             # Process complete SSE lines
-            while '\n' in buffer:
-                line, buffer = buffer.split('\n', 1)
+            while "\n" in buffer:
+                line, buffer = buffer.split("\n", 1)
                 line = line.strip()
 
                 # Skip empty lines and non-data lines
-                if not line or not line.startswith('data: '):
+                if not line or not line.startswith("data: "):
                     continue
 
                 data_str = line[6:]  # Remove 'data: ' prefix
 
                 # Check for stream termination
-                if data_str == '[DONE]':
+                if data_str == "[DONE]":
                     return
 
                 try:
@@ -102,20 +102,20 @@ class StreamingMixin:
         """
         if format_type == "anthropic":
             # Anthropic format: {"type": "content_block_delta", "delta": {"text": "..."}}
-            event_type = event.get('type', '')
-            if event_type == 'content_block_delta':
-                delta = event.get('delta', {})
-                return delta.get('text', '')
-            return ''
+            event_type = event.get("type", "")
+            if event_type == "content_block_delta":
+                delta = event.get("delta", {})
+                return delta.get("text", "")
+            return ""
 
         elif format_type in ("openai", "grok", "openrouter"):
             # OpenAI-compatible format: {"choices": [{"delta": {"content": "..."}}]}
-            choices = event.get('choices', [])
+            choices = event.get("choices", [])
             if choices:
-                delta = choices[0].get('delta', {})
-                return delta.get('content', '')
-            return ''
+                delta = choices[0].get("delta", {})
+                return delta.get("content", "")
+            return ""
 
         else:
             logger.warning(f"Unknown streaming format type: {format_type}")
-            return ''
+            return ""

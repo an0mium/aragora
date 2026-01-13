@@ -38,6 +38,7 @@ from aragora.agents.telemetry import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture(autouse=True)
 def clean_collectors():
     """Reset collectors before and after each test."""
@@ -73,6 +74,7 @@ def completed_telemetry():
 # ============================================================================
 # AgentTelemetry Dataclass Tests
 # ============================================================================
+
 
 class TestAgentTelemetry:
     """Tests for the AgentTelemetry dataclass."""
@@ -138,13 +140,16 @@ class TestAgentTelemetry:
 # Collector Registration Tests
 # ============================================================================
 
+
 class TestCollectorRegistration:
     """Tests for collector registration and unregistration."""
 
     def test_register_collector(self):
         """Test registering a collector."""
+
         def my_collector(t):
             pass
+
         register_telemetry_collector(my_collector)
 
         stats = get_telemetry_stats()
@@ -152,8 +157,10 @@ class TestCollectorRegistration:
 
     def test_register_duplicate_collector(self):
         """Test that duplicate collectors are not registered."""
+
         def my_collector(t):
             pass
+
         register_telemetry_collector(my_collector)
         register_telemetry_collector(my_collector)
 
@@ -177,6 +184,7 @@ class TestCollectorRegistration:
 
     def test_get_telemetry_stats(self):
         """Test getting telemetry statistics."""
+
         def my_collector(t):
             pass
 
@@ -190,6 +198,7 @@ class TestCollectorRegistration:
 # ============================================================================
 # Telemetry Emission Tests
 # ============================================================================
+
 
 class TestTelemetryEmission:
     """Tests for telemetry emission to collectors."""
@@ -239,6 +248,7 @@ class TestTelemetryEmission:
 # ============================================================================
 # Default Collectors Tests
 # ============================================================================
+
 
 class TestDefaultCollectors:
     """Tests for default telemetry collectors."""
@@ -295,6 +305,7 @@ class TestDefaultCollectors:
 # ============================================================================
 # with_telemetry Decorator Tests
 # ============================================================================
+
 
 class TestWithTelemetryDecorator:
     """Tests for the with_telemetry decorator."""
@@ -426,6 +437,7 @@ class TestWithTelemetryDecorator:
 # TelemetryContext Tests
 # ============================================================================
 
+
 class TestTelemetryContext:
     """Tests for the TelemetryContext context manager."""
 
@@ -475,6 +487,7 @@ class TestTelemetryContext:
 # ============================================================================
 # Reset and Edge Case Tests
 # ============================================================================
+
 
 class TestResetAndEdgeCases:
     """Tests for reset functionality and edge cases."""

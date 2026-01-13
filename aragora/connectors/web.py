@@ -32,18 +32,21 @@ from aragora.reasoning.provenance import ProvenanceManager, SourceType
 # Try to import optional dependencies
 try:
     import httpx
+
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
 
 try:
     from bs4 import BeautifulSoup
+
     BS4_AVAILABLE = True
 except ImportError:
     BS4_AVAILABLE = False
 
 try:
     from duckduckgo_search import DDGS
+
     DDGS_AVAILABLE = True
 except ImportError:
     DDGS_AVAILABLE = False
@@ -59,7 +62,6 @@ DOMAIN_AUTHORITY = {
     "science.org": 0.95,
     "arxiv.org": 0.9,
     "github.com": 0.85,
-
     # Medium-high authority (0.7-0.9)
     "stackoverflow.com": 0.85,
     "docs.python.org": 0.9,
@@ -68,14 +70,12 @@ DOMAIN_AUTHORITY = {
     "google.com": 0.8,
     "anthropic.com": 0.85,
     "openai.com": 0.85,
-
     # Medium authority (0.5-0.7)
     "medium.com": 0.6,
     "dev.to": 0.65,
     "reddit.com": 0.5,
     "twitter.com": 0.5,
     "x.com": 0.5,
-
     # Lower authority (news/blogs vary)
     "nytimes.com": 0.8,
     "bbc.com": 0.8,
@@ -238,9 +238,11 @@ class WebConnector(BaseConnector):
         Mock this in tests to avoid network calls.
         """
         if not DDGS_AVAILABLE:
-            return [self._create_error_evidence(
-                "duckduckgo-search not installed. Run: pip install duckduckgo-search"
-            )]
+            return [
+                self._create_error_evidence(
+                    "duckduckgo-search not installed. Run: pip install duckduckgo-search"
+                )
+            ]
 
         await self._rate_limit()
 
@@ -253,8 +255,7 @@ class WebConnector(BaseConnector):
             try:
                 results = await asyncio.wait_for(
                     loop.run_in_executor(
-                        None,
-                        lambda: list(DDGS().text(query, region=region, max_results=limit))
+                        None, lambda: list(DDGS().text(query, region=region, max_results=limit))
                     ),
                     timeout=DB_TIMEOUT_SECONDS,  # 30 second timeout for DDGS
                 )
@@ -293,11 +294,12 @@ class WebConnector(BaseConnector):
                 return False
 
             # Check for localhost
-            if hostname in ('localhost', '127.0.0.1', '::1'):
+            if hostname in ("localhost", "127.0.0.1", "::1"):
                 return True
 
             # Parse IP address
             import ipaddress
+
             try:
                 ip = ipaddress.ip_address(hostname)
                 # Block private ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16
@@ -331,20 +333,18 @@ class WebConnector(BaseConnector):
         try:
             parsed = urlparse(url)
             hostname = parsed.hostname
-            port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+            port = parsed.port or (443 if parsed.scheme == "https" else 80)
 
             if not hostname:
                 return False, "No hostname in URL"
 
             # Check for obvious localhost
-            if hostname in ('localhost', '127.0.0.1', '::1'):
+            if hostname in ("localhost", "127.0.0.1", "::1"):
                 return False, "Localhost access blocked"
 
             # Resolve hostname to ALL IPs (IPv4 + IPv6)
             try:
-                addr_info = socket.getaddrinfo(
-                    hostname, port, socket.AF_UNSPEC, socket.SOCK_STREAM
-                )
+                addr_info = socket.getaddrinfo(hostname, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
             except socket.gaierror as e:
                 # DNS resolution failed - BLOCK (fail-closed for security)
                 logger.warning(f"DNS resolution failed for {hostname}: {e}")
@@ -389,7 +389,7 @@ class WebConnector(BaseConnector):
 
         # Must be http/https
         parsed = urlparse(redirect_url)
-        if parsed.scheme not in ('http', 'https'):
+        if parsed.scheme not in ("http", "https"):
             return False, f"Invalid redirect scheme: {parsed.scheme}"
 
         # Validate the target IP
@@ -407,7 +407,7 @@ class WebConnector(BaseConnector):
             "query": query,
             "timestamp": datetime.now().isoformat(),
             # Properly serialize Evidence objects for round-trip
-            "results": [e.to_dict() for e in results]
+            "results": [e.to_dict() for e in results],
         }
         try:
             cache_file.write_text(json.dumps(cache_data, indent=2))
@@ -492,14 +492,16 @@ class WebConnector(BaseConnector):
                         current_url,
                         headers={
                             "User-Agent": "Mozilla/5.0 (compatible; AragoraBot/1.0; +https://aragora.ai)"
-                        }
+                        },
                     )
 
                     # Handle redirects manually
                     if response.is_redirect:
                         redirect_count += 1
                         if redirect_count > max_redirects:
-                            return self._create_error_evidence(f"Too many redirects (>{max_redirects})")
+                            return self._create_error_evidence(
+                                f"Too many redirects (>{max_redirects})"
+                            )
 
                         # Get and validate redirect target
                         redirect_url = response.headers.get("location", "")
@@ -529,10 +531,10 @@ class WebConnector(BaseConnector):
                 if "text/html" in content_type:
                     content, title = self._parse_html(response.text)
                 elif "application/json" in content_type:
-                    content = response.text[:self.max_content_length]
+                    content = response.text[: self.max_content_length]
                     title = "JSON Response"
                 elif "text/" in content_type:
-                    content = response.text[:self.max_content_length]
+                    content = response.text[: self.max_content_length]
                     title = "Text Content"
                 else:
                     return self._create_error_evidence(f"Unsupported content type: {content_type}")
@@ -596,7 +598,7 @@ class WebConnector(BaseConnector):
 
             # If we get here, we had a transient error - apply backoff and retry
             if attempt < max_retries - 1:
-                delay = base_delay * (2 ** attempt)
+                delay = base_delay * (2**attempt)
                 logger.info(
                     f"Fetch failed (attempt {attempt + 1}/{max_retries}), "
                     f"retrying in {delay:.1f}s: {last_error}"
@@ -620,12 +622,16 @@ class WebConnector(BaseConnector):
             title = title_match.group(1) if title_match else "Untitled"
 
             # Aggressively remove all scripts, styles, and HTML tags for security
-            content = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
-            content = re.sub(r"<style[^>]*>.*?</style>", "", content, flags=re.DOTALL | re.IGNORECASE)
+            content = re.sub(
+                r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE
+            )
+            content = re.sub(
+                r"<style[^>]*>.*?</style>", "", content, flags=re.DOTALL | re.IGNORECASE
+            )
             content = re.sub(r"<[^>]+>", " ", content)  # Remove all HTML tags
             content = re.sub(r"\s+", " ", content).strip()
 
-            return content[:self.max_content_length], title
+            return content[: self.max_content_length], title
 
         soup = BeautifulSoup(html, "html.parser")
 
@@ -633,15 +639,17 @@ class WebConnector(BaseConnector):
         title = soup.title.string if soup.title else "Untitled"
 
         # Aggressively remove all potentially dangerous elements for security
-        for element in soup(["script", "style", "nav", "header", "footer", "aside", "iframe", "object", "embed"]):
+        for element in soup(
+            ["script", "style", "nav", "header", "footer", "aside", "iframe", "object", "embed"]
+        ):
             element.decompose()
 
         # Try to find main content
         main_content = (
-            soup.find("main") or
-            soup.find("article") or
-            soup.find("div", {"class": re.compile(r"content|main|body", re.I)}) or
-            soup.body
+            soup.find("main")
+            or soup.find("article")
+            or soup.find("div", {"class": re.compile(r"content|main|body", re.I)})
+            or soup.body
         )
 
         if main_content:
@@ -660,16 +668,14 @@ class WebConnector(BaseConnector):
         content = re.sub(r"<[^>]*>", "", content)  # Remove any remaining tags
         content = re.sub(r"\s+", " ", content).strip()
 
-        return content[:self.max_content_length], title
+        return content[: self.max_content_length], title
 
     def _result_to_evidence(self, result: dict, query: str) -> Evidence:
         """Convert DuckDuckGo result to Evidence object."""
         url = result.get("href", result.get("link", ""))
         domain = urlparse(url).netloc if url else "unknown"
 
-        evidence_id = hashlib.sha256(
-            f"{url}:{query}".encode()
-        ).hexdigest()[:16]
+        evidence_id = hashlib.sha256(f"{url}:{query}".encode()).hexdigest()[:16]
 
         return Evidence(
             id=evidence_id,
@@ -726,6 +732,7 @@ class WebConnector(BaseConnector):
     async def _rate_limit(self) -> None:
         """Apply rate limiting between requests."""
         import time
+
         now = time.time()
         elapsed = now - self._last_request_time
         if elapsed < self.rate_limit_delay:

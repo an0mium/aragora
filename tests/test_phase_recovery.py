@@ -382,8 +382,9 @@ class TestPhaseRecoveryPhaseTimeouts:
         heavy_phases = {"debate", "implement"}
         for phase, timeout in PhaseRecovery.PHASE_TIMEOUTS.items():
             if phase not in heavy_phases:
-                assert debate_timeout >= timeout or implement_timeout >= timeout, \
-                    f"{phase} timeout ({timeout}s) exceeds both debate ({debate_timeout}s) and implement ({implement_timeout}s)"
+                assert (
+                    debate_timeout >= timeout or implement_timeout >= timeout
+                ), f"{phase} timeout ({timeout}s) exceeds both debate ({debate_timeout}s) and implement ({implement_timeout}s)"
 
 
 class TestPhaseRecoveryPhaseConfig:

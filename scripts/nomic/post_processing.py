@@ -34,6 +34,7 @@ class ProcessingDependencies:
     Groups dependencies by purpose. All are optional - the processor
     gracefully skips steps when dependencies are unavailable.
     """
+
     # Memory systems
     consensus_memory: Optional[Any] = None
     insight_store: Optional[Any] = None
@@ -66,6 +67,7 @@ class ProcessingContext:
 
     Captures all the information needed to process a debate result.
     """
+
     result: Any  # DebateResult
     agents: List[Any]
     topic: str = ""
@@ -163,7 +165,7 @@ class PostDebateProcessor:
                     topic=ctx.topic or "improvement debate",
                     consensus=ctx.result.final_answer,
                     participants=[a.name for a in ctx.agents],
-                    confidence=getattr(ctx.result, 'confidence', 0.7),
+                    confidence=getattr(ctx.result, "confidence", 0.7),
                 )
                 self._log(f"  [consensus] Stored consensus for '{ctx.topic[:50]}...'")
         except Exception as e:
@@ -176,7 +178,7 @@ class PostDebateProcessor:
 
         try:
             for agent in ctx.agents:
-                predicted_confidence = getattr(ctx.result, 'confidence', 0.5)
+                predicted_confidence = getattr(ctx.result, "confidence", 0.5)
                 actual_correct = self._agent_in_consensus(agent.name, ctx.result)
 
                 self.deps.calibration_tracker.record_prediction(
@@ -196,15 +198,17 @@ class PostDebateProcessor:
 
         try:
             # Check for audience suggestions that influenced the debate
-            if hasattr(ctx.result, 'audience_contributions') and ctx.result.audience_contributions:
+            if hasattr(ctx.result, "audience_contributions") and ctx.result.audience_contributions:
                 for contrib in ctx.result.audience_contributions:
-                    was_incorporated = contrib.get('incorporated', False)
+                    was_incorporated = contrib.get("incorporated", False)
                     self.deps.suggestion_feedback.record_feedback(
                         debate_id=ctx.debate_id,
-                        suggestion_id=contrib.get('id', ''),
+                        suggestion_id=contrib.get("id", ""),
                         incorporated=was_incorporated,
                     )
-                self._log(f"  [feedback] Recorded {len(ctx.result.audience_contributions)} suggestions")
+                self._log(
+                    f"  [feedback] Recorded {len(ctx.result.audience_contributions)} suggestions"
+                )
         except Exception as e:
             self._log(f"  [feedback] Recording failed: {e}")
 
@@ -232,15 +236,16 @@ class PostDebateProcessor:
         try:
             for agent in ctx.agents:
                 agent_msgs = [
-                    m for m in getattr(ctx.result, 'messages', [])
-                    if getattr(m, 'agent', '') == agent.name
+                    m
+                    for m in getattr(ctx.result, "messages", [])
+                    if getattr(m, "agent", "") == agent.name
                 ]
                 if agent_msgs:
                     await self.deps.memory_stream.record(
                         agent_name=agent.name,
                         debate_id=ctx.debate_id,
                         messages=agent_msgs,
-                        outcome='consensus' if ctx.result.consensus_reached else 'no_consensus',
+                        outcome="consensus" if ctx.result.consensus_reached else "no_consensus",
                     )
             self._log(f"  [memory] Recorded memories for {len(ctx.agents)} agents")
         except Exception as e:
@@ -282,18 +287,20 @@ class PostDebateProcessor:
     def _identify_winning_patterns(self, result: Any) -> List[dict]:
         """Identify argument patterns that led to consensus."""
         patterns: List[dict] = []
-        if not hasattr(result, 'messages'):
+        if not hasattr(result, "messages"):
             return patterns
 
         # Look for messages that received positive critiques or votes
         for msg in result.messages:
-            if hasattr(msg, 'critique_score') and msg.critique_score and msg.critique_score > 0.7:
-                patterns.append({
-                    'type': 'high_critique_score',
-                    'content_snippet': str(msg.content)[:200] if msg.content else '',
-                    'agent': getattr(msg, 'agent', 'unknown'),
-                    'score': msg.critique_score,
-                })
+            if hasattr(msg, "critique_score") and msg.critique_score and msg.critique_score > 0.7:
+                patterns.append(
+                    {
+                        "type": "high_critique_score",
+                        "content_snippet": str(msg.content)[:200] if msg.content else "",
+                        "agent": getattr(msg, "agent", "unknown"),
+                        "score": msg.critique_score,
+                    }
+                )
 
         return patterns
 
@@ -339,14 +346,16 @@ class PostDebateProcessor:
         try:
             for agent in ctx.agents:
                 agent_correct = self._agent_in_consensus(agent.name, ctx.result)
-                confidence = getattr(ctx.result, 'confidence', 0.7)
+                confidence = getattr(ctx.result, "confidence", 0.7)
                 self.deps.elo_system.record_domain_prediction(
                     agent_name=agent.name,
                     domain=ctx.domain,
                     confidence=confidence,
                     correct=agent_correct,
                 )
-            self._log(f"  [calibration] Recorded domain predictions for {len(ctx.agents)} agents in '{ctx.domain}'")
+            self._log(
+                f"  [calibration] Recorded domain predictions for {len(ctx.agents)} agents in '{ctx.domain}'"
+            )
         except Exception as e:
             self._log(f"  [calibration] Domain recording failed: {e}")
 
@@ -356,16 +365,16 @@ class PostDebateProcessor:
             return
 
         try:
-            messages = getattr(ctx.result, 'messages', [])
+            messages = getattr(ctx.result, "messages", [])
             recorded = 0
             for msg in messages:
-                if hasattr(msg, 'agent') and hasattr(msg, 'content') and msg.content:
+                if hasattr(msg, "agent") and hasattr(msg, "content") and msg.content:
                     self.deps.position_ledger.record_position(
                         agent_name=msg.agent,
                         claim=str(msg.content)[:1000],
                         confidence=0.7,
                         debate_id=ctx.debate_id,
-                        round_num=getattr(msg, 'round', 0),
+                        round_num=getattr(msg, "round", 0),
                     )
                     recorded += 1
 
@@ -377,10 +386,16 @@ class PostDebateProcessor:
                     limit=10,
                 )
                 for pos in positions:
-                    agent_outcome = "correct" if self._agent_in_consensus(agent.name, ctx.result) else "incorrect"
+                    agent_outcome = (
+                        "correct"
+                        if self._agent_in_consensus(agent.name, ctx.result)
+                        else "incorrect"
+                    )
                     self.deps.position_ledger.resolve_position(pos.id, agent_outcome)
 
-            self._log(f"  [grounded] Recorded {recorded} positions, resolved for {len(ctx.agents)} agents")
+            self._log(
+                f"  [grounded] Recorded {recorded} positions, resolved for {len(ctx.agents)} agents"
+            )
         except Exception as e:
             self._log(f"  [grounded] Position recording failed: {e}")
 
@@ -394,11 +409,11 @@ class PostDebateProcessor:
 
             # Determine winner from votes
             winner = None
-            votes = getattr(ctx.result, 'votes', [])
+            votes = getattr(ctx.result, "votes", [])
             if votes:
                 vote_tally: dict[str, int] = {}
                 for v in votes:
-                    choice = getattr(v, 'choice', None)
+                    choice = getattr(v, "choice", None)
                     if choice:
                         vote_tally[choice] = vote_tally.get(choice, 0) + 1
                 if vote_tally:
@@ -406,21 +421,23 @@ class PostDebateProcessor:
 
             # Extract critiques for relationship tracking
             critiques_data = []
-            messages = getattr(ctx.result, 'messages', [])
+            messages = getattr(ctx.result, "messages", [])
             for msg in messages:
-                critique = getattr(msg, 'critique', None)
+                critique = getattr(msg, "critique", None)
                 if critique:
-                    critiques_data.append({
-                        'critic': getattr(msg, 'agent', 'unknown'),
-                        'target': getattr(critique, 'target', 'unknown'),
-                        'accepted': getattr(critique, 'accepted', False),
-                    })
+                    critiques_data.append(
+                        {
+                            "critic": getattr(msg, "agent", "unknown"),
+                            "target": getattr(critique, "target", "unknown"),
+                            "accepted": getattr(critique, "accepted", False),
+                        }
+                    )
 
             # Convert votes to dict format
             votes_dict = {}
             for v in votes:
-                agent = getattr(v, 'agent', None)
-                choice = getattr(v, 'choice', None)
+                agent = getattr(v, "agent", None)
+                choice = getattr(v, "choice", None)
                 if agent and choice:
                     votes_dict[agent] = choice
 

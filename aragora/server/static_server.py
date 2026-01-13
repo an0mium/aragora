@@ -20,32 +20,32 @@ logger = logging.getLogger(__name__)
 
 # Content type mappings
 CONTENT_TYPES = {
-    '.html': 'text/html',
-    '.htm': 'text/html',
-    '.css': 'text/css',
-    '.js': 'application/javascript',
-    '.mjs': 'application/javascript',
-    '.json': 'application/json',
-    '.ico': 'image/x-icon',
-    '.svg': 'image/svg+xml',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.gif': 'image/gif',
-    '.webp': 'image/webp',
-    '.woff': 'font/woff',
-    '.woff2': 'font/woff2',
-    '.ttf': 'font/ttf',
-    '.eot': 'application/vnd.ms-fontobject',
-    '.mp3': 'audio/mpeg',
-    '.wav': 'audio/wav',
-    '.ogg': 'audio/ogg',
-    '.mp4': 'video/mp4',
-    '.webm': 'video/webm',
-    '.txt': 'text/plain',
-    '.xml': 'application/xml',
-    '.pdf': 'application/pdf',
-    '.zip': 'application/zip',
+    ".html": "text/html",
+    ".htm": "text/html",
+    ".css": "text/css",
+    ".js": "application/javascript",
+    ".mjs": "application/javascript",
+    ".json": "application/json",
+    ".ico": "image/x-icon",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+    ".eot": "application/vnd.ms-fontobject",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".ogg": "audio/ogg",
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
+    ".txt": "text/plain",
+    ".xml": "application/xml",
+    ".pdf": "application/pdf",
+    ".zip": "application/zip",
 }
 
 
@@ -57,7 +57,7 @@ def get_content_type(filename: str) -> str:
 
     # Fall back to mimetypes module
     mime_type, _ = mimetypes.guess_type(filename)
-    return mime_type or 'application/octet-stream'
+    return mime_type or "application/octet-stream"
 
 
 def validate_path(
@@ -148,8 +148,8 @@ def serve_static_file(
         content = filepath.read_bytes()
 
         handler.send_response(200)
-        handler.send_header('Content-Type', content_type)
-        handler.send_header('Content-Length', str(len(content)))
+        handler.send_header("Content-Type", content_type)
+        handler.send_header("Content-Length", str(len(content)))
 
         # Add optional headers
         if add_cors_headers:
@@ -208,15 +208,12 @@ def serve_audio_file(
 
         # Determine audio format from extension
         ext = audio_path.suffix.lower()
-        content_type = CONTENT_TYPES.get(ext, 'audio/mpeg')
+        content_type = CONTENT_TYPES.get(ext, "audio/mpeg")
 
         handler.send_response(200)
-        handler.send_header('Content-Type', content_type)
-        handler.send_header('Content-Length', str(len(content)))
-        handler.send_header(
-            'Content-Disposition',
-            f'inline; filename="{debate_id}{ext}"'
-        )
+        handler.send_header("Content-Type", content_type)
+        handler.send_header("Content-Length", str(len(content)))
+        handler.send_header("Content-Disposition", f'inline; filename="{debate_id}{ext}"')
 
         if add_cors_headers:
             add_cors_headers()
@@ -264,7 +261,7 @@ class StaticFileHandler:
     ) -> bool:
         """Serve a static file."""
         # Strip leading slash
-        filename = path.lstrip('/')
+        filename = path.lstrip("/")
 
         return serve_static_file(
             handler,

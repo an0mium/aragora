@@ -37,6 +37,7 @@ class Migration:
         up_fn: Python function to apply migration (alternative to up_sql)
         down_fn: Python function to rollback migration (alternative to down_sql)
     """
+
     version: int
     name: str
     up_sql: Optional[str] = None
@@ -116,9 +117,7 @@ class MigrationRunner:
 
     def get_applied_versions(self) -> set[int]:
         """Get set of applied migration versions."""
-        rows = self._backend.fetch_all(
-            f"SELECT version FROM {self.MIGRATIONS_TABLE}"
-        )
+        rows = self._backend.fetch_all(f"SELECT version FROM {self.MIGRATIONS_TABLE}")
         return {row[0] for row in rows}
 
     def get_pending_migrations(self) -> list[Migration]:
@@ -158,7 +157,7 @@ class MigrationRunner:
                 # Record migration
                 self._backend.execute_write(
                     f"INSERT INTO {self.MIGRATIONS_TABLE} (version, name) VALUES (?, ?)",
-                    (migration.version, migration.name)
+                    (migration.version, migration.name),
                 )
                 applied.append(migration)
                 logger.info(f"Applied migration {migration.version}")
@@ -210,8 +209,7 @@ class MigrationRunner:
 
                 # Remove migration record
                 self._backend.execute_write(
-                    f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = ?",
-                    (migration.version,)
+                    f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = ?", (migration.version,)
                 )
                 rolled_back.append(migration)
                 logger.info(f"Rolled back migration {migration.version}")
@@ -274,6 +272,7 @@ def _load_migrations(runner: MigrationRunner) -> None:
     """Load all migration modules from the versions package."""
     try:
         from aragora.migrations import versions
+
         versions_path = Path(versions.__file__).parent
 
         for _, name, _ in pkgutil.iter_modules([str(versions_path)]):

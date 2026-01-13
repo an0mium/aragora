@@ -11,23 +11,9 @@
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { AgentProfileWrapper } from '../src/app/agent/[[...name]]/AgentProfileWrapper';
-
-// Mock next/navigation
-const mockRouter = {
-  push: jest.fn(),
-  back: jest.fn(),
-  forward: jest.fn(),
-  refresh: jest.fn(),
-  replace: jest.fn(),
-  prefetch: jest.fn(),
-};
+import { mockRouter, useParams } from 'next/navigation';
 
 const mockParams = { name: ['claude-3-opus'] };
-
-jest.mock('next/navigation', () => ({
-  useParams: () => mockParams,
-  useRouter: () => mockRouter,
-}));
 
 // Mock next/link
 jest.mock('next/link', () => {
@@ -167,6 +153,9 @@ describe('AgentProfileWrapper', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFetch.mockReset();
+    mockRouter.push.mockClear();
+    mockRouter.back.mockClear();
+    useParams.mockReturnValue(mockParams);
   });
 
   const setupSuccessfulFetch = () => {

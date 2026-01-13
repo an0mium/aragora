@@ -50,6 +50,7 @@ class MockAgentRating:
 
 def create_mock_rating_factory():
     """Create a factory function for MockAgentRating from database rows."""
+
     def factory(row):
         domain_elos = json.loads(row[2]) if row[2] else {}
         return MockAgentRating(
@@ -64,6 +65,7 @@ def create_mock_rating_factory():
             critiques_total=row[8],
             updated_at=row[9] if len(row) > 9 else "",
         )
+
     return factory
 
 
@@ -100,7 +102,8 @@ class MockEloDatabase:
 
     def _init_schema(self):
         """Initialize test schema."""
-        self._conn.executescript("""
+        self._conn.executescript(
+            """
             CREATE TABLE IF NOT EXISTS ratings (
                 agent_name TEXT PRIMARY KEY,
                 elo REAL DEFAULT 1500,
@@ -130,7 +133,8 @@ class MockEloDatabase:
                 elo_changes TEXT DEFAULT '{}',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
-        """)
+        """
+        )
         self._conn.commit()
 
     def connection(self):
@@ -144,10 +148,18 @@ class MockEloDatabase:
             """INSERT OR REPLACE INTO ratings
                (agent_name, elo, domain_elos, wins, losses, draws, debates_count, critiques_accepted, critiques_total, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (name, elo, json.dumps(domain_elos),
-             kwargs.get("wins", 0), kwargs.get("losses", 0), kwargs.get("draws", 0),
-             kwargs.get("debates_count", 0), kwargs.get("critiques_accepted", 0),
-             kwargs.get("critiques_total", 0), kwargs.get("updated_at", ""))
+            (
+                name,
+                elo,
+                json.dumps(domain_elos),
+                kwargs.get("wins", 0),
+                kwargs.get("losses", 0),
+                kwargs.get("draws", 0),
+                kwargs.get("debates_count", 0),
+                kwargs.get("critiques_accepted", 0),
+                kwargs.get("critiques_total", 0),
+                kwargs.get("updated_at", ""),
+            ),
         )
         self._conn.commit()
 
@@ -155,18 +167,31 @@ class MockEloDatabase:
         """Helper to add ELO history entry."""
         self._conn.execute(
             "INSERT INTO elo_history (agent_name, elo, created_at) VALUES (?, ?, ?)",
-            (agent_name, elo, timestamp or datetime.now().isoformat())
+            (agent_name, elo, timestamp or datetime.now().isoformat()),
         )
         self._conn.commit()
 
-    def add_match(self, debate_id: str, winner: str, participants: list,
-                  scores: dict = None, domain: str = None, elo_changes: dict = None):
+    def add_match(
+        self,
+        debate_id: str,
+        winner: str,
+        participants: list,
+        scores: dict = None,
+        domain: str = None,
+        elo_changes: dict = None,
+    ):
         """Helper to add match record."""
         self._conn.execute(
             """INSERT INTO matches (debate_id, winner, participants, scores, domain, elo_changes)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (debate_id, winner, json.dumps(participants), json.dumps(scores or {}),
-             domain, json.dumps(elo_changes or {}))
+            (
+                debate_id,
+                winner,
+                json.dumps(participants),
+                json.dumps(scores or {}),
+                domain,
+                json.dumps(elo_changes or {}),
+            ),
         )
         self._conn.commit()
 
@@ -451,10 +476,12 @@ class TestGetRecentMatches:
     def test_returns_match_records(self, engine, mock_db):
         """Should return structured match records."""
         mock_db.add_match(
-            "debate-1", "alice", ["alice", "bob"],
+            "debate-1",
+            "alice",
+            ["alice", "bob"],
             scores={"alice": 1.0, "bob": 0.0},
             domain="general",
-            elo_changes={"alice": 15, "bob": -15}
+            elo_changes={"alice": 15, "bob": -15},
         )
 
         result = engine.get_recent_matches(limit=10)
@@ -481,12 +508,12 @@ class TestGetRecentMatches:
         mock_db._conn.execute(
             """INSERT INTO matches (debate_id, winner, participants, scores, domain, elo_changes, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            ("old", "alice", '["alice"]', '{}', "old", '{}', "2024-01-01T00:00:00")
+            ("old", "alice", '["alice"]', "{}", "old", "{}", "2024-01-01T00:00:00"),
         )
         mock_db._conn.execute(
             """INSERT INTO matches (debate_id, winner, participants, scores, domain, elo_changes, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            ("new", "bob", '["bob"]', '{}', "new", '{}', "2024-01-02T00:00:00")
+            ("new", "bob", '["bob"]', "{}", "new", "{}", "2024-01-02T00:00:00"),
         )
         mock_db._conn.commit()
 

@@ -16,6 +16,7 @@ from aragora.resilience import CircuitBreaker
 # Concurrent Failure Recording Tests
 # =============================================================================
 
+
 class TestConcurrentFailureRecording:
     """Tests for race conditions during concurrent failure recording."""
 
@@ -82,6 +83,7 @@ class TestConcurrentFailureRecording:
 # Half-Open State Transition Tests
 # =============================================================================
 
+
 class TestHalfOpenStateTransitions:
     """Tests for half-open state transitions under async load."""
 
@@ -107,9 +109,7 @@ class TestHalfOpenStateTransitions:
     async def test_half_open_success_race(self):
         """Concurrent successes in half-open should close circuit."""
         cb = CircuitBreaker(
-            failure_threshold=1,
-            cooldown_seconds=0.05,
-            half_open_success_threshold=2
+            failure_threshold=1, cooldown_seconds=0.05, half_open_success_threshold=2
         )
         cb.record_failure("agent")
 
@@ -147,6 +147,7 @@ class TestHalfOpenStateTransitions:
 # =============================================================================
 # Dictionary Mutation During Filtering Tests
 # =============================================================================
+
 
 class TestDictionaryMutationSafety:
     """Tests for dictionary mutation during filtering operations."""
@@ -221,6 +222,7 @@ class TestDictionaryMutationSafety:
 # Timeout Handling Tests
 # =============================================================================
 
+
 class TestTimeoutHandling:
     """Tests for asyncio.TimeoutError handling."""
 
@@ -277,6 +279,7 @@ class TestTimeoutHandling:
 # Multi-Entity Stress Tests
 # =============================================================================
 
+
 class TestMultiEntityStress:
     """Stress tests with many entities."""
 
@@ -328,6 +331,7 @@ class TestMultiEntityStress:
 # Persistence and Reset Tests
 # =============================================================================
 
+
 class TestPersistenceAndReset:
     """Tests for state persistence and reset under async load."""
 
@@ -374,6 +378,7 @@ class TestPersistenceAndReset:
 # =============================================================================
 # Integration with Real Async Patterns
 # =============================================================================
+
 
 class TestAsyncPatternIntegration:
     """Tests for common async usage patterns."""
@@ -430,10 +435,7 @@ class TestAsyncPatternIntegration:
                 return "success"
 
         # Run multiple concurrent calls
-        tasks = [
-            limited_call("api", fail=(i < 3))  # First 3 fail
-            for i in range(10)
-        ]
+        tasks = [limited_call("api", fail=(i < 3)) for i in range(10)]  # First 3 fail
         results = await asyncio.gather(*tasks)
 
         # Should have mix of results

@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import Optional, TYPE_CHECKING, Generator
 import logging
 
-from aragora.storage.schema import get_wal_connection, DB_TIMEOUT
-from aragora.insights.database import InsightsDatabase
+from aragora.storage.base_store import SQLiteStore
+from aragora.storage.schema import SchemaManager, get_wal_connection, DB_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def _validate_sql_identifier(name: str, max_length: int = 64) -> bool:
     """
     if not name or len(name) > max_length:
         return False
-    return bool(re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name))
+    return bool(re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name))
 
 
 # Import from centralized location (defined here for backwards compatibility)
@@ -50,6 +50,7 @@ from aragora.utils.sql_helpers import _escape_like_pattern
 @dataclass
 class DebateMetadata:
     """Summary metadata for a stored debate."""
+
     slug: str
     debate_id: str
     task: str
@@ -61,7 +62,7 @@ class DebateMetadata:
     is_public: bool = False  # If True, artifacts accessible without auth
 
 
-class DebateStorage:
+class DebateStorage(SQLiteStore):
     """
     Debate persistence with shareable permalinks.
 
@@ -76,69 +77,70 @@ class DebateStorage:
         debate = storage.get_by_slug("rate-limiter-2026-01-01")
     """
 
+    SCHEMA_NAME = "debate_storage"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS debates (
+            id TEXT PRIMARY KEY,
+            slug TEXT UNIQUE NOT NULL,
+            task TEXT NOT NULL,
+            agents TEXT NOT NULL,
+            artifact_json TEXT NOT NULL,
+            consensus_reached BOOLEAN,
+            confidence REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            view_count INTEGER DEFAULT 0,
+            audio_path TEXT,
+            audio_generated_at TIMESTAMP,
+            audio_duration_seconds INTEGER,
+            org_id TEXT,
+            is_public INTEGER
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_slug ON debates(slug);
+        CREATE INDEX IF NOT EXISTS idx_created ON debates(created_at);
+        CREATE INDEX IF NOT EXISTS idx_task ON debates(task);
+        CREATE INDEX IF NOT EXISTS idx_debates_org ON debates(org_id, created_at);
+    """
+
     # Words to exclude from slug generation
     STOP_WORDS = {
-        'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been',
-        'for', 'to', 'of', 'and', 'or', 'in', 'on', 'at', 'by',
-        'with', 'that', 'this', 'it', 'as', 'from', 'how', 'what',
-        'design', 'implement', 'create', 'build', 'make',
+        "a",
+        "an",
+        "the",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "for",
+        "to",
+        "of",
+        "and",
+        "or",
+        "in",
+        "on",
+        "at",
+        "by",
+        "with",
+        "that",
+        "this",
+        "it",
+        "as",
+        "from",
+        "how",
+        "what",
+        "design",
+        "implement",
+        "create",
+        "build",
+        "make",
     }
 
     def __init__(self, db_path: str = "aragora_debates.db"):
-        self.db_path = Path(db_path)
-        self.db = InsightsDatabase(db_path)
-        self._init_db()
-
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection as a context manager.
-
-        Uses WAL mode for better concurrency. Creates a new connection
-        per operation for thread safety - SQLite connections cannot be
-        safely shared across threads.
-        """
-        with self.db.connection() as conn:
-            yield conn
-
-    def _init_db(self) -> None:
-        """Initialize database schema."""
-        with self._get_connection() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS debates (
-                    id TEXT PRIMARY KEY,
-                    slug TEXT UNIQUE NOT NULL,
-                    task TEXT NOT NULL,
-                    agents TEXT NOT NULL,
-                    artifact_json TEXT NOT NULL,
-                    consensus_reached BOOLEAN,
-                    confidence REAL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    view_count INTEGER DEFAULT 0
-                )
-            """)
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_slug ON debates(slug)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_created ON debates(created_at)")
-            # Index on task for search optimization (LIKE queries)
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_task ON debates(task)")
-
-            # Add audio columns (migration for existing databases)
-            self._safe_add_column(conn, "debates", "audio_path", "TEXT")
-            self._safe_add_column(conn, "debates", "audio_generated_at", "TIMESTAMP")
-            self._safe_add_column(conn, "debates", "audio_duration_seconds", "INTEGER")
-
-            # Add org_id for multi-tenancy (migration for existing databases)
-            if self._safe_add_column(conn, "debates", "org_id", "TEXT"):
-                # Create index for efficient org-scoped queries
-                conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_debates_org ON debates(org_id, created_at)"
-                )
-
-            # Add is_public for configurable access control (default: private)
-            # Using INTEGER since SQLite doesn't have native BOOLEAN and
-            # the _safe_add_column whitelist only allows standard types
-            self._safe_add_column(conn, "debates", "is_public", "INTEGER")
-
-            conn.commit()
+        super().__init__(db_path)
 
     # Known table names for this storage class (defense-in-depth)
     _KNOWN_TABLES = frozenset({"debates"})
@@ -165,9 +167,7 @@ class DebateStorage:
         """
         # Defense layer 1: Table must be in known tables whitelist
         if table not in self._KNOWN_TABLES:
-            logger.warning(
-                "Table not in whitelist: %s (allowed: %s)", table, self._KNOWN_TABLES
-            )
+            logger.warning("Table not in whitelist: %s (allowed: %s)", table, self._KNOWN_TABLES)
             return False
 
         # Defense layer 2: Validate identifier patterns
@@ -201,22 +201,22 @@ class DebateStorage:
             "Design a rate limiter" (second) -> "rate-limiter-2026-01-01-2"
         """
         # Extract words, remove punctuation
-        words = re.sub(r'[^\w\s]', '', task.lower()).split()
+        words = re.sub(r"[^\w\s]", "", task.lower()).split()
 
         # Filter stop words and take first 4 meaningful words
         key_words = [w for w in words if w not in self.STOP_WORDS][:4]
-        base = '-'.join(key_words) if key_words else 'debate'
+        base = "-".join(key_words) if key_words else "debate"
 
         # Add date
-        date = datetime.now().strftime('%Y-%m-%d')
+        date = datetime.now().strftime("%Y-%m-%d")
         slug = f"{base}-{date}"
 
         # Handle collisions using GLOB for precise matching
         # Matches: slug itself OR slug-N pattern (where N is digits)
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.execute(
                 "SELECT COUNT(*) FROM debates WHERE slug = ? OR slug GLOB ?",
-                (slug, f"{slug}-[0-9]*")
+                (slug, f"{slug}-[0-9]*"),
             )
             row = cursor.fetchone()
             count = row[0] if row else 0
@@ -235,22 +235,25 @@ class DebateStorage:
         """
         slug = self.generate_slug(artifact.task)
 
-        with self._get_connection() as conn:
-            conn.execute("""
+        with self.connection() as conn:
+            conn.execute(
+                """
                 INSERT INTO debates (
                     id, slug, task, agents, artifact_json,
                     consensus_reached, confidence
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                artifact.artifact_id,
-                slug,
-                artifact.task,
-                json.dumps(artifact.agents),
-                artifact.to_json(),
-                artifact.consensus_proof.reached if artifact.consensus_proof else False,
-                artifact.consensus_proof.confidence if artifact.consensus_proof else 0,
-            ))
+            """,
+                (
+                    artifact.artifact_id,
+                    slug,
+                    artifact.task,
+                    json.dumps(artifact.agents),
+                    artifact.to_json(),
+                    artifact.consensus_proof.reached if artifact.consensus_proof else False,
+                    artifact.consensus_proof.confidence if artifact.consensus_proof else 0,
+                ),
+            )
             conn.commit()
 
         return slug
@@ -272,7 +275,7 @@ class DebateStorage:
         Returns:
             True if updated, False if debate not found
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.execute(
                 """
                 UPDATE debates
@@ -297,7 +300,7 @@ class DebateStorage:
             Dict with audio_path, audio_generated_at, audio_duration_seconds
             or None if no audio exists
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.execute(
                 """
                 SELECT audio_path, audio_generated_at, audio_duration_seconds
@@ -333,23 +336,26 @@ class DebateStorage:
         slug = self.generate_slug(debate_data.get("task", "debate"))
         debate_id = debate_data.get("id", slug)
 
-        with self._get_connection() as conn:
-            conn.execute("""
+        with self.connection() as conn:
+            conn.execute(
+                """
                 INSERT INTO debates (
                     id, slug, task, agents, artifact_json,
                     consensus_reached, confidence, org_id
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                debate_id,
-                slug,
-                debate_data.get("task", ""),
-                json.dumps(debate_data.get("agents", [])),
-                json.dumps(debate_data),
-                debate_data.get("consensus_reached", False),
-                debate_data.get("confidence", 0),
-                org_id,
-            ))
+            """,
+                (
+                    debate_id,
+                    slug,
+                    debate_data.get("task", ""),
+                    json.dumps(debate_data.get("agents", [])),
+                    json.dumps(debate_data),
+                    debate_data.get("consensus_reached", False),
+                    debate_data.get("confidence", 0),
+                    org_id,
+                ),
+            )
             conn.commit()
 
         return slug
@@ -373,23 +379,19 @@ class DebateStorage:
         if not slug or len(slug) > 500:
             return None
 
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             if verify_ownership and org_id:
                 cursor = conn.execute(
                     "SELECT artifact_json FROM debates WHERE slug = ? AND org_id = ?",
-                    (slug, org_id)
+                    (slug, org_id),
                 )
             else:
-                cursor = conn.execute(
-                    "SELECT artifact_json FROM debates WHERE slug = ?",
-                    (slug,)
-                )
+                cursor = conn.execute("SELECT artifact_json FROM debates WHERE slug = ?", (slug,))
             row = cursor.fetchone()
 
             if row:
                 conn.execute(
-                    "UPDATE debates SET view_count = view_count + 1 WHERE slug = ?",
-                    (slug,)
+                    "UPDATE debates SET view_count = view_count + 1 WHERE slug = ?", (slug,)
                 )
                 conn.commit()
 
@@ -410,23 +412,20 @@ class DebateStorage:
         Returns:
             Debate artifact dict or None
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             if verify_ownership and org_id:
                 cursor = conn.execute(
                     "SELECT artifact_json FROM debates WHERE id = ? AND org_id = ?",
-                    (debate_id, org_id)
+                    (debate_id, org_id),
                 )
             else:
                 cursor = conn.execute(
-                    "SELECT artifact_json FROM debates WHERE id = ?",
-                    (debate_id,)
+                    "SELECT artifact_json FROM debates WHERE id = ?", (debate_id,)
                 )
             row = cursor.fetchone()
         return json.loads(row[0]) if row else None
 
-    def list_recent(
-        self, limit: int = 20, org_id: Optional[str] = None
-    ) -> list[DebateMetadata]:
+    def list_recent(self, limit: int = 20, org_id: Optional[str] = None) -> list[DebateMetadata]:
         """
         List recent debates, optionally filtered by organization.
 
@@ -438,24 +437,30 @@ class DebateStorage:
         Returns:
             List of DebateMetadata ordered by creation date (newest first)
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             if org_id:
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT slug, id, task, agents, consensus_reached,
                            confidence, created_at, view_count, is_public
                     FROM debates
                     WHERE org_id = ?
                     ORDER BY created_at DESC
                     LIMIT ?
-                """, (org_id, limit))
+                """,
+                    (org_id, limit),
+                )
             else:
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT slug, id, task, agents, consensus_reached,
                            confidence, created_at, view_count, is_public
                     FROM debates
                     ORDER BY created_at DESC
                     LIMIT ?
-                """, (limit,))
+                """,
+                    (limit,),
+                )
 
             results = []
             for row in cursor.fetchall():
@@ -464,17 +469,19 @@ class DebateStorage:
                 except (ValueError, TypeError):
                     created = datetime.now()
 
-                results.append(DebateMetadata(
-                    slug=row[0],
-                    debate_id=row[1],
-                    task=row[2],
-                    agents=json.loads(row[3]) if row[3] else [],
-                    consensus_reached=bool(row[4]),
-                    confidence=row[5] or 0,
-                    created_at=created,
-                    view_count=row[7] or 0,
-                    is_public=bool(row[8]) if len(row) > 8 else False,
-                ))
+                results.append(
+                    DebateMetadata(
+                        slug=row[0],
+                        debate_id=row[1],
+                        task=row[2],
+                        agents=json.loads(row[3]) if row[3] else [],
+                        consensus_reached=bool(row[4]),
+                        confidence=row[5] or 0,
+                        created_at=created,
+                        view_count=row[7] or 0,
+                        is_public=bool(row[8]) if len(row) > 8 else False,
+                    )
+                )
 
         return results
 
@@ -501,28 +508,35 @@ class DebateStorage:
         safe_query = _escape_like_pattern(query)
         like_pattern = f"%{safe_query}%"
 
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             # Get total count first
             if org_id:
-                count_cursor = conn.execute("""
+                count_cursor = conn.execute(
+                    """
                     SELECT COUNT(*)
                     FROM debates
                     WHERE org_id = ?
                       AND (task LIKE ? ESCAPE '\\' OR slug LIKE ? ESCAPE '\\')
-                """, (org_id, like_pattern, like_pattern))
+                """,
+                    (org_id, like_pattern, like_pattern),
+                )
             else:
-                count_cursor = conn.execute("""
+                count_cursor = conn.execute(
+                    """
                     SELECT COUNT(*)
                     FROM debates
                     WHERE task LIKE ? ESCAPE '\\'
                        OR slug LIKE ? ESCAPE '\\'
-                """, (like_pattern, like_pattern))
+                """,
+                    (like_pattern, like_pattern),
+                )
 
             total = count_cursor.fetchone()[0]
 
             # Get paginated results
             if org_id:
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT slug, id, task, agents, consensus_reached,
                            confidence, created_at, view_count, is_public
                     FROM debates
@@ -530,9 +544,12 @@ class DebateStorage:
                       AND (task LIKE ? ESCAPE '\\' OR slug LIKE ? ESCAPE '\\')
                     ORDER BY created_at DESC
                     LIMIT ? OFFSET ?
-                """, (org_id, like_pattern, like_pattern, limit, offset))
+                """,
+                    (org_id, like_pattern, like_pattern, limit, offset),
+                )
             else:
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT slug, id, task, agents, consensus_reached,
                            confidence, created_at, view_count, is_public
                     FROM debates
@@ -540,7 +557,9 @@ class DebateStorage:
                        OR slug LIKE ? ESCAPE '\\'
                     ORDER BY created_at DESC
                     LIMIT ? OFFSET ?
-                """, (like_pattern, like_pattern, limit, offset))
+                """,
+                    (like_pattern, like_pattern, limit, offset),
+                )
 
             results = []
             for row in cursor.fetchall():
@@ -549,17 +568,19 @@ class DebateStorage:
                 except (ValueError, TypeError):
                     created = datetime.now()
 
-                results.append(DebateMetadata(
-                    slug=row[0],
-                    debate_id=row[1],
-                    task=row[2],
-                    agents=json.loads(row[3]) if row[3] else [],
-                    consensus_reached=bool(row[4]),
-                    confidence=row[5] or 0,
-                    created_at=created,
-                    view_count=row[7] or 0,
-                    is_public=bool(row[8]) if len(row) > 8 else False,
-                ))
+                results.append(
+                    DebateMetadata(
+                        slug=row[0],
+                        debate_id=row[1],
+                        task=row[2],
+                        agents=json.loads(row[3]) if row[3] else [],
+                        consensus_reached=bool(row[4]),
+                        confidence=row[5] or 0,
+                        created_at=created,
+                        view_count=row[7] or 0,
+                        is_public=bool(row[8]) if len(row) > 8 else False,
+                    )
+                )
 
         return results, total
 
@@ -577,17 +598,13 @@ class DebateStorage:
         Returns:
             True if deleted, False if not found or ownership check failed
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             if require_ownership and org_id:
                 cursor = conn.execute(
-                    "DELETE FROM debates WHERE slug = ? AND org_id = ?",
-                    (slug, org_id)
+                    "DELETE FROM debates WHERE slug = ? AND org_id = ?", (slug, org_id)
                 )
             else:
-                cursor = conn.execute(
-                    "DELETE FROM debates WHERE slug = ?",
-                    (slug,)
-                )
+                cursor = conn.execute("DELETE FROM debates WHERE slug = ?", (slug,))
             deleted = cursor.rowcount > 0
             conn.commit()
         return deleted
@@ -602,17 +619,12 @@ class DebateStorage:
         Returns:
             True if debate exists and is_public=True, False otherwise
         """
-        with self._get_connection() as conn:
-            cursor = conn.execute(
-                "SELECT is_public FROM debates WHERE id = ?",
-                (debate_id,)
-            )
+        with self.connection() as conn:
+            cursor = conn.execute("SELECT is_public FROM debates WHERE id = ?", (debate_id,))
             row = cursor.fetchone()
         return bool(row and row[0])
 
-    def set_public(
-        self, debate_id: str, is_public: bool, org_id: Optional[str] = None
-    ) -> bool:
+    def set_public(self, debate_id: str, is_public: bool, org_id: Optional[str] = None) -> bool:
         """
         Set debate public/private status.
 
@@ -624,16 +636,15 @@ class DebateStorage:
         Returns:
             True if updated, False if not found or ownership check failed
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             if org_id:
                 cursor = conn.execute(
                     "UPDATE debates SET is_public = ? WHERE id = ? AND org_id = ?",
-                    (is_public, debate_id, org_id)
+                    (is_public, debate_id, org_id),
                 )
             else:
                 cursor = conn.execute(
-                    "UPDATE debates SET is_public = ? WHERE id = ?",
-                    (is_public, debate_id)
+                    "UPDATE debates SET is_public = ? WHERE id = ?", (is_public, debate_id)
                 )
             updated = cursor.rowcount > 0
             conn.commit()
@@ -670,6 +681,7 @@ def get_debates_db() -> Optional[DebateStorage]:
     if _debate_storage is None:
         try:
             from aragora.config.legacy import DATA_DIR
+
             db_path = DATA_DIR / "aragora_debates.db"
             _debate_storage = DebateStorage(str(db_path))
             logger.info(f"Initialized DebateStorage: {db_path}")

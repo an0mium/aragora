@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { API_BASE_URL } from '@/config';
 
 interface User {
   id: string;
@@ -43,7 +44,7 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const API_BASE = API_BASE_URL;
 
 // Storage keys
 const TOKENS_KEY = 'aragora_tokens';

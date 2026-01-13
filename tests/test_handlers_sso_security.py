@@ -61,7 +61,9 @@ class TestRedirectURLValidation:
         """URLs should be validated against allowlist when configured."""
         allowed_hosts = "app.aragora.ai,dashboard.aragora.ai,localhost"
 
-        with patch.dict(os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": allowed_hosts}, clear=False):
+        with patch.dict(
+            os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": allowed_hosts}, clear=False
+        ):
             # Allowed hosts should pass
             assert handler._validate_redirect_url("https://app.aragora.ai/callback") is True
             assert handler._validate_redirect_url("https://dashboard.aragora.ai/settings") is True
@@ -80,14 +82,18 @@ class TestRedirectURLValidation:
 
     def test_case_insensitive_host_matching(self, handler):
         """Host matching should be case-insensitive."""
-        with patch.dict(os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "App.Aragora.AI"}, clear=False):
+        with patch.dict(
+            os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "App.Aragora.AI"}, clear=False
+        ):
             assert handler._validate_redirect_url("https://app.aragora.ai/callback") is True
             assert handler._validate_redirect_url("https://APP.ARAGORA.AI/callback") is True
             assert handler._validate_redirect_url("https://App.Aragora.Ai/callback") is True
 
     def test_port_stripped_for_host_matching(self, handler):
         """Port should be stripped when matching hosts."""
-        with patch.dict(os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "localhost"}, clear=False):
+        with patch.dict(
+            os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "localhost"}, clear=False
+        ):
             assert handler._validate_redirect_url("http://localhost:3000/callback") is True
             assert handler._validate_redirect_url("http://localhost:8080/app") is True
             assert handler._validate_redirect_url("https://localhost:443/secure") is True
@@ -152,17 +158,21 @@ class TestCallbackSecurityIntegration:
         user = Mock()
         user.id = "user-123"
         user.email = "user@example.com"
-        user.to_dict = Mock(return_value={
-            "id": "user-123",
-            "email": "user@example.com",
-        })
+        user.to_dict = Mock(
+            return_value={
+                "id": "user-123",
+                "email": "user@example.com",
+            }
+        )
         return user
 
     @pytest.mark.asyncio
     async def test_callback_blocks_unsafe_redirect(self, handler, mock_provider, mock_user):
         """Callback should block unsafe redirect URLs."""
         with patch.object(handler, "_get_provider", return_value=mock_provider):
-            with patch.dict(os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "app.aragora.ai"}, clear=False):
+            with patch.dict(
+                os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "app.aragora.ai"}, clear=False
+            ):
                 mock_provider.authenticate = Mock(return_value=mock_user)
 
                 # Mock auth_config
@@ -198,19 +208,25 @@ class TestOpenRedirectPrevention:
     def test_double_slash_bypass_blocked(self, handler):
         """Double-slash bypass attempts should be blocked."""
         # These are common open redirect bypass attempts
-        with patch.dict(os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "safe.com"}, clear=False):
+        with patch.dict(
+            os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "safe.com"}, clear=False
+        ):
             assert handler._validate_redirect_url("https://evil.com") is False
 
     def test_subdomain_bypass_blocked(self, handler):
         """Subdomain bypass attempts should be blocked."""
-        with patch.dict(os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "aragora.ai"}, clear=False):
+        with patch.dict(
+            os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "aragora.ai"}, clear=False
+        ):
             # Only exact host match, not subdomains
             assert handler._validate_redirect_url("https://evil.aragora.ai/") is False
             assert handler._validate_redirect_url("https://aragora.ai.evil.com/") is False
 
     def test_path_traversal_in_url(self, handler):
         """Path traversal in URL should not bypass validation."""
-        with patch.dict(os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "safe.com"}, clear=False):
+        with patch.dict(
+            os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "safe.com"}, clear=False
+        ):
             # Host validation should happen before path is considered
             assert handler._validate_redirect_url("https://evil.com/../safe.com/") is False
 
@@ -225,7 +241,9 @@ class TestLogging:
     def test_blocked_redirect_is_logged(self, handler):
         """Blocked redirects should be logged."""
         with patch("aragora.server.handlers.sso.logger") as mock_logger:
-            with patch.dict(os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "safe.com"}, clear=False):
+            with patch.dict(
+                os.environ, {"ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS": "safe.com"}, clear=False
+            ):
                 handler._validate_redirect_url("https://evil.com/phishing")
                 mock_logger.warning.assert_called()
 

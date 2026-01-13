@@ -40,7 +40,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
         {/* Header */}
         <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-            <AsciiBannerCompact connected={true} />
+            <AsciiBannerCompact connected={true} showAsciiArt={false} />
             <div className="flex items-center gap-4">
               <a
                 href="/about"
@@ -49,7 +49,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
                 [ABOUT]
               </a>
               <a
-                href="https://live.aragora.ai"
+                href="https://aragora.ai"
                 className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
               >
                 [LIVE DASHBOARD]
@@ -284,7 +284,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
           <div className="flex items-center justify-center gap-3 text-[10px]">
             <span className="text-acid-green/40">ARAGORA</span>
             <span className="text-acid-green/20">|</span>
-            <a href="https://live.aragora.ai" className="text-text-muted/40 hover:text-acid-green/60 transition-colors">
+            <a href="https://aragora.ai" className="text-text-muted/40 hover:text-acid-green/60 transition-colors">
               Dashboard
             </a>
             <span className="text-acid-green/20">|</span>

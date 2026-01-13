@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import Link from 'next/link';
 import { AgentMomentsModal } from './AgentMomentsModal';
+import { withErrorBoundary } from './PanelErrorBoundary';
 import {
   LeaderboardSkeleton,
   MatchesSkeleton,
@@ -10,6 +11,7 @@ import {
   IntrospectionListSkeleton,
 } from './Skeleton';
 import type { StreamEvent } from '@/types/events';
+import { API_BASE_URL } from '@/config';
 
 interface AgentRanking {
   name: string;
@@ -77,7 +79,7 @@ interface LeaderboardPanelProps {
   apiBase?: string;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 // Pure helper functions moved outside component to avoid recreation on each render
 const getEloColor = (elo: number): string => {
@@ -874,5 +876,6 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
   );
 }
 
-// Memoize the component to prevent re-renders when parent re-renders with same props
-export const LeaderboardPanel = memo(LeaderboardPanelComponent);
+// Memoize the component and wrap with error boundary
+const MemoizedLeaderboardPanel = memo(LeaderboardPanelComponent);
+export const LeaderboardPanel = withErrorBoundary(MemoizedLeaderboardPanel, 'Leaderboard');

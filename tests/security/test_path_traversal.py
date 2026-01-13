@@ -25,6 +25,7 @@ class TestPathTraversalPrevention:
 
     def test_rejects_double_dot_traversal(self):
         """Should reject ../../../etc/passwd style attacks."""
+
         def is_safe_path(base_dir: str, requested_path: str) -> bool:
             """Check if requested path stays within base directory."""
             try:
@@ -77,6 +78,7 @@ class TestPathTraversalPrevention:
 
     def test_rejects_absolute_paths(self):
         """Should reject attempts to use absolute paths."""
+
         def validate_relative_path(path: str) -> bool:
             """Ensure path is relative, not absolute."""
             try:
@@ -226,6 +228,7 @@ class TestStaticFileServingSecurity:
 
     def test_directory_listing_disabled(self):
         """Directory listing should be disabled."""
+
         def should_serve(path: Path) -> bool:
             """Only serve files, not directories."""
             return path.is_file()
@@ -239,6 +242,7 @@ class TestStaticFileServingSecurity:
 
     def test_hidden_files_not_served(self):
         """Hidden files (starting with .) should not be served."""
+
         def is_hidden_file(filename: str) -> bool:
             return filename.startswith(".")
 

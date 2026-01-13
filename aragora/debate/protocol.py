@@ -32,8 +32,12 @@ __all__ = ["CircuitBreaker", "DebateProtocol", "user_vote_multiplier"]
 class DebateProtocol:
     """Configuration for how debates are conducted."""
 
-    topology: Literal["all-to-all", "sparse", "round-robin", "ring", "star", "random-graph"] = "round-robin"
-    topology_sparsity: float = 0.5  # fraction of possible critique connections (for sparse/random-graph)
+    topology: Literal["all-to-all", "sparse", "round-robin", "ring", "star", "random-graph"] = (
+        "round-robin"
+    )
+    topology_sparsity: float = (
+        0.5  # fraction of possible critique connections (for sparse/random-graph)
+    )
     topology_hub_agent: Optional[str] = None  # for star topology, which agent is the hub
     rounds: int = 5  # Increased from 3 for more thorough debates
     consensus: Literal[
@@ -100,7 +104,9 @@ class DebateProtocol:
     min_rounds_before_judge_check: int = 2  # Check only after this many rounds
 
     # Human participation settings
-    user_vote_weight: float = 0.5  # Weight of user votes relative to agent votes (0.5 = half weight)
+    user_vote_weight: float = (
+        0.5  # Weight of user votes relative to agent votes (0.5 = half weight)
+    )
 
     # Conviction-weighted voting (intensity 1-10 scale)
     # User votes with high conviction (8-10) count more than low conviction (1-3)
@@ -201,7 +207,10 @@ def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
         # Below neutral: interpolate between min_multiplier and 1.0
         # intensity=1 -> min_multiplier, intensity=neutral -> 1.0
         ratio = (intensity - 1) / (neutral - 1) if neutral > 1 else 0
-        return protocol.user_vote_intensity_min_multiplier + (1.0 - protocol.user_vote_intensity_min_multiplier) * ratio
+        return (
+            protocol.user_vote_intensity_min_multiplier
+            + (1.0 - protocol.user_vote_intensity_min_multiplier) * ratio
+        )
     else:
         # Above neutral: interpolate between 1.0 and max_multiplier
         # intensity=neutral -> 1.0, intensity=scale -> max_multiplier

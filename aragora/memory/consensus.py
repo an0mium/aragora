@@ -25,6 +25,7 @@ import sqlite3
 import uuid
 
 from aragora.config import DB_CONSENSUS_PATH, DB_TIMEOUT_SECONDS
+from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager, get_wal_connection
 from aragora.utils.json_helpers import safe_json_loads
 from aragora.utils.cache import invalidate_cache
@@ -39,6 +40,7 @@ CONSENSUS_SCHEMA_VERSION = 2
 
 class ConsensusStrength(Enum):
     """Strength of consensus reached."""
+
     UNANIMOUS = "unanimous"  # All agents agreed
     STRONG = "strong"  # >80% agreement
     MODERATE = "moderate"  # 60-80% agreement
@@ -49,6 +51,7 @@ class ConsensusStrength(Enum):
 
 class DissentType(Enum):
     """Type of dissenting view."""
+
     MINOR_QUIBBLE = "minor_quibble"  # Small disagreement
     ALTERNATIVE_APPROACH = "alternative_approach"  # Different method, same goal
     FUNDAMENTAL_DISAGREEMENT = "fundamental_disagreement"  # Core disagreement
@@ -60,6 +63,7 @@ class DissentType(Enum):
 @dataclass
 class DissentRecord:
     """A recorded dissenting view from a debate."""
+
     id: str
     debate_id: str
     agent_id: str
@@ -107,6 +111,7 @@ class DissentRecord:
 @dataclass
 class ConsensusRecord:
     """A recorded consensus outcome from a debate."""
+
     id: str
     topic: str
     topic_hash: str  # For similarity matching
@@ -199,13 +204,14 @@ class ConsensusRecord:
 @dataclass
 class SimilarDebate:
     """A similar past debate found in memory."""
+
     consensus: ConsensusRecord
     similarity_score: float
     dissents: list[DissentRecord]
     relevance_notes: str = ""
 
 
-class ConsensusMemory:
+class ConsensusMemory(SQLiteStore):
     """
     Persistent storage for debate consensus and dissent.
 
@@ -213,93 +219,84 @@ class ConsensusMemory:
     similarity search for finding related past debates.
     """
 
+    SCHEMA_NAME = "consensus_memory"
+    SCHEMA_VERSION = CONSENSUS_SCHEMA_VERSION
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS consensus (
+            id TEXT PRIMARY KEY,
+            topic TEXT NOT NULL,
+            topic_hash TEXT NOT NULL,
+            conclusion TEXT NOT NULL,
+            strength TEXT NOT NULL,
+            confidence REAL,
+            domain TEXT,
+            tags TEXT,
+            timestamp TEXT,
+            data TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS dissent (
+            id TEXT PRIMARY KEY,
+            debate_id TEXT NOT NULL,
+            agent_id TEXT NOT NULL,
+            dissent_type TEXT NOT NULL,
+            content TEXT NOT NULL,
+            confidence REAL,
+            timestamp TEXT,
+            data TEXT NOT NULL,
+            FOREIGN KEY (debate_id) REFERENCES consensus(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_consensus_topic_hash
+        ON consensus(topic_hash);
+
+        CREATE INDEX IF NOT EXISTS idx_consensus_domain
+        ON consensus(domain);
+
+        CREATE INDEX IF NOT EXISTS idx_dissent_debate
+        ON dissent(debate_id);
+
+        CREATE INDEX IF NOT EXISTS idx_dissent_type
+        ON dissent(dissent_type);
+
+        -- Optimized indices for common query patterns
+        CREATE INDEX IF NOT EXISTS idx_consensus_confidence_ts
+        ON consensus(confidence DESC, timestamp DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_dissent_timestamp
+        ON dissent(timestamp DESC);
+
+        -- Verified proofs table (added in v2)
+        CREATE TABLE IF NOT EXISTS verified_proofs (
+            id TEXT PRIMARY KEY,
+            debate_id TEXT NOT NULL,
+            proof_status TEXT NOT NULL,
+            language TEXT,
+            formal_statement TEXT,
+            is_verified INTEGER DEFAULT 0,
+            proof_hash TEXT,
+            translation_time_ms REAL,
+            proof_search_time_ms REAL,
+            prover_version TEXT,
+            error_message TEXT,
+            timestamp TEXT NOT NULL,
+            data TEXT NOT NULL,
+            FOREIGN KEY (debate_id) REFERENCES consensus(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_verified_proofs_debate
+        ON verified_proofs(debate_id);
+
+        CREATE INDEX IF NOT EXISTS idx_verified_proofs_status
+        ON verified_proofs(proof_status);
+
+        CREATE INDEX IF NOT EXISTS idx_verified_proofs_verified
+        ON verified_proofs(is_verified);
+    """
+
     def __init__(self, db_path: str = DB_CONSENSUS_PATH):
-        self.db_path = db_path
-        self._init_db()
-
-    def _init_db(self):
-        """Initialize database schema using SchemaManager."""
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
-            # Use SchemaManager for version tracking and migrations
-            manager = SchemaManager(
-                conn, "consensus_memory", current_version=CONSENSUS_SCHEMA_VERSION
-            )
-
-            # Initial schema (v1)
-            initial_schema = """
-                CREATE TABLE IF NOT EXISTS consensus (
-                    id TEXT PRIMARY KEY,
-                    topic TEXT NOT NULL,
-                    topic_hash TEXT NOT NULL,
-                    conclusion TEXT NOT NULL,
-                    strength TEXT NOT NULL,
-                    confidence REAL,
-                    domain TEXT,
-                    tags TEXT,
-                    timestamp TEXT,
-                    data TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS dissent (
-                    id TEXT PRIMARY KEY,
-                    debate_id TEXT NOT NULL,
-                    agent_id TEXT NOT NULL,
-                    dissent_type TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    confidence REAL,
-                    timestamp TEXT,
-                    data TEXT NOT NULL,
-                    FOREIGN KEY (debate_id) REFERENCES consensus(id)
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_consensus_topic_hash
-                ON consensus(topic_hash);
-
-                CREATE INDEX IF NOT EXISTS idx_consensus_domain
-                ON consensus(domain);
-
-                CREATE INDEX IF NOT EXISTS idx_dissent_debate
-                ON dissent(debate_id);
-
-                CREATE INDEX IF NOT EXISTS idx_dissent_type
-                ON dissent(dissent_type);
-
-                -- Optimized indices for common query patterns
-                CREATE INDEX IF NOT EXISTS idx_consensus_confidence_ts
-                ON consensus(confidence DESC, timestamp DESC);
-
-                CREATE INDEX IF NOT EXISTS idx_dissent_timestamp
-                ON dissent(timestamp DESC);
-
-                -- Verified proofs table (added in v2)
-                CREATE TABLE IF NOT EXISTS verified_proofs (
-                    id TEXT PRIMARY KEY,
-                    debate_id TEXT NOT NULL,
-                    proof_status TEXT NOT NULL,
-                    language TEXT,
-                    formal_statement TEXT,
-                    is_verified INTEGER DEFAULT 0,
-                    proof_hash TEXT,
-                    translation_time_ms REAL,
-                    proof_search_time_ms REAL,
-                    prover_version TEXT,
-                    error_message TEXT,
-                    timestamp TEXT NOT NULL,
-                    data TEXT NOT NULL,
-                    FOREIGN KEY (debate_id) REFERENCES consensus(id)
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_verified_proofs_debate
-                ON verified_proofs(debate_id);
-
-                CREATE INDEX IF NOT EXISTS idx_verified_proofs_status
-                ON verified_proofs(proof_status);
-
-                CREATE INDEX IF NOT EXISTS idx_verified_proofs_verified
-                ON verified_proofs(is_verified);
-            """
-
-            manager.ensure_schema(initial_schema=initial_schema)
+        super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
 
     def _hash_topic(self, topic: str) -> str:
         """Create a hash for topic similarity matching."""
@@ -344,7 +341,7 @@ class ConsensusMemory:
             metadata=metadata or {},
         )
 
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -399,7 +396,7 @@ class ConsensusMemory:
             metadata=metadata or {},
         )
 
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -459,7 +456,7 @@ class ConsensusMemory:
         Returns:
             True if update succeeded, False if consensus not found
         """
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT data FROM consensus WHERE id = ?",
@@ -470,9 +467,7 @@ class ConsensusMemory:
             if not row:
                 return False
 
-            consensus_data: dict = safe_json_loads(
-                row[0], {}, context=f"consensus:{consensus_id}"
-            )
+            consensus_data: dict = safe_json_loads(row[0], {}, context=f"consensus:{consensus_id}")
             # Store up to 5 cruxes to avoid bloat
             consensus_data["belief_cruxes"] = cruxes[:5]
 
@@ -482,9 +477,7 @@ class ConsensusMemory:
             )
             conn.commit()
 
-        logger.debug(
-            f"Updated consensus {consensus_id} with {len(cruxes[:5])} cruxes"
-        )
+        logger.debug(f"Updated consensus {consensus_id} with {len(cruxes[:5])} cruxes")
         return True
 
     def store_verified_proof(
@@ -512,7 +505,7 @@ class ConsensusMemory:
         proof_id = str(uuid.uuid4())
         timestamp = datetime.now().isoformat()
 
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -560,7 +553,7 @@ class ConsensusMemory:
         Returns:
             The proof result dict if found, None otherwise
         """
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -591,7 +584,7 @@ class ConsensusMemory:
         Returns:
             List of dicts with debate_id, proof_status, is_verified, timestamp
         """
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             if verified_only:
@@ -631,7 +624,7 @@ class ConsensusMemory:
 
     def get_consensus(self, consensus_id: str) -> Optional[ConsensusRecord]:
         """Get a consensus record by ID."""
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT data FROM consensus WHERE id = ?", (consensus_id,))
             row = cursor.fetchone()
@@ -644,7 +637,7 @@ class ConsensusMemory:
 
     def get_dissents(self, debate_id: str) -> list[DissentRecord]:
         """Get all dissenting views for a debate."""
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT data FROM dissent WHERE debate_id = ?",
@@ -687,7 +680,7 @@ class ConsensusMemory:
         query += " ORDER BY timestamp DESC LIMIT ?"
         params.append(limit * 3)  # Get more for filtering
 
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(query, params)
             rows = cursor.fetchall()
@@ -695,7 +688,9 @@ class ConsensusMemory:
         # Score similarity and collect qualifying consensus IDs
         scored_candidates: list[tuple[ConsensusRecord, float]] = []
         for row in rows:
-            data: dict = safe_json_loads(row[0], {}, context=f"consensus:find_similar:{topic_hash[:8]}")
+            data: dict = safe_json_loads(
+                row[0], {}, context=f"consensus:find_similar:{topic_hash[:8]}"
+            )
             if not data:
                 continue
             consensus = ConsensusRecord.from_dict(data)
@@ -734,9 +729,7 @@ class ConsensusMemory:
         candidates.sort(key=lambda x: -x.similarity_score)
         return candidates[:limit]
 
-    def _get_dissents_batch(
-        self, consensus_ids: list[str]
-    ) -> dict[str, list[DissentRecord]]:
+    def _get_dissents_batch(self, consensus_ids: list[str]) -> dict[str, list[DissentRecord]]:
         """Batch-fetch dissents for multiple consensus IDs.
 
         Optimization to avoid N+1 queries in find_similar_debates().
@@ -761,7 +754,7 @@ class ConsensusMemory:
         result: dict[str, list[DissentRecord]] = {cid: [] for cid in consensus_ids}
 
         try:
-            with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+            with self.connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, consensus_ids)
                 for row in cursor.fetchall():
@@ -804,7 +797,7 @@ class ConsensusMemory:
     ) -> list[ConsensusRecord]:
         """Get consensus history for a domain."""
 
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -842,7 +835,7 @@ class ConsensusMemory:
         )
 
         # Update old record
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -852,7 +845,9 @@ class ConsensusMemory:
             row = cursor.fetchone()
 
             if row:
-                old_data: dict = safe_json_loads(row[0], {}, context=f"consensus:supersede:{old_consensus_id}")
+                old_data: dict = safe_json_loads(
+                    row[0], {}, context=f"consensus:supersede:{old_consensus_id}"
+                )
                 old_data["superseded_by"] = new_record.id
                 cursor.execute(
                     "UPDATE consensus SET data = ? WHERE id = ?",
@@ -881,7 +876,7 @@ class ConsensusMemory:
         result: dict[str, Any] = {"archived": 0, "deleted": 0}
         cutoff = (datetime.now() - timedelta(days=max_age_days)).isoformat()
 
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Check if archive table exists; create if needed
@@ -891,12 +886,13 @@ class ConsensusMemory:
                 # Check if consensus_archive has 'timestamp' column
                 cursor.execute("PRAGMA table_info(consensus_archive)")
                 columns = {row[1] for row in cursor.fetchall()}
-                if columns and 'timestamp' not in columns:
+                if columns and "timestamp" not in columns:
                     logger.info("Migrating consensus_archive table to new schema")
                     cursor.execute("DROP TABLE IF EXISTS consensus_archive")
                     cursor.execute("DROP TABLE IF EXISTS dissent_archive")
 
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS consensus_archive (
                         id TEXT PRIMARY KEY,
                         topic TEXT NOT NULL,
@@ -910,8 +906,10 @@ class ConsensusMemory:
                         data TEXT NOT NULL,
                         archived_at TEXT DEFAULT CURRENT_TIMESTAMP
                     )
-                """)
-                cursor.execute("""
+                """
+                )
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS dissent_archive (
                         id TEXT PRIMARY KEY,
                         debate_id TEXT NOT NULL,
@@ -923,10 +921,12 @@ class ConsensusMemory:
                         data TEXT NOT NULL,
                         archived_at TEXT DEFAULT CURRENT_TIMESTAMP
                     )
-                """)
+                """
+                )
 
                 # Archive old consensus records (select columns that exist in main table)
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR IGNORE INTO consensus_archive
                         (id, topic, topic_hash, conclusion, strength, confidence,
                          domain, tags, timestamp, data)
@@ -934,32 +934,33 @@ class ConsensusMemory:
                            domain, tags, timestamp, data
                     FROM consensus
                     WHERE datetime(timestamp) < datetime(?)
-                """, (cutoff,))
+                """,
+                    (cutoff,),
+                )
                 archived_consensus = cursor.rowcount
 
                 # Archive old dissent records (select columns that exist in main table)
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR IGNORE INTO dissent_archive
                         (id, debate_id, agent_id, dissent_type, content, confidence, timestamp, data)
                     SELECT id, debate_id, agent_id, dissent_type, content, confidence, timestamp, data
                     FROM dissent
                     WHERE datetime(timestamp) < datetime(?)
-                """, (cutoff,))
+                """,
+                    (cutoff,),
+                )
                 archived_dissent = cursor.rowcount
 
                 result["archived"] = archived_consensus + archived_dissent
 
             # Delete old records from main tables
             cursor.execute(
-                "DELETE FROM consensus WHERE datetime(timestamp) < datetime(?)",
-                (cutoff,)
+                "DELETE FROM consensus WHERE datetime(timestamp) < datetime(?)", (cutoff,)
             )
             deleted_consensus = cursor.rowcount
 
-            cursor.execute(
-                "DELETE FROM dissent WHERE datetime(timestamp) < datetime(?)",
-                (cutoff,)
-            )
+            cursor.execute("DELETE FROM dissent WHERE datetime(timestamp) < datetime(?)", (cutoff,))
             deleted_dissent = cursor.rowcount
 
             result["deleted"] = deleted_consensus + deleted_dissent
@@ -968,7 +969,9 @@ class ConsensusMemory:
 
         logger.info(
             "Consensus cleanup: archived=%d, deleted=%d (cutoff=%d days)",
-            result["archived"], result["deleted"], max_age_days
+            result["archived"],
+            result["deleted"],
+            max_age_days,
         )
 
         return result
@@ -976,7 +979,7 @@ class ConsensusMemory:
     def get_statistics(self) -> dict[str, Any]:
         """Get statistics about stored consensus."""
 
-        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             stats = {}
@@ -991,9 +994,7 @@ class ConsensusMemory:
             stats["total_dissents"] = row[0] if row else 0
 
             # By strength
-            cursor.execute(
-                "SELECT strength, COUNT(*) FROM consensus GROUP BY strength"
-            )
+            cursor.execute("SELECT strength, COUNT(*) FROM consensus GROUP BY strength")
             stats["by_strength"] = dict(cursor.fetchall())
 
             # By domain
@@ -1003,9 +1004,7 @@ class ConsensusMemory:
             stats["by_domain"] = dict(cursor.fetchall())
 
             # By dissent type
-            cursor.execute(
-                "SELECT dissent_type, COUNT(*) FROM dissent GROUP BY dissent_type"
-            )
+            cursor.execute("SELECT dissent_type, COUNT(*) FROM dissent GROUP BY dissent_type")
             stats["by_dissent_type"] = dict(cursor.fetchall())
 
             # Average confidence
@@ -1063,10 +1062,7 @@ class DissentRetriever:
                 for s in similar
             ],
             "relevant_dissents": [d.to_dict() for d in dissents],
-            "dissent_by_type": {
-                k: [d.to_dict() for d in v]
-                for k, v in dissent_by_type.items()
-            },
+            "dissent_by_type": {k: [d.to_dict() for d in v] for k, v in dissent_by_type.items()},
             "unacknowledged_dissents": [d.to_dict() for d in unacknowledged],
             "total_similar": len(similar),
             "total_dissents": len(dissents),
@@ -1133,6 +1129,8 @@ class DissentRetriever:
             lines.append("")
 
         if context["relevant_dissents"]:
-            lines.append(f"## {len(context['relevant_dissents'])} Relevant Historical Dissents Available")
+            lines.append(
+                f"## {len(context['relevant_dissents'])} Relevant Historical Dissents Available"
+            )
 
         return "\n".join(lines)

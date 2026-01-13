@@ -137,7 +137,7 @@ class JaccardBackend(SimilarityBackend):
         with JaccardBackend._cache_lock:
             if len(JaccardBackend._similarity_cache) >= JaccardBackend._cache_max_size:
                 keys = list(JaccardBackend._similarity_cache.keys())
-                for k in keys[:len(keys) // 2]:
+                for k in keys[: len(keys) // 2]:
                     del JaccardBackend._similarity_cache[k]
             JaccardBackend._similarity_cache[cache_key] = result
 
@@ -178,8 +178,7 @@ class TFIDFBackend(SimilarityBackend):
             self.cosine_similarity = cosine_similarity
         except ImportError as e:
             raise ImportError(
-                "TFIDFBackend requires scikit-learn. "
-                "Install with: pip install scikit-learn"
+                "TFIDFBackend requires scikit-learn. " "Install with: pip install scikit-learn"
             ) from e
 
     def compute_similarity(self, text1: str, text2: str) -> float:
@@ -204,7 +203,7 @@ class TFIDFBackend(SimilarityBackend):
         with TFIDFBackend._cache_lock:
             if len(TFIDFBackend._similarity_cache) >= TFIDFBackend._cache_max_size:
                 keys = list(TFIDFBackend._similarity_cache.keys())
-                for k in keys[:len(keys) // 2]:
+                for k in keys[: len(keys) // 2]:
                     del TFIDFBackend._similarity_cache[k]
             TFIDFBackend._similarity_cache[cache_key] = result
 
@@ -332,17 +331,18 @@ class SentenceTransformerBackend(SimilarityBackend):
         emb2 = self._get_embedding(text2)
 
         # Compute cosine similarity
-        similarity = self.cosine_similarity(
-            emb1.reshape(1, -1), emb2.reshape(1, -1)
-        )[0][0]
+        similarity = self.cosine_similarity(emb1.reshape(1, -1), emb2.reshape(1, -1))[0][0]
         result = float(similarity)
 
         # Cache similarity result (with lock and simple size limit)
         with SentenceTransformerBackend._cache_lock:
-            if len(SentenceTransformerBackend._similarity_cache) >= SentenceTransformerBackend._cache_max_size:
+            if (
+                len(SentenceTransformerBackend._similarity_cache)
+                >= SentenceTransformerBackend._cache_max_size
+            ):
                 # Clear oldest half when full
                 keys = list(SentenceTransformerBackend._similarity_cache.keys())
-                for k in keys[:len(keys) // 2]:
+                for k in keys[: len(keys) // 2]:
                     del SentenceTransformerBackend._similarity_cache[k]
             SentenceTransformerBackend._similarity_cache[cache_key] = result
 
@@ -380,9 +380,7 @@ class SentenceTransformerBackend(SimilarityBackend):
 
         return total / count if count > 0 else 0.0
 
-    def compute_pairwise_similarities(
-        self, texts_a: list[str], texts_b: list[str]
-    ) -> list[float]:
+    def compute_pairwise_similarities(self, texts_a: list[str], texts_b: list[str]) -> list[float]:
         """
         Compute similarities for paired texts efficiently.
 
@@ -408,9 +406,7 @@ class SentenceTransformerBackend(SimilarityBackend):
         # Compute pairwise similarities
         similarities = []
         for i in range(n):
-            sim = self.cosine_similarity(
-                emb_a[i].reshape(1, -1), emb_b[i].reshape(1, -1)
-            )[0][0]
+            sim = self.cosine_similarity(emb_a[i].reshape(1, -1), emb_b[i].reshape(1, -1))[0][0]
             similarities.append(float(sim))
 
         return similarities
@@ -427,15 +423,11 @@ def get_similarity_backend(preferred: str = "auto") -> SimilarityBackend:
         Requested backend instance
     """
     if preferred == "auto":
-        env_override = _normalize_backend_name(
-            os.getenv(_ENV_SIMILARITY_BACKEND, "")
-        )
+        env_override = _normalize_backend_name(os.getenv(_ENV_SIMILARITY_BACKEND, ""))
         if env_override:
             preferred = env_override
         elif os.getenv(_ENV_SIMILARITY_BACKEND):
-            logger.warning(
-                f"{_ENV_SIMILARITY_BACKEND} value is invalid; using auto selection."
-            )
+            logger.warning(f"{_ENV_SIMILARITY_BACKEND} value is invalid; using auto selection.")
 
     if preferred == "jaccard":
         return JaccardBackend()

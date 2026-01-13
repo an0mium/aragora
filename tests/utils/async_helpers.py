@@ -50,9 +50,7 @@ async def run_with_timeout(
         return await asyncio.wait_for(coro, timeout=timeout)
     except asyncio.TimeoutError:
         op_desc = f" ({operation_name})" if operation_name else ""
-        raise TimeoutError(
-            f"Async operation{op_desc} timed out after {timeout}s"
-        ) from None
+        raise TimeoutError(f"Async operation{op_desc} timed out after {timeout}s") from None
 
 
 async def run_with_cancellation(
@@ -101,9 +99,7 @@ async def gather_with_timeout(
             timeout=timeout,
         )
     except asyncio.TimeoutError:
-        raise TimeoutError(
-            f"Gathered async operations timed out after {timeout}s"
-        ) from None
+        raise TimeoutError(f"Gathered async operations timed out after {timeout}s") from None
 
 
 class AsyncTestContext:

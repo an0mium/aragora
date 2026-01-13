@@ -216,12 +216,15 @@ class TestSpectatorStream:
 
     def test_emit_handles_exceptions(self):
         """Test emit catches and handles exceptions gracefully."""
+
         # Create a mock output that raises on write
         class FailingOutput:
             def write(self, s):
                 raise IOError("Write failed")
+
             def flush(self):
                 pass
+
             def isatty(self):
                 return False
 
@@ -232,11 +235,14 @@ class TestSpectatorStream:
 
     def test_emit_reraises_critical_errors(self):
         """Test emit re-raises critical errors like KeyboardInterrupt."""
+
         class InterruptOutput:
             def write(self, s):
                 raise KeyboardInterrupt()
+
             def flush(self):
                 pass
+
             def isatty(self):
                 return False
 
@@ -268,12 +274,7 @@ class TestSpectatorStream:
     def test_preview_disabled(self):
         """Test that preview can be disabled."""
         output = io.StringIO()
-        stream = SpectatorStream(
-            enabled=True,
-            output=output,
-            format="plain",
-            show_preview=False
-        )
+        stream = SpectatorStream(enabled=True, output=output, format="plain", show_preview=False)
 
         long_text = "x" * 200
         stream.emit(SpectatorEvents.PROPOSAL, details=long_text)

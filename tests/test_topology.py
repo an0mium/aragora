@@ -118,16 +118,16 @@ class TestTopology:
         arena_all = Arena.__new__(Arena)
         arena_all.protocol = protocol_all
         arena_all.agents = agents
-        total_all = sum(len(arena_all._select_critics_for_proposal(a.name, agents))
-                       for a in agents)
+        total_all = sum(len(arena_all._select_critics_for_proposal(a.name, agents)) for a in agents)
 
         # Sparse
         protocol_sparse = DebateProtocol(topology="sparse", topology_sparsity=0.4)
         arena_sparse = Arena.__new__(Arena)
         arena_sparse.protocol = protocol_sparse
         arena_sparse.agents = agents
-        total_sparse = sum(len(arena_sparse._select_critics_for_proposal(a.name, agents))
-                          for a in agents)
+        total_sparse = sum(
+            len(arena_sparse._select_critics_for_proposal(a.name, agents)) for a in agents
+        )
 
         assert total_sparse < total_all
         print(f"All-to-all: {total_all} critiques, Sparse: {total_sparse} critiques")

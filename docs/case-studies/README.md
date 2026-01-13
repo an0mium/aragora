@@ -8,6 +8,3 @@ Curated examples showing Aragora as an AI red team for decision stress-testing.
 - `docs/case-studies/gdpr-compliance-audit.md`
 - `docs/case-studies/security-api-review.md`
 - `docs/case-studies/epic-strategic-debate.md`
-
-Legacy location (kept for backward compatibility):
-- `docs/case_studies/epic_strategic_debate.md`

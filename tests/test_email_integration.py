@@ -24,6 +24,7 @@ from aragora.core import DebateResult
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def email_config():
     """Create a basic email config for testing."""
@@ -46,7 +47,7 @@ def email_integration(email_config):
 @pytest.fixture
 def mock_smtp():
     """Mock SMTP for testing email sending."""
-    with patch('smtplib.SMTP') as mock:
+    with patch("smtplib.SMTP") as mock:
         smtp_instance = MagicMock()
         mock.return_value.__enter__ = MagicMock(return_value=smtp_instance)
         mock.return_value.__exit__ = MagicMock(return_value=False)
@@ -56,7 +57,7 @@ def mock_smtp():
 @pytest.fixture
 def mock_smtp_ssl():
     """Mock SMTP_SSL for testing SSL email sending."""
-    with patch('smtplib.SMTP_SSL') as mock:
+    with patch("smtplib.SMTP_SSL") as mock:
         smtp_instance = MagicMock()
         mock.return_value.__enter__ = MagicMock(return_value=smtp_instance)
         mock.return_value.__exit__ = MagicMock(return_value=False)
@@ -92,6 +93,7 @@ def sample_debate_result():
 # ============================================================================
 # TestEmailConfig
 # ============================================================================
+
 
 class TestEmailConfig:
     """Tests for EmailConfig dataclass."""
@@ -148,6 +150,7 @@ class TestEmailConfig:
 # TestEmailRecipient
 # ============================================================================
 
+
 class TestEmailRecipient:
     """Tests for EmailRecipient dataclass."""
 
@@ -160,18 +163,12 @@ class TestEmailRecipient:
 
     def test_recipient_with_name(self):
         """Recipient stores name correctly."""
-        recipient = EmailRecipient(
-            email="user@example.com",
-            name="John Doe"
-        )
+        recipient = EmailRecipient(email="user@example.com", name="John Doe")
         assert recipient.name == "John Doe"
 
     def test_recipient_formatted_with_name(self):
         """Formatted property includes name when present."""
-        recipient = EmailRecipient(
-            email="user@example.com",
-            name="John Doe"
-        )
+        recipient = EmailRecipient(email="user@example.com", name="John Doe")
         assert recipient.formatted == "John Doe <user@example.com>"
 
     def test_recipient_formatted_without_name(self):
@@ -182,8 +179,7 @@ class TestEmailRecipient:
     def test_recipient_preferences(self):
         """Recipient stores preferences correctly."""
         recipient = EmailRecipient(
-            email="user@example.com",
-            preferences={"html": True, "digest": False}
+            email="user@example.com", preferences={"html": True, "digest": False}
         )
         assert recipient.preferences["html"] is True
         assert recipient.preferences["digest"] is False
@@ -192,6 +188,7 @@ class TestEmailRecipient:
 # ============================================================================
 # TestRateLimiting
 # ============================================================================
+
 
 class TestRateLimiting:
     """Tests for email rate limiting."""
@@ -253,9 +250,7 @@ class TestRateLimiting:
         integration = EmailIntegration(config)
 
         # Run multiple concurrent rate limit checks
-        results = await asyncio.gather(*[
-            integration._check_rate_limit() for _ in range(15)
-        ])
+        results = await asyncio.gather(*[integration._check_rate_limit() for _ in range(15)])
 
         # Exactly 10 should succeed, 5 should fail
         assert sum(results) == 10
@@ -278,6 +273,7 @@ class TestRateLimiting:
 # TestSmtpConnection
 # ============================================================================
 
+
 class TestSmtpConnection:
     """Tests for SMTP connection and authentication."""
 
@@ -286,6 +282,7 @@ class TestSmtpConnection:
         integration = EmailIntegration(email_config)
 
         from email.mime.multipart import MIMEMultipart
+
         msg = MIMEMultipart()
         msg["Subject"] = "Test"
         msg["From"] = "test@aragora.ai"
@@ -311,10 +308,11 @@ class TestSmtpConnection:
         integration = EmailIntegration(config)
 
         from email.mime.multipart import MIMEMultipart
+
         msg = MIMEMultipart()
         msg["Subject"] = "Test"
 
-        with patch('ssl.create_default_context'):
+        with patch("ssl.create_default_context"):
             integration._smtp_send(msg, "user@example.com")
 
         mock_smtp_ssl.assert_called_once()
@@ -330,6 +328,7 @@ class TestSmtpConnection:
         integration = EmailIntegration(config)
 
         from email.mime.multipart import MIMEMultipart
+
         msg = MIMEMultipart()
         msg["Subject"] = "Test"
 
@@ -350,8 +349,8 @@ class TestSmtpConnection:
 
         recipient = EmailRecipient(email="user@example.com")
 
-        with patch.object(email_integration, '_check_rate_limit', return_value=True):
-            with patch('asyncio.get_event_loop') as mock_loop:
+        with patch.object(email_integration, "_check_rate_limit", return_value=True):
+            with patch("asyncio.get_event_loop") as mock_loop:
                 mock_loop.return_value.run_in_executor = AsyncMock(
                     side_effect=[
                         smtplib.SMTPException("Error 1"),
@@ -359,9 +358,7 @@ class TestSmtpConnection:
                         None,
                     ]
                 )
-                result = await email_integration._send_email(
-                    recipient, "Test", "<p>Test</p>"
-                )
+                result = await email_integration._send_email(recipient, "Test", "<p>Test</p>")
 
         # With 3 retries and success on third, should succeed
         # Actually, due to mock setup, let's verify retry logic exists
@@ -378,14 +375,14 @@ class TestSmtpConnection:
         integration = EmailIntegration(config)
         recipient = EmailRecipient(email="user@example.com")
 
-        with patch.object(integration, '_check_rate_limit', new_callable=AsyncMock, return_value=True):
-            with patch('asyncio.get_event_loop') as mock_loop:
+        with patch.object(
+            integration, "_check_rate_limit", new_callable=AsyncMock, return_value=True
+        ):
+            with patch("asyncio.get_event_loop") as mock_loop:
                 mock_loop.return_value.run_in_executor = AsyncMock(
                     side_effect=smtplib.SMTPException("Persistent error")
                 )
-                result = await integration._send_email(
-                    recipient, "Test", "<p>Test</p>"
-                )
+                result = await integration._send_email(recipient, "Test", "<p>Test</p>")
 
         assert result is False
 
@@ -393,6 +390,7 @@ class TestSmtpConnection:
 # ============================================================================
 # TestEmailTemplates
 # ============================================================================
+
 
 class TestEmailTemplates:
     """Tests for email HTML/text template generation."""
@@ -406,9 +404,7 @@ class TestEmailTemplates:
         assert ".header" in styles
         assert ".button" in styles
 
-    def test_debate_summary_html_contains_task(
-        self, email_integration, sample_debate_result
-    ):
+    def test_debate_summary_html_contains_task(self, email_integration, sample_debate_result):
         """Debate summary HTML contains the task."""
         html = email_integration._build_debate_summary_html(sample_debate_result)
         assert sample_debate_result.task in html
@@ -436,9 +432,7 @@ class TestEmailTemplates:
         assert "No Consensus" in html
         assert "status-fail" in html
 
-    def test_debate_summary_text_format(
-        self, email_integration, sample_debate_result
-    ):
+    def test_debate_summary_text_format(self, email_integration, sample_debate_result):
         """Debate summary text has correct format."""
         text = email_integration._build_debate_summary_text(sample_debate_result)
         assert "DEBATE COMPLETED" in text
@@ -495,6 +489,7 @@ class TestEmailTemplates:
 # TestSendDebateSummary
 # ============================================================================
 
+
 class TestSendDebateSummary:
     """Tests for send_debate_summary method."""
 
@@ -504,12 +499,10 @@ class TestSendDebateSummary:
     ):
         """Debate summary is sent to all recipients."""
         email_integration.add_recipient(sample_recipient)
-        email_integration.add_recipient(
-            EmailRecipient(email="user2@example.com")
-        )
+        email_integration.add_recipient(EmailRecipient(email="user2@example.com"))
 
         with patch.object(
-            email_integration, '_send_email', new_callable=AsyncMock, return_value=True
+            email_integration, "_send_email", new_callable=AsyncMock, return_value=True
         ):
             sent = await email_integration.send_debate_summary(sample_debate_result)
 
@@ -531,9 +524,7 @@ class TestSendDebateSummary:
         assert sent == 0
 
     @pytest.mark.asyncio
-    async def test_send_debate_summary_no_recipients(
-        self, email_integration, sample_debate_result
-    ):
+    async def test_send_debate_summary_no_recipients(self, email_integration, sample_debate_result):
         """Debate summary returns 0 when no recipients."""
         sent = await email_integration.send_debate_summary(sample_debate_result)
         assert sent == 0
@@ -546,7 +537,7 @@ class TestSendDebateSummary:
         email_integration.add_recipient(sample_recipient)
 
         with patch.object(
-            email_integration, '_send_email', new_callable=AsyncMock, return_value=True
+            email_integration, "_send_email", new_callable=AsyncMock, return_value=True
         ):
             await email_integration.send_debate_summary(sample_debate_result)
 
@@ -558,18 +549,17 @@ class TestSendDebateSummary:
 # TestSendConsensusAlert
 # ============================================================================
 
+
 class TestSendConsensusAlert:
     """Tests for send_consensus_alert method."""
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_success(
-        self, email_integration, sample_recipient
-    ):
+    async def test_send_consensus_alert_success(self, email_integration, sample_recipient):
         """Consensus alert is sent successfully."""
         email_integration.add_recipient(sample_recipient)
 
         with patch.object(
-            email_integration, '_send_email', new_callable=AsyncMock, return_value=True
+            email_integration, "_send_email", new_callable=AsyncMock, return_value=True
         ):
             sent = await email_integration.send_consensus_alert(
                 debate_id="test-123",
@@ -581,9 +571,7 @@ class TestSendConsensusAlert:
         assert sent == 1
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_below_threshold(
-        self, email_integration, sample_recipient
-    ):
+    async def test_send_consensus_alert_below_threshold(self, email_integration, sample_recipient):
         """Consensus alert not sent below confidence threshold."""
         email_integration.add_recipient(sample_recipient)
 
@@ -617,6 +605,7 @@ class TestSendConsensusAlert:
 # TestSendDigest
 # ============================================================================
 
+
 class TestSendDigest:
     """Tests for send_digest method."""
 
@@ -628,23 +617,23 @@ class TestSendDigest:
         email_integration.add_recipient(sample_recipient)
 
         # Add item to digest
-        email_integration._add_to_digest({
-            "type": "debate_summary",
-            "result": sample_debate_result,
-            "timestamp": datetime.now(),
-        })
+        email_integration._add_to_digest(
+            {
+                "type": "debate_summary",
+                "result": sample_debate_result,
+                "timestamp": datetime.now(),
+            }
+        )
 
         with patch.object(
-            email_integration, '_send_email', new_callable=AsyncMock, return_value=True
+            email_integration, "_send_email", new_callable=AsyncMock, return_value=True
         ):
             sent = await email_integration.send_digest()
 
         assert sent == 1
 
     @pytest.mark.asyncio
-    async def test_send_digest_no_items(
-        self, email_integration, sample_recipient
-    ):
+    async def test_send_digest_no_items(self, email_integration, sample_recipient):
         """Digest not sent when no pending items."""
         email_integration.add_recipient(sample_recipient)
 
@@ -682,7 +671,7 @@ class TestSendDigest:
         email_integration.add_recipient(EmailRecipient(email="test@test.com"))
 
         with patch.object(
-            email_integration, '_send_email', new_callable=AsyncMock, return_value=True
+            email_integration, "_send_email", new_callable=AsyncMock, return_value=True
         ):
             await email_integration.send_digest()
 
@@ -693,6 +682,7 @@ class TestSendDigest:
 # ============================================================================
 # TestRetryLogic
 # ============================================================================
+
 
 class TestRetryLogic:
     """Tests for email retry logic."""
@@ -721,14 +711,12 @@ class TestRetryLogic:
         assert config.max_retries == 5
 
     @pytest.mark.asyncio
-    async def test_successful_send_no_retry(
-        self, email_integration, sample_recipient
-    ):
+    async def test_successful_send_no_retry(self, email_integration, sample_recipient):
         """Successful send doesn't trigger retry."""
         with patch.object(
-            email_integration, '_check_rate_limit', new_callable=AsyncMock, return_value=True
+            email_integration, "_check_rate_limit", new_callable=AsyncMock, return_value=True
         ):
-            with patch('asyncio.get_event_loop') as mock_loop:
+            with patch("asyncio.get_event_loop") as mock_loop:
                 mock_loop.return_value.run_in_executor = AsyncMock(return_value=None)
                 result = await email_integration._send_email(
                     sample_recipient, "Test", "<p>Test</p>"
@@ -740,6 +728,7 @@ class TestRetryLogic:
 # ============================================================================
 # TestRecipientManagement
 # ============================================================================
+
 
 class TestRecipientManagement:
     """Tests for recipient add/remove operations."""
@@ -789,17 +778,18 @@ class TestRecipientManagement:
 # TestEmailHeaders
 # ============================================================================
 
+
 class TestEmailHeaders:
     """Tests for email header generation."""
 
     @pytest.mark.asyncio
-    async def test_email_has_unsubscribe_header(
-        self, email_integration, sample_recipient
-    ):
+    async def test_email_has_unsubscribe_header(self, email_integration, sample_recipient):
         """Emails include List-Unsubscribe header."""
         # The _send_email method adds a List-Unsubscribe header
         # Verify by checking the actual header format that would be used
-        expected_header = f"<mailto:unsubscribe@aragora.ai?subject=unsubscribe-{sample_recipient.email}>"
+        expected_header = (
+            f"<mailto:unsubscribe@aragora.ai?subject=unsubscribe-{sample_recipient.email}>"
+        )
         assert "unsubscribe@aragora.ai" in expected_header
         assert sample_recipient.email in expected_header
 
@@ -813,6 +803,7 @@ class TestEmailHeaders:
 # ============================================================================
 # TestDigestFrequency
 # ============================================================================
+
 
 class TestDigestFrequency:
     """Tests for digest frequency settings."""
@@ -850,9 +841,7 @@ class TestDigestFrequency:
 
         integration.add_recipient(EmailRecipient(email="test@test.com"))
 
-        with patch.object(
-            integration, '_send_email', new_callable=AsyncMock, return_value=True
-        ):
+        with patch.object(integration, "_send_email", new_callable=AsyncMock, return_value=True):
             sent = await integration.send_digest()
 
         assert sent == 1
@@ -861,6 +850,7 @@ class TestDigestFrequency:
 # ============================================================================
 # TestEdgeCases
 # ============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
@@ -899,25 +889,18 @@ class TestEdgeCases:
 
     def test_special_characters_in_email(self, email_integration):
         """Handles special characters in recipient email."""
-        recipient = EmailRecipient(
-            email="user+test@example.com",
-            name="Test O'Brien"
-        )
+        recipient = EmailRecipient(email="user+test@example.com", name="Test O'Brien")
         formatted = recipient.formatted
         assert "Test O'Brien" in formatted
         assert "user+test@example.com" in formatted
 
     @pytest.mark.asyncio
-    async def test_rate_limit_check_before_send(
-        self, email_integration, sample_recipient
-    ):
+    async def test_rate_limit_check_before_send(self, email_integration, sample_recipient):
         """Rate limit is checked before attempting send."""
         email_integration._email_count = email_integration.config.max_emails_per_hour
 
-        with patch.object(email_integration, '_smtp_send') as mock_send:
-            result = await email_integration._send_email(
-                sample_recipient, "Test", "<p>Test</p>"
-            )
+        with patch.object(email_integration, "_smtp_send") as mock_send:
+            result = await email_integration._send_email(sample_recipient, "Test", "<p>Test</p>")
 
         assert result is False
         mock_send.assert_not_called()

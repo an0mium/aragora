@@ -25,6 +25,7 @@ import aragora.server.handlers.evolution_ab_testing as ab_mod
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def handler(tmp_path):
     """Create handler with temp database."""
@@ -111,6 +112,7 @@ def enabled_handler(handler, mock_manager):
 # Route Recognition Tests
 # ============================================================================
 
+
 class TestABTestingRouting:
     """Tests for A/B testing route recognition."""
 
@@ -140,6 +142,7 @@ class TestABTestingRouting:
 # GET /api/evolution/ab-tests Tests
 # ============================================================================
 
+
 class TestListTests:
     """Tests for listing A/B tests."""
 
@@ -155,7 +158,7 @@ class TestListTests:
 
     def test_list_tests_success(self, enabled_handler, mock_test):
         """Test successful test listing."""
-        with patch.object(enabled_handler, '_get_all_tests', return_value=[mock_test]):
+        with patch.object(enabled_handler, "_get_all_tests", return_value=[mock_test]):
             result = enabled_handler.handle("/api/evolution/ab-tests", {}, None)
 
             assert result.status_code == 200
@@ -174,6 +177,7 @@ class TestListTests:
 # ============================================================================
 # GET /api/evolution/ab-tests/{id} Tests
 # ============================================================================
+
 
 class TestGetTest:
     """Tests for getting specific test."""
@@ -198,6 +202,7 @@ class TestGetTest:
 # ============================================================================
 # GET /api/evolution/ab-tests/{agent}/active Tests
 # ============================================================================
+
 
 class TestGetActiveTest:
     """Tests for getting active test for agent."""
@@ -225,6 +230,7 @@ class TestGetActiveTest:
 # ============================================================================
 # POST /api/evolution/ab-tests Tests
 # ============================================================================
+
 
 class TestCreateTest:
     """Tests for creating new tests."""
@@ -316,6 +322,7 @@ class TestCreateTest:
 # POST /api/evolution/ab-tests/{id}/record Tests
 # ============================================================================
 
+
 class TestRecordResult:
     """Tests for recording debate results."""
 
@@ -362,6 +369,7 @@ class TestRecordResult:
 # POST /api/evolution/ab-tests/{id}/conclude Tests
 # ============================================================================
 
+
 class TestConcludeTest:
     """Tests for concluding tests."""
 
@@ -393,6 +401,7 @@ class TestConcludeTest:
 # ============================================================================
 # DELETE /api/evolution/ab-tests/{id} Tests
 # ============================================================================
+
 
 class TestCancelTest:
     """Tests for cancelling tests."""
@@ -457,7 +466,9 @@ class TestCancelTest:
                 mock_auth_ctx = Mock()
                 mock_auth_ctx.is_authenticated = True
                 mock_extract.return_value = mock_auth_ctx
-                result = enabled_handler.handle_delete(f"/api/evolution/ab-tests/test-{i}", mock_handler)
+                result = enabled_handler.handle_delete(
+                    f"/api/evolution/ab-tests/test-{i}", mock_handler
+                )
 
             # After 10 requests, should get rate limited
             if result is not None and result.status_code == 429:
@@ -475,7 +486,9 @@ class TestCancelTest:
             mock_auth_ctx.is_authenticated = True
             mock_extract.return_value = mock_auth_ctx
             # Path traversal attempt
-            result = enabled_handler.handle_delete("/api/evolution/ab-tests/../../../etc/passwd", mock_handler)
+            result = enabled_handler.handle_delete(
+                "/api/evolution/ab-tests/../../../etc/passwd", mock_handler
+            )
 
         # Should either return None (not matched) or 400/404
         assert result is None or result.status_code in [400, 404]

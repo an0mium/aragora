@@ -62,7 +62,9 @@ class EvidenceSnippet:
 
     def to_text_block(self) -> str:
         """Format as a text block for debate context."""
-        freshness_indicator = "🟢" if self.freshness_score > 0.8 else "🟡" if self.freshness_score > 0.5 else "🔴"
+        freshness_indicator = (
+            "🟢" if self.freshness_score > 0.8 else "🟡" if self.freshness_score > 0.5 else "🔴"
+        )
         return f"""EVID-{self.id}:
 Source: {self.source} ({self.reliability_score:.1f} reliability, {freshness_indicator} {self.freshness_score:.1f} fresh)
 Title: {self.title}
@@ -218,7 +220,9 @@ class EvidenceCollector:
         except Exception as e:
             logger.warning(f"Failed to emit evidence_found event: {e}")
 
-    async def collect_evidence(self, task: str, enabled_connectors: List[str] = None) -> EvidencePack:
+    async def collect_evidence(
+        self, task: str, enabled_connectors: List[str] = None
+    ) -> EvidencePack:
         """Collect evidence relevant to the task."""
         if enabled_connectors is None:
             enabled_connectors = list(self.connectors.keys())
@@ -235,18 +239,20 @@ class EvidenceCollector:
                 for url in explicit_urls:
                     try:
                         # Normalize URL
-                        full_url = url if url.startswith(('http://', 'https://')) else f'https://{url}'
-                        if hasattr(web_connector, 'fetch_url'):
+                        full_url = (
+                            url if url.startswith(("http://", "https://")) else f"https://{url}"
+                        )
+                        if hasattr(web_connector, "fetch_url"):
                             evidence = await web_connector.fetch_url(full_url)
-                            if evidence and getattr(evidence, 'confidence', 0) > 0:
+                            if evidence and getattr(evidence, "confidence", 0) > 0:
                                 snippet = EvidenceSnippet(
                                     id=f"url_{hashlib.sha256(full_url.encode()).hexdigest()[:12]}",
                                     source="direct_url",
-                                    title=getattr(evidence, 'title', full_url),
+                                    title=getattr(evidence, "title", full_url),
                                     snippet=self._truncate_snippet(evidence.content),
                                     url=full_url,
                                     reliability_score=0.9,  # High reliability for direct URL fetch
-                                    metadata={"fetched_directly": True, "original_url": url}
+                                    metadata={"fetched_directly": True, "original_url": url},
                                 )
                                 all_snippets.append(snippet)
                                 total_searched += 1
@@ -277,10 +283,10 @@ class EvidenceCollector:
                     total_searched += searched_count
 
         # Rank and limit snippets
-        ranked_snippets = self._rank_snippets(all_snippets, keywords)[:self.max_total_snippets]
+        ranked_snippets = self._rank_snippets(all_snippets, keywords)[: self.max_total_snippets]
 
         # Record in provenance (optional - method may not exist yet)
-        if hasattr(self.provenance_manager, 'record_evidence_use'):
+        if hasattr(self.provenance_manager, "record_evidence_use"):
             for snippet in ranked_snippets:
                 self.provenance_manager.record_evidence_use(snippet.id, task, "debate_context")
 
@@ -289,16 +295,11 @@ class EvidenceCollector:
             self._emit_evidence_events(ranked_snippets, keywords)
 
         return EvidencePack(
-            topic_keywords=keywords,
-            snippets=ranked_snippets,
-            total_searched=total_searched
+            topic_keywords=keywords, snippets=ranked_snippets, total_searched=total_searched
         )
 
     async def _search_connector(
-        self,
-        connector_name: str,
-        connector: Connector,
-        keywords: List[str]
+        self, connector_name: str, connector: Connector, keywords: List[str]
     ) -> Tuple[List[EvidenceSnippet], int]:
         """Search a single connector and return snippets."""
         try:
@@ -306,35 +307,39 @@ class EvidenceCollector:
             query = " ".join(keywords[:3])  # Use top 3 keywords
 
             # Call connector search (assuming it has a search method)
-            if hasattr(connector, 'search'):
+            if hasattr(connector, "search"):
                 results = await connector.search(query, limit=self.max_snippets_per_connector)
             else:
                 # Fallback for connectors without search
                 results = []
 
             snippets = []
-            for i, result in enumerate(results[:self.max_snippets_per_connector]):
+            for i, result in enumerate(results[: self.max_snippets_per_connector]):
                 # Handle both Evidence objects (from WebConnector) and dict results (from other connectors)
-                if hasattr(result, 'title'):  # Evidence object
+                if hasattr(result, "title"):  # Evidence object
                     snippet = EvidenceSnippet(
                         id=f"{connector_name}_{result.id}",
                         source=connector_name,
                         title=result.title,
                         snippet=self._truncate_snippet(result.content),
-                        url=result.url or '',
-                        reliability_score=self._calculate_reliability_from_evidence(connector_name, result),
-                        metadata=result.metadata
+                        url=result.url or "",
+                        reliability_score=self._calculate_reliability_from_evidence(
+                            connector_name, result
+                        ),
+                        metadata=result.metadata,
                     )
                 else:  # Dict result from other connectors
                     result_dict: dict[str, Any] = result  # type: ignore[assignment]
                     snippet = EvidenceSnippet(
                         id=f"{connector_name}_{i}",
                         source=connector_name,
-                        title=result_dict.get('title', result_dict.get('name', 'Unknown')),
-                        snippet=self._truncate_snippet(result_dict.get('content', result_dict.get('text', ''))),
-                        url=result_dict.get('url', ''),
+                        title=result_dict.get("title", result_dict.get("name", "Unknown")),
+                        snippet=self._truncate_snippet(
+                            result_dict.get("content", result_dict.get("text", ""))
+                        ),
+                        url=result_dict.get("url", ""),
                         reliability_score=self._calculate_reliability(connector_name, result_dict),
-                        metadata=result_dict
+                        metadata=result_dict,
                     )
                 snippets.append(snippet)
 
@@ -347,9 +352,9 @@ class EvidenceCollector:
     def _extract_urls(self, task: str) -> List[str]:
         """Extract explicit URLs and domain references from task description."""
         patterns = [
-            r'https?://[^\s)<>\[\]]+',  # Full URLs (http/https)
-            r'www\.[^\s)<>\[\]]+',  # www URLs
-            r'\b([a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|org|net|io|ai|dev|app|co|edu|gov))\b',  # Domain names
+            r"https?://[^\s)<>\[\]]+",  # Full URLs (http/https)
+            r"www\.[^\s)<>\[\]]+",  # www URLs
+            r"\b([a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|org|net|io|ai|dev|app|co|edu|gov))\b",  # Domain names
         ]
         urls = []
         for pattern in patterns:
@@ -368,10 +373,70 @@ class EvidenceCollector:
     def _extract_keywords(self, task: str) -> List[str]:
         """Extract search keywords from task description."""
         # Simple keyword extraction - split and filter
-        words = re.findall(r'\b\w+\b', task.lower())
+        words = re.findall(r"\b\w+\b", task.lower())
 
         # Remove stop words
-        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'shall', 'over', 'under', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'from', 'up', 'down', 'out', 'off', 'about', 'between', 'against', 'this', 'that', 'these', 'those', 'it', 'its'}
+        stop_words = {
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "by",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "can",
+            "shall",
+            "over",
+            "under",
+            "into",
+            "through",
+            "during",
+            "before",
+            "after",
+            "above",
+            "below",
+            "from",
+            "up",
+            "down",
+            "out",
+            "off",
+            "about",
+            "between",
+            "against",
+            "this",
+            "that",
+            "these",
+            "those",
+            "it",
+            "its",
+        }
         keywords = [word for word in words if len(word) > 2 and word not in stop_words]
 
         # Get unique keywords, prioritize nouns/important terms
@@ -380,7 +445,7 @@ class EvidenceCollector:
         # Boost keywords that appear in task title or are technical
         boosted = []
         for keyword in unique_keywords:
-            if any(char in keyword for char in ['#', 'ai', 'tech', 'data', 'system', 'code']):
+            if any(char in keyword for char in ["#", "ai", "tech", "data", "system", "code"]):
                 boosted.extend([keyword] * 2)  # Duplicate for higher weight
             else:
                 boosted.append(keyword)
@@ -392,37 +457,33 @@ class EvidenceCollector:
         if len(text) <= self.snippet_max_length:
             return text
 
-        truncated = text[:self.snippet_max_length]
+        truncated = text[: self.snippet_max_length]
 
         # Try to find sentence end
-        last_sentence_end = max(
-            truncated.rfind('. '),
-            truncated.rfind('! '),
-            truncated.rfind('? ')
-        )
+        last_sentence_end = max(truncated.rfind(". "), truncated.rfind("! "), truncated.rfind("? "))
 
         if last_sentence_end > self.snippet_max_length * 0.7:  # If we can keep most of it
-            return truncated[:last_sentence_end + 1]
+            return truncated[: last_sentence_end + 1]
 
         return truncated + "..."
 
     def _calculate_reliability(self, connector_name: str, result: Dict[str, Any]) -> float:
         """Calculate reliability score based on source and metadata."""
         base_scores = {
-            'github': 0.8,  # Code/docs from GitHub
-            'local_docs': 0.9,  # Local documentation
-            'web_search': 0.6,  # General web results
-            'academic': 0.9,  # Academic sources
+            "github": 0.8,  # Code/docs from GitHub
+            "local_docs": 0.9,  # Local documentation
+            "web_search": 0.6,  # General web results
+            "academic": 0.9,  # Academic sources
         }
 
         base_score = base_scores.get(connector_name, 0.5)
 
         # Adjust based on metadata
-        if result.get('verified', False):
+        if result.get("verified", False):
             base_score += 0.1
-        if result.get('recent', False):
+        if result.get("recent", False):
             base_score += 0.05
-        if len(result.get('content', '')) > 1000:  # Substantial content
+        if len(result.get("content", "")) > 1000:  # Substantial content
             base_score += 0.05
 
         return min(1.0, base_score)
@@ -430,10 +491,10 @@ class EvidenceCollector:
     def _calculate_reliability_from_evidence(self, connector_name: str, evidence) -> float:
         """Calculate reliability score from Evidence object."""
         base_scores = {
-            'github': 0.8,
-            'local_docs': 0.9,
-            'web': 0.6,  # WebConnector uses 'web' as source
-            'academic': 0.9,
+            "github": 0.8,
+            "local_docs": 0.9,
+            "web": 0.6,  # WebConnector uses 'web' as source
+            "academic": 0.9,
         }
 
         base_score = base_scores.get(connector_name, 0.5)
@@ -447,8 +508,11 @@ class EvidenceCollector:
 
         return min(1.0, base_score)
 
-    def _rank_snippets(self, snippets: List[EvidenceSnippet], keywords: List[str]) -> List[EvidenceSnippet]:
+    def _rank_snippets(
+        self, snippets: List[EvidenceSnippet], keywords: List[str]
+    ) -> List[EvidenceSnippet]:
         """Rank snippets by relevance, reliability, and freshness."""
+
         def score_snippet(snippet: EvidenceSnippet) -> float:
             relevance_score = 0.0
             text_lower = (snippet.title + " " + snippet.snippet).lower()
@@ -468,9 +532,9 @@ class EvidenceCollector:
 
             # Combined scoring: relevance (50%), reliability (35%), freshness (15%)
             return (
-                relevance_normalized * 0.50 +
-                snippet.reliability_score * 0.35 +
-                snippet.freshness_score * 0.15
+                relevance_normalized * 0.50
+                + snippet.reliability_score * 0.35
+                + snippet.freshness_score * 0.15
             )
 
         return sorted(snippets, key=score_snippet, reverse=True)
@@ -547,7 +611,7 @@ class EvidenceCollector:
         # Rank and limit
         unique_keywords = list(set(all_keywords))
         ranked_snippets = self._rank_snippets(unique_snippets, unique_keywords)
-        final_snippets = ranked_snippets[:self.max_total_snippets]
+        final_snippets = ranked_snippets[: self.max_total_snippets]
 
         logger.info(
             f"evidence_for_claims claims={len(claims)} snippets={len(final_snippets)} "
@@ -578,7 +642,7 @@ class EvidenceCollector:
         claims: List[str] = []
 
         # Split into sentences
-        sentences = re.split(r'[.!?]\s+', text)
+        sentences = re.split(r"[.!?]\s+", text)
 
         for sentence in sentences:
             sentence = sentence.strip()
@@ -587,14 +651,14 @@ class EvidenceCollector:
 
             # Check for claim indicators
             claim_indicators = [
-                r'\d+%',  # Percentages
-                r'\d+ (times|percent|million|billion)',  # Quantitative claims
-                r'(studies|research|evidence) (show|suggest|indicate)',
-                r'(proven|demonstrated|established) that',
-                r'(better|worse|faster|slower|more|less) than',
-                r'according to',
-                r'(is|are) (known|considered|recognized)',
-                r'(always|never|all|none|every)',  # Absolute claims
+                r"\d+%",  # Percentages
+                r"\d+ (times|percent|million|billion)",  # Quantitative claims
+                r"(studies|research|evidence) (show|suggest|indicate)",
+                r"(proven|demonstrated|established) that",
+                r"(better|worse|faster|slower|more|less) than",
+                r"according to",
+                r"(is|are) (known|considered|recognized)",
+                r"(always|never|all|none|every)",  # Absolute claims
             ]
 
             for pattern in claim_indicators:

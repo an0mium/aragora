@@ -76,10 +76,7 @@ class TestGraphNavigationExtended:
 
         # Merge creates node with multiple parents
         merge = graph.merge_branches(
-            [b1.id, b2.id],
-            MergeStrategy.SYNTHESIS,
-            "system",
-            "Merged content"
+            [b1.id, b2.id], MergeStrategy.SYNTHESIS, "system", "Merged content"
         )
 
         merge_node = graph.nodes[merge.merged_node_id]
@@ -159,7 +156,7 @@ class TestGraphNavigationExtended:
                 NodeType.PROPOSAL if i % 2 == 0 else NodeType.CRITIQUE,
                 f"agent{i}",
                 f"Content {i}",
-                current.id
+                current.id,
             )
 
         path = graph.get_path_to_node(current.id)
@@ -182,15 +179,11 @@ class TestMergeOperationsExtended:
         branches = []
         for i in range(3):
             b = graph.create_branch(root.id, BranchReason.UNCERTAINTY, f"B{i}")
-            graph.add_node(NodeType.PROPOSAL, f"a{i}", f"P{i}", root.id, b.id,
-                          claims=[f"claim{i}"])
+            graph.add_node(NodeType.PROPOSAL, f"a{i}", f"P{i}", root.id, b.id, claims=[f"claim{i}"])
             branches.append(b)
 
         result = graph.merge_branches(
-            [b.id for b in branches],
-            MergeStrategy.SYNTHESIS,
-            "system",
-            "Three-way merge"
+            [b.id for b in branches], MergeStrategy.SYNTHESIS, "system", "Three-way merge"
         )
 
         assert len(result.source_branch_ids) == 3
@@ -226,10 +219,8 @@ class TestMergeOperationsExtended:
         b1 = graph.create_branch(root.id, BranchReason.UNCERTAINTY, "B1")
         b2 = graph.create_branch(root.id, BranchReason.UNCERTAINTY, "B2")
 
-        graph.add_node(NodeType.SYNTHESIS, "a", "S1", root.id, b1.id,
-                      claims=["unique_a", "shared"])
-        graph.add_node(NodeType.SYNTHESIS, "b", "S2", root.id, b2.id,
-                      claims=["unique_b", "shared"])
+        graph.add_node(NodeType.SYNTHESIS, "a", "S1", root.id, b1.id, claims=["unique_a", "shared"])
+        graph.add_node(NodeType.SYNTHESIS, "b", "S2", root.id, b2.id, claims=["unique_b", "shared"])
 
         result = graph.merge_branches([b1.id, b2.id], MergeStrategy.SYNTHESIS, "sys", "M")
 
@@ -297,10 +288,18 @@ class TestConvergenceExtended:
         b2 = Branch(id="b2", name="B2", reason=BranchReason.UNCERTAINTY, start_node_id="n")
 
         # Nodes with no claims but similar content
-        n1 = DebateNode(id="n1", node_type=NodeType.SYNTHESIS, agent_id="a",
-                       content="The answer is definitely forty two")
-        n2 = DebateNode(id="n2", node_type=NodeType.SYNTHESIS, agent_id="b",
-                       content="The answer is forty two for sure")
+        n1 = DebateNode(
+            id="n1",
+            node_type=NodeType.SYNTHESIS,
+            agent_id="a",
+            content="The answer is definitely forty two",
+        )
+        n2 = DebateNode(
+            id="n2",
+            node_type=NodeType.SYNTHESIS,
+            agent_id="b",
+            content="The answer is forty two for sure",
+        )
 
         score = scorer.score_convergence(b1, b2, [n1], [n2])
         assert score > 0.3  # Some similarity
@@ -314,16 +313,26 @@ class TestConvergenceExtended:
 
         # Many nodes, but last 3 are similar
         nodes_a = [
-            DebateNode(id=f"a{i}", node_type=NodeType.PROPOSAL, agent_id="a",
-                      content="old", claims=["different"])
+            DebateNode(
+                id=f"a{i}",
+                node_type=NodeType.PROPOSAL,
+                agent_id="a",
+                content="old",
+                claims=["different"],
+            )
             for i in range(5)
         ]
         nodes_a[-1].claims = ["same"]
         nodes_a[-2].claims = ["same"]
 
         nodes_b = [
-            DebateNode(id=f"b{i}", node_type=NodeType.PROPOSAL, agent_id="b",
-                      content="old", claims=["different"])
+            DebateNode(
+                id=f"b{i}",
+                node_type=NodeType.PROPOSAL,
+                agent_id="b",
+                content="old",
+                claims=["different"],
+            )
             for i in range(5)
         ]
         nodes_b[-1].claims = ["same"]
@@ -340,10 +349,22 @@ class TestConvergenceExtended:
         b1 = Branch(id="b1", name="B1", reason=BranchReason.UNCERTAINTY, start_node_id="n")
         b2 = Branch(id="b2", name="B2", reason=BranchReason.UNCERTAINTY, start_node_id="n")
 
-        n1 = DebateNode(id="n1", node_type=NodeType.SYNTHESIS, agent_id="a",
-                       content="X", claims=["a", "b", "c"], confidence=0.8)
-        n2 = DebateNode(id="n2", node_type=NodeType.SYNTHESIS, agent_id="b",
-                       content="Y", claims=["b", "c", "d"], confidence=0.8)
+        n1 = DebateNode(
+            id="n1",
+            node_type=NodeType.SYNTHESIS,
+            agent_id="a",
+            content="X",
+            claims=["a", "b", "c"],
+            confidence=0.8,
+        )
+        n2 = DebateNode(
+            id="n2",
+            node_type=NodeType.SYNTHESIS,
+            agent_id="b",
+            content="Y",
+            claims=["b", "c", "d"],
+            confidence=0.8,
+        )
 
         # 2/4 overlap = 0.5 Jaccard
         score = scorer.score_convergence(b1, b2, [n1], [n2])
@@ -360,14 +381,17 @@ class TestConvergenceExtended:
         b3 = graph.create_branch(root.id, BranchReason.UNCERTAINTY, "B3")
 
         # B1 and B2 highly similar
-        graph.add_node(NodeType.SYNTHESIS, "a", "X", root.id, b1.id,
-                      claims=["same", "same2"], confidence=0.9)
-        graph.add_node(NodeType.SYNTHESIS, "b", "Y", root.id, b2.id,
-                      claims=["same", "same2"], confidence=0.9)
+        graph.add_node(
+            NodeType.SYNTHESIS, "a", "X", root.id, b1.id, claims=["same", "same2"], confidence=0.9
+        )
+        graph.add_node(
+            NodeType.SYNTHESIS, "b", "Y", root.id, b2.id, claims=["same", "same2"], confidence=0.9
+        )
 
         # B3 different
-        graph.add_node(NodeType.SYNTHESIS, "c", "Z", root.id, b3.id,
-                      claims=["different"], confidence=0.5)
+        graph.add_node(
+            NodeType.SYNTHESIS, "c", "Z", root.id, b3.id, claims=["different"], confidence=0.5
+        )
 
         candidates = graph.check_convergence()
 
@@ -437,8 +461,8 @@ class TestBranchPolicyExtended:
         """Test alternative score triggers ALTERNATIVE_APPROACH."""
         policy = BranchPolicy(
             disagreement_threshold=0.9,  # Very high
-            uncertainty_threshold=0.9,   # Very high
-            min_alternative_score=0.4
+            uncertainty_threshold=0.9,  # Very high
+            min_alternative_score=0.4,
         )
 
         # Low disagreement/uncertainty, but good alternative
@@ -448,10 +472,7 @@ class TestBranchPolicyExtended:
 
     def test_priority_disagreement_over_uncertainty(self):
         """Test disagreement is checked before uncertainty."""
-        policy = BranchPolicy(
-            disagreement_threshold=0.5,
-            uncertainty_threshold=0.5
-        )
+        policy = BranchPolicy(disagreement_threshold=0.5, uncertainty_threshold=0.5)
 
         # Both exceed threshold - disagreement should be returned
         should, reason = policy.should_branch(0.6, 0.6, 1, 1)
@@ -625,10 +646,12 @@ class TestOrchestratorExtended:
         """Test synthesis with branches having no claims."""
         orchestrator = GraphDebateOrchestrator([])
 
-        nodes_a = [DebateNode(id="a", node_type=NodeType.SYNTHESIS, agent_id="x",
-                             content="Content A")]
-        nodes_b = [DebateNode(id="b", node_type=NodeType.SYNTHESIS, agent_id="y",
-                             content="Content B")]
+        nodes_a = [
+            DebateNode(id="a", node_type=NodeType.SYNTHESIS, agent_id="x", content="Content A")
+        ]
+        nodes_b = [
+            DebateNode(id="b", node_type=NodeType.SYNTHESIS, agent_id="y", content="Content B")
+        ]
 
         synthesis = orchestrator._synthesize_branches(nodes_a, nodes_b)
         assert "Synthesis" in synthesis
@@ -639,9 +662,14 @@ class TestOrchestratorExtended:
         orchestrator = GraphDebateOrchestrator([])
 
         leaves = [
-            DebateNode(id=f"l{i}", node_type=NodeType.CONCLUSION, agent_id=f"a{i}",
-                      content=f"Conclusion {i}", confidence=0.7 + i*0.1,
-                      claims=[f"claim{i}"])
+            DebateNode(
+                id=f"l{i}",
+                node_type=NodeType.CONCLUSION,
+                agent_id=f"a{i}",
+                content=f"Conclusion {i}",
+                confidence=0.7 + i * 0.1,
+                claims=[f"claim{i}"],
+            )
             for i in range(4)
         ]
 
@@ -668,8 +696,7 @@ class TestSerializationExtended:
         for i in range(50):
             node_type = NodeType.PROPOSAL if i % 3 == 0 else NodeType.CRITIQUE
             current = graph.add_node(
-                node_type, f"agent{i % 5}", f"Content {i}",
-                current.id, claims=[f"claim{i}"]
+                node_type, f"agent{i % 5}", f"Content {i}", current.id, claims=[f"claim{i}"]
             )
 
         # Serialize and restore
@@ -774,12 +801,15 @@ class TestReplayBuilderExtended:
         ts1 = datetime(2026, 1, 1)
         ts2 = datetime(2026, 1, 2)
 
-        n3 = DebateNode(id="n3", node_type=NodeType.SYNTHESIS, agent_id="a",
-                       content="Third", timestamp=ts3)
-        n1 = DebateNode(id="n1", node_type=NodeType.ROOT, agent_id="system",
-                       content="First", timestamp=ts1)
-        n2 = DebateNode(id="n2", node_type=NodeType.PROPOSAL, agent_id="a",
-                       content="Second", timestamp=ts2)
+        n3 = DebateNode(
+            id="n3", node_type=NodeType.SYNTHESIS, agent_id="a", content="Third", timestamp=ts3
+        )
+        n1 = DebateNode(
+            id="n1", node_type=NodeType.ROOT, agent_id="system", content="First", timestamp=ts1
+        )
+        n2 = DebateNode(
+            id="n2", node_type=NodeType.PROPOSAL, agent_id="a", content="Second", timestamp=ts2
+        )
 
         # Add in wrong order
         for n in [n3, n1, n2]:
@@ -820,11 +850,7 @@ class TestReplayBuilderExtended:
         p1 = graph.add_node(NodeType.PROPOSAL, "a", "P1", root.id)
 
         # Create counterfactual branch
-        cf_branch = graph.create_branch(
-            p1.id,
-            BranchReason.COUNTERFACTUAL_EXPLORATION,
-            "What if?"
-        )
+        cf_branch = graph.create_branch(p1.id, BranchReason.COUNTERFACTUAL_EXPLORATION, "What if?")
         graph.add_node(NodeType.COUNTERFACTUAL, "b", "CF", p1.id, cf_branch.id)
 
         builder = GraphReplayBuilder(graph)
@@ -899,10 +925,12 @@ class TestEdgeCases:
         """Test node hashes differ for different content."""
         ts = datetime(2026, 1, 1)
 
-        n1 = DebateNode(id="n1", node_type=NodeType.PROPOSAL, agent_id="a",
-                       content="Content A", timestamp=ts)
-        n2 = DebateNode(id="n2", node_type=NodeType.PROPOSAL, agent_id="a",
-                       content="Content B", timestamp=ts)
+        n1 = DebateNode(
+            id="n1", node_type=NodeType.PROPOSAL, agent_id="a", content="Content A", timestamp=ts
+        )
+        n2 = DebateNode(
+            id="n2", node_type=NodeType.PROPOSAL, agent_id="a", content="Content B", timestamp=ts
+        )
 
         assert n1.hash() != n2.hash()
 

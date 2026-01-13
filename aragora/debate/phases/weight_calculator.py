@@ -143,9 +143,7 @@ class WeightCalculator:
 
         return weight
 
-    def get_weight_with_factors(
-        self, agent_name: str
-    ) -> tuple[float, WeightFactors]:
+    def get_weight_with_factors(self, agent_name: str) -> tuple[float, WeightFactors]:
         """Get weight with breakdown of individual factors.
 
         Useful for debugging and understanding weight contributions.
@@ -157,10 +155,7 @@ class WeightCalculator:
             Tuple of (final_weight, WeightFactors)
         """
         factors = self._compute_factors(agent_name)
-        weight = max(
-            self.config.min_weight,
-            min(self.config.max_weight, factors.total)
-        )
+        weight = max(self.config.min_weight, min(self.config.max_weight, factors.total))
         return weight, factors
 
     def _prefetch_ratings(self, agent_names: list[str]) -> None:
@@ -198,7 +193,7 @@ class WeightCalculator:
 
     def _get_reputation_weight(self, agent_name: str) -> float:
         """Get reputation weight from memory system."""
-        if not self.memory or not hasattr(self.memory, 'get_vote_weight'):
+        if not self.memory or not hasattr(self.memory, "get_vote_weight"):
             return 1.0
 
         try:

@@ -29,6 +29,7 @@ from aragora.resilience import CircuitBreaker
 @dataclass
 class MockAgent:
     """Mock agent for testing fallback behavior."""
+
     name: str
     should_fail: bool = False
     fail_count: int = 0  # Number of times to fail before succeeding
@@ -166,9 +167,10 @@ class TestAgentFallbackChain:
         )
 
         # Primary fails, secondary succeeds
-        chain.register_provider("primary", lambda: MockAgent(
-            name="primary", should_fail=True, failure_message="Primary failed"
-        ))
+        chain.register_provider(
+            "primary",
+            lambda: MockAgent(name="primary", should_fail=True, failure_message="Primary failed"),
+        )
         chain.register_provider("secondary", lambda: MockAgent(name="secondary"))
 
         result = await chain.generate("Test prompt")
@@ -188,12 +190,8 @@ class TestAgentFallbackChain:
         )
 
         # Primary and secondary fail, tertiary succeeds
-        chain.register_provider("primary", lambda: MockAgent(
-            name="primary", should_fail=True
-        ))
-        chain.register_provider("secondary", lambda: MockAgent(
-            name="secondary", should_fail=True
-        ))
+        chain.register_provider("primary", lambda: MockAgent(name="primary", should_fail=True))
+        chain.register_provider("secondary", lambda: MockAgent(name="secondary", should_fail=True))
         chain.register_provider("tertiary", lambda: MockAgent(name="tertiary"))
 
         result = await chain.generate("Test prompt")
@@ -211,12 +209,16 @@ class TestAgentFallbackChain:
             circuit_breaker=circuit_breaker,
         )
 
-        chain.register_provider("primary", lambda: MockAgent(
-            name="primary", should_fail=True, failure_message="Primary error"
-        ))
-        chain.register_provider("secondary", lambda: MockAgent(
-            name="secondary", should_fail=True, failure_message="Secondary error"
-        ))
+        chain.register_provider(
+            "primary",
+            lambda: MockAgent(name="primary", should_fail=True, failure_message="Primary error"),
+        )
+        chain.register_provider(
+            "secondary",
+            lambda: MockAgent(
+                name="secondary", should_fail=True, failure_message="Secondary error"
+            ),
+        )
 
         with pytest.raises(AllProvidersExhaustedError) as exc_info:
             await chain.generate("Test prompt")
@@ -300,12 +302,10 @@ class TestAgentFallbackChain:
             circuit_breaker=circuit_breaker,
         )
 
-        chain.register_provider("primary", lambda: MockAgent(
-            name="primary", should_fail=True
-        ))
-        chain.register_provider("secondary", lambda: MockAgent(
-            name="secondary", response="token1 token2 token3"
-        ))
+        chain.register_provider("primary", lambda: MockAgent(name="primary", should_fail=True))
+        chain.register_provider(
+            "secondary", lambda: MockAgent(name="secondary", response="token1 token2 token3")
+        )
 
         tokens = []
         async for token in chain.generate_stream("Test prompt"):
@@ -345,11 +345,12 @@ class TestAgentFallbackChain:
         )
 
         # Primary fails with rate limit error
-        chain.register_provider("primary", lambda: MockAgent(
-            name="primary",
-            should_fail=True,
-            failure_message="Error: rate limit exceeded"
-        ))
+        chain.register_provider(
+            "primary",
+            lambda: MockAgent(
+                name="primary", should_fail=True, failure_message="Error: rate limit exceeded"
+            ),
+        )
         chain.register_provider("secondary", lambda: MockAgent(name="secondary"))
 
         result = await chain.generate("Test prompt")
@@ -367,6 +368,7 @@ class TestQuotaFallbackMixin:
 
     def test_is_quota_error_429(self):
         """429 status should be detected as quota error."""
+
         class TestAgent(QuotaFallbackMixin):
             pass
 
@@ -376,6 +378,7 @@ class TestQuotaFallbackMixin:
 
     def test_is_quota_error_403_with_quota_text(self):
         """403 with quota keywords should be detected."""
+
         class TestAgent(QuotaFallbackMixin):
             pass
 
@@ -386,6 +389,7 @@ class TestQuotaFallbackMixin:
 
     def test_is_quota_error_keyword_detection(self):
         """Should detect quota-related keywords in error text."""
+
         class TestAgent(QuotaFallbackMixin):
             pass
 
@@ -403,6 +407,7 @@ class TestQuotaFallbackMixin:
 
     def test_get_fallback_model_with_mapping(self):
         """Should use model mapping for fallback."""
+
         class TestAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
                 "gpt-4": "openai/gpt-4",
@@ -422,6 +427,7 @@ class TestQuotaFallbackMixin:
     @pytest.mark.asyncio
     async def test_fallback_generate_no_key(self):
         """Should return None if OPENROUTER_API_KEY not set."""
+
         class TestAgent(QuotaFallbackMixin):
             name = "test"
             enable_fallback = True
@@ -435,6 +441,7 @@ class TestQuotaFallbackMixin:
     @pytest.mark.asyncio
     async def test_fallback_generate_disabled(self):
         """Should return None if fallback is disabled."""
+
         class TestAgent(QuotaFallbackMixin):
             name = "test"
             enable_fallback = False
@@ -551,18 +558,20 @@ class TestFullIntegrationScenarios:
         )
 
         # Premium: rate limited (will fail)
-        chain.register_provider("premium", lambda: MockAgent(
-            name="premium",
-            should_fail=True,
-            failure_message="429: Rate limit exceeded"
-        ))
+        chain.register_provider(
+            "premium",
+            lambda: MockAgent(
+                name="premium", should_fail=True, failure_message="429: Rate limit exceeded"
+            ),
+        )
 
         # Standard: server error (will fail)
-        chain.register_provider("standard", lambda: MockAgent(
-            name="standard",
-            should_fail=True,
-            failure_message="500: Internal server error"
-        ))
+        chain.register_provider(
+            "standard",
+            lambda: MockAgent(
+                name="standard", should_fail=True, failure_message="500: Internal server error"
+            ),
+        )
 
         # Fallback: working
         chain.register_provider("fallback", lambda: MockAgent(name="fallback"))

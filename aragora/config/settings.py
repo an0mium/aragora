@@ -18,7 +18,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import FrozenSet, Optional
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,23 +28,24 @@ class AuthSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="ARAGORA_")
 
     token_ttl: int = Field(default=3600, ge=60, le=86400, alias="ARAGORA_TOKEN_TTL")
-    shareable_link_ttl: int = Field(default=3600, ge=60, le=604800, alias="ARAGORA_SHAREABLE_LINK_TTL")
+    shareable_link_ttl: int = Field(
+        default=3600, ge=60, le=604800, alias="ARAGORA_SHAREABLE_LINK_TTL"
+    )
     # Rate limit tracking limits (prevent memory exhaustion)
     max_tracked_entries: int = Field(
-        default=10000, ge=100, le=1000000,
-        description="Max entries in rate limit tracking to prevent memory exhaustion"
+        default=10000,
+        ge=100,
+        le=1000000,
+        description="Max entries in rate limit tracking to prevent memory exhaustion",
     )
     max_revoked_tokens: int = Field(
-        default=10000, ge=100, le=1000000,
-        description="Max revoked tokens to store"
+        default=10000, ge=100, le=1000000, description="Max revoked tokens to store"
     )
     revoked_token_ttl: int = Field(
-        default=86400, ge=3600, le=604800,
-        description="How long to keep revoked tokens (seconds)"
+        default=86400, ge=3600, le=604800, description="How long to keep revoked tokens (seconds)"
     )
     rate_limit_window: int = Field(
-        default=60, ge=10, le=3600,
-        description="Rate limit window in seconds"
+        default=60, ge=10, le=3600, description="Rate limit window in seconds"
     )
 
 
@@ -70,8 +71,12 @@ class APILimitSettings(BaseSettings):
 
     max_api_limit: int = Field(default=100, ge=1, le=1000, alias="ARAGORA_MAX_API_LIMIT")
     default_pagination: int = Field(default=20, ge=1, le=100, alias="ARAGORA_DEFAULT_PAGINATION")
-    max_content_length: int = Field(default=100 * 1024 * 1024, ge=1024, alias="ARAGORA_MAX_CONTENT_LENGTH")
-    max_question_length: int = Field(default=10000, ge=100, le=100000, alias="ARAGORA_MAX_QUESTION_LENGTH")
+    max_content_length: int = Field(
+        default=100 * 1024 * 1024, ge=1024, alias="ARAGORA_MAX_CONTENT_LENGTH"
+    )
+    max_question_length: int = Field(
+        default=10000, ge=100, le=100000, alias="ARAGORA_MAX_QUESTION_LENGTH"
+    )
 
 
 class DebateSettings(BaseSettings):
@@ -83,9 +88,15 @@ class DebateSettings(BaseSettings):
     max_rounds: int = Field(default=10, ge=1, le=50, alias="ARAGORA_MAX_ROUNDS")
     default_consensus: str = Field(default="hybrid", alias="ARAGORA_DEFAULT_CONSENSUS")
     timeout_seconds: int = Field(default=600, ge=30, le=7200, alias="ARAGORA_DEBATE_TIMEOUT")
-    max_agents_per_debate: int = Field(default=10, ge=2, le=50, alias="ARAGORA_MAX_AGENTS_PER_DEBATE")
-    max_concurrent_debates: int = Field(default=10, ge=1, le=100, alias="ARAGORA_MAX_CONCURRENT_DEBATES")
-    user_event_queue_size: int = Field(default=10000, ge=100, le=100000, alias="ARAGORA_USER_EVENT_QUEUE_SIZE")
+    max_agents_per_debate: int = Field(
+        default=10, ge=2, le=50, alias="ARAGORA_MAX_AGENTS_PER_DEBATE"
+    )
+    max_concurrent_debates: int = Field(
+        default=10, ge=1, le=100, alias="ARAGORA_MAX_CONCURRENT_DEBATES"
+    )
+    user_event_queue_size: int = Field(
+        default=10000, ge=100, le=100000, alias="ARAGORA_USER_EVENT_QUEUE_SIZE"
+    )
 
     @field_validator("default_consensus")
     @classmethod
@@ -102,12 +113,10 @@ class AgentSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="ARAGORA_")
 
     default_agents: str = Field(
-        default="grok,anthropic-api,openai-api,deepseek,gemini",
-        alias="ARAGORA_DEFAULT_AGENTS"
+        default="grok,anthropic-api,openai-api,deepseek,gemini", alias="ARAGORA_DEFAULT_AGENTS"
     )
     streaming_agents: str = Field(
-        default="grok,anthropic-api,openai-api",
-        alias="ARAGORA_STREAMING_AGENTS"
+        default="grok,anthropic-api,openai-api", alias="ARAGORA_STREAMING_AGENTS"
     )
 
     # Streaming configuration
@@ -116,14 +125,14 @@ class AgentSettings(BaseSettings):
         ge=1024,
         le=100 * 1024 * 1024,  # 100MB max
         alias="ARAGORA_STREAM_BUFFER_SIZE",
-        description="Maximum buffer size for streaming responses (bytes)"
+        description="Maximum buffer size for streaming responses (bytes)",
     )
     stream_chunk_timeout: float = Field(
         default=30.0,
         ge=5.0,
         le=300.0,
         alias="ARAGORA_STREAM_CHUNK_TIMEOUT",
-        description="Timeout between stream chunks (seconds)"
+        description="Timeout between stream chunks (seconds)",
     )
 
     # Context limits (for truncation)
@@ -132,26 +141,26 @@ class AgentSettings(BaseSettings):
         ge=1000,
         le=1000000,
         alias="ARAGORA_MAX_CONTEXT_CHARS",
-        description="Maximum characters for context/history"
+        description="Maximum characters for context/history",
     )
     max_message_chars: int = Field(
         default=50000,
         ge=1000,
         le=500000,
         alias="ARAGORA_MAX_MESSAGE_CHARS",
-        description="Maximum characters per message"
+        description="Maximum characters per message",
     )
 
     # Local LLM fallback configuration
     local_fallback_enabled: bool = Field(
         default=False,
         alias="ARAGORA_LOCAL_FALLBACK_ENABLED",
-        description="Enable local LLM (Ollama/LM Studio) as fallback before OpenRouter"
+        description="Enable local LLM (Ollama/LM Studio) as fallback before OpenRouter",
     )
     local_fallback_priority: bool = Field(
         default=False,
         alias="ARAGORA_LOCAL_FALLBACK_PRIORITY",
-        description="Prioritize local LLMs over cloud providers when available"
+        description="Prioritize local LLMs over cloud providers when available",
     )
 
     @property
@@ -205,7 +214,11 @@ class DatabaseSettings(BaseSettings):
 
     timeout_seconds: float = Field(default=30.0, ge=1.0, le=300.0, alias="ARAGORA_DB_TIMEOUT")
     mode: str = Field(default="legacy", alias="ARAGORA_DB_MODE")
-    nomic_dir: str = Field(default=".nomic", alias="ARAGORA_NOMIC_DIR")
+    nomic_dir: str = Field(
+        default=".nomic",
+        alias="ARAGORA_DATA_DIR",
+        validation_alias=AliasChoices("ARAGORA_DATA_DIR", "ARAGORA_NOMIC_DIR"),
+    )
 
     # PostgreSQL configuration
     url: Optional[str] = Field(default=None, alias="DATABASE_URL")
@@ -254,7 +267,9 @@ class WebSocketSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="ARAGORA_WS_")
 
-    max_message_size: int = Field(default=64 * 1024, ge=1024, le=10 * 1024 * 1024, alias="ARAGORA_WS_MAX_MESSAGE_SIZE")
+    max_message_size: int = Field(
+        default=64 * 1024, ge=1024, le=10 * 1024 * 1024, alias="ARAGORA_WS_MAX_MESSAGE_SIZE"
+    )
     heartbeat_interval: int = Field(default=30, ge=5, le=300, alias="ARAGORA_WS_HEARTBEAT")
 
 
@@ -265,7 +280,9 @@ class EloSettings(BaseSettings):
 
     initial_rating: int = Field(default=1500, ge=100, le=3000, alias="ARAGORA_ELO_INITIAL")
     k_factor: int = Field(default=32, ge=1, le=100, alias="ARAGORA_ELO_K_FACTOR")
-    calibration_min_count: int = Field(default=10, ge=1, le=100, alias="ARAGORA_ELO_CALIBRATION_MIN_COUNT")
+    calibration_min_count: int = Field(
+        default=10, ge=1, le=100, alias="ARAGORA_ELO_CALIBRATION_MIN_COUNT"
+    )
 
 
 class BeliefSettings(BaseSettings):
@@ -274,7 +291,9 @@ class BeliefSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="ARAGORA_BELIEF_")
 
     max_iterations: int = Field(default=100, ge=10, le=1000, alias="ARAGORA_BELIEF_MAX_ITERATIONS")
-    convergence_threshold: float = Field(default=0.001, ge=0.0001, le=0.1, alias="ARAGORA_BELIEF_CONVERGENCE_THRESHOLD")
+    convergence_threshold: float = Field(
+        default=0.001, ge=0.0001, le=0.1, alias="ARAGORA_BELIEF_CONVERGENCE_THRESHOLD"
+    )
 
 
 class SSLSettings(BaseSettings):
@@ -334,7 +353,9 @@ class SSOSettings(BaseSettings):
     auto_provision: bool = Field(default=True, alias="ARAGORA_SSO_AUTO_PROVISION")
 
     # Session duration in seconds (default: 8 hours)
-    session_duration: int = Field(default=28800, ge=300, le=604800, alias="ARAGORA_SSO_SESSION_DURATION")
+    session_duration: int = Field(
+        default=28800, ge=300, le=604800, alias="ARAGORA_SSO_SESSION_DURATION"
+    )
 
     @field_validator("provider_type")
     @classmethod
@@ -352,9 +373,7 @@ class SSOSettings(BaseSettings):
             return v
         # Check for PEM header
         if not v.strip().startswith("-----BEGIN"):
-            raise ValueError(
-                "Certificate/key must be in PEM format (starting with -----BEGIN...)"
-            )
+            raise ValueError("Certificate/key must be in PEM format (starting with -----BEGIN...)")
         return v
 
     @property
@@ -379,9 +398,45 @@ class EvidenceSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="ARAGORA_")
 
-    max_snippets_per_connector: int = Field(default=3, ge=1, le=20, alias="ARAGORA_MAX_SNIPPETS_CONNECTOR")
+    max_snippets_per_connector: int = Field(
+        default=3, ge=1, le=20, alias="ARAGORA_MAX_SNIPPETS_CONNECTOR"
+    )
     max_total_snippets: int = Field(default=8, ge=1, le=50, alias="ARAGORA_MAX_TOTAL_SNIPPETS")
-    snippet_max_length: int = Field(default=1000, ge=100, le=10000, alias="ARAGORA_SNIPPET_MAX_LENGTH")
+    snippet_max_length: int = Field(
+        default=1000, ge=100, le=10000, alias="ARAGORA_SNIPPET_MAX_LENGTH"
+    )
+
+
+class FeatureSettings(BaseSettings):
+    """Feature flags configuration for gating experimental features."""
+
+    model_config = SettingsConfigDict(env_prefix="ARAGORA_FEATURE_")
+
+    # Stable features (enabled by default)
+    standard_debates: bool = Field(default=True, alias="ARAGORA_FEATURE_STANDARD_DEBATES")
+    fork_visualizer: bool = Field(default=True, alias="ARAGORA_FEATURE_FORK_VISUALIZER")
+    plugin_marketplace: bool = Field(default=True, alias="ARAGORA_FEATURE_PLUGIN_MARKETPLACE")
+    pulse_scheduler: bool = Field(default=True, alias="ARAGORA_FEATURE_PULSE_SCHEDULER")
+    agent_recommender: bool = Field(default=True, alias="ARAGORA_FEATURE_AGENT_RECOMMENDER")
+
+    # Beta features (enabled but may have issues)
+    batch_debates: bool = Field(default=True, alias="ARAGORA_FEATURE_BATCH_DEBATES")
+    evidence_explorer: bool = Field(default=True, alias="ARAGORA_FEATURE_EVIDENCE_EXPLORER")
+
+    # Beta features (promoted from alpha, enabled by default)
+    graph_debates: bool = Field(default=True, alias="ARAGORA_FEATURE_GRAPH_DEBATES")
+    matrix_debates: bool = Field(default=True, alias="ARAGORA_FEATURE_MATRIX_DEBATES")
+    formal_verification: bool = Field(default=True, alias="ARAGORA_FEATURE_FORMAL_VERIFICATION")
+    memory_explorer: bool = Field(default=True, alias="ARAGORA_FEATURE_MEMORY_EXPLORER")
+    tournament_mode: bool = Field(default=True, alias="ARAGORA_FEATURE_TOURNAMENT_MODE")
+
+    # Deprecated features
+    cli_agents: bool = Field(default=False, alias="ARAGORA_FEATURE_CLI_AGENTS")
+
+    def is_enabled(self, feature: str) -> bool:
+        """Check if a feature is enabled by name."""
+        attr = feature.lower().replace("-", "_")
+        return getattr(self, attr, False)
 
 
 class Settings(BaseSettings):
@@ -416,6 +471,7 @@ class Settings(BaseSettings):
     _storage: Optional[StorageSettings] = None
     _evidence: Optional[EvidenceSettings] = None
     _sso: Optional[SSOSettings] = None
+    _features: Optional[FeatureSettings] = None
 
     @property
     def auth(self) -> AuthSettings:
@@ -501,6 +557,12 @@ class Settings(BaseSettings):
             self._sso = SSOSettings()
         return self._sso
 
+    @property
+    def features(self) -> FeatureSettings:
+        if self._features is None:
+            self._features = FeatureSettings()
+        return self._features
+
 
 @lru_cache()
 def get_settings() -> Settings:
@@ -526,14 +588,30 @@ def reset_settings() -> None:
 
 
 # Valid agent types (allowlist for security)
-ALLOWED_AGENT_TYPES: FrozenSet[str] = frozenset({
-    # Built-in
-    "demo",
-    # CLI-based
-    "codex", "claude", "openai", "gemini-cli", "grok-cli",
-    "qwen-cli", "deepseek-cli", "kilocode",
-    # API-based (direct)
-    "gemini", "ollama", "anthropic-api", "openai-api", "grok",
-    # API-based (via OpenRouter)
-    "deepseek", "deepseek-r1", "llama", "mistral", "openrouter",
-})
+ALLOWED_AGENT_TYPES: FrozenSet[str] = frozenset(
+    {
+        # Built-in
+        "demo",
+        # CLI-based
+        "codex",
+        "claude",
+        "openai",
+        "gemini-cli",
+        "grok-cli",
+        "qwen-cli",
+        "deepseek-cli",
+        "kilocode",
+        # API-based (direct)
+        "gemini",
+        "ollama",
+        "anthropic-api",
+        "openai-api",
+        "grok",
+        # API-based (via OpenRouter)
+        "deepseek",
+        "deepseek-r1",
+        "llama",
+        "mistral",
+        "openrouter",
+    }
+)

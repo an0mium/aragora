@@ -33,8 +33,16 @@ class TestSourceTypeEnum:
     def test_all_source_types_defined(self):
         """Verify all expected source types exist."""
         expected = [
-            "agent_generated", "user_provided", "external_api", "web_search",
-            "document", "code_analysis", "database", "computation", "synthesis", "unknown"
+            "agent_generated",
+            "user_provided",
+            "external_api",
+            "web_search",
+            "document",
+            "code_analysis",
+            "database",
+            "computation",
+            "synthesis",
+            "unknown",
         ]
         actual = [st.value for st in SourceType]
         assert sorted(expected) == sorted(actual)
@@ -52,8 +60,16 @@ class TestTransformationTypeEnum:
     def test_all_transformation_types_defined(self):
         """Verify all expected transformation types exist."""
         expected = [
-            "original", "quoted", "paraphrased", "summarized",
-            "extracted", "computed", "aggregated", "verified", "refuted", "amended"
+            "original",
+            "quoted",
+            "paraphrased",
+            "summarized",
+            "extracted",
+            "computed",
+            "aggregated",
+            "verified",
+            "refuted",
+            "amended",
         ]
         actual = [tt.value for tt in TransformationType]
         assert sorted(expected) == sorted(actual)
@@ -292,7 +308,7 @@ class TestCitationGraph:
 
         score = graph.compute_claim_support_score("claim-001")
         # (1 + 1 - 1) / 3 = 0.333...
-        assert score == pytest.approx(1/3, abs=0.01)
+        assert score == pytest.approx(1 / 3, abs=0.01)
 
     def test_compute_support_score_empty(self):
         """Test support score with no citations."""

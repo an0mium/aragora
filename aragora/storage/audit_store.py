@@ -268,6 +268,7 @@ class AuditStore:
         cutoff = datetime.utcnow().isoformat()
         # Calculate cutoff date
         from datetime import timedelta
+
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         cutoff = cutoff_date.isoformat()
 
@@ -301,6 +302,7 @@ class AuditStore:
             List of recent audit events
         """
         from datetime import timedelta
+
         since = datetime.utcnow() - timedelta(hours=hours)
         return self.get_log(
             user_id=user_id,

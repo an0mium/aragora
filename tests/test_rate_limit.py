@@ -229,6 +229,7 @@ class TestGlobalLimiter:
     def test_get_limiter_singleton(self):
         """Test get_limiter returns singleton."""
         from aragora.server.middleware.rate_limit import reset_rate_limiters
+
         reset_rate_limiters()  # Use new API to reset
         limiter1 = get_limiter()
         limiter2 = get_limiter()
@@ -241,6 +242,7 @@ class TestGlobalLimiter:
         set_limiter() is kept for backward compatibility but does nothing.
         """
         from aragora.server.middleware.rate_limit import reset_rate_limiters
+
         reset_rate_limiters()  # Use new API to reset
         # set_limiter is now a no-op but should not crash
         custom = RateLimiter(default_limit=10)
@@ -253,6 +255,7 @@ class TestGlobalLimiter:
     def test_default_endpoint_configs(self):
         """Test default endpoint configurations are set."""
         from aragora.server.middleware.rate_limit import reset_rate_limiters
+
         reset_rate_limiters()  # Use new API to reset
         limiter = get_limiter()
 
@@ -500,6 +503,7 @@ class TestRedisRateLimiter:
     def test_redis_available_flag(self):
         """Test REDIS_AVAILABLE flag is set correctly."""
         from aragora.server.rate_limit import REDIS_AVAILABLE
+
         # Redis package should be available (installed in dev dependencies)
         assert isinstance(REDIS_AVAILABLE, bool)
 
@@ -550,6 +554,7 @@ class TestRedisRateLimiter:
         try:
             # Reset settings cache
             from aragora.config.settings import reset_settings
+
             reset_settings()
             reset_redis_client()
 

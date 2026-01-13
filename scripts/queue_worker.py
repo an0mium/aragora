@@ -121,7 +121,8 @@ if __name__ == "__main__":
         help="Redis URL (default: from REDIS_URL env or redis://localhost:6379)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose logging",
     )
@@ -135,8 +136,10 @@ if __name__ == "__main__":
     worker_id = args.worker_id or generate_worker_id()
 
     # Run the worker
-    asyncio.run(main(
-        worker_id=worker_id,
-        concurrency=args.concurrency,
-        redis_url=args.redis_url,
-    ))
+    asyncio.run(
+        main(
+            worker_id=worker_id,
+            concurrency=args.concurrency,
+            redis_url=args.redis_url,
+        )
+    )

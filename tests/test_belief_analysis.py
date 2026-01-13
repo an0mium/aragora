@@ -14,6 +14,7 @@ from aragora.debate.phases.belief_analysis import (
 @dataclass
 class MockMessage:
     """Mock debate message."""
+
     agent: str
     content: str
     role: str = "proposer"
@@ -22,6 +23,7 @@ class MockMessage:
 @dataclass
 class MockClaim:
     """Mock grounded claim."""
+
     statement: str
     confidence: float = 0.5
     claim_id: str = ""

@@ -108,10 +108,7 @@ class InMemoryWebhookStore(WebhookStoreBackend):
         """Remove expired entries."""
         now = time.time()
         with self._lock:
-            expired = [
-                k for k, (ts, _) in self._store.items()
-                if now - ts > self._ttl_seconds
-            ]
+            expired = [k for k, (ts, _) in self._store.items() if now - ts > self._ttl_seconds]
             for k in expired:
                 del self._store[k]
             self._last_cleanup = now
@@ -179,13 +176,15 @@ class SQLiteWebhookStore(WebhookStoreBackend):
     def _init_schema(self) -> None:
         """Initialize database schema."""
         conn = sqlite3.connect(str(self.db_path))
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS webhook_events (
                 event_id TEXT PRIMARY KEY,
                 processed_at REAL NOT NULL,
                 result TEXT NOT NULL
             )
-        """)
+        """
+        )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_webhook_processed_at ON webhook_events(processed_at)"
         )
@@ -276,9 +275,11 @@ def get_webhook_store() -> WebhookStoreBackend:
     # Import DATA_DIR from config (handles environment variable)
     try:
         from aragora.config.legacy import DATA_DIR
+
         data_dir = DATA_DIR
     except ImportError:
-        data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", ".aragora"))
+        env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
+        data_dir = Path(env_dir or ".nomic")
 
     if backend_type == "memory":
         logger.info("Using in-memory webhook store (not persistent)")

@@ -161,7 +161,9 @@ class TestAgreementScore:
 
     def test_single_vote(self, reporter):
         """Should handle single vote case."""
-        single_vote = [Vote(agent="claude", choice="option_a", confidence=0.9, reasoning="Only vote")]
+        single_vote = [
+            Vote(agent="claude", choice="option_a", confidence=0.9, reasoning="Only vote")
+        ]
         report = reporter.generate_report(single_vote, [])
         # Single vote means agreement_score stays 0 (no comparison possible)
         assert report.agreement_score == 0.0
@@ -462,9 +464,7 @@ class TestDisagreementReporterIntegration:
 
     def test_custom_threshold_changes_results(self):
         """Custom thresholds should affect what gets flagged."""
-        votes = [
-            Vote(agent="claude", choice="option", confidence=0.55, reasoning="Borderline")
-        ]
+        votes = [Vote(agent="claude", choice="option", confidence=0.55, reasoning="Borderline")]
 
         default_reporter = DisagreementReporter()
         strict_reporter = DisagreementReporter(low_confidence_threshold=0.7)
@@ -483,10 +483,30 @@ class TestDisagreementReporterIntegration:
     def test_complex_debate_scenario(self, reporter):
         """Test realistic multi-agent debate scenario."""
         votes = [
-            Vote(agent="claude", choice="Approach A: Use microservices", confidence=0.85, reasoning="Scalable"),
-            Vote(agent="gemini", choice="Approach A: Use microservices", confidence=0.78, reasoning="Modern"),
-            Vote(agent="gpt4", choice="Approach B: Monolith first", confidence=0.45, reasoning="Simpler"),
-            Vote(agent="llama", choice="Approach A: Use microservices", confidence=0.72, reasoning="Industry standard"),
+            Vote(
+                agent="claude",
+                choice="Approach A: Use microservices",
+                confidence=0.85,
+                reasoning="Scalable",
+            ),
+            Vote(
+                agent="gemini",
+                choice="Approach A: Use microservices",
+                confidence=0.78,
+                reasoning="Modern",
+            ),
+            Vote(
+                agent="gpt4",
+                choice="Approach B: Monolith first",
+                confidence=0.45,
+                reasoning="Simpler",
+            ),
+            Vote(
+                agent="llama",
+                choice="Approach A: Use microservices",
+                confidence=0.72,
+                reasoning="Industry standard",
+            ),
         ]
 
         critiques = [
@@ -519,9 +539,7 @@ class TestDisagreementReporterIntegration:
             ),
         ]
 
-        report = reporter.generate_report(
-            votes, critiques, winner="Approach A: Use microservices"
-        )
+        report = reporter.generate_report(votes, critiques, winner="Approach A: Use microservices")
 
         # 3 out of 4 voted for option A
         assert report.agreement_score == 0.75

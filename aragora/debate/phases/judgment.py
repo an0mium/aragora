@@ -107,9 +107,7 @@ class JudgmentPhase:
     def _select_elo_ranked(self) -> "Agent":
         """Select highest ELO-rated agent as judge."""
         if not self.elo_system:
-            logger.warning(
-                "elo_ranked judge selection requires elo_system; falling back to random"
-            )
+            logger.warning("elo_ranked judge selection requires elo_system; falling back to random")
             return random.choice(self._require_agents())
 
         agent_names = [a.name for a in self.agents]
@@ -120,13 +118,9 @@ class JudgmentPhase:
                 if entry.agent_name in agent_names:
                     top_agent_name = entry.agent_name
                     top_elo = entry.elo
-                    judge = next(
-                        (a for a in self.agents if a.name == top_agent_name), None
-                    )
+                    judge = next((a for a in self.agents if a.name == top_agent_name), None)
                     if judge:
-                        logger.debug(
-                            f"Selected {top_agent_name} (ELO: {top_elo}) as judge"
-                        )
+                        logger.debug(f"Selected {top_agent_name} (ELO: {top_elo}) as judge")
                         return judge
         except Exception as e:
             logger.warning(f"ELO query failed: {e}; falling back to random")
@@ -136,9 +130,7 @@ class JudgmentPhase:
     def _select_calibrated(self) -> "Agent":
         """Select based on composite score (ELO + calibration)."""
         if not self.elo_system:
-            logger.warning(
-                "calibrated judge selection requires elo_system; falling back to random"
-            )
+            logger.warning("calibrated judge selection requires elo_system; falling back to random")
             return random.choice(self._require_agents())
 
         if not self._compute_composite_score:
@@ -158,9 +150,7 @@ class JudgmentPhase:
         if agent_scores:
             agent_scores.sort(key=lambda x: x[1], reverse=True)
             best_agent, best_score = agent_scores[0]
-            logger.debug(
-                f"Selected {best_agent.name} (composite: {best_score:.3f}) as judge"
-            )
+            logger.debug(f"Selected {best_agent.name} (composite: {best_score:.3f}) as judge")
             return best_agent
 
         return random.choice(self._require_agents())

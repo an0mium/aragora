@@ -17,9 +17,11 @@ from aragora.debate.phases.feedback_phase import FeedbackPhase
 # Mock Classes
 # ============================================================================
 
+
 @dataclass
 class MockEnvironment:
     """Mock environment for testing."""
+
     task: str = "Test task"
     context: str = ""
     domain: str = "security"
@@ -28,6 +30,7 @@ class MockEnvironment:
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str = "test_agent"
     role: str = "proposer"
 
@@ -35,6 +38,7 @@ class MockAgent:
 @dataclass
 class MockMessage:
     """Mock message for testing."""
+
     role: str = "proposer"
     agent: str = "test_agent"
     content: str = "Test content"
@@ -44,6 +48,7 @@ class MockMessage:
 @dataclass
 class MockVote:
     """Mock vote for testing."""
+
     agent: str = "voter"
     choice: str = "claude"
     confidence: float = 0.8
@@ -52,6 +57,7 @@ class MockVote:
 @dataclass
 class MockDebateResult:
     """Mock debate result for testing."""
+
     id: str = "debate_001"
     task: str = "Test task"
     messages: list = field(default_factory=list)
@@ -69,6 +75,7 @@ class MockDebateResult:
 @dataclass
 class MockPosition:
     """Mock position for testing."""
+
     id: str = "pos_001"
     debate_id: str = "debate_001"
 
@@ -76,6 +83,7 @@ class MockPosition:
 @dataclass
 class MockFlip:
     """Mock flip event for testing."""
+
     flip_type: str = "contradiction"
     original_claim: str = "X is true"
     new_claim: str = "X is false"
@@ -88,6 +96,7 @@ class MockFlip:
 # ============================================================================
 # FeedbackPhase Construction Tests
 # ============================================================================
+
 
 class TestFeedbackPhaseConstruction:
     """Tests for FeedbackPhase construction."""
@@ -122,6 +131,7 @@ class TestFeedbackPhaseConstruction:
 # ============================================================================
 # ELO Recording Tests
 # ============================================================================
+
 
 class TestELORecording:
     """Tests for ELO match recording."""
@@ -213,6 +223,7 @@ class TestELORecording:
 # Persona Update Tests
 # ============================================================================
 
+
 class TestPersonaUpdate:
     """Tests for persona performance updates."""
 
@@ -223,9 +234,7 @@ class TestPersonaUpdate:
         feedback = FeedbackPhase(persona_manager=persona_manager)
 
         agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
-        ctx = DebateContext(
-            env=MockEnvironment(), agents=agents, domain="security"
-        )
+        ctx = DebateContext(env=MockEnvironment(), agents=agents, domain="security")
         ctx.result = MockDebateResult(winner="claude", consensus_reached=False)
 
         await feedback.execute(ctx)
@@ -246,9 +255,7 @@ class TestPersonaUpdate:
 
         agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents)
-        ctx.result = MockDebateResult(
-            winner="claude", consensus_reached=True, confidence=0.9
-        )
+        ctx.result = MockDebateResult(winner="claude", consensus_reached=True, confidence=0.9)
 
         await feedback.execute(ctx)
 
@@ -276,6 +283,7 @@ class TestPersonaUpdate:
 # Position Resolution Tests
 # ============================================================================
 
+
 class TestPositionResolution:
     """Tests for position ledger resolution."""
 
@@ -289,9 +297,7 @@ class TestPositionResolution:
         feedback = FeedbackPhase(position_ledger=position_ledger)
 
         agents = [MockAgent(name="claude")]
-        ctx = DebateContext(
-            env=MockEnvironment(), agents=agents, debate_id="debate_001"
-        )
+        ctx = DebateContext(env=MockEnvironment(), agents=agents, debate_id="debate_001")
         ctx.result = MockDebateResult(winner="claude", final_answer="Answer")
 
         await feedback.execute(ctx)
@@ -310,9 +316,7 @@ class TestPositionResolution:
         feedback = FeedbackPhase(position_ledger=position_ledger)
 
         agents = [MockAgent(name="gpt4")]  # Not the winner
-        ctx = DebateContext(
-            env=MockEnvironment(), agents=agents, debate_id="debate_001"
-        )
+        ctx = DebateContext(env=MockEnvironment(), agents=agents, debate_id="debate_001")
         ctx.result = MockDebateResult(winner="claude", final_answer="Answer")
 
         await feedback.execute(ctx)
@@ -330,9 +334,7 @@ class TestPositionResolution:
         feedback = FeedbackPhase(position_ledger=position_ledger)
 
         agents = [MockAgent(name="claude")]
-        ctx = DebateContext(
-            env=MockEnvironment(), agents=agents, debate_id="debate_001"
-        )
+        ctx = DebateContext(env=MockEnvironment(), agents=agents, debate_id="debate_001")
         ctx.result = MockDebateResult(final_answer="Answer")
 
         await feedback.execute(ctx)
@@ -344,6 +346,7 @@ class TestPositionResolution:
 # Relationship Tracking Tests
 # ============================================================================
 
+
 class TestRelationshipTracking:
     """Tests for relationship tracker updates."""
 
@@ -354,9 +357,7 @@ class TestRelationshipTracking:
         feedback = FeedbackPhase(relationship_tracker=relationship_tracker)
 
         agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
-        ctx = DebateContext(
-            env=MockEnvironment(), agents=agents, debate_id="debate_001"
-        )
+        ctx = DebateContext(env=MockEnvironment(), agents=agents, debate_id="debate_001")
         ctx.result = MockDebateResult(
             winner="claude",
             messages=[MockMessage(role="critic", agent="gpt4", target_agent="claude")],
@@ -397,6 +398,7 @@ class TestRelationshipTracking:
 # Moment Detection Tests
 # ============================================================================
 
+
 class TestMomentDetection:
     """Tests for narrative moment detection."""
 
@@ -416,9 +418,7 @@ class TestMomentDetection:
         )
 
         agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
-        ctx = DebateContext(
-            env=MockEnvironment(), agents=agents, debate_id="debate_001"
-        )
+        ctx = DebateContext(env=MockEnvironment(), agents=agents, debate_id="debate_001")
         ctx.result = MockDebateResult(winner="claude")
 
         await feedback.execute(ctx)
@@ -437,9 +437,7 @@ class TestMomentDetection:
         feedback = FeedbackPhase(moment_detector=moment_detector)
 
         agents = [MockAgent(name="claude")]
-        ctx = DebateContext(
-            env=MockEnvironment(), agents=agents, debate_id="d1", domain="security"
-        )
+        ctx = DebateContext(env=MockEnvironment(), agents=agents, debate_id="d1", domain="security")
         ctx.result = MockDebateResult(
             winner="claude",
             votes=[MockVote(agent="claude", choice="claude", confidence=0.9)],
@@ -474,6 +472,7 @@ class TestMomentDetection:
 # ============================================================================
 # Flip Detection Tests
 # ============================================================================
+
 
 class TestFlipDetection:
     """Tests for position flip detection."""
@@ -520,6 +519,7 @@ class TestFlipDetection:
 # ============================================================================
 # Memory Storage Tests
 # ============================================================================
+
 
 class TestMemoryStorage:
     """Tests for continuum memory storage."""
@@ -581,6 +581,7 @@ class TestMemoryStorage:
 # Debate Indexing Tests
 # ============================================================================
 
+
 class TestDebateIndexing:
     """Tests for debate embedding indexing."""
 
@@ -610,6 +611,7 @@ class TestDebateIndexing:
 
         # Give async task time to be created
         import asyncio
+
         await asyncio.sleep(0.1)
 
         # Verify artifact structure
@@ -641,6 +643,7 @@ class TestDebateIndexing:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestFeedbackPhaseIntegration:
     """Integration tests for full feedback execution."""

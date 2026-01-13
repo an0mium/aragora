@@ -32,6 +32,7 @@ from aragora.export.dot_exporter import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def sample_consensus():
     """Create sample ConsensusProof."""
@@ -71,15 +72,41 @@ def sample_artifact(sample_consensus, sample_verification):
         },
         trace_data={
             "events": [
-                {"event_type": "message", "agent": "claude", "content": "Hello", "round": 1, "role": "proposer", "timestamp": "2026-01-01T10:00:00"},
-                {"event_type": "critique", "agent": "gemini", "target": "claude", "severity": 0.5, "issues": ["Issue 1"], "round": 1},
-                {"event_type": "agent_proposal", "agent": "claude", "content": {"content": "My proposal"}, "round_num": 1},
+                {
+                    "event_type": "message",
+                    "agent": "claude",
+                    "content": "Hello",
+                    "round": 1,
+                    "role": "proposer",
+                    "timestamp": "2026-01-01T10:00:00",
+                },
+                {
+                    "event_type": "critique",
+                    "agent": "gemini",
+                    "target": "claude",
+                    "severity": 0.5,
+                    "issues": ["Issue 1"],
+                    "round": 1,
+                },
+                {
+                    "event_type": "agent_proposal",
+                    "agent": "claude",
+                    "content": {"content": "My proposal"},
+                    "round_num": 1,
+                },
             ]
         },
         provenance_data={
             "chain": {
                 "records": [
-                    {"id": "ev-1", "source_type": "debate", "source_id": "debate-123", "content": "Test content", "content_hash": "abc123", "previous_hash": None},
+                    {
+                        "id": "ev-1",
+                        "source_type": "debate",
+                        "source_id": "debate-123",
+                        "content": "Test content",
+                        "content_hash": "abc123",
+                        "previous_hash": None,
+                    },
                 ]
             }
         },
@@ -124,6 +151,7 @@ def dot_exporter(sample_artifact):
 # ConsensusProof Dataclass Tests
 # =============================================================================
 
+
 class TestConsensusProof:
     """Tests for ConsensusProof dataclass."""
 
@@ -165,6 +193,7 @@ class TestConsensusProof:
 # VerificationResult Dataclass Tests
 # =============================================================================
 
+
 class TestVerificationResult:
     """Tests for VerificationResult dataclass."""
 
@@ -205,6 +234,7 @@ class TestVerificationResult:
 # =============================================================================
 # DebateArtifact Dataclass Tests
 # =============================================================================
+
 
 class TestDebateArtifact:
     """Tests for DebateArtifact dataclass."""
@@ -308,6 +338,7 @@ class TestDebateArtifact:
 # ArtifactBuilder Tests
 # =============================================================================
 
+
 class TestArtifactBuilder:
     """Tests for ArtifactBuilder class."""
 
@@ -376,6 +407,7 @@ class TestArtifactBuilder:
 # =============================================================================
 # StaticHTMLExporter Tests
 # =============================================================================
+
 
 class TestStaticHTMLExporter:
     """Tests for StaticHTMLExporter class."""
@@ -499,8 +531,8 @@ class TestHTMLSectionGenerators:
         stats = html_exporter._generate_stats()
 
         assert "10" in stats  # message_count
-        assert "5" in stats   # critique_count
-        assert "3" in stats   # rounds
+        assert "5" in stats  # critique_count
+        assert "3" in stats  # rounds
 
 
 class TestGraphRendering:
@@ -568,6 +600,7 @@ class TestHTMLExport:
 # =============================================================================
 # CSVExporter Tests
 # =============================================================================
+
 
 class TestCSVExporterInit:
     """Tests for CSVExporter initialization."""
@@ -696,6 +729,7 @@ class TestCSVConvenienceFunctions:
 # =============================================================================
 # DOT Exporter Tests
 # =============================================================================
+
 
 class TestEscapeLabel:
     """Tests for escape_label function."""
@@ -826,6 +860,7 @@ class TestDOTExportUtilities:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases."""

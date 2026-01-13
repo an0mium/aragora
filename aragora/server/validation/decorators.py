@@ -60,6 +60,7 @@ def validate_request(
         If validation fails, returns an error response dict with
         {"error": "...", "status": 400}.
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -111,7 +112,9 @@ def validate_request(
                         return {"error": result.error, "status": 400}
 
             return func(self, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -133,6 +136,7 @@ def validate_post_body(schema: dict) -> Callable:
             task = body["task"]  # Already validated
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -147,7 +151,9 @@ def validate_post_body(schema: dict) -> Callable:
                 return {"error": result.error, "status": 400}
 
             return func(self, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -175,8 +181,10 @@ def validate_query_params(
         def _handle_list(self, query, handler):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         """Create a validation wrapper for the given handler function."""
+
         @wraps(func)
         def wrapper(self, *args, **kwargs):
             """Validate query parameters before invoking the handler.
@@ -243,5 +251,7 @@ def validate_query_params(
                         }
 
             return func(self, *args, **kwargs)
+
         return wrapper
+
     return decorator

@@ -121,9 +121,7 @@ class DebateWorker:
         for sig in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(sig, self._handle_signal)
 
-        logger.info(
-            f"Worker {self._worker_id} started (max_concurrent={self._max_concurrent})"
-        )
+        logger.info(f"Worker {self._worker_id} started (max_concurrent={self._max_concurrent})")
 
         try:
             # Start background tasks
@@ -239,9 +237,8 @@ class DebateWorker:
             self._jobs_failed += 1
 
             # Determine if we should retry
-            should_retry = (
-                is_retryable_error(e) and
-                self._retry_policy.should_retry(job.attempts, e)
+            should_retry = is_retryable_error(e) and self._retry_policy.should_retry(
+                job.attempts, e
             )
 
             if should_retry:
@@ -327,7 +324,9 @@ async def create_default_executor() -> DebateExecutor:
         # Build result
         debate_result = DebateResult(
             debate_id=result.debate_id if hasattr(result, "debate_id") else job.id,
-            consensus_reached=result.consensus_reached if hasattr(result, "consensus_reached") else False,
+            consensus_reached=(
+                result.consensus_reached if hasattr(result, "consensus_reached") else False
+            ),
             final_answer=result.final_answer if hasattr(result, "final_answer") else None,
             confidence=result.confidence if hasattr(result, "confidence") else 0.0,
             rounds_used=result.rounds_used if hasattr(result, "rounds_used") else payload.rounds,

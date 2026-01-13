@@ -23,7 +23,9 @@ class MockAgent:
         return f"Proposal from {self.name}"
 
     async def critique(self, proposal: str, task: str, context: list = None):
-        return Mock(issues=[], severity=0.1, suggestions=[], target_agent="proposal", to_prompt=lambda: "")
+        return Mock(
+            issues=[], severity=0.1, suggestions=[], target_agent="proposal", to_prompt=lambda: ""
+        )
 
     async def vote(self, proposals: dict, task: str) -> Vote:
         if self.should_fail:
@@ -32,7 +34,7 @@ class MockAgent:
             agent=self.name,
             choice=self.vote_choice or self.name,
             confidence=0.9,
-            reasoning="Test vote"
+            reasoning="Test vote",
         )
 
 
@@ -148,7 +150,7 @@ class TestVotingErrors:
         # With the fix, voting errors count as dissent
         assert result.consensus_reached is False
         # 2 successful votes out of 3 total voters (including error)
-        assert result.confidence == pytest.approx(2/3, rel=0.01)
+        assert result.confidence == pytest.approx(2 / 3, rel=0.01)
 
     @pytest.mark.asyncio
     async def test_all_voting_errors_no_consensus(self):

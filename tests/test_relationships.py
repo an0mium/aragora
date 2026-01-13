@@ -37,6 +37,7 @@ def temp_db_path():
         db_path = os.path.join(tmpdir, "test_relationships.db")
         # Initialize database schema using EloSystem
         from aragora.ranking.elo import EloSystem
+
         elo = EloSystem(db_path=db_path)
         yield db_path
 
@@ -349,8 +350,8 @@ class TestGetAllForAgent:
 
         rels = tracker.get_all_for_agent("alice")
         assert rels[0].debate_count == 10  # charlie
-        assert rels[1].debate_count == 5   # dave
-        assert rels[2].debate_count == 1   # bob
+        assert rels[1].debate_count == 5  # dave
+        assert rels[2].debate_count == 1  # bob
 
     def test_get_all_with_limit(self, tracker):
         """Test limit parameter."""
@@ -426,9 +427,7 @@ class TestComputeMetrics:
 
     def test_compute_metrics_agreement_rate(self, tracker):
         """Test agreement rate calculation."""
-        tracker.update_relationship(
-            "alice", "bob", debate_increment=10, agreement_increment=6
-        )
+        tracker.update_relationship("alice", "bob", debate_increment=10, agreement_increment=6)
 
         metrics = tracker.compute_metrics("alice", "bob")
         assert metrics.agreement_rate == 0.6
@@ -455,9 +454,7 @@ class TestGetRivals:
         tracker.update_relationship(
             "alice", "bob", debate_increment=20, agreement_increment=2, a_win=10, b_win=8
         )
-        tracker.update_relationship(
-            "alice", "charlie", debate_increment=5, agreement_increment=4
-        )
+        tracker.update_relationship("alice", "charlie", debate_increment=5, agreement_increment=4)
 
         rivals = tracker.get_rivals("alice", limit=5, min_score=0.0)
         # At least one should be returned with non-zero rivalry
@@ -486,12 +483,8 @@ class TestGetRivals:
     def test_get_rivals_sorted_by_score(self, tracker):
         """Test rivals are sorted by rivalry score descending."""
         # Create relationships with varying rivalry potential
-        tracker.update_relationship(
-            "alice", "bob", debate_increment=20, agreement_increment=1
-        )
-        tracker.update_relationship(
-            "alice", "charlie", debate_increment=5, agreement_increment=4
-        )
+        tracker.update_relationship("alice", "bob", debate_increment=20, agreement_increment=1)
+        tracker.update_relationship("alice", "charlie", debate_increment=5, agreement_increment=4)
 
         rivals = tracker.get_rivals("alice", min_score=0.0)
         if len(rivals) >= 2:
@@ -533,12 +526,8 @@ class TestGetAllies:
 
     def test_get_allies_sorted_by_score(self, tracker):
         """Test allies are sorted by alliance score descending."""
-        tracker.update_relationship(
-            "alice", "bob", debate_increment=10, agreement_increment=9
-        )
-        tracker.update_relationship(
-            "alice", "charlie", debate_increment=10, agreement_increment=5
-        )
+        tracker.update_relationship("alice", "bob", debate_increment=10, agreement_increment=9)
+        tracker.update_relationship("alice", "charlie", debate_increment=10, agreement_increment=5)
 
         allies = tracker.get_allies("alice", min_score=0.0)
         if len(allies) >= 2:

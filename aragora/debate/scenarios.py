@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 class ScenarioType(Enum):
     """Type of scenario variation."""
+
     CONSTRAINT = "constraint"  # Resource/time/budget constraints
     ASSUMPTION = "assumption"  # Underlying assumptions
     STAKEHOLDER = "stakeholder"  # Different stakeholder perspectives
@@ -40,6 +41,7 @@ class ScenarioType(Enum):
 
 class OutcomeCategory(Enum):
     """Category of debate outcome."""
+
     CONSISTENT = "consistent"  # Same conclusion across scenarios
     CONDITIONAL = "conditional"  # Conclusion depends on scenario
     DIVERGENT = "divergent"  # Different conclusions
@@ -49,6 +51,7 @@ class OutcomeCategory(Enum):
 @dataclass
 class Scenario:
     """A specific scenario for a debate."""
+
     id: str
     name: str
     scenario_type: ScenarioType
@@ -126,6 +129,7 @@ class Scenario:
 @dataclass
 class ScenarioResult:
     """Result of a debate under a specific scenario."""
+
     scenario_id: str
     scenario_name: str
     conclusion: str
@@ -155,6 +159,7 @@ class ScenarioResult:
 @dataclass
 class ScenarioComparison:
     """Comparison between two scenario results."""
+
     scenario_a_id: str
     scenario_b_id: str
     conclusions_match: bool
@@ -168,6 +173,7 @@ class ScenarioComparison:
 @dataclass
 class MatrixResult:
     """Result of running a full scenario matrix."""
+
     matrix_id: str
     task: str
     created_at: datetime
@@ -353,9 +359,7 @@ class ScenarioComparator:
         """Compare two scenario results."""
 
         # Check conclusion similarity
-        conclusions_match = self._conclusions_similar(
-            result_a.conclusion, result_b.conclusion
-        )
+        conclusions_match = self._conclusions_similar(result_a.conclusion, result_b.conclusion)
 
         # Compare claims
         claims_a = set(result_a.key_claims)
@@ -380,7 +384,9 @@ class ScenarioComparator:
         if unique_b:
             differences.append(f"Scenario B has unique claims: {list(unique_b)[:3]}")
         if abs(result_a.confidence - result_b.confidence) > 0.2:
-            differences.append(f"Confidence differs: {result_a.confidence:.0%} vs {result_b.confidence:.0%}")
+            differences.append(
+                f"Confidence differs: {result_a.confidence:.0%} vs {result_b.confidence:.0%}"
+            )
 
         return ScenarioComparison(
             scenario_a_id=result_a.scenario_id,
@@ -416,13 +422,15 @@ class ScenarioComparator:
         # Compare all pairs
         comparisons = []
         for i, r1 in enumerate(results):
-            for r2 in results[i+1:]:
+            for r2 in results[i + 1 :]:
                 comparisons.append(self.compare_pair(r1, r2))
 
         # Categorize outcome
         all_match = all(c.conclusions_match for c in comparisons)
         none_match = not any(c.conclusions_match for c in comparisons)
-        avg_similarity = sum(c.similarity_score for c in comparisons) / len(comparisons) if comparisons else 0
+        avg_similarity = (
+            sum(c.similarity_score for c in comparisons) / len(comparisons) if comparisons else 0
+        )
 
         if all_match:
             outcome = OutcomeCategory.CONSISTENT
@@ -440,10 +448,7 @@ class ScenarioComparator:
         # Find conditional conclusions (vary by scenario parameters)
         conditional: dict[str, list[str]] = {}
         for r in results:
-            scenario = next(
-                (s for s in matrix_result.scenarios if s.id == r.scenario_id),
-                None
-            )
+            scenario = next((s for s in matrix_result.scenarios if s.id == r.scenario_id), None)
             if scenario:
                 for param, value in scenario.parameters.items():
                     key = f"{param}={value}"
@@ -553,11 +558,11 @@ class MatrixDebateRunner:
         if self.max_parallel > 1:
             # Run in batches
             for i in range(0, len(scenarios), self.max_parallel):
-                batch = scenarios[i:i + self.max_parallel]
-                batch_results = await asyncio.gather(*[
-                    self._run_scenario_debate(task, s, base_context)
-                    for s in batch
-                ], return_exceptions=True)
+                batch = scenarios[i : i + self.max_parallel]
+                batch_results = await asyncio.gather(
+                    *[self._run_scenario_debate(task, s, base_context) for s in batch],
+                    return_exceptions=True,
+                )
 
                 for r in batch_results:
                     if isinstance(r, BaseException):
@@ -630,6 +635,7 @@ class MatrixDebateRunner:
 
 
 # Convenience functions for common scenario patterns
+
 
 def create_scale_scenarios() -> list[Scenario]:
     """Create scenarios for different scales."""

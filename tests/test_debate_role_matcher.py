@@ -36,9 +36,11 @@ from aragora.debate.roles import CognitiveRole, RoleAssignment, ROLE_PROMPTS
 # Mock Classes for Dependencies
 # ============================================================================
 
+
 @dataclass
 class MockCalibrationBucket:
     """Mock calibration bucket for testing."""
+
     range_start: float
     range_end: float
     total_predictions: int = 0
@@ -58,6 +60,7 @@ class MockCalibrationBucket:
 @dataclass
 class MockCalibrationSummary:
     """Mock calibration summary for testing."""
+
     agent: str
     total_predictions: int = 0
     total_correct: int = 0
@@ -85,6 +88,7 @@ class MockCalibrationSummary:
 @dataclass
 class MockPersona:
     """Mock persona for testing."""
+
     agent_name: str
     description: str = ""
     traits: list = field(default_factory=list)
@@ -118,6 +122,7 @@ class MockPersonaManager:
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def default_config():
@@ -208,6 +213,7 @@ def hybrid_matcher():
 # RoleMatchingConfig Tests
 # ============================================================================
 
+
 class TestRoleMatchingConfig:
     """Tests for RoleMatchingConfig dataclass."""
 
@@ -262,6 +268,7 @@ class TestRoleMatchingConfig:
 # RoleMatchResult Tests
 # ============================================================================
 
+
 class TestRoleMatchResult:
     """Tests for RoleMatchResult dataclass."""
 
@@ -315,6 +322,7 @@ class TestRoleMatchResult:
 # RoleMatcher Initialization Tests
 # ============================================================================
 
+
 class TestRoleMatcherInit:
     """Tests for RoleMatcher initialization."""
 
@@ -357,6 +365,7 @@ class TestRoleMatcherInit:
 # ============================================================================
 # Rotation Strategy Tests
 # ============================================================================
+
 
 class TestRotationStrategy:
     """Tests for simple rotation strategy."""
@@ -422,6 +431,7 @@ class TestRotationStrategy:
 # Calibration Strategy Tests
 # ============================================================================
 
+
 class TestCalibrationStrategy:
     """Tests for calibration-based strategy."""
 
@@ -436,9 +446,7 @@ class TestCalibrationStrategy:
     def test_calibration_identifies_cold_start(self, calibration_matcher):
         """Test cold start agents are identified."""
         calibration_matcher.config.strategy = "calibration"
-        result = calibration_matcher.match_roles(
-            ["claude", "new_agent"], round_num=0
-        )
+        result = calibration_matcher.match_roles(["claude", "new_agent"], round_num=0)
 
         assert "new_agent" in result.cold_start_agents
 
@@ -485,6 +493,7 @@ class TestCalibrationStrategy:
 # Hybrid Strategy Tests
 # ============================================================================
 
+
 class TestHybridStrategy:
     """Tests for hybrid strategy (calibration + expertise)."""
 
@@ -517,6 +526,7 @@ class TestHybridStrategy:
 # ============================================================================
 # Role Selection by Calibration Tests
 # ============================================================================
+
 
 class TestSelectRoleByCalibration:
     """Tests for _select_role_by_calibration method."""
@@ -607,6 +617,7 @@ class TestSelectRoleByCalibration:
 # Affinity Matrix Tests
 # ============================================================================
 
+
 class TestAffinityMatrix:
     """Tests for affinity matrix computation."""
 
@@ -615,9 +626,7 @@ class TestAffinityMatrix:
         cal = {"claude": MockCalibrationSummary(agent="claude", total_predictions=10)}
         personas = {"claude": MockPersona(agent_name="claude")}
 
-        matrix = hybrid_matcher._compute_affinity_matrix(
-            ["claude"], cal, personas, None
-        )
+        matrix = hybrid_matcher._compute_affinity_matrix(["claude"], cal, personas, None)
 
         assert "claude" in matrix
         assert all(isinstance(r, CognitiveRole) for r in matrix["claude"].keys())
@@ -640,18 +649,14 @@ class TestAffinityMatrix:
             )
         }
 
-        matrix = hybrid_matcher._compute_affinity_matrix(
-            ["agent"], cal, personas, "security"
-        )
+        matrix = hybrid_matcher._compute_affinity_matrix(["agent"], cal, personas, "security")
 
         for role, score in matrix["agent"].items():
             assert 0.0 <= score <= 1.0, f"Score {score} out of bounds for {role}"
 
     def test_affinity_base_score(self, basic_matcher):
         """Test base affinity score is 0.5."""
-        matrix = basic_matcher._compute_affinity_matrix(
-            ["agent"], {}, {}, None
-        )
+        matrix = basic_matcher._compute_affinity_matrix(["agent"], {}, {}, None)
 
         # Without calibration or persona, all roles should have base score
         for score in matrix["agent"].values():
@@ -661,6 +666,7 @@ class TestAffinityMatrix:
 # ============================================================================
 # Calibration Affinity Tests
 # ============================================================================
+
 
 class TestCalibrationAffinity:
     """Tests for _calibration_affinity method."""
@@ -691,9 +697,7 @@ class TestCalibrationAffinity:
             agent="test",
             _is_overconfident=True,
         )
-        affinity = basic_matcher._calibration_affinity(
-            cal, CognitiveRole.DEVIL_ADVOCATE
-        )
+        affinity = basic_matcher._calibration_affinity(cal, CognitiveRole.DEVIL_ADVOCATE)
         assert affinity == 0.8
 
     def test_advocate_affinity_underconfident(self, basic_matcher):
@@ -718,15 +722,14 @@ class TestCalibrationAffinity:
     def test_lateral_thinker_neutral(self, basic_matcher):
         """Test LATERAL_THINKER has neutral affinity."""
         cal = MockCalibrationSummary(agent="test")
-        affinity = basic_matcher._calibration_affinity(
-            cal, CognitiveRole.LATERAL_THINKER
-        )
+        affinity = basic_matcher._calibration_affinity(cal, CognitiveRole.LATERAL_THINKER)
         assert affinity == 0.5
 
 
 # ============================================================================
 # Expertise Affinity Tests
 # ============================================================================
+
 
 class TestExpertiseAffinity:
     """Tests for _expertise_affinity method."""
@@ -737,9 +740,7 @@ class TestExpertiseAffinity:
             agent_name="test",
             expertise={"security": 0.9},
         )
-        affinity = basic_matcher._expertise_affinity(
-            persona, "security", CognitiveRole.ANALYST
-        )
+        affinity = basic_matcher._expertise_affinity(persona, "security", CognitiveRole.ANALYST)
         assert affinity == pytest.approx(0.72)  # 0.9 * 0.8
 
     def test_lateral_thinker_low_expertise(self, basic_matcher):
@@ -760,9 +761,7 @@ class TestExpertiseAffinity:
             agent_name="test",
             expertise={"security": 0.9},
         )
-        affinity = basic_matcher._expertise_affinity(
-            persona, "database", CognitiveRole.ANALYST
-        )
+        affinity = basic_matcher._expertise_affinity(persona, "database", CognitiveRole.ANALYST)
         assert affinity == 0.0  # No expertise = 0
 
 
@@ -770,35 +769,28 @@ class TestExpertiseAffinity:
 # Trait Affinity Tests
 # ============================================================================
 
+
 class TestTraitAffinity:
     """Tests for _trait_affinity method."""
 
     def test_analyst_thorough_trait(self, basic_matcher):
         """Test ANALYST affinity with 'thorough' trait."""
-        affinity = basic_matcher._trait_affinity(
-            ["thorough"], CognitiveRole.ANALYST
-        )
+        affinity = basic_matcher._trait_affinity(["thorough"], CognitiveRole.ANALYST)
         assert affinity == 0.4  # One matching trait
 
     def test_analyst_multiple_matching_traits(self, basic_matcher):
         """Test ANALYST affinity with multiple matching traits."""
-        affinity = basic_matcher._trait_affinity(
-            ["thorough", "pragmatic"], CognitiveRole.ANALYST
-        )
+        affinity = basic_matcher._trait_affinity(["thorough", "pragmatic"], CognitiveRole.ANALYST)
         assert affinity == 0.8  # Two matching traits
 
     def test_skeptic_contrarian_trait(self, basic_matcher):
         """Test SKEPTIC affinity with 'contrarian' trait."""
-        affinity = basic_matcher._trait_affinity(
-            ["contrarian", "direct"], CognitiveRole.SKEPTIC
-        )
+        affinity = basic_matcher._trait_affinity(["contrarian", "direct"], CognitiveRole.SKEPTIC)
         assert affinity == 0.8  # Two matching traits
 
     def test_no_matching_traits(self, basic_matcher):
         """Test affinity with no matching traits."""
-        affinity = basic_matcher._trait_affinity(
-            ["innovative"], CognitiveRole.ANALYST
-        )
+        affinity = basic_matcher._trait_affinity(["innovative"], CognitiveRole.ANALYST)
         assert affinity == 0.0
 
     def test_affinity_capped_at_one(self, basic_matcher):
@@ -814,6 +806,7 @@ class TestTraitAffinity:
 # ============================================================================
 # Softmax Selection Tests
 # ============================================================================
+
 
 class TestSoftmaxSelection:
     """Tests for _softmax_select_role method."""
@@ -860,10 +853,7 @@ class TestSoftmaxSelection:
 
         # With high temperature, should sometimes select lower affinity
         random.seed(42)
-        roles = [
-            basic_matcher._softmax_select_role(affinities, set(), 10.0)
-            for _ in range(100)
-        ]
+        roles = [basic_matcher._softmax_select_role(affinities, set(), 10.0) for _ in range(100)]
 
         # Both roles should appear with high temperature
         unique_roles = set(roles)
@@ -889,6 +879,7 @@ class TestSoftmaxSelection:
 # ============================================================================
 # Cache Tests
 # ============================================================================
+
 
 class TestCache:
     """Tests for calibration caching behavior."""
@@ -927,6 +918,7 @@ class TestCache:
 # Get Calibrations Tests
 # ============================================================================
 
+
 class TestGetCalibrations:
     """Tests for _get_calibrations method."""
 
@@ -955,6 +947,7 @@ class TestGetCalibrations:
 # Get Personas Tests
 # ============================================================================
 
+
 class TestGetPersonas:
     """Tests for _get_personas method."""
 
@@ -982,6 +975,7 @@ class TestGetPersonas:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestIntegration:
     """Integration tests for RoleMatcher."""
@@ -1054,6 +1048,7 @@ class TestIntegration:
 # ============================================================================
 # Edge Cases
 # ============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""

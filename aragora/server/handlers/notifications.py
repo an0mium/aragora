@@ -41,6 +41,7 @@ def _run_async_in_thread(coro):
     asyncio.run() is called from within a ThreadPoolExecutor.
     """
     import asyncio
+
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
@@ -139,7 +140,9 @@ class NotificationsHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/notifications")
 
-    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
         """Handle GET requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -155,7 +158,9 @@ class NotificationsHandler(BaseHandler):
 
         return None
 
-    def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
         """Handle POST requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -185,7 +190,9 @@ class NotificationsHandler(BaseHandler):
 
         return None
 
-    def handle_delete(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle_delete(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
         """Handle DELETE requests."""
         user, err = self.require_auth_or_error(handler)
         if err:
@@ -201,29 +208,49 @@ class NotificationsHandler(BaseHandler):
         email = get_email_integration()
         telegram = get_telegram_integration()
 
-        return json_response({
-            "email": {
-                "configured": email is not None,
-                "host": email.config.smtp_host if email else None,
-                "recipients_count": len(email.recipients) if email else 0,
-                "settings": {
-                    "notify_on_consensus": email.config.notify_on_consensus if email else False,
-                    "notify_on_debate_end": email.config.notify_on_debate_end if email else False,
-                    "notify_on_error": email.config.notify_on_error if email else False,
-                    "enable_digest": email.config.enable_digest if email else False,
-                    "digest_frequency": email.config.digest_frequency if email else "daily",
-                } if email else None,
-            },
-            "telegram": {
-                "configured": telegram is not None,
-                "chat_id": telegram.config.chat_id[:8] + "..." if telegram else None,
-                "settings": {
-                    "notify_on_consensus": telegram.config.notify_on_consensus if telegram else False,
-                    "notify_on_debate_end": telegram.config.notify_on_debate_end if telegram else False,
-                    "notify_on_error": telegram.config.notify_on_error if telegram else False,
-                } if telegram else None,
-            },
-        })
+        return json_response(
+            {
+                "email": {
+                    "configured": email is not None,
+                    "host": email.config.smtp_host if email else None,
+                    "recipients_count": len(email.recipients) if email else 0,
+                    "settings": (
+                        {
+                            "notify_on_consensus": (
+                                email.config.notify_on_consensus if email else False
+                            ),
+                            "notify_on_debate_end": (
+                                email.config.notify_on_debate_end if email else False
+                            ),
+                            "notify_on_error": email.config.notify_on_error if email else False,
+                            "enable_digest": email.config.enable_digest if email else False,
+                            "digest_frequency": email.config.digest_frequency if email else "daily",
+                        }
+                        if email
+                        else None
+                    ),
+                },
+                "telegram": {
+                    "configured": telegram is not None,
+                    "chat_id": telegram.config.chat_id[:8] + "..." if telegram else None,
+                    "settings": (
+                        {
+                            "notify_on_consensus": (
+                                telegram.config.notify_on_consensus if telegram else False
+                            ),
+                            "notify_on_debate_end": (
+                                telegram.config.notify_on_debate_end if telegram else False
+                            ),
+                            "notify_on_error": (
+                                telegram.config.notify_on_error if telegram else False
+                            ),
+                        }
+                        if telegram
+                        else None
+                    ),
+                },
+            }
+        )
 
     def _get_email_recipients(self) -> HandlerResult:
         """Get list of email recipients."""
@@ -231,13 +258,12 @@ class NotificationsHandler(BaseHandler):
         if not email:
             return json_response({"recipients": [], "error": "Email not configured"})
 
-        return json_response({
-            "recipients": [
-                {"email": r.email, "name": r.name}
-                for r in email.recipients
-            ],
-            "count": len(email.recipients),
-        })
+        return json_response(
+            {
+                "recipients": [{"email": r.email, "name": r.name} for r in email.recipients],
+                "count": len(email.recipients),
+            }
+        )
 
     def _configure_email(self, handler: Any) -> HandlerResult:
         """Configure email integration settings."""
@@ -269,10 +295,12 @@ class NotificationsHandler(BaseHandler):
                 max_emails_per_hour=body.get("max_emails_per_hour", 50),
             )
             configure_email_integration(config)
-            return json_response({
-                "success": True,
-                "message": f"Email configured with host: {config.smtp_host}",
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "message": f"Email configured with host: {config.smtp_host}",
+                }
+            )
         except ValueError as e:
             return error_response(f"Invalid configuration: {e}", 400)
         except Exception as e:
@@ -304,10 +332,12 @@ class NotificationsHandler(BaseHandler):
                 max_messages_per_minute=body.get("max_messages_per_minute", 20),
             )
             configure_telegram_integration(config)
-            return json_response({
-                "success": True,
-                "message": "Telegram configured successfully",
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "message": "Telegram configured successfully",
+                }
+            )
         except ValueError as e:
             return error_response(f"Invalid configuration: {e}", 400)
         except Exception as e:
@@ -335,11 +365,13 @@ class NotificationsHandler(BaseHandler):
         )
         email.add_recipient(recipient)
 
-        return json_response({
-            "success": True,
-            "message": f"Recipient added: {recipient_email}",
-            "recipients_count": len(email.recipients),
-        })
+        return json_response(
+            {
+                "success": True,
+                "message": f"Recipient added: {recipient_email}",
+                "recipients_count": len(email.recipients),
+            }
+        )
 
     def _remove_email_recipient(self, handler: Any, query_params: dict) -> HandlerResult:
         """Remove an email recipient."""
@@ -353,11 +385,13 @@ class NotificationsHandler(BaseHandler):
 
         removed = email.remove_recipient(recipient_email)
         if removed:
-            return json_response({
-                "success": True,
-                "message": f"Recipient removed: {recipient_email}",
-                "recipients_count": len(email.recipients),
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "message": f"Recipient removed: {recipient_email}",
+                    "recipients_count": len(email.recipients),
+                }
+            )
         else:
             return error_response(f"Recipient not found: {recipient_email}", 404)
 
@@ -391,11 +425,17 @@ class NotificationsHandler(BaseHandler):
                         if loop.is_running():
                             # Already in async context, run in thread with new loop
                             import concurrent.futures
+
                             with concurrent.futures.ThreadPoolExecutor() as pool:
-                                success = pool.submit(_run_async_in_thread, send_test_email()).result()
+                                success = pool.submit(
+                                    _run_async_in_thread, send_test_email()
+                                ).result()
                         else:
                             success = loop.run_until_complete(send_test_email())
-                        results["email"] = {"success": success, "recipient": email.recipients[0].email}
+                        results["email"] = {
+                            "success": success,
+                            "recipient": email.recipients[0].email,
+                        }
                     except Exception as e:
                         results["email"] = {"success": False, "error": str(e)}
                 else:
@@ -420,8 +460,11 @@ class NotificationsHandler(BaseHandler):
                     loop = asyncio.get_event_loop()
                     if loop.is_running():
                         import concurrent.futures
+
                         with concurrent.futures.ThreadPoolExecutor() as pool:
-                            success = pool.submit(_run_async_in_thread, send_test_telegram()).result()
+                            success = pool.submit(
+                                _run_async_in_thread, send_test_telegram()
+                            ).result()
                     else:
                         success = loop.run_until_complete(send_test_telegram())
                     results["telegram"] = {"success": success}
@@ -431,10 +474,12 @@ class NotificationsHandler(BaseHandler):
                 results["telegram"] = {"success": False, "error": "Telegram not configured"}
 
         all_success = all(r.get("success", False) for r in results.values())
-        return json_response({
-            "success": all_success,
-            "results": results,
-        })
+        return json_response(
+            {
+                "success": all_success,
+                "results": results,
+            }
+        )
 
     def _send_notification(self, handler: Any) -> HandlerResult:
         """Send a notification with custom content."""
@@ -459,6 +504,7 @@ class NotificationsHandler(BaseHandler):
         if notification_type in ("all", "email"):
             email = get_email_integration()
             if email and email.recipients:
+
                 async def send_emails():
                     sent = 0
                     for recipient in email.recipients:
@@ -471,15 +517,23 @@ class NotificationsHandler(BaseHandler):
                     loop = asyncio.get_event_loop()
                     if loop.is_running():
                         import concurrent.futures
+
                         with concurrent.futures.ThreadPoolExecutor() as pool:
                             sent = pool.submit(_run_async_in_thread, send_emails()).result()
                     else:
                         sent = loop.run_until_complete(send_emails())
-                    results["email"] = {"success": sent > 0, "sent": sent, "total": len(email.recipients)}
+                    results["email"] = {
+                        "success": sent > 0,
+                        "sent": sent,
+                        "total": len(email.recipients),
+                    }
                 except Exception as e:
                     results["email"] = {"success": False, "error": str(e)}
             else:
-                results["email"] = {"success": False, "error": "Email not configured or no recipients"}
+                results["email"] = {
+                    "success": False,
+                    "error": "Email not configured or no recipients",
+                }
 
         # Send telegram
         if notification_type in ("all", "telegram"):
@@ -498,6 +552,7 @@ class NotificationsHandler(BaseHandler):
                     loop = asyncio.get_event_loop()
                     if loop.is_running():
                         import concurrent.futures
+
                         with concurrent.futures.ThreadPoolExecutor() as pool:
                             success = pool.submit(_run_async_in_thread, send_telegram()).result()
                     else:
@@ -509,10 +564,12 @@ class NotificationsHandler(BaseHandler):
                 results["telegram"] = {"success": False, "error": "Telegram not configured"}
 
         all_success = all(r.get("success", False) for r in results.values())
-        return json_response({
-            "success": all_success,
-            "results": results,
-        })
+        return json_response(
+            {
+                "success": all_success,
+                "results": results,
+            }
+        )
 
 
 # Utility functions for use by other handlers/orchestrator
@@ -613,7 +670,9 @@ async def notify_error(
     telegram = get_telegram_integration()
     if telegram:
         try:
-            success = await telegram.send_error_alert(error_type, error_message, debate_id, severity)
+            success = await telegram.send_error_alert(
+                error_type, error_message, debate_id, severity
+            )
             results["telegram"] = success
         except Exception as e:
             logger.error(f"Failed to send telegram error alert: {e}")

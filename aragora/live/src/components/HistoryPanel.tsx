@@ -3,8 +3,10 @@
 import { useSupabaseHistory } from '@/hooks/useSupabaseHistory';
 import { useLocalHistory } from '@/hooks/useLocalHistory';
 import { PanelHeader, StatsGrid, RefreshButton } from './shared';
+import { getSupabaseWarning, SUPABASE_CONFIGURED } from '@/utils/supabase';
+import { API_BASE_URL } from '@/config';
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 function formatDate(isoString: string): string {
   const date = new Date(isoString);
@@ -61,9 +63,19 @@ export function HistoryPanel() {
     { value: debates.length, label: 'Debates', color: 'text-purple' },
   ];
 
+  // Get Supabase warning if not configured
+  const supabaseWarning = getSupabaseWarning();
+
   return (
     <div className="panel">
       <PanelHeader title="History" loading={isLoading} onRefresh={refresh} />
+
+      {/* Show warning when Supabase not configured */}
+      {supabaseWarning && !useSupabase && (
+        <div className="mb-4 p-2 bg-yellow-900/20 border border-yellow-500/50 text-yellow-500 text-xs font-mono">
+          <span className="text-yellow-400">!</span> {supabaseWarning}
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-2 bg-crimson/10 border border-crimson text-crimson text-xs font-mono">

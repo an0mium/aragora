@@ -41,19 +41,19 @@ logger = logging.getLogger("epic_debate")
 
 # ElevenLabs voice IDs for each agent (distinctive voices)
 ELEVENLABS_VOICES = {
-    "claude": "pNInz6obpgDQGcFmaJgB",      # Adam - deep, authoritative
-    "gpt": "onwK4e9ZLuTAKqWW03F9",         # Daniel - professional
-    "gemini": "EXAVITQu4vr4xnSDxMaL",      # Bella - warm, expressive
-    "grok": "TxGEqnHWrfWFTfGW9XjX",        # Josh - energetic
-    "mistral": "GBv7mTt0atIp3Br8iCZE",     # Antoni - European accent
-    "deepseek": "MF3mGyEYCl7XYWbV9V6O",    # Elli - analytical
-    "deepseek_r1": "yoZ06aMxZJJ28mfd3POQ", # Sam - thoughtful reasoning
-    "qwen": "AZnzlk1XvdvUeBnXmlld",        # Domi - practical
-    "yi": "jsCqWAovK2LkecY7zXl4",          # Freya - international
-    "kimi": "XB0fDUnXU5powFXDhCwa",        # Gigi - dynamic
-    "llama": "CYw3kZ02Hs0563khs1Fj",       # Dave - casual
-    "qwen_max": "pFZP5JQG7iQjIQuC4Bku",    # Lily - clear synthesis
-    "narrator": "21m00Tcm4TlvDq8ikWAM",    # Rachel - narrator
+    "claude": "pNInz6obpgDQGcFmaJgB",  # Adam - deep, authoritative
+    "gpt": "onwK4e9ZLuTAKqWW03F9",  # Daniel - professional
+    "gemini": "EXAVITQu4vr4xnSDxMaL",  # Bella - warm, expressive
+    "grok": "TxGEqnHWrfWFTfGW9XjX",  # Josh - energetic
+    "mistral": "GBv7mTt0atIp3Br8iCZE",  # Antoni - European accent
+    "deepseek": "MF3mGyEYCl7XYWbV9V6O",  # Elli - analytical
+    "deepseek_r1": "yoZ06aMxZJJ28mfd3POQ",  # Sam - thoughtful reasoning
+    "qwen": "AZnzlk1XvdvUeBnXmlld",  # Domi - practical
+    "yi": "jsCqWAovK2LkecY7zXl4",  # Freya - international
+    "kimi": "XB0fDUnXU5powFXDhCwa",  # Gigi - dynamic
+    "llama": "CYw3kZ02Hs0563khs1Fj",  # Dave - casual
+    "qwen_max": "pFZP5JQG7iQjIQuC4Bku",  # Lily - clear synthesis
+    "narrator": "21m00Tcm4TlvDq8ikWAM",  # Rachel - narrator
 }
 
 # OpenRouter fallback models for each provider
@@ -86,6 +86,7 @@ AGENT_TIMEOUTS = {
     "claude": 1800,
     "codex": 1800,
 }
+
 
 # Debate phase configuration
 @dataclass
@@ -222,6 +223,7 @@ Your recommendation should be:
 # Agent Setup
 # =============================================================================
 
+
 @dataclass
 class AgentConfig:
     agent_type: str
@@ -233,50 +235,94 @@ class AgentConfig:
 
 AGENT_CONFIGS = [
     # US Frontier Models
-    AgentConfig("anthropic-api", "claude", "Claude (Anthropic)",
-                ELEVENLABS_VOICES["claude"],
-                "Long-term strategic thinker, focuses on sustainable competitive advantage"),
-    AgentConfig("openai-api", "gpt", "GPT (OpenAI)",
-                ELEVENLABS_VOICES["gpt"],
-                "Pragmatic analyst, focuses on market dynamics and execution"),
-    AgentConfig("gemini", "gemini", "Gemini (Google)",
-                ELEVENLABS_VOICES["gemini"],
-                "Creative challenger, brings unconventional perspectives"),
-    AgentConfig("grok", "grok", "Grok (xAI)",
-                ELEVENLABS_VOICES["grok"],
-                "Lateral thinker, finds humor and unexpected angles"),
-
+    AgentConfig(
+        "anthropic-api",
+        "claude",
+        "Claude (Anthropic)",
+        ELEVENLABS_VOICES["claude"],
+        "Long-term strategic thinker, focuses on sustainable competitive advantage",
+    ),
+    AgentConfig(
+        "openai-api",
+        "gpt",
+        "GPT (OpenAI)",
+        ELEVENLABS_VOICES["gpt"],
+        "Pragmatic analyst, focuses on market dynamics and execution",
+    ),
+    AgentConfig(
+        "gemini",
+        "gemini",
+        "Gemini (Google)",
+        ELEVENLABS_VOICES["gemini"],
+        "Creative challenger, brings unconventional perspectives",
+    ),
+    AgentConfig(
+        "grok",
+        "grok",
+        "Grok (xAI)",
+        ELEVENLABS_VOICES["grok"],
+        "Lateral thinker, finds humor and unexpected angles",
+    ),
     # European Model
-    AgentConfig("mistral-api", "mistral", "Mistral (EU)",
-                ELEVENLABS_VOICES["mistral"],
-                "European perspective, focuses on privacy, regulation, enterprise"),
-
+    AgentConfig(
+        "mistral-api",
+        "mistral",
+        "Mistral (EU)",
+        ELEVENLABS_VOICES["mistral"],
+        "European perspective, focuses on privacy, regulation, enterprise",
+    ),
     # Chinese Frontier Models
-    AgentConfig("deepseek", "deepseek", "DeepSeek V3 (China)",
-                ELEVENLABS_VOICES["deepseek"],
-                "Technical strategist, deep reasoning, cost-efficiency focus"),
-    AgentConfig("deepseek-r1", "deepseek_r1", "DeepSeek R1 (Reasoning)",
-                ELEVENLABS_VOICES["deepseek_r1"],
-                "Chain-of-thought reasoning specialist, methodical analysis"),
-    AgentConfig("qwen", "qwen", "Qwen Coder (Alibaba)",
-                ELEVENLABS_VOICES["qwen"],
-                "Implementation-focused, thinks about developer experience"),
-    AgentConfig("yi", "yi", "Yi (01.AI)",
-                ELEVENLABS_VOICES["yi"],
-                "Cross-cultural perspective, global market view"),
-    AgentConfig("kimi", "kimi", "Kimi (Moonshot)",
-                ELEVENLABS_VOICES["kimi"],
-                "Chinese market expert, understands Asian tech landscape"),
-
+    AgentConfig(
+        "deepseek",
+        "deepseek",
+        "DeepSeek V3 (China)",
+        ELEVENLABS_VOICES["deepseek"],
+        "Technical strategist, deep reasoning, cost-efficiency focus",
+    ),
+    AgentConfig(
+        "deepseek-r1",
+        "deepseek_r1",
+        "DeepSeek R1 (Reasoning)",
+        ELEVENLABS_VOICES["deepseek_r1"],
+        "Chain-of-thought reasoning specialist, methodical analysis",
+    ),
+    AgentConfig(
+        "qwen",
+        "qwen",
+        "Qwen Coder (Alibaba)",
+        ELEVENLABS_VOICES["qwen"],
+        "Implementation-focused, thinks about developer experience",
+    ),
+    AgentConfig(
+        "yi",
+        "yi",
+        "Yi (01.AI)",
+        ELEVENLABS_VOICES["yi"],
+        "Cross-cultural perspective, global market view",
+    ),
+    AgentConfig(
+        "kimi",
+        "kimi",
+        "Kimi (Moonshot)",
+        ELEVENLABS_VOICES["kimi"],
+        "Chinese market expert, understands Asian tech landscape",
+    ),
     # Open Source Advocate
-    AgentConfig("llama", "llama", "Llama 3.3 (Meta)",
-                ELEVENLABS_VOICES["llama"],
-                "Open source advocate, community-driven approach"),
-
+    AgentConfig(
+        "llama",
+        "llama",
+        "Llama 3.3 (Meta)",
+        ELEVENLABS_VOICES["llama"],
+        "Open source advocate, community-driven approach",
+    ),
     # Synthesis Expert
-    AgentConfig("qwen-max", "qwen_max", "Qwen Max (Alibaba)",
-                ELEVENLABS_VOICES["qwen_max"],
-                "Synthesis expert, finds common ground and builds consensus"),
+    AgentConfig(
+        "qwen-max",
+        "qwen_max",
+        "Qwen Max (Alibaba)",
+        ELEVENLABS_VOICES["qwen_max"],
+        "Synthesis expert, finds common ground and builds consensus",
+    ),
 ]
 
 
@@ -328,6 +374,7 @@ async def create_all_agents() -> List[tuple]:
 # =============================================================================
 # Debate Execution
 # =============================================================================
+
 
 async def run_single_phase(
     agents: List[tuple],
@@ -381,10 +428,7 @@ Respond with your {phase.name} contribution. Be specific and actionable.
 """
 
             # Generate with timeout
-            response = await asyncio.wait_for(
-                agent.generate(agent_prompt, []),
-                timeout=timeout
-            )
+            response = await asyncio.wait_for(agent.generate(agent_prompt, []), timeout=timeout)
 
             elapsed = time.time() - start_time
             responses[config.display_name] = response
@@ -461,6 +505,7 @@ async def run_epic_debate() -> Dict[str, Any]:
 # =============================================================================
 # Audio Generation
 # =============================================================================
+
 
 async def generate_debate_audio(result: Dict[str, Any], output_dir: Path) -> Optional[Path]:
     """Generate ElevenLabs audio from debate result."""
@@ -548,7 +593,7 @@ Thank you for listening to Aragora Debates.
                             "voice_settings": {
                                 "stability": 0.5,
                                 "similarity_boost": 0.75,
-                            }
+                            },
                         },
                     )
 
@@ -569,7 +614,7 @@ Thank you for listening to Aragora Debates.
 
             # Also save file list for reference (ffmpeg concat format)
             list_file = output_dir / "files.txt"
-            with open(list_file, 'w') as f:
+            with open(list_file, "w") as f:
                 for af in audio_files:
                     # Use absolute paths for ffmpeg concat format
                     escaped_path = str(af.absolute()).replace("'", "'\\''")
@@ -599,29 +644,30 @@ Thank you for listening to Aragora Debates.
 # Output Generation
 # =============================================================================
 
+
 def save_results(result: Dict[str, Any], output_dir: Path):
     """Save debate results to files."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Save full JSON
     json_path = output_dir / "debate_result.json"
-    with open(json_path, 'w') as f:
+    with open(json_path, "w") as f:
         json.dump(result, f, indent=2, default=str)
     logger.info(f"Saved JSON: {json_path}")
 
     # Save markdown summary
     md_path = output_dir / "debate_summary.md"
-    with open(md_path, 'w') as f:
+    with open(md_path, "w") as f:
         f.write("# Aragora Epic Strategic Debate\n\n")
         f.write(f"**Generated:** {result['generated_at']}\n")
         f.write(f"**Agents:** {len(result['agents'])}\n\n")
         f.write("---\n\n")
 
-        for phase_name, phase_data in result['phases'].items():
+        for phase_name, phase_data in result["phases"].items():
             f.write(f"## {phase_data['description']}\n\n")
             f.write(f"*Temperature: {phase_data['temperature']}*\n\n")
 
-            for agent_name, response in phase_data.get('responses', {}).items():
+            for agent_name, response in phase_data.get("responses", {}).items():
                 f.write(f"### {agent_name}\n\n")
                 f.write(response)
                 f.write("\n\n---\n\n")
@@ -630,16 +676,16 @@ def save_results(result: Dict[str, Any], output_dir: Path):
 
     # Save transcript
     txt_path = output_dir / "debate_transcript.txt"
-    with open(txt_path, 'w') as f:
+    with open(txt_path, "w") as f:
         f.write("ARAGORA EPIC STRATEGIC DEBATE TRANSCRIPT\n")
         f.write("=" * 50 + "\n\n")
 
-        for phase_name, phase_data in result['phases'].items():
+        for phase_name, phase_data in result["phases"].items():
             f.write(f"\n{'='*50}\n")
             f.write(f"PHASE: {phase_data['description']}\n")
             f.write(f"{'='*50}\n\n")
 
-            for agent_name, response in phase_data.get('responses', {}).items():
+            for agent_name, response in phase_data.get("responses", {}).items():
                 f.write(f"\n[{agent_name}]\n")
                 f.write("-" * 40 + "\n")
                 f.write(response)
@@ -653,6 +699,7 @@ def save_results(result: Dict[str, Any], output_dir: Path):
 # =============================================================================
 # Main
 # =============================================================================
+
 
 async def main():
     """Main entry point."""

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
+import { API_BASE_URL } from '@/config';
 
 interface CalibrationMetrics {
   agents: Record<string, { calibration_bias: number; predictions: number }>;
@@ -80,7 +81,7 @@ export function QualityDashboard() {
   useEffect(() => {
     async function fetchMetrics() {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+        const apiUrl = API_BASE_URL;
         const response = await fetch(`${apiUrl}/api/dashboard/quality-metrics`);
         if (!response.ok) throw new Error('Failed to fetch metrics');
         const json = await response.json();

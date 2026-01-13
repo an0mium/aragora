@@ -66,7 +66,7 @@ SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
 
 # Patterns for command parsing
-COMMAND_PATTERN = re.compile(r'^/aragora\s+(\w+)(?:\s+(.*))?$')
+COMMAND_PATTERN = re.compile(r"^/aragora\s+(\w+)(?:\s+(.*))?$")
 TOPIC_PATTERN = re.compile(r'^["\']?(.+?)["\']?$')
 
 
@@ -81,6 +81,7 @@ def get_slack_integration():
             return None
         try:
             from aragora.integrations.slack import SlackIntegration, SlackConfig
+
             config = SlackConfig(webhook_url=SLACK_WEBHOOK_URL)
             _slack_integration = SlackIntegration(config)
             logger.info("Slack integration initialized")
@@ -129,9 +130,7 @@ class SlackHandler(BaseHandler):
 
         return error_response("Not found", 404)
 
-    def handle_post(
-        self, path: str, body: dict, handler
-    ) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, body: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests."""
         return self.handle(path, {}, handler)
 
@@ -182,12 +181,14 @@ class SlackHandler(BaseHandler):
     def _get_status(self) -> HandlerResult:
         """Get Slack integration status."""
         integration = get_slack_integration()
-        return json_response({
-            "enabled": integration is not None,
-            "signing_secret_configured": bool(SLACK_SIGNING_SECRET),
-            "bot_token_configured": bool(SLACK_BOT_TOKEN),
-            "webhook_configured": bool(SLACK_WEBHOOK_URL),
-        })
+        return json_response(
+            {
+                "enabled": integration is not None,
+                "signing_secret_configured": bool(SLACK_SIGNING_SECRET),
+                "bot_token_configured": bool(SLACK_BOT_TOKEN),
+                "webhook_configured": bool(SLACK_WEBHOOK_URL),
+            }
+        )
 
     @rate_limit(rpm=30, limiter_name="slack_commands")
     @auto_error_response
@@ -357,7 +358,7 @@ class SlackHandler(BaseHandler):
         """
         if not args:
             return self._slack_response(
-                "Please provide a topic. Example: `/aragora debate \"Should AI be regulated?\"`",
+                'Please provide a topic. Example: `/aragora debate "Should AI be regulated?"`',
                 response_type="ephemeral",
             )
 
@@ -402,7 +403,7 @@ class SlackHandler(BaseHandler):
         if response_url:
             create_tracked_task(
                 self._create_debate_async(topic, response_url, user_id, channel_id),
-                name=f"slack-debate-{topic[:30]}"
+                name=f"slack-debate-{topic[:30]}",
             )
 
         return self._slack_blocks_response(
@@ -438,7 +439,7 @@ class SlackHandler(BaseHandler):
                         "response_type": "in_channel",
                         "text": f"Failed to create debate: No agents available",
                         "replace_original": False,
-                    }
+                    },
                 )
                 return
 
@@ -539,7 +540,7 @@ class SlackHandler(BaseHandler):
                     "text": f"Debate complete: {topic}",
                     "blocks": blocks,
                     "replace_original": False,
-                }
+                },
             )
 
         except Exception as e:
@@ -550,7 +551,7 @@ class SlackHandler(BaseHandler):
                     "response_type": "in_channel",
                     "text": f"Debate failed: {str(e)[:100]}",
                     "replace_original": False,
-                }
+                },
             )
 
     async def _post_to_response_url(self, url: str, payload: dict) -> None:
@@ -567,7 +568,9 @@ class SlackHandler(BaseHandler):
                 ) as response:
                     if response.status != 200:
                         text = await response.text()
-                        logger.warning(f"Slack response_url POST failed: {response.status} - {text[:100]}")
+                        logger.warning(
+                            f"Slack response_url POST failed: {response.status} - {text[:100]}"
+                        )
         except Exception as e:
             logger.error(f"Failed to POST to response_url: {e}")
 
@@ -585,7 +588,11 @@ class SlackHandler(BaseHandler):
             # Interactive payloads come as form-encoded with a 'payload' field
             params = parse_qs(body)
             payload_str = params.get("payload", ["{}"])[0]
-            payload = json.loads(payload_str)
+            try:
+                payload = json.loads(payload_str)
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON in Slack interactive payload: {e}")
+                return error_response(f"Invalid JSON payload: {e}", 400)
 
             action_type = payload.get("type")
             user = payload.get("user", {})
@@ -630,6 +637,7 @@ class SlackHandler(BaseHandler):
             # Record vote in debate system
             try:
                 from aragora.server.storage import get_debates_db
+
                 db = get_debates_db()
                 if db and hasattr(db, "record_vote"):
                     db.record_vote(
@@ -645,6 +653,7 @@ class SlackHandler(BaseHandler):
             # Try to record in vote aggregator if available
             try:
                 from aragora.debate.vote_aggregator import VoteAggregator
+
                 aggregator = VoteAggregator.get_instance()
                 if aggregator:
                     position = "for" if vote_option == "agree" else "against"
@@ -653,10 +662,12 @@ class SlackHandler(BaseHandler):
                 logger.debug(f"Vote aggregator not available: {e}")
 
             emoji = "" if vote_option == "agree" else ""
-            return json_response({
-                "text": f"{emoji} Your vote for '{vote_option}' has been recorded!",
-                "replace_original": False,
-            })
+            return json_response(
+                {
+                    "text": f"{emoji} Your vote for '{vote_option}' has been recorded!",
+                    "replace_original": False,
+                }
+            )
 
         return json_response({"text": "Vote recorded"})
 
@@ -665,15 +676,18 @@ class SlackHandler(BaseHandler):
         debate_id = action.get("value", "")
 
         if not debate_id:
-            return json_response({
-                "text": "Error: No debate ID provided",
-                "replace_original": False,
-            })
+            return json_response(
+                {
+                    "text": "Error: No debate ID provided",
+                    "replace_original": False,
+                }
+            )
 
         # Fetch debate details
         debate_data = None
         try:
             from aragora.server.storage import get_debates_db
+
             db = get_debates_db()
             if db:
                 debate_data = db.get(debate_id)
@@ -681,10 +695,12 @@ class SlackHandler(BaseHandler):
             logger.warning(f"Failed to fetch debate details: {e}")
 
         if not debate_data:
-            return json_response({
-                "text": f"Debate `{debate_id}` not found",
-                "replace_original": False,
-            })
+            return json_response(
+                {
+                    "text": f"Debate `{debate_id}` not found",
+                    "replace_original": False,
+                }
+            )
 
         # Build detailed response
         task = debate_data.get("task", "Unknown topic")
@@ -742,12 +758,14 @@ class SlackHandler(BaseHandler):
             },
         ]
 
-        return json_response({
-            "response_type": "ephemeral",
-            "text": f"Details for debate {debate_id}",
-            "blocks": blocks,
-            "replace_original": False,
-        })
+        return json_response(
+            {
+                "response_type": "ephemeral",
+                "text": f"Details for debate {debate_id}",
+                "blocks": blocks,
+                "replace_original": False,
+            }
+        )
 
     @rate_limit(rpm=100, limiter_name="slack_events")
     @auto_error_response
@@ -795,14 +813,14 @@ class SlackHandler(BaseHandler):
 
         # Parse the mention to extract command/question
         # Remove the bot mention from the text
-        clean_text = re.sub(r'<@[A-Z0-9]+>', '', text).strip()
+        clean_text = re.sub(r"<@[A-Z0-9]+>", "", text).strip()
 
         if not clean_text:
             # Just mentioned with no text - show help
-            response_text = "Hi! You can ask me to:\n• Debate a topic: `@aragora debate \"Should AI be regulated?\"`\n• Show status: `@aragora status`\n• List agents: `@aragora agents`"
+            response_text = 'Hi! You can ask me to:\n• Debate a topic: `@aragora debate "Should AI be regulated?"`\n• Show status: `@aragora status`\n• List agents: `@aragora agents`'
         elif clean_text.lower().startswith("debate "):
             topic = clean_text[7:].strip().strip("\"'")
-            response_text = f"To start a debate, use the slash command: `/aragora debate \"{topic}\"`"
+            response_text = f'To start a debate, use the slash command: `/aragora debate "{topic}"`'
         elif clean_text.lower() == "status":
             response_text = "Use `/aragora status` to check the system status."
         elif clean_text.lower() == "agents":
@@ -816,7 +834,7 @@ class SlackHandler(BaseHandler):
         if SLACK_BOT_TOKEN:
             create_tracked_task(
                 self._post_message_async(channel, response_text, thread_ts=event.get("ts")),
-                name=f"slack-reply-{channel}"
+                name=f"slack-reply-{channel}",
             )
 
         return json_response({"ok": True})
@@ -877,29 +895,33 @@ class SlackHandler(BaseHandler):
 
         # Parse DM commands
         if not text:
-            response_text = "Hi! Send me a command:\n• `help` - Show available commands\n• `status` - Check system status\n• `agents` - List available agents\n• `debate \"topic\"` - Start a debate"
+            response_text = 'Hi! Send me a command:\n• `help` - Show available commands\n• `status` - Check system status\n• `agents` - List available agents\n• `debate "topic"` - Start a debate'
         elif text.lower() == "help":
             response_text = (
                 "*Aragora Direct Message Commands*\n\n"
                 "• `help` - Show this message\n"
                 "• `status` - Check system status\n"
                 "• `agents` - List available agents\n"
-                "• `debate \"Your topic here\"` - Start a debate on a topic\n"
+                '• `debate "Your topic here"` - Start a debate on a topic\n'
                 "• `recent` - Show recent debates\n\n"
                 "_You can also use `/aragora` commands in any channel._"
             )
         elif text.lower() == "status":
             try:
                 from aragora.ranking.elo import get_elo_store
+
                 store = get_elo_store()
                 agents = store.get_all_ratings() if store else []
-                response_text = f"*Aragora Status*\n• Status: Online\n• Agents: {len(agents)} registered"
+                response_text = (
+                    f"*Aragora Status*\n• Status: Online\n• Agents: {len(agents)} registered"
+                )
             except (ImportError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Failed to fetch status: {e}")
                 response_text = "*Aragora Status*\n• Status: Online\n• Agents: Unknown"
         elif text.lower() == "agents":
             try:
                 from aragora.ranking.elo import get_elo_store
+
                 store = get_elo_store()
                 agents = store.get_all_ratings() if store else []
                 if agents:
@@ -918,6 +940,7 @@ class SlackHandler(BaseHandler):
         elif text.lower() == "recent":
             try:
                 from aragora.server.storage import get_debates_db
+
                 db = get_debates_db()
                 if db and hasattr(db, "list"):
                     debates = db.list(limit=5)
@@ -947,16 +970,18 @@ class SlackHandler(BaseHandler):
                 if SLACK_BOT_TOKEN:
                     create_tracked_task(
                         self._create_dm_debate_async(topic, channel, user),
-                        name=f"slack-dm-debate-{topic[:30]}"
+                        name=f"slack-dm-debate-{topic[:30]}",
                     )
         else:
-            response_text = f"I don't understand: `{text[:30]}`. Send `help` for available commands."
+            response_text = (
+                f"I don't understand: `{text[:30]}`. Send `help` for available commands."
+            )
 
         # Send response
         if SLACK_BOT_TOKEN:
             create_tracked_task(
                 self._post_message_async(channel, response_text),
-                name=f"slack-dm-response-{channel}"
+                name=f"slack-dm-response-{channel}",
             )
 
         return json_response({"ok": True})
@@ -1004,10 +1029,12 @@ class SlackHandler(BaseHandler):
         response_type: str = "ephemeral",
     ) -> HandlerResult:
         """Create a simple Slack response."""
-        return json_response({
-            "response_type": response_type,
-            "text": text,
-        })
+        return json_response(
+            {
+                "response_type": response_type,
+                "text": text,
+            }
+        )
 
     def _slack_blocks_response(
         self,
@@ -1016,11 +1043,13 @@ class SlackHandler(BaseHandler):
         response_type: str = "ephemeral",
     ) -> HandlerResult:
         """Create a Slack response with blocks."""
-        return json_response({
-            "response_type": response_type,
-            "text": text,
-            "blocks": blocks,
-        })
+        return json_response(
+            {
+                "response_type": response_type,
+                "text": text,
+                "blocks": blocks,
+            }
+        )
 
 
 # Export handler factory (lazy instantiation - server_context required)

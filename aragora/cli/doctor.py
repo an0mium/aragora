@@ -16,6 +16,7 @@ from typing import NamedTuple
 # Load .env file if present
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass  # dotenv not required
@@ -27,6 +28,7 @@ DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 
 class CheckResult(NamedTuple):
     """Result of a single health check."""
+
     name: str
     status: str  # "pass", "warn", "fail"
     message: str
@@ -56,25 +58,19 @@ def check_env_vars() -> list[CheckResult]:
             found_keys.append(provider)
 
     if found_keys:
-        results.append(CheckResult(
-            "api_keys",
-            "pass",
-            f"Found: {', '.join(found_keys)}"
-        ))
+        results.append(CheckResult("api_keys", "pass", f"Found: {', '.join(found_keys)}"))
     else:
-        results.append(CheckResult(
-            "api_keys",
-            "fail",
-            "No API keys found. Set ANTHROPIC_API_KEY or OPENAI_API_KEY"
-        ))
+        results.append(
+            CheckResult(
+                "api_keys", "fail", "No API keys found. Set ANTHROPIC_API_KEY or OPENAI_API_KEY"
+            )
+        )
 
     # Check for fallback key (helpful warning)
     if found_keys and "OpenRouter" not in found_keys:
-        results.append(CheckResult(
-            "fallback",
-            "warn",
-            "OPENROUTER_API_KEY not set (recommended for fallback)"
-        ))
+        results.append(
+            CheckResult("fallback", "warn", "OPENROUTER_API_KEY not set (recommended for fallback)")
+        )
 
     return results
 
@@ -100,11 +96,13 @@ def validate_api_key(provider: str, api_key: str) -> tuple[bool, str]:
                     "anthropic-version": "2023-06-01",
                     "content-type": "application/json",
                 },
-                data=json.dumps({
-                    "model": "claude-3-haiku-20240307",
-                    "max_tokens": 1,
-                    "messages": [{"role": "user", "content": "hi"}],
-                }).encode(),
+                data=json.dumps(
+                    {
+                        "model": "claude-3-haiku-20240307",
+                        "max_tokens": 1,
+                        "messages": [{"role": "user", "content": "hi"}],
+                    }
+                ).encode(),
             )
 
         elif provider == "OpenAI":
@@ -202,41 +200,35 @@ def check_api_keys_validity(validate: bool = False) -> list[CheckResult]:
             is_valid, message = validate_api_key(provider, value)
             if is_valid:
                 valid_keys.append(provider)
-                results.append(CheckResult(
-                    f"api_{provider.lower()}",
-                    "pass",
-                    f"{provider}: {message}"
-                ))
+                results.append(
+                    CheckResult(f"api_{provider.lower()}", "pass", f"{provider}: {message}")
+                )
             else:
                 invalid_keys.append(provider)
-                results.append(CheckResult(
-                    f"api_{provider.lower()}",
-                    "fail",
-                    f"{provider}: {message}"
-                ))
+                results.append(
+                    CheckResult(f"api_{provider.lower()}", "fail", f"{provider}: {message}")
+                )
         else:
             valid_keys.append(provider)
 
     if not validate:
         if valid_keys:
-            results.append(CheckResult(
-                "api_keys",
-                "pass",
-                f"Found: {', '.join(valid_keys)}"
-            ))
+            results.append(CheckResult("api_keys", "pass", f"Found: {', '.join(valid_keys)}"))
         else:
-            results.append(CheckResult(
-                "api_keys",
-                "fail",
-                "No API keys found. Set ANTHROPIC_API_KEY or OPENAI_API_KEY"
-            ))
+            results.append(
+                CheckResult(
+                    "api_keys", "fail", "No API keys found. Set ANTHROPIC_API_KEY or OPENAI_API_KEY"
+                )
+            )
 
     if validate and invalid_keys:
-        results.append(CheckResult(
-            "api_keys_summary",
-            "fail",
-            f"Invalid keys: {', '.join(invalid_keys)}. Run `aragora config set <KEY> <value>` to fix."
-        ))
+        results.append(
+            CheckResult(
+                "api_keys_summary",
+                "fail",
+                f"Invalid keys: {', '.join(invalid_keys)}. Run `aragora config set <KEY> <value>` to fix.",
+            )
+        )
 
     return results
 
@@ -251,11 +243,7 @@ def check_configuration() -> list[CheckResult]:
         validation = validate_configuration(strict=False)
 
         if validation["valid"]:
-            results.append(CheckResult(
-                "configuration",
-                "pass",
-                "Configuration valid"
-            ))
+            results.append(CheckResult("configuration", "pass", "Configuration valid"))
         else:
             for error in validation["errors"]:
                 results.append(CheckResult("config_error", "fail", error))
@@ -264,17 +252,9 @@ def check_configuration() -> list[CheckResult]:
             results.append(CheckResult("config_warning", "warn", warning))
 
     except ImportError as e:
-        results.append(CheckResult(
-            "configuration",
-            "warn",
-            f"Could not load config module: {e}"
-        ))
+        results.append(CheckResult("configuration", "warn", f"Could not load config module: {e}"))
     except Exception as e:
-        results.append(CheckResult(
-            "configuration",
-            "fail",
-            f"Configuration error: {e}"
-        ))
+        results.append(CheckResult("configuration", "fail", f"Configuration error: {e}"))
 
     return results
 
@@ -285,11 +265,7 @@ def check_databases() -> list[CheckResult]:
 
     nomic_dir = Path(".nomic")
     if not nomic_dir.exists():
-        results.append(CheckResult(
-            "databases",
-            "warn",
-            ".nomic directory not found (first run?)"
-        ))
+        results.append(CheckResult("databases", "warn", ".nomic directory not found (first run?)"))
         return results
 
     # Key databases to check
@@ -313,24 +289,14 @@ def check_databases() -> list[CheckResult]:
             accessible += 1
             size_mb = db_path.stat().st_size / (1024 * 1024)
             if size_mb > 100:
-                results.append(CheckResult(
-                    f"db_{db_file}",
-                    "warn",
-                    f"{description}: {size_mb:.1f} MB (large)"
-                ))
+                results.append(
+                    CheckResult(f"db_{db_file}", "warn", f"{description}: {size_mb:.1f} MB (large)")
+                )
         except sqlite3.Error as e:
-            results.append(CheckResult(
-                f"db_{db_file}",
-                "fail",
-                f"{description}: {e}"
-            ))
+            results.append(CheckResult(f"db_{db_file}", "fail", f"{description}: {e}"))
 
     if accessible > 0:
-        results.insert(0, CheckResult(
-            "databases",
-            "pass",
-            f"{accessible} database(s) accessible"
-        ))
+        results.insert(0, CheckResult("databases", "pass", f"{accessible} database(s) accessible"))
 
     return results
 
@@ -345,11 +311,13 @@ def check_circuit_breakers() -> list[CheckResult]:
         status = get_circuit_breaker_status()
 
         if not status:
-            results.append(CheckResult(
-                "circuit_breakers",
-                "pass",
-                "No circuit breakers registered (agents not initialized)"
-            ))
+            results.append(
+                CheckResult(
+                    "circuit_breakers",
+                    "pass",
+                    "No circuit breakers registered (agents not initialized)",
+                )
+            )
             return results
 
         open_circuits = []
@@ -358,24 +326,22 @@ def check_circuit_breakers() -> list[CheckResult]:
                 open_circuits.append(name)
 
         if not open_circuits:
-            results.append(CheckResult(
-                "circuit_breakers",
-                "pass",
-                f"All {len(status)} circuit breakers closed"
-            ))
+            results.append(
+                CheckResult(
+                    "circuit_breakers", "pass", f"All {len(status)} circuit breakers closed"
+                )
+            )
         else:
-            results.append(CheckResult(
-                "circuit_breakers",
-                "warn",
-                f"{len(open_circuits)}/{len(status)} open: {', '.join(open_circuits)}"
-            ))
+            results.append(
+                CheckResult(
+                    "circuit_breakers",
+                    "warn",
+                    f"{len(open_circuits)}/{len(status)} open: {', '.join(open_circuits)}",
+                )
+            )
 
     except ImportError:
-        results.append(CheckResult(
-            "circuit_breakers",
-            "warn",
-            "Resilience module not available"
-        ))
+        results.append(CheckResult("circuit_breakers", "warn", "Resilience module not available"))
 
     return results
 
@@ -393,17 +359,13 @@ def check_server() -> list[CheckResult]:
         req = urllib.request.Request(health_url, method="GET")
         with urllib.request.urlopen(req, timeout=2) as resp:
             if resp.status == 200:
-                results.append(CheckResult(
-                    "server",
-                    "pass",
-                    f"API server running at {DEFAULT_API_URL}"
-                ))
+                results.append(
+                    CheckResult("server", "pass", f"API server running at {DEFAULT_API_URL}")
+                )
     except (OSError, TimeoutError):
-        results.append(CheckResult(
-            "server",
-            "warn",
-            f"API server not running at {DEFAULT_API_URL} (optional)"
-        ))
+        results.append(
+            CheckResult("server", "warn", f"API server not running at {DEFAULT_API_URL} (optional)")
+        )
 
     return results
 
@@ -514,9 +476,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Aragora system health check")
     parser.add_argument(
-        "--validate", "-v",
-        action="store_true",
-        help="Validate API keys by making test calls"
+        "--validate", "-v", action="store_true", help="Validate API keys by making test calls"
     )
     args = parser.parse_args()
 

@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
 import type { StreamEvent } from '@/types/events';
+import { API_BASE_URL } from '@/config';
 
 // Types from the backend
 interface ScenarioResult {
@@ -329,8 +330,8 @@ function CompareView({
       </div>
 
       <div className="p-4">
-        {/* Headers */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* Headers - stack on mobile, side-by-side on desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div className={`p-3 text-center ${left.is_baseline ? 'bg-gold/10 border-gold/30' : 'bg-acid-cyan/10 border-acid-cyan/30'} border`}>
             <div className={`text-sm font-mono ${left.is_baseline ? 'text-gold' : 'text-acid-cyan'}`}>
               {left.scenario_name}
@@ -353,26 +354,32 @@ function CompareView({
           {renderDiff('Winner', left.winner || '-', right.winner || '-')}
         </div>
 
-        {/* Conclusions side by side */}
-        <div className="grid grid-cols-2 gap-4 mt-4">
+        {/* Conclusions - stack on mobile, side-by-side on desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div>
-            <div className="text-xs font-mono text-text-muted mb-2">CONCLUSION</div>
+            <div className="text-xs font-mono text-text-muted mb-2">
+              CONCLUSION <span className="sm:hidden text-purple">({left.scenario_name})</span>
+            </div>
             <div className="text-xs font-mono text-text bg-bg/50 p-3 border border-border max-h-40 overflow-y-auto">
               {left.final_answer || 'No conclusion'}
             </div>
           </div>
           <div>
-            <div className="text-xs font-mono text-text-muted mb-2">CONCLUSION</div>
+            <div className="text-xs font-mono text-text-muted mb-2">
+              CONCLUSION <span className="sm:hidden text-purple">({right.scenario_name})</span>
+            </div>
             <div className="text-xs font-mono text-text bg-bg/50 p-3 border border-border max-h-40 overflow-y-auto">
               {right.final_answer || 'No conclusion'}
             </div>
           </div>
         </div>
 
-        {/* Parameters comparison */}
-        <div className="grid grid-cols-2 gap-4 mt-4">
+        {/* Parameters comparison - stack on mobile, side-by-side on desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div>
-            <div className="text-xs font-mono text-text-muted mb-2">PARAMETERS</div>
+            <div className="text-xs font-mono text-text-muted mb-2">
+              PARAMETERS <span className="sm:hidden text-purple">({left.scenario_name})</span>
+            </div>
             <div className="flex flex-wrap gap-1">
               {Object.entries(left.parameters).map(([key, value]) => (
                 <span key={key} className="px-1 py-0.5 bg-acid-cyan/10 text-acid-cyan text-[10px] font-mono">
@@ -385,7 +392,9 @@ function CompareView({
             </div>
           </div>
           <div>
-            <div className="text-xs font-mono text-text-muted mb-2">PARAMETERS</div>
+            <div className="text-xs font-mono text-text-muted mb-2">
+              PARAMETERS <span className="sm:hidden text-purple">({right.scenario_name})</span>
+            </div>
             <div className="flex flex-wrap gap-1">
               {Object.entries(right.parameters).map(([key, value]) => (
                 <span key={key} className="px-1 py-0.5 bg-acid-cyan/10 text-acid-cyan text-[10px] font-mono">
@@ -532,7 +541,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
     const fetchInitialMatrix = async () => {
       try {
         setLoading(true);
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+        const apiUrl = API_BASE_URL;
         const response = await fetch(`${apiUrl}/api/debates/matrix/${initialMatrixId}`);
         if (response.ok) {
           const data = await response.json();
@@ -557,7 +566,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
       // Re-fetch the matrix result
       const refreshResult = async () => {
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+          const apiUrl = API_BASE_URL;
           const response = await fetch(
             `${apiUrl}/api/debates/matrix/${result.matrix_id}`
           );
@@ -624,7 +633,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
       setLoading(true);
       setError(null);
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+      const apiUrl = API_BASE_URL;
       const response = await fetch(`${apiUrl}/api/debates/matrix`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -906,7 +915,65 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                 {'>'} COMPARISON GRID
               </span>
             </div>
-            <div className="overflow-x-auto">
+
+            {/* Mobile card layout */}
+            <div className="block md:hidden p-4 space-y-3">
+              {result.results.map((r, i) => {
+                const winnerColors = r.winner ? getAgentColors(r.winner) : null;
+                return (
+                  <div
+                    key={i}
+                    className={`p-3 border ${
+                      r.is_baseline ? 'border-gold/40 bg-gold/5' : 'border-purple/20 bg-bg/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={`text-sm font-mono ${r.is_baseline ? 'text-gold' : 'text-text'}`}>
+                        {r.scenario_name}
+                      </span>
+                      {r.is_baseline && (
+                        <span className="text-[10px] font-mono text-gold">[BASELINE]</span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                      <div className="flex justify-between items-center p-2 bg-bg/50 rounded">
+                        <span className="text-text-muted">Consensus</span>
+                        <span
+                          className={`px-2 py-0.5 ${
+                            r.consensus_reached
+                              ? 'bg-acid-green/20 text-acid-green'
+                              : 'bg-crimson/20 text-crimson'
+                          }`}
+                        >
+                          {r.consensus_reached ? 'YES' : 'NO'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center p-2 bg-bg/50 rounded">
+                        <span className="text-text-muted">Confidence</span>
+                        <span className="text-acid-cyan">{(r.confidence * 100).toFixed(0)}%</span>
+                      </div>
+                      <div className="flex justify-between items-center p-2 bg-bg/50 rounded">
+                        <span className="text-text-muted">Rounds</span>
+                        <span className="text-text">{r.rounds_used}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-2 bg-bg/50 rounded">
+                        <span className="text-text-muted">Winner</span>
+                        {r.winner && winnerColors ? (
+                          <span className={`px-2 py-0.5 ${winnerColors.bg} ${winnerColors.text}`}>
+                            {r.winner}
+                          </span>
+                        ) : (
+                          <span className="text-text-muted">-</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop table layout */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-xs font-mono">
                 <thead>
                   <tr className="bg-bg/50">

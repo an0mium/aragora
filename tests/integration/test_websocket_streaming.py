@@ -67,6 +67,7 @@ class TestWebSocketConnection:
     @pytest.mark.asyncio
     async def test_connection_rejected_invalid_auth(self):
         """WebSocket should reject invalid authentication."""
+
         async def validate_auth(token: str) -> bool:
             return token == "valid-token"
 

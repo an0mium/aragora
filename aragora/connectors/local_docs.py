@@ -118,11 +118,13 @@ class LocalDocsConnector(BaseConnector):
                     end = min(len(lines), i + context_lines + 1)
                     context = "\n".join(lines[start:end])
 
-                    matches.append({
-                        "line_num": i + 1,
-                        "line": line.strip(),
-                        "context": context,
-                    })
+                    matches.append(
+                        {
+                            "line_num": i + 1,
+                            "line": line.strip(),
+                            "context": context,
+                        }
+                    )
 
         except (OSError, UnicodeDecodeError, PermissionError) as e:
             logger.debug(f"Failed to search in {path}: {e}")
@@ -155,24 +157,24 @@ class LocalDocsConnector(BaseConnector):
             # These patterns have polynomial or exponential time complexity
             dangerous_patterns = [
                 # Nested quantifiers in groups
-                r'\([^)]*[+*][^)]*\)[+*]',      # (x+)+ or (x*)*
-                r'\([^)]*[+*][^)]*\)\{',        # (x+){n,m}
+                r"\([^)]*[+*][^)]*\)[+*]",  # (x+)+ or (x*)*
+                r"\([^)]*[+*][^)]*\)\{",  # (x+){n,m}
                 # Alternation with quantifiers
-                r'\([^)]*\|[^)]*\)[+*]',        # (a|b)+
-                r'\([^)]*\|[^)]*\)\{',          # (a|b){n,m}
+                r"\([^)]*\|[^)]*\)[+*]",  # (a|b)+
+                r"\([^)]*\|[^)]*\)\{",  # (a|b){n,m}
                 # Overlapping patterns with quantifiers
-                r'\.\*[^)]*\.\*',               # .*x.*
-                r'\.\+[^)]*\.\+',               # .+x.+
+                r"\.\*[^)]*\.\*",  # .*x.*
+                r"\.\+[^)]*\.\+",  # .+x.+
                 # Quantifier after quantifier (rare but dangerous)
-                r'[+*]\s*[+*]',                 # x++, x**
-                r'[+*]\s*\{',                   # x+{n}
-                r'\}\s*[+*]',                   # {n}+
+                r"[+*]\s*[+*]",  # x++, x**
+                r"[+*]\s*\{",  # x+{n}
+                r"\}\s*[+*]",  # {n}+
                 # Character class with quantifier followed by similar
-                r'\[[^\]]+\][+*][^)]*\[[^\]]+\][+*]',  # [abc]+[abc]+
+                r"\[[^\]]+\][+*][^)]*\[[^\]]+\][+*]",  # [abc]+[abc]+
                 # Greedy quantifiers with overlapping possibilities
-                r'\\w[+*][^)]*\\w[+*]',         # \w+\w+
-                r'\\d[+*][^)]*\\d[+*]',         # \d+\d+
-                r'\\s[+*][^)]*\\s[+*]',         # \s+\s+
+                r"\\w[+*][^)]*\\w[+*]",  # \w+\w+
+                r"\\d[+*][^)]*\\d[+*]",  # \d+\d+
+                r"\\s[+*][^)]*\\s[+*]",  # \s+\s+
             ]
             for danger in dangerous_patterns:
                 if re.search(danger, query, re.IGNORECASE):
@@ -226,9 +228,11 @@ class LocalDocsConnector(BaseConnector):
                         title=str(relative_path),
                         url=f"file://{path}",
                         confidence=0.8,  # Local files are fairly reliable
-                        freshness=self.calculate_freshness(
-                            str(stat.st_mtime)
-                        ) if hasattr(stat, "st_mtime") else 0.7,
+                        freshness=(
+                            self.calculate_freshness(str(stat.st_mtime))
+                            if hasattr(stat, "st_mtime")
+                            else 0.7
+                        ),
                         authority=0.6,  # Code/docs have moderate authority
                         metadata={
                             "file_path": str(path),

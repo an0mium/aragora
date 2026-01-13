@@ -128,10 +128,12 @@ class TestUpdateUsersBatch:
             name="Original Name 2",
         )
 
-        result = store.update_users_batch([
-            {"user_id": user1.id, "name": "Updated Name 1"},
-            {"user_id": user2.id, "name": "Updated Name 2"},
-        ])
+        result = store.update_users_batch(
+            [
+                {"user_id": user1.id, "name": "Updated Name 1"},
+                {"user_id": user2.id, "name": "Updated Name 2"},
+            ]
+        )
 
         assert result >= 1  # At least some updated
 
@@ -157,10 +159,12 @@ class TestUpdateUsersBatch:
             name="Original",
         )
 
-        store.update_users_batch([
-            {"user_id": user1.id, "role": "admin"},
-            {"user_id": user2.id, "name": "New Name"},
-        ])
+        store.update_users_batch(
+            [
+                {"user_id": user1.id, "role": "admin"},
+                {"user_id": user2.id, "name": "New Name"},
+            ]
+        )
 
         updated1 = store.get_user_by_id(user1.id)
         updated2 = store.get_user_by_id(user2.id)
@@ -177,10 +181,12 @@ class TestUpdateUsersBatch:
             name="Original",
         )
 
-        result = store.update_users_batch([
-            {"name": "Should be skipped"},  # No user_id
-            {"user_id": user1.id, "name": "Should update"},
-        ])
+        result = store.update_users_batch(
+            [
+                {"name": "Should be skipped"},  # No user_id
+                {"user_id": user1.id, "name": "Should update"},
+            ]
+        )
 
         updated1 = store.get_user_by_id(user1.id)
         assert updated1.name == "Should update"
@@ -194,9 +200,11 @@ class TestUpdateUsersBatch:
             password_salt=pw_salt,
         )
 
-        store.update_users_batch([
-            {"user_id": user1.id, "is_active": False, "email_verified": True},
-        ])
+        store.update_users_batch(
+            [
+                {"user_id": user1.id, "is_active": False, "email_verified": True},
+            ]
+        )
 
         updated = store.get_user_by_id(user1.id)
         assert updated.is_active is False

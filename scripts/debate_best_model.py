@@ -121,7 +121,9 @@ Be honest about limitations but frame them constructively. This is a debate - ma
                 self.log("")
                 self.log(result)
             self.log("")
-            context_msgs.append(Message(role="proposer", agent=name, content=proposals[name], round=0))
+            context_msgs.append(
+                Message(role="proposer", agent=name, content=proposals[name], round=0)
+            )
 
         self.log("---")
         self.log("")
@@ -157,11 +159,13 @@ Remember: You're competing but being fair. Acknowledge genuine strengths while h
 
                     try:
                         critique_response = await critic.generate(critique_prompt, context_msgs)
-                        round_critiques.append({
-                            "critic": critic_name,
-                            "target": target_name,
-                            "content": critique_response
-                        })
+                        round_critiques.append(
+                            {
+                                "critic": critic_name,
+                                "target": target_name,
+                                "content": critique_response,
+                            }
+                        )
                         self.log(f"#### {critic_name} → {target_name}")
                         self.log("")
                         self.log(critique_response)
@@ -182,9 +186,9 @@ Remember: You're competing but being fair. Acknowledge genuine strengths while h
                 if not my_critiques:
                     continue
 
-                critiques_text = "\n\n".join([
-                    f"From {c['critic']}:\n{c['content']}" for c in my_critiques
-                ])
+                critiques_text = "\n\n".join(
+                    [f"From {c['critic']}:\n{c['content']}" for c in my_critiques]
+                )
 
                 revision_prompt = f"""You are {name}. You've received critiques from other models:
 
@@ -208,18 +212,22 @@ Keep advocating for yourself but show you can respond thoughtfully to criticism.
                     self.log("")
                     self.log(revised)
                     self.log("")
-                    context_msgs.append(Message(role="proposer", agent=name, content=revised, round=round_num))
+                    context_msgs.append(
+                        Message(role="proposer", agent=name, content=revised, round=round_num)
+                    )
                 except Exception as e:
                     self.log(f"#### {name} (Revision Failed)")
                     self.log(f"**ERROR**: {e}")
                     self.log("")
 
-            all_rounds.append(DebateRound(
-                round_num=round_num,
-                proposals=dict(proposals),
-                critiques=round_critiques,
-                revisions=dict(proposals)
-            ))
+            all_rounds.append(
+                DebateRound(
+                    round_num=round_num,
+                    proposals=dict(proposals),
+                    critiques=round_critiques,
+                    revisions=dict(proposals),
+                )
+            )
 
             self.log("---")
             self.log("")
@@ -228,7 +236,9 @@ Keep advocating for yourself but show you can respond thoughtfully to criticism.
         self.log("## Consensus Phase: Majority Vote")
         self.log("")
         self.log("Each model votes for which model (including potentially themselves) should be")
-        self.log("the PRIMARY choice for code implementation. They can also propose hybrid approaches.")
+        self.log(
+            "the PRIMARY choice for code implementation. They can also propose hybrid approaches."
+        )
         self.log("")
 
         votes = {}
@@ -270,28 +280,28 @@ HYBRID_ROLES:
                 # Parse vote
                 vote_reasoning[voter_name] = vote_response
                 if "VOTE:" in vote_response:
-                    vote_line = [l for l in vote_response.split('\n') if 'VOTE:' in l][0]
-                    vote = vote_line.split('VOTE:')[1].strip().lower()
+                    vote_line = [l for l in vote_response.split("\n") if "VOTE:" in l][0]
+                    vote = vote_line.split("VOTE:")[1].strip().lower()
 
                     # Normalize vote
-                    if 'claude' in vote:
-                        votes[voter_name] = 'claude'
-                    elif 'codex' in vote or 'gpt' in vote or 'openai' in vote:
-                        votes[voter_name] = 'codex'
-                    elif 'gemini' in vote or 'google' in vote:
-                        votes[voter_name] = 'gemini'
-                    elif 'hybrid' in vote:
-                        votes[voter_name] = 'hybrid'
+                    if "claude" in vote:
+                        votes[voter_name] = "claude"
+                    elif "codex" in vote or "gpt" in vote or "openai" in vote:
+                        votes[voter_name] = "codex"
+                    elif "gemini" in vote or "google" in vote:
+                        votes[voter_name] = "gemini"
+                    elif "hybrid" in vote:
+                        votes[voter_name] = "hybrid"
                     else:
                         votes[voter_name] = vote
                 else:
-                    votes[voter_name] = 'unclear'
+                    votes[voter_name] = "unclear"
 
             except Exception as e:
                 self.log(f"### {voter_name}'s Vote")
                 self.log(f"**ERROR**: {e}")
                 self.log("")
-                votes[voter_name] = 'error'
+                votes[voter_name] = "error"
 
         # Tally votes
         self.log("### Vote Tally")
@@ -364,7 +374,9 @@ Be gracious in victory or defeat. Focus on what's best for developers."""
         self.log(f"- **Duration**: {duration:.1f} seconds ({duration/60:.1f} minutes)")
         self.log(f"- **Rounds**: {self.rounds}")
         self.log(f"- **Winner**: {winner}")
-        self.log(f"- **Consensus**: {'Yes (unanimous)' if consensus else 'Majority' if max_votes > 1 else 'No clear consensus'}")
+        self.log(
+            f"- **Consensus**: {'Yes (unanimous)' if consensus else 'Majority' if max_votes > 1 else 'No clear consensus'}"
+        )
         self.log("")
         self.log("### Final Proposals")
         self.log("")
@@ -460,7 +472,8 @@ The winning approach will be implemented in aragora's nomic loop."""
 
         # Also save JSON result
         import json
-        json_output = OUTPUT_FILE.with_suffix('.json')
+
+        json_output = OUTPUT_FILE.with_suffix(".json")
         with open(json_output, "w") as f:
             json.dump(result, f, indent=2, default=str)
         print(f"Result JSON saved to: {json_output}")

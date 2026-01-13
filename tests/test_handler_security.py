@@ -27,50 +27,59 @@ from aragora.server.validation import (
 class TestPathTraversalPrevention:
     """Tests to ensure path traversal attacks are blocked."""
 
-    @pytest.mark.parametrize("malicious_path", [
-        "../etc/passwd",
-        "..\\windows\\system32",
-        "....//....//etc/passwd",
-        "%2e%2e%2f",  # URL encoded ../
-        "%2e%2e/",
-        "..%2f",
-        "%2e%2e%5c",  # URL encoded ..\
-        "..%5c",
-        "..;/",
-        "..%00/",  # Null byte
-        "..%0d/",  # Carriage return
-        "..%0a/",  # Newline
-        "....//",
-        "..../",
-        "/..",
-        "/./../../",
-        "file://etc/passwd",
-        "file:///etc/passwd",
-    ])
+    @pytest.mark.parametrize(
+        "malicious_path",
+        [
+            "../etc/passwd",
+            "..\\windows\\system32",
+            "....//....//etc/passwd",
+            "%2e%2e%2f",  # URL encoded ../
+            "%2e%2e/",
+            "..%2f",
+            "%2e%2e%5c",  # URL encoded ..\
+            "..%5c",
+            "..;/",
+            "..%00/",  # Null byte
+            "..%0d/",  # Carriage return
+            "..%0a/",  # Newline
+            "....//",
+            "..../",
+            "/..",
+            "/./../../",
+            "file://etc/passwd",
+            "file:///etc/passwd",
+        ],
+    )
     def test_path_traversal_blocked_in_id(self, malicious_path):
         """Path traversal attempts are rejected by ID validation."""
         is_valid, _ = validate_path_segment(malicious_path, "id", SAFE_ID_PATTERN)
         assert not is_valid
 
-    @pytest.mark.parametrize("malicious_path", [
-        "../secret",
-        "..\\secret",
-        "parent/../sibling",
-        "./current",
-        "~/home",
-        "$HOME/secret",
-        "${HOME}/secret",
-    ])
+    @pytest.mark.parametrize(
+        "malicious_path",
+        [
+            "../secret",
+            "..\\secret",
+            "parent/../sibling",
+            "./current",
+            "~/home",
+            "$HOME/secret",
+            "${HOME}/secret",
+        ],
+    )
     def test_path_traversal_blocked_in_agent_name(self, malicious_path):
         """Path traversal blocked in agent names."""
         is_valid, _ = validate_agent_name(malicious_path)
         assert not is_valid
 
-    @pytest.mark.parametrize("malicious_path", [
-        "../../../etc/passwd",
-        "debate-id/../../../secret",
-        "valid..invalid",  # Double dots in middle
-    ])
+    @pytest.mark.parametrize(
+        "malicious_path",
+        [
+            "../../../etc/passwd",
+            "debate-id/../../../secret",
+            "valid..invalid",  # Double dots in middle
+        ],
+    )
     def test_path_traversal_blocked_in_debate_id(self, malicious_path):
         """Path traversal blocked in debate IDs."""
         is_valid, _ = validate_debate_id(malicious_path)
@@ -85,28 +94,34 @@ class TestPathTraversalPrevention:
 class TestSQLInjectionPrevention:
     """Tests to ensure SQL injection patterns are blocked."""
 
-    @pytest.mark.parametrize("sql_injection", [
-        "'; DROP TABLE users; --",
-        "1 OR 1=1",
-        "1; SELECT * FROM users",
-        "admin'--",
-        "' OR '1'='1",
-        "1 UNION SELECT * FROM passwords",
-        "'; EXEC xp_cmdshell('dir'); --",
-        "1; INSERT INTO users VALUES('hacker')",
-        "' OR ''='",
-        "1; DELETE FROM users; --",
-    ])
+    @pytest.mark.parametrize(
+        "sql_injection",
+        [
+            "'; DROP TABLE users; --",
+            "1 OR 1=1",
+            "1; SELECT * FROM users",
+            "admin'--",
+            "' OR '1'='1",
+            "1 UNION SELECT * FROM passwords",
+            "'; EXEC xp_cmdshell('dir'); --",
+            "1; INSERT INTO users VALUES('hacker')",
+            "' OR ''='",
+            "1; DELETE FROM users; --",
+        ],
+    )
     def test_sql_injection_blocked_in_id(self, sql_injection):
         """SQL injection patterns are rejected by ID validation."""
         is_valid, _ = validate_path_segment(sql_injection, "id", SAFE_ID_PATTERN)
         assert not is_valid
 
-    @pytest.mark.parametrize("sql_injection", [
-        "agent'; DROP TABLE agents; --",
-        "claude OR 1=1",
-        "claude' AND '1'='1",
-    ])
+    @pytest.mark.parametrize(
+        "sql_injection",
+        [
+            "agent'; DROP TABLE agents; --",
+            "claude OR 1=1",
+            "claude' AND '1'='1",
+        ],
+    )
     def test_sql_injection_blocked_in_agent_name(self, sql_injection):
         """SQL injection patterns blocked in agent names."""
         is_valid, _ = validate_agent_name(sql_injection)
@@ -121,36 +136,42 @@ class TestSQLInjectionPrevention:
 class TestCommandInjectionPrevention:
     """Tests to ensure command injection patterns are blocked."""
 
-    @pytest.mark.parametrize("cmd_injection", [
-        "; ls -la",
-        "| cat /etc/passwd",
-        "& whoami",
-        "`id`",
-        "$(whoami)",
-        "|| rm -rf /",
-        "&& cat /etc/shadow",
-        "\n/bin/sh",
-        "\r\ncat /etc/passwd",
-        "> /tmp/pwned",
-        "< /etc/passwd",
-        "id > /tmp/out",
-        "$(cat /etc/passwd)",
-        "${PATH}",
-        "$PATH",
-        "!ls",
-        "^cat",
-    ])
+    @pytest.mark.parametrize(
+        "cmd_injection",
+        [
+            "; ls -la",
+            "| cat /etc/passwd",
+            "& whoami",
+            "`id`",
+            "$(whoami)",
+            "|| rm -rf /",
+            "&& cat /etc/shadow",
+            "\n/bin/sh",
+            "\r\ncat /etc/passwd",
+            "> /tmp/pwned",
+            "< /etc/passwd",
+            "id > /tmp/out",
+            "$(cat /etc/passwd)",
+            "${PATH}",
+            "$PATH",
+            "!ls",
+            "^cat",
+        ],
+    )
     def test_command_injection_blocked_in_id(self, cmd_injection):
         """Command injection patterns are rejected by ID validation."""
         is_valid, _ = validate_path_segment(cmd_injection, "id", SAFE_ID_PATTERN)
         assert not is_valid
 
-    @pytest.mark.parametrize("cmd_injection", [
-        "agent;id",
-        "agent|whoami",
-        "agent`id`",
-        "agent$(id)",
-    ])
+    @pytest.mark.parametrize(
+        "cmd_injection",
+        [
+            "agent;id",
+            "agent|whoami",
+            "agent`id`",
+            "agent$(id)",
+        ],
+    )
     def test_command_injection_blocked_in_agent_name(self, cmd_injection):
         """Command injection patterns blocked in agent names."""
         is_valid, _ = validate_agent_name(cmd_injection)
@@ -165,18 +186,21 @@ class TestCommandInjectionPrevention:
 class TestXSSPrevention:
     """Tests to ensure XSS patterns are blocked in IDs."""
 
-    @pytest.mark.parametrize("xss_payload", [
-        "<script>alert(1)</script>",
-        "<img src=x onerror=alert(1)>",
-        "<svg onload=alert(1)>",
-        "javascript:alert(1)",
-        "<iframe src='javascript:alert(1)'>",
-        "<body onload=alert(1)>",
-        "<div onclick=alert(1)>",
-        "';alert(1)//",
-        "\"><script>alert(1)</script>",
-        "<script>document.location='http://evil.com'</script>",
-    ])
+    @pytest.mark.parametrize(
+        "xss_payload",
+        [
+            "<script>alert(1)</script>",
+            "<img src=x onerror=alert(1)>",
+            "<svg onload=alert(1)>",
+            "javascript:alert(1)",
+            "<iframe src='javascript:alert(1)'>",
+            "<body onload=alert(1)>",
+            "<div onclick=alert(1)>",
+            "';alert(1)//",
+            '"><script>alert(1)</script>',
+            "<script>document.location='http://evil.com'</script>",
+        ],
+    )
     def test_xss_blocked_in_id(self, xss_payload):
         """XSS payloads are rejected by ID validation."""
         is_valid, _ = validate_path_segment(xss_payload, "id", SAFE_ID_PATTERN)
@@ -191,18 +215,21 @@ class TestXSSPrevention:
 class TestUnicodeAttackPrevention:
     """Tests to ensure Unicode-based attacks are blocked."""
 
-    @pytest.mark.parametrize("unicode_attack", [
-        "admin\u0000",  # Null byte
-        "test\u200b",  # Zero-width space
-        "test\u2028",  # Line separator
-        "test\u2029",  # Paragraph separator
-        "test\ufeff",  # BOM
-        "тест",  # Cyrillic lookalike
-        "aɗmin",  # Latin Extended-B lookalike
-        "../\u0000",  # Null byte in path traversal
-        "test\x00test",  # Null byte
-        "test\x0d\x0a",  # CRLF injection
-    ])
+    @pytest.mark.parametrize(
+        "unicode_attack",
+        [
+            "admin\u0000",  # Null byte
+            "test\u200b",  # Zero-width space
+            "test\u2028",  # Line separator
+            "test\u2029",  # Paragraph separator
+            "test\ufeff",  # BOM
+            "тест",  # Cyrillic lookalike
+            "aɗmin",  # Latin Extended-B lookalike
+            "../\u0000",  # Null byte in path traversal
+            "test\x00test",  # Null byte
+            "test\x0d\x0a",  # CRLF injection
+        ],
+    )
     def test_unicode_attacks_blocked_in_id(self, unicode_attack):
         """Unicode-based attacks are rejected by ID validation."""
         is_valid, _ = validate_path_segment(unicode_attack, "id", SAFE_ID_PATTERN)
@@ -262,20 +289,20 @@ class TestJSONBodySecurity:
 
     def test_oversized_body_rejected(self):
         """Bodies exceeding max size are rejected."""
-        large_body = b'{"data": "' + b'x' * (2 * 1024 * 1024) + b'"}'
+        large_body = b'{"data": "' + b"x" * (2 * 1024 * 1024) + b'"}'
         result = validate_json_body(large_body, max_size=1024 * 1024)
         assert not result.is_valid
         assert "too large" in result.error.lower()
 
     def test_empty_body_rejected(self):
         """Empty bodies are rejected."""
-        result = validate_json_body(b'')
+        result = validate_json_body(b"")
         assert not result.is_valid
         assert "empty" in result.error.lower()
 
     def test_invalid_json_rejected(self):
         """Malformed JSON is rejected."""
-        result = validate_json_body(b'{invalid json}')
+        result = validate_json_body(b"{invalid json}")
         assert not result.is_valid
         assert "invalid json" in result.error.lower()
 
@@ -287,7 +314,7 @@ class TestJSONBodySecurity:
 
     def test_deeply_nested_json_handled(self):
         """Deeply nested JSON doesn't crash."""
-        nested = '{"a":' * 100 + '"value"' + '}' * 100
+        nested = '{"a":' * 100 + '"value"' + "}" * 100
         result = validate_json_body(nested.encode())
         # Should either succeed or fail gracefully
         assert isinstance(result.is_valid, bool)

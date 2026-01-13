@@ -112,7 +112,12 @@ class TestFormatPatternsForPrompt:
             env=Environment(task="Test"),
         )
         patterns = [
-            {"category": f"cat{i}", "pattern": f"Pattern {i}", "occurrences": 1, "avg_severity": 0.3}
+            {
+                "category": f"cat{i}",
+                "pattern": f"Pattern {i}",
+                "occurrences": 1,
+                "avg_severity": 0.3,
+            }
             for i in range(10)
         ]
         result = builder.format_patterns_for_prompt(patterns)
@@ -361,7 +366,9 @@ class TestBuildProposalPrompt:
             env=Environment(task="Test task"),
         )
         agent = MagicMock(role="proposer", name="agent1")
-        result = builder.build_proposal_prompt(agent, audience_section="User suggests: Consider ethics")
+        result = builder.build_proposal_prompt(
+            agent, audience_section="User suggests: Consider ethics"
+        )
         assert "User suggests: Consider ethics" in result
 
 
@@ -376,9 +383,7 @@ class TestBuildRevisionPrompt:
         )
         agent = MagicMock(role="proposer", name="agent1")
         critiques = []
-        result = builder.build_revision_prompt(
-            agent, "My original proposal text", critiques
-        )
+        result = builder.build_revision_prompt(agent, "My original proposal text", critiques)
         assert "My original proposal text" in result
 
     def test_includes_critiques(self):
@@ -392,9 +397,7 @@ class TestBuildRevisionPrompt:
         mock_critique = MagicMock()
         mock_critique.to_prompt.return_value = "Critique: Missing evidence"
 
-        result = builder.build_revision_prompt(
-            agent, "Original", [mock_critique]
-        )
+        result = builder.build_revision_prompt(agent, "Original", [mock_critique])
         assert "Critique: Missing evidence" in result
 
     def test_includes_task(self):

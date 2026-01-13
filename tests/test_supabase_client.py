@@ -54,8 +54,12 @@ def mock_supabase_client():
 @pytest.fixture
 def client_with_mock(mock_supabase_client):
     """Create a SupabaseClient with mocked Supabase client."""
-    with patch.dict(os.environ, {"SUPABASE_URL": "https://test.supabase.co", "SUPABASE_KEY": "test-key"}):
-        with patch("aragora.persistence.supabase_client.create_client", return_value=mock_supabase_client):
+    with patch.dict(
+        os.environ, {"SUPABASE_URL": "https://test.supabase.co", "SUPABASE_KEY": "test-key"}
+    ):
+        with patch(
+            "aragora.persistence.supabase_client.create_client", return_value=mock_supabase_client
+        ):
             with patch("aragora.persistence.supabase_client.SUPABASE_AVAILABLE", True):
                 client = SupabaseClient()
                 return client
@@ -142,29 +146,41 @@ class TestSupabaseClientInitialization:
     def test_init_without_credentials(self):
         """Client should initialize with client=None if no credentials."""
         with patch.dict(os.environ, {}, clear=True):
-            with patch.object(os.environ, 'get', return_value=None):
+            with patch.object(os.environ, "get", return_value=None):
                 client = SupabaseClient(url=None, key=None)
                 # Either client is None or is_configured is False
                 assert not client.is_configured or client.client is None
 
     def test_init_with_env_vars(self, mock_supabase_client):
         """Client should use environment variables."""
-        with patch.dict(os.environ, {
-            "SUPABASE_URL": "https://test.supabase.co",
-            "SUPABASE_KEY": "test-key",
-        }):
-            with patch("aragora.persistence.supabase_client.create_client", return_value=mock_supabase_client):
+        with patch.dict(
+            os.environ,
+            {
+                "SUPABASE_URL": "https://test.supabase.co",
+                "SUPABASE_KEY": "test-key",
+            },
+        ):
+            with patch(
+                "aragora.persistence.supabase_client.create_client",
+                return_value=mock_supabase_client,
+            ):
                 client = SupabaseClient()
                 assert client.url == "https://test.supabase.co"
                 assert client.key == "test-key"
 
     def test_init_with_explicit_args(self, mock_supabase_client):
         """Client should use explicit arguments over env vars."""
-        with patch.dict(os.environ, {
-            "SUPABASE_URL": "https://env.supabase.co",
-            "SUPABASE_KEY": "env-key",
-        }):
-            with patch("aragora.persistence.supabase_client.create_client", return_value=mock_supabase_client):
+        with patch.dict(
+            os.environ,
+            {
+                "SUPABASE_URL": "https://env.supabase.co",
+                "SUPABASE_KEY": "env-key",
+            },
+        ):
+            with patch(
+                "aragora.persistence.supabase_client.create_client",
+                return_value=mock_supabase_client,
+            ):
                 client = SupabaseClient(
                     url="https://explicit.supabase.co",
                     key="explicit-key",
@@ -229,16 +245,18 @@ class TestNomicCycleOperations:
     @pytest.mark.asyncio
     async def test_get_cycle_found(self, client_with_mock, mock_supabase_client):
         """get_cycle should return cycle when found."""
-        mock_supabase_client.execute.return_value = MagicMock(data={
-            "id": "cycle-123",
-            "loop_id": "loop-456",
-            "cycle_number": 1,
-            "phase": "debate",
-            "stage": "running",
-            "started_at": "2024-01-01T12:00:00Z",
-            "completed_at": None,
-            "success": None,
-        })
+        mock_supabase_client.execute.return_value = MagicMock(
+            data={
+                "id": "cycle-123",
+                "loop_id": "loop-456",
+                "cycle_number": 1,
+                "phase": "debate",
+                "stage": "running",
+                "started_at": "2024-01-01T12:00:00Z",
+                "completed_at": None,
+                "success": None,
+            }
+        )
 
         result = await client_with_mock.get_cycle("loop-456", 1)
 
@@ -258,22 +276,24 @@ class TestNomicCycleOperations:
     @pytest.mark.asyncio
     async def test_list_cycles(self, client_with_mock, mock_supabase_client):
         """list_cycles should return list of cycles."""
-        mock_supabase_client.execute.return_value = MagicMock(data=[
-            {
-                "id": "cycle-1",
-                "loop_id": "loop-456",
-                "cycle_number": 1,
-                "phase": "debate",
-                "started_at": "2024-01-01T12:00:00Z",
-            },
-            {
-                "id": "cycle-2",
-                "loop_id": "loop-456",
-                "cycle_number": 2,
-                "phase": "implement",
-                "started_at": "2024-01-02T12:00:00Z",
-            },
-        ])
+        mock_supabase_client.execute.return_value = MagicMock(
+            data=[
+                {
+                    "id": "cycle-1",
+                    "loop_id": "loop-456",
+                    "cycle_number": 1,
+                    "phase": "debate",
+                    "started_at": "2024-01-01T12:00:00Z",
+                },
+                {
+                    "id": "cycle-2",
+                    "loop_id": "loop-456",
+                    "cycle_number": 2,
+                    "phase": "implement",
+                    "started_at": "2024-01-02T12:00:00Z",
+                },
+            ]
+        )
 
         result = await client_with_mock.list_cycles(loop_id="loop-456")
 
@@ -317,18 +337,20 @@ class TestDebateArtifactOperations:
     @pytest.mark.asyncio
     async def test_get_debate_found(self, client_with_mock, mock_supabase_client):
         """get_debate should return debate when found."""
-        mock_supabase_client.execute.return_value = MagicMock(data={
-            "id": "debate-123",
-            "loop_id": "loop-456",
-            "cycle_number": 1,
-            "phase": "debate",
-            "task": "Test task",
-            "agents": ["agent1"],
-            "transcript": [],
-            "consensus_reached": True,
-            "confidence": 0.8,
-            "created_at": "2024-01-01T12:00:00Z",
-        })
+        mock_supabase_client.execute.return_value = MagicMock(
+            data={
+                "id": "debate-123",
+                "loop_id": "loop-456",
+                "cycle_number": 1,
+                "phase": "debate",
+                "task": "Test task",
+                "agents": ["agent1"],
+                "transcript": [],
+                "consensus_reached": True,
+                "confidence": 0.8,
+                "created_at": "2024-01-01T12:00:00Z",
+            }
+        )
 
         result = await client_with_mock.get_debate("debate-123")
 
@@ -339,20 +361,22 @@ class TestDebateArtifactOperations:
     @pytest.mark.asyncio
     async def test_list_debates_with_filters(self, client_with_mock, mock_supabase_client):
         """list_debates should apply filters."""
-        mock_supabase_client.execute.return_value = MagicMock(data=[
-            {
-                "id": "debate-1",
-                "loop_id": "loop-456",
-                "cycle_number": 1,
-                "phase": "debate",
-                "task": "Task 1",
-                "agents": [],
-                "transcript": [],
-                "consensus_reached": True,
-                "confidence": 0.9,
-                "created_at": "2024-01-01T12:00:00Z",
-            },
-        ])
+        mock_supabase_client.execute.return_value = MagicMock(
+            data=[
+                {
+                    "id": "debate-1",
+                    "loop_id": "loop-456",
+                    "cycle_number": 1,
+                    "phase": "debate",
+                    "task": "Task 1",
+                    "agents": [],
+                    "transcript": [],
+                    "consensus_reached": True,
+                    "confidence": 0.9,
+                    "created_at": "2024-01-01T12:00:00Z",
+                },
+            ]
+        )
 
         result = await client_with_mock.list_debates(loop_id="loop-456", phase="debate")
 
@@ -410,16 +434,18 @@ class TestStreamEventOperations:
     @pytest.mark.asyncio
     async def test_get_events_with_filters(self, client_with_mock, mock_supabase_client):
         """get_events should apply all filters."""
-        mock_supabase_client.execute.return_value = MagicMock(data=[
-            {
-                "id": "event-1",
-                "loop_id": "loop-456",
-                "cycle": 1,
-                "event_type": "message",
-                "event_data": {},
-                "timestamp": "2024-01-01T12:00:00Z",
-            },
-        ])
+        mock_supabase_client.execute.return_value = MagicMock(
+            data=[
+                {
+                    "id": "event-1",
+                    "loop_id": "loop-456",
+                    "cycle": 1,
+                    "event_type": "message",
+                    "event_data": {},
+                    "timestamp": "2024-01-01T12:00:00Z",
+                },
+            ]
+        )
 
         result = await client_with_mock.get_events(
             loop_id="loop-456",
@@ -457,24 +483,26 @@ class TestAgentMetricsOperations:
     @pytest.mark.asyncio
     async def test_get_agent_stats(self, client_with_mock, mock_supabase_client):
         """get_agent_stats should return list of metrics."""
-        mock_supabase_client.execute.return_value = MagicMock(data=[
-            {
-                "id": "metrics-1",
-                "loop_id": "loop-456",
-                "cycle": 1,
-                "agent_name": "agent1",
-                "model": "gpt-4",
-                "phase": "debate",
-                "messages_sent": 10,
-                "proposals_made": 2,
-                "critiques_given": 5,
-                "votes_won": 1,
-                "votes_received": 3,
-                "consensus_contributions": 2,
-                "avg_response_time_ms": 500.0,
-                "timestamp": "2024-01-01T12:00:00Z",
-            },
-        ])
+        mock_supabase_client.execute.return_value = MagicMock(
+            data=[
+                {
+                    "id": "metrics-1",
+                    "loop_id": "loop-456",
+                    "cycle": 1,
+                    "agent_name": "agent1",
+                    "model": "gpt-4",
+                    "phase": "debate",
+                    "messages_sent": 10,
+                    "proposals_made": 2,
+                    "critiques_given": 5,
+                    "votes_won": 1,
+                    "votes_received": 3,
+                    "consensus_contributions": 2,
+                    "avg_response_time_ms": 500.0,
+                    "timestamp": "2024-01-01T12:00:00Z",
+                },
+            ]
+        )
 
         result = await client_with_mock.get_agent_stats("agent1")
 
@@ -734,7 +762,9 @@ class TestEdgeCases:
 
     @pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
     @pytest.mark.asyncio
-    async def test_save_debate_no_data_returned(self, client_with_mock, sample_debate, mock_supabase_client):
+    async def test_save_debate_no_data_returned(
+        self, client_with_mock, sample_debate, mock_supabase_client
+    ):
         """save_debate should return None if no data in response."""
         mock_supabase_client.execute.return_value = MagicMock(data=None)
 

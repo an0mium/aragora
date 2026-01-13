@@ -45,6 +45,7 @@ from aragora.resilience import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture(autouse=True)
 def clear_global_registry():
     """Clear global circuit breaker registry before and after each test."""
@@ -66,6 +67,7 @@ def temp_db(tmp_path):
 # =============================================================================
 # CircuitOpenError Tests
 # =============================================================================
+
 
 class TestCircuitOpenError:
     """Tests for CircuitOpenError exception."""
@@ -105,6 +107,7 @@ class TestCircuitOpenError:
 # =============================================================================
 # Global Registry Tests
 # =============================================================================
+
 
 class TestGlobalRegistry:
     """Tests for global circuit breaker registry functions."""
@@ -191,6 +194,7 @@ class TestGlobalRegistry:
 # =============================================================================
 # Metrics Tests
 # =============================================================================
+
 
 class TestCircuitBreakerMetrics:
     """Tests for get_circuit_breaker_metrics function."""
@@ -294,6 +298,7 @@ class TestCircuitBreakerMetrics:
 # Pruning Tests
 # =============================================================================
 
+
 class TestCircuitBreakerPruning:
     """Tests for circuit breaker pruning functionality."""
 
@@ -371,7 +376,7 @@ class TestCircuitBreakerPruning:
     def test_prune_without_last_accessed(self):
         """Circuit breakers without _last_accessed are not pruned."""
         cb = get_circuit_breaker("no-timestamp")
-        delattr(cb, '_last_accessed')
+        delattr(cb, "_last_accessed")
 
         pruned = prune_circuit_breakers()
 
@@ -381,6 +386,7 @@ class TestCircuitBreakerPruning:
 # =============================================================================
 # SQLite Persistence Tests
 # =============================================================================
+
 
 class TestSqlitePersistence:
     """Tests for SQLite-based circuit breaker persistence."""
@@ -465,7 +471,9 @@ class TestSqlitePersistence:
         persist_circuit_breaker("update-test", cb)
 
         conn = sqlite3.connect(temp_db)
-        cursor = conn.execute("SELECT COUNT(*) FROM circuit_breakers WHERE name = ?", ("update-test",))
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM circuit_breakers WHERE name = ?", ("update-test",)
+        )
         count = cursor.fetchone()[0]
         conn.close()
 
@@ -480,7 +488,7 @@ class TestSqlitePersistence:
         conn = sqlite3.connect(temp_db)
         conn.execute(
             "UPDATE circuit_breakers SET updated_at = ? WHERE name = ?",
-            ("2020-01-01T00:00:00", "old-entry")
+            ("2020-01-01T00:00:00", "old-entry"),
         )
         conn.commit()
         conn.close()
@@ -502,6 +510,7 @@ class TestSqlitePersistence:
         """Persisting without init does not raise."""
         # Reset _DB_PATH
         import aragora.resilience as r
+
         original = r._DB_PATH
         r._DB_PATH = None
 
@@ -514,6 +523,7 @@ class TestSqlitePersistence:
     def test_load_without_init_returns_zero(self):
         """Loading without init returns 0."""
         import aragora.resilience as r
+
         original = r._DB_PATH
         r._DB_PATH = None
 
@@ -528,7 +538,7 @@ class TestSqlitePersistence:
         conn = sqlite3.connect(temp_db)
         conn.execute(
             "INSERT INTO circuit_breakers (name, state_json, failure_threshold, cooldown_seconds, updated_at) VALUES (?, ?, ?, ?, ?)",
-            ("malformed", "{invalid json", 3, 60.0, "2024-01-01T00:00:00")
+            ("malformed", "{invalid json", 3, 60.0, "2024-01-01T00:00:00"),
         )
         conn.commit()
         conn.close()
@@ -541,6 +551,7 @@ class TestSqlitePersistence:
 # =============================================================================
 # Protected Call Context Manager Tests
 # =============================================================================
+
 
 class TestProtectedCallAsync:
     """Tests for async protected_call context manager."""
@@ -684,6 +695,7 @@ class TestProtectedCallSync:
 # Thread Safety Tests
 # =============================================================================
 
+
 class TestThreadSafety:
     """Tests for thread-safe operations."""
 
@@ -696,10 +708,7 @@ class TestThreadSafety:
                 cb = get_circuit_breaker(name)
                 results.append(cb)
 
-        threads = [
-            threading.Thread(target=get_cb, args=(f"thread-cb-{i % 3}",))
-            for i in range(10)
-        ]
+        threads = [threading.Thread(target=get_cb, args=(f"thread-cb-{i % 3}",)) for i in range(10)]
 
         for t in threads:
             t.start()
@@ -826,6 +835,7 @@ class TestThreadSafety:
 # Half-Open Behavior Extended Tests
 # =============================================================================
 
+
 class TestHalfOpenBehaviorExtended:
     """Extended tests for half-open state behavior."""
 
@@ -898,6 +908,7 @@ class TestHalfOpenBehaviorExtended:
 # =============================================================================
 # From Dict Extended Tests
 # =============================================================================
+
 
 class TestFromDictExtended:
     """Extended tests for from_dict state restoration."""
@@ -989,6 +1000,7 @@ class TestFromDictExtended:
 # =============================================================================
 # State Transitions Tests
 # =============================================================================
+
 
 class TestStateTransitions:
     """Tests for circuit breaker state transitions."""

@@ -24,6 +24,7 @@ from aragora.server.handlers.belief import BeliefHandler
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def belief_handler(handler_context):
     """Create a BeliefHandler with mock context."""
@@ -35,7 +36,7 @@ def mock_http_handler():
     """Create a mock HTTP handler object."""
     handler = Mock()
     handler.headers = {}
-    handler.command = 'GET'
+    handler.command = "GET"
     return handler
 
 
@@ -73,8 +74,18 @@ def temp_nomic_dir_with_traces():
 
         # Create events.jsonl for replay
         events = [
-            {"type": "agent_message", "agent": "agent1", "data": {"content": "Test", "role": "proposer"}, "round": 1},
-            {"type": "critique", "agent": "agent2", "data": {"target": "agent1", "severity": 0.5, "content": "Weak"}, "round": 1},
+            {
+                "type": "agent_message",
+                "agent": "agent1",
+                "data": {"content": "Test", "role": "proposer"},
+                "round": 1,
+            },
+            {
+                "type": "critique",
+                "agent": "agent2",
+                "data": {"target": "agent1", "severity": 0.5, "content": "Weak"},
+                "round": 1,
+            },
         ]
         events_file = replays_dir / "events.jsonl"
         events_file.write_text("\n".join(json.dumps(e) for e in events))
@@ -85,6 +96,7 @@ def temp_nomic_dir_with_traces():
 # =============================================================================
 # can_handle Tests
 # =============================================================================
+
 
 class TestCanHandle:
     """Test route matching for BeliefHandler."""
@@ -116,15 +128,14 @@ class TestCanHandle:
 # Cruxes Endpoint Tests
 # =============================================================================
 
+
 class TestCruxesEndpoint:
     """Test /api/belief-network/:id/cruxes endpoint."""
 
     def test_invalid_debate_id_returns_400(self, belief_handler, mock_http_handler):
         """Test error on invalid debate ID."""
         result = belief_handler.handle(
-            "/api/belief-network/../invalid/cruxes",
-            {},
-            mock_http_handler
+            "/api/belief-network/../invalid/cruxes", {}, mock_http_handler
         )
         assert result is not None
         assert result.status_code == 400
@@ -136,23 +147,21 @@ class TestCruxesEndpoint:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             result = handler.handle(
-                "/api/belief-network/debate_abc123/cruxes",
-                {},
-                mock_http_handler
+                "/api/belief-network/debate_abc123/cruxes", {}, mock_http_handler
             )
         assert result is not None
         assert result.status_code == 503
 
-    def test_cruxes_missing_trace_returns_404(self, handler_context, temp_nomic_dir_with_traces, mock_http_handler):
+    def test_cruxes_missing_trace_returns_404(
+        self, handler_context, temp_nomic_dir_with_traces, mock_http_handler
+    ):
         """Test error when debate trace not found."""
         handler_context["nomic_dir"] = temp_nomic_dir_with_traces
         handler = BeliefHandler(handler_context)
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             result = handler.handle(
-                "/api/belief-network/nonexistent_debate/cruxes",
-                {},
-                mock_http_handler
+                "/api/belief-network/nonexistent_debate/cruxes", {}, mock_http_handler
             )
         assert result is not None
         assert result.status_code == 404
@@ -161,9 +170,7 @@ class TestCruxesEndpoint:
         """Test error when belief network module unavailable."""
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
             result = belief_handler.handle(
-                "/api/belief-network/debate_abc123/cruxes",
-                {},
-                mock_http_handler
+                "/api/belief-network/debate_abc123/cruxes", {}, mock_http_handler
             )
         assert result is not None
         assert result.status_code == 503
@@ -172,9 +179,7 @@ class TestCruxesEndpoint:
         """Test top_k parameter is clamped to valid range."""
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
             result = belief_handler.handle(
-                "/api/belief-network/debate_abc123/cruxes",
-                {"top_k": ["100"]},
-                mock_http_handler
+                "/api/belief-network/debate_abc123/cruxes", {"top_k": ["100"]}, mock_http_handler
             )
         assert result is not None
         assert result.status_code == 503
@@ -184,15 +189,14 @@ class TestCruxesEndpoint:
 # Load Bearing Claims Endpoint Tests
 # =============================================================================
 
+
 class TestLoadBearingClaimsEndpoint:
     """Test /api/belief-network/:id/load-bearing-claims endpoint."""
 
     def test_invalid_debate_id_returns_400(self, belief_handler, mock_http_handler):
         """Test error on invalid debate ID."""
         result = belief_handler.handle(
-            "/api/belief-network/../invalid/load-bearing-claims",
-            {},
-            mock_http_handler
+            "/api/belief-network/../invalid/load-bearing-claims", {}, mock_http_handler
         )
         assert result is not None
         assert result.status_code == 400
@@ -204,20 +208,18 @@ class TestLoadBearingClaimsEndpoint:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             result = handler.handle(
-                "/api/belief-network/debate_abc123/load-bearing-claims",
-                {},
-                mock_http_handler
+                "/api/belief-network/debate_abc123/load-bearing-claims", {}, mock_http_handler
             )
         assert result is not None
         assert result.status_code == 503
 
-    def test_load_bearing_belief_network_unavailable_returns_503(self, belief_handler, mock_http_handler):
+    def test_load_bearing_belief_network_unavailable_returns_503(
+        self, belief_handler, mock_http_handler
+    ):
         """Test error when belief network module unavailable."""
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
             result = belief_handler.handle(
-                "/api/belief-network/debate_abc123/load-bearing-claims",
-                {},
-                mock_http_handler
+                "/api/belief-network/debate_abc123/load-bearing-claims", {}, mock_http_handler
             )
         assert result is not None
         assert result.status_code == 503
@@ -227,16 +229,13 @@ class TestLoadBearingClaimsEndpoint:
 # Claim Support Endpoint Tests
 # =============================================================================
 
+
 class TestClaimSupportEndpoint:
     """Test /api/provenance/:id/claims/:claim_id/support endpoint."""
 
     def test_invalid_path_format_returns_400(self, belief_handler, mock_http_handler):
         """Test malformed path returns 400 error."""
-        result = belief_handler.handle(
-            "/api/provenance/claims/support",
-            {},
-            mock_http_handler
-        )
+        result = belief_handler.handle("/api/provenance/claims/support", {}, mock_http_handler)
         # Handler catches this as invalid path format
         assert result is not None
         assert result.status_code == 400
@@ -244,9 +243,7 @@ class TestClaimSupportEndpoint:
     def test_invalid_debate_id_returns_400(self, belief_handler, mock_http_handler):
         """Test error on invalid debate ID format."""
         result = belief_handler.handle(
-            "/api/provenance/../bad/claims/claim_1/support",
-            {},
-            mock_http_handler
+            "/api/provenance/../bad/claims/claim_1/support", {}, mock_http_handler
         )
         assert result is not None
         assert result.status_code == 400
@@ -258,20 +255,18 @@ class TestClaimSupportEndpoint:
 
         with patch("aragora.server.handlers.belief.PROVENANCE_AVAILABLE", True):
             result = handler.handle(
-                "/api/provenance/debate_abc123/claims/claim_1/support",
-                {},
-                mock_http_handler
+                "/api/provenance/debate_abc123/claims/claim_1/support", {}, mock_http_handler
             )
         assert result is not None
         assert result.status_code == 503
 
-    def test_claim_support_provenance_unavailable_returns_503(self, belief_handler, mock_http_handler):
+    def test_claim_support_provenance_unavailable_returns_503(
+        self, belief_handler, mock_http_handler
+    ):
         """Test error when provenance module unavailable."""
         with patch("aragora.server.handlers.belief.PROVENANCE_AVAILABLE", False):
             result = belief_handler.handle(
-                "/api/provenance/debate_abc123/claims/claim_1/support",
-                {},
-                mock_http_handler
+                "/api/provenance/debate_abc123/claims/claim_1/support", {}, mock_http_handler
             )
         assert result is not None
         assert result.status_code == 503
@@ -285,9 +280,7 @@ class TestClaimSupportEndpoint:
 
         with patch("aragora.server.handlers.belief.PROVENANCE_AVAILABLE", True):
             result = handler.handle(
-                "/api/provenance/debate_abc123/claims/claim_1/support",
-                {},
-                mock_http_handler
+                "/api/provenance/debate_abc123/claims/claim_1/support", {}, mock_http_handler
             )
 
         assert result is not None
@@ -301,16 +294,13 @@ class TestClaimSupportEndpoint:
 # Graph Stats Endpoint Tests
 # =============================================================================
 
+
 class TestGraphStatsEndpoint:
     """Test /api/debate/:id/graph-stats endpoint."""
 
     def test_invalid_debate_id_returns_400(self, belief_handler, mock_http_handler):
         """Test error on invalid debate ID."""
-        result = belief_handler.handle(
-            "/api/debate/../invalid/graph-stats",
-            {},
-            mock_http_handler
-        )
+        result = belief_handler.handle("/api/debate/../invalid/graph-stats", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 400
 
@@ -319,11 +309,7 @@ class TestGraphStatsEndpoint:
         handler_context["nomic_dir"] = None
         handler = BeliefHandler(handler_context)
 
-        result = handler.handle(
-            "/api/debate/debate_abc123/graph-stats",
-            {},
-            mock_http_handler
-        )
+        result = handler.handle("/api/debate/debate_abc123/graph-stats", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 503
 
@@ -334,11 +320,7 @@ class TestGraphStatsEndpoint:
         handler_context["nomic_dir"] = temp_nomic_dir_with_traces
         handler = BeliefHandler(handler_context)
 
-        result = handler.handle(
-            "/api/debate/nonexistent_debate/graph-stats",
-            {},
-            mock_http_handler
-        )
+        result = handler.handle("/api/debate/nonexistent_debate/graph-stats", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 404
 
@@ -358,14 +340,9 @@ class TestGraphStatsEndpoint:
 
         # ArgumentCartographer is imported inside the method from aragora.visualization.mapper
         with patch(
-            "aragora.visualization.mapper.ArgumentCartographer",
-            return_value=mock_cartographer
+            "aragora.visualization.mapper.ArgumentCartographer", return_value=mock_cartographer
         ):
-            result = handler.handle(
-                "/api/debate/debate_xyz789/graph-stats",
-                {},
-                mock_http_handler
-            )
+            result = handler.handle("/api/debate/debate_xyz789/graph-stats", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -377,21 +354,18 @@ class TestGraphStatsEndpoint:
 # ID Extraction Tests
 # =============================================================================
 
+
 class TestIdExtraction:
     """Test debate ID extraction from paths."""
 
     def test_extract_valid_debate_id(self, belief_handler):
         """Test extraction of valid debate ID."""
-        debate_id = belief_handler._extract_debate_id(
-            "/api/belief-network/debate_abc123/cruxes", 3
-        )
+        debate_id = belief_handler._extract_debate_id("/api/belief-network/debate_abc123/cruxes", 3)
         assert debate_id == "debate_abc123"
 
     def test_extract_invalid_debate_id_returns_none(self, belief_handler):
         """Test extraction returns None for invalid IDs."""
-        debate_id = belief_handler._extract_debate_id(
-            "/api/belief-network/../etc/passwd/cruxes", 3
-        )
+        debate_id = belief_handler._extract_debate_id("/api/belief-network/../etc/passwd/cruxes", 3)
         assert debate_id is None
 
     def test_extract_from_short_path_returns_none(self, belief_handler):

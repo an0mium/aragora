@@ -152,10 +152,7 @@ class DisagreementHandler:
                 self._log(f"      Split: {str(opinion)[:100]}")
 
         # Warn on low agreement
-        if (
-            report.agreement_score < self.FORK_AGREEMENT_THRESHOLD
-            and not actions.should_reject
-        ):
+        if report.agreement_score < self.FORK_AGREEMENT_THRESHOLD and not actions.should_reject:
             self._log(
                 f"    [disagreement] WARNING: Low agreement ({report.agreement_score:.0%}) "
                 "- consider revising proposal"

@@ -114,6 +114,32 @@ from .structured_logging import (
     LogContext,
     setup_logging,
 )
+from .tracing import (
+    TRACE_ID_HEADER,
+    SPAN_ID_HEADER,
+    PARENT_SPAN_HEADER,
+    generate_trace_id as generate_new_trace_id,
+    generate_span_id,
+    get_trace_id,
+    get_span_id,
+    get_parent_span_id,
+    set_trace_id,
+    set_span_id,
+    Span,
+    trace_context,
+    traced,
+    TracingMiddleware,
+    trace_websocket_event,
+    extract_websocket_trace,
+    add_trace_to_error,
+)
+from .tier_enforcement import (
+    QuotaExceededError,
+    check_org_quota,
+    increment_org_usage,
+    require_quota,
+    get_quota_status,
+)
 
 __all__ = [
     # Auth
@@ -201,4 +227,28 @@ __all__ = [
     "TextFormatter",
     "LogContext",
     "setup_logging",
+    # Distributed tracing
+    "TRACE_ID_HEADER",
+    "SPAN_ID_HEADER",
+    "PARENT_SPAN_HEADER",
+    "generate_new_trace_id",
+    "generate_span_id",
+    "get_trace_id",
+    "get_span_id",
+    "get_parent_span_id",
+    "set_trace_id",
+    "set_span_id",
+    "Span",
+    "trace_context",
+    "traced",
+    "TracingMiddleware",
+    "trace_websocket_event",
+    "extract_websocket_trace",
+    "add_trace_to_error",
+    # Tier enforcement
+    "QuotaExceededError",
+    "check_org_quota",
+    "increment_org_usage",
+    "require_quota",
+    "get_quota_status",
 ]

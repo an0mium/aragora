@@ -23,6 +23,7 @@ from aragora.server.handlers.base import clear_cache
 @dataclass
 class MockAgentRanking:
     """Mock agent ranking object."""
+
     agent_name: str
     elo_rating: int
     total_debates: int
@@ -96,6 +97,7 @@ def clear_caches():
 # Route Matching Tests
 # ============================================================================
 
+
 class TestAnalyticsHandlerRouting:
     """Tests for route matching."""
 
@@ -138,6 +140,7 @@ class TestAnalyticsHandlerRouting:
 # ============================================================================
 # Disagreement Stats Tests
 # ============================================================================
+
 
 class TestDisagreementStats:
     """Tests for /api/analytics/disagreements endpoint."""
@@ -201,6 +204,7 @@ class TestDisagreementStats:
 # Role Rotation Stats Tests
 # ============================================================================
 
+
 class TestRoleRotationStats:
     """Tests for /api/analytics/role-rotation endpoint."""
 
@@ -262,6 +266,7 @@ class TestRoleRotationStats:
 # Early Stop Stats Tests
 # ============================================================================
 
+
 class TestEarlyStopStats:
     """Tests for /api/analytics/early-stops endpoint."""
 
@@ -316,6 +321,7 @@ class TestEarlyStopStats:
 # ============================================================================
 # Ranking Stats Tests
 # ============================================================================
+
 
 class TestRankingStats:
     """Tests for /api/ranking/stats endpoint."""
@@ -393,8 +399,10 @@ class TestRankingStats:
 # Memory Stats Tests
 # ============================================================================
 
+
 class TestMemoryStats:
     """Tests for /api/memory/stats endpoint."""
+
     # Note: /api/memory/tier-stats moved to MemoryHandler
 
     def test_returns_memory_stats(self, analytics_handler):
@@ -466,6 +474,7 @@ class TestMemoryStats:
 # Caching Tests
 # ============================================================================
 
+
 class TestAnalyticsCaching:
     """Tests for caching behavior."""
 
@@ -489,6 +498,7 @@ class TestAnalyticsCaching:
 # ============================================================================
 # Edge Cases
 # ============================================================================
+
 
 class TestAnalyticsEdgeCases:
     """Tests for edge cases."""

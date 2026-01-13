@@ -439,20 +439,20 @@ class TestRealWorldScenarios:
 
     def test_sql_injection_diff(self):
         """Reviewing SQL injection vulnerability diff."""
-        diff = '''
+        diff = """
 @@ -10,6 +10,7 @@
  def get_user(user_id):
 -    query = f"SELECT * FROM users WHERE id = {user_id}"
 +    query = "SELECT * FROM users WHERE id = ?"
 +    cursor.execute(query, (user_id,))
-'''
+"""
         result = build_review_prompt(diff, focus_areas=["security"])
         assert "Injection" in result
         assert diff in result
 
     def test_performance_issue_diff(self):
         """Reviewing N+1 query performance issue diff."""
-        diff = '''
+        diff = """
 @@ -20,8 +20,5 @@
 -for user in users:
 -    orders = db.query(f"SELECT * FROM orders WHERE user_id = {user.id}")
@@ -460,14 +460,14 @@ class TestRealWorldScenarios:
 +users_with_orders = db.query(
 +    "SELECT * FROM users JOIN orders ON users.id = orders.user_id"
 +)
-'''
+"""
         result = build_review_prompt(diff, focus_areas=["performance"])
         assert "N+1" in result
         assert diff in result
 
     def test_error_handling_diff(self):
         """Reviewing error handling quality issue diff."""
-        diff = '''
+        diff = """
 @@ -5,5 +5,10 @@
 -try:
 -    result = dangerous_operation()
@@ -478,7 +478,7 @@ class TestRealWorldScenarios:
 +except SpecificError as e:
 +    logger.error(f"Operation failed: {e}")
 +    raise
-'''
+"""
         result = build_review_prompt(diff, focus_areas=["quality"])
         assert "Error Handling" in result
         assert diff in result

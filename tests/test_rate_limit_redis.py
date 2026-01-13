@@ -50,7 +50,8 @@ class MockRedis:
             return 0
         original_len = len(self._data[key])
         self._data[key] = [
-            (member, score) for member, score in self._data[key]
+            (member, score)
+            for member, score in self._data[key]
             if score > max_score or score < min_score
         ]
         return original_len - len(self._data[key])
@@ -88,7 +89,7 @@ class MockRedis:
         if stop == -1:
             sliced = data[start:]
         else:
-            sliced = data[start:stop + 1]
+            sliced = data[start : stop + 1]
         if withscores:
             return sliced
         return [m for m, s in sliced]
@@ -110,6 +111,7 @@ class MockRedis:
     def scan_iter(self, match: str = "*", count: int = 100):
         """Iterate keys matching pattern."""
         import fnmatch
+
         for key in list(self._data.keys()):
             if fnmatch.fnmatch(key, match):
                 yield key

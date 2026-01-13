@@ -107,7 +107,7 @@ class DebateTrainingExporter:
             return exported
 
         # Export SFT data (winning response)
-        if self.config.export_sft and hasattr(result, 'final_answer') and result.final_answer:
+        if self.config.export_sft and hasattr(result, "final_answer") and result.final_answer:
             sft_record = self._create_sft_record(result, debate_id, domain, agents)
             if sft_record:
                 self._write_record(self.config.sft_file, sft_record)
@@ -115,7 +115,7 @@ class DebateTrainingExporter:
                 self._sft_count += 1
 
         # Export DPO data (preference pairs)
-        if self.config.export_dpo and hasattr(result, 'messages') and len(result.messages) >= 2:
+        if self.config.export_dpo and hasattr(result, "messages") and len(result.messages) >= 2:
             dpo_records = self._create_dpo_records(result, debate_id, domain, agents)
             for record in dpo_records:
                 self._write_record(self.config.dpo_file, record)
@@ -134,23 +134,23 @@ class DebateTrainingExporter:
     def _meets_quality_threshold(self, result: Any) -> bool:
         """Check if debate result meets quality thresholds for export."""
         # Check confidence
-        confidence = getattr(result, 'confidence', 0.0)
+        confidence = getattr(result, "confidence", 0.0)
         if confidence < self.config.min_confidence:
             return False
 
         # Check rounds
-        rounds_used = getattr(result, 'rounds_used', 0)
+        rounds_used = getattr(result, "rounds_used", 0)
         if rounds_used < self.config.min_rounds:
             return False
 
         # Check consensus (if required)
         if self.config.require_consensus:
-            consensus = getattr(result, 'consensus_reached', False)
+            consensus = getattr(result, "consensus_reached", False)
             if not consensus:
                 return False
 
         # Check for actual content
-        final_answer = getattr(result, 'final_answer', '')
+        final_answer = getattr(result, "final_answer", "")
         if not final_answer or len(final_answer.strip()) < 50:
             return False
 
@@ -164,8 +164,8 @@ class DebateTrainingExporter:
         agents: Optional[list],
     ) -> Optional[dict[str, Any]]:
         """Create an SFT training record from debate result."""
-        task = getattr(result, 'task', '')
-        final_answer = getattr(result, 'final_answer', '')
+        task = getattr(result, "task", "")
+        final_answer = getattr(result, "final_answer", "")
 
         if not task or not final_answer:
             return None
@@ -180,8 +180,8 @@ class DebateTrainingExporter:
         metadata = {
             "source": "debate_auto_export",
             "exported_at": datetime.now().isoformat(),
-            "confidence": getattr(result, 'confidence', 0.0),
-            "rounds_used": getattr(result, 'rounds_used', 0),
+            "confidence": getattr(result, "confidence", 0.0),
+            "rounds_used": getattr(result, "rounds_used", 0),
         }
 
         if self.config.include_debate_id and debate_id:
@@ -191,7 +191,7 @@ class DebateTrainingExporter:
             metadata["domain"] = domain
 
         if self.config.include_agent_names and agents:
-            metadata["agents"] = [getattr(a, 'name', str(a)) for a in agents]
+            metadata["agents"] = [getattr(a, "name", str(a)) for a in agents]
 
         return {
             "instruction": instruction,
@@ -213,9 +213,9 @@ class DebateTrainingExporter:
         """
         records = []
 
-        task = getattr(result, 'task', '')
-        final_answer = getattr(result, 'final_answer', '')
-        messages = getattr(result, 'messages', [])
+        task = getattr(result, "task", "")
+        final_answer = getattr(result, "final_answer", "")
+        messages = getattr(result, "messages", [])
 
         if not task or not final_answer or len(messages) < 2:
             return records
@@ -234,8 +234,8 @@ class DebateTrainingExporter:
         for msg in messages:
             content = ""
             if isinstance(msg, dict):
-                content = msg.get('content', '')
-            elif hasattr(msg, 'content'):
+                content = msg.get("content", "")
+            elif hasattr(msg, "content"):
                 content = msg.content
 
             if not content or len(content.strip()) < 50:
@@ -259,12 +259,14 @@ class DebateTrainingExporter:
                 metadata["domain"] = domain
 
             # Create preference pair: winner (chosen) vs this response (rejected)
-            records.append({
-                "prompt": prompt,
-                "chosen": final_answer.strip(),
-                "rejected": content.strip(),
-                "metadata": metadata,
-            })
+            records.append(
+                {
+                    "prompt": prompt,
+                    "chosen": final_answer.strip(),
+                    "rejected": content.strip(),
+                    "metadata": metadata,
+                }
+            )
 
         return records
 

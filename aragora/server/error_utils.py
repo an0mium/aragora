@@ -28,6 +28,7 @@ from aragora.utils.error_sanitizer import (
 # Error Codes
 # =============================================================================
 
+
 class ErrorCode(str, Enum):
     """Standard error codes for structured API responses."""
 
@@ -143,12 +144,15 @@ def get_error_suggestion(code: ErrorCode) -> dict[str, str]:
     Returns:
         Dict with 'message', 'suggestion', 'cli_help', and 'docs' keys
     """
-    return ERROR_SUGGESTIONS.get(code, {
-        "message": "An error occurred",
-        "suggestion": "Check the error details",
-        "cli_help": "Run `aragora doctor` for diagnostics",
-        "docs": "See docs/TROUBLESHOOTING.md",
-    })
+    return ERROR_SUGGESTIONS.get(
+        code,
+        {
+            "message": "An error occurred",
+            "suggestion": "Check the error details",
+            "cli_help": "Run `aragora doctor` for diagnostics",
+            "docs": "See docs/TROUBLESHOOTING.md",
+        },
+    )
 
 
 def format_cli_error(code: ErrorCode, details: str = "") -> str:
@@ -191,6 +195,7 @@ _STATUS_TO_CODE = {
 # =============================================================================
 # APIError Class
 # =============================================================================
+
 
 @dataclass
 class APIError(Exception):
@@ -308,7 +313,9 @@ class APIError(Exception):
     ) -> "APIError":
         """Create a rate limit error."""
         details = {"retry_after": retry_after} if retry_after else {}
-        suggestion = f"Retry after {retry_after} seconds" if retry_after else "Please try again later"
+        suggestion = (
+            f"Retry after {retry_after} seconds" if retry_after else "Please try again later"
+        )
         return cls(
             code=ErrorCode.RATE_LIMITED,
             message=message,
@@ -337,6 +344,7 @@ class APIError(Exception):
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
 
 def safe_error_message(e: Exception, context: str = "") -> str:
     """Return a sanitized error message for client responses.
@@ -372,6 +380,7 @@ def safe_error_message(e: Exception, context: str = "") -> str:
 # =============================================================================
 # Error Formatter
 # =============================================================================
+
 
 class ErrorFormatter:
     """Unified error formatter for consistent API responses.
@@ -509,9 +518,7 @@ class ErrorFormatter:
         status, code, message = cls._classify_exception_type(exception)
 
         # Log for debugging
-        logger.debug(
-            f"Classified {type(exception).__name__} as {code.value} ({status})"
-        )
+        logger.debug(f"Classified {type(exception).__name__} as {code.value} ({status})")
 
         return APIError(
             code=code,
@@ -522,9 +529,7 @@ class ErrorFormatter:
         )
 
     @classmethod
-    def _classify_exception_type(
-        cls, exception: Exception
-    ) -> tuple[int, ErrorCode, str]:
+    def _classify_exception_type(cls, exception: Exception) -> tuple[int, ErrorCode, str]:
         """Classify exception type to (status, code, message)."""
         exception_type = type(exception).__name__
 
@@ -565,6 +570,7 @@ class ErrorFormatter:
 # =============================================================================
 # Error Context Utilities
 # =============================================================================
+
 
 class ErrorContext:
     """Context manager that adds context to exceptions.
@@ -637,6 +643,7 @@ def with_error_context(operation: str, **default_context: Any) -> Callable[[F], 
         def create_debate(config):
             ...
     """
+
     def decorator(func: F) -> F:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -644,13 +651,13 @@ def with_error_context(operation: str, **default_context: Any) -> Callable[[F], 
             context = {**default_context}
             with ErrorContext(operation, **context):
                 return func(*args, **kwargs)
+
         return wrapper  # type: ignore[return-value]
+
     return decorator
 
 
-def log_and_suppress(
-    operation: str, default_value: Any = None, **context: Any
-) -> "ErrorContext":
+def log_and_suppress(operation: str, default_value: Any = None, **context: Any) -> "ErrorContext":
     """Context manager that logs errors but returns a default value.
 
     Useful for optional operations that shouldn't fail the request.
@@ -660,6 +667,7 @@ def log_and_suppress(
             metadata = fetch_metadata(id)
         # If fetch fails, metadata = {}
     """
+
     class SuppressingContext(ErrorContext):
         def __init__(self) -> None:
             super().__init__(operation, reraise=False, log_level="warning", **context)

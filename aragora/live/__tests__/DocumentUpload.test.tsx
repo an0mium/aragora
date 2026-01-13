@@ -13,7 +13,7 @@
  * - Keyboard accessibility
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { DocumentUpload } from '../src/components/DocumentUpload';
 
 // Mock fetch
@@ -124,6 +124,10 @@ describe('DocumentUpload', () => {
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalled();
       });
+
+      await waitFor(() => {
+        expect(screen.getByText('Document uploaded successfully')).toBeInTheDocument();
+      });
     });
 
     it('accepts valid DOCX files', async () => {
@@ -155,6 +159,10 @@ describe('DocumentUpload', () => {
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalled();
       });
+
+      await waitFor(() => {
+        expect(screen.getByText('Document uploaded successfully')).toBeInTheDocument();
+      });
     });
 
     it('accepts TXT files', async () => {
@@ -182,6 +190,10 @@ describe('DocumentUpload', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Document uploaded successfully')).toBeInTheDocument();
       });
     });
 
@@ -211,6 +223,10 @@ describe('DocumentUpload', () => {
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalled();
       });
+
+      await waitFor(() => {
+        expect(screen.getByText('Document uploaded successfully')).toBeInTheDocument();
+      });
     });
   });
 
@@ -235,13 +251,18 @@ describe('DocumentUpload', () => {
         expect(screen.getByText('Uploading...')).toBeInTheDocument();
       });
 
-      // Cleanup
-      resolveUpload!({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            document: { id: '1', filename: 'test.pdf', word_count: 100, preview: '' },
-          }),
+      await act(async () => {
+        resolveUpload!({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              document: { id: '1', filename: 'test.pdf', word_count: 100, preview: '' },
+            }),
+        });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Document uploaded successfully')).toBeInTheDocument();
       });
     });
 
@@ -333,6 +354,10 @@ describe('DocumentUpload', () => {
         expect(screen.getByText(/1,500 words/)).toBeInTheDocument();
         expect(screen.getByText(/5 pages/)).toBeInTheDocument();
       });
+
+      await waitFor(() => {
+        expect(screen.getByText('Document uploaded successfully')).toBeInTheDocument();
+      });
     });
 
     it('removes document when remove button clicked', async () => {
@@ -359,6 +384,10 @@ describe('DocumentUpload', () => {
 
       await waitFor(() => {
         expect(screen.getByText('removable.pdf')).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Document uploaded successfully')).toBeInTheDocument();
       });
 
       // Click remove button
@@ -394,6 +423,10 @@ describe('DocumentUpload', () => {
       await waitFor(() => {
         expect(onDocumentsChange).toHaveBeenCalledWith(['doc-callback']);
       });
+
+      await waitFor(() => {
+        expect(screen.getByText('Document uploaded successfully')).toBeInTheDocument();
+      });
     });
 
     it('shows attached count', async () => {
@@ -419,6 +452,10 @@ describe('DocumentUpload', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Attached (1)')).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Document uploaded successfully')).toBeInTheDocument();
       });
     });
   });
@@ -473,6 +510,10 @@ describe('DocumentUpload', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Document uploaded successfully')).toBeInTheDocument();
       });
     });
   });

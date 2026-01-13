@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class RiskLevel(Enum):
     """Risk severity levels for domain assessment."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -30,6 +31,7 @@ class RiskLevel(Enum):
 @dataclass
 class RiskAssessment:
     """Result of domain risk analysis."""
+
     level: RiskLevel
     domain: str
     category: str
@@ -41,39 +43,94 @@ class RiskAssessment:
 # Domain patterns that indicate elevated risk
 RISK_PATTERNS = {
     "medical": {
-        "keywords": ["diagnosis", "treatment", "medication", "symptom", "disease", "health", "doctor", "medical"],
+        "keywords": [
+            "diagnosis",
+            "treatment",
+            "medication",
+            "symptom",
+            "disease",
+            "health",
+            "doctor",
+            "medical",
+        ],
         "level": RiskLevel.HIGH,
         "category": "health_advice",
         "description": "Medical topics require professional expertise. AI-generated advice may be inaccurate.",
-        "mitigations": ["Consult healthcare professional", "Include medical disclaimer", "Cite authoritative sources"],
+        "mitigations": [
+            "Consult healthcare professional",
+            "Include medical disclaimer",
+            "Cite authoritative sources",
+        ],
     },
     "legal": {
-        "keywords": ["lawsuit", "contract", "liability", "court", "attorney", "legal", "law", "compliance"],
+        "keywords": [
+            "lawsuit",
+            "contract",
+            "liability",
+            "court",
+            "attorney",
+            "legal",
+            "law",
+            "compliance",
+        ],
         "level": RiskLevel.HIGH,
         "category": "legal_advice",
         "description": "Legal advice requires jurisdiction-specific expertise and professional qualification.",
-        "mitigations": ["Consult licensed attorney", "Include legal disclaimer", "Specify jurisdiction limitations"],
+        "mitigations": [
+            "Consult licensed attorney",
+            "Include legal disclaimer",
+            "Specify jurisdiction limitations",
+        ],
     },
     "financial": {
-        "keywords": ["investment", "trading", "stock", "crypto", "financial", "money", "tax", "portfolio"],
+        "keywords": [
+            "investment",
+            "trading",
+            "stock",
+            "crypto",
+            "financial",
+            "money",
+            "tax",
+            "portfolio",
+        ],
         "level": RiskLevel.MEDIUM,
         "category": "financial_advice",
         "description": "Financial recommendations can cause monetary harm if followed without due diligence.",
-        "mitigations": ["Consult financial advisor", "Include investment disclaimer", "Note market volatility"],
+        "mitigations": [
+            "Consult financial advisor",
+            "Include investment disclaimer",
+            "Note market volatility",
+        ],
     },
     "safety": {
-        "keywords": ["dangerous", "explosive", "weapon", "harm", "attack", "vulnerability", "exploit"],
+        "keywords": [
+            "dangerous",
+            "explosive",
+            "weapon",
+            "harm",
+            "attack",
+            "vulnerability",
+            "exploit",
+        ],
         "level": RiskLevel.CRITICAL,
         "category": "safety_concern",
         "description": "Topic may involve physical safety or security risks.",
-        "mitigations": ["Review content carefully", "Limit detailed instructions", "Report concerning content"],
+        "mitigations": [
+            "Review content carefully",
+            "Limit detailed instructions",
+            "Report concerning content",
+        ],
     },
     "speculative": {
         "keywords": ["predict", "future", "forecast", "will happen", "guaranteed", "certain"],
         "level": RiskLevel.MEDIUM,
         "category": "speculation",
         "description": "Speculative claims about uncertain outcomes may be presented with false confidence.",
-        "mitigations": ["Express uncertainty explicitly", "Provide probability ranges", "Acknowledge limitations"],
+        "mitigations": [
+            "Express uncertainty explicitly",
+            "Provide probability ranges",
+            "Acknowledge limitations",
+        ],
     },
 }
 
@@ -122,14 +179,16 @@ class RiskAssessor:
                 # Calculate confidence based on keyword matches
                 confidence = min(0.9, 0.3 + (matches * 0.15))
 
-                risks.append(RiskAssessment(
-                    level=pattern_config["level"],
-                    domain=domain or pattern_name,
-                    category=pattern_config["category"],
-                    description=pattern_config["description"],
-                    mitigations=pattern_config.get("mitigations", []),
-                    confidence=confidence,
-                ))
+                risks.append(
+                    RiskAssessment(
+                        level=pattern_config["level"],
+                        domain=domain or pattern_name,
+                        category=pattern_config["category"],
+                        description=pattern_config["description"],
+                        mitigations=pattern_config.get("mitigations", []),
+                        confidence=confidence,
+                    )
+                )
 
         # Sort by severity (critical first)
         severity_order = {
@@ -142,7 +201,9 @@ class RiskAssessor:
 
         return risks
 
-    def get_highest_risk(self, topic: str, domain: Optional[str] = None) -> Optional[RiskAssessment]:
+    def get_highest_risk(
+        self, topic: str, domain: Optional[str] = None
+    ) -> Optional[RiskAssessment]:
         """Get the highest severity risk for a topic."""
         risks = self.assess_topic(topic, domain)
         return risks[0] if risks else None

@@ -235,10 +235,7 @@ class NoveltyTracker:
         Returns:
             List of novelty scores by round
         """
-        return [
-            result.per_agent_novelty.get(agent, 0.0)
-            for result in self.scores
-        ]
+        return [result.per_agent_novelty.get(agent, 0.0) for result in self.scores]
 
     def get_debate_novelty_summary(self) -> dict:
         """
@@ -255,9 +252,7 @@ class NoveltyTracker:
                 "total_rounds": 0,
             }
 
-        all_novelties = [
-            n for result in self.scores for n in result.per_agent_novelty.values()
-        ]
+        all_novelties = [n for result in self.scores for n in result.per_agent_novelty.values()]
 
         return {
             "overall_avg": sum(all_novelties) / len(all_novelties) if all_novelties else 1.0,

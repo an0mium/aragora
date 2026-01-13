@@ -29,9 +29,9 @@ class FailureType(Enum):
 class DramaLevel(Enum):
     """How dramatic the theatrical response should be."""
 
-    SUBTLE = 1      # Professional with slight personality
-    MODERATE = 2    # Clearly theatrical but informative
-    DRAMATIC = 3    # Full chaos theater mode
+    SUBTLE = 1  # Professional with slight personality
+    MODERATE = 2  # Clearly theatrical but informative
+    DRAMATIC = 3  # Full chaos theater mode
 
 
 @dataclass
@@ -287,7 +287,9 @@ class ChaosDirector:
             failure_type=FailureType.RATE_LIMIT,
             drama_level=self.drama_level,
             duration_hint=retry_after,
-            recovery_suggestion=f"Will retry in {retry_after:.0f}s" if retry_after else "Backing off...",
+            recovery_suggestion=(
+                f"Will retry in {retry_after:.0f}s" if retry_after else "Backing off..."
+            ),
         )
 
     def internal_error_response(

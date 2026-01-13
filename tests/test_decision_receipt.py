@@ -502,12 +502,22 @@ class TestDecisionReceiptEdgeCases:
     def test_all_severity_counts(self):
         """Test receipt with findings at all severity levels."""
         findings = [
-            ReceiptFinding(id="c1", severity="CRITICAL", category="sec", title="C1", description="d"),
-            ReceiptFinding(id="c2", severity="CRITICAL", category="sec", title="C2", description="d"),
+            ReceiptFinding(
+                id="c1", severity="CRITICAL", category="sec", title="C1", description="d"
+            ),
+            ReceiptFinding(
+                id="c2", severity="CRITICAL", category="sec", title="C2", description="d"
+            ),
             ReceiptFinding(id="h1", severity="HIGH", category="perf", title="H1", description="d"),
-            ReceiptFinding(id="m1", severity="MEDIUM", category="code", title="M1", description="d"),
-            ReceiptFinding(id="m2", severity="MEDIUM", category="code", title="M2", description="d"),
-            ReceiptFinding(id="m3", severity="MEDIUM", category="code", title="M3", description="d"),
+            ReceiptFinding(
+                id="m1", severity="MEDIUM", category="code", title="M1", description="d"
+            ),
+            ReceiptFinding(
+                id="m2", severity="MEDIUM", category="code", title="M2", description="d"
+            ),
+            ReceiptFinding(
+                id="m3", severity="MEDIUM", category="code", title="M3", description="d"
+            ),
             ReceiptFinding(id="l1", severity="LOW", category="style", title="L1", description="d"),
         ]
         receipt = DecisionReceipt(

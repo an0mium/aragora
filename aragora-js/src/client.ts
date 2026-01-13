@@ -7,10 +7,14 @@
 import {
   AragoraClientOptions,
   RequestOptions,
+  RetryOptions,
   HealthCheck,
   DeepHealthCheck,
   // Debate types
   Debate,
+  DebateStatus,
+  normalizeStatus,
+  normalizeConsensusResult,
   DebateCreateRequest,
   DebateCreateResponse,
   DebateListResponse,
@@ -139,11 +143,62 @@ import {
 // HTTP Client
 // =============================================================================
 
+/** Default retry configuration */
+const DEFAULT_RETRY: Required<RetryOptions> = {
+  maxRetries: 3,
+  initialDelay: 1000,
+  maxDelay: 30000,
+  backoffMultiplier: 2,
+  jitter: true,
+};
+
+/** HTTP status codes that are retryable */
+const RETRYABLE_STATUS_CODES = new Set([
+  408, // Request Timeout
+  429, // Too Many Requests
+  500, // Internal Server Error
+  502, // Bad Gateway
+  503, // Service Unavailable
+  504, // Gateway Timeout
+]);
+
+/** Error codes that are retryable */
+const RETRYABLE_ERROR_CODES = new Set([
+  'TIMEOUT',
+  'NETWORK_ERROR',
+  'RATE_LIMITED',
+  'SERVICE_UNAVAILABLE',
+]);
+
+/** Calculate delay for exponential backoff with optional jitter */
+function calculateDelay(
+  attempt: number,
+  options: Required<RetryOptions>
+): number {
+  const exponentialDelay =
+    options.initialDelay * Math.pow(options.backoffMultiplier, attempt);
+  const cappedDelay = Math.min(exponentialDelay, options.maxDelay);
+
+  if (options.jitter) {
+    // Add random jitter between 0-25% of the delay
+    const jitterFactor = 1 + Math.random() * 0.25;
+    return Math.floor(cappedDelay * jitterFactor);
+  }
+
+  return cappedDelay;
+}
+
+/** Sleep for a specified duration */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 class HttpClient {
   private baseUrl: string;
   private apiKey?: string;
   private timeout: number;
   private defaultHeaders: Record<string, string>;
+  private retryOptions: Required<RetryOptions>;
 
   constructor(options: AragoraClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
@@ -153,19 +208,22 @@ class HttpClient {
       'Content-Type': 'application/json',
       ...options.headers,
     };
+    this.retryOptions = {
+      ...DEFAULT_RETRY,
+      ...options.retry,
+    };
 
     if (this.apiKey) {
       this.defaultHeaders['Authorization'] = `Bearer ${this.apiKey}`;
     }
   }
 
-  private async request<T>(
+  private async requestOnce<T>(
     method: string,
-    path: string,
+    url: string,
     data?: unknown,
     options?: RequestOptions
   ): Promise<T> {
-    const url = `${this.baseUrl}${path}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(
       () => controller.abort(),
@@ -187,11 +245,13 @@ class HttpClient {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        const isRetryable = RETRYABLE_STATUS_CODES.has(response.status);
         throw new AragoraError(
           errorData.error || `HTTP ${response.status}`,
           errorData.code || 'HTTP_ERROR',
           response.status,
-          errorData
+          errorData,
+          isRetryable
         );
       }
 
@@ -205,13 +265,60 @@ class HttpClient {
 
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
-          throw new AragoraError('Request timed out', 'TIMEOUT', 408);
+          throw new AragoraError('Request timed out', 'TIMEOUT', 408, undefined, true);
         }
-        throw new AragoraError(error.message, 'NETWORK_ERROR', 0);
+        throw new AragoraError(error.message, 'NETWORK_ERROR', 0, undefined, true);
       }
 
       throw new AragoraError('Unknown error', 'UNKNOWN_ERROR', 0);
     }
+  }
+
+  private async request<T>(
+    method: string,
+    path: string,
+    data?: unknown,
+    options?: RequestOptions
+  ): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+
+    // Determine retry settings
+    const retryDisabled = options?.retry === false;
+    const retryOptions: Required<RetryOptions> = retryDisabled
+      ? { ...this.retryOptions, maxRetries: 0 }
+      : {
+          ...this.retryOptions,
+          ...(typeof options?.retry === 'object' ? options.retry : {}),
+        };
+
+    let lastError: AragoraError | undefined;
+
+    for (let attempt = 0; attempt <= retryOptions.maxRetries; attempt++) {
+      try {
+        return await this.requestOnce<T>(method, url, data, options);
+      } catch (error) {
+        if (!(error instanceof AragoraError)) {
+          throw error;
+        }
+
+        lastError = error;
+
+        // Check if we should retry
+        const isLastAttempt = attempt >= retryOptions.maxRetries;
+        const isRetryable = error.retryable || RETRYABLE_ERROR_CODES.has(error.code);
+
+        if (isLastAttempt || !isRetryable) {
+          throw error;
+        }
+
+        // Calculate delay and wait before retrying
+        const delay = calculateDelay(attempt, retryOptions);
+        await sleep(delay);
+      }
+    }
+
+    // Should never reach here, but throw last error if we do
+    throw lastError ?? new AragoraError('Retry failed', 'RETRY_EXHAUSTED', 0);
   }
 
   async get<T>(path: string, options?: RequestOptions): Promise<T> {
@@ -239,18 +346,44 @@ export class AragoraError extends Error {
   readonly code: string;
   readonly status: number;
   readonly details?: Record<string, unknown>;
+  /** Whether this error is retryable (e.g., transient network issues, rate limits) */
+  readonly retryable: boolean;
 
   constructor(
     message: string,
     code: string,
     status: number,
-    details?: Record<string, unknown>
+    details?: Record<string, unknown>,
+    retryable: boolean = false
   ) {
     super(message);
     this.name = 'AragoraError';
     this.code = code;
     this.status = status;
     this.details = details;
+    this.retryable = retryable;
+  }
+
+  /** Create a user-friendly error message with suggestions */
+  toUserMessage(): string {
+    switch (this.code) {
+      case 'TIMEOUT':
+        return 'Request timed out. Please try again or check your network connection.';
+      case 'NETWORK_ERROR':
+        return 'Network error. Please check your internet connection and try again.';
+      case 'RATE_LIMITED':
+        return 'Too many requests. Please wait a moment before trying again.';
+      case 'UNAUTHORIZED':
+        return 'Authentication failed. Please check your API key.';
+      case 'FORBIDDEN':
+        return 'Access denied. You do not have permission to perform this action.';
+      case 'NOT_FOUND':
+        return 'The requested resource was not found.';
+      case 'VALIDATION_ERROR':
+        return `Invalid request: ${this.message}`;
+      default:
+        return this.message;
+    }
   }
 }
 
@@ -258,17 +391,111 @@ export class AragoraError extends Error {
 // API Classes
 // =============================================================================
 
+/**
+ * API client for managing debates.
+ *
+ * @example
+ * ```typescript
+ * // Create and run a debate
+ * const debate = await client.debates.run({
+ *   task: 'Should we adopt a microservices architecture?',
+ *   agents: ['anthropic-api', 'openai-api'],
+ *   rounds: 3,
+ * });
+ *
+ * // Check consensus
+ * if (debate.consensus) {
+ *   console.log('Consensus reached:', debate.consensus.position);
+ * }
+ * ```
+ */
+
+/**
+ * Normalize a debate response from the server for SDK compatibility.
+ * Ensures status values and consensus fields use canonical values.
+ */
+function normalizeDebateResponse(debate: Debate): Debate {
+  return {
+    ...debate,
+    status: normalizeStatus(debate.status as string) as DebateStatus,
+    consensus: normalizeConsensusResult(debate.consensus),
+  };
+}
+
 class DebatesAPI {
   constructor(private http: HttpClient) {}
 
+  /**
+   * Create a new debate asynchronously.
+   *
+   * This starts a debate in the background. Use {@link waitForCompletion}
+   * or {@link run} if you want to wait for the result.
+   *
+   * @param request - Debate configuration including task, agents, and options
+   * @returns Promise resolving to debate creation response with debate_id
+   * @throws {AragoraError} When the request fails or validation errors occur
+   *
+   * @example
+   * ```typescript
+   * const response = await client.debates.create({
+   *   task: 'What are the pros and cons of GraphQL vs REST?',
+   *   agents: ['anthropic-api', 'openai-api', 'gemini-api'],
+   *   rounds: 5,
+   *   consensus: 'majority',
+   * });
+   * console.log('Debate started:', response.debate_id);
+   * ```
+   */
   async create(request: DebateCreateRequest): Promise<DebateCreateResponse> {
     return this.http.post<DebateCreateResponse>('/api/debates', request);
   }
 
+  /**
+   * Get a debate by ID.
+   *
+   * Retrieves the full debate object including all messages, consensus
+   * information, and metadata.
+   *
+   * @param debateId - The unique debate identifier
+   * @returns Promise resolving to the debate object
+   * @throws {AragoraError} When debate not found (404) or other errors
+   *
+   * @example
+   * ```typescript
+   * const debate = await client.debates.get('debate-123');
+   * console.log('Status:', debate.status);
+   * console.log('Rounds completed:', debate.rounds_completed);
+   * ```
+   */
   async get(debateId: string): Promise<Debate> {
-    return this.http.get<Debate>(`/api/debates/${debateId}`);
+    const response = await this.http.get<Debate>(`/api/debates/${debateId}`);
+    return normalizeDebateResponse(response);
   }
 
+  /**
+   * List debates with optional filtering and pagination.
+   *
+   * @param options - Optional filtering and pagination parameters
+   * @param options.limit - Maximum number of debates to return (default: 20)
+   * @param options.offset - Number of debates to skip for pagination
+   * @param options.status - Filter by status ('pending', 'running', 'completed', 'failed')
+   * @returns Promise resolving to array of debates
+   *
+   * @example
+   * ```typescript
+   * // Get recent completed debates
+   * const completed = await client.debates.list({
+   *   limit: 10,
+   *   status: 'completed',
+   * });
+   *
+   * // Paginate through all debates
+   * const page2 = await client.debates.list({
+   *   limit: 20,
+   *   offset: 20,
+   * });
+   * ```
+   */
   async list(options?: {
     limit?: number;
     offset?: number;
@@ -282,14 +509,64 @@ class DebatesAPI {
     const query = params.toString();
     const path = query ? `/api/debates?${query}` : '/api/debates';
     const response = await this.http.get<DebateListResponse>(path);
-    return response.debates;
+    // Normalize all debate responses
+    return response.debates.map(normalizeDebateResponse);
   }
 
+  /**
+   * Create a debate and wait for it to complete.
+   *
+   * This is the most common way to run a debate. It creates the debate
+   * and polls until completion or timeout.
+   *
+   * @param request - Debate configuration including task, agents, and options
+   * @returns Promise resolving to the completed debate
+   * @throws {AragoraError} When debate fails or times out
+   *
+   * @example
+   * ```typescript
+   * const debate = await client.debates.run({
+   *   task: 'Is functional programming better than OOP?',
+   *   agents: ['anthropic-api', 'openai-api'],
+   *   rounds: 3,
+   *   environment: {
+   *     context: 'For a large-scale enterprise application',
+   *   },
+   * });
+   *
+   * console.log('Final result:', debate.consensus?.position);
+   * for (const message of debate.messages) {
+   *   console.log(`${message.agent}: ${message.content.slice(0, 100)}...`);
+   * }
+   * ```
+   */
   async run(request: DebateCreateRequest): Promise<Debate> {
     const created = await this.create(request);
     return this.waitForCompletion(created.debate_id);
   }
 
+  /**
+   * Wait for a debate to complete.
+   *
+   * Polls the debate status at regular intervals until the debate
+   * reaches 'completed' or 'failed' status, or the timeout is reached.
+   *
+   * @param debateId - The debate ID to wait for
+   * @param options - Polling configuration
+   * @param options.timeout - Maximum time to wait in milliseconds (default: 300000 / 5 min)
+   * @param options.pollInterval - Time between status checks in ms (default: 2000)
+   * @returns Promise resolving to the completed debate
+   * @throws {AragoraError} With code 'TIMEOUT' if debate doesn't complete in time
+   *
+   * @example
+   * ```typescript
+   * // Wait with custom timeout
+   * const debate = await client.debates.waitForCompletion('debate-123', {
+   *   timeout: 600000, // 10 minutes
+   *   pollInterval: 5000, // Check every 5 seconds
+   * });
+   * ```
+   */
   async waitForCompletion(
     debateId: string,
     options?: { timeout?: number; pollInterval?: number }
@@ -478,6 +755,42 @@ class GraphDebatesAPI {
     );
     return response.branches;
   }
+
+  /**
+   * Create a graph debate and wait for completion.
+   */
+  async run(request: GraphDebateCreateRequest): Promise<GraphDebate> {
+    const created = await this.create(request);
+    return this.waitForCompletion(created.debate_id);
+  }
+
+  /**
+   * Wait for a graph debate to complete.
+   */
+  async waitForCompletion(
+    debateId: string,
+    options?: { timeout?: number; pollInterval?: number }
+  ): Promise<GraphDebate> {
+    const timeout = options?.timeout ?? 600000; // 10 minutes (graph debates take longer)
+    const pollInterval = options?.pollInterval ?? 2000; // 2 seconds
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      const debate = await this.get(debateId);
+
+      if (debate.status === 'completed' || debate.status === 'failed') {
+        return debate;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    }
+
+    throw new AragoraError(
+      `Graph debate ${debateId} did not complete within timeout`,
+      'TIMEOUT',
+      408
+    );
+  }
 }
 
 class MatrixDebatesAPI {
@@ -493,6 +806,42 @@ class MatrixDebatesAPI {
 
   async getConclusions(matrixId: string): Promise<MatrixConclusion> {
     return this.http.get<MatrixConclusion>(`/api/debates/matrix/${matrixId}/conclusions`);
+  }
+
+  /**
+   * Create a matrix debate and wait for completion.
+   */
+  async run(request: MatrixDebateCreateRequest): Promise<MatrixDebate> {
+    const created = await this.create(request);
+    return this.waitForCompletion(created.matrix_id);
+  }
+
+  /**
+   * Wait for a matrix debate to complete.
+   */
+  async waitForCompletion(
+    matrixId: string,
+    options?: { timeout?: number; pollInterval?: number }
+  ): Promise<MatrixDebate> {
+    const timeout = options?.timeout ?? 900000; // 15 minutes (matrix debates run multiple sub-debates)
+    const pollInterval = options?.pollInterval ?? 3000; // 3 seconds
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      const debate = await this.get(matrixId);
+
+      if (debate.status === 'completed' || debate.status === 'failed') {
+        return debate;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    }
+
+    throw new AragoraError(
+      `Matrix debate ${matrixId} did not complete within timeout`,
+      'TIMEOUT',
+      408
+    );
   }
 }
 

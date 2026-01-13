@@ -33,10 +33,20 @@ logger = logging.getLogger(__name__)
 
 
 # Valid SQL column types (whitelist)
-VALID_COLUMN_TYPES = frozenset({
-    "TEXT", "INTEGER", "REAL", "BLOB", "NUMERIC",
-    "VARCHAR", "CHAR", "BOOLEAN", "DATETIME", "TIMESTAMP",
-})
+VALID_COLUMN_TYPES = frozenset(
+    {
+        "TEXT",
+        "INTEGER",
+        "REAL",
+        "BLOB",
+        "NUMERIC",
+        "VARCHAR",
+        "CHAR",
+        "BOOLEAN",
+        "DATETIME",
+        "TIMESTAMP",
+    }
+)
 
 
 def _validate_sql_identifier(name: str) -> bool:
@@ -48,13 +58,13 @@ def _validate_sql_identifier(name: str) -> bool:
     """
     if not name or len(name) > 128:
         return False
-    return bool(re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name))
+    return bool(re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name))
 
 
 def _validate_column_type(col_type: str) -> bool:
     """Validate column type against whitelist."""
     # Normalize and check base type (handles "VARCHAR(255)" etc.)
-    base_type = col_type.split('(')[0].strip().upper()
+    base_type = col_type.split("(")[0].strip().upper()
     return base_type in VALID_COLUMN_TYPES
 
 
@@ -81,7 +91,7 @@ def _validate_default_value(default: str) -> bool:
         return True
 
     # Allow numeric literals (integers and floats)
-    if re.match(r'^-?\d+(\.\d+)?$', default.strip()):
+    if re.match(r"^-?\d+(\.\d+)?$", default.strip()):
         return True
 
     # Allow single-quoted strings (basic check - no embedded quotes)
@@ -176,20 +186,21 @@ class SchemaManager:
 
     def _ensure_version_table(self) -> None:
         """Create the schema versions table if it doesn't exist."""
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS _schema_versions (
                 module TEXT PRIMARY KEY,
                 version INTEGER NOT NULL,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
         self.conn.commit()
 
     def get_version(self) -> int:
         """Get the current schema version for this module."""
         cursor = self.conn.execute(
-            "SELECT version FROM _schema_versions WHERE module = ?",
-            (self.module_name,)
+            "SELECT version FROM _schema_versions WHERE module = ?", (self.module_name,)
         )
         row = cursor.fetchone()
         return row[0] if row else 0
@@ -198,10 +209,13 @@ class SchemaManager:
         """Set the schema version for this module."""
         # Use INSERT OR REPLACE for SQLite 3.7 compatibility (EC2)
         # This requires module to be the primary key, which it is
-        self.conn.execute("""
+        self.conn.execute(
+            """
             INSERT OR REPLACE INTO _schema_versions (module, version, updated_at)
             VALUES (?, ?, CURRENT_TIMESTAMP)
-        """, (self.module_name, version))
+        """,
+            (self.module_name, version),
+        )
         self.conn.commit()
 
     def register_migration(
@@ -291,7 +305,9 @@ class SchemaManager:
 
         for migration in pending:
             if migration.from_version == current:
-                desc = migration.description or f"v{migration.from_version} -> v{migration.to_version}"
+                desc = (
+                    migration.description or f"v{migration.from_version} -> v{migration.to_version}"
+                )
                 logger.info(f"[{self.module_name}] Running migration: {desc}")
                 try:
                     migration.apply(self.conn)
@@ -300,7 +316,9 @@ class SchemaManager:
                     self.set_version(current)
                 except Exception as e:
                     self.conn.rollback()
-                    logger.error(f"[{self.module_name}] Migration to v{migration.to_version} failed: {e}")
+                    logger.error(
+                        f"[{self.module_name}] Migration to v{migration.to_version} failed: {e}"
+                    )
                     raise
 
         return True
@@ -315,9 +333,7 @@ class SchemaManager:
         Returns:
             Dict with validation results
         """
-        cursor = self.conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        )
+        cursor = self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         existing = {row[0] for row in cursor.fetchall()}
 
         missing = [t for t in expected_tables if t not in existing]
@@ -523,7 +539,9 @@ class DatabaseManager:
             }
 
     @classmethod
-    def get_instance(cls, db_path: Union[str, Path], timeout: float = DB_TIMEOUT) -> "DatabaseManager":
+    def get_instance(
+        cls, db_path: Union[str, Path], timeout: float = DB_TIMEOUT
+    ) -> "DatabaseManager":
         """Get or create a DatabaseManager instance for the given path.
 
         This is the recommended way to obtain a DatabaseManager. It ensures
@@ -599,7 +617,9 @@ class DatabaseManager:
             raise
         except Exception as e:
             # Rollback on any exception from user code, then re-raise unchanged
-            logger.warning(f"Non-database exception in DatabaseManager.connection(), rolling back: {type(e).__name__}: {e}")
+            logger.warning(
+                f"Non-database exception in DatabaseManager.connection(), rolling back: {type(e).__name__}: {e}"
+            )
             conn.rollback()
             raise
 
@@ -623,7 +643,9 @@ class DatabaseManager:
             raise
         except Exception as e:
             # Rollback on any exception from user code, then re-raise unchanged
-            logger.warning(f"Non-database exception in transaction context, rolling back: {type(e).__name__}: {e}")
+            logger.warning(
+                f"Non-database exception in transaction context, rolling back: {type(e).__name__}: {e}"
+            )
             conn.execute("ROLLBACK")
             raise
 
@@ -645,11 +667,15 @@ class DatabaseManager:
             yield conn
             conn.commit()
         except sqlite3.Error as e:
-            logger.error(f"Database error in DatabaseManager.fresh_connection(): {e}", exc_info=True)
+            logger.error(
+                f"Database error in DatabaseManager.fresh_connection(): {e}", exc_info=True
+            )
             conn.rollback()
             raise
         except Exception as e:
-            logger.warning(f"Non-database exception in fresh_connection context, rolling back: {type(e).__name__}: {e}")
+            logger.warning(
+                f"Non-database exception in fresh_connection context, rolling back: {type(e).__name__}: {e}"
+            )
             conn.rollback()
             raise
         finally:
@@ -777,34 +803,30 @@ PERFORMANCE_INDEXES = [
     # Memory store indexes for agent/debate lookups
     ("memory_store", "idx_memory_agent_debate", "agent_name, debate_id"),
     ("memory_store", "idx_memory_timestamp", "timestamp"),
-
     # Continuum memory indexes for time-based queries
     ("continuum_memory", "idx_continuum_timestamp", "timestamp"),
     ("continuum_memory", "idx_continuum_tier", "tier"),
-
     # Votes table indexes
     ("votes", "idx_votes_agent_debate", "agent_name, debate_id"),
     ("votes", "idx_votes_debate_round", "debate_id, round_num"),
-
     # ELO matches for history lookups
     ("matches", "idx_matches_agent", "agent_name"),
     ("matches", "idx_matches_timestamp", "timestamp"),
-
     # Debates table for listing
     ("debates", "idx_debates_created", "created_at"),
     ("debates", "idx_debates_status", "status"),
     # Composite index for filtering by status and sorting by time (common pattern)
     ("debates", "idx_debates_status_created", "status, created_at"),
-
     # Consensus memory for debate lookups
     ("consensus_memory", "idx_consensus_debate", "debate_id"),
-
     # ELO ratings for domain-specific queries
     ("ratings", "idx_ratings_elo", "elo"),
 ]
 
 
-def create_performance_indexes(conn: sqlite3.Connection, tables_to_index: list[str] | None = None) -> dict:
+def create_performance_indexes(
+    conn: sqlite3.Connection, tables_to_index: list[str] | None = None
+) -> dict:
     """
     Create performance indexes on frequently-queried columns.
 
@@ -1041,7 +1063,9 @@ class ConnectionPool:
             raise
         except Exception as e:
             # Rollback on any exception from user code, then re-raise unchanged
-            logger.warning(f"Non-database exception in ConnectionPool.connection(), rolling back: {type(e).__name__}: {e}")
+            logger.warning(
+                f"Non-database exception in ConnectionPool.connection(), rolling back: {type(e).__name__}: {e}"
+            )
             conn.rollback()
             raise
         finally:

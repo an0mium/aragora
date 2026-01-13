@@ -340,7 +340,12 @@ def create_logging_hooks(
         log("FRACTAL_MERGE", debate_id=debate_id, success=success)
 
     def on_fractal_complete(debate_id, depth, sub_debates, consensus_reached):
-        log("FRACTAL_COMPLETE", debate_id=debate_id, sub_debates=sub_debates, consensus=consensus_reached)
+        log(
+            "FRACTAL_COMPLETE",
+            debate_id=debate_id,
+            sub_debates=sub_debates,
+            consensus=consensus_reached,
+        )
 
     def on_agent_birth(genome, parents, birth_type="crossover"):
         log("AGENT_BIRTH", genome_id=genome.genome_id, name=genome.name, birth_type=birth_type)

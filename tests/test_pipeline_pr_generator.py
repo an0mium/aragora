@@ -311,7 +311,10 @@ The key decisions are:
         artifact.provenance_data = {
             "chain": {
                 "records": [
-                    {"source_type": "documentation", "content": "Redis docs recommend token bucket"},
+                    {
+                        "source_type": "documentation",
+                        "content": "Redis docs recommend token bucket",
+                    },
                 ]
             }
         }

@@ -33,7 +33,10 @@ _routing_limiter = RateLimiter(requests_per_minute=100)
 # Lazy imports for optional dependencies
 _routing_imports, ROUTING_AVAILABLE = try_import(
     "aragora.routing.selection",
-    "AgentSelector", "TaskRequirements", "DomainDetector", "DEFAULT_AGENT_EXPERTISE"
+    "AgentSelector",
+    "TaskRequirements",
+    "DomainDetector",
+    "DEFAULT_AGENT_EXPERTISE",
 )
 AgentSelector = _routing_imports.get("AgentSelector")
 TaskRequirements = _routing_imports.get("TaskRequirements")
@@ -65,12 +68,14 @@ class RoutingHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/routing/best-teams":
-            min_debates = get_clamped_int_param(query_params, 'min_debates', 3, min_val=1, max_val=20)
-            limit = get_clamped_int_param(query_params, 'limit', 10, min_val=1, max_val=50)
+            min_debates = get_clamped_int_param(
+                query_params, "min_debates", 3, min_val=1, max_val=20
+            )
+            limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
             return self._get_best_team_combinations(min_debates, limit)
         if path == "/api/routing/domain-leaderboard":
-            domain = query_params.get('domain', ['general'])[0]
-            limit = get_clamped_int_param(query_params, 'limit', 10, min_val=1, max_val=50)
+            domain = query_params.get("domain", ["general"])[0]
+            limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
             return self._get_domain_leaderboard(domain, limit)
         return None
 
@@ -99,11 +104,13 @@ class RoutingHandler(BaseHandler):
         )
         combinations = selector.get_best_team_combinations(min_debates=min_debates)[:limit]
 
-        return json_response({
-            "min_debates": min_debates,
-            "combinations": combinations,
-            "count": len(combinations),
-        })
+        return json_response(
+            {
+                "min_debates": min_debates,
+                "combinations": combinations,
+                "count": len(combinations),
+            }
+        )
 
     @handle_errors("routing recommendations")
     def _get_recommendations(self, handler) -> HandlerResult:
@@ -127,11 +134,11 @@ class RoutingHandler(BaseHandler):
         if body is None:
             return error_response("Invalid JSON body or body too large", 400)
 
-        primary_domain = body.get('primary_domain', 'general')
-        secondary_domains = body.get('secondary_domains', [])
-        required_traits = body.get('required_traits', [])
-        limit = min(body.get('limit', 5), 20)
-        task_id = body.get('task_id', 'ad-hoc')
+        primary_domain = body.get("primary_domain", "general")
+        secondary_domains = body.get("secondary_domains", [])
+        required_traits = body.get("required_traits", [])
+        limit = min(body.get("limit", 5), 20)
+        task_id = body.get("task_id", "ad-hoc")
 
         requirements = TaskRequirements(
             task_id=task_id,
@@ -149,12 +156,14 @@ class RoutingHandler(BaseHandler):
         )
         recommendations = selector.get_recommendations(requirements, limit=limit)
 
-        return json_response({
-            "task_id": task_id,
-            "primary_domain": primary_domain,
-            "recommendations": recommendations,
-            "count": len(recommendations),
-        })
+        return json_response(
+            {
+                "task_id": task_id,
+                "primary_domain": primary_domain,
+                "recommendations": recommendations,
+                "count": len(recommendations),
+            }
+        )
 
     @handle_errors("auto routing")
     def _auto_route(self, handler) -> HandlerResult:
@@ -175,12 +184,12 @@ class RoutingHandler(BaseHandler):
         if body is None:
             return error_response("Invalid JSON body", 400)
 
-        task_text = body.get('task', '')
+        task_text = body.get("task", "")
         if not task_text:
             return error_response("Missing 'task' field", 400)
 
-        task_id = body.get('task_id')
-        exclude = body.get('exclude', [])
+        task_id = body.get("task_id")
+        exclude = body.get("exclude", [])
 
         # Create selector with defaults
         elo_system = self.get_elo_system()
@@ -189,17 +198,19 @@ class RoutingHandler(BaseHandler):
         # Auto-route
         team = selector.auto_route(task_text, task_id=task_id, exclude=exclude)
 
-        return json_response({
-            "task_id": team.task_id,
-            "detected_domain": team.agents[0].expertise if team.agents else {},
-            "team": {
-                "agents": [a.name for a in team.agents],
-                "roles": team.roles,
-                "expected_quality": team.expected_quality,
-                "diversity_score": team.diversity_score,
-            },
-            "rationale": team.rationale,
-        })
+        return json_response(
+            {
+                "task_id": team.task_id,
+                "detected_domain": team.agents[0].expertise if team.agents else {},
+                "team": {
+                    "agents": [a.name for a in team.agents],
+                    "roles": team.roles,
+                    "expected_quality": team.expected_quality,
+                    "diversity_score": team.diversity_score,
+                },
+                "rationale": team.rationale,
+            }
+        )
 
     @handle_errors("domain detection")
     def _detect_domain(self, handler) -> HandlerResult:
@@ -219,23 +230,22 @@ class RoutingHandler(BaseHandler):
         if body is None:
             return error_response("Invalid JSON body", 400)
 
-        task_text = body.get('task', '')
+        task_text = body.get("task", "")
         if not task_text:
             return error_response("Missing 'task' field", 400)
 
-        top_n = min(body.get('top_n', 3), 10)
+        top_n = min(body.get("top_n", 3), 10)
 
         detector = DomainDetector()
         domains = detector.detect(task_text, top_n=top_n)
 
-        return json_response({
-            "task": task_text[:200] + "..." if len(task_text) > 200 else task_text,
-            "domains": [
-                {"domain": d, "confidence": round(c, 3)}
-                for d, c in domains
-            ],
-            "primary_domain": domains[0][0] if domains else "general",
-        })
+        return json_response(
+            {
+                "task": task_text[:200] + "..." if len(task_text) > 200 else task_text,
+                "domains": [{"domain": d, "confidence": round(c, 3)} for d, c in domains],
+                "primary_domain": domains[0][0] if domains else "general",
+            }
+        )
 
     @handle_errors("domain leaderboard")
     def _get_domain_leaderboard(self, domain: str, limit: int) -> HandlerResult:
@@ -256,8 +266,10 @@ class RoutingHandler(BaseHandler):
 
         leaderboard = selector.get_domain_leaderboard(domain, limit=limit)
 
-        return json_response({
-            "domain": domain,
-            "leaderboard": leaderboard,
-            "count": len(leaderboard),
-        })
+        return json_response(
+            {
+                "domain": domain,
+                "leaderboard": leaderboard,
+                "count": len(leaderboard),
+            }
+        )

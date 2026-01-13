@@ -6,6 +6,7 @@ import { isAgentMessage } from '@/types/events';
 import { RoleBadge } from './RoleBadge';
 import { getAgentColors } from '@/utils/agentColors';
 import { logger } from '@/utils/logger';
+import { API_BASE_URL } from '@/config';
 
 interface AgentTabsProps {
   events: StreamEvent[];
@@ -20,7 +21,7 @@ interface PositionEntry {
   last_updated: string;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 // Special tab ID for unified "All Agents" view
 const ALL_AGENTS_TAB = '__all__';

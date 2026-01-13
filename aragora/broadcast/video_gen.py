@@ -48,8 +48,8 @@ IMAGEMAGICK_TIMEOUT = 60  # seconds
 # =============================================================================
 
 # Resolution limits (width x height)
-MIN_RESOLUTION = (320, 240)      # Minimum reasonable video size
-MAX_RESOLUTION = (3840, 2160)    # 4K max
+MIN_RESOLUTION = (320, 240)  # Minimum reasonable video size
+MAX_RESOLUTION = (3840, 2160)  # 4K max
 DEFAULT_RESOLUTION = (1920, 1080)  # Full HD
 
 # Duration limits (seconds)
@@ -79,7 +79,9 @@ def _validate_resolution(width: int, height: int) -> tuple[int, int]:
         ValueError: If resolution values are invalid types
     """
     if not isinstance(width, int) or not isinstance(height, int):
-        raise ValueError(f"Resolution must be integers, got width={type(width)}, height={type(height)}")
+        raise ValueError(
+            f"Resolution must be integers, got width={type(width)}, height={type(height)}"
+        )
 
     if width < 0 or height < 0:
         raise ValueError(f"Resolution cannot be negative: {width}x{height}")
@@ -89,9 +91,7 @@ def _validate_resolution(width: int, height: int) -> tuple[int, int]:
     clamped_height = max(MIN_RESOLUTION[1], min(height, MAX_RESOLUTION[1]))
 
     if clamped_width != width or clamped_height != height:
-        logger.warning(
-            f"Resolution {width}x{height} clamped to {clamped_width}x{clamped_height}"
-        )
+        logger.warning(f"Resolution {width}x{height} clamped to {clamped_width}x{clamped_height}")
 
     return clamped_width, clamped_height
 
@@ -187,9 +187,12 @@ async def get_audio_duration(audio_path: Path) -> Optional[int]:
     try:
         cmd = [
             "ffprobe",
-            "-v", "quiet",
-            "-show_entries", "format=duration",
-            "-of", "csv=p=0",
+            "-v",
+            "quiet",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "csv=p=0",
             str(audio_path),
         ]
         process = await asyncio.create_subprocess_exec(
@@ -197,13 +200,10 @@ async def get_audio_duration(audio_path: Path) -> Optional[int]:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, _ = await asyncio.wait_for(
-            process.communicate(),
-            timeout=FFPROBE_TIMEOUT
-        )
+        stdout, _ = await asyncio.wait_for(process.communicate(), timeout=FFPROBE_TIMEOUT)
 
         if process.returncode == 0:
-            duration_str = stdout.decode('utf-8', errors='replace').strip()
+            duration_str = stdout.decode("utf-8", errors="replace").strip()
             return int(float(duration_str))
     except asyncio.TimeoutError:
         logger.error(f"ffprobe timed out after {FFPROBE_TIMEOUT}s for {audio_path}")
@@ -257,27 +257,32 @@ async def generate_thumbnail(
             def create_png(width: int, height: int, color: tuple) -> bytes:
                 """Create a minimal PNG with solid color."""
                 # PNG header
-                header = b'\x89PNG\r\n\x1a\n'
+                header = b"\x89PNG\r\n\x1a\n"
 
                 # IHDR chunk
-                ihdr_data = struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0)
-                ihdr_crc = zlib.crc32(b'IHDR' + ihdr_data)
-                ihdr = struct.pack('>I', 13) + b'IHDR' + ihdr_data + struct.pack('>I', ihdr_crc)
+                ihdr_data = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+                ihdr_crc = zlib.crc32(b"IHDR" + ihdr_data)
+                ihdr = struct.pack(">I", 13) + b"IHDR" + ihdr_data + struct.pack(">I", ihdr_crc)
 
                 # IDAT chunk - scanlines with filter byte
-                raw_data = b''
+                raw_data = b""
                 for _ in range(height):
-                    raw_data += b'\x00'  # Filter byte
+                    raw_data += b"\x00"  # Filter byte
                     for _ in range(width):
                         raw_data += bytes(color)
 
                 compressed = zlib.compress(raw_data, 9)
-                idat_crc = zlib.crc32(b'IDAT' + compressed)
-                idat = struct.pack('>I', len(compressed)) + b'IDAT' + compressed + struct.pack('>I', idat_crc)
+                idat_crc = zlib.crc32(b"IDAT" + compressed)
+                idat = (
+                    struct.pack(">I", len(compressed))
+                    + b"IDAT"
+                    + compressed
+                    + struct.pack(">I", idat_crc)
+                )
 
                 # IEND chunk
-                iend_crc = zlib.crc32(b'IEND')
-                iend = struct.pack('>I', 0) + b'IEND' + struct.pack('>I', iend_crc)
+                iend_crc = zlib.crc32(b"IEND")
+                iend = struct.pack(">I", 0) + b"IEND" + struct.pack(">I", iend_crc)
 
                 return header + ihdr + idat + iend
 
@@ -302,17 +307,30 @@ async def generate_thumbnail(
 
         cmd = [
             "convert",
-            "-size", f"{width}x{height}",
+            "-size",
+            f"{width}x{height}",
             "xc:#1e2850",  # Dark blue background
-            "-font", "Helvetica",
-            "-pointsize", "72",
-            "-fill", "white",
-            "-gravity", "center",
-            "-annotate", "+0-100", display_title,
-            "-pointsize", "36",
-            "-fill", "#aaaaaa",
-            "-annotate", "+0+100", f"Aragora Debate",
-            "-annotate", "+0+160", agent_text,
+            "-font",
+            "Helvetica",
+            "-pointsize",
+            "72",
+            "-fill",
+            "white",
+            "-gravity",
+            "center",
+            "-annotate",
+            "+0-100",
+            display_title,
+            "-pointsize",
+            "36",
+            "-fill",
+            "#aaaaaa",
+            "-annotate",
+            "+0+100",
+            f"Aragora Debate",
+            "-annotate",
+            "+0+160",
+            agent_text,
             str(output_path),
         ]
 
@@ -321,10 +339,7 @@ async def generate_thumbnail(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        await asyncio.wait_for(
-            process.communicate(),
-            timeout=IMAGEMAGICK_TIMEOUT
-        )
+        await asyncio.wait_for(process.communicate(), timeout=IMAGEMAGICK_TIMEOUT)
         return process.returncode == 0 and output_path.exists()
 
     except asyncio.TimeoutError:
@@ -406,7 +421,7 @@ class VideoGenerator:
             if not await generate_thumbnail(title, agents, thumb_path):
                 logger.warning("Using fallback thumbnail generation")
                 # Create minimal valid PNG as fallback
-                thumb_path.write_bytes(b'\x89PNG\r\n\x1a\n' + b'\x00' * 100)
+                thumb_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
 
             # Get audio duration and validate
             duration = await get_audio_duration(audio_path)
@@ -420,16 +435,25 @@ class VideoGenerator:
             cmd = [
                 "ffmpeg",
                 "-y",  # Overwrite output
-                "-loop", "1",
-                "-i", str(thumb_path),
-                "-i", str(audio_path),
-                "-c:v", "libx264",
-                "-tune", "stillimage",
-                "-c:a", "aac",
-                "-b:a", f"{audio_bitrate}k",
-                "-pix_fmt", "yuv420p",
+                "-loop",
+                "1",
+                "-i",
+                str(thumb_path),
+                "-i",
+                str(audio_path),
+                "-c:v",
+                "libx264",
+                "-tune",
+                "stillimage",
+                "-c:a",
+                "aac",
+                "-b:a",
+                f"{audio_bitrate}k",
+                "-pix_fmt",
+                "yuv420p",
                 "-shortest",
-                "-movflags", "+faststart",  # Web optimization
+                "-movflags",
+                "+faststart",  # Web optimization
                 str(output_path),
             ]
 
@@ -438,10 +462,7 @@ class VideoGenerator:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            _, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=FFMPEG_TIMEOUT
-            )
+            _, stderr = await asyncio.wait_for(process.communicate(), timeout=FFMPEG_TIMEOUT)
 
             if process.returncode != 0:
                 logger.error(f"ffmpeg failed: {stderr.decode('utf-8', errors='replace')[:500]}")
@@ -491,7 +512,8 @@ class VideoGenerator:
         # Validate color to prevent ffmpeg filter injection
         # Only allow hex colors (0xRRGGBB or #RRGGBB) or named colors (alphanumeric)
         import re
-        if not re.match(r'^(0x[0-9a-fA-F]{6}|#[0-9a-fA-F]{6}|[a-zA-Z]+)$', color):
+
+        if not re.match(r"^(0x[0-9a-fA-F]{6}|#[0-9a-fA-F]{6}|[a-zA-Z]+)$", color):
             logger.warning(f"Invalid color format '{color}', using default")
             color = "0x4488ff"
 
@@ -520,16 +542,24 @@ class VideoGenerator:
             cmd = [
                 "ffmpeg",
                 "-y",
-                "-i", str(audio_path),
+                "-i",
+                str(audio_path),
                 "-filter_complex",
                 f"[0:a]showwaves=s=1920x1080:mode=cline:colors={color}[v]",
-                "-map", "[v]",
-                "-map", "0:a",
-                "-c:v", "libx264",
-                "-c:a", "aac",
-                "-b:a", f"{audio_bitrate}k",
-                "-pix_fmt", "yuv420p",
-                "-movflags", "+faststart",
+                "-map",
+                "[v]",
+                "-map",
+                "0:a",
+                "-c:v",
+                "libx264",
+                "-c:a",
+                "aac",
+                "-b:a",
+                f"{audio_bitrate}k",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
                 str(output_path),
             ]
 
@@ -538,13 +568,12 @@ class VideoGenerator:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            _, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=FFMPEG_TIMEOUT
-            )
+            _, stderr = await asyncio.wait_for(process.communicate(), timeout=FFMPEG_TIMEOUT)
 
             if process.returncode != 0:
-                logger.error(f"ffmpeg waveform failed: {stderr.decode('utf-8', errors='replace')[:500]}")
+                logger.error(
+                    f"ffmpeg waveform failed: {stderr.decode('utf-8', errors='replace')[:500]}"
+                )
                 return None
 
             if output_path.exists():
@@ -584,9 +613,12 @@ class VideoGenerator:
             result = subprocess.run(
                 [
                     "ffprobe",
-                    "-v", "quiet",
-                    "-show_entries", "format=duration",
-                    "-of", "csv=p=0",
+                    "-v",
+                    "quiet",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "csv=p=0",
                     str(video_path),
                 ],
                 capture_output=True,

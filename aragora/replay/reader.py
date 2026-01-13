@@ -55,7 +55,9 @@ class ReplayReader:
         self.events_path = self.session_dir / "events.jsonl"
         self.meta: Optional[ReplayMeta] = None
         self._load_error: Optional[str] = None
-        self._event_index: Optional[List[Tuple[int, int, str]]] = None  # (offset_ms, file_pos, event_id)
+        self._event_index: Optional[List[Tuple[int, int, str]]] = (
+            None  # (offset_ms, file_pos, event_id)
+        )
 
         self._load_metadata()
 
@@ -341,7 +343,9 @@ class ReplayReader:
 
                         # Check for duplicate IDs
                         if event.event_id in seen_ids:
-                            errors.append(f"Duplicate event ID at line {line_num}: {event.event_id}")
+                            errors.append(
+                                f"Duplicate event ID at line {line_num}: {event.event_id}"
+                            )
                         seen_ids.add(event.event_id)
 
                         # Check chronological order

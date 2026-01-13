@@ -10,14 +10,10 @@ This enables persona synthesis from verifiable data rather than self-reported tr
 """
 
 import json
-import sqlite3
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Generator, Optional
-
-from aragora.config import DB_TIMEOUT_SECONDS
+from typing import Optional
 from aragora.insights.database import InsightsDatabase
 
 
@@ -69,61 +65,6 @@ class PositionTracker:
     def __init__(self, db_path: str = "aragora_positions.db"):
         self.db_path = Path(db_path)
         self.db = InsightsDatabase(db_path)
-        self._init_db()
-
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection with guaranteed cleanup."""
-        with self.db.connection() as conn:
-            yield conn
-
-    def _init_db(self) -> None:
-        """Initialize database schema."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            # Position history table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS position_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    debate_id TEXT NOT NULL,
-                    agent_name TEXT NOT NULL,
-                    position_type TEXT NOT NULL,
-                    position_text TEXT NOT NULL,
-                    round_num INTEGER DEFAULT 0,
-                    confidence REAL DEFAULT 0.5,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    was_winning_position INTEGER DEFAULT NULL,
-                    verified_correct INTEGER DEFAULT NULL,
-                    UNIQUE(debate_id, agent_name, position_type, round_num)
-                )
-            """)
-
-            # Debate outcomes table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS debate_outcomes (
-                    debate_id TEXT PRIMARY KEY,
-                    winning_agent TEXT,
-                    winning_position TEXT,
-                    consensus_confidence REAL,
-                    verified_at TEXT DEFAULT NULL,
-                    verification_result INTEGER DEFAULT NULL,
-                    verification_source TEXT DEFAULT NULL,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            # Indexes for common queries
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_position_agent
-                ON position_history(agent_name)
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_position_debate
-                ON position_history(debate_id)
-            """)
-
-            conn.commit()
 
     def record_position(
         self,
@@ -135,7 +76,7 @@ class PositionTracker:
         confidence: float = 0.5,
     ) -> Position:
         """Record an agent's position during a debate."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -166,7 +107,7 @@ class PositionTracker:
         consensus_confidence: float,
     ):
         """Mark debate complete and update was_winning_position for all agents."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             # Record the outcome
@@ -198,7 +139,7 @@ class PositionTracker:
         source: str = "manual",
     ):
         """Record whether the winning position was actually correct."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             # Update outcome
@@ -244,7 +185,7 @@ class PositionTracker:
                 'calibration': float,
             }
         """
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -272,7 +213,9 @@ class PositionTracker:
         accuracy_rate = correct / verified if verified >= min_verifications else 0.0
 
         # Calibration: how close is confidence to actual accuracy
-        calibration = 1.0 - abs(avg_confidence - accuracy_rate) if verified >= min_verifications else 0.0
+        calibration = (
+            1.0 - abs(avg_confidence - accuracy_rate) if verified >= min_verifications else 0.0
+        )
 
         return {
             "total_positions": total,
@@ -291,7 +234,7 @@ class PositionTracker:
         verified_only: bool = False,
     ) -> list[Position]:
         """Get an agent's position history."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             query = """
@@ -489,13 +432,17 @@ class TruthGroundedLaboratory:
 
         return {
             "debate_id": debate_id,
-            "outcome": {
-                "winning_agent": outcome[0] if outcome else None,
-                "winning_position": outcome[1] if outcome else None,
-                "confidence": outcome[2] if outcome else None,
-                "verified": outcome[3] if outcome else None,
-                "verification_source": outcome[4] if outcome else None,
-            } if outcome else None,
+            "outcome": (
+                {
+                    "winning_agent": outcome[0] if outcome else None,
+                    "winning_position": outcome[1] if outcome else None,
+                    "confidence": outcome[2] if outcome else None,
+                    "verified": outcome[3] if outcome else None,
+                    "verification_source": outcome[4] if outcome else None,
+                }
+                if outcome
+                else None
+            ),
             "positions": [
                 {
                     "agent": pos[0],

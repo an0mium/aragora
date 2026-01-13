@@ -3,14 +3,25 @@ Context gathering for debate research and evidence collection.
 
 Extracts research-related context gathering from the Arena class
 to improve maintainability and allow independent testing.
+
+Timeouts:
+    CONTEXT_GATHER_TIMEOUT: Overall timeout for gather_all (default: 10s)
+    EVIDENCE_TIMEOUT: Timeout for evidence collection (default: 5s)
+    TRENDING_TIMEOUT: Timeout for trending topics (default: 3s)
 """
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
+
+# Configurable timeouts (in seconds)
+CONTEXT_GATHER_TIMEOUT = float(os.getenv("ARAGORA_CONTEXT_TIMEOUT", "10.0"))
+EVIDENCE_TIMEOUT = float(os.getenv("ARAGORA_EVIDENCE_TIMEOUT", "5.0"))
+TRENDING_TIMEOUT = float(os.getenv("ARAGORA_TRENDING_TIMEOUT", "3.0"))
 
 
 class ContextGatherer:
@@ -67,7 +78,7 @@ class ContextGatherer:
         """Set or update the prompt builder reference."""
         self._prompt_builder = prompt_builder
 
-    async def gather_all(self, task: str) -> str:
+    async def gather_all(self, task: str, timeout: Optional[float] = None) -> str:
         """
         Perform multi-source research and return formatted context.
 
@@ -76,8 +87,12 @@ class ContextGatherer:
         - Evidence connectors (web, GitHub, local docs)
         - Pulse/trending topics
 
+        All sub-operations have individual timeouts to prevent blocking.
+        Returns partial results if some sources timeout.
+
         Args:
             task: The debate topic/task description.
+            timeout: Overall timeout in seconds (default: CONTEXT_GATHER_TIMEOUT)
 
         Returns:
             Formatted context string, or "No research context available."
@@ -85,26 +100,60 @@ class ContextGatherer:
         if self._research_context_cache:
             return self._research_context_cache
 
+        timeout = timeout or CONTEXT_GATHER_TIMEOUT
         context_parts = []
 
-        # Gather context from multiple sources
-        aragora_ctx = await self.gather_aragora_context(task)
-        if aragora_ctx:
-            context_parts.append(aragora_ctx)
+        async def _gather_with_timeout():
+            nonlocal context_parts
 
-        evidence_ctx = await self.gather_evidence_context(task)
-        if evidence_ctx:
-            context_parts.append(evidence_ctx)
+            # Gather Aragora context (local files, fast)
+            aragora_ctx = await self.gather_aragora_context(task)
+            if aragora_ctx:
+                context_parts.append(aragora_ctx)
 
-        trending_ctx = await self.gather_trending_context()
-        if trending_ctx:
-            context_parts.append(trending_ctx)
+            # Gather evidence and trending in parallel with individual timeouts
+            evidence_task = asyncio.create_task(self._gather_evidence_with_timeout(task))
+            trending_task = asyncio.create_task(self._gather_trending_with_timeout())
+
+            # Wait for both, but don't fail if one times out
+            results = await asyncio.gather(evidence_task, trending_task, return_exceptions=True)
+
+            for result in results:
+                if isinstance(result, str) and result:
+                    context_parts.append(result)
+                elif isinstance(result, asyncio.TimeoutError):
+                    logger.warning("Context gathering subtask timed out")
+                elif isinstance(result, Exception):
+                    logger.debug(f"Context gathering subtask failed: {result}")
+
+        try:
+            await asyncio.wait_for(_gather_with_timeout(), timeout=timeout)
+        except asyncio.TimeoutError:
+            logger.warning(f"Context gathering timed out after {timeout}s, using partial results")
 
         if context_parts:
             self._research_context_cache = "\n\n".join(context_parts)
             return self._research_context_cache
         else:
             return "No research context available."
+
+    async def _gather_evidence_with_timeout(self, task: str) -> Optional[str]:
+        """Gather evidence with timeout protection."""
+        try:
+            return await asyncio.wait_for(
+                self.gather_evidence_context(task), timeout=EVIDENCE_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"Evidence collection timed out after {EVIDENCE_TIMEOUT}s")
+            return None
+
+    async def _gather_trending_with_timeout(self) -> Optional[str]:
+        """Gather trending context with timeout protection."""
+        try:
+            return await asyncio.wait_for(self.gather_trending_context(), timeout=TRENDING_TIMEOUT)
+        except asyncio.TimeoutError:
+            logger.warning(f"Trending context timed out after {TRENDING_TIMEOUT}s")
+            return None
 
     async def gather_aragora_context(self, task: str) -> Optional[str]:
         """
@@ -162,9 +211,7 @@ class ContextGatherer:
 
             # Also include CLAUDE.md for project overview
             claude_md = self._project_root / "CLAUDE.md"
-            content = await loop.run_in_executor(
-                None, lambda: _read_file_sync(claude_md, 2000)
-            )
+            content = await loop.run_in_executor(None, lambda: _read_file_sync(claude_md, 2000))
             if content:
                 aragora_context_parts.insert(0, f"### Project Overview (CLAUDE.md)\n{content}")
 
@@ -205,6 +252,7 @@ class ContextGatherer:
             # Add web connector if available
             try:
                 from aragora.connectors.web import WebConnector, DDGS_AVAILABLE
+
                 if DDGS_AVAILABLE:
                     collector.add_connector("web", WebConnector())
                     enabled_connectors.append("web")
@@ -215,6 +263,7 @@ class ContextGatherer:
             try:
                 from aragora.connectors.github import GitHubConnector
                 import os
+
                 if os.environ.get("GITHUB_TOKEN"):
                     collector.add_connector("github", GitHubConnector())
                     enabled_connectors.append("github")
@@ -225,10 +274,12 @@ class ContextGatherer:
             try:
                 from aragora.connectors.local_docs import LocalDocsConnector
 
-                collector.add_connector("local_docs", LocalDocsConnector(
-                    root_path=str(self._project_root / "docs"),
-                    file_types="docs"
-                ))
+                collector.add_connector(
+                    "local_docs",
+                    LocalDocsConnector(
+                        root_path=str(self._project_root / "docs"), file_types="docs"
+                    ),
+                )
                 enabled_connectors.append("local_docs")
             except ImportError:
                 pass
@@ -286,9 +337,13 @@ class ContextGatherer:
             topics = await manager.get_trending_topics(limit_per_platform=3)
 
             if topics:
-                trending_context = "## TRENDING CONTEXT\nCurrent trending topics that may be relevant:\n"
+                trending_context = (
+                    "## TRENDING CONTEXT\nCurrent trending topics that may be relevant:\n"
+                )
                 for t in topics[:5]:
-                    trending_context += f"- {t.topic} ({t.platform}, {t.volume:,} engagement, {t.category})\n"
+                    trending_context += (
+                        f"- {t.topic} ({t.platform}, {t.volume:,} engagement, {t.category})\n"
+                    )
                 return trending_context
 
         except Exception as e:
@@ -324,7 +379,7 @@ class ContextGatherer:
             - List of retrieved memory IDs (for outcome tracking)
             - Dict mapping memory ID to tier (for analytics)
         """
-        if hasattr(self, '_continuum_context_cache') and self._continuum_context_cache:
+        if hasattr(self, "_continuum_context_cache") and self._continuum_context_cache:
             return self._continuum_context_cache, [], {}
 
         if not continuum_memory:
@@ -345,27 +400,31 @@ class ContextGatherer:
 
             # Track retrieved memory IDs and tiers for outcome updates and analytics
             retrieved_ids = [
-                getattr(mem, 'id', None) for mem in memories if getattr(mem, 'id', None)
+                getattr(mem, "id", None) for mem in memories if getattr(mem, "id", None)
             ]
             retrieved_tiers = {
-                getattr(mem, 'id', None): getattr(mem, 'tier', None)
+                getattr(mem, "id", None): getattr(mem, "tier", None)
                 for mem in memories
-                if getattr(mem, 'id', None) and getattr(mem, 'tier', None)
+                if getattr(mem, "id", None) and getattr(mem, "tier", None)
             }
 
             # Format memories with confidence markers based on consolidation
             context_parts = ["[Previous learnings relevant to this debate:]"]
             for mem in memories[:3]:  # Top 3 most relevant
-                content = mem.content[:200] if hasattr(mem, 'content') else str(mem)[:200]
-                tier = mem.tier.value if hasattr(mem, 'tier') else "unknown"
+                content = mem.content[:200] if hasattr(mem, "content") else str(mem)[:200]
+                tier = mem.tier.value if hasattr(mem, "tier") else "unknown"
                 # Consolidation score indicates reliability
-                consolidation = getattr(mem, 'consolidation_score', 0.5)
-                confidence = "high" if consolidation > 0.7 else "medium" if consolidation > 0.4 else "low"
+                consolidation = getattr(mem, "consolidation_score", 0.5)
+                confidence = (
+                    "high" if consolidation > 0.7 else "medium" if consolidation > 0.4 else "low"
+                )
                 context_parts.append(f"- [{tier}|{confidence}] {content}")
 
             context = "\n".join(context_parts)
             self._continuum_context_cache = context
-            logger.info(f"  [continuum] Retrieved {len(memories)} relevant memories for domain '{domain}'")
+            logger.info(
+                f"  [continuum] Retrieved {len(memories)} relevant memories for domain '{domain}'"
+            )
             return context, retrieved_ids, retrieved_tiers
         except (AttributeError, TypeError, ValueError) as e:
             # Expected errors from memory system
@@ -419,17 +478,18 @@ class ContextGatherer:
             # Merge with existing evidence pack, avoiding duplicates
             if self._research_evidence_pack:
                 existing_ids = {s.id for s in self._research_evidence_pack.snippets}
-                new_snippets = [
-                    s for s in evidence_pack.snippets
-                    if s.id not in existing_ids
-                ]
+                new_snippets = [s for s in evidence_pack.snippets if s.id not in existing_ids]
                 self._research_evidence_pack.snippets.extend(new_snippets)
                 self._research_evidence_pack.total_searched += evidence_pack.total_searched
             else:
                 self._research_evidence_pack = evidence_pack
 
             # Store in memory for future debates
-            if evidence_pack.snippets and evidence_store_callback and callable(evidence_store_callback):
+            if (
+                evidence_pack.snippets
+                and evidence_store_callback
+                and callable(evidence_store_callback)
+            ):
                 evidence_store_callback(evidence_pack.snippets, task)
 
             return len(evidence_pack.snippets), self._research_evidence_pack

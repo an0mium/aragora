@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 # Test Tier Configuration
 # ============================================================================
 
+
 def pytest_configure(config):
     """Register custom pytest markers for test tiers.
 
@@ -51,18 +52,12 @@ def pytest_configure(config):
         def test_supabase_connection():
             ...
     """
-    config.addinivalue_line(
-        "markers", "smoke: quick sanity tests for fast CI feedback"
-    )
+    config.addinivalue_line("markers", "smoke: quick sanity tests for fast CI feedback")
     config.addinivalue_line(
         "markers", "integration: tests requiring external dependencies (APIs, databases)"
     )
-    config.addinivalue_line(
-        "markers", "slow: long-running tests (>30 seconds)"
-    )
-    config.addinivalue_line(
-        "markers", "unit: isolated unit tests with no external dependencies"
-    )
+    config.addinivalue_line("markers", "slow: long-running tests (>30 seconds)")
+    config.addinivalue_line("markers", "unit: isolated unit tests with no external dependencies")
 
 
 # ============================================================================
@@ -92,12 +87,14 @@ def clear_handler_cache():
     """
     try:
         from aragora.server.handlers.base import clear_cache
+
         clear_cache()
     except ImportError:
         pass
     yield
     try:
         from aragora.server.handlers.base import clear_cache
+
         clear_cache()
     except ImportError:
         pass
@@ -106,6 +103,7 @@ def clear_handler_cache():
 # ============================================================================
 # Temporary File/Directory Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def temp_db() -> Generator[str, None, None]:
@@ -149,23 +147,31 @@ def temp_nomic_dir() -> Generator[Path, None, None]:
 
         # Create nomic state file
         state_file = nomic_dir / "nomic_state.json"
-        state_file.write_text(json.dumps({
-            "phase": "implement",
-            "stage": "executing",
-            "cycle": 1,
-            "total_tasks": 5,
-            "completed_tasks": 2,
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "phase": "implement",
+                    "stage": "executing",
+                    "cycle": 1,
+                    "total_tasks": 5,
+                    "completed_tasks": 2,
+                }
+            )
+        )
 
         # Create nomic log file
         log_file = nomic_dir / "nomic_loop.log"
-        log_file.write_text("\n".join([
-            "2026-01-05 00:00:01 Starting cycle 1",
-            "2026-01-05 00:00:02 Phase: context",
-            "2026-01-05 00:00:03 Phase: debate",
-            "2026-01-05 00:00:04 Phase: design",
-            "2026-01-05 00:00:05 Phase: implement",
-        ]))
+        log_file.write_text(
+            "\n".join(
+                [
+                    "2026-01-05 00:00:01 Starting cycle 1",
+                    "2026-01-05 00:00:02 Phase: context",
+                    "2026-01-05 00:00:03 Phase: debate",
+                    "2026-01-05 00:00:04 Phase: design",
+                    "2026-01-05 00:00:05 Phase: implement",
+                ]
+            )
+        )
 
         yield nomic_dir
 
@@ -173,6 +179,7 @@ def temp_nomic_dir() -> Generator[Path, None, None]:
 # ============================================================================
 # Mock Storage Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_storage() -> Mock:
@@ -233,15 +240,17 @@ def mock_elo_system() -> Mock:
 
     elo.get_rating.return_value = mock_rating
     elo.get_leaderboard.return_value = [mock_rating]
-    elo.get_cached_leaderboard.return_value = [{
-        "agent_name": "test_agent",
-        "elo": 1500,
-        "wins": 5,
-        "losses": 3,
-        "draws": 2,
-        "games_played": 10,
-        "win_rate": 0.5,
-    }]
+    elo.get_cached_leaderboard.return_value = [
+        {
+            "agent_name": "test_agent",
+            "elo": 1500,
+            "wins": 5,
+            "losses": 3,
+            "draws": 2,
+            "games_played": 10,
+            "win_rate": 0.5,
+        }
+    ]
     elo.get_recent_matches.return_value = []
     elo.get_cached_recent_matches.return_value = []
     elo.get_head_to_head.return_value = {
@@ -264,6 +273,7 @@ def mock_elo_system() -> Mock:
 # ============================================================================
 # Mock Agent Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_agent() -> Mock:
@@ -303,6 +313,7 @@ def mock_agents() -> list[Mock]:
 # Mock Environment Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_environment() -> Mock:
     """Create a mock Environment for arena testing.
@@ -320,6 +331,7 @@ def mock_environment() -> Mock:
 # Event Emitter Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_emitter() -> Mock:
     """Create a mock event emitter.
@@ -336,6 +348,7 @@ def mock_emitter() -> Mock:
 # ============================================================================
 # Auth Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_auth_config() -> Mock:
@@ -357,6 +370,7 @@ def mock_auth_config() -> Mock:
 # Handler Context Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def handler_context(mock_storage, mock_elo_system, temp_nomic_dir) -> dict:
     """Create a complete handler context.
@@ -376,6 +390,7 @@ def handler_context(mock_storage, mock_elo_system, temp_nomic_dir) -> dict:
 # Async Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def event_loop_policy():
     """Configure event loop policy for async tests.
@@ -383,12 +398,14 @@ def event_loop_policy():
     This fixture ensures consistent async behavior across platforms.
     """
     import asyncio
+
     return asyncio.DefaultEventLoopPolicy()
 
 
 # ============================================================================
 # Database Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def elo_system(temp_db) -> Generator["EloSystem", None, None]:
@@ -421,6 +438,7 @@ def continuum_memory(temp_db) -> Generator["ContinuumMemory", None, None]:
 # ============================================================================
 # Environment Variable Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def clean_env(monkeypatch):
@@ -472,6 +490,7 @@ def mock_api_keys(monkeypatch):
 # Sample Data Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def sample_debate_messages() -> list[dict]:
     """Return sample debate messages for testing."""
@@ -513,6 +532,7 @@ def sample_critique() -> dict:
 # Global State Reset Fixtures
 # ============================================================================
 
+
 def _reset_lazy_globals_impl():
     """Implementation of lazy globals reset.
 
@@ -521,6 +541,7 @@ def _reset_lazy_globals_impl():
     # Reset orchestrator globals
     try:
         import aragora.debate.orchestrator as orch
+
         orch.PositionTracker = None
         orch.CalibrationTracker = None
         orch.InsightExtractor = None
@@ -536,13 +557,14 @@ def _reset_lazy_globals_impl():
     # Reset handler globals (belief)
     try:
         import aragora.server.handlers.belief as belief_handler
-        if hasattr(belief_handler, 'BeliefNetwork'):
+
+        if hasattr(belief_handler, "BeliefNetwork"):
             belief_handler.BeliefNetwork = None
-        if hasattr(belief_handler, 'BeliefPropagationAnalyzer'):
+        if hasattr(belief_handler, "BeliefPropagationAnalyzer"):
             belief_handler.BeliefPropagationAnalyzer = None
-        if hasattr(belief_handler, 'PersonaLaboratory'):
+        if hasattr(belief_handler, "PersonaLaboratory"):
             belief_handler.PersonaLaboratory = None
-        if hasattr(belief_handler, 'ProvenanceTracker'):
+        if hasattr(belief_handler, "ProvenanceTracker"):
             belief_handler.ProvenanceTracker = None
     except (ImportError, AttributeError):
         pass
@@ -550,9 +572,10 @@ def _reset_lazy_globals_impl():
     # Reset handler globals (consensus)
     try:
         import aragora.server.handlers.consensus as consensus_handler
-        if hasattr(consensus_handler, 'ConsensusMemory'):
+
+        if hasattr(consensus_handler, "ConsensusMemory"):
             consensus_handler.ConsensusMemory = None
-        if hasattr(consensus_handler, 'DissentRetriever'):
+        if hasattr(consensus_handler, "DissentRetriever"):
             consensus_handler.DissentRetriever = None
     except (ImportError, AttributeError):
         pass
@@ -560,7 +583,8 @@ def _reset_lazy_globals_impl():
     # Reset handler globals (critique)
     try:
         import aragora.server.handlers.critique as critique_handler
-        if hasattr(critique_handler, 'CritiqueStore'):
+
+        if hasattr(critique_handler, "CritiqueStore"):
             critique_handler.CritiqueStore = None
     except (ImportError, AttributeError):
         pass
@@ -568,9 +592,10 @@ def _reset_lazy_globals_impl():
     # Reset handler globals (calibration)
     try:
         import aragora.server.handlers.calibration as cal_handler
-        if hasattr(cal_handler, 'CalibrationTracker'):
+
+        if hasattr(cal_handler, "CalibrationTracker"):
             cal_handler.CalibrationTracker = None
-        if hasattr(cal_handler, 'EloSystem'):
+        if hasattr(cal_handler, "EloSystem"):
             cal_handler.EloSystem = None
     except (ImportError, AttributeError):
         pass
@@ -578,6 +603,7 @@ def _reset_lazy_globals_impl():
     # Clear DatabaseManager singleton instances
     try:
         from aragora.storage.schema import DatabaseManager
+
         DatabaseManager.clear_instances()
     except (ImportError, AttributeError):
         pass
@@ -606,6 +632,7 @@ def reset_lazy_globals():
 # API Response Mocking Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_anthropic_response():
     """Create mock Anthropic API response.
@@ -619,6 +646,7 @@ def mock_anthropic_response():
                 mock_post.return_value = mock_anthropic_response("Hello!")
                 # ... test code
     """
+
     def _make_response(
         content: str = "Test response",
         model: str = "claude-sonnet-4-20250514",
@@ -642,6 +670,7 @@ def mock_anthropic_response():
         }
         mock_resp.raise_for_status = MagicMock()
         return mock_resp
+
     return _make_response
 
 
@@ -658,6 +687,7 @@ def mock_openai_response():
                     return_value=mock_openai_response("Hello!")
                 )
     """
+
     def _make_response(
         content: str = "Test response",
         model: str = "gpt-4o",
@@ -684,6 +714,7 @@ def mock_openai_response():
         mock_resp.created = 1700000000
 
         return mock_resp
+
     return _make_response
 
 
@@ -693,6 +724,7 @@ def mock_openrouter_response():
 
     OpenRouter uses OpenAI-compatible format.
     """
+
     def _make_response(
         content: str = "Test response",
         model: str = "anthropic/claude-3.5-sonnet",
@@ -703,14 +735,16 @@ def mock_openrouter_response():
         mock_resp.json.return_value = {
             "id": "gen-test123",
             "model": model,
-            "choices": [{
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": content,
-                },
-                "finish_reason": finish_reason,
-            }],
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": content,
+                    },
+                    "finish_reason": finish_reason,
+                }
+            ],
             "usage": {
                 "prompt_tokens": 100,
                 "completion_tokens": 50,
@@ -719,6 +753,7 @@ def mock_openrouter_response():
         }
         mock_resp.raise_for_status = MagicMock()
         return mock_resp
+
     return _make_response
 
 
@@ -728,6 +763,7 @@ def mock_streaming_response():
 
     Returns a factory that creates an async generator for streaming responses.
     """
+
     def _make_stream(chunks: list[str] | None = None):
         if chunks is None:
             chunks = ["Hello", " world", "!"]
@@ -736,20 +772,24 @@ def mock_streaming_response():
             for i, chunk in enumerate(chunks):
                 yield {
                     "id": f"chunk-{i}",
-                    "choices": [{
-                        "index": 0,
-                        "delta": {"content": chunk},
-                        "finish_reason": None if i < len(chunks) - 1 else "stop",
-                    }],
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {"content": chunk},
+                            "finish_reason": None if i < len(chunks) - 1 else "stop",
+                        }
+                    ],
                 }
 
         return _stream()
+
     return _make_stream
 
 
 # ============================================================================
 # Z3/Formal Verification Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def z3_available() -> bool:
@@ -765,9 +805,10 @@ def z3_available() -> bool:
     """
     try:
         import z3
+
         # Quick sanity check that Z3 actually works
         solver = z3.Solver()
-        x = z3.Int('x')
+        x = z3.Int("x")
         solver.add(x > 0)
         return solver.check() == z3.sat
     except ImportError:
@@ -781,6 +822,7 @@ def _z3_installed() -> bool:
     """Check if Z3 is installed (for use in decorators)."""
     try:
         import z3
+
         return True
     except ImportError:
         return False
@@ -793,6 +835,7 @@ Z3_AVAILABLE = _z3_installed()
 # ============================================================================
 # HTTP Client Mocking Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_httpx_client():
@@ -837,6 +880,7 @@ def mock_aiohttp_session():
 # ============================================================================
 # Pulse/Trending Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_pulse_topics():
@@ -888,6 +932,7 @@ def mock_pulse_manager(mock_pulse_topics):
 # ============================================================================
 # WebSocket Testing Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_websocket():

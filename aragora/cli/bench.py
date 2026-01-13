@@ -15,6 +15,7 @@ from typing import Optional
 @dataclass
 class BenchmarkResult:
     """Results from a benchmark run."""
+
     agent: str
     task: str
     iterations: int
@@ -99,12 +100,10 @@ async def benchmark_agent(
             result.response_times.append(elapsed)
 
             # Try to get token count
-            if hasattr(agent, 'get_token_usage'):
+            if hasattr(agent, "get_token_usage"):
                 usage = agent.get_token_usage()
                 if usage:
-                    result.token_counts.append(
-                        usage.get('total_tokens', 0)
-                    )
+                    result.token_counts.append(usage.get("total_tokens", 0))
 
         except asyncio.TimeoutError:
             result.errors += 1

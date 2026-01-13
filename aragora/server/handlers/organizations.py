@@ -185,6 +185,7 @@ class OrganizationsHandler(BaseHandler):
             return None, None
 
         from aragora.billing.jwt_auth import extract_user_from_request
+
         auth_ctx = extract_user_from_request(handler, user_store)
 
         if not auth_ctx.is_authenticated:
@@ -225,20 +226,22 @@ class OrganizationsHandler(BaseHandler):
         # Get member count
         members = user_store.get_org_members(org_id)
 
-        return json_response({
-            "organization": {
-                "id": org.id,
-                "name": org.name,
-                "slug": org.slug,
-                "tier": org.tier.value,
-                "owner_id": org.owner_id,
-                "member_count": len(members),
-                "debates_used": org.debates_used_this_month,
-                "debates_limit": org.limits.debates_per_month,
-                "settings": org.settings,
-                "created_at": org.created_at.isoformat(),
+        return json_response(
+            {
+                "organization": {
+                    "id": org.id,
+                    "name": org.name,
+                    "slug": org.slug,
+                    "tier": org.tier.value,
+                    "owner_id": org.owner_id,
+                    "member_count": len(members),
+                    "debates_used": org.debates_used_this_month,
+                    "debates_limit": org.limits.debates_per_month,
+                    "settings": org.settings,
+                    "created_at": org.created_at.isoformat(),
+                }
             }
-        })
+        )
 
     @handle_errors("update organization")
     @log_request("update organization")
@@ -285,14 +288,16 @@ class OrganizationsHandler(BaseHandler):
         logger.info(f"Organization {org_id} updated by user {user.id}")
 
         org = user_store.get_organization_by_id(org_id)
-        return json_response({
-            "organization": {
-                "id": org.id,
-                "name": org.name,
-                "settings": org.settings,
-            },
-            "message": "Organization updated",
-        })
+        return json_response(
+            {
+                "organization": {
+                    "id": org.id,
+                    "name": org.name,
+                    "settings": org.settings,
+                },
+                "message": "Organization updated",
+            }
+        )
 
     @handle_errors("list members")
     @log_request("list members")
@@ -306,21 +311,23 @@ class OrganizationsHandler(BaseHandler):
         user_store = self._get_user_store()
         members = user_store.get_org_members(org_id)
 
-        return json_response({
-            "members": [
-                {
-                    "id": m.id,
-                    "email": m.email,
-                    "name": m.name,
-                    "role": m.role,
-                    "is_active": m.is_active,
-                    "created_at": m.created_at.isoformat(),
-                    "last_login_at": m.last_login_at.isoformat() if m.last_login_at else None,
-                }
-                for m in members
-            ],
-            "count": len(members),
-        })
+        return json_response(
+            {
+                "members": [
+                    {
+                        "id": m.id,
+                        "email": m.email,
+                        "name": m.name,
+                        "role": m.role,
+                        "is_active": m.is_active,
+                        "created_at": m.created_at.isoformat(),
+                        "last_login_at": m.last_login_at.isoformat() if m.last_login_at else None,
+                    }
+                    for m in members
+                ],
+                "count": len(members),
+            }
+        )
 
     @handle_errors("invite member")
     @log_request("invite member")
@@ -360,7 +367,7 @@ class OrganizationsHandler(BaseHandler):
             return error_response(
                 f"Organization member limit reached ({org.limits.users_per_org}). "
                 "Upgrade your plan to add more members.",
-                403
+                403,
             )
 
         # Check if user exists
@@ -374,7 +381,7 @@ class OrganizationsHandler(BaseHandler):
                 return error_response(
                     "User is already a member of another organization. "
                     "They must leave their current organization first.",
-                    400
+                    400,
                 )
 
             # Add existing user to org
@@ -384,11 +391,13 @@ class OrganizationsHandler(BaseHandler):
 
             logger.info(f"User {existing_user.id} added to org {org_id} by {user.id}")
 
-            return json_response({
-                "message": f"User {email} added to organization",
-                "user_id": existing_user.id,
-                "role": role,
-            })
+            return json_response(
+                {
+                    "message": f"User {email} added to organization",
+                    "user_id": existing_user.id,
+                    "role": role,
+                }
+            )
 
         # User doesn't exist - create invitation
         # Check if there's already a pending invitation for this email
@@ -397,7 +406,7 @@ class OrganizationsHandler(BaseHandler):
             return error_response(
                 f"An invitation has already been sent to {email}. "
                 "It expires on " + existing_invite.expires_at.strftime("%Y-%m-%d"),
-                400
+                400,
             )
 
         # Create new invitation
@@ -417,12 +426,15 @@ class OrganizationsHandler(BaseHandler):
             f"(token={invitation.token[:8]}...)"
         )
 
-        return json_response({
-            "message": f"Invitation sent to {email}",
-            "invitation_id": invitation.id,
-            "expires_at": invitation.expires_at.isoformat(),
-            "invite_link": f"/invite/{invitation.token}",
-        }, status=201)
+        return json_response(
+            {
+                "message": f"Invitation sent to {email}",
+                "invitation_id": invitation.id,
+                "expires_at": invitation.expires_at.isoformat(),
+                "invite_link": f"/invite/{invitation.token}",
+            },
+            status=201,
+        )
 
     @handle_errors("remove member")
     @log_request("remove member")
@@ -446,15 +458,13 @@ class OrganizationsHandler(BaseHandler):
         # Cannot remove owner
         if target_user.role == "owner":
             return error_response(
-                "Cannot remove the organization owner. Transfer ownership first.",
-                403
+                "Cannot remove the organization owner. Transfer ownership first.", 403
             )
 
         # Cannot remove self (use leave instead)
         if target_user.id == user.id:
             return error_response(
-                "Cannot remove yourself. Use the leave organization option instead.",
-                400
+                "Cannot remove yourself. Use the leave organization option instead.", 400
             )
 
         # Only owner can remove admins
@@ -468,10 +478,12 @@ class OrganizationsHandler(BaseHandler):
 
         logger.info(f"User {target_user_id} removed from org {org_id} by {user.id}")
 
-        return json_response({
-            "message": f"User removed from organization",
-            "user_id": target_user_id,
-        })
+        return json_response(
+            {
+                "message": f"User removed from organization",
+                "user_id": target_user_id,
+            }
+        )
 
     @handle_errors("update member role")
     @log_request("update member role")
@@ -503,8 +515,7 @@ class OrganizationsHandler(BaseHandler):
         # Cannot change owner's role
         if target_user.role == "owner":
             return error_response(
-                "Cannot change the owner's role. Transfer ownership instead.",
-                403
+                "Cannot change the owner's role. Transfer ownership instead.", 403
             )
 
         # Update role
@@ -512,21 +523,23 @@ class OrganizationsHandler(BaseHandler):
         if not success:
             return error_response("Failed to update user role", 500)
 
-        logger.info(f"User {target_user_id} role changed to {new_role} in org {org_id} by {user.id}")
+        logger.info(
+            f"User {target_user_id} role changed to {new_role} in org {org_id} by {user.id}"
+        )
 
-        return json_response({
-            "message": f"User role updated to {new_role}",
-            "user_id": target_user_id,
-            "role": new_role,
-        })
+        return json_response(
+            {
+                "message": f"User role updated to {new_role}",
+                "user_id": target_user_id,
+                "role": new_role,
+            }
+        )
 
     # =========================================================================
     # Invitation Helper Methods (now using persistent storage via user_store)
     # =========================================================================
 
-    def _get_invitation_by_email(
-        self, org_id: str, email: str
-    ) -> Optional[OrganizationInvitation]:
+    def _get_invitation_by_email(self, org_id: str, email: str) -> Optional[OrganizationInvitation]:
         """Find a pending invitation by org and email."""
         user_store = self._get_user_store()
         if not user_store:
@@ -576,19 +589,17 @@ class OrganizationsHandler(BaseHandler):
 
         invitations = self._get_invitations_for_org(org_id)
 
-        return json_response({
-            "invitations": [
-                inv.to_dict() for inv in invitations
-            ],
-            "count": len(invitations),
-            "pending_count": sum(1 for inv in invitations if inv.is_pending),
-        })
+        return json_response(
+            {
+                "invitations": [inv.to_dict() for inv in invitations],
+                "count": len(invitations),
+                "pending_count": sum(1 for inv in invitations if inv.is_pending),
+            }
+        )
 
     @handle_errors("revoke invitation")
     @log_request("revoke invitation")
-    def _revoke_invitation(
-        self, handler, org_id: str, invitation_id: str
-    ) -> HandlerResult:
+    def _revoke_invitation(self, handler, org_id: str, invitation_id: str) -> HandlerResult:
         """Revoke a pending invitation."""
         user, auth_ctx = self._get_current_user(handler)
         has_access, err = self._check_org_access(user, org_id, min_role="admin")
@@ -607,20 +618,19 @@ class OrganizationsHandler(BaseHandler):
             return error_response("Invitation not found", 404)
 
         if not invitation.is_pending:
-            return error_response(
-                f"Cannot revoke invitation (status: {invitation.status})",
-                400
-            )
+            return error_response(f"Cannot revoke invitation (status: {invitation.status})", 400)
 
         # Update status to revoked in database
         user_store.update_invitation_status(invitation_id, "revoked")
 
         logger.info(f"Invitation {invitation_id} revoked by {user.id}")
 
-        return json_response({
-            "message": "Invitation revoked",
-            "invitation_id": invitation_id,
-        })
+        return json_response(
+            {
+                "message": "Invitation revoked",
+                "invitation_id": invitation_id,
+            }
+        )
 
     @handle_errors("get pending invitations")
     @log_request("get pending invitations")
@@ -637,15 +647,19 @@ class OrganizationsHandler(BaseHandler):
         invitation_data = []
         for inv in invitations:
             org = user_store.get_organization_by_id(inv.org_id) if user_store else None
-            invitation_data.append({
-                **inv.to_dict(),
-                "org_name": org.name if org else "Unknown Organization",
-            })
+            invitation_data.append(
+                {
+                    **inv.to_dict(),
+                    "org_name": org.name if org else "Unknown Organization",
+                }
+            )
 
-        return json_response({
-            "invitations": invitation_data,
-            "count": len(invitation_data),
-        })
+        return json_response(
+            {
+                "invitations": invitation_data,
+                "count": len(invitation_data),
+            }
+        )
 
     @handle_errors("accept invitation")
     @log_request("accept invitation")
@@ -661,23 +675,19 @@ class OrganizationsHandler(BaseHandler):
 
         if not invitation.is_pending:
             return error_response(
-                f"Invitation is no longer valid (status: {invitation.status})",
-                400
+                f"Invitation is no longer valid (status: {invitation.status})", 400
             )
 
         # Verify the invitation is for this user's email
         if invitation.email.lower() != user.email.lower():
-            return error_response(
-                "This invitation was sent to a different email address",
-                403
-            )
+            return error_response("This invitation was sent to a different email address", 403)
 
         # Check if user is already in an organization
         if user.org_id:
             return error_response(
                 "You are already a member of an organization. "
                 "Leave your current organization first.",
-                400
+                400,
             )
 
         # Check org limits
@@ -691,10 +701,7 @@ class OrganizationsHandler(BaseHandler):
 
         members = user_store.get_org_members(invitation.org_id)
         if len(members) >= org.limits.users_per_org:
-            return error_response(
-                "Organization has reached its member limit",
-                403
-            )
+            return error_response("Organization has reached its member limit", 403)
 
         # Add user to organization
         success = user_store.add_user_to_org(user.id, invitation.org_id, invitation.role)
@@ -711,15 +718,17 @@ class OrganizationsHandler(BaseHandler):
             f"with role {invitation.role}"
         )
 
-        return json_response({
-            "message": f"Successfully joined {org.name}",
-            "organization": {
-                "id": org.id,
-                "name": org.name,
-                "slug": org.slug,
-            },
-            "role": invitation.role,
-        })
+        return json_response(
+            {
+                "message": f"Successfully joined {org.name}",
+                "organization": {
+                    "id": org.id,
+                    "name": org.name,
+                    "slug": org.slug,
+                },
+                "role": invitation.role,
+            }
+        )
 
 
 __all__ = ["OrganizationsHandler"]

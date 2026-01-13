@@ -44,9 +44,7 @@ class TestBroadcastWithAuthOff:
         server.clients = {client1, client2, client3}
 
         event = StreamEvent(
-            type=StreamEventType.TASK_START,
-            data={"task": "test_task"},
-            loop_id="test_loop"
+            type=StreamEventType.TASK_START, data={"task": "test_task"}, loop_id="test_loop"
         )
 
         # Run broadcast
@@ -104,9 +102,7 @@ class TestLoopIdAutoInjection:
         emitter = SyncEventEmitter(loop_id="default_loop")
 
         event = StreamEvent(
-            type=StreamEventType.TASK_START,
-            data={"task": "test"},
-            loop_id=""  # Empty loop_id
+            type=StreamEventType.TASK_START, data={"task": "test"}, loop_id=""  # Empty loop_id
         )
 
         emitter.emit(event)
@@ -123,7 +119,7 @@ class TestLoopIdAutoInjection:
         event = StreamEvent(
             type=StreamEventType.TASK_START,
             data={"task": "test"},
-            loop_id="specific_loop"  # Already has loop_id
+            loop_id="specific_loop",  # Already has loop_id
         )
 
         emitter.emit(event)
@@ -155,11 +151,7 @@ class TestLoopIdAutoInjection:
         """Emitter without loop_id should not inject anything."""
         emitter = SyncEventEmitter()  # No loop_id
 
-        event = StreamEvent(
-            type=StreamEventType.TASK_START,
-            data={"task": "test"},
-            loop_id=""
-        )
+        event = StreamEvent(type=StreamEventType.TASK_START, data={"task": "test"}, loop_id="")
 
         emitter.emit(event)
 
@@ -192,16 +184,10 @@ class TestAudienceInputRouting:
         inbox = AudienceInbox()
 
         msg1 = AudienceMessage(
-            type="vote",
-            loop_id="loop_1",
-            payload={"choice": "option_a"},
-            user_id="user_1"
+            type="vote", loop_id="loop_1", payload={"choice": "option_a"}, user_id="user_1"
         )
         msg2 = AudienceMessage(
-            type="suggestion",
-            loop_id="loop_1",
-            payload={"text": "My suggestion"},
-            user_id="user_2"
+            type="suggestion", loop_id="loop_1", payload={"text": "My suggestion"}, user_id="user_2"
         )
 
         inbox.put(msg1)
@@ -251,11 +237,11 @@ class TestAudienceInputRouting:
         def add_messages():
             try:
                 for i in range(100):
-                    inbox.put(AudienceMessage(
-                        type="vote",
-                        loop_id="loop_1",
-                        payload={"choice": f"option_{i % 3}"}
-                    ))
+                    inbox.put(
+                        AudienceMessage(
+                            type="vote", loop_id="loop_1", payload={"choice": f"option_{i % 3}"}
+                        )
+                    )
             except Exception as e:
                 errors.append(e)
 
@@ -424,7 +410,7 @@ class TestEventSerialization:
             data={"content": "Hello", "role": "assistant"},
             round=3,
             agent="claude-visionary",
-            loop_id="test_loop"
+            loop_id="test_loop",
         )
 
         result = event.to_dict()
@@ -440,7 +426,7 @@ class TestEventSerialization:
         event = StreamEvent(
             type=StreamEventType.CONSENSUS,
             data={"reached": True, "confidence": 0.95, "answer": "Test answer"},
-            loop_id="json_test"
+            loop_id="json_test",
         )
 
         json_str = event.to_json()
@@ -513,7 +499,7 @@ class TestErrorEventHandling:
         event = StreamEvent(
             type=StreamEventType.ERROR,
             data={"error": "Connection failed", "code": "ERR_CONN"},
-            loop_id="test_loop"
+            loop_id="test_loop",
         )
 
         result = event.to_dict()
@@ -533,9 +519,7 @@ class TestErrorEventHandling:
         server.clients = {client1, client2}
 
         error_event = StreamEvent(
-            type=StreamEventType.ERROR,
-            data={"error": "Debate failed"},
-            loop_id="test_loop"
+            type=StreamEventType.ERROR, data={"error": "Debate failed"}, loop_id="test_loop"
         )
 
         await server.broadcast(error_event)
@@ -550,9 +534,7 @@ class TestErrorEventHandling:
         """Error events should not expose internal stack traces."""
         # Simulate an internal error
         event = StreamEvent(
-            type=StreamEventType.ERROR,
-            data={"error": "Internal server error"},
-            loop_id="test_loop"
+            type=StreamEventType.ERROR, data={"error": "Internal server error"}, loop_id="test_loop"
         )
 
         json_str = event.to_json()
@@ -576,7 +558,7 @@ class TestDebateStateErrors:
             type=StreamEventType.AGENT_MESSAGE,
             data={"role": "assistant", "content": "Test"},
             agent="test-agent",
-            loop_id="nonexistent_loop"
+            loop_id="nonexistent_loop",
         )
 
         # Should not raise
@@ -593,7 +575,7 @@ class TestDebateStateErrors:
         start_event = StreamEvent(
             type=StreamEventType.DEBATE_START,
             data={"task": "Test task", "agents": ["agent1", "agent2"]},
-            loop_id="test_loop"
+            loop_id="test_loop",
         )
         server._update_debate_state(start_event)
 
@@ -602,7 +584,7 @@ class TestDebateStateErrors:
             type=StreamEventType.AGENT_MESSAGE,
             data={},  # Missing required fields
             agent="test-agent",
-            loop_id="test_loop"
+            loop_id="test_loop",
         )
 
         # Should raise KeyError since role is required
@@ -617,7 +599,7 @@ class TestDebateStateErrors:
         start_event = StreamEvent(
             type=StreamEventType.DEBATE_START,
             data={"task": "Test task", "agents": ["agent1"]},
-            loop_id="test_loop"
+            loop_id="test_loop",
         )
         server._update_debate_state(start_event)
 
@@ -628,7 +610,7 @@ class TestDebateStateErrors:
                 data={"role": "assistant", "content": f"Message {i}"},
                 agent="agent1",
                 round=i,
-                loop_id="test_loop"
+                loop_id="test_loop",
             )
             server._update_debate_state(msg_event)
 
@@ -668,7 +650,9 @@ class TestRateLimiterCleanup:
         # Add a rate limiter at exactly TTL - 1 second (using config value)
         with server._rate_limiters_lock:
             server._rate_limiters["boundary_client"] = TokenBucket(rate_per_minute=10, burst_size=5)
-            server._rate_limiter_last_access["boundary_client"] = time.time() - server.config.rate_limiter_ttl + 1
+            server._rate_limiter_last_access["boundary_client"] = (
+                time.time() - server.config.rate_limiter_ttl + 1
+            )
 
         server._cleanup_stale_rate_limiters()
 
@@ -687,7 +671,7 @@ class TestLateJoinerSync:
         start_event = StreamEvent(
             type=StreamEventType.DEBATE_START,
             data={"task": "Test debate", "agents": ["agent1", "agent2"]},
-            loop_id="sync_test"
+            loop_id="sync_test",
         )
         server._update_debate_state(start_event)
 
@@ -698,7 +682,7 @@ class TestLateJoinerSync:
                 data={"role": "assistant", "content": f"Turn {i}"},
                 agent=f"agent{(i % 2) + 1}",
                 round=i,
-                loop_id="sync_test"
+                loop_id="sync_test",
             )
             server._update_debate_state(msg_event)
 
@@ -747,4 +731,3 @@ class TestClientIdSecurity:
         # Generate many IDs and ensure they're all unique
         ids = [secrets.token_hex(16) for _ in range(100)]
         assert len(set(ids)) == 100  # All unique
-

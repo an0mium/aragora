@@ -22,11 +22,13 @@ class TestConcurrentDebateExecution:
     def mock_arena(self):
         """Create a mock Arena for testing."""
         arena = MagicMock()
-        arena.run = AsyncMock(return_value=MagicMock(
-            id="debate-123",
-            consensus="Test consensus",
-            rounds_used=3,
-        ))
+        arena.run = AsyncMock(
+            return_value=MagicMock(
+                id="debate-123",
+                consensus="Test consensus",
+                rounds_used=3,
+            )
+        )
         return arena
 
     @pytest.mark.asyncio
@@ -41,10 +43,7 @@ class TestConcurrentDebateExecution:
             results.append(debate_id)
             return debate_id
 
-        tasks = [
-            asyncio.create_task(run_debate(f"debate-{i}"))
-            for i in range(debate_count)
-        ]
+        tasks = [asyncio.create_task(run_debate(f"debate-{i}")) for i in range(debate_count)]
 
         completed = await asyncio.gather(*tasks)
 
@@ -64,10 +63,7 @@ class TestConcurrentDebateExecution:
             await asyncio.sleep(0.05)
             return ctx
 
-        tasks = [
-            asyncio.create_task(create_context(f"task-{i}"))
-            for i in range(3)
-        ]
+        tasks = [asyncio.create_task(create_context(f"task-{i}")) for i in range(3)]
 
         contexts = await asyncio.gather(*tasks)
 
@@ -157,16 +153,10 @@ class TestRateLimiterConcurrency:
         limiter = TierRateLimiter()
 
         # Free tier (10 req/min, 60 burst by default)
-        free_results = [
-            limiter.allow("free", "user-1")
-            for _ in range(15)
-        ]
+        free_results = [limiter.allow("free", "user-1") for _ in range(15)]
 
         # Professional tier (200 req/min)
-        pro_results = [
-            limiter.allow("professional", "user-2")
-            for _ in range(15)
-        ]
+        pro_results = [limiter.allow("professional", "user-2") for _ in range(15)]
 
         # Free should have lower limits
         free_allowed = sum(1 for r in free_results if r.allowed)
@@ -191,13 +181,15 @@ class TestDatabaseConcurrency:
 
             # Create test table
             with backend.connection() as conn:
-                conn.execute("""
+                conn.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS test_concurrent (
                         id INTEGER PRIMARY KEY,
                         value TEXT,
                         thread_id TEXT
                     )
-                """)
+                """
+                )
 
             errors = []
 
@@ -206,14 +198,13 @@ class TestDatabaseConcurrency:
                     for i in range(10):
                         backend.execute_write(
                             "INSERT INTO test_concurrent (value, thread_id) VALUES (?, ?)",
-                            (f"value-{i}", thread_id)
+                            (f"value-{i}", thread_id),
                         )
                 except Exception as e:
                     errors.append(e)
 
             threads = [
-                threading.Thread(target=insert_rows, args=(f"thread-{i}",))
-                for i in range(4)
+                threading.Thread(target=insert_rows, args=(f"thread-{i}",)) for i in range(4)
             ]
 
             for t in threads:
@@ -239,12 +230,14 @@ class TestDatabaseConcurrency:
 
             # Create test table
             with backend.connection() as conn:
-                conn.execute("""
+                conn.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS test_pool (
                         id INTEGER PRIMARY KEY,
                         value TEXT
                     )
-                """)
+                """
+                )
 
             # Simulate heavy concurrent load
             results = []
@@ -252,17 +245,12 @@ class TestDatabaseConcurrency:
             def query_database():
                 for _ in range(20):
                     try:
-                        row = backend.fetch_one(
-                            "SELECT COUNT(*) FROM test_pool"
-                        )
+                        row = backend.fetch_one("SELECT COUNT(*) FROM test_pool")
                         results.append(("success", row[0]))
                     except Exception as e:
                         results.append(("error", str(e)))
 
-            threads = [
-                threading.Thread(target=query_database)
-                for _ in range(10)
-            ]
+            threads = [threading.Thread(target=query_database) for _ in range(10)]
 
             for t in threads:
                 t.start()
@@ -295,10 +283,7 @@ class TestResourceContention:
                 await asyncio.sleep(0.01)
                 return await memory.retrieve(key, tier="fast")
 
-            tasks = [
-                asyncio.create_task(store_and_retrieve(f"key-{i}"))
-                for i in range(10)
-            ]
+            tasks = [asyncio.create_task(store_and_retrieve(f"key-{i}")) for i in range(10)]
 
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -328,10 +313,7 @@ class TestResourceContention:
             return True
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [
-                executor.submit(track_concurrency)
-                for _ in range(20)
-            ]
+            futures = [executor.submit(track_concurrency) for _ in range(20)]
 
             for f in futures:
                 f.result()

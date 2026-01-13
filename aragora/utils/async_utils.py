@@ -92,10 +92,7 @@ async def run_command(
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
             )
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(input_data),
-                timeout=timeout
-            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(input_data), timeout=timeout)
             return proc.returncode or 0, stdout, stderr
         except asyncio.TimeoutError:
             proc.kill()
@@ -103,11 +100,7 @@ async def run_command(
             raise
 
 
-async def run_git_command(
-    args: List[str],
-    cwd: Path,
-    timeout: float = 30.0
-) -> Tuple[bool, str]:
+async def run_git_command(args: List[str], cwd: Path, timeout: float = 30.0) -> Tuple[bool, str]:
     """Run git command asynchronously.
 
     Convenience wrapper for common git operations.
@@ -121,11 +114,7 @@ async def run_git_command(
         Tuple of (success: bool, output_or_error: str)
     """
     try:
-        returncode, stdout, stderr = await run_command(
-            ["git"] + args,
-            cwd=cwd,
-            timeout=timeout
-        )
+        returncode, stdout, stderr = await run_command(["git"] + args, cwd=cwd, timeout=timeout)
         if returncode == 0:
             return True, stdout.decode(errors="replace")
         return False, stderr.decode(errors="replace")

@@ -45,6 +45,7 @@ class TestRouteIndex:
         """Exact paths are found via O(1) dict lookup."""
         # Patch HANDLER_REGISTRY for this test
         import aragora.server.handler_registry as registry_module
+
         original_registry = registry_module.HANDLER_REGISTRY
 
         try:
@@ -63,6 +64,7 @@ class TestRouteIndex:
     def test_missing_route_returns_none(self, route_index, mock_handler, mock_registry_mixin):
         """Unknown paths return None."""
         import aragora.server.handler_registry as registry_module
+
         original_registry = registry_module.HANDLER_REGISTRY
 
         try:
@@ -86,6 +88,7 @@ class TestRouteIndex:
         mixin._debates_handler = handler
 
         import aragora.server.handler_registry as registry_module
+
         original_registry = registry_module.HANDLER_REGISTRY
 
         try:
@@ -101,6 +104,7 @@ class TestRouteIndex:
     def test_cache_is_cleared_on_rebuild(self, route_index, mock_handler, mock_registry_mixin):
         """Rebuilding the index clears the LRU cache."""
         import aragora.server.handler_registry as registry_module
+
         original_registry = registry_module.HANDLER_REGISTRY
 
         try:
@@ -131,8 +135,9 @@ class TestRouteIndexIntegration:
         for attr_name, handler_class in HANDLER_REGISTRY:
             if handler_class is not None:
                 # Handler classes should define ROUTES
-                assert hasattr(handler_class, 'ROUTES') or hasattr(handler_class, 'can_handle'), \
-                    f"{handler_class.__name__} missing ROUTES or can_handle"
+                assert hasattr(handler_class, "ROUTES") or hasattr(
+                    handler_class, "can_handle"
+                ), f"{handler_class.__name__} missing ROUTES or can_handle"
 
     def test_exact_routes_from_all_handlers(self):
         """Collect and verify all exact routes are unique."""
@@ -142,7 +147,7 @@ class TestRouteIndexIntegration:
             if handler_class is None:
                 continue
 
-            routes = getattr(handler_class, 'ROUTES', [])
+            routes = getattr(handler_class, "ROUTES", [])
             for route in routes:
                 if route in all_routes:
                     # Same handler can have overlapping routes
@@ -176,6 +181,7 @@ class TestRouteIndexPerformance:
             handlers.append((f"_handler_{i}", type(handler)))
 
         import aragora.server.handler_registry as registry_module
+
         original_registry = registry_module.HANDLER_REGISTRY
 
         try:
@@ -204,8 +210,9 @@ class TestRouteIndexPerformance:
         mixin._test_handler = handler
 
         import aragora.server.handler_registry as registry_module
+
         original_registry = registry_module.HANDLER_REGISTRY
-        original_prefix = getattr(registry_module.RouteIndex, '_prefix_routes', None)
+        original_prefix = getattr(registry_module.RouteIndex, "_prefix_routes", None)
 
         try:
             registry_module.HANDLER_REGISTRY = [("_test_handler", type(handler))]

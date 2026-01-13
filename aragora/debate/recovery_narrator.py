@@ -316,10 +316,12 @@ class RecoveryNarrator:
         # Broadcast if callback set
         if self.broadcast_callback:
             try:
-                self.broadcast_callback({
-                    "type": "recovery_narrative",
-                    "data": narrative.to_dict(),
-                })
+                self.broadcast_callback(
+                    {
+                        "type": "recovery_narrative",
+                        "data": narrative.to_dict(),
+                    }
+                )
             except Exception as e:
                 logger.warning(f"narrator_broadcast_failed error={e}")
 

@@ -20,6 +20,7 @@ import tempfile
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_debate():
     """Create a mock debate for broadcast."""
@@ -57,6 +58,7 @@ def temp_output_dir():
 # ============================================================================
 # Script Generation Tests
 # ============================================================================
+
 
 class TestScriptGeneration:
     """Tests for debate-to-script conversion."""
@@ -105,6 +107,7 @@ class TestScriptGeneration:
 # Audio Generation Tests
 # ============================================================================
 
+
 class TestAudioGeneration:
     """Tests for audio synthesis."""
 
@@ -128,7 +131,7 @@ class TestAudioGeneration:
             engine = AudioEngine()
 
             # Test with mock TTS
-            with patch.object(engine, '_synthesize_text') as mock_tts:
+            with patch.object(engine, "_synthesize_text") as mock_tts:
                 mock_tts.return_value = b"fake audio data"
 
                 result = await engine.generate_segment_audio(
@@ -160,6 +163,7 @@ class TestAudioGeneration:
 # Video Generation Tests
 # ============================================================================
 
+
 class TestVideoGeneration:
     """Tests for video generation (requires FFmpeg)."""
 
@@ -188,6 +192,7 @@ class TestVideoGeneration:
 # ============================================================================
 # RSS Feed Tests
 # ============================================================================
+
 
 class TestRSSGeneration:
     """Tests for RSS feed generation."""
@@ -240,6 +245,7 @@ class TestRSSGeneration:
 # Pipeline Integration Tests
 # ============================================================================
 
+
 class TestBroadcastPipeline:
     """Integration tests for the full broadcast pipeline."""
 
@@ -260,8 +266,10 @@ class TestBroadcastPipeline:
             trace_file = traces_dir / "test-debate-123.json"
             trace_file.write_text('{"debate_id": "test-debate-123", "messages": []}')
 
-            with patch.object(pipeline, '_load_trace') as mock_trace, \
-                 patch.object(pipeline, '_generate_audio') as mock_audio:
+            with (
+                patch.object(pipeline, "_load_trace") as mock_trace,
+                patch.object(pipeline, "_generate_audio") as mock_audio,
+            ):
                 mock_trace.return_value = {"debate_id": "test-debate-123", "messages": []}
                 mock_audio.return_value = temp_output_dir / "audio.mp3"
                 # Create a dummy file
@@ -287,8 +295,10 @@ class TestBroadcastPipeline:
 
             pipeline = BroadcastPipeline(nomic_dir=temp_output_dir)
 
-            with patch.object(pipeline, '_generate_audio') as mock_audio, \
-                 patch.object(pipeline, '_generate_video') as mock_video:
+            with (
+                patch.object(pipeline, "_generate_audio") as mock_audio,
+                patch.object(pipeline, "_generate_video") as mock_video,
+            ):
 
                 mock_audio.return_value = temp_output_dir / "audio.mp3"
                 mock_video.return_value = temp_output_dir / "video.mp4"
@@ -310,8 +320,10 @@ class TestBroadcastPipeline:
 
             pipeline = BroadcastPipeline(nomic_dir=temp_output_dir)
 
-            with patch.object(pipeline, '_load_trace') as mock_trace, \
-                 patch.object(pipeline, '_generate_audio') as mock_audio:
+            with (
+                patch.object(pipeline, "_load_trace") as mock_trace,
+                patch.object(pipeline, "_generate_audio") as mock_audio,
+            ):
                 mock_trace.return_value = {"debate_id": "test-debate-123", "messages": []}
                 mock_audio.return_value = temp_output_dir / "audio.mp3"
                 (temp_output_dir / "audio.mp3").write_bytes(b"fake audio")
@@ -329,6 +341,7 @@ class TestBroadcastPipeline:
 # ============================================================================
 # Handler Integration Tests
 # ============================================================================
+
 
 class TestBroadcastHandlerIntegration:
     """Integration tests for broadcast API handlers."""
@@ -364,6 +377,7 @@ class TestBroadcastHandlerIntegration:
 # ============================================================================
 # Storage Integration Tests
 # ============================================================================
+
 
 class TestBroadcastStorage:
     """Tests for broadcast file storage."""
@@ -402,6 +416,7 @@ class TestBroadcastStorage:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestBroadcastErrorHandling:
     """Tests for error handling in broadcast pipeline."""
 
@@ -413,8 +428,10 @@ class TestBroadcastErrorHandling:
 
             pipeline = BroadcastPipeline(nomic_dir=temp_output_dir)
 
-            with patch.object(pipeline, '_load_trace') as mock_trace, \
-                 patch.object(pipeline, '_generate_audio') as mock_audio:
+            with (
+                patch.object(pipeline, "_load_trace") as mock_trace,
+                patch.object(pipeline, "_generate_audio") as mock_audio,
+            ):
                 mock_trace.return_value = {"debate_id": "test-debate-123", "messages": []}
                 mock_audio.side_effect = Exception("TTS service unavailable")
 

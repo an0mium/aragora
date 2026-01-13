@@ -19,6 +19,7 @@ from aragora.debate.roles import CognitiveRole, RoleRotationConfig, RoleRotator
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def mock_agent():
     """Create a mock agent."""
@@ -53,6 +54,7 @@ def basic_env():
 # =============================================================================
 # Role Rotation Tests
 # =============================================================================
+
 
 class TestOrchestratorRoleRotation:
     """Tests for cognitive role rotation in Arena."""
@@ -109,21 +111,18 @@ class TestOrchestratorRoleRotation:
         # Get assignments for round 0
         arena._update_role_assignments(round_num=0)
         round_0_roles = {
-            name: assign.role
-            for name, assign in arena.current_role_assignments.items()
+            name: assign.role for name, assign in arena.current_role_assignments.items()
         }
 
         # Get assignments for round 1
         arena._update_role_assignments(round_num=1)
         round_1_roles = {
-            name: assign.role
-            for name, assign in arena.current_role_assignments.items()
+            name: assign.role for name, assign in arena.current_role_assignments.items()
         }
 
         # At least one agent should have a different role
         different = any(
-            round_0_roles.get(name) != round_1_roles.get(name)
-            for name in round_0_roles
+            round_0_roles.get(name) != round_1_roles.get(name) for name in round_0_roles
         )
         assert different, "Role assignments should rotate between rounds"
 
@@ -151,6 +150,7 @@ class TestOrchestratorRoleRotation:
 # =============================================================================
 # Timeout Tests
 # =============================================================================
+
 
 class TestOrchestratorTimeout:
     """Tests for timeout handling in Arena."""
@@ -215,6 +215,7 @@ class TestOrchestratorTimeout:
 # Conviction-Weighted Voting Tests
 # =============================================================================
 
+
 class TestOrchestratorConviction:
     """Tests for conviction-weighted voting."""
 
@@ -267,6 +268,7 @@ class TestOrchestratorConviction:
 # =============================================================================
 # Arena Initialization Tests
 # =============================================================================
+
 
 class TestArenaInitialization:
     """Tests for Arena initialization edge cases."""

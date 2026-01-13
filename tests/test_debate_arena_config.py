@@ -15,6 +15,7 @@ from aragora.debate.arena_config import ArenaConfig
 # Default Values Tests
 # ============================================================================
 
+
 class TestArenaConfigDefaults:
     """Tests for default values of ArenaConfig fields."""
 
@@ -258,6 +259,7 @@ class TestArenaConfigDefaults:
 # Single Field Tests
 # ============================================================================
 
+
 class TestArenaConfigSingleFields:
     """Tests for setting individual ArenaConfig fields."""
 
@@ -341,6 +343,7 @@ class TestArenaConfigSingleFields:
 # Multi-Tenancy Tests
 # ============================================================================
 
+
 class TestArenaConfigMultiTenancy:
     """Tests for multi-tenancy configuration."""
 
@@ -368,6 +371,7 @@ class TestArenaConfigMultiTenancy:
 # Evolution/Genesis Tests
 # ============================================================================
 
+
 class TestArenaConfigEvolution:
     """Tests for evolution/genesis configuration."""
 
@@ -394,6 +398,7 @@ class TestArenaConfigEvolution:
 # Airlock Tests
 # ============================================================================
 
+
 class TestArenaConfigAirlock:
     """Tests for airlock resilience configuration."""
 
@@ -417,6 +422,7 @@ class TestArenaConfigAirlock:
 # ============================================================================
 # Tracking Subsystems Tests
 # ============================================================================
+
 
 class TestArenaConfigTracking:
     """Tests for tracking subsystem configuration."""
@@ -461,6 +467,7 @@ class TestArenaConfigTracking:
 # Memory Systems Tests
 # ============================================================================
 
+
 class TestArenaConfigMemory:
     """Tests for memory system configuration."""
 
@@ -492,6 +499,7 @@ class TestArenaConfigMemory:
 # Recording Tests
 # ============================================================================
 
+
 class TestArenaConfigRecording:
     """Tests for recording and evidence configuration."""
 
@@ -510,6 +518,7 @@ class TestArenaConfigRecording:
 # ============================================================================
 # Checkpointing Tests
 # ============================================================================
+
 
 class TestArenaConfigCheckpointing:
     """Tests for checkpointing configuration."""
@@ -534,6 +543,7 @@ class TestArenaConfigCheckpointing:
 # ============================================================================
 # Performance Monitoring Tests
 # ============================================================================
+
 
 class TestArenaConfigPerformance:
     """Tests for performance monitoring configuration."""
@@ -562,6 +572,7 @@ class TestArenaConfigPerformance:
 # Agent Selection Tests
 # ============================================================================
 
+
 class TestArenaConfigAgentSelection:
     """Tests for agent selection configuration."""
 
@@ -585,6 +596,7 @@ class TestArenaConfigAgentSelection:
 # ============================================================================
 # Trending/Pulse Tests
 # ============================================================================
+
 
 class TestArenaConfigTrending:
     """Tests for trending topic and pulse configuration."""
@@ -610,6 +622,7 @@ class TestArenaConfigTrending:
 # Prompt Evolution Tests
 # ============================================================================
 
+
 class TestArenaConfigPromptEvolution:
     """Tests for prompt evolution configuration."""
 
@@ -627,6 +640,7 @@ class TestArenaConfigPromptEvolution:
 # ============================================================================
 # Full Configuration Tests
 # ============================================================================
+
 
 class TestArenaConfigFullSetup:
     """Tests for full production-like configuration."""
@@ -683,12 +697,14 @@ class TestArenaConfigFullSetup:
 # Dataclass Behavior Tests
 # ============================================================================
 
+
 class TestArenaConfigDataclass:
     """Tests for dataclass behavior."""
 
     def test_is_dataclass(self):
         """Test ArenaConfig is a proper dataclass."""
         from dataclasses import is_dataclass
+
         assert is_dataclass(ArenaConfig)
 
     def test_equality(self):
@@ -723,6 +739,7 @@ class TestArenaConfigDataclass:
 # ============================================================================
 # Edge Cases Tests
 # ============================================================================
+
 
 class TestArenaConfigEdgeCases:
     """Tests for edge cases and boundary conditions."""
@@ -762,15 +779,18 @@ class TestArenaConfigEdgeCases:
 # Module Exports Tests
 # ============================================================================
 
+
 class TestArenaConfigExports:
     """Tests for module exports."""
 
     def test_all_exports(self):
         """Test __all__ exports ArenaConfig."""
         from aragora.debate import arena_config
+
         assert "ArenaConfig" in arena_config.__all__
 
     def test_import_from_module(self):
         """Test ArenaConfig can be imported from module."""
         from aragora.debate.arena_config import ArenaConfig as AC
+
         assert AC is ArenaConfig

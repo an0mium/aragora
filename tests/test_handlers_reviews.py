@@ -60,12 +60,11 @@ class TestListReviews:
     def test_list_reviews_empty_directory(self):
         """Should return empty list when no reviews exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.object(
-                ReviewsHandler, '_list_reviews',
-                wraps=self.handler._list_reviews
-            ):
+            with patch.object(ReviewsHandler, "_list_reviews", wraps=self.handler._list_reviews):
                 # Patch REVIEWS_DIR to non-existent path
-                with patch('aragora.server.handlers.reviews.REVIEWS_DIR', Path(tmpdir) / "nonexistent"):
+                with patch(
+                    "aragora.server.handlers.reviews.REVIEWS_DIR", Path(tmpdir) / "nonexistent"
+                ):
                     mock_handler = MagicMock()
                     result = self.handler.handle(mock_handler, "/api/reviews", "GET")
 
@@ -102,7 +101,7 @@ class TestListReviews:
             (reviews_dir / "abc123.json").write_text(json.dumps(review1))
             (reviews_dir / "def456.json").write_text(json.dumps(review2))
 
-            with patch('aragora.server.handlers.reviews.REVIEWS_DIR', reviews_dir):
+            with patch("aragora.server.handlers.reviews.REVIEWS_DIR", reviews_dir):
                 mock_handler = MagicMock()
                 result = self.handler.handle(mock_handler, "/api/reviews", "GET")
 
@@ -126,7 +125,7 @@ class TestListReviews:
             # Create invalid JSON file
             (reviews_dir / "invalid.json").write_text("{ this is not valid json }")
 
-            with patch('aragora.server.handlers.reviews.REVIEWS_DIR', reviews_dir):
+            with patch("aragora.server.handlers.reviews.REVIEWS_DIR", reviews_dir):
                 mock_handler = MagicMock()
                 result = self.handler.handle(mock_handler, "/api/reviews", "GET")
 
@@ -144,7 +143,7 @@ class TestListReviews:
                 review = {"id": f"review{i:03d}", "findings": {}}
                 (reviews_dir / f"review{i:03d}.json").write_text(json.dumps(review))
 
-            with patch('aragora.server.handlers.reviews.REVIEWS_DIR', reviews_dir):
+            with patch("aragora.server.handlers.reviews.REVIEWS_DIR", reviews_dir):
                 result = self.handler._list_reviews(limit=20)
 
                 assert result["total"] == 20
@@ -175,7 +174,7 @@ class TestGetReviewById:
             }
             (reviews_dir / "test123.json").write_text(json.dumps(review_data))
 
-            with patch('aragora.server.handlers.reviews.REVIEWS_DIR', reviews_dir):
+            with patch("aragora.server.handlers.reviews.REVIEWS_DIR", reviews_dir):
                 mock_handler = MagicMock()
                 result = self.handler.handle(mock_handler, "/api/reviews/test123", "GET")
 
@@ -188,7 +187,7 @@ class TestGetReviewById:
         with tempfile.TemporaryDirectory() as tmpdir:
             reviews_dir = Path(tmpdir)
 
-            with patch('aragora.server.handlers.reviews.REVIEWS_DIR', reviews_dir):
+            with patch("aragora.server.handlers.reviews.REVIEWS_DIR", reviews_dir):
                 mock_handler = MagicMock()
                 result = self.handler.handle(mock_handler, "/api/reviews/nonexistent", "GET")
 
@@ -225,7 +224,7 @@ class TestGetReviewById:
             # Create file with invalid JSON
             (reviews_dir / "corrupted.json").write_text("{ invalid json }")
 
-            with patch('aragora.server.handlers.reviews.REVIEWS_DIR', reviews_dir):
+            with patch("aragora.server.handlers.reviews.REVIEWS_DIR", reviews_dir):
                 mock_handler = MagicMock()
                 result = self.handler.handle(mock_handler, "/api/reviews/corrupted", "GET")
 
@@ -287,7 +286,7 @@ class TestReviewsHandlerEdgeCases:
             minimal_review = {"id": "minimal"}
             (reviews_dir / "minimal.json").write_text(json.dumps(minimal_review))
 
-            with patch('aragora.server.handlers.reviews.REVIEWS_DIR', reviews_dir):
+            with patch("aragora.server.handlers.reviews.REVIEWS_DIR", reviews_dir):
                 result = self.handler._list_reviews()
 
                 assert result["total"] == 1

@@ -114,16 +114,13 @@ class ConfigValidator:
         if is_production:
             for var in cls.PRODUCTION_REQUIRED:
                 if not os.getenv(var):
-                    errors.append(
-                        f"Missing required environment variable in production: {var}"
-                    )
+                    errors.append(f"Missing required environment variable in production: {var}")
 
         # Check LLM API keys
         has_llm_key = any(os.getenv(key) for key in cls.LLM_API_KEYS)
         if not has_llm_key:
             msg = (
-                "No LLM API key configured. Set at least one of: "
-                f"{', '.join(cls.LLM_API_KEYS)}"
+                "No LLM API key configured. Set at least one of: " f"{', '.join(cls.LLM_API_KEYS)}"
             )
             if is_production:
                 errors.append(msg)
@@ -148,13 +145,9 @@ class ConfigValidator:
                 if not (value.startswith("http://") or value.startswith("https://")):
                     if var == "REDIS_URL":
                         if not value.startswith("redis://"):
-                            errors.append(
-                                f"{var} must be a valid Redis URL (redis://...)"
-                            )
+                            errors.append(f"{var} must be a valid Redis URL (redis://...)")
                     else:
-                        errors.append(
-                            f"{var} must be a valid URL (http:// or https://)"
-                        )
+                        errors.append(f"{var} must be a valid URL (http:// or https://)")
 
         # Validate integer formats
         for var in cls.INTEGER_VARS:
@@ -285,12 +278,8 @@ class ConfigValidator:
             "api_token_set": bool(os.getenv("ARAGORA_API_TOKEN")),
             "jwt_secret_set": bool(os.getenv("JWT_SECRET")),
             "jwt_secret_length": len(os.getenv("JWT_SECRET", "")),
-            "llm_keys": {
-                key: bool(os.getenv(key)) for key in cls.LLM_API_KEYS
-            },
-            "supabase_configured": bool(
-                os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_KEY")
-            ),
+            "llm_keys": {key: bool(os.getenv(key)) for key in cls.LLM_API_KEYS},
+            "supabase_configured": bool(os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_KEY")),
             "redis_configured": bool(os.getenv("REDIS_URL")),
             "rate_limit": os.getenv("ARAGORA_RATE_LIMIT", "60"),
             "allowed_origins": bool(os.getenv("ARAGORA_ALLOWED_ORIGINS")),

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ErrorWithRetry } from './RetryButton';
 import { fetchWithRetry } from '@/utils/retry';
+import { API_BASE_URL } from '@/config';
 
 interface MetricsData {
   uptime_seconds: number;
@@ -52,7 +53,7 @@ interface MetricsPanelProps {
   apiBase?: string;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 export function MetricsPanel({ apiBase = DEFAULT_API_BASE }: MetricsPanelProps) {
   const [metrics, setMetrics] = useState<MetricsData | null>(null);

@@ -42,7 +42,7 @@ def _prune_stale_circuit_breakers() -> int:
     now = time.time()
     stale_names = []
     for name, cb in _circuit_breakers.items():
-        if hasattr(cb, '_last_accessed') and (now - cb._last_accessed) > STALE_THRESHOLD_SECONDS:
+        if hasattr(cb, "_last_accessed") and (now - cb._last_accessed) > STALE_THRESHOLD_SECONDS:
             stale_names.append(name)
 
     for name in stale_names:
@@ -116,10 +116,10 @@ def get_circuit_breaker_status() -> dict[str, Any]:
                 name: {
                     "status": cb.get_status(),
                     "failures": cb.failures,
-                    "last_accessed": getattr(cb, '_last_accessed', 0),
+                    "last_accessed": getattr(cb, "_last_accessed", 0),
                 }
                 for name, cb in _circuit_breakers.items()
-            }
+            },
         }
 
 
@@ -159,7 +159,7 @@ def get_circuit_breaker_metrics() -> dict[str, Any]:
         for name, cb in _circuit_breakers.items():
             status = cb.get_status()
             failures = cb.failures
-            last_accessed = getattr(cb, '_last_accessed', 0)
+            last_accessed = getattr(cb, "_last_accessed", 0)
             age_seconds = now - last_accessed if last_accessed > 0 else 0
 
             # Calculate cooldown remaining if open
@@ -201,12 +201,14 @@ def get_circuit_breaker_metrics() -> dict[str, Any]:
 
             # Flag high-failure circuits (>50% of threshold)
             if failures >= cb.failure_threshold * 0.5:
-                metrics["health"]["high_failure_circuits"].append({
-                    "name": name,
-                    "failures": failures,
-                    "threshold": cb.failure_threshold,
-                    "percentage": round(failures / cb.failure_threshold * 100, 1),
-                })
+                metrics["health"]["high_failure_circuits"].append(
+                    {
+                        "name": name,
+                        "failures": failures,
+                        "threshold": cb.failure_threshold,
+                        "percentage": round(failures / cb.failure_threshold * 100, 1),
+                    }
+                )
 
         # Determine overall health status
         if metrics["summary"]["open"] > 0:
@@ -236,8 +238,7 @@ class CircuitOpenError(Exception):
         self.circuit_name = circuit_name
         self.cooldown_remaining = cooldown_remaining
         super().__init__(
-            f"Circuit breaker '{circuit_name}' is open. "
-            f"Retry in {cooldown_remaining:.1f}s"
+            f"Circuit breaker '{circuit_name}' is open. " f"Retry in {cooldown_remaining:.1f}s"
         )
 
 
@@ -334,9 +335,7 @@ class CircuitBreaker:
         if self._single_failures >= self.failure_threshold:
             if self._single_open_at == 0.0:
                 self._single_open_at = time.time()
-                logger.warning(
-                    f"Circuit breaker OPEN after {self._single_failures} failures"
-                )
+                logger.warning(f"Circuit breaker OPEN after {self._single_failures} failures")
                 return True
         return False
 
@@ -349,8 +348,7 @@ class CircuitBreaker:
             if entity not in self._circuit_open_at:
                 self._circuit_open_at[entity] = time.time()
                 logger.warning(
-                    f"Circuit breaker OPEN for {entity} "
-                    f"after {self._failures[entity]} failures"
+                    f"Circuit breaker OPEN for {entity} " f"after {self._failures[entity]} failures"
                 )
                 return True
         return False
@@ -385,9 +383,7 @@ class CircuitBreaker:
     def _record_entity_success(self, entity: str) -> None:
         """Record success for a specific entity."""
         if entity in self._circuit_open_at:
-            self._half_open_successes[entity] = (
-                self._half_open_successes.get(entity, 0) + 1
-            )
+            self._half_open_successes[entity] = self._half_open_successes.get(entity, 0) + 1
             if self._half_open_successes[entity] >= self.half_open_success_threshold:
                 del self._circuit_open_at[entity]
                 self._failures[entity] = 0
@@ -471,7 +467,7 @@ class CircuitBreaker:
 
     def filter_available_entities(self, entities: list) -> list:
         """Return only entities with closed or half-open circuits."""
-        return [e for e in entities if self.is_available(getattr(e, 'name', str(e)))]
+        return [e for e in entities if self.is_available(getattr(e, "name", str(e)))]
 
     def filter_available_agents(self, agents: list) -> list:
         """Alias for filter_available_entities (backward compatibility)."""
@@ -490,9 +486,7 @@ class CircuitBreaker:
             },
             "entity_mode": {
                 "failures": self._failures.copy(),
-                "open_circuits": {
-                    name: now - ts for name, ts in self._circuit_open_at.items()
-                },
+                "open_circuits": {name: now - ts for name, ts in self._circuit_open_at.items()},
             },
         }
 
@@ -549,7 +543,9 @@ class CircuitBreaker:
         entity_data = data.get("entity_mode", data)  # Support both formats
         cb._failures = entity_data.get("failures", {})
         # Restore open circuits with remaining cooldown
-        for name, elapsed in entity_data.get("open_circuits", entity_data.get("cooldowns", {})).items():
+        for name, elapsed in entity_data.get(
+            "open_circuits", entity_data.get("cooldowns", {})
+        ).items():
             if elapsed < cb.cooldown_seconds:
                 cb._circuit_open_at[name] = time.time() - elapsed
 
@@ -635,7 +631,9 @@ class CircuitBreaker:
         except Exception as e:
             # Record all exceptions as failures (includes TimeoutError,
             # connection errors, API errors, etc.)
-            logger.debug(f"Circuit breaker (sync) recorded failure for {name}: {type(e).__name__}: {e}")
+            logger.debug(
+                f"Circuit breaker (sync) recorded failure for {name}: {type(e).__name__}: {e}"
+            )
             self.record_failure(entity)
             raise
 
@@ -663,7 +661,7 @@ def _get_cb_connection() -> "sqlite3.Connection":
     if not _DB_PATH:
         raise ConfigurationError(
             component="CircuitBreaker",
-            reason="Persistence not initialized. Call init_circuit_breaker_persistence() first"
+            reason="Persistence not initialized. Call init_circuit_breaker_persistence() first",
         )
 
     conn = sqlite3.connect(_DB_PATH, timeout=_CB_TIMEOUT_SECONDS)
@@ -692,7 +690,8 @@ def init_circuit_breaker_persistence(db_path: str = ".data/circuit_breaker.db") 
     # Use timeout and WAL mode for concurrent access
     with sqlite3.connect(db_path, timeout=_CB_TIMEOUT_SECONDS) as conn:
         conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS circuit_breakers (
                 name TEXT PRIMARY KEY,
                 state_json TEXT NOT NULL,
@@ -700,11 +699,14 @@ def init_circuit_breaker_persistence(db_path: str = ".data/circuit_breaker.db") 
                 cooldown_seconds REAL NOT NULL,
                 updated_at TEXT NOT NULL
             )
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_circuit_breakers_updated
             ON circuit_breakers(updated_at)
-        """)
+        """
+        )
         conn.commit()
 
     logger.info(f"Circuit breaker persistence initialized: {db_path}")
@@ -728,17 +730,20 @@ def persist_circuit_breaker(name: str, cb: CircuitBreaker) -> None:
         state_json = json.dumps(state)
 
         with _get_cb_connection() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO circuit_breakers
                 (name, state_json, failure_threshold, cooldown_seconds, updated_at)
                 VALUES (?, ?, ?, ?, ?)
-            """, (
-                name,
-                state_json,
-                cb.failure_threshold,
-                cb.cooldown_seconds,
-                datetime.now().isoformat(),
-            ))
+            """,
+                (
+                    name,
+                    state_json,
+                    cb.failure_threshold,
+                    cb.cooldown_seconds,
+                    datetime.now().isoformat(),
+                ),
+            )
             conn.commit()
     except Exception as e:
         logger.warning(f"Failed to persist circuit breaker {name}: {e}")
@@ -776,10 +781,12 @@ def load_circuit_breakers() -> int:
 
     try:
         with _get_cb_connection() as conn:
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 SELECT name, state_json, failure_threshold, cooldown_seconds
                 FROM circuit_breakers
-            """)
+            """
+            )
 
             count = 0
             with _circuit_breakers_lock:
@@ -823,9 +830,12 @@ def cleanup_stale_persisted(max_age_hours: float = 72.0) -> int:
         cutoff = (datetime.now() - timedelta(hours=max_age_hours)).isoformat()
 
         with _get_cb_connection() as conn:
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 DELETE FROM circuit_breakers WHERE updated_at < ?
-            """, (cutoff,))
+            """,
+                (cutoff,),
+            )
             conn.commit()
             deleted = cursor.rowcount
 

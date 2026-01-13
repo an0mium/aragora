@@ -41,18 +41,24 @@ def db_with_timestamps(temp_db_dir):
     """Create a database with timestamped records for cleanup testing."""
     db_path = temp_db_dir / "elo.db"
     with sqlite3.connect(str(db_path)) as conn:
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE match_history (
                 id INTEGER PRIMARY KEY,
                 data TEXT,
                 created_at TEXT
             )
-        """)
+        """
+        )
         # Insert old and new records
         old_date = (datetime.now() - timedelta(days=100)).isoformat()
         new_date = datetime.now().isoformat()
-        conn.execute("INSERT INTO match_history (data, created_at) VALUES (?, ?)", ("old", old_date))
-        conn.execute("INSERT INTO match_history (data, created_at) VALUES (?, ?)", ("new", new_date))
+        conn.execute(
+            "INSERT INTO match_history (data, created_at) VALUES (?, ?)", ("old", old_date)
+        )
+        conn.execute(
+            "INSERT INTO match_history (data, created_at) VALUES (?, ?)", ("new", new_date)
+        )
         conn.commit()
     return db_path
 
@@ -264,11 +270,14 @@ class TestScheduleMaintenance:
         state_file = temp_db_dir / "maintenance_state.json"
         old_date = (datetime.now() - timedelta(days=30)).isoformat()
         with open(state_file, "w") as f:
-            json.dump({
-                "last_vacuum": old_date,
-                "last_analyze": old_date,
-                "last_cleanup": old_date,
-            }, f)
+            json.dump(
+                {
+                    "last_vacuum": old_date,
+                    "last_analyze": old_date,
+                    "last_cleanup": old_date,
+                },
+                f,
+            )
 
         results = schedule_maintenance(temp_db_dir)
 
@@ -281,11 +290,14 @@ class TestScheduleMaintenance:
         state_file = temp_db_dir / "maintenance_state.json"
         now = datetime.now().isoformat()
         with open(state_file, "w") as f:
-            json.dump({
-                "last_vacuum": now,
-                "last_analyze": now,
-                "last_cleanup": now,
-            }, f)
+            json.dump(
+                {
+                    "last_vacuum": now,
+                    "last_analyze": now,
+                    "last_cleanup": now,
+                },
+                f,
+            )
 
         results = schedule_maintenance(temp_db_dir)
         assert results["tasks_run"] == []
@@ -307,10 +319,13 @@ class TestScheduleMaintenance:
         state_file = temp_db_dir / "maintenance_state.json"
         old_date = (datetime.now() - timedelta(days=2)).isoformat()
         with open(state_file, "w") as f:
-            json.dump({
-                "last_vacuum": old_date,
-                "last_analyze": old_date,
-            }, f)
+            json.dump(
+                {
+                    "last_vacuum": old_date,
+                    "last_analyze": old_date,
+                },
+                f,
+            )
 
         # With 3-day interval, vacuum should not run
         results = schedule_maintenance(

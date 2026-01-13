@@ -39,7 +39,7 @@ Examples:
 ```
 GET /api/v1/debates
 POST /api/v1/debates
-GET /api/v1/agent/claude/stats
+GET /api/v1/agent/anthropic-api/profile
 GET /api/v1/leaderboard
 ```
 
@@ -66,7 +66,7 @@ Always use versioned endpoints in production:
 # Python (requests)
 import requests
 
-BASE_URL = "https://api.aragora.io/api/v1"
+BASE_URL = "https://api.aragora.ai/api/v1"
 
 # List debates
 response = requests.get(f"{BASE_URL}/debates")
@@ -74,24 +74,24 @@ response = requests.get(f"{BASE_URL}/debates")
 # Create debate
 response = requests.post(f"{BASE_URL}/debates", json={
     "task": "Discuss API design patterns",
-    "agents": ["claude", "gpt-4"],
+    "agents": ["anthropic-api", "openai-api"],
 })
 ```
 
 ```javascript
 // JavaScript (fetch)
-const BASE_URL = 'https://api.aragora.io/api/v1';
+const BASE_URL = 'https://api.aragora.ai/api/v1';
 
 // List debates
 const debates = await fetch(`${BASE_URL}/debates`).then(r => r.json());
 
-// Get agent stats
-const stats = await fetch(`${BASE_URL}/agent/claude/stats`).then(r => r.json());
+// Get agent profile
+const profile = await fetch(`${BASE_URL}/agent/anthropic-api/profile`).then(r => r.json());
 ```
 
 ```bash
 # cURL
-curl -X GET https://api.aragora.io/api/v1/debates \
+curl -X GET https://api.aragora.ai/api/v1/debates \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -175,7 +175,7 @@ Legacy (unversioned) endpoints are fully supported but emit deprecation warnings
 Check for legacy usage in your client:
 
 ```python
-response = requests.get("https://api.aragora.io/api/debates")
+response = requests.get("https://api.aragora.ai/api/debates")
 
 if response.headers.get("X-API-Legacy") == "true":
     print("Warning: Using legacy endpoint, migrate to /api/v1/")
@@ -189,10 +189,10 @@ if response.headers.get("X-API-Legacy") == "true":
 
 ```python
 # Before
-BASE_URL = "https://api.aragora.io/api"
+BASE_URL = "https://api.aragora.ai/api"
 
 # After
-BASE_URL = "https://api.aragora.io/api/v1"
+BASE_URL = "https://api.aragora.ai/api/v1"
 ```
 
 ### Step 2: Update All Endpoint Calls

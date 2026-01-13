@@ -206,6 +206,7 @@ class TestTierRateLimitBypass:
 
     def test_cannot_upgrade_tier_via_header(self):
         """Tier should come from authenticated org, not request headers."""
+
         def get_tier_from_auth(org_id, request_claimed_tier):
             # Simulated database lookup
             org_tiers = {
@@ -221,6 +222,7 @@ class TestTierRateLimitBypass:
 
     def test_expired_subscription_downgrades(self):
         """Expired subscriptions should downgrade to free tier limits."""
+
         def get_effective_tier(org_id, subscription_end):
             if subscription_end and subscription_end < datetime.now():
                 return "free"  # Expired
@@ -266,6 +268,7 @@ class TestDistributedRateLimitBypass:
 
     def test_redis_key_isolation(self):
         """Redis keys should be properly namespaced to prevent collisions."""
+
         def make_rate_limit_key(org_id, endpoint):
             # Proper namespacing
             return f"aragora:ratelimit:{org_id}:{endpoint}"
@@ -279,6 +282,7 @@ class TestDistributedRateLimitBypass:
 
     def test_redis_key_injection_prevention(self):
         """Redis keys should be sanitized to prevent injection."""
+
         def safe_rate_limit_key(org_id: str, endpoint: str) -> str:
             safe_org = sanitize_rate_limit_key_component(org_id)
             safe_endpoint = normalize_rate_limit_path(endpoint)
@@ -549,11 +553,11 @@ class TestUnifiedHandlerRateLimitHeaders:
         """UnifiedHandler should have _rate_limit_result attribute."""
         from aragora.server.unified_server import UnifiedHandler
 
-        assert hasattr(UnifiedHandler, '_rate_limit_result')
+        assert hasattr(UnifiedHandler, "_rate_limit_result")
 
     def test_handler_has_add_rate_limit_headers_method(self):
         """UnifiedHandler should have _add_rate_limit_headers method."""
         from aragora.server.unified_server import UnifiedHandler
 
-        assert hasattr(UnifiedHandler, '_add_rate_limit_headers')
-        assert callable(getattr(UnifiedHandler, '_add_rate_limit_headers'))
+        assert hasattr(UnifiedHandler, "_add_rate_limit_headers")
+        assert callable(getattr(UnifiedHandler, "_add_rate_limit_headers"))

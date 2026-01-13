@@ -79,10 +79,10 @@ class AgentConsistencyScore:
             return 1.0
         # Weight contradictions more heavily than other flip types
         weighted_flips = (
-            self.contradictions * 1.0 +
-            self.retractions * 0.7 +
-            self.qualifications * 0.3 +
-            self.refinements * 0.1
+            self.contradictions * 1.0
+            + self.retractions * 0.7
+            + self.qualifications * 0.3
+            + self.refinements * 0.1
         )
         return max(0.0, 1.0 - (weighted_flips / self.total_positions))
 
@@ -131,7 +131,8 @@ class FlipDetector:
     def _init_tables(self) -> None:
         """Create flips and positions tables if not exist."""
         with self.db.connection() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS detected_flips (
                     id TEXT PRIMARY KEY,
                     agent_name TEXT NOT NULL,
@@ -148,16 +149,14 @@ class FlipDetector:
                     domain TEXT,
                     detected_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_flips_agent ON detected_flips(agent_name)"
+            """
             )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_flips_type ON detected_flips(flip_type)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_flips_agent ON detected_flips(agent_name)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_flips_type ON detected_flips(flip_type)")
             # Also create positions table (shared with PositionLedger)
             # This ensures get_agent_consistency() works even without PositionLedger
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS positions (
                     id TEXT PRIMARY KEY,
                     agent_name TEXT NOT NULL,
@@ -172,10 +171,9 @@ class FlipDetector:
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     resolved_at TEXT
                 )
-            """)
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_positions_agent ON positions(agent_name)"
+            """
             )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_positions_agent ON positions(agent_name)")
             conn.commit()
 
     def _compute_similarity(self, text1: str, text2: str) -> float:
@@ -218,8 +216,9 @@ class FlipDetector:
         ]
 
         for sig1, sig2 in contradiction_signals:
-            if (sig1 in orig_lower and sig2 in new_lower) or \
-               (sig2 in orig_lower and sig1 in new_lower):
+            if (sig1 in orig_lower and sig2 in new_lower) or (
+                sig2 in orig_lower and sig1 in new_lower
+            ):
                 return "contradiction"
 
         # Check for retraction signals
@@ -228,7 +227,13 @@ class FlipDetector:
             return "retraction"
 
         # Check for qualification signals
-        qualification_signals = ["sometimes", "partially", "in some cases", "under certain", "with caveats"]
+        qualification_signals = [
+            "sometimes",
+            "partially",
+            "in some cases",
+            "under certain",
+            "with caveats",
+        ]
         if any(sig in new_lower for sig in qualification_signals):
             return "qualification"
 
@@ -405,7 +410,9 @@ class FlipDetector:
             domains_with_flips=domains,
         )
 
-    def get_agents_consistency_batch(self, agent_names: list[str]) -> dict[str, AgentConsistencyScore]:
+    def get_agents_consistency_batch(
+        self, agent_names: list[str]
+    ) -> dict[str, AgentConsistencyScore]:
         """Get consistency scores for multiple agents in batch (avoids N+1 queries).
 
         Args:
@@ -569,7 +576,11 @@ def format_flip_for_ui(flip: FlipEvent) -> dict:
             "refinement": "🔧",
         }.get(flip.flip_type, "❓"),
         "before": {
-            "claim": flip.original_claim[:100] + "..." if len(flip.original_claim) > 100 else flip.original_claim,
+            "claim": (
+                flip.original_claim[:100] + "..."
+                if len(flip.original_claim) > 100
+                else flip.original_claim
+            ),
             "confidence": f"{flip.original_confidence:.0%}",
         },
         "after": {
@@ -588,9 +599,9 @@ def format_consistency_for_ui(score: AgentConsistencyScore) -> dict:
         "agent": score.agent_name,
         "consistency": f"{score.consistency_score:.0%}",
         "consistency_class": (
-            "high" if score.consistency_score > 0.8 else
-            "medium" if score.consistency_score > 0.5 else
-            "low"
+            "high"
+            if score.consistency_score > 0.8
+            else "medium" if score.consistency_score > 0.5 else "low"
         ),
         "total_positions": score.total_positions,
         "flip_rate": f"{score.flip_rate:.0%}",

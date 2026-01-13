@@ -48,9 +48,7 @@ class TestPaginatedResponse:
     def test_custom_item_key(self):
         """Test custom item key name."""
         items = [{"name": "debate1"}]
-        result = paginated_response(
-            items=items, total=1, offset=0, limit=10, item_key="debates"
-        )
+        result = paginated_response(items=items, total=1, offset=0, limit=10, item_key="debates")
 
         data = json.loads(result.body)
         assert "debates" in data

@@ -552,19 +552,37 @@ class TestCheckpointManager:
 
         # Create checkpoints for two debates
         await manager.create_checkpoint(
-            debate_id="debate-1", task="Task 1",
-            current_round=1, total_rounds=5, phase="proposal",
-            messages=[], critiques=[], votes=[], agents=[mock_agent],
+            debate_id="debate-1",
+            task="Task 1",
+            current_round=1,
+            total_rounds=5,
+            phase="proposal",
+            messages=[],
+            critiques=[],
+            votes=[],
+            agents=[mock_agent],
         )
         await manager.create_checkpoint(
-            debate_id="debate-1", task="Task 1",
-            current_round=2, total_rounds=5, phase="critique",
-            messages=[], critiques=[], votes=[], agents=[mock_agent],
+            debate_id="debate-1",
+            task="Task 1",
+            current_round=2,
+            total_rounds=5,
+            phase="critique",
+            messages=[],
+            critiques=[],
+            votes=[],
+            agents=[mock_agent],
         )
         await manager.create_checkpoint(
-            debate_id="debate-2", task="Task 2",
-            current_round=1, total_rounds=3, phase="proposal",
-            messages=[], critiques=[], votes=[], agents=[mock_agent],
+            debate_id="debate-2",
+            task="Task 2",
+            current_round=1,
+            total_rounds=3,
+            phase="proposal",
+            messages=[],
+            critiques=[],
+            votes=[],
+            agents=[mock_agent],
         )
 
         debates = await manager.list_debates_with_checkpoints()

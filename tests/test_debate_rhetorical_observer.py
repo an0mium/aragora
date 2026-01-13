@@ -31,6 +31,7 @@ from aragora.debate.rhetorical_observer import (
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture(autouse=True)
 def reset_global_observer():
     """Reset global observer before and after each test."""
@@ -54,6 +55,7 @@ def mock_callback():
 # ============================================================================
 # RhetoricalPattern Tests
 # ============================================================================
+
 
 class TestRhetoricalPattern:
     """Tests for RhetoricalPattern enum."""
@@ -102,6 +104,7 @@ class TestRhetoricalPattern:
 # ============================================================================
 # RhetoricalObservation Tests
 # ============================================================================
+
 
 class TestRhetoricalObservation:
     """Tests for RhetoricalObservation dataclass."""
@@ -163,6 +166,7 @@ class TestRhetoricalObservation:
 # RhetoricalAnalysisObserver Init Tests
 # ============================================================================
 
+
 class TestObserverInit:
     """Tests for observer initialization."""
 
@@ -194,6 +198,7 @@ class TestObserverInit:
 # Pattern Detection Tests
 # ============================================================================
 
+
 class TestPatternDetection:
     """Tests for pattern detection."""
 
@@ -224,7 +229,9 @@ class TestPatternDetection:
 
     def test_detect_appeal_to_authority(self, observer):
         """Test appeal to authority detection."""
-        text = "According to best practices and expert recommendations, we should implement caching."
+        text = (
+            "According to best practices and expert recommendations, we should implement caching."
+        )
         observations = observer.observe("claude", text, round_num=0)
 
         patterns = [o.pattern for o in observations]
@@ -302,6 +309,7 @@ class TestPatternDetection:
 # Confidence Tests
 # ============================================================================
 
+
 class TestConfidence:
     """Tests for confidence scoring."""
 
@@ -338,6 +346,7 @@ class TestConfidence:
 # Excerpt Finding Tests
 # ============================================================================
 
+
 class TestExcerptFinding:
     """Tests for excerpt extraction."""
 
@@ -371,6 +380,7 @@ class TestExcerptFinding:
 # ============================================================================
 # Commentary Generation Tests
 # ============================================================================
+
 
 class TestCommentaryGeneration:
     """Tests for audience commentary generation."""
@@ -413,14 +423,21 @@ class TestCommentaryGeneration:
 # Agent Pattern Tracking Tests
 # ============================================================================
 
+
 class TestAgentPatternTracking:
     """Tests for per-agent pattern tracking."""
 
     def test_track_agent_patterns(self, observer):
         """Test patterns are tracked per agent."""
         # Use text with strong pattern matches (keywords + regex) to hit confidence threshold
-        observer.observe("claude", "I must acknowledge and concede that you're right about this valid point.", round_num=0)
-        observer.observe("gpt", "However, I would disagree with that assessment strongly.", round_num=0)
+        observer.observe(
+            "claude",
+            "I must acknowledge and concede that you're right about this valid point.",
+            round_num=0,
+        )
+        observer.observe(
+            "gpt", "However, I would disagree with that assessment strongly.", round_num=0
+        )
 
         assert "claude" in observer.agent_patterns
         assert "gpt" in observer.agent_patterns
@@ -439,6 +456,7 @@ class TestAgentPatternTracking:
 # ============================================================================
 # Broadcast Callback Tests
 # ============================================================================
+
 
 class TestBroadcastCallback:
     """Tests for broadcast callback functionality."""
@@ -466,6 +484,7 @@ class TestBroadcastCallback:
 
     def test_callback_error_handled(self):
         """Test callback errors don't crash observer."""
+
         def failing_callback(data):
             raise RuntimeError("Callback failed")
 
@@ -480,6 +499,7 @@ class TestBroadcastCallback:
 # ============================================================================
 # Debate Dynamics Tests
 # ============================================================================
+
 
 class TestDebateDynamics:
     """Tests for debate dynamics analysis."""
@@ -533,6 +553,7 @@ class TestDebateDynamics:
 # ============================================================================
 # Debate Characterization Tests
 # ============================================================================
+
 
 class TestDebateCharacterization:
     """Tests for _characterize_debate method."""
@@ -606,6 +627,7 @@ class TestDebateCharacterization:
 # Style Mapping Tests
 # ============================================================================
 
+
 class TestStyleMapping:
     """Tests for _pattern_to_style method."""
 
@@ -629,6 +651,7 @@ class TestStyleMapping:
 # ============================================================================
 # Recent Observations Tests
 # ============================================================================
+
 
 class TestRecentObservations:
     """Tests for get_recent_observations method."""
@@ -662,13 +685,18 @@ class TestRecentObservations:
 # Reset Tests
 # ============================================================================
 
+
 class TestReset:
     """Tests for reset functionality."""
 
     def test_reset_clears_observations(self, observer):
         """Test reset clears observations."""
         # Use strong pattern text to ensure observation is created
-        observer.observe("claude", "I must acknowledge and concede that you're right about this valid point.", round_num=0)
+        observer.observe(
+            "claude",
+            "I must acknowledge and concede that you're right about this valid point.",
+            round_num=0,
+        )
         assert len(observer.observations) > 0
 
         observer.reset()
@@ -677,7 +705,11 @@ class TestReset:
     def test_reset_clears_agent_patterns(self, observer):
         """Test reset clears agent patterns."""
         # Use strong pattern text to ensure agent patterns are tracked
-        observer.observe("claude", "I must acknowledge and concede that you're right about this valid point.", round_num=0)
+        observer.observe(
+            "claude",
+            "I must acknowledge and concede that you're right about this valid point.",
+            round_num=0,
+        )
         assert len(observer.agent_patterns) > 0
 
         observer.reset()
@@ -687,6 +719,7 @@ class TestReset:
 # ============================================================================
 # Global Observer Tests
 # ============================================================================
+
 
 class TestGlobalObserver:
     """Tests for global observer functions."""
@@ -716,6 +749,7 @@ class TestGlobalObserver:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestIntegration:
     """Integration tests for complete observer flow."""

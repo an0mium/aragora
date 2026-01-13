@@ -24,7 +24,7 @@ Run parallel scenario debates.
 ```json
 {
   "task": "What database architecture should we use?",
-  "agents": ["claude", "gpt4"],
+  "agents": ["anthropic-api", "openai-api"],
   "max_rounds": 3,
   "scenarios": [
     {
@@ -64,7 +64,7 @@ Run parallel scenario debates.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `task` | string | required | Base debate topic |
-| `agents` | string[] | `["claude", "gpt4"]` | Agent names |
+| `agents` | string[] | `["anthropic-api", "openai-api"]` | Agent names |
 | `max_rounds` | int | 3 | Rounds per scenario |
 | `scenarios` | array | required | Scenario configurations |
 
@@ -89,7 +89,7 @@ Run parallel scenario debates.
       "scenario_name": "High-write workload",
       "parameters": {"writes_per_second": 100000, ...},
       "is_baseline": true,
-      "winner": "claude",
+      "winner": "anthropic-api",
       "final_answer": "For write-heavy workloads, use Apache Cassandra with...",
       "confidence": 0.85,
       "consensus_reached": true,
@@ -99,7 +99,7 @@ Run parallel scenario debates.
       "scenario_name": "Read-heavy analytics",
       "parameters": {"reads_per_second": 500000, ...},
       "is_baseline": false,
-      "winner": "gpt4",
+      "winner": "openai-api",
       "final_answer": "For analytical queries, use ClickHouse with...",
       "confidence": 0.92,
       "consensus_reached": true,
@@ -287,7 +287,7 @@ async def run_matrix_debate():
             "https://api.aragora.ai/api/debates/matrix",
             json={
                 "task": "How should we handle authentication?",
-                "agents": ["claude", "gpt4", "gemini"],
+                "agents": ["anthropic-api", "openai-api", "gemini"],
                 "max_rounds": 3,
                 "scenarios": [
                     {

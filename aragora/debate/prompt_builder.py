@@ -194,8 +194,14 @@ and building on others' ideas."""
 
             lines = ["## SUCCESSFUL PATTERNS (from past debates)"]
             for p in patterns:
-                issue_preview = p.issue_text[:100] + "..." if len(p.issue_text) > 100 else p.issue_text
-                fix_preview = p.suggestion_text[:80] + "..." if len(p.suggestion_text) > 80 else p.suggestion_text
+                issue_preview = (
+                    p.issue_text[:100] + "..." if len(p.issue_text) > 100 else p.issue_text
+                )
+                fix_preview = (
+                    p.suggestion_text[:80] + "..."
+                    if len(p.suggestion_text) > 80
+                    else p.suggestion_text
+                )
                 lines.append(f"- **{p.issue_type}**: {issue_preview}")
                 if fix_preview:
                     lines.append(f"  Fix: {fix_preview} ({p.success_count} successes)")
@@ -223,6 +229,7 @@ and building on others' ideas."""
             # Try default persona based on agent type (e.g., "claude_proposer" -> "claude")
             agent_type = agent.name.split("_")[0].lower()
             from aragora.agents.personas import DEFAULT_PERSONAS
+
             if agent_type in DEFAULT_PERSONAS:
                 # DEFAULT_PERSONAS contains Persona objects directly
                 persona = DEFAULT_PERSONAS[agent_type]
@@ -319,8 +326,8 @@ and building on others' ideas."""
             # Extract crux_claims from memory metadata
             all_cruxes: list[str] = []
             for mem in memories:
-                metadata = getattr(mem, 'metadata', {}) or {}
-                cruxes = metadata.get('crux_claims', [])
+                metadata = getattr(mem, "metadata", {}) or {}
+                cruxes = metadata.get("crux_claims", [])
                 if isinstance(cruxes, list):
                     all_cruxes.extend(str(c) for c in cruxes if c)
 
@@ -332,7 +339,9 @@ and building on others' ideas."""
 
             # Format as prompt context
             lines = ["## Historical Disagreement Points"]
-            lines.append("Past debates on similar topics identified these key points of contention:")
+            lines.append(
+                "Past debates on similar topics identified these key points of contention:"
+            )
             for crux in unique_cruxes:
                 lines.append(f"- {crux}")
             lines.append("\nConsider whether your proposal addresses these concerns.")
@@ -374,13 +383,19 @@ and building on others' ideas."""
                 return ""
 
             lines = ["## Calibration Feedback"]
-            lines.append(f"Your historical prediction accuracy needs improvement (Brier score: {brier:.2f}).")
+            lines.append(
+                f"Your historical prediction accuracy needs improvement (Brier score: {brier:.2f})."
+            )
 
             if summary.is_overconfident:
-                lines.append("You tend to be OVERCONFIDENT - your certainty often exceeds your accuracy.")
+                lines.append(
+                    "You tend to be OVERCONFIDENT - your certainty often exceeds your accuracy."
+                )
                 lines.append("Consider expressing more uncertainty in your claims.")
             elif summary.is_underconfident:
-                lines.append("You tend to be UNDERCONFIDENT - your accuracy is better than your expressed certainty.")
+                lines.append(
+                    "You tend to be UNDERCONFIDENT - your accuracy is better than your expressed certainty."
+                )
                 lines.append("You can express more confidence in well-supported claims.")
 
             lines.append("\nAdjust your certainty levels in this debate accordingly.")
@@ -431,13 +446,13 @@ and building on others' ideas."""
             sorted_ratings = sorted(
                 [(name, rating) for name, rating in ratings_batch.items()],
                 key=lambda x: x[1].elo,
-                reverse=True
+                reverse=True,
             )
 
             for rank, (name, rating) in enumerate(sorted_ratings, 1):
                 elo = rating.elo
-                wins = getattr(rating, 'wins', 0)
-                losses = getattr(rating, 'losses', 0)
+                wins = getattr(rating, "wins", 0)
+                losses = getattr(rating, "losses", 0)
                 total = wins + losses
 
                 # Mark this agent
@@ -454,18 +469,24 @@ and building on others' ideas."""
                     except Exception as e:
                         logger.debug(f"Failed to get calibration summary for {name}: {e}")
 
-                lines.append(f"  {rank}. {name}: {elo:.0f} ELO ({total} debates{calib_str}){marker}")
+                lines.append(
+                    f"  {rank}. {name}: {elo:.0f} ELO ({total} debates{calib_str}){marker}"
+                )
 
             # Add guidance for this agent
             self_rating = ratings_batch.get(agent.name)
             if self_rating:
                 lines.append("")
                 if self_rating.elo >= 1600:
-                    lines.append("You have a strong track record. Lead with confidence but remain open to critique.")
+                    lines.append(
+                        "You have a strong track record. Lead with confidence but remain open to critique."
+                    )
                 elif self_rating.elo <= 1400:
                     lines.append("Consider carefully weighing arguments from higher-ranked agents.")
                 else:
-                    lines.append("Engage constructively and let the quality of arguments guide the debate.")
+                    lines.append(
+                        "Engage constructively and let the quality of arguments guide the debate."
+                    )
 
             return "\n".join(lines)
 
@@ -490,12 +511,12 @@ and building on others' ideas."""
             title = snippet.title[:80] if snippet.title else "Untitled"
             source = snippet.source or "Unknown"
             # Get reliability score with safe fallback (handles MagicMock, None, etc.)
-            reliability = getattr(snippet, 'reliability_score', 0.5)
+            reliability = getattr(snippet, "reliability_score", 0.5)
             if not isinstance(reliability, (int, float)):
                 reliability = 0.5
 
             # Format the snippet
-            lines.append(f"{evid_id} \"{title}\" ({source})")
+            lines.append(f'{evid_id} "{title}" ({source})')
             lines.append(f"  Reliability: {reliability:.0%}")
             if snippet.url:
                 lines.append(f"  URL: {snippet.url}")
@@ -508,7 +529,9 @@ and building on others' ideas."""
                 lines.append(f"  > {content}")
             lines.append("")  # Blank line between snippets
 
-        lines.append("When stating facts, cite evidence as [EVID-N]. Uncited claims may be challenged.")
+        lines.append(
+            "When stating facts, cite evidence as [EVID-N]. Uncited claims may be challenged."
+        )
         return "\n".join(lines)
 
     def set_evidence_pack(self, evidence_pack: Optional["EvidencePack"]) -> None:
@@ -728,9 +751,7 @@ Explain what you changed and why. If you disagree with a critique, explain your 
         proposals_str = "\n\n---\n\n".join(
             f"[{agent}]:\n{prop}" for agent, prop in proposals.items()
         )
-        critiques_str = "\n".join(
-            f"- {c.agent}: {', '.join(c.issues[:2])}" for c in critiques[:5]
-        )
+        critiques_str = "\n".join(f"- {c.agent}: {', '.join(c.issues[:2])}" for c in critiques[:5])
 
         # Include evidence for final synthesis
         evidence_section = ""
@@ -752,9 +773,7 @@ Synthesize the best elements of all proposals into a final answer.
 Reference evidence [EVID-N] to support key claims in your synthesis.
 Address the most important critiques raised. Explain your synthesis."""
 
-    def build_judge_vote_prompt(
-        self, candidates: list["Agent"], proposals: dict[str, str]
-    ) -> str:
+    def build_judge_vote_prompt(self, candidates: list["Agent"], proposals: dict[str, str]) -> str:
         """Build prompt for voting on who should judge."""
         candidate_names = ", ".join(a.name for a in candidates)
         proposals_summary = "\n".join(

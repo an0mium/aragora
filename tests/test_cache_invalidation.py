@@ -102,6 +102,7 @@ class TestInvalidateCache:
 
     def test_clears_matching_prefixes(self) -> None:
         """Test invalidate_cache clears entries with matching prefixes."""
+
         # Create some cached entries with ELO-related prefixes
         @ttl_cache(ttl_seconds=300, key_prefix="lb_rankings", skip_first=False)
         def get_rankings():
@@ -123,6 +124,7 @@ class TestInvalidateCache:
 
     def test_does_not_clear_unrelated_prefixes(self) -> None:
         """Test invalidate_cache does not affect unrelated caches."""
+
         # Create cached entries for different data sources
         @ttl_cache(ttl_seconds=300, key_prefix="consensus_stats", skip_first=False)
         def get_consensus():
@@ -210,6 +212,7 @@ class TestCacheInvalidationIntegration:
         # This verifies the import path is correct
         try:
             from aragora.server.handlers.base import invalidate_cache
+
             assert callable(invalidate_cache)
         except ImportError:
             pytest.fail("Could not import invalidate_cache from base")
@@ -217,11 +220,13 @@ class TestCacheInvalidationIntegration:
     def test_invalidate_cache_is_exported(self) -> None:
         """Test invalidate_cache is in __all__ exports."""
         from aragora.server.handlers import base
+
         assert "invalidate_cache" in base.__all__
 
     def test_cache_invalidation_map_is_exported(self) -> None:
         """Test CACHE_INVALIDATION_MAP is in __all__ exports."""
         from aragora.server.handlers import base
+
         assert "CACHE_INVALIDATION_MAP" in base.__all__
 
 

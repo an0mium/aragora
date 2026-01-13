@@ -29,6 +29,7 @@ import pytest
 @dataclass
 class LoadTestResult:
     """Results from a load test run."""
+
     total_requests: int
     successful_requests: int
     failed_requests: int
@@ -184,6 +185,7 @@ async def run_async_load_test(
 # Unit Tests (no server required)
 # =============================================================================
 
+
 class TestLoadTestResult:
     """Tests for LoadTestResult metrics calculations."""
 
@@ -312,6 +314,7 @@ class TestConcurrentLoadRunner:
 # Integration Load Tests (require mocked or real server)
 # =============================================================================
 
+
 class TestAPIEndpointLatency:
     """Baseline latency tests for API endpoints using mocks."""
 
@@ -407,13 +410,15 @@ class TestDatabaseQueryBaseline:
 
         db_path = tmp_path / "test.db"
         conn = sqlite3.connect(str(db_path))
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE test (
                 id INTEGER PRIMARY KEY,
                 data TEXT,
                 created_at TEXT
             )
-        """)
+        """
+        )
         conn.commit()
 
         iterations = 1000
@@ -474,11 +479,11 @@ class TestDatabaseQueryBaseline:
 # changes are made. Tests fail if performance degrades beyond these thresholds.
 
 PERFORMANCE_THRESHOLDS = {
-    "handler_routing_us": 100,       # Max microseconds for route matching
-    "json_serialize_us": 500,        # Max microseconds for JSON response
-    "cache_hit_ns": 10000,           # Max nanoseconds for cache hit
-    "db_insert_ms": 1.0,             # Max milliseconds per insert
-    "db_select_indexed_ms": 0.5,     # Max milliseconds per indexed select
+    "handler_routing_us": 100,  # Max microseconds for route matching
+    "json_serialize_us": 500,  # Max microseconds for JSON response
+    "cache_hit_ns": 10000,  # Max nanoseconds for cache hit
+    "db_insert_ms": 1.0,  # Max milliseconds per insert
+    "db_select_indexed_ms": 0.5,  # Max milliseconds per indexed select
 }
 
 

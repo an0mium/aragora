@@ -27,6 +27,7 @@ from aragora.server.api import DebateAPIHandler, SAFE_ID_PATTERN
 # Safe ID Pattern Tests
 # ============================================================================
 
+
 class TestSafeIDPattern:
     """Tests for SAFE_ID_PATTERN regex."""
 
@@ -83,9 +84,11 @@ class TestSafeIDPattern:
 # Handler Tests
 # ============================================================================
 
+
 @dataclass
 class MockDebate:
     """Mock debate object for testing."""
+
     slug: str = "test-debate"
     task: str = "Test task"
     agents: list = None
@@ -207,8 +210,11 @@ class TestDebateAPIHandler:
             handler._add_cors_headers()
 
         # Check that Access-Control-Allow-Origin was set
-        calls = [call for call in handler.send_header.call_args_list
-                 if call[0][0] == "Access-Control-Allow-Origin"]
+        calls = [
+            call
+            for call in handler.send_header.call_args_list
+            if call[0][0] == "Access-Control-Allow-Origin"
+        ]
         assert len(calls) == 1
         assert calls[0][0][1] == "http://localhost:3000"
 
@@ -220,8 +226,11 @@ class TestDebateAPIHandler:
             handler._add_cors_headers()
 
         # Access-Control-Allow-Origin should not be set for invalid origins
-        calls = [call for call in handler.send_header.call_args_list
-                 if call[0][0] == "Access-Control-Allow-Origin"]
+        calls = [
+            call
+            for call in handler.send_header.call_args_list
+            if call[0][0] == "Access-Control-Allow-Origin"
+        ]
         assert len(calls) == 0
 
 
@@ -286,8 +295,9 @@ class TestStaticFileServing:
         handler._serve_file("style.css")
 
         # Check Content-Type header
-        calls = [call for call in handler.send_header.call_args_list
-                 if call[0][0] == "Content-Type"]
+        calls = [
+            call for call in handler.send_header.call_args_list if call[0][0] == "Content-Type"
+        ]
         assert any("text/css" in str(call) for call in calls)
 
     def test_serve_file_content_type_js(self, handler, tmp_path):
@@ -297,8 +307,9 @@ class TestStaticFileServing:
 
         handler._serve_file("app.js")
 
-        calls = [call for call in handler.send_header.call_args_list
-                 if call[0][0] == "Content-Type"]
+        calls = [
+            call for call in handler.send_header.call_args_list if call[0][0] == "Content-Type"
+        ]
         assert any("javascript" in str(call) for call in calls)
 
 
@@ -348,7 +359,9 @@ class TestReplayEndpoints:
         handler._get_replay("nonexistent")
 
         handler.send_error.assert_called()
-        assert "404" in str(handler.send_error.call_args) or handler.send_error.call_args[0][0] == 404
+        assert (
+            "404" in str(handler.send_error.call_args) or handler.send_error.call_args[0][0] == 404
+        )
 
     def test_get_replay_found(self, handler, tmp_path):
         """Should return replay bundle when found."""

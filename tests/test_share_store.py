@@ -260,27 +260,35 @@ class TestStatistics:
     def test_get_stats_with_data(self, store):
         """Test stats with data."""
         # Create various settings (store generates tokens for all)
-        store.save(ShareSettings(
-            debate_id="d1",
-            visibility=DebateVisibility.PUBLIC,
-            share_token="t1",
-            view_count=10,
-        ))
-        store.save(ShareSettings(
-            debate_id="d2",
-            visibility=DebateVisibility.PUBLIC,
-            share_token="t2",
-            view_count=5,
-        ))
-        store.save(ShareSettings(
-            debate_id="d3",
-            visibility=DebateVisibility.PRIVATE,
-        ))
-        store.save(ShareSettings(
-            debate_id="d4",
-            visibility=DebateVisibility.TEAM,
-            share_token="t4",
-        ))
+        store.save(
+            ShareSettings(
+                debate_id="d1",
+                visibility=DebateVisibility.PUBLIC,
+                share_token="t1",
+                view_count=10,
+            )
+        )
+        store.save(
+            ShareSettings(
+                debate_id="d2",
+                visibility=DebateVisibility.PUBLIC,
+                share_token="t2",
+                view_count=5,
+            )
+        )
+        store.save(
+            ShareSettings(
+                debate_id="d3",
+                visibility=DebateVisibility.PRIVATE,
+            )
+        )
+        store.save(
+            ShareSettings(
+                debate_id="d4",
+                visibility=DebateVisibility.TEAM,
+                share_token="t4",
+            )
+        )
 
         stats = store.get_stats()
 
@@ -296,11 +304,14 @@ class TestStatistics:
 class TestVisibilityLevels:
     """Test different visibility levels."""
 
-    @pytest.mark.parametrize("visibility", [
-        DebateVisibility.PRIVATE,
-        DebateVisibility.TEAM,
-        DebateVisibility.PUBLIC,
-    ])
+    @pytest.mark.parametrize(
+        "visibility",
+        [
+            DebateVisibility.PRIVATE,
+            DebateVisibility.TEAM,
+            DebateVisibility.PUBLIC,
+        ],
+    )
     def test_visibility_preserved(self, store, visibility):
         """Test that visibility level is preserved."""
         settings = ShareSettings(

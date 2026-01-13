@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { PanelTemplate } from './shared/PanelTemplate';
+import { API_BASE_URL } from '@/config';
 
 interface TierDistribution {
   fast: number;
@@ -51,7 +52,7 @@ interface MemoryAnalyticsPanelProps {
   apiBase?: string;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 const TIER_COLORS: Record<string, string> = {
   fast: 'bg-cyan-500',

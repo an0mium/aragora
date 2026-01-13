@@ -24,6 +24,7 @@ class VerificationType(Enum):
 
     Note: Renamed from TestType to avoid pytest collection warnings.
     """
+
     UNIT = "unit"
     INTEGRATION = "integration"
     E2E = "e2e"
@@ -41,6 +42,7 @@ class CasePriority(Enum):
 
     Note: Renamed from TestPriority to avoid pytest collection warnings.
     """
+
     P0 = "p0"  # Critical - must pass
     P1 = "p1"  # High priority
     P2 = "p2"  # Medium priority
@@ -145,7 +147,9 @@ class VerificationPlan:
         for priority in CasePriority:
             priority_tests = self.get_by_priority(priority)
             if priority_tests:
-                tests_by_priority += f"\n### Priority {priority.value.upper()} ({len(priority_tests)})\n\n"
+                tests_by_priority += (
+                    f"\n### Priority {priority.value.upper()} ({len(priority_tests)})\n\n"
+                )
                 for test in priority_tests:
                     status = "[x]" if test.implemented else "[ ]"
                     auto = " [AUTO]" if test.automated else ""
@@ -228,6 +232,7 @@ class VerificationPlanGenerator:
 
     def __init__(self, artifact: "DebateArtifact") -> None:
         from aragora.export.artifact import DebateArtifact
+
         self.artifact: DebateArtifact = artifact
 
     def generate(self) -> VerificationPlan:
@@ -256,7 +261,7 @@ class VerificationPlanGenerator:
         """Extract title from task."""
         task = self.artifact.task
         if "." in task[:80]:
-            return task[:task.index(".") + 1]
+            return task[: task.index(".") + 1]
         return task[:60] + "..."
 
     def _add_consensus_tests(self, plan: VerificationPlan) -> None:
@@ -275,15 +280,21 @@ class VerificationPlanGenerator:
             line = line.strip()
             # Look for implementation-like statements
             if any(kw in line.lower() for kw in ["implement", "use", "add", "create", "ensure"]):
-                plan.add_test(VerificationCase(
-                    id=f"consensus-{test_num}",
-                    title=f"Verify: {line[:50]}...",
-                    description=f"Test that the implementation satisfies: {line}",
-                    test_type=VerificationType.INTEGRATION,
-                    priority=CasePriority.P1,
-                    steps=["Set up test environment", "Execute functionality", "Verify expected behavior"],
-                    expected_result="Functionality works as described in debate conclusion",
-                ))
+                plan.add_test(
+                    VerificationCase(
+                        id=f"consensus-{test_num}",
+                        title=f"Verify: {line[:50]}...",
+                        description=f"Test that the implementation satisfies: {line}",
+                        test_type=VerificationType.INTEGRATION,
+                        priority=CasePriority.P1,
+                        steps=[
+                            "Set up test environment",
+                            "Execute functionality",
+                            "Verify expected behavior",
+                        ],
+                        expected_result="Functionality works as described in debate conclusion",
+                    )
+                )
                 test_num += 1
 
                 if test_num > 5:  # Limit to 5 consensus tests
@@ -303,57 +314,65 @@ class VerificationPlanGenerator:
             issues = content.get("issues", [])
 
             for issue in issues[:2]:  # Top 2 issues per critique
-                plan.add_test(VerificationCase(
-                    id=f"critique-{test_num}",
-                    title=f"Edge case: {issue[:50]}...",
-                    description=f"Test edge case identified in critique: {issue}",
-                    test_type=VerificationType.UNIT,
-                    priority=CasePriority.P2,
-                    steps=["Set up edge case conditions", "Execute", "Verify handling"],
-                    expected_result="Edge case is handled gracefully",
-                    related_critique_ids=[event.get("event_id", "")],
-                ))
+                plan.add_test(
+                    VerificationCase(
+                        id=f"critique-{test_num}",
+                        title=f"Edge case: {issue[:50]}...",
+                        description=f"Test edge case identified in critique: {issue}",
+                        test_type=VerificationType.UNIT,
+                        priority=CasePriority.P2,
+                        steps=["Set up edge case conditions", "Execute", "Verify handling"],
+                        expected_result="Edge case is handled gracefully",
+                        related_critique_ids=[event.get("event_id", "")],
+                    )
+                )
                 test_num += 1
 
     def _add_verification_tests(self, plan: VerificationPlan) -> None:
         """Add tests for formally verified properties."""
         for v in self.artifact.verification_results:
             if v.status == "verified":
-                plan.add_test(VerificationCase(
-                    id=f"formal-{v.claim_id}",
-                    title=f"Property: {v.claim_text[:50]}...",
-                    description=f"Regression test for formally verified property: {v.claim_text}",
-                    test_type=VerificationType.UNIT,
-                    priority=CasePriority.P0,  # Critical - must not regress
-                    steps=["Property was formally verified", "Implement as regression test"],
-                    expected_result="Property holds",
-                    automated=True,
-                    related_claim_ids=[v.claim_id],
-                ))
+                plan.add_test(
+                    VerificationCase(
+                        id=f"formal-{v.claim_id}",
+                        title=f"Property: {v.claim_text[:50]}...",
+                        description=f"Regression test for formally verified property: {v.claim_text}",
+                        test_type=VerificationType.UNIT,
+                        priority=CasePriority.P0,  # Critical - must not regress
+                        steps=["Property was formally verified", "Implement as regression test"],
+                        expected_result="Property holds",
+                        automated=True,
+                        related_claim_ids=[v.claim_id],
+                    )
+                )
 
     def _add_standard_tests(self, plan: VerificationPlan) -> None:
         """Add standard test categories."""
         # Always add a smoke test
-        plan.add_test(VerificationCase(
-            id="smoke-1",
-            title="Smoke test: Basic functionality",
-            description="Verify basic functionality works after implementation",
-            test_type=VerificationType.E2E,
-            priority=CasePriority.P0,
-            steps=["Deploy changes", "Execute happy path", "Verify success"],
-            expected_result="Basic use case succeeds",
-        ))
+        plan.add_test(
+            VerificationCase(
+                id="smoke-1",
+                title="Smoke test: Basic functionality",
+                description="Verify basic functionality works after implementation",
+                test_type=VerificationType.E2E,
+                priority=CasePriority.P0,
+                steps=["Deploy changes", "Execute happy path", "Verify success"],
+                expected_result="Basic use case succeeds",
+            )
+        )
 
         # Add regression test placeholder
-        plan.add_test(VerificationCase(
-            id="regression-1",
-            title="Regression: Existing functionality",
-            description="Verify existing functionality is not broken",
-            test_type=VerificationType.REGRESSION,
-            priority=CasePriority.P1,
-            steps=["Run existing test suite", "Verify all pass"],
-            expected_result="No regressions",
-        ))
+        plan.add_test(
+            VerificationCase(
+                id="regression-1",
+                title="Regression: Existing functionality",
+                description="Verify existing functionality is not broken",
+                test_type=VerificationType.REGRESSION,
+                priority=CasePriority.P1,
+                steps=["Run existing test suite", "Verify all pass"],
+                expected_result="No regressions",
+            )
+        )
 
 
 def generate_test_plan(artifact) -> VerificationPlan:

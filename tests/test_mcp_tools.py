@@ -27,23 +27,44 @@ from aragora.mcp.tools import (
 class TestToolsMetadata:
     """Test TOOLS_METADATA structure."""
 
-    def test_metadata_has_eight_tools(self):
-        """Test that metadata defines all eight tools."""
-        assert len(TOOLS_METADATA) == 8
+    def test_metadata_has_all_tools(self):
+        """Test that metadata defines all 24 tools."""
+        assert len(TOOLS_METADATA) == 24
 
-    def test_metadata_tool_names(self):
-        """Test tool names in metadata."""
+    def test_metadata_core_tool_names(self):
+        """Test core tool names are present in metadata."""
         names = {t["name"] for t in TOOLS_METADATA}
-        assert names == {
-            "run_debate",
-            "run_gauntlet",
-            "list_agents",
-            "get_debate",
-            "search_debates",
-            "get_agent_history",
-            "get_consensus_proofs",
-            "list_trending_topics",
-        }
+        # Core debate tools
+        assert "run_debate" in names
+        assert "run_gauntlet" in names
+        assert "list_agents" in names
+        assert "get_debate" in names
+        assert "search_debates" in names
+        assert "get_agent_history" in names
+        assert "get_consensus_proofs" in names
+        assert "list_trending_topics" in names
+        # Memory tools
+        assert "query_memory" in names
+        assert "store_memory" in names
+        assert "get_memory_pressure" in names
+        # Fork tools
+        assert "fork_debate" in names
+        assert "get_forks" in names
+        # Genesis tools
+        assert "get_agent_lineage" in names
+        assert "breed_agents" in names
+        # Checkpoint tools
+        assert "create_checkpoint" in names
+        assert "list_checkpoints" in names
+        assert "resume_checkpoint" in names
+        assert "delete_checkpoint" in names
+        # Verification tools
+        assert "verify_consensus" in names
+        assert "generate_proof" in names
+        # Evidence tools
+        assert "search_evidence" in names
+        assert "cite_evidence" in names
+        assert "verify_citation" in names
 
     def test_run_debate_metadata(self):
         """Test run_debate metadata structure."""
@@ -117,10 +138,12 @@ class TestRunDebateTool:
         mock_agent = MagicMock()
         mock_agent.name = "test_agent"
 
-        with patch("aragora.agents.base.create_agent") as mock_create, \
-             patch("aragora.debate.orchestrator.Arena") as mock_arena, \
-             patch("aragora.debate.orchestrator.DebateProtocol") as mock_protocol, \
-             patch("aragora.core.Environment") as mock_env:
+        with (
+            patch("aragora.agents.base.create_agent") as mock_create,
+            patch("aragora.debate.orchestrator.Arena") as mock_arena,
+            patch("aragora.debate.orchestrator.DebateProtocol") as mock_protocol,
+            patch("aragora.core.Environment") as mock_env,
+        ):
 
             mock_create.return_value = mock_agent
             mock_arena_instance = MagicMock()
@@ -168,10 +191,12 @@ class TestRunDebateTool:
                 raise Exception("Invalid agent")
             return mock_agent
 
-        with patch("aragora.agents.base.create_agent") as mock_create, \
-             patch("aragora.debate.orchestrator.Arena") as mock_arena, \
-             patch("aragora.debate.orchestrator.DebateProtocol"), \
-             patch("aragora.core.Environment"):
+        with (
+            patch("aragora.agents.base.create_agent") as mock_create,
+            patch("aragora.debate.orchestrator.Arena") as mock_arena,
+            patch("aragora.debate.orchestrator.DebateProtocol"),
+            patch("aragora.core.Environment"),
+        ):
 
             mock_create.side_effect = create_side_effect
             mock_arena_instance = MagicMock()
@@ -200,10 +225,12 @@ class TestRunDebateTool:
         mock_agent2 = MagicMock()
         mock_agent2.name = "agent_critic"
 
-        with patch("aragora.agents.base.create_agent") as mock_create, \
-             patch("aragora.debate.orchestrator.Arena") as mock_arena, \
-             patch("aragora.debate.orchestrator.DebateProtocol"), \
-             patch("aragora.core.Environment"):
+        with (
+            patch("aragora.agents.base.create_agent") as mock_create,
+            patch("aragora.debate.orchestrator.Arena") as mock_arena,
+            patch("aragora.debate.orchestrator.DebateProtocol"),
+            patch("aragora.core.Environment"),
+        ):
 
             mock_create.side_effect = [mock_agent1, mock_agent2]
             mock_arena_instance = MagicMock()
@@ -243,10 +270,12 @@ class TestRunDebateTool:
             created_agents.append({"model_type": model_type, "name": name, "role": role})
             return agent
 
-        with patch("aragora.agents.base.create_agent") as mock_create, \
-             patch("aragora.debate.orchestrator.Arena") as mock_arena, \
-             patch("aragora.debate.orchestrator.DebateProtocol"), \
-             patch("aragora.core.Environment"):
+        with (
+            patch("aragora.agents.base.create_agent") as mock_create,
+            patch("aragora.debate.orchestrator.Arena") as mock_arena,
+            patch("aragora.debate.orchestrator.DebateProtocol"),
+            patch("aragora.core.Environment"),
+        ):
 
             mock_create.side_effect = track_create
             mock_arena_instance = MagicMock()
@@ -290,21 +319,27 @@ class TestRunGauntletTool:
         mock_config.agents = []
         mock_config.rounds_per_attack = 1
 
-        with patch.dict("sys.modules", {
-            "aragora.gauntlet": MagicMock(
-                GauntletRunner=MagicMock(return_value=MagicMock(run=AsyncMock(return_value=mock_result))),
-                GauntletConfig=MagicMock(return_value=mock_config),
-                QUICK_GAUNTLET=mock_config,
-                THOROUGH_GAUNTLET=mock_config,
-                CODE_REVIEW_GAUNTLET=mock_config,
-                SECURITY_GAUNTLET=mock_config,
-                GDPR_GAUNTLET=mock_config,
-                HIPAA_GAUNTLET=mock_config,
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.gauntlet": MagicMock(
+                    GauntletRunner=MagicMock(
+                        return_value=MagicMock(run=AsyncMock(return_value=mock_result))
+                    ),
+                    GauntletConfig=MagicMock(return_value=mock_config),
+                    QUICK_GAUNTLET=mock_config,
+                    THOROUGH_GAUNTLET=mock_config,
+                    CODE_REVIEW_GAUNTLET=mock_config,
+                    SECURITY_GAUNTLET=mock_config,
+                    GDPR_GAUNTLET=mock_config,
+                    HIPAA_GAUNTLET=mock_config,
+                )
+            },
+        ):
             # Need to reimport to pick up mocked module
             import importlib
             from aragora.mcp import tools as mcp_tools
+
             importlib.reload(mcp_tools)
 
             result = await mcp_tools.run_gauntlet_tool(
@@ -336,20 +371,24 @@ class TestRunGauntletTool:
         mock_runner = MagicMock()
         mock_runner.run = AsyncMock(return_value=mock_result)
 
-        with patch.dict("sys.modules", {
-            "aragora.gauntlet": MagicMock(
-                GauntletRunner=MagicMock(return_value=mock_runner),
-                GauntletConfig=MagicMock(return_value=mock_config),
-                QUICK_GAUNTLET=mock_config,
-                THOROUGH_GAUNTLET=mock_config,
-                CODE_REVIEW_GAUNTLET=mock_config,
-                SECURITY_GAUNTLET=mock_config,
-                GDPR_GAUNTLET=mock_config,
-                HIPAA_GAUNTLET=mock_config,
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.gauntlet": MagicMock(
+                    GauntletRunner=MagicMock(return_value=mock_runner),
+                    GauntletConfig=MagicMock(return_value=mock_config),
+                    QUICK_GAUNTLET=mock_config,
+                    THOROUGH_GAUNTLET=mock_config,
+                    CODE_REVIEW_GAUNTLET=mock_config,
+                    SECURITY_GAUNTLET=mock_config,
+                    GDPR_GAUNTLET=mock_config,
+                    HIPAA_GAUNTLET=mock_config,
+                )
+            },
+        ):
             import importlib
             from aragora.mcp import tools as mcp_tools
+
             importlib.reload(mcp_tools)
 
             result = await mcp_tools.run_gauntlet_tool(
@@ -383,20 +422,26 @@ class TestRunGauntletTool:
         mock_config.agents = []
         mock_config.rounds_per_attack = 1
 
-        with patch.dict("sys.modules", {
-            "aragora.gauntlet": MagicMock(
-                GauntletRunner=MagicMock(return_value=MagicMock(run=AsyncMock(return_value=mock_result))),
-                GauntletConfig=MagicMock(return_value=mock_config),
-                QUICK_GAUNTLET=mock_config,
-                THOROUGH_GAUNTLET=mock_config,
-                CODE_REVIEW_GAUNTLET=mock_config,
-                SECURITY_GAUNTLET=mock_config,
-                GDPR_GAUNTLET=mock_config,
-                HIPAA_GAUNTLET=mock_config,
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.gauntlet": MagicMock(
+                    GauntletRunner=MagicMock(
+                        return_value=MagicMock(run=AsyncMock(return_value=mock_result))
+                    ),
+                    GauntletConfig=MagicMock(return_value=mock_config),
+                    QUICK_GAUNTLET=mock_config,
+                    THOROUGH_GAUNTLET=mock_config,
+                    CODE_REVIEW_GAUNTLET=mock_config,
+                    SECURITY_GAUNTLET=mock_config,
+                    GDPR_GAUNTLET=mock_config,
+                    HIPAA_GAUNTLET=mock_config,
+                )
+            },
+        ):
             import importlib
             from aragora.mcp import tools as mcp_tools
+
             importlib.reload(mcp_tools)
 
             result = await mcp_tools.run_gauntlet_tool(
@@ -417,20 +462,26 @@ class TestRunGauntletTool:
         mock_config.agents = []
         mock_config.rounds_per_attack = 1
 
-        with patch.dict("sys.modules", {
-            "aragora.gauntlet": MagicMock(
-                GauntletRunner=MagicMock(return_value=MagicMock(run=AsyncMock(return_value=mock_result))),
-                GauntletConfig=MagicMock(return_value=mock_config),
-                QUICK_GAUNTLET=mock_config,
-                THOROUGH_GAUNTLET=mock_config,
-                CODE_REVIEW_GAUNTLET=mock_config,
-                SECURITY_GAUNTLET=mock_config,
-                GDPR_GAUNTLET=mock_config,
-                HIPAA_GAUNTLET=mock_config,
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.gauntlet": MagicMock(
+                    GauntletRunner=MagicMock(
+                        return_value=MagicMock(run=AsyncMock(return_value=mock_result))
+                    ),
+                    GauntletConfig=MagicMock(return_value=mock_config),
+                    QUICK_GAUNTLET=mock_config,
+                    THOROUGH_GAUNTLET=mock_config,
+                    CODE_REVIEW_GAUNTLET=mock_config,
+                    SECURITY_GAUNTLET=mock_config,
+                    GDPR_GAUNTLET=mock_config,
+                    HIPAA_GAUNTLET=mock_config,
+                )
+            },
+        ):
             import importlib
             from aragora.mcp import tools as mcp_tools
+
             importlib.reload(mcp_tools)
 
             result = await mcp_tools.run_gauntlet_tool(content="Test")
@@ -448,16 +499,19 @@ class TestListAgentsTool:
     async def test_returns_available_agents(self):
         """Test listing available agents."""
         mock_registry = MagicMock()
-        mock_registry.list_available_agents = MagicMock(return_value=[
-            "anthropic-api",
-            "openai-api",
-            "gemini",
-            "grok",
-        ])
+        mock_registry.list_available_agents = MagicMock(
+            return_value=[
+                "anthropic-api",
+                "openai-api",
+                "gemini",
+                "grok",
+            ]
+        )
 
         with patch.dict("sys.modules", {"aragora.agents.registry": mock_registry}):
             import importlib
             from aragora.mcp import tools as mcp_tools
+
             importlib.reload(mcp_tools)
 
             result = await mcp_tools.list_agents_tool()
@@ -470,11 +524,14 @@ class TestListAgentsTool:
     async def test_fallback_on_registry_error(self):
         """Test fallback list when registry fails."""
         mock_registry = MagicMock()
-        mock_registry.list_available_agents = MagicMock(side_effect=ImportError("Registry not found"))
+        mock_registry.list_available_agents = MagicMock(
+            side_effect=ImportError("Registry not found")
+        )
 
         with patch.dict("sys.modules", {"aragora.agents.registry": mock_registry}):
             import importlib
             from aragora.mcp import tools as mcp_tools
+
             importlib.reload(mcp_tools)
 
             result = await mcp_tools.list_agents_tool()
@@ -493,6 +550,7 @@ class TestListAgentsTool:
         with patch.dict("sys.modules", {"aragora.agents.registry": mock_registry}):
             import importlib
             from aragora.mcp import tools as mcp_tools
+
             importlib.reload(mcp_tools)
 
             result = await mcp_tools.list_agents_tool()
@@ -528,6 +586,7 @@ class TestGetDebateTool:
         with patch.dict("sys.modules", {"aragora.server.storage": mock_storage}):
             import importlib
             from aragora.mcp import tools as mcp_tools
+
             importlib.reload(mcp_tools)
 
             result = await mcp_tools.get_debate_tool(debate_id="stored_123")
@@ -548,6 +607,7 @@ class TestGetDebateTool:
         with patch.dict("sys.modules", {"aragora.server.storage": mock_storage}):
             import importlib
             from aragora.mcp import tools as mcp_tools
+
             importlib.reload(mcp_tools)
 
             result = await mcp_tools.get_debate_tool(debate_id="nonexistent")
@@ -564,6 +624,7 @@ class TestGetDebateTool:
         with patch.dict("sys.modules", {"aragora.server.storage": mock_storage}):
             import importlib
             from aragora.mcp import tools as mcp_tools
+
             importlib.reload(mcp_tools)
 
             result = await mcp_tools.get_debate_tool(debate_id="any_id")
@@ -580,6 +641,7 @@ class TestGetDebateTool:
         with patch.dict("sys.modules", {"aragora.server.storage": mock_storage}):
             import importlib
             from aragora.mcp import tools as mcp_tools
+
             importlib.reload(mcp_tools)
 
             result = await mcp_tools.get_debate_tool(debate_id="any_id")

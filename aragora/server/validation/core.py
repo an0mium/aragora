@@ -20,6 +20,7 @@ MAX_JSON_BODY_SIZE = 1 * 1024 * 1024
 @dataclass
 class ValidationResult:
     """Result of validation check."""
+
     is_valid: bool
     error: Optional[str] = None
     data: Optional[Any] = None
@@ -40,32 +41,24 @@ def validate_json_body(
     """
     if len(body) > max_size:
         return ValidationResult(
-            is_valid=False,
-            error=f"Request body too large. Max size: {max_size // 1024}KB"
+            is_valid=False, error=f"Request body too large. Max size: {max_size // 1024}KB"
         )
 
     if len(body) == 0:
-        return ValidationResult(
-            is_valid=False,
-            error="Request body is empty"
-        )
+        return ValidationResult(is_valid=False, error="Request body is empty")
 
     try:
-        data = json.loads(body.decode('utf-8'))
+        data = json.loads(body.decode("utf-8"))
         return ValidationResult(is_valid=True, data=data)
     except json.JSONDecodeError as e:
-        return ValidationResult(
-            is_valid=False,
-            error=f"Invalid JSON: {str(e)}"
-        )
+        return ValidationResult(is_valid=False, error=f"Invalid JSON: {str(e)}")
     except UnicodeDecodeError:
-        return ValidationResult(
-            is_valid=False,
-            error="Invalid UTF-8 encoding in request body"
-        )
+        return ValidationResult(is_valid=False, error="Invalid UTF-8 encoding in request body")
 
 
-def validate_content_type(content_type: str, expected: str = "application/json") -> ValidationResult:
+def validate_content_type(
+    content_type: str, expected: str = "application/json"
+) -> ValidationResult:
     """Validate Content-Type header.
 
     Args:
@@ -77,14 +70,12 @@ def validate_content_type(content_type: str, expected: str = "application/json")
     """
     if not content_type:
         return ValidationResult(
-            is_valid=False,
-            error=f"Missing Content-Type header. Expected: {expected}"
+            is_valid=False, error=f"Missing Content-Type header. Expected: {expected}"
         )
 
     if not content_type.lower().startswith(expected.lower()):
         return ValidationResult(
-            is_valid=False,
-            error=f"Invalid Content-Type: {content_type}. Expected: {expected}"
+            is_valid=False, error=f"Invalid Content-Type: {content_type}. Expected: {expected}"
         )
 
     return ValidationResult(is_valid=True)
@@ -104,8 +95,7 @@ def validate_required_fields(data: dict, fields: list[str]) -> ValidationResult:
 
     if missing:
         return ValidationResult(
-            is_valid=False,
-            error=f"Missing required fields: {', '.join(missing)}"
+            is_valid=False, error=f"Missing required fields: {', '.join(missing)}"
         )
 
     return ValidationResult(is_valid=True)
@@ -136,35 +126,24 @@ def validate_string_field(
 
     if value is None:
         if required:
-            return ValidationResult(
-                is_valid=False,
-                error=f"Missing required field: {field}"
-            )
+            return ValidationResult(is_valid=False, error=f"Missing required field: {field}")
         return ValidationResult(is_valid=True)
 
     if not isinstance(value, str):
-        return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' must be a string"
-        )
+        return ValidationResult(is_valid=False, error=f"Field '{field}' must be a string")
 
     if len(value) < min_length:
         return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' must be at least {min_length} characters"
+            is_valid=False, error=f"Field '{field}' must be at least {min_length} characters"
         )
 
     if len(value) > max_length:
         return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' must be at most {max_length} characters"
+            is_valid=False, error=f"Field '{field}' must be at most {max_length} characters"
         )
 
     if pattern and not pattern.match(value):
-        return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' has invalid format"
-        )
+        return ValidationResult(is_valid=False, error=f"Field '{field}' has invalid format")
 
     return ValidationResult(is_valid=True)
 
@@ -192,28 +171,20 @@ def validate_int_field(
 
     if value is None:
         if required:
-            return ValidationResult(
-                is_valid=False,
-                error=f"Missing required field: {field}"
-            )
+            return ValidationResult(is_valid=False, error=f"Missing required field: {field}")
         return ValidationResult(is_valid=True)
 
     if not isinstance(value, int) or isinstance(value, bool):
-        return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' must be an integer"
-        )
+        return ValidationResult(is_valid=False, error=f"Field '{field}' must be an integer")
 
     if min_value is not None and value < min_value:
         return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' must be at least {min_value}"
+            is_valid=False, error=f"Field '{field}' must be at least {min_value}"
         )
 
     if max_value is not None and value > max_value:
         return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' must be at most {max_value}"
+            is_valid=False, error=f"Field '{field}' must be at most {max_value}"
         )
 
     return ValidationResult(is_valid=True)
@@ -242,28 +213,20 @@ def validate_float_field(
 
     if value is None:
         if required:
-            return ValidationResult(
-                is_valid=False,
-                error=f"Missing required field: {field}"
-            )
+            return ValidationResult(is_valid=False, error=f"Missing required field: {field}")
         return ValidationResult(is_valid=True)
 
     if not isinstance(value, (int, float)) or isinstance(value, bool):
-        return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' must be a number"
-        )
+        return ValidationResult(is_valid=False, error=f"Field '{field}' must be a number")
 
     if min_value is not None and value < min_value:
         return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' must be at least {min_value}"
+            is_valid=False, error=f"Field '{field}' must be at least {min_value}"
         )
 
     if max_value is not None and value > max_value:
         return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' must be at most {max_value}"
+            is_valid=False, error=f"Field '{field}' must be at most {max_value}"
         )
 
     return ValidationResult(is_valid=True)
@@ -294,28 +257,20 @@ def validate_list_field(
 
     if value is None:
         if required:
-            return ValidationResult(
-                is_valid=False,
-                error=f"Missing required field: {field}"
-            )
+            return ValidationResult(is_valid=False, error=f"Missing required field: {field}")
         return ValidationResult(is_valid=True)
 
     if not isinstance(value, list):
-        return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' must be a list"
-        )
+        return ValidationResult(is_valid=False, error=f"Field '{field}' must be a list")
 
     if len(value) < min_length:
         return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' must have at least {min_length} items"
+            is_valid=False, error=f"Field '{field}' must have at least {min_length} items"
         )
 
     if len(value) > max_length:
         return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' must have at most {max_length} items"
+            is_valid=False, error=f"Field '{field}' must have at most {max_length} items"
         )
 
     if item_type is not None:
@@ -323,7 +278,7 @@ def validate_list_field(
             if not isinstance(item, item_type):
                 return ValidationResult(
                     is_valid=False,
-                    error=f"Field '{field}[{i}]' must be of type {item_type.__name__}"
+                    error=f"Field '{field}[{i}]' must be of type {item_type.__name__}",
                 )
 
     return ValidationResult(is_valid=True)
@@ -350,17 +305,13 @@ def validate_enum_field(
 
     if value is None:
         if required:
-            return ValidationResult(
-                is_valid=False,
-                error=f"Missing required field: {field}"
-            )
+            return ValidationResult(is_valid=False, error=f"Missing required field: {field}")
         return ValidationResult(is_valid=True)
 
     if value not in allowed_values:
         allowed_str = ", ".join(str(v) for v in sorted(allowed_values))
         return ValidationResult(
-            is_valid=False,
-            error=f"Field '{field}' must be one of: {allowed_str}"
+            is_valid=False, error=f"Field '{field}' must be one of: {allowed_str}"
         )
 
     return ValidationResult(is_valid=True)

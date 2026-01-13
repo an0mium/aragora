@@ -13,6 +13,7 @@ from aragora.server.handlers.moments import MomentsHandler, VALID_MOMENT_TYPES
 @dataclass
 class MockMoment:
     """Mock SignificantMoment for testing."""
+
     id: str
     moment_type: str
     agent_name: str
@@ -206,7 +207,15 @@ class TestTimelineEndpoint:
         mock_detector = Mock()
         mock_detector._moment_cache = {
             "claude": [
-                MockMoment("m1", "upset_victory", "claude", "Won", 0.8, "d1", created_at="2025-01-01T10:00:00"),
+                MockMoment(
+                    "m1",
+                    "upset_victory",
+                    "claude",
+                    "Won",
+                    0.8,
+                    "d1",
+                    created_at="2025-01-01T10:00:00",
+                ),
             ],
         }
 
@@ -226,7 +235,10 @@ class TestTimelineEndpoint:
         """Should respect limit parameter."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
-            "claude": [MockMoment(f"m{i}", "upset_victory", "claude", f"Won {i}", 0.5, f"d{i}") for i in range(10)],
+            "claude": [
+                MockMoment(f"m{i}", "upset_victory", "claude", f"Won {i}", 0.5, f"d{i}")
+                for i in range(10)
+            ],
         }
 
         handler = MomentsHandler({"moment_detector": mock_detector})
@@ -242,7 +254,10 @@ class TestTimelineEndpoint:
         """Should respect offset parameter."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
-            "claude": [MockMoment(f"m{i}", "upset_victory", "claude", f"Won {i}", 0.5, f"d{i}") for i in range(10)],
+            "claude": [
+                MockMoment(f"m{i}", "upset_victory", "claude", f"Won {i}", 0.5, f"d{i}")
+                for i in range(10)
+            ],
         }
 
         handler = MomentsHandler({"moment_detector": mock_detector})
@@ -322,7 +337,10 @@ class TestTrendingEndpoint:
         """Should respect limit parameter."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
-            "claude": [MockMoment(f"m{i}", "upset_victory", "claude", f"Won", 0.5, f"d{i}") for i in range(10)],
+            "claude": [
+                MockMoment(f"m{i}", "upset_victory", "claude", f"Won", 0.5, f"d{i}")
+                for i in range(10)
+            ],
         }
 
         handler = MomentsHandler({"moment_detector": mock_detector})
@@ -462,11 +480,13 @@ class TestHandlerImport:
     def test_handler_can_be_imported(self):
         """Should be importable from handlers package."""
         from aragora.server.handlers import MomentsHandler
+
         assert MomentsHandler is not None
 
     def test_handler_in_all(self):
         """Should be in __all__ exports."""
         from aragora.server.handlers import __all__
+
         assert "MomentsHandler" in __all__
 
     def test_valid_moment_types_defined(self):
@@ -484,7 +504,9 @@ class TestErrorHandling:
     def test_handles_exception_in_summary(self):
         """Should handle exceptions gracefully in summary."""
         mock_detector = Mock()
-        mock_detector._moment_cache = property(lambda self: (_ for _ in ()).throw(Exception("DB error")))
+        mock_detector._moment_cache = property(
+            lambda self: (_ for _ in ()).throw(Exception("DB error"))
+        )
 
         handler = MomentsHandler({"moment_detector": mock_detector})
         # Mock will raise on iteration

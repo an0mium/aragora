@@ -10,6 +10,7 @@ from aragora.server.handlers.tournaments import TournamentHandler, TOURNAMENT_AV
 
 class MockStanding:
     """Mock tournament standing for testing."""
+
     def __init__(self, agent="claude", wins=5, losses=2, draws=1):
         self.agent = agent
         self.wins = wins
@@ -193,16 +194,19 @@ class TestTournamentHandlerImport:
     def test_handler_importable(self):
         """TournamentHandler can be imported from handlers package."""
         from aragora.server.handlers import TournamentHandler
+
         assert TournamentHandler is not None
 
     def test_handler_in_all_exports(self):
         """TournamentHandler is in __all__ exports."""
         from aragora.server.handlers import __all__
+
         assert "TournamentHandler" in __all__
 
     def test_tournament_available_flag(self):
         """TOURNAMENT_AVAILABLE flag is defined."""
         from aragora.server.handlers.tournaments import TOURNAMENT_AVAILABLE
+
         assert isinstance(TOURNAMENT_AVAILABLE, bool)
 
 

@@ -51,7 +51,7 @@ def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
             # Try to bind to the port
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind(('0.0.0.0', port))
+            sock.bind(("0.0.0.0", port))
             sock.close()
             return port
         except OSError:
@@ -74,7 +74,7 @@ def generate_loop_id() -> str:
 def get_loop_name(aragora_path: Path) -> str:
     """Generate a human-readable loop name."""
     # Use hostname + path as identifier
-    hostname = os.uname().nodename if hasattr(os, 'uname') else "local"
+    hostname = os.uname().nodename if hasattr(os, "uname") else "local"
     path_suffix = aragora_path.name
     return f"{hostname}:{path_suffix}"
 
@@ -115,7 +115,7 @@ async def run_with_streaming(
     print(f"Loop ID:      {loop_id}")
     print(f"Loop Name:    {loop_name}")
     print(f"Server:       http://localhost:{actual_port} (HTTP + WebSocket)")
-    print(f"Live view:    https://live.aragora.ai")
+    print(f"Live view:    https://aragora.ai")
     print(f"Cycles:       {cycles}")
     print(f"Auto-commit:  {'Yes' if auto_commit else 'No (requires confirmation)'}")
     print("=" * 60)
@@ -147,7 +147,7 @@ async def run_with_streaming(
     )
 
     print("Server started. Running nomic loop...")
-    print(f"This loop is now visible at https://live.aragora.ai as '{loop_name}'")
+    print(f"This loop is now visible at https://aragora.ai as '{loop_name}'")
     print()
 
     try:
@@ -185,13 +185,15 @@ def main():
     # Run command
     run_parser = subparsers.add_parser("run", help="Run nomic loop with streaming")
     run_parser.add_argument(
-        "--cycles", "-c",
+        "--cycles",
+        "-c",
         type=int,
         default=3,
         help="Number of cycles to run (default: 3)",
     )
     run_parser.add_argument(
-        "--port", "-p",
+        "--port",
+        "-p",
         type=int,
         default=8080,
         help="Port for unified server (HTTP + WebSocket) (default: 8080)",
@@ -236,12 +238,14 @@ def main():
     if args.command == "run":
         # Support legacy --http-port
         port = args.http_port if args.http_port else args.port
-        asyncio.run(run_with_streaming(
-            cycles=args.cycles,
-            port=port,
-            aragora_path=args.aragora_path,
-            auto_commit=args.auto,
-        ))
+        asyncio.run(
+            run_with_streaming(
+                cycles=args.cycles,
+                port=port,
+                aragora_path=args.aragora_path,
+                auto_commit=args.auto,
+            )
+        )
     else:
         parser.print_help()
 

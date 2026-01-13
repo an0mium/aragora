@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { logger } from '@/utils/logger';
+import { API_BASE_URL } from '@/config';
 
 interface AgentProfile {
   agent: string;
@@ -97,7 +98,7 @@ interface HistoryEntry {
   created_at: string;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 export function AgentProfileWrapper() {
   const params = useParams();

@@ -141,17 +141,13 @@ class TestParseStringParam:
     def test_allowed_values_enforced(self):
         """Value not in allowed_values returns default."""
         query = {"sort": ["invalid"]}
-        result = parse_string_param(
-            query, "sort", default="asc", allowed_values={"asc", "desc"}
-        )
+        result = parse_string_param(query, "sort", default="asc", allowed_values={"asc", "desc"})
         assert result == "asc"
 
     def test_allowed_value_accepted(self):
         """Value in allowed_values is accepted."""
         query = {"sort": ["desc"]}
-        result = parse_string_param(
-            query, "sort", default="asc", allowed_values={"asc", "desc"}
-        )
+        result = parse_string_param(query, "sort", default="asc", allowed_values={"asc", "desc"})
         assert result == "desc"
 
 
@@ -160,9 +156,11 @@ class TestSafeQueryInt:
 
     def test_aiohttp_format(self):
         """Works with aiohttp MultiDict format (single string values)."""
+
         class FakeMultiDict:
             def __init__(self, d):
                 self._d = d
+
             def get(self, k, default=None):
                 return self._d.get(k, default)
 
@@ -176,6 +174,7 @@ class TestSafeQueryInt:
 
     def test_bounds_applied(self):
         """Min/max bounds are applied."""
+
         class FakeMultiDict:
             def get(self, k, default=None):
                 return "999"
@@ -190,9 +189,11 @@ class TestSafeQueryFloat:
 
     def test_aiohttp_format(self):
         """Works with aiohttp MultiDict format."""
+
         class FakeMultiDict:
             def __init__(self, d):
                 self._d = d
+
             def get(self, k, default=None):
                 return self._d.get(k, default)
 
@@ -201,6 +202,7 @@ class TestSafeQueryFloat:
 
     def test_bounds_applied(self):
         """Min/max bounds are applied."""
+
         class FakeMultiDict:
             def get(self, k, default=None):
                 return "1.5"
@@ -267,6 +269,7 @@ from aragora.server.validation import (
 
 class MockHandler:
     """Mock handler class for testing decorators."""
+
     pass
 
 
@@ -275,6 +278,7 @@ class TestValidateRequestDecorator:
 
     def test_no_validation_passes(self):
         """Handler without validation requirements passes through."""
+
         class Handler(MockHandler):
             @validate_request()
             def handle(self, path, query, handler):
@@ -286,6 +290,7 @@ class TestValidateRequestDecorator:
 
     def test_required_param_missing(self):
         """Missing required parameter returns error."""
+
         class Handler(MockHandler):
             @validate_request(required_params=["task"])
             def handle(self, path, query, handler):
@@ -298,6 +303,7 @@ class TestValidateRequestDecorator:
 
     def test_required_param_present(self):
         """Present required parameter passes."""
+
         class Handler(MockHandler):
             @validate_request(required_params=["task"])
             def handle(self, path, query, handler):
@@ -309,6 +315,7 @@ class TestValidateRequestDecorator:
 
     def test_required_param_empty_list(self):
         """Empty list for required param returns error."""
+
         class Handler(MockHandler):
             @validate_request(required_params=["agents"])
             def handle(self, path, query, handler):
@@ -320,6 +327,7 @@ class TestValidateRequestDecorator:
 
     def test_path_validator_valid(self):
         """Valid path segment passes validation."""
+
         class Handler(MockHandler):
             @validate_request(path_validators={"debate_id": validate_debate_id})
             def handle(self, path, query, handler):
@@ -331,6 +339,7 @@ class TestValidateRequestDecorator:
 
     def test_path_validator_invalid(self):
         """Invalid path segment returns error."""
+
         class Handler(MockHandler):
             @validate_request(path_validators={"debate_id": validate_debate_id})
             def handle(self, path, query, handler):
@@ -342,6 +351,7 @@ class TestValidateRequestDecorator:
 
     def test_schema_validation_valid(self):
         """Valid body passes schema validation."""
+
         class Handler(MockHandler):
             @validate_request(schema=DEBATE_START_SCHEMA)
             def handle(self, path, query, body, handler):
@@ -354,6 +364,7 @@ class TestValidateRequestDecorator:
 
     def test_schema_validation_missing_required(self):
         """Missing required field in body returns error."""
+
         class Handler(MockHandler):
             @validate_request(schema=DEBATE_START_SCHEMA)
             def handle(self, path, query, body, handler):
@@ -370,6 +381,7 @@ class TestValidatePostBodyDecorator:
 
     def test_valid_body_passes(self):
         """Valid body passes validation."""
+
         class Handler(MockHandler):
             @validate_post_body(DEBATE_START_SCHEMA)
             def handle(self, body, handler):
@@ -381,6 +393,7 @@ class TestValidatePostBodyDecorator:
 
     def test_invalid_body_type_returns_error(self):
         """Non-dict body returns error."""
+
         class Handler(MockHandler):
             @validate_post_body(DEBATE_START_SCHEMA)
             def handle(self, body, handler):
@@ -393,6 +406,7 @@ class TestValidatePostBodyDecorator:
 
     def test_missing_required_field_returns_error(self):
         """Missing required field returns error."""
+
         class Handler(MockHandler):
             @validate_post_body(DEBATE_START_SCHEMA)
             def handle(self, body, handler):
@@ -404,6 +418,7 @@ class TestValidatePostBodyDecorator:
 
     def test_field_too_long_returns_error(self):
         """Field exceeding max length returns error."""
+
         class Handler(MockHandler):
             @validate_post_body(DEBATE_START_SCHEMA)
             def handle(self, body, handler):
@@ -419,6 +434,7 @@ class TestValidateQueryParamsDecorator:
 
     def test_required_params_present(self):
         """All required params present passes."""
+
         class Handler(MockHandler):
             @validate_query_params(required=["agent", "limit"])
             def handle(self, query, handler):
@@ -430,6 +446,7 @@ class TestValidateQueryParamsDecorator:
 
     def test_required_param_missing(self):
         """Missing required param returns error."""
+
         class Handler(MockHandler):
             @validate_query_params(required=["agent"])
             def handle(self, query, handler):
@@ -442,6 +459,7 @@ class TestValidateQueryParamsDecorator:
 
     def test_int_param_in_bounds(self):
         """Int param within bounds passes."""
+
         class Handler(MockHandler):
             @validate_query_params(int_params={"limit": (10, 1, 100)})
             def handle(self, query, handler):
@@ -453,6 +471,7 @@ class TestValidateQueryParamsDecorator:
 
     def test_int_param_out_of_bounds(self):
         """Int param out of bounds returns error."""
+
         class Handler(MockHandler):
             @validate_query_params(int_params={"limit": (10, 1, 100)})
             def handle(self, query, handler):
@@ -465,6 +484,7 @@ class TestValidateQueryParamsDecorator:
 
     def test_int_param_invalid_type(self):
         """Non-integer int param returns error."""
+
         class Handler(MockHandler):
             @validate_query_params(int_params={"limit": (10, 1, 100)})
             def handle(self, query, handler):
@@ -477,6 +497,7 @@ class TestValidateQueryParamsDecorator:
 
     def test_string_param_too_long(self):
         """String param exceeding max length returns error."""
+
         class Handler(MockHandler):
             @validate_query_params(string_params={"sort": ("created_at", 20)})
             def handle(self, query, handler):
@@ -489,6 +510,7 @@ class TestValidateQueryParamsDecorator:
 
     def test_string_param_within_length(self):
         """String param within length passes."""
+
         class Handler(MockHandler):
             @validate_query_params(string_params={"sort": ("created_at", 20)})
             def handle(self, query, handler):
@@ -504,6 +526,7 @@ class TestValidationDecoratorCombinations:
 
     def test_combined_validation(self):
         """Multiple validation constraints can be combined."""
+
         class Handler(MockHandler):
             @validate_request(required_params=["mode"])
             @validate_query_params(int_params={"limit": (10, 1, 100)})
@@ -521,6 +544,7 @@ class TestValidationDecoratorCombinations:
 
     def test_decorator_preserves_function_name(self):
         """Decorator preserves the original function name."""
+
         class Handler(MockHandler):
             @validate_request()
             def my_handler_name(self, path, query, handler):

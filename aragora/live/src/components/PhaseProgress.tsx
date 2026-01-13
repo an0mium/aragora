@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { StreamEvent } from '@/types/events';
 import { logger } from '@/utils/logger';
+import { API_BASE_URL } from '@/config';
 
 interface NomicState {
   phase: string;
@@ -19,7 +20,7 @@ interface PhaseProgressProps {
   apiBase?: string;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 const PHASES = ['debate', 'design', 'implement', 'verify', 'commit'];
 
 export function PhaseProgress({ events, currentPhase, apiBase = DEFAULT_API_BASE }: PhaseProgressProps) {

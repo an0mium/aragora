@@ -110,10 +110,7 @@ def sample_org():
     org.tier = MagicMock(value="pro")
     org.owner_id = "owner-123"
     org.debates_used_this_month = 10
-    org.limits = MagicMock(
-        debates_per_month=100,
-        users_per_org=10
-    )
+    org.limits = MagicMock(debates_per_month=100, users_per_org=10)
     org.settings = {}
     org.created_at = datetime.utcnow()
     return org
@@ -214,40 +211,30 @@ class TestAccessControl:
 
     def test_check_org_access_member_allowed(self, org_handler, member_user):
         """Test member can access with member role."""
-        has_access, err = org_handler._check_org_access(
-            member_user, "org-123", min_role="member"
-        )
+        has_access, err = org_handler._check_org_access(member_user, "org-123", min_role="member")
         assert has_access is True
         assert err == ""
 
     def test_check_org_access_member_denied_admin(self, org_handler, member_user):
         """Test member denied for admin operations."""
-        has_access, err = org_handler._check_org_access(
-            member_user, "org-123", min_role="admin"
-        )
+        has_access, err = org_handler._check_org_access(member_user, "org-123", min_role="admin")
         assert has_access is False
         assert "admin" in err.lower()
 
     def test_check_org_access_admin_allowed(self, org_handler, admin_user):
         """Test admin can access admin operations."""
-        has_access, err = org_handler._check_org_access(
-            admin_user, "org-123", min_role="admin"
-        )
+        has_access, err = org_handler._check_org_access(admin_user, "org-123", min_role="admin")
         assert has_access is True
 
     def test_check_org_access_admin_denied_owner(self, org_handler, admin_user):
         """Test admin denied for owner-only operations."""
-        has_access, err = org_handler._check_org_access(
-            admin_user, "org-123", min_role="owner"
-        )
+        has_access, err = org_handler._check_org_access(admin_user, "org-123", min_role="owner")
         assert has_access is False
         assert "owner" in err.lower()
 
     def test_check_org_access_owner_allowed(self, org_handler, owner_user):
         """Test owner has full access."""
-        has_access, err = org_handler._check_org_access(
-            owner_user, "org-123", min_role="owner"
-        )
+        has_access, err = org_handler._check_org_access(owner_user, "org-123", min_role="owner")
         assert has_access is True
 
 
@@ -261,14 +248,10 @@ class TestGetOrganization:
 
     @patch(JWT_AUTH_PATH)
     def test_get_org_success(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, member_user, sample_org
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, member_user, sample_org
     ):
         """Test successful organization retrieval."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=member_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=member_user.id)
         mock_user_store.get_user_by_id.return_value = member_user
         mock_user_store.get_organization_by_id.return_value = sample_org
         mock_user_store.get_org_members.return_value = [member_user]
@@ -276,15 +259,11 @@ class TestGetOrganization:
         org_handler.ctx = {"user_store": mock_user_store}
         mock_http_handler.command = "GET"
 
-        result = org_handler.handle(
-            "/api/org/org-123",
-            {},
-            mock_http_handler,
-            method="GET"
-        )
+        result = org_handler.handle("/api/org/org-123", {}, mock_http_handler, method="GET")
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["organization"]["id"] == "org-123"
         assert body["organization"]["name"] == "Test Organization"
@@ -295,20 +274,12 @@ class TestGetOrganization:
     ):
         """Test access denied when not a member."""
         member_user.org_id = "other-org"
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=member_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=member_user.id)
         mock_user_store.get_user_by_id.return_value = member_user
 
         org_handler.ctx = {"user_store": mock_user_store}
 
-        result = org_handler.handle(
-            "/api/org/org-123",
-            {},
-            mock_http_handler,
-            method="GET"
-        )
+        result = org_handler.handle("/api/org/org-123", {}, mock_http_handler, method="GET")
 
         assert result.status_code == 403
 
@@ -323,39 +294,26 @@ class TestUpdateOrganization:
 
     @patch(JWT_AUTH_PATH)
     def test_update_org_requires_admin(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, member_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, member_user
     ):
         """Test update requires admin role."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=member_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=member_user.id)
         mock_user_store.get_user_by_id.return_value = member_user
 
         org_handler.ctx = {"user_store": mock_user_store}
         org_handler.read_json_body = MagicMock(return_value={"name": "New Name"})
         mock_http_handler.command = "PUT"
 
-        result = org_handler.handle(
-            "/api/org/org-123",
-            {},
-            mock_http_handler,
-            method="PUT"
-        )
+        result = org_handler.handle("/api/org/org-123", {}, mock_http_handler, method="PUT")
 
         assert result.status_code == 403
 
     @patch(JWT_AUTH_PATH)
     def test_update_org_admin_success(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user, sample_org
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user, sample_org
     ):
         """Test admin can update organization."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=admin_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.return_value = admin_user
         mock_user_store.update_organization.return_value = True
         mock_user_store.get_organization_by_id.return_value = sample_org
@@ -364,38 +322,24 @@ class TestUpdateOrganization:
         org_handler.read_json_body = MagicMock(return_value={"name": "New Name"})
         mock_http_handler.command = "PUT"
 
-        result = org_handler.handle(
-            "/api/org/org-123",
-            {},
-            mock_http_handler,
-            method="PUT"
-        )
+        result = org_handler.handle("/api/org/org-123", {}, mock_http_handler, method="PUT")
 
         assert result.status_code == 200
         mock_user_store.update_organization.assert_called_once()
 
     @patch(JWT_AUTH_PATH)
     def test_update_org_name_too_short(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user
     ):
         """Test name validation - too short."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=admin_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.return_value = admin_user
 
         org_handler.ctx = {"user_store": mock_user_store}
         org_handler.read_json_body = MagicMock(return_value={"name": "A"})
         mock_http_handler.command = "PUT"
 
-        result = org_handler.handle(
-            "/api/org/org-123",
-            {},
-            mock_http_handler,
-            method="PUT"
-        )
+        result = org_handler.handle("/api/org/org-123", {}, mock_http_handler, method="PUT")
 
         assert result.status_code == 400
 
@@ -410,28 +354,20 @@ class TestListMembers:
 
     @patch(JWT_AUTH_PATH)
     def test_list_members_success(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, member_user, admin_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, member_user, admin_user
     ):
         """Test successful member listing."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=member_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=member_user.id)
         mock_user_store.get_user_by_id.return_value = member_user
         mock_user_store.get_org_members.return_value = [member_user, admin_user]
 
         org_handler.ctx = {"user_store": mock_user_store}
 
-        result = org_handler.handle(
-            "/api/org/org-123/members",
-            {},
-            mock_http_handler,
-            method="GET"
-        )
+        result = org_handler.handle("/api/org/org-123/members", {}, mock_http_handler, method="GET")
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["count"] == 2
         assert len(body["members"]) == 2
@@ -447,42 +383,28 @@ class TestInviteMember:
 
     @patch(JWT_AUTH_PATH)
     def test_invite_requires_admin(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, member_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, member_user
     ):
         """Test invite requires admin role."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=member_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=member_user.id)
         mock_user_store.get_user_by_id.return_value = member_user
 
         org_handler.ctx = {"user_store": mock_user_store}
-        org_handler.read_json_body = MagicMock(return_value={
-            "email": "new@example.com",
-            "role": "member"
-        })
+        org_handler.read_json_body = MagicMock(
+            return_value={"email": "new@example.com", "role": "member"}
+        )
         mock_http_handler.command = "POST"
 
-        result = org_handler.handle(
-            "/api/org/org-123/invite",
-            {},
-            mock_http_handler,
-            method="POST"
-        )
+        result = org_handler.handle("/api/org/org-123/invite", {}, mock_http_handler, method="POST")
 
         assert result.status_code == 403
 
     @patch(JWT_AUTH_PATH)
     def test_invite_existing_user_to_org(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user, sample_org
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user, sample_org
     ):
         """Test inviting an existing user without an org."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=admin_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.return_value = admin_user
         mock_user_store.get_organization_by_id.return_value = sample_org
         mock_user_store.get_org_members.return_value = [admin_user]
@@ -495,64 +417,51 @@ class TestInviteMember:
         mock_user_store.add_user_to_org.return_value = True
 
         org_handler.ctx = {"user_store": mock_user_store}
-        org_handler.read_json_body = MagicMock(return_value={
-            "email": "existing@example.com",
-            "role": "member"
-        })
+        org_handler.read_json_body = MagicMock(
+            return_value={"email": "existing@example.com", "role": "member"}
+        )
         mock_http_handler.command = "POST"
 
-        result = org_handler.handle(
-            "/api/org/org-123/invite",
-            {},
-            mock_http_handler,
-            method="POST"
-        )
+        result = org_handler.handle("/api/org/org-123/invite", {}, mock_http_handler, method="POST")
 
         assert result.status_code == 200
         mock_user_store.add_user_to_org.assert_called_once()
 
     @patch(JWT_AUTH_PATH)
     def test_invite_user_already_in_org(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user, sample_org, member_user
+        self,
+        mock_extract,
+        org_handler,
+        mock_http_handler,
+        mock_user_store,
+        admin_user,
+        sample_org,
+        member_user,
     ):
         """Test cannot invite user already in the org."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=admin_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.return_value = admin_user
         mock_user_store.get_organization_by_id.return_value = sample_org
         mock_user_store.get_org_members.return_value = [admin_user]
         mock_user_store.get_user_by_email.return_value = member_user
 
         org_handler.ctx = {"user_store": mock_user_store}
-        org_handler.read_json_body = MagicMock(return_value={
-            "email": "member@example.com",
-            "role": "member"
-        })
+        org_handler.read_json_body = MagicMock(
+            return_value={"email": "member@example.com", "role": "member"}
+        )
         mock_http_handler.command = "POST"
 
-        result = org_handler.handle(
-            "/api/org/org-123/invite",
-            {},
-            mock_http_handler,
-            method="POST"
-        )
+        result = org_handler.handle("/api/org/org-123/invite", {}, mock_http_handler, method="POST")
 
         assert result.status_code == 400
         assert b"already a member" in result.body
 
     @patch(JWT_AUTH_PATH)
     def test_invite_creates_invitation(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user, sample_org
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user, sample_org
     ):
         """Test creating invitation for new user."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=admin_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.return_value = admin_user
         mock_user_store.get_organization_by_id.return_value = sample_org
         mock_user_store.get_org_members.return_value = [admin_user]
@@ -561,21 +470,16 @@ class TestInviteMember:
         mock_user_store.create_invitation.return_value = True
 
         org_handler.ctx = {"user_store": mock_user_store}
-        org_handler.read_json_body = MagicMock(return_value={
-            "email": "new@example.com",
-            "role": "member"
-        })
+        org_handler.read_json_body = MagicMock(
+            return_value={"email": "new@example.com", "role": "member"}
+        )
         mock_http_handler.command = "POST"
 
-        result = org_handler.handle(
-            "/api/org/org-123/invite",
-            {},
-            mock_http_handler,
-            method="POST"
-        )
+        result = org_handler.handle("/api/org/org-123/invite", {}, mock_http_handler, method="POST")
 
         assert result.status_code == 201
         import json
+
         body = json.loads(result.body)
         assert "invitation_id" in body
         assert body["message"] == "Invitation sent to new@example.com"
@@ -583,62 +487,42 @@ class TestInviteMember:
 
     @patch(JWT_AUTH_PATH)
     def test_invite_invalid_role(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user, sample_org
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user, sample_org
     ):
         """Test invitation rejects invalid roles."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=admin_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.return_value = admin_user
         mock_user_store.get_organization_by_id.return_value = sample_org
         mock_user_store.get_org_members.return_value = [admin_user]
 
         org_handler.ctx = {"user_store": mock_user_store}
-        org_handler.read_json_body = MagicMock(return_value={
-            "email": "new@example.com",
-            "role": "owner"  # Can't invite as owner
-        })
+        org_handler.read_json_body = MagicMock(
+            return_value={"email": "new@example.com", "role": "owner"}  # Can't invite as owner
+        )
         mock_http_handler.command = "POST"
 
-        result = org_handler.handle(
-            "/api/org/org-123/invite",
-            {},
-            mock_http_handler,
-            method="POST"
-        )
+        result = org_handler.handle("/api/org/org-123/invite", {}, mock_http_handler, method="POST")
 
         assert result.status_code == 400
 
     @patch(JWT_AUTH_PATH)
     def test_invite_org_member_limit(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user, sample_org
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user, sample_org
     ):
         """Test invitation fails when org at member limit."""
         sample_org.limits.users_per_org = 1  # Only 1 user allowed
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=admin_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.return_value = admin_user
         mock_user_store.get_organization_by_id.return_value = sample_org
         mock_user_store.get_org_members.return_value = [admin_user]  # Already at limit
 
         org_handler.ctx = {"user_store": mock_user_store}
-        org_handler.read_json_body = MagicMock(return_value={
-            "email": "new@example.com",
-            "role": "member"
-        })
+        org_handler.read_json_body = MagicMock(
+            return_value={"email": "new@example.com", "role": "member"}
+        )
         mock_http_handler.command = "POST"
 
-        result = org_handler.handle(
-            "/api/org/org-123/invite",
-            {},
-            mock_http_handler,
-            method="POST"
-        )
+        result = org_handler.handle("/api/org/org-123/invite", {}, mock_http_handler, method="POST")
 
         assert result.status_code == 403
         assert b"limit" in result.body.lower()
@@ -654,38 +538,27 @@ class TestRemoveMember:
 
     @patch(JWT_AUTH_PATH)
     def test_remove_member_requires_admin(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, member_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, member_user
     ):
         """Test remove requires admin role."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=member_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=member_user.id)
         mock_user_store.get_user_by_id.return_value = member_user
 
         org_handler.ctx = {"user_store": mock_user_store}
         mock_http_handler.command = "DELETE"
 
         result = org_handler.handle(
-            "/api/org/org-123/members/user-456",
-            {},
-            mock_http_handler,
-            method="DELETE"
+            "/api/org/org-123/members/user-456", {}, mock_http_handler, method="DELETE"
         )
 
         assert result.status_code == 403
 
     @patch(JWT_AUTH_PATH)
     def test_cannot_remove_owner(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user, owner_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user, owner_user
     ):
         """Test cannot remove the owner."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=admin_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.side_effect = lambda uid: (
             admin_user if uid == admin_user.id else owner_user
         )
@@ -694,10 +567,7 @@ class TestRemoveMember:
         mock_http_handler.command = "DELETE"
 
         result = org_handler.handle(
-            "/api/org/org-123/members/owner-123",
-            {},
-            mock_http_handler,
-            method="DELETE"
+            "/api/org/org-123/members/owner-123", {}, mock_http_handler, method="DELETE"
         )
 
         assert result.status_code == 403
@@ -705,24 +575,17 @@ class TestRemoveMember:
 
     @patch(JWT_AUTH_PATH)
     def test_cannot_remove_self(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user
     ):
         """Test cannot remove yourself."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=admin_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.return_value = admin_user
 
         org_handler.ctx = {"user_store": mock_user_store}
         mock_http_handler.command = "DELETE"
 
         result = org_handler.handle(
-            f"/api/org/org-123/members/{admin_user.id}",
-            {},
-            mock_http_handler,
-            method="DELETE"
+            f"/api/org/org-123/members/{admin_user.id}", {}, mock_http_handler, method="DELETE"
         )
 
         assert result.status_code == 400
@@ -730,8 +593,7 @@ class TestRemoveMember:
 
     @patch(JWT_AUTH_PATH)
     def test_only_owner_can_remove_admin(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user
     ):
         """Test only owner can remove admin members."""
         # Another admin trying to remove this admin
@@ -740,10 +602,7 @@ class TestRemoveMember:
         other_admin.org_id = "org-123"
         other_admin.role = "admin"
 
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=other_admin.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=other_admin.id)
         mock_user_store.get_user_by_id.side_effect = lambda uid: (
             other_admin if uid == other_admin.id else admin_user
         )
@@ -752,24 +611,17 @@ class TestRemoveMember:
         mock_http_handler.command = "DELETE"
 
         result = org_handler.handle(
-            f"/api/org/org-123/members/{admin_user.id}",
-            {},
-            mock_http_handler,
-            method="DELETE"
+            f"/api/org/org-123/members/{admin_user.id}", {}, mock_http_handler, method="DELETE"
         )
 
         assert result.status_code == 403
 
     @patch(JWT_AUTH_PATH)
     def test_remove_member_success(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user, member_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user, member_user
     ):
         """Test successful member removal."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=admin_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.side_effect = lambda uid: (
             admin_user if uid == admin_user.id else member_user
         )
@@ -779,10 +631,7 @@ class TestRemoveMember:
         mock_http_handler.command = "DELETE"
 
         result = org_handler.handle(
-            f"/api/org/org-123/members/{member_user.id}",
-            {},
-            mock_http_handler,
-            method="DELETE"
+            f"/api/org/org-123/members/{member_user.id}", {}, mock_http_handler, method="DELETE"
         )
 
         assert result.status_code == 200
@@ -799,14 +648,10 @@ class TestUpdateMemberRole:
 
     @patch(JWT_AUTH_PATH)
     def test_update_role_requires_owner(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user
     ):
         """Test role update requires owner role."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=admin_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.return_value = admin_user
 
         org_handler.ctx = {"user_store": mock_user_store}
@@ -814,18 +659,14 @@ class TestUpdateMemberRole:
         mock_http_handler.command = "PUT"
 
         result = org_handler.handle(
-            "/api/org/org-123/members/user-456/role",
-            {},
-            mock_http_handler,
-            method="PUT"
+            "/api/org/org-123/members/user-456/role", {}, mock_http_handler, method="PUT"
         )
 
         assert result.status_code == 403
 
     @patch(JWT_AUTH_PATH)
     def test_cannot_change_owner_role(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, owner_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, owner_user
     ):
         """Test cannot change the owner's role."""
         other_owner = MagicMock()
@@ -833,10 +674,7 @@ class TestUpdateMemberRole:
         other_owner.org_id = "org-123"
         other_owner.role = "owner"
 
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=owner_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=owner_user.id)
         mock_user_store.get_user_by_id.side_effect = lambda uid: (
             owner_user if uid == owner_user.id else other_owner
         )
@@ -846,24 +684,17 @@ class TestUpdateMemberRole:
         mock_http_handler.command = "PUT"
 
         result = org_handler.handle(
-            "/api/org/org-123/members/owner-456/role",
-            {},
-            mock_http_handler,
-            method="PUT"
+            "/api/org/org-123/members/owner-456/role", {}, mock_http_handler, method="PUT"
         )
 
         assert result.status_code == 403
 
     @patch(JWT_AUTH_PATH)
     def test_update_role_success(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, owner_user, member_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, owner_user, member_user
     ):
         """Test successful role update."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=owner_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=owner_user.id)
         mock_user_store.get_user_by_id.side_effect = lambda uid: (
             owner_user if uid == owner_user.id else member_user
         )
@@ -874,10 +705,7 @@ class TestUpdateMemberRole:
         mock_http_handler.command = "PUT"
 
         result = org_handler.handle(
-            f"/api/org/org-123/members/{member_user.id}/role",
-            {},
-            mock_http_handler,
-            method="PUT"
+            f"/api/org/org-123/members/{member_user.id}/role", {}, mock_http_handler, method="PUT"
         )
 
         assert result.status_code == 200
@@ -894,37 +722,26 @@ class TestInvitationManagement:
 
     @patch(JWT_AUTH_PATH)
     def test_list_invitations_requires_admin(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, member_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, member_user
     ):
         """Test listing invitations requires admin."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=member_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=member_user.id)
         mock_user_store.get_user_by_id.return_value = member_user
 
         org_handler.ctx = {"user_store": mock_user_store}
 
         result = org_handler.handle(
-            "/api/org/org-123/invitations",
-            {},
-            mock_http_handler,
-            method="GET"
+            "/api/org/org-123/invitations", {}, mock_http_handler, method="GET"
         )
 
         assert result.status_code == 403
 
     @patch(JWT_AUTH_PATH)
     def test_list_invitations_success(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user
     ):
         """Test successful invitation listing."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=admin_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.return_value = admin_user
 
         # Create a test invitation via mock user_store
@@ -940,27 +757,21 @@ class TestInvitationManagement:
         org_handler.ctx = {"user_store": mock_user_store}
 
         result = org_handler.handle(
-            "/api/org/org-123/invitations",
-            {},
-            mock_http_handler,
-            method="GET"
+            "/api/org/org-123/invitations", {}, mock_http_handler, method="GET"
         )
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["count"] == 1
 
     @patch(JWT_AUTH_PATH)
     def test_revoke_invitation_success(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, admin_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user
     ):
         """Test successful invitation revocation."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=admin_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.return_value = admin_user
 
         invitation = OrganizationInvitation(
@@ -976,16 +787,11 @@ class TestInvitationManagement:
         mock_http_handler.command = "DELETE"
 
         result = org_handler.handle(
-            f"/api/org/org-123/invitations/{invitation.id}",
-            {},
-            mock_http_handler,
-            method="DELETE"
+            f"/api/org/org-123/invitations/{invitation.id}", {}, mock_http_handler, method="DELETE"
         )
 
         assert result.status_code == 200
-        mock_user_store.update_invitation_status.assert_called_once_with(
-            invitation.id, "revoked"
-        )
+        mock_user_store.update_invitation_status.assert_called_once_with(invitation.id, "revoked")
 
 
 # =============================================================================
@@ -997,33 +803,24 @@ class TestAcceptInvitation:
     """Tests for accepting invitations."""
 
     @patch(JWT_AUTH_PATH)
-    def test_accept_requires_auth(
-        self, mock_extract, org_handler, mock_http_handler
-    ):
+    def test_accept_requires_auth(self, mock_extract, org_handler, mock_http_handler):
         """Test accept requires authentication."""
         mock_extract.return_value = MagicMock(is_authenticated=False)
         org_handler.ctx = {"user_store": MagicMock()}
         mock_http_handler.command = "POST"
 
         result = org_handler.handle(
-            "/api/invitations/token-abc/accept",
-            {},
-            mock_http_handler,
-            method="POST"
+            "/api/invitations/token-abc/accept", {}, mock_http_handler, method="POST"
         )
 
         assert result.status_code == 401
 
     @patch(JWT_AUTH_PATH)
     def test_accept_wrong_email(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, member_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, member_user
     ):
         """Test cannot accept invitation for different email."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=member_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=member_user.id)
         mock_user_store.get_user_by_id.return_value = member_user
         member_user.org_id = None  # User has no org
 
@@ -1039,10 +836,7 @@ class TestAcceptInvitation:
         mock_http_handler.command = "POST"
 
         result = org_handler.handle(
-            f"/api/invitations/{invitation.token}/accept",
-            {},
-            mock_http_handler,
-            method="POST"
+            f"/api/invitations/{invitation.token}/accept", {}, mock_http_handler, method="POST"
         )
 
         assert result.status_code == 403
@@ -1050,14 +844,10 @@ class TestAcceptInvitation:
 
     @patch(JWT_AUTH_PATH)
     def test_accept_already_in_org(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, member_user
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, member_user
     ):
         """Test cannot accept if already in an org."""
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=member_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=member_user.id)
         mock_user_store.get_user_by_id.return_value = member_user
 
         invitation = OrganizationInvitation(
@@ -1072,10 +862,7 @@ class TestAcceptInvitation:
         mock_http_handler.command = "POST"
 
         result = org_handler.handle(
-            f"/api/invitations/{invitation.token}/accept",
-            {},
-            mock_http_handler,
-            method="POST"
+            f"/api/invitations/{invitation.token}/accept", {}, mock_http_handler, method="POST"
         )
 
         assert result.status_code == 400
@@ -1083,16 +870,12 @@ class TestAcceptInvitation:
 
     @patch(JWT_AUTH_PATH)
     def test_accept_invitation_success(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, member_user, sample_org
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, member_user, sample_org
     ):
         """Test successful invitation acceptance."""
         member_user.org_id = None  # User has no org
 
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=member_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=member_user.id)
         mock_user_store.get_user_by_id.return_value = member_user
         mock_user_store.get_organization_by_id.return_value = sample_org
         mock_user_store.get_org_members.return_value = []
@@ -1111,10 +894,7 @@ class TestAcceptInvitation:
         mock_http_handler.command = "POST"
 
         result = org_handler.handle(
-            f"/api/invitations/{invitation.token}/accept",
-            {},
-            mock_http_handler,
-            method="POST"
+            f"/api/invitations/{invitation.token}/accept", {}, mock_http_handler, method="POST"
         )
 
         assert result.status_code == 200
@@ -1131,34 +911,23 @@ class TestPendingInvitations:
     """Tests for user's pending invitations endpoint."""
 
     @patch(JWT_AUTH_PATH)
-    def test_get_pending_requires_auth(
-        self, mock_extract, org_handler, mock_http_handler
-    ):
+    def test_get_pending_requires_auth(self, mock_extract, org_handler, mock_http_handler):
         """Test getting pending invitations requires auth."""
         mock_extract.return_value = MagicMock(is_authenticated=False)
         org_handler.ctx = {"user_store": MagicMock()}
 
-        result = org_handler.handle(
-            "/api/invitations/pending",
-            {},
-            mock_http_handler,
-            method="GET"
-        )
+        result = org_handler.handle("/api/invitations/pending", {}, mock_http_handler, method="GET")
 
         assert result.status_code == 401
 
     @patch(JWT_AUTH_PATH)
     def test_get_pending_success(
-        self, mock_extract, org_handler, mock_http_handler,
-        mock_user_store, member_user, sample_org
+        self, mock_extract, org_handler, mock_http_handler, mock_user_store, member_user, sample_org
     ):
         """Test getting pending invitations."""
         member_user.org_id = None
 
-        mock_extract.return_value = MagicMock(
-            is_authenticated=True,
-            user_id=member_user.id
-        )
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id=member_user.id)
         mock_user_store.get_user_by_id.return_value = member_user
         mock_user_store.get_organization_by_id.return_value = sample_org
 
@@ -1173,16 +942,11 @@ class TestPendingInvitations:
 
         org_handler.ctx = {"user_store": mock_user_store}
 
-        result = org_handler.handle(
-            "/api/invitations/pending",
-            {},
-            mock_http_handler,
-            method="GET"
-        )
+        result = org_handler.handle("/api/invitations/pending", {}, mock_http_handler, method="GET")
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["count"] == 1
         assert body["invitations"][0]["org_name"] == "Test Organization"
-

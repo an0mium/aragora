@@ -39,14 +39,20 @@ _EXPORTS = {
     "set_debate_executor": ("aragora.server.stream.state_manager", "set_debate_executor"),
     "get_debate_executor_lock": ("aragora.server.stream.state_manager", "get_debate_executor_lock"),
     "cleanup_stale_debates": ("aragora.server.stream.state_manager", "cleanup_stale_debates"),
-    "increment_cleanup_counter": ("aragora.server.stream.state_manager", "increment_cleanup_counter"),
+    "increment_cleanup_counter": (
+        "aragora.server.stream.state_manager",
+        "increment_cleanup_counter",
+    ),
     # Arena hooks
     "create_arena_hooks": ("aragora.server.stream.arena_hooks", "create_arena_hooks"),
     "wrap_agent_for_streaming": ("aragora.server.stream.arena_hooks", "wrap_agent_for_streaming"),
     # Gauntlet streaming
     "GauntletStreamEmitter": ("aragora.server.stream.gauntlet_emitter", "GauntletStreamEmitter"),
     "GauntletPhase": ("aragora.server.stream.gauntlet_emitter", "GauntletPhase"),
-    "create_gauntlet_emitter": ("aragora.server.stream.gauntlet_emitter", "create_gauntlet_emitter"),
+    "create_gauntlet_emitter": (
+        "aragora.server.stream.gauntlet_emitter",
+        "create_gauntlet_emitter",
+    ),
     # Broadcaster
     "BroadcasterConfig": ("aragora.server.stream.broadcaster", "BroadcasterConfig"),
     "ClientManager": ("aragora.server.stream.broadcaster", "ClientManager"),
@@ -61,7 +67,10 @@ _EXPORTS = {
     "AiohttpUnifiedServer": ("aragora.server.stream.servers", "AiohttpUnifiedServer"),
     "DEBATE_AVAILABLE": ("aragora.server.stream.servers", "DEBATE_AVAILABLE"),
     # Backward compatibility
-    "_cleanup_stale_debates_stream": ("aragora.server.stream.servers", "_cleanup_stale_debates_stream"),
+    "_cleanup_stale_debates_stream": (
+        "aragora.server.stream.servers",
+        "_cleanup_stale_debates_stream",
+    ),
     "_wrap_agent_for_streaming": ("aragora.server.stream.servers", "_wrap_agent_for_streaming"),
     "_active_debates": ("aragora.server.stream.state_manager", "_active_debates"),
     "_active_debates_lock": ("aragora.server.stream.state_manager", "_active_debates_lock"),

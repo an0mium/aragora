@@ -33,7 +33,7 @@ result = await arena.run()
 POST /api/debates
 {
   "task": "Should we migrate to Kubernetes?",
-  "agents": ["claude", "gpt4"],
+  "agents": ["anthropic-api", "openai-api"],
   "protocol": {
     "rounds": 5,
     "enable_trickster": true
@@ -120,7 +120,7 @@ positions are converging without sufficient evidence backing.
 
 ### Evidence Gaps by Agent:
 - **claude**: Missing citations, specificity
-- **gpt4**: Missing reasoning, evidence_diversity
+- **openai-api**: Missing reasoning, evidence_diversity
 
 ### Before Proceeding:
 1. Provide specific citations or data sources
@@ -137,7 +137,7 @@ Assigns the `QUALITY_CHALLENGER` cognitive role to an agent:
 
 ```python
 role = trickster.get_quality_challenger_assignment(
-    agent_name="claude",
+    agent_name="anthropic-api",
     round_num=3
 )
 # Agent receives special prompt to challenge evidence quality
@@ -153,7 +153,7 @@ When cross-proposal analysis finds unsupported claims:
 Multiple agents are making claims **without supporting evidence**.
 Before reaching consensus, please address these gaps:
 
-- **Claim by claude, gpt4**: "Microservices improve scalability..."
+- **Claim by claude, openai-api**: "Microservices improve scalability..."
   → No evidence provided by any agent
 
 ### Required Actions:
@@ -196,7 +196,7 @@ in previous rounds. The debate risks converging to mediocrity.
 
 ### Agents Needing Fresh Perspectives:
 - **claude**: Novelty 35% (below threshold)
-- **gpt4**: Novelty 42% (below threshold)
+- **openai-api**: Novelty 42% (below threshold)
 
 ### To Increase Novelty:
 1. Consider angles you haven't explored yet

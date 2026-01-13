@@ -556,26 +556,30 @@ class TestPolicyEngine:
     def registry(self):
         """Create a tool registry with test tools."""
         registry = ToolRegistry()
-        registry.register(Tool(
-            name="file_writer",
-            description="Write files",
-            category=ToolCategory.WRITE,
-            capabilities=[
-                ToolCapability("read_file", "Read", RiskLevel.NONE, BlastRadius.READ_ONLY),
-                ToolCapability("write_file", "Write", RiskLevel.MEDIUM, BlastRadius.LOCAL),
-                ToolCapability("delete_file", "Delete", RiskLevel.HIGH, BlastRadius.LOCAL),
-            ],
-        ))
-        registry.register(Tool(
-            name="git",
-            description="Git operations",
-            category=ToolCategory.EXECUTE,
-            capabilities=[
-                ToolCapability("git_status", "Status", RiskLevel.NONE, BlastRadius.READ_ONLY),
-                ToolCapability("git_commit", "Commit", RiskLevel.MEDIUM, BlastRadius.LOCAL),
-                ToolCapability("git_push", "Push", RiskLevel.HIGH, BlastRadius.SHARED),
-            ],
-        ))
+        registry.register(
+            Tool(
+                name="file_writer",
+                description="Write files",
+                category=ToolCategory.WRITE,
+                capabilities=[
+                    ToolCapability("read_file", "Read", RiskLevel.NONE, BlastRadius.READ_ONLY),
+                    ToolCapability("write_file", "Write", RiskLevel.MEDIUM, BlastRadius.LOCAL),
+                    ToolCapability("delete_file", "Delete", RiskLevel.HIGH, BlastRadius.LOCAL),
+                ],
+            )
+        )
+        registry.register(
+            Tool(
+                name="git",
+                description="Git operations",
+                category=ToolCategory.EXECUTE,
+                capabilities=[
+                    ToolCapability("git_status", "Status", RiskLevel.NONE, BlastRadius.READ_ONLY),
+                    ToolCapability("git_commit", "Commit", RiskLevel.MEDIUM, BlastRadius.LOCAL),
+                    ToolCapability("git_push", "Push", RiskLevel.HIGH, BlastRadius.SHARED),
+                ],
+            )
+        )
         return registry
 
     @pytest.fixture
@@ -605,13 +609,15 @@ class TestPolicyEngine:
 
     def test_check_action_denied_by_policy(self, engine):
         """Should deny actions blocked by policy."""
-        engine.add_policy(Policy(
-            name="block_delete",
-            description="Block all deletes",
-            capabilities=["delete_file"],
-            allow=False,
-            priority=100,
-        ))
+        engine.add_policy(
+            Policy(
+                name="block_delete",
+                description="Block all deletes",
+                capabilities=["delete_file"],
+                allow=False,
+                priority=100,
+            )
+        )
 
         result = engine.check_action("agent", "file_writer", "delete_file")
         assert result.decision == PolicyDecision.DENY
@@ -620,13 +626,15 @@ class TestPolicyEngine:
 
     def test_check_action_escalate_by_policy(self, engine):
         """Should escalate actions requiring approval."""
-        engine.add_policy(Policy(
-            name="approve_push",
-            description="Require approval for push",
-            capabilities=["git_push"],
-            require_human_approval=True,
-            priority=100,
-        ))
+        engine.add_policy(
+            Policy(
+                name="approve_push",
+                description="Require approval for push",
+                capabilities=["git_push"],
+                require_human_approval=True,
+                priority=100,
+            )
+        )
 
         result = engine.check_action("agent", "git", "git_push")
         assert result.decision == PolicyDecision.ESCALATE
@@ -642,8 +650,7 @@ class TestPolicyEngine:
 
         # write_file has cost > 1
         result = engine.check_action(
-            "agent", "file_writer", "write_file",
-            session_id="test_session"
+            "agent", "file_writer", "write_file", session_id="test_session"
         )
         assert result.decision == PolicyDecision.BUDGET_EXCEEDED
         assert result.allowed is False
@@ -653,10 +660,7 @@ class TestPolicyEngine:
         budget = engine.get_budget("test_session")
         initial_remaining = budget.remaining
 
-        engine.check_action(
-            "agent", "file_writer", "write_file",
-            session_id="test_session"
-        )
+        engine.check_action("agent", "file_writer", "write_file", session_id="test_session")
 
         assert budget.remaining < initial_remaining
 
@@ -694,10 +698,7 @@ class TestPolicyEngine:
 
     def test_get_session_summary(self, engine):
         """Should provide session summary."""
-        engine.check_action(
-            "agent", "file_writer", "write_file",
-            session_id="test_session"
-        )
+        engine.check_action("agent", "file_writer", "write_file", session_id="test_session")
 
         summary = engine.get_session_summary("test_session")
         assert summary["session_id"] == "test_session"
@@ -706,13 +707,15 @@ class TestPolicyEngine:
 
     def test_policy_risk_multiplier(self, engine):
         """Policy risk multiplier should affect cost calculation."""
-        engine.add_policy(Policy(
-            name="dangerous_agent",
-            description="Risky agent",
-            agents=["risky_agent"],
-            risk_multiplier=2.0,
-            priority=100,
-        ))
+        engine.add_policy(
+            Policy(
+                name="dangerous_agent",
+                description="Risky agent",
+                agents=["risky_agent"],
+                risk_multiplier=2.0,
+                priority=100,
+            )
+        )
 
         # Check a normal agent first
         result1 = engine.check_action("normal_agent", "file_writer", "write_file")
@@ -757,16 +760,16 @@ class TestDefaultPolicies:
         assert policy.allow is False
 
         # Should match core.py
-        assert policy.matches(
-            "agent", "file_writer", "write_file",
-            {"file_path": "aragora/core.py"}
-        ) is True
+        assert (
+            policy.matches("agent", "file_writer", "write_file", {"file_path": "aragora/core.py"})
+            is True
+        )
 
         # Should not match other files
-        assert policy.matches(
-            "agent", "file_writer", "write_file",
-            {"file_path": "aragora/utils.py"}
-        ) is False
+        assert (
+            policy.matches("agent", "file_writer", "write_file", {"file_path": "aragora/utils.py"})
+            is False
+        )
 
     def test_require_approval_for_push(self):
         """Should have policy requiring approval for git push."""
@@ -792,14 +795,16 @@ class TestPolicyEngineIntegration:
         """Test a complete policy evaluation workflow."""
         # Create registry with tools
         registry = ToolRegistry()
-        registry.register(Tool(
-            name="code_editor",
-            description="Edit code files",
-            category=ToolCategory.WRITE,
-            capabilities=[
-                ToolCapability("edit_file", "Edit", RiskLevel.MEDIUM, BlastRadius.LOCAL),
-            ],
-        ))
+        registry.register(
+            Tool(
+                name="code_editor",
+                description="Edit code files",
+                category=ToolCategory.WRITE,
+                capabilities=[
+                    ToolCapability("edit_file", "Edit", RiskLevel.MEDIUM, BlastRadius.LOCAL),
+                ],
+            )
+        )
 
         # Create engine with custom budget
         engine = PolicyEngine(
@@ -808,13 +813,15 @@ class TestPolicyEngineIntegration:
         )
 
         # Add a policy
-        engine.add_policy(Policy(
-            name="trusted_agents",
-            description="Trusted agents get lower risk",
-            agents=["trusted"],
-            risk_multiplier=0.5,
-            priority=50,
-        ))
+        engine.add_policy(
+            Policy(
+                name="trusted_agents",
+                description="Trusted agents get lower risk",
+                agents=["trusted"],
+                risk_multiplier=0.5,
+                priority=50,
+            )
+        )
 
         # Check actions
         result1 = engine.check_action("trusted", "code_editor", "edit_file", session_id="s1")
@@ -829,16 +836,18 @@ class TestPolicyEngineIntegration:
     def test_budget_exhaustion(self):
         """Test that budget exhaustion properly blocks actions."""
         registry = ToolRegistry()
-        registry.register(Tool(
-            name="expensive_tool",
-            description="Expensive operations",
-            category=ToolCategory.EXECUTE,
-            cost_multiplier=3.0,  # 3x cost
-            capabilities=[
-                # Cost = HIGH(3) * (SHARED(3) + 1) * 3.0 = 36
-                ToolCapability("run", "Run", RiskLevel.HIGH, BlastRadius.SHARED),
-            ],
-        ))
+        registry.register(
+            Tool(
+                name="expensive_tool",
+                description="Expensive operations",
+                category=ToolCategory.EXECUTE,
+                cost_multiplier=3.0,  # 3x cost
+                capabilities=[
+                    # Cost = HIGH(3) * (SHARED(3) + 1) * 3.0 = 36
+                    ToolCapability("run", "Run", RiskLevel.HIGH, BlastRadius.SHARED),
+                ],
+            )
+        )
 
         engine = PolicyEngine(
             tool_registry=registry,

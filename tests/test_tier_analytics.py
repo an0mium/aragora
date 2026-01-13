@@ -31,6 +31,7 @@ from aragora.memory.tier_manager import MemoryTier
 # TierStats Tests
 # ============================================================================
 
+
 class TestTierStats:
     """Tests for TierStats dataclass."""
 
@@ -87,6 +88,7 @@ class TestTierStats:
 # MemoryUsageEvent Tests
 # ============================================================================
 
+
 class TestMemoryUsageEvent:
     """Tests for MemoryUsageEvent."""
 
@@ -133,6 +135,7 @@ class TestMemoryUsageEvent:
 # TierMovement Tests
 # ============================================================================
 
+
 class TestTierMovement:
     """Tests for TierMovement."""
 
@@ -175,6 +178,7 @@ class TestTierMovement:
 # ============================================================================
 # MemoryAnalytics Tests
 # ============================================================================
+
 
 class TestMemoryAnalytics:
     """Tests for MemoryAnalytics."""
@@ -222,6 +226,7 @@ class TestMemoryAnalytics:
 # TierAnalyticsTracker Tests
 # ============================================================================
 
+
 class TestTierAnalyticsTracker:
     """Tests for TierAnalyticsTracker."""
 
@@ -235,9 +240,7 @@ class TestTierAnalyticsTracker:
         """Initialization should create required tables."""
         with sqlite3.connect(str(tracker.db_path)) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = {row[0] for row in cursor.fetchall()}
 
         assert "memory_usage" in tables
@@ -261,7 +264,7 @@ class TestTierAnalyticsTracker:
 
         assert len(rows) == 1
         assert rows[0][1] == "mem-1"  # memory_id
-        assert rows[0][2] == "fast"   # tier
+        assert rows[0][2] == "fast"  # tier
 
     def test_record_usage_deduplicates(self, tracker):
         """Should not duplicate same memory/debate combination."""
@@ -303,9 +306,9 @@ class TestTierAnalyticsTracker:
             rows = cursor.fetchall()
 
         assert len(rows) == 1
-        assert rows[0][1] == "mem-1"      # memory_id
-        assert rows[0][2] == "fast"       # from_tier
-        assert rows[0][3] == "medium"     # to_tier
+        assert rows[0][1] == "mem-1"  # memory_id
+        assert rows[0][2] == "fast"  # from_tier
+        assert rows[0][3] == "medium"  # to_tier
         assert rows[0][4] == "promotion"  # reason
 
     def test_get_tier_stats_empty(self, tracker):
@@ -357,9 +360,7 @@ class TestTierAnalyticsTracker:
     def test_get_promotion_effectiveness_positive(self, tracker):
         """Should calculate effectiveness from usage data."""
         # Record promotion
-        tracker.record_tier_movement(
-            "mem-1", MemoryTier.FAST, MemoryTier.MEDIUM, "promotion"
-        )
+        tracker.record_tier_movement("mem-1", MemoryTier.FAST, MemoryTier.MEDIUM, "promotion")
 
         # Record positive usage after promotion
         tracker.record_usage(
@@ -465,9 +466,7 @@ class TestTierAnalyticsTracker:
             quality_before=0.5,
             quality_after=0.7,
         )
-        tracker.record_tier_movement(
-            "mem-1", MemoryTier.FAST, MemoryTier.MEDIUM, "promotion"
-        )
+        tracker.record_tier_movement("mem-1", MemoryTier.FAST, MemoryTier.MEDIUM, "promotion")
 
         analytics = tracker.get_analytics(days=30)
 
@@ -513,6 +512,7 @@ class TestTierAnalyticsTracker:
 # ============================================================================
 # Edge Case Tests
 # ============================================================================
+
 
 class TestTierAnalyticsEdgeCases:
     """Tests for edge cases and error handling."""

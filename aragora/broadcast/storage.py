@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Pattern for valid debate IDs (alphanumeric, hyphens, underscores only)
-VALID_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+VALID_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 # Allowed audio formats (whitelist)
 ALLOWED_AUDIO_FORMATS = frozenset(["mp3", "wav", "m4a", "ogg", "flac", "aac"])
@@ -34,15 +34,15 @@ MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024  # 100 MB
 # Audio file magic bytes for validation
 # Format: magic_bytes -> (format_name, offset)
 AUDIO_MAGIC_BYTES = {
-    b'\xff\xfb': "mp3",           # MP3 frame sync
-    b'\xff\xfa': "mp3",           # MP3 frame sync (alt)
-    b'\xff\xf3': "mp3",           # MP3 frame sync (alt)
-    b'\xff\xf2': "mp3",           # MP3 frame sync (alt)
-    b'ID3': "mp3",                # MP3 with ID3 tag
-    b'RIFF': "wav",               # WAV container
-    b'fLaC': "flac",              # FLAC
-    b'OggS': "ogg",               # Ogg container
-    b'\x00\x00\x00': "m4a",       # M4A/AAC (partial - needs ftyp check)
+    b"\xff\xfb": "mp3",  # MP3 frame sync
+    b"\xff\xfa": "mp3",  # MP3 frame sync (alt)
+    b"\xff\xf3": "mp3",  # MP3 frame sync (alt)
+    b"\xff\xf2": "mp3",  # MP3 frame sync (alt)
+    b"ID3": "mp3",  # MP3 with ID3 tag
+    b"RIFF": "wav",  # WAV container
+    b"fLaC": "flac",  # FLAC
+    b"OggS": "ogg",  # Ogg container
+    b"\x00\x00\x00": "m4a",  # M4A/AAC (partial - needs ftyp check)
 }
 
 
@@ -70,12 +70,12 @@ def _validate_audio_magic(data: bytes, claimed_format: str) -> bool:
 
     # M4A/AAC special case - check for 'ftyp' at offset 4
     if claimed_format in ("m4a", "aac"):
-        if data[4:8] == b'ftyp':
+        if data[4:8] == b"ftyp":
             return True
 
     # WAV special case - verify WAVE identifier
-    if claimed_format == "wav" and data[:4] == b'RIFF':
-        if data[8:12] == b'WAVE':
+    if claimed_format == "wav" and data[:4] == b"RIFF":
+        if data[8:12] == b"WAVE":
             return True
 
     # Allow if we couldn't detect (some formats are tricky)
@@ -186,7 +186,7 @@ class AudioFileStore:
             return None
 
         # Validate format as well
-        if not re.match(r'^[a-zA-Z0-9]+$', format):
+        if not re.match(r"^[a-zA-Z0-9]+$", format):
             logger.warning(f"Invalid format rejected: {format!r}")
             return None
 
@@ -248,7 +248,9 @@ class AudioFileStore:
         # Validate format against whitelist
         format_lower = format.lower()
         if format_lower not in ALLOWED_AUDIO_FORMATS:
-            logger.error(f"Rejected audio format '{format}': not in whitelist {ALLOWED_AUDIO_FORMATS}")
+            logger.error(
+                f"Rejected audio format '{format}': not in whitelist {ALLOWED_AUDIO_FORMATS}"
+            )
             return None
 
         dest_path = self._audio_path(debate_id, format_lower)
@@ -330,7 +332,9 @@ class AudioFileStore:
         # Validate format against whitelist
         format_lower = format.lower()
         if format_lower not in ALLOWED_AUDIO_FORMATS:
-            logger.error(f"Rejected audio format '{format}': not in whitelist {ALLOWED_AUDIO_FORMATS}")
+            logger.error(
+                f"Rejected audio format '{format}': not in whitelist {ALLOWED_AUDIO_FORMATS}"
+            )
             return None
 
         # Validate size
@@ -479,15 +483,17 @@ class AudioFileStore:
                 # Verify audio file exists
                 debate_id = data.get("debate_id")
                 if debate_id and self.get_path(debate_id):
-                    results.append({
-                        "debate_id": debate_id,
-                        "filename": data.get("filename"),
-                        "format": data.get("format", "mp3"),
-                        "duration_seconds": data.get("duration_seconds"),
-                        "file_size_bytes": data.get("file_size_bytes"),
-                        "generated_at": data.get("generated_at"),
-                        "task_summary": data.get("task_summary", "")[:100],
-                    })
+                    results.append(
+                        {
+                            "debate_id": debate_id,
+                            "filename": data.get("filename"),
+                            "format": data.get("format", "mp3"),
+                            "duration_seconds": data.get("duration_seconds"),
+                            "file_size_bytes": data.get("file_size_bytes"),
+                            "generated_at": data.get("generated_at"),
+                            "task_summary": data.get("task_summary", "")[:100],
+                        }
+                    )
             except (json.JSONDecodeError, KeyError) as e:
                 logger.warning(f"Failed to read metadata {metadata_path}: {e}")
                 continue

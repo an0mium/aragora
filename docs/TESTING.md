@@ -21,6 +21,30 @@ pytest tests/test_debate_convergence_comprehensive.py::TestJaccardBackend
 pytest tests/test_debate_convergence_comprehensive.py::TestJaccardBackend::test_identical_texts
 ```
 
+## Test Tiers
+
+Use `scripts/test_tiers.sh` for common tiers:
+
+| Tier | Command | Notes |
+|------|---------|-------|
+| `fast` | `scripts/test_tiers.sh fast` | Skip slow/load/e2e for rapid feedback |
+| `ci` | `scripts/test_tiers.sh ci` | Mirrors the main CI test run |
+| `lint` | `scripts/test_tiers.sh lint` | Black + Ruff checks |
+| `typecheck` | `scripts/test_tiers.sh typecheck` | Mypy checks |
+| `frontend` | `scripts/test_tiers.sh frontend` | Jest/RTL in `aragora/live` |
+| `e2e` | `scripts/test_tiers.sh e2e` | Playwright E2E in `aragora/live` |
+
+## CI Mapping
+
+CI workflows and what they cover:
+
+| Workflow | Purpose |
+|----------|---------|
+| `.github/workflows/test.yml` | Pytest matrix + smoke tests + frontend build |
+| `.github/workflows/lint.yml` | Black, Ruff, mypy, ESLint, Bandit |
+| `.github/workflows/e2e.yml` | Full Playwright E2E against a local backend |
+| `.github/workflows/load-tests.yml` | Scheduled load tests and memory checks |
+
 ## Test Organization
 
 ```

@@ -205,9 +205,9 @@ class CodeReader:
         except OSError as e:
             raise OSError(f"Failed to read file {path}: {e}") from e
 
-        content_lines = lines[start_line - 1:end_line]
-        before_lines = lines[max(0, start_line - 1 - context_lines):start_line - 1]
-        after_lines = lines[end_line:end_line + context_lines]
+        content_lines = lines[start_line - 1 : end_line]
+        before_lines = lines[max(0, start_line - 1 - context_lines) : start_line - 1]
+        after_lines = lines[end_line : end_line + context_lines]
 
         return CodeSpan(
             file_path=str(path.relative_to(self.root)),
@@ -238,6 +238,7 @@ class CodeReader:
 
     def get_file_tree(self, max_depth: int = 3) -> dict:
         """Get directory tree structure."""
+
         def build_tree(path: Path, depth: int) -> dict:
             if depth > max_depth:
                 return {"...": "..."}
@@ -315,7 +316,7 @@ class CodeReader:
 
         if lang == "python":
             # Look for __all__
-            match = re.search(r'__all__\s*=\s*\[(.*?)\]', content, re.DOTALL)
+            match = re.search(r"__all__\s*=\s*\[(.*?)\]", content, re.DOTALL)
             if match:
                 exports = re.findall(r'["\'](\w+)["\']', match.group(1))
 
@@ -327,10 +328,12 @@ class CodeReader:
         lang = self._detect_language(path)
 
         if lang == "python":
-            for match in re.finditer(r'^(?:async\s+)?def\s+(\w+)', content, re.MULTILINE):
+            for match in re.finditer(r"^(?:async\s+)?def\s+(\w+)", content, re.MULTILINE):
                 functions.append(match.group(1))
         elif lang in ("javascript", "typescript"):
-            for match in re.finditer(r'(?:function|const|let|var)\s+(\w+)\s*(?:=\s*(?:async\s*)?\(|[\(<])', content):
+            for match in re.finditer(
+                r"(?:function|const|let|var)\s+(\w+)\s*(?:=\s*(?:async\s*)?\(|[\(<])", content
+            ):
                 functions.append(match.group(1))
 
         return functions[:50]
@@ -341,10 +344,10 @@ class CodeReader:
         lang = self._detect_language(path)
 
         if lang == "python":
-            for match in re.finditer(r'^class\s+(\w+)', content, re.MULTILINE):
+            for match in re.finditer(r"^class\s+(\w+)", content, re.MULTILINE):
                 classes.append(match.group(1))
         elif lang in ("javascript", "typescript"):
-            for match in re.finditer(r'class\s+(\w+)', content):
+            for match in re.finditer(r"class\s+(\w+)", content):
                 classes.append(match.group(1))
 
         return classes[:30]
@@ -486,7 +489,7 @@ class CodeWriter:
             batch_size = 100
             syntax_failed = False
             for i in range(0, len(py_files), batch_size):
-                batch = py_files[i:i + batch_size]
+                batch = py_files[i : i + batch_size]
                 result = subprocess.run(
                     ["python", "-m", "py_compile"] + [str(p) for p in batch],
                     cwd=self.root,

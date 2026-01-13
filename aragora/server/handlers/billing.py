@@ -58,6 +58,7 @@ _billing_limiter = RateLimiter(requests_per_minute=20)
 def _is_duplicate_webhook(event_id: str) -> bool:
     """Check if webhook event was already processed."""
     from aragora.storage.webhook_store import get_webhook_store
+
     store = get_webhook_store()
     return store.is_processed(event_id)
 
@@ -65,6 +66,7 @@ def _is_duplicate_webhook(event_id: str) -> bool:
 def _mark_webhook_processed(event_id: str, result: str = "success") -> None:
     """Mark webhook event as processed."""
     from aragora.storage.webhook_store import get_webhook_store
+
     store = get_webhook_store()
     store.mark_processed(event_id, result)
 
@@ -208,7 +210,10 @@ class BillingHandler(BaseHandler):
             "debates_limit": 10,
             "debates_remaining": 10,
             "tokens_used": 0,
+            "tokens_in": 0,
+            "tokens_out": 0,
             "estimated_cost_usd": 0.0,
+            "cost_breakdown": None,
             "period_start": None,
             "period_end": None,
         }
@@ -223,12 +228,28 @@ class BillingHandler(BaseHandler):
         if usage_tracker and db_user.org_id:
             summary = usage_tracker.get_summary(
                 org_id=db_user.org_id,
-                start_time=org.billing_cycle_start if org else None,
+                period_start=org.billing_cycle_start if org else None,
             )
             if summary:
-                usage_data["tokens_used"] = summary.total_tokens
-                usage_data["estimated_cost_usd"] = float(summary.total_cost)
-                usage_data["debates_by_provider"] = summary.by_provider
+                usage_data["tokens_used"] = summary.total_tokens_in + summary.total_tokens_out
+                usage_data["tokens_in"] = summary.total_tokens_in
+                usage_data["tokens_out"] = summary.total_tokens_out
+                usage_data["estimated_cost_usd"] = float(summary.total_cost_usd)
+
+                # Calculate cost breakdown by token type
+                # Using simplified pricing model (average across providers)
+                input_cost = (summary.total_tokens_in / 1_000_000) * 2.0  # ~$2/M input
+                output_cost = (summary.total_tokens_out / 1_000_000) * 8.0  # ~$8/M output
+                usage_data["cost_breakdown"] = {
+                    "input_cost": round(input_cost, 4),
+                    "output_cost": round(output_cost, 4),
+                    "total": round(float(summary.total_cost_usd), 2),
+                }
+
+                # Provider breakdown
+                usage_data["cost_by_provider"] = {
+                    k: str(v) for k, v in summary.cost_by_provider.items()
+                }
 
         return json_response({"usage": usage_data})
 
@@ -281,23 +302,15 @@ class BillingHandler(BaseHandler):
                         subscription_data["current_period_end"] = (
                             stripe_sub.current_period_end.isoformat()
                         )
-                        subscription_data["cancel_at_period_end"] = (
-                            stripe_sub.cancel_at_period_end
-                        )
+                        subscription_data["cancel_at_period_end"] = stripe_sub.cancel_at_period_end
                         # Include trial information
                         if stripe_sub.trial_start:
-                            subscription_data["trial_start"] = (
-                                stripe_sub.trial_start.isoformat()
-                            )
+                            subscription_data["trial_start"] = stripe_sub.trial_start.isoformat()
                         if stripe_sub.trial_end:
-                            subscription_data["trial_end"] = (
-                                stripe_sub.trial_end.isoformat()
-                            )
+                            subscription_data["trial_end"] = stripe_sub.trial_end.isoformat()
                         subscription_data["is_trialing"] = stripe_sub.is_trialing
                         # Check for payment failures (past_due status)
-                        subscription_data["payment_failed"] = (
-                            stripe_sub.status == "past_due"
-                        )
+                        subscription_data["payment_failed"] = stripe_sub.status == "past_due"
                 except StripeError as e:
                     # Log Stripe errors but continue with partial subscription data
                     # This allows the endpoint to degrade gracefully when Stripe is unavailable
@@ -374,9 +387,7 @@ class BillingHandler(BaseHandler):
                 },
             )
 
-            logger.info(
-                f"Created checkout session {session.id} for user {db_user.email}"
-            )
+            logger.info(f"Created checkout session {session.id} for user {db_user.email}")
 
             return json_response({"checkout": session.to_dict()})
 
@@ -452,8 +463,11 @@ class BillingHandler(BaseHandler):
         user_agent = None
         if handler:
             from aragora.server.middleware.auth import extract_client_ip
+
             ip_address = extract_client_ip(handler)
-            user_agent = handler.headers.get("User-Agent", "")[:200] if hasattr(handler, "headers") else None
+            user_agent = (
+                handler.headers.get("User-Agent", "")[:200] if hasattr(handler, "headers") else None
+            )
 
         try:
             user_store.log_audit_event(
@@ -493,9 +507,7 @@ class BillingHandler(BaseHandler):
 
         # Check if audit logs are enabled for this tier
         if not org.limits.audit_logs:
-            return error_response(
-                "Audit logs require Enterprise tier", 403
-            )
+            return error_response("Audit logs require Enterprise tier", 403)
 
         # Only admins/owners can view audit logs
         if auth_ctx.role not in ("owner", "admin"):
@@ -521,12 +533,14 @@ class BillingHandler(BaseHandler):
             resource_type="subscription",
         )
 
-        return json_response({
-            "entries": entries,
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "entries": entries,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     @handle_errors("export usage CSV")
     def _export_usage_csv(self, handler) -> HandlerResult:
@@ -575,17 +589,17 @@ class BillingHandler(BaseHandler):
         # Build CSV
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow([
-            "Date", "Event Type", "Count", "Metadata"
-        ])
+        writer.writerow(["Date", "Event Type", "Count", "Metadata"])
 
         for row in usage_events:
-            writer.writerow([
-                row[5],  # created_at
-                row[2],  # event_type
-                row[3],  # count
-                row[4],  # metadata
-            ])
+            writer.writerow(
+                [
+                    row[5],  # created_at
+                    row[2],  # event_type
+                    row[3],  # count
+                    row[4],  # metadata
+                ]
+            )
 
         # Add summary row
         writer.writerow([])
@@ -667,6 +681,7 @@ class BillingHandler(BaseHandler):
         # Suggest tier upgrade if hitting limits
         tier_recommendation = None
         from aragora.billing.models import SubscriptionTier, TIER_LIMITS
+
         if will_hit_limit and org.tier != SubscriptionTier.ENTERPRISE:
             # Find next tier
             tier_order = [
@@ -684,25 +699,27 @@ class BillingHandler(BaseHandler):
                     "price_monthly": f"${TIER_LIMITS[next_tier].price_monthly_cents / 100:.2f}",
                 }
 
-        return json_response({
-            "forecast": {
-                "current_usage": {
-                    "debates": org.debates_used_this_month,
-                    "debates_limit": org.limits.debates_per_month,
+        return json_response(
+            {
+                "forecast": {
+                    "current_usage": {
+                        "debates": org.debates_used_this_month,
+                        "debates_limit": org.limits.debates_per_month,
+                    },
+                    "projection": {
+                        "debates_end_of_cycle": projected_debates,
+                        "debates_per_day": round(debates_per_day, 2),
+                        "tokens_per_day": int(tokens_per_day),
+                        "cost_end_of_cycle_usd": round(projected_cost, 2),
+                    },
+                    "days_remaining": days_remaining,
+                    "days_elapsed": days_elapsed,
+                    "will_hit_limit": will_hit_limit,
+                    "debates_overage": debates_overage,
+                    "tier_recommendation": tier_recommendation,
                 },
-                "projection": {
-                    "debates_end_of_cycle": projected_debates,
-                    "debates_per_day": round(debates_per_day, 2),
-                    "tokens_per_day": int(tokens_per_day),
-                    "cost_end_of_cycle_usd": round(projected_cost, 2),
-                },
-                "days_remaining": days_remaining,
-                "days_elapsed": days_elapsed,
-                "will_hit_limit": will_hit_limit,
-                "debates_overage": debates_overage,
-                "tier_recommendation": tier_recommendation,
-            },
-        })
+            }
+        )
 
     @handle_errors("get invoices")
     def _get_invoices(self, handler) -> HandlerResult:
@@ -736,19 +753,29 @@ class BillingHandler(BaseHandler):
 
             invoices = []
             for inv in invoices_data:
-                invoices.append({
-                    "id": inv.get("id"),
-                    "number": inv.get("number"),
-                    "status": inv.get("status"),
-                    "amount_due": inv.get("amount_due", 0) / 100,
-                    "amount_paid": inv.get("amount_paid", 0) / 100,
-                    "currency": inv.get("currency", "usd").upper(),
-                    "created": datetime.fromtimestamp(inv.get("created", 0)).isoformat(),
-                    "period_start": datetime.fromtimestamp(inv.get("period_start", 0)).isoformat() if inv.get("period_start") else None,
-                    "period_end": datetime.fromtimestamp(inv.get("period_end", 0)).isoformat() if inv.get("period_end") else None,
-                    "hosted_invoice_url": inv.get("hosted_invoice_url"),
-                    "invoice_pdf": inv.get("invoice_pdf"),
-                })
+                invoices.append(
+                    {
+                        "id": inv.get("id"),
+                        "number": inv.get("number"),
+                        "status": inv.get("status"),
+                        "amount_due": inv.get("amount_due", 0) / 100,
+                        "amount_paid": inv.get("amount_paid", 0) / 100,
+                        "currency": inv.get("currency", "usd").upper(),
+                        "created": datetime.fromtimestamp(inv.get("created", 0)).isoformat(),
+                        "period_start": (
+                            datetime.fromtimestamp(inv.get("period_start", 0)).isoformat()
+                            if inv.get("period_start")
+                            else None
+                        ),
+                        "period_end": (
+                            datetime.fromtimestamp(inv.get("period_end", 0)).isoformat()
+                            if inv.get("period_end")
+                            else None
+                        ),
+                        "hosted_invoice_url": inv.get("hosted_invoice_url"),
+                        "invoice_pdf": inv.get("invoice_pdf"),
+                    }
+                )
 
             return json_response({"invoices": invoices})
 
@@ -792,10 +819,7 @@ class BillingHandler(BaseHandler):
                 at_period_end=True,  # Cancel at end of period, not immediately
             )
 
-            logger.info(
-                f"Subscription canceled for org {org.id} "
-                f"(user: {db_user.email})"
-            )
+            logger.info(f"Subscription canceled for org {org.id} " f"(user: {db_user.email})")
 
             # Log audit event
             self._log_audit(
@@ -1087,6 +1111,8 @@ class BillingHandler(BaseHandler):
 
     def _handle_invoice_paid(self, event, user_store) -> HandlerResult:
         """Handle invoice.payment_succeeded event."""
+        from aragora.billing.payment_recovery import get_recovery_store
+
         invoice = event.object
         customer_id = invoice.get("customer")
         subscription_id = invoice.get("subscription")
@@ -1104,16 +1130,27 @@ class BillingHandler(BaseHandler):
                 user_store.reset_org_usage(org.id)
                 logger.info(f"Reset usage for org {org.id} after invoice payment")
 
+                # Mark any active payment failure as recovered
+                recovery_store = get_recovery_store()
+                if recovery_store.mark_recovered(org.id):
+                    logger.info(f"Payment recovered for org {org.id}")
+
         return json_response({"received": True})
 
     def _handle_invoice_failed(self, event, user_store) -> HandlerResult:
-        """Handle invoice.payment_failed event."""
+        """Handle invoice.payment_failed event.
+
+        Records failure in recovery store and sends escalating notifications.
+        Auto-downgrade is handled by background job checking grace periods.
+        """
         from aragora.billing.notifications import get_billing_notifier
+        from aragora.billing.payment_recovery import get_recovery_store
 
         invoice = event.object
         customer_id = invoice.get("customer")
         subscription_id = invoice.get("subscription")
         attempt_count = invoice.get("attempt_count", 1)
+        invoice_id = invoice.get("id")
         hosted_invoice_url = invoice.get("hosted_invoice_url")
 
         logger.warning(
@@ -1121,35 +1158,60 @@ class BillingHandler(BaseHandler):
             f"subscription={subscription_id}, attempt={attempt_count}"
         )
 
-        # Send notification to organization owner
+        # Record failure and get tracking info
+        failure = None
         if user_store and customer_id:
             org = user_store.get_organization_by_stripe_customer(customer_id)
             if org:
-                # Get owner email
+                # Record in payment recovery store
+                recovery_store = get_recovery_store()
+                failure = recovery_store.record_failure(
+                    org_id=org.id,
+                    stripe_customer_id=customer_id,
+                    stripe_subscription_id=subscription_id,
+                    invoice_id=invoice_id,
+                    invoice_url=hosted_invoice_url,
+                )
+
+                logger.info(
+                    f"Payment failure recorded for org {org.id}: "
+                    f"attempt={failure.attempt_count}, "
+                    f"days_failing={failure.days_failing}, "
+                    f"days_until_downgrade={failure.days_until_downgrade}"
+                )
+
+                # Send notification to organization owner
                 owner = user_store.get_organization_owner(org.id)
                 if owner and owner.email:
                     notifier = get_billing_notifier()
+
+                    # Escalate notification severity based on attempt count
                     result = notifier.notify_payment_failed(
                         org_id=org.id,
                         org_name=org.name,
                         email=owner.email,
-                        attempt_count=attempt_count,
+                        attempt_count=failure.attempt_count,
                         invoice_url=hosted_invoice_url,
+                        days_until_downgrade=failure.days_until_downgrade,
                     )
                     logger.info(
                         f"Payment failure notification sent to {owner.email}: "
                         f"method={result.method}, success={result.success}"
                     )
 
-                # After multiple failed attempts, consider downgrading
-                # Stripe typically retries 3-4 times over ~3 weeks
-                if attempt_count >= 3:
+                # Log warning if nearing grace period end
+                if failure.days_until_downgrade <= 3:
                     logger.warning(
-                        f"Org {org.id} has repeated payment failures, "
-                        f"consider downgrade after grace period"
+                        f"Org {org.id} payment grace period ending soon: "
+                        f"{failure.days_until_downgrade} days until auto-downgrade"
                     )
 
-        return json_response({"received": True})
+        return json_response(
+            {
+                "received": True,
+                "failure_tracked": failure is not None,
+            }
+        )
 
 
 __all__ = ["BillingHandler"]

@@ -59,7 +59,7 @@ class RetryPolicy:
             Delay in seconds before next retry
         """
         # Calculate exponential delay
-        delay = self.base_delay_seconds * (self.exponential_base ** attempt)
+        delay = self.base_delay_seconds * (self.exponential_base**attempt)
 
         # Cap at maximum
         delay = min(delay, self.max_delay_seconds)

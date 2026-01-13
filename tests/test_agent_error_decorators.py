@@ -408,9 +408,7 @@ class TestHandleAgentErrorsDecorator:
                 return f"Response to: {prompt}"
 
         agent = MockAgent()
-        result = asyncio.get_event_loop().run_until_complete(
-            agent.generate("Hello")
-        )
+        result = asyncio.get_event_loop().run_until_complete(agent.generate("Hello"))
         assert result == "Response to: Hello"
 
     def test_records_success_to_circuit_breaker(self, mock_circuit_breaker):

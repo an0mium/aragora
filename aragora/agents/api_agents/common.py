@@ -54,8 +54,8 @@ DEFAULT_REQUEST_TIMEOUT = 120.0
 def _get_connection_limits() -> tuple[int, int]:
     """Get connection limits from settings or defaults."""
     settings = get_settings()
-    per_host = getattr(settings.agent, 'connections_per_host', DEFAULT_CONNECTIONS_PER_HOST)
-    total = getattr(settings.agent, 'total_connections', DEFAULT_TOTAL_CONNECTIONS)
+    per_host = getattr(settings.agent, "connections_per_host", DEFAULT_CONNECTIONS_PER_HOST)
+    total = getattr(settings.agent, "total_connections", DEFAULT_TOTAL_CONNECTIONS)
     return per_host, total
 
 
@@ -86,9 +86,7 @@ def get_shared_connector() -> aiohttp.TCPConnector:
                 ttl_dns_cache=300,  # Cache DNS for 5 minutes
                 enable_cleanup_closed=True,  # Clean up closed connections
             )
-            logger.debug(
-                f"Created shared TCP connector: limit={total}, per_host={per_host}"
-            )
+            logger.debug(f"Created shared TCP connector: limit={total}, per_host={per_host}")
         return _shared_connector
 
 
@@ -156,6 +154,7 @@ def _get_stream_buffer_size() -> int:
     """Get max stream buffer size from settings."""
     return get_settings().agent.stream_buffer_size
 
+
 MAX_STREAM_BUFFER_SIZE = 10 * 1024 * 1024  # Default fallback, use _get_stream_buffer_size()
 
 
@@ -188,7 +187,7 @@ def calculate_retry_delay(
         attempt=3: ~8s (5.6-10.4s)
     """
     # Calculate base exponential delay
-    delay = min(base_delay * (2 ** attempt), max_delay)
+    delay = min(base_delay * (2**attempt), max_delay)
 
     # Apply random jitter: delay ± (jitter_factor * delay)
     jitter = delay * jitter_factor * random.uniform(-1, 1)
@@ -202,6 +201,7 @@ def calculate_retry_delay(
 def _get_stream_chunk_timeout() -> float:
     """Get stream chunk timeout from settings."""
     return get_settings().agent.stream_chunk_timeout
+
 
 STREAM_CHUNK_TIMEOUT = 30.0  # Default fallback, use _get_stream_chunk_timeout()
 
@@ -238,10 +238,7 @@ async def iter_chunks_with_timeout(
     async_iter = response_content.iter_any().__aiter__()
     while True:
         try:
-            chunk = await asyncio.wait_for(
-                async_iter.__anext__(),
-                timeout=chunk_timeout
-            )
+            chunk = await asyncio.wait_for(async_iter.__anext__(), timeout=chunk_timeout)
             yield chunk
         except StopAsyncIteration:
             break
@@ -293,8 +290,12 @@ class SSEStreamParser:
         """
         self.content_extractor = content_extractor
         self.done_marker = done_marker
-        self.max_buffer_size = max_buffer_size if max_buffer_size is not None else _get_stream_buffer_size()
-        self.chunk_timeout = chunk_timeout if chunk_timeout is not None else _get_stream_chunk_timeout()
+        self.max_buffer_size = (
+            max_buffer_size if max_buffer_size is not None else _get_stream_buffer_size()
+        )
+        self.chunk_timeout = (
+            chunk_timeout if chunk_timeout is not None else _get_stream_chunk_timeout()
+        )
 
     async def parse_stream(
         self,
@@ -318,22 +319,21 @@ class SSEStreamParser:
         buffer = ""
         try:
             async for chunk in iter_chunks_with_timeout(response_content, self.chunk_timeout):
-                buffer += chunk.decode('utf-8', errors='ignore')
+                buffer += chunk.decode("utf-8", errors="ignore")
 
                 # DoS protection: prevent unbounded buffer growth
                 if len(buffer) > self.max_buffer_size:
                     raise AgentStreamError(
-                        agent_name=agent_name,
-                        message="Streaming buffer exceeded maximum size"
+                        agent_name=agent_name, message="Streaming buffer exceeded maximum size"
                     )
 
                 # Process complete SSE lines
-                while '\n' in buffer:
-                    line, buffer = buffer.split('\n', 1)
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
                     line = line.strip()
 
                     # Skip empty lines and non-data lines
-                    if not line or not line.startswith('data: '):
+                    if not line or not line.startswith("data: "):
                         continue
 
                     data_str = line[6:]  # Remove 'data: ' prefix
@@ -346,7 +346,9 @@ class SSEStreamParser:
                     try:
                         event = json.loads(data_str)
                         if not isinstance(event, dict):
-                            logger.debug(f"[{agent_name}] Unexpected JSON type: {type(event).__name__}")
+                            logger.debug(
+                                f"[{agent_name}] Unexpected JSON type: {type(event).__name__}"
+                            )
                             continue
                         content = self.content_extractor(event)
                         if content:
@@ -362,42 +364,43 @@ class SSEStreamParser:
         except aiohttp.ClientError as e:
             logger.warning(f"[{agent_name}] Streaming connection error: {e}")
             raise AgentConnectionError(
-                agent_name=agent_name,
-                reason=f"Streaming connection error: {e}"
+                agent_name=agent_name, reason=f"Streaming connection error: {e}"
             ) from e
 
 
 # Pre-configured parsers for common providers
 def create_openai_sse_parser() -> SSEStreamParser:
     """Create an SSE parser configured for OpenAI API responses."""
+
     def extract_openai_content(event: dict) -> str:
-        choices = event.get('choices')
+        choices = event.get("choices")
         if not choices or not isinstance(choices, list) or len(choices) == 0:
-            return ''
+            return ""
         first_choice = choices[0]
         if not isinstance(first_choice, dict):
-            return ''
-        delta = first_choice.get('delta')
+            return ""
+        delta = first_choice.get("delta")
         if not isinstance(delta, dict):
-            return ''
-        content = delta.get('content', '')
-        return content if isinstance(content, str) else ''
+            return ""
+        content = delta.get("content", "")
+        return content if isinstance(content, str) else ""
 
     return SSEStreamParser(content_extractor=extract_openai_content)
 
 
 def create_anthropic_sse_parser() -> SSEStreamParser:
     """Create an SSE parser configured for Anthropic API responses."""
+
     def extract_anthropic_content(event: dict) -> str:
-        if event.get('type') != 'content_block_delta':
-            return ''
-        delta = event.get('delta')
+        if event.get("type") != "content_block_delta":
+            return ""
+        delta = event.get("delta")
         if not isinstance(delta, dict):
-            return ''
-        if delta.get('type') != 'text_delta':
-            return ''
-        text = delta.get('text', '')
-        return text if isinstance(text, str) else ''
+            return ""
+        if delta.get("type") != "text_delta":
+            return ""
+        text = delta.get("text", "")
+        return text if isinstance(text, str) else ""
 
     return SSEStreamParser(content_extractor=extract_anthropic_content)
 

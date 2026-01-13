@@ -101,7 +101,7 @@ REASON: <brief explanation>"""
 
         try:
             response = await self.generate_fn(judge, prompt, context[-5:])
-            lines = str(response).strip().split('\n')
+            lines = str(response).strip().split("\n")
 
             conclusive = False
             reason = ""
@@ -166,7 +166,7 @@ Respond with only: CONTINUE or STOP
             # Use wait_for for Python 3.10 compatibility (asyncio.timeout is 3.11+)
             results = await asyncio.wait_for(
                 asyncio.gather(*tasks, return_exceptions=True),
-                timeout=self.protocol.round_timeout_seconds
+                timeout=self.protocol.round_timeout_seconds,
             )
         except asyncio.TimeoutError:
             # Timeout during early stopping check - continue debate (safe default)
@@ -218,9 +218,7 @@ Respond with only: CONTINUE or STOP
             - (False, "") means continue
         """
         # Check judge termination first
-        should_continue, reason = await self.check_judge_termination(
-            round_num, proposals, context
-        )
+        should_continue, reason = await self.check_judge_termination(round_num, proposals, context)
         if not should_continue:
             return True, reason
 

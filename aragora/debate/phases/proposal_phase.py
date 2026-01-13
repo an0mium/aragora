@@ -104,9 +104,7 @@ class ProposalPhase:
 
         # 2. Log debate start
         agent_names = [a.name for a in ctx.agents]
-        logger.info(
-            f"debate_start task={ctx.env.task[:80]} agents={agent_names}"
-        )
+        logger.info(f"debate_start task={ctx.env.task[:80]} agents={agent_names}")
 
         # 3. Emit debate start event
         self._emit_debate_start(ctx)
@@ -200,9 +198,7 @@ class ProposalPhase:
 
         try:
             # Use complexity-scaled timeout from governor
-            timeout = get_complexity_governor().get_scaled_timeout(
-                float(AGENT_TIMEOUT_SECONDS)
-            )
+            timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
             if self._with_timeout:
                 result = await self._with_timeout(
                     self._generate_with_agent(agent, prompt, ctx.context_messages),
@@ -210,9 +206,7 @@ class ProposalPhase:
                     timeout_seconds=timeout,
                 )
             else:
-                result = await self._generate_with_agent(
-                    agent, prompt, ctx.context_messages
-                )
+                result = await self._generate_with_agent(agent, prompt, ctx.context_messages)
             return (agent, result)
         except Exception as e:
             return (agent, e)
@@ -226,17 +220,14 @@ class ProposalPhase:
         is_error = isinstance(result_or_error, Exception)
 
         if is_error:
-            logger.error(
-                f"agent_error agent={agent.name} phase=proposal error={result_or_error}"
-            )
+            logger.error(f"agent_error agent={agent.name} phase=proposal error={result_or_error}")
             ctx.proposals[agent.name] = f"[Error generating proposal: {result_or_error}]"
             if self.circuit_breaker:
                 self.circuit_breaker.record_failure(agent.name)
         else:
             ctx.proposals[agent.name] = result_or_error
             logger.info(
-                f"agent_complete agent={agent.name} phase=proposal "
-                f"chars={len(result_or_error)}"
+                f"agent_complete agent={agent.name} phase=proposal " f"chars={len(result_or_error)}"
             )
             if self.circuit_breaker:
                 self.circuit_breaker.record_success(agent.name)
@@ -272,9 +263,7 @@ class ProposalPhase:
             except Exception as e:
                 logger.debug(f"Recorder error for proposal: {e}")
 
-    def _record_positions(
-        self, ctx: "DebateContext", agent: "Agent", proposal: str
-    ) -> None:
+    def _record_positions(self, ctx: "DebateContext", agent: "Agent", proposal: str) -> None:
         """Record positions for truth-grounded personas."""
         debate_id = ctx.debate_id or ctx.env.task[:50]
 

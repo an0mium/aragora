@@ -35,6 +35,7 @@ from aragora.server.handlers.base import HandlerResult
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def handler(handler_context):
     """Create a DebatesHandler instance with mock context."""
@@ -55,7 +56,12 @@ def sample_debate():
             {"agent": "claude", "content": "Addressing concerns", "role": "proposer", "round": 2},
         ],
         "critiques": [
-            {"agent": "gemini", "target": "claude", "severity": 0.5, "reasoning": "Missing details"},
+            {
+                "agent": "gemini",
+                "target": "claude",
+                "severity": 0.5,
+                "reasoning": "Missing details",
+            },
         ],
         "votes": [
             {"agent": "claude", "choice": "accept", "confidence": 0.8, "reasoning": "Looks good"},
@@ -84,6 +90,7 @@ def mock_handler_request():
 # =============================================================================
 # Route Handling Tests
 # =============================================================================
+
 
 class TestCanHandle:
     """Tests for route matching."""
@@ -138,6 +145,7 @@ class TestCanHandle:
 # =============================================================================
 # Authentication Tests
 # =============================================================================
+
 
 class TestAuthentication:
     """Tests for authentication checks."""
@@ -207,17 +215,22 @@ class TestAuthentication:
 # List and Search Debates Tests
 # =============================================================================
 
+
 class TestListDebates:
     """Tests for listing debates via handle() method."""
 
     @patch("aragora.server.auth.auth_config")
-    def test_list_debates_success(self, mock_auth_config, handler, mock_storage, mock_handler_request):
+    def test_list_debates_success(
+        self, mock_auth_config, handler, mock_storage, mock_handler_request
+    ):
         """Test listing debates returns expected data via handle()."""
         mock_auth_config.enabled = False
-        mock_storage.list_recent = Mock(return_value=[
-            {"id": "d1", "task": "Task 1"},
-            {"id": "d2", "task": "Task 2"},
-        ])
+        mock_storage.list_recent = Mock(
+            return_value=[
+                {"id": "d1", "task": "Task 1"},
+                {"id": "d2", "task": "Task 2"},
+            ]
+        )
 
         # Use handle() which is the public interface
         result = handler.handle("/api/debates", {"limit": "20"}, mock_handler_request)
@@ -228,12 +241,16 @@ class TestListDebates:
         assert len(body["debates"]) == 2
 
     @patch("aragora.server.auth.auth_config")
-    def test_list_debates_respects_limit(self, mock_auth_config, handler, mock_storage, mock_handler_request):
+    def test_list_debates_respects_limit(
+        self, mock_auth_config, handler, mock_storage, mock_handler_request
+    ):
         """Test listing debates respects limit parameter."""
         mock_auth_config.enabled = False
-        mock_storage.list_recent = Mock(return_value=[
-            {"id": "d1", "task": "Task 1"},
-        ])
+        mock_storage.list_recent = Mock(
+            return_value=[
+                {"id": "d1", "task": "Task 1"},
+            ]
+        )
 
         result = handler.handle("/api/debates", {"limit": "5"}, mock_handler_request)
 
@@ -246,7 +263,9 @@ class TestSearchDebates:
     """Tests for searching debates via handle() method."""
 
     @patch("aragora.server.auth.auth_config")
-    def test_search_debates_with_query(self, mock_auth_config, handler, mock_storage, mock_handler_request):
+    def test_search_debates_with_query(
+        self, mock_auth_config, handler, mock_storage, mock_handler_request
+    ):
         """Test searching debates with a query."""
         mock_auth_config.enabled = False
         mock_storage.search = Mock(return_value=([{"id": "d1", "task": "Match"}], 1))
@@ -259,12 +278,16 @@ class TestSearchDebates:
         assert body["total"] == 1
 
     @patch("aragora.server.auth.auth_config")
-    def test_search_debates_empty_query(self, mock_auth_config, handler, mock_storage, mock_handler_request):
+    def test_search_debates_empty_query(
+        self, mock_auth_config, handler, mock_storage, mock_handler_request
+    ):
         """Test searching with empty query returns list."""
         mock_auth_config.enabled = False
-        mock_storage.list_recent = Mock(return_value=[
-            {"id": "d1", "task": "Task 1"},
-        ])
+        mock_storage.list_recent = Mock(
+            return_value=[
+                {"id": "d1", "task": "Task 1"},
+            ]
+        )
 
         result = handler.handle("/api/search", {"q": ""}, mock_handler_request)
 
@@ -273,12 +296,16 @@ class TestSearchDebates:
         assert body["query"] == ""
 
     @patch("aragora.server.auth.auth_config")
-    def test_search_debates_pagination(self, mock_auth_config, handler, mock_storage, mock_handler_request):
+    def test_search_debates_pagination(
+        self, mock_auth_config, handler, mock_storage, mock_handler_request
+    ):
         """Test search pagination."""
         mock_auth_config.enabled = False
         mock_storage.search = Mock(return_value=([{"id": "d1"}], 50))
 
-        result = handler.handle("/api/search", {"q": "test", "limit": "10", "offset": "20"}, mock_handler_request)
+        result = handler.handle(
+            "/api/search", {"q": "test", "limit": "10", "offset": "20"}, mock_handler_request
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -290,6 +317,7 @@ class TestSearchDebates:
 # =============================================================================
 # Get Debate Tests
 # =============================================================================
+
 
 class TestGetDebateBySlug:
     """Tests for getting debate by slug."""
@@ -317,19 +345,22 @@ class TestGetDebateBySlug:
 # Analysis Endpoints Tests
 # =============================================================================
 
+
 class TestImpasseDetection:
     """Tests for impasse detection endpoint."""
 
     def test_impasse_detected(self, handler, mock_storage, mock_handler_request):
         """Test impasse is detected when indicators are present."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "consensus_reached": False,
-            "critiques": [
-                {"severity": 0.9},
-                {"severity": 0.8},
-            ],
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "consensus_reached": False,
+                "critiques": [
+                    {"severity": 0.9},
+                    {"severity": 0.8},
+                ],
+            }
+        )
 
         result = handler._get_impasse(mock_handler_request, "d1")
 
@@ -340,11 +371,13 @@ class TestImpasseDetection:
 
     def test_no_impasse(self, handler, mock_storage, mock_handler_request):
         """Test no impasse when consensus reached."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "consensus_reached": True,
-            "critiques": [],
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "consensus_reached": True,
+                "critiques": [],
+            }
+        )
 
         result = handler._get_impasse(mock_handler_request, "d1")
 
@@ -390,13 +423,15 @@ class TestVerificationReport:
 
     def test_verification_with_results(self, handler, mock_storage, mock_handler_request):
         """Test verification report with results."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "winner": "claude",
-            "consensus_reached": True,
-            "verification_results": {"claude": 3, "gemini": 2},
-            "verification_bonuses": {"claude": 0.15, "gemini": 0.10},
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "winner": "claude",
+                "consensus_reached": True,
+                "verification_results": {"claude": 3, "gemini": 2},
+                "verification_bonuses": {"claude": 0.15, "gemini": 0.10},
+            }
+        )
 
         result = handler._get_verification_report(mock_handler_request, "d1")
 
@@ -408,10 +443,12 @@ class TestVerificationReport:
 
     def test_verification_without_results(self, handler, mock_storage, mock_handler_request):
         """Test verification report without results."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "consensus_reached": False,
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "consensus_reached": False,
+            }
+        )
 
         result = handler._get_verification_report(mock_handler_request, "d1")
 
@@ -424,16 +461,20 @@ class TestSummary:
     """Tests for summary endpoint."""
 
     @patch("aragora.debate.summarizer.summarize_debate")
-    def test_summary_success(self, mock_summarize, handler, mock_storage, sample_debate, mock_handler_request):
+    def test_summary_success(
+        self, mock_summarize, handler, mock_storage, sample_debate, mock_handler_request
+    ):
         """Test getting debate summary."""
         mock_storage.get_debate = Mock(return_value=sample_debate)
 
         mock_summary = Mock()
-        mock_summary.to_dict = Mock(return_value={
-            "verdict": "Claude's proposal was accepted",
-            "key_points": ["Testing is important"],
-            "confidence": 0.85,
-        })
+        mock_summary.to_dict = Mock(
+            return_value={
+                "verdict": "Claude's proposal was accepted",
+                "key_points": ["Testing is important"],
+                "confidence": 0.85,
+            }
+        )
         mock_summarize.return_value = mock_summary
 
         result = handler._get_summary(mock_handler_request, "debate-123")
@@ -456,6 +497,7 @@ class TestSummary:
 # Export Tests
 # =============================================================================
 
+
 class TestExportDebate:
     """Tests for export endpoints."""
 
@@ -470,7 +512,9 @@ class TestExportDebate:
         assert body["id"] == "debate-123"
 
     @patch("aragora.server.debate_export.format_debate_csv")
-    def test_export_csv(self, mock_format_csv, handler, mock_storage, sample_debate, mock_handler_request):
+    def test_export_csv(
+        self, mock_format_csv, handler, mock_storage, sample_debate, mock_handler_request
+    ):
         """Test CSV export."""
         mock_storage.get_debate = Mock(return_value=sample_debate)
 
@@ -486,7 +530,9 @@ class TestExportDebate:
         assert result.content_type == "text/csv"
 
     @patch("aragora.server.debate_export.format_debate_html")
-    def test_export_html(self, mock_format_html, handler, mock_storage, sample_debate, mock_handler_request):
+    def test_export_html(
+        self, mock_format_html, handler, mock_storage, sample_debate, mock_handler_request
+    ):
         """Test HTML export."""
         mock_storage.get_debate = Mock(return_value=sample_debate)
 
@@ -520,21 +566,26 @@ class TestExportDebate:
 # Citations and Evidence Tests
 # =============================================================================
 
+
 class TestCitations:
     """Tests for citations endpoint."""
 
     def test_citations_with_data(self, handler, mock_storage, mock_handler_request):
         """Test getting citations with grounded verdict."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "grounded_verdict": json.dumps({
-                "grounding_score": 0.8,
-                "confidence": 0.9,
-                "claims": [{"claim": "Test claim", "evidence": ["Source 1"]}],
-                "all_citations": [{"source": "Source 1", "url": "http://example.com"}],
-                "verdict": "The claim is supported",
-            }),
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "grounded_verdict": json.dumps(
+                    {
+                        "grounding_score": 0.8,
+                        "confidence": 0.9,
+                        "claims": [{"claim": "Test claim", "evidence": ["Source 1"]}],
+                        "all_citations": [{"source": "Source 1", "url": "http://example.com"}],
+                        "verdict": "The claim is supported",
+                    }
+                ),
+            }
+        )
 
         result = handler._get_citations(mock_handler_request, "d1")
 
@@ -546,9 +597,11 @@ class TestCitations:
 
     def test_citations_no_data(self, handler, mock_storage, mock_handler_request):
         """Test getting citations without grounded verdict."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+            }
+        )
 
         result = handler._get_citations(mock_handler_request, "d1")
 
@@ -562,17 +615,21 @@ class TestEvidence:
 
     def test_evidence_with_data(self, handler, mock_storage, mock_handler_request):
         """Test getting evidence trail."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "task": "Test task",
-            "grounded_verdict": json.dumps({
-                "grounding_score": 0.85,
-                "confidence": 0.9,
-                "claims": [],
-                "all_citations": [],
-                "verdict": "Supported",
-            }),
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "task": "Test task",
+                "grounded_verdict": json.dumps(
+                    {
+                        "grounding_score": 0.85,
+                        "confidence": 0.9,
+                        "claims": [],
+                        "all_citations": [],
+                        "verdict": "Supported",
+                    }
+                ),
+            }
+        )
         # Mock continuum memory not being available
         handler.ctx["continuum_memory"] = None
 
@@ -596,6 +653,7 @@ class TestEvidence:
 # Messages Tests
 # =============================================================================
 
+
 class TestDebateMessages:
     """Tests for paginated messages endpoint."""
 
@@ -613,10 +671,12 @@ class TestDebateMessages:
 
     def test_messages_with_pagination(self, handler, mock_storage):
         """Test getting messages with pagination."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "messages": [{"content": f"msg{i}", "role": "proposer"} for i in range(100)],
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "messages": [{"content": f"msg{i}", "role": "proposer"} for i in range(100)],
+            }
+        )
 
         result = handler._get_debate_messages("d1", limit=10, offset=50)
 
@@ -640,12 +700,15 @@ class TestDebateMessages:
 # Meta Critique Tests
 # =============================================================================
 
+
 class TestMetaCritique:
     """Tests for meta critique endpoint."""
 
     @patch("aragora.debate.traces.DebateTrace")
     @patch("aragora.debate.meta.MetaCritiqueAnalyzer")
-    def test_meta_critique_success(self, mock_analyzer_class, mock_trace_class, handler, temp_nomic_dir):
+    def test_meta_critique_success(
+        self, mock_analyzer_class, mock_trace_class, handler, temp_nomic_dir
+    ):
         """Test getting meta critique analysis."""
         # Create trace file
         traces_dir = temp_nomic_dir / "traces"
@@ -696,12 +759,15 @@ class TestMetaCritique:
 # Graph Stats Tests
 # =============================================================================
 
+
 class TestGraphStats:
     """Tests for graph stats endpoint."""
 
     @patch("aragora.visualization.mapper.ArgumentCartographer")
     @patch("aragora.debate.traces.DebateTrace")
-    def test_graph_stats_success(self, mock_trace_class, mock_cartographer_class, handler, temp_nomic_dir):
+    def test_graph_stats_success(
+        self, mock_trace_class, mock_cartographer_class, handler, temp_nomic_dir
+    ):
         """Test getting graph statistics."""
         # Create trace file
         traces_dir = temp_nomic_dir / "traces"
@@ -746,16 +812,19 @@ class TestGraphStats:
 # PATCH Debate Tests
 # =============================================================================
 
+
 class TestPatchDebate:
     """Tests for updating debate metadata."""
 
     def test_patch_title(self, handler, mock_storage, mock_handler_request):
         """Test updating debate title."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "title": "Old Title",
-            "task": "Test task",
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "title": "Old Title",
+                "task": "Test task",
+            }
+        )
         mock_storage.save_debate = Mock()
 
         handler.read_json_body = Mock(return_value={"title": "New Title"})
@@ -770,10 +839,12 @@ class TestPatchDebate:
 
     def test_patch_tags(self, handler, mock_storage, mock_handler_request):
         """Test updating debate tags."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "tags": [],
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "tags": [],
+            }
+        )
         mock_storage.save_debate = Mock()
 
         handler.read_json_body = Mock(return_value={"tags": ["tag1", "tag2"]})
@@ -786,10 +857,12 @@ class TestPatchDebate:
 
     def test_patch_status(self, handler, mock_storage, mock_handler_request):
         """Test updating debate status."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "status": "active",
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "status": "active",
+            }
+        )
         mock_storage.save_debate = Mock()
 
         handler.read_json_body = Mock(return_value={"status": "concluded"})
@@ -841,20 +914,19 @@ class TestPatchDebate:
 # Fork Operations Tests
 # =============================================================================
 
+
 class TestForkDebate:
     """Tests for forking debates."""
 
     @patch("aragora.server.validation.validate_against_schema")
-    @patch.dict("sys.modules", {
-        "aragora.debate.counterfactual": MagicMock()
-    })
+    @patch.dict("sys.modules", {"aragora.debate.counterfactual": MagicMock()})
     def test_fork_success(
-        self, mock_validate,
-        handler, mock_storage, mock_handler_request, temp_nomic_dir
+        self, mock_validate, handler, mock_storage, mock_handler_request, temp_nomic_dir
     ):
         """Test successful debate fork."""
         # Create proper mock classes that produce serializable data
         import sys
+
         mock_counterfactual = sys.modules["aragora.debate.counterfactual"]
 
         # Mock PivotClaim to return a proper object with statement attribute
@@ -867,17 +939,21 @@ class TestForkDebate:
         mock_counterfactual.CounterfactualBranch.return_value = mock_branch
 
         mock_validate.return_value = Mock(is_valid=True)
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "messages": [
-                {"content": "msg1", "round": 1},
-                {"content": "msg2", "round": 2},
-            ],
-        })
-        handler.read_json_body = Mock(return_value={
-            "branch_point": 1,
-            "modified_context": "What if we tried approach B?",
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "messages": [
+                    {"content": "msg1", "round": 1},
+                    {"content": "msg2", "round": 2},
+                ],
+            }
+        )
+        handler.read_json_body = Mock(
+            return_value={
+                "branch_point": 1,
+                "modified_context": "What if we tried approach B?",
+            }
+        )
 
         result = handler._fork_debate(mock_handler_request, "d1")
 
@@ -896,7 +972,9 @@ class TestForkDebate:
         assert result.status_code == 400
 
     @patch("aragora.server.validation.validate_against_schema")
-    def test_fork_debate_not_found(self, mock_validate, handler, mock_storage, mock_handler_request):
+    def test_fork_debate_not_found(
+        self, mock_validate, handler, mock_storage, mock_handler_request
+    ):
         """Test fork for non-existent debate."""
         mock_validate.return_value = Mock(is_valid=True)
         mock_storage.get_debate = Mock(return_value=None)
@@ -907,13 +985,17 @@ class TestForkDebate:
         assert result.status_code == 404
 
     @patch("aragora.server.validation.validate_against_schema")
-    def test_fork_invalid_branch_point(self, mock_validate, handler, mock_storage, mock_handler_request):
+    def test_fork_invalid_branch_point(
+        self, mock_validate, handler, mock_storage, mock_handler_request
+    ):
         """Test fork with branch point exceeding message count."""
         mock_validate.return_value = Mock(is_valid=True)
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "messages": [{"content": "msg1"}],
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "messages": [{"content": "msg1"}],
+            }
+        )
         handler.read_json_body = Mock(return_value={"branch_point": 10})
 
         result = handler._fork_debate(mock_handler_request, "d1")
@@ -925,26 +1007,29 @@ class TestForkDebate:
 # Followup Operations Tests
 # =============================================================================
 
+
 class TestFollowupSuggestions:
     """Tests for followup suggestions endpoint."""
 
     @patch("aragora.uncertainty.estimator.DisagreementAnalyzer")
     def test_followup_suggestions_with_cruxes(self, mock_analyzer_class, handler, mock_storage):
         """Test getting followup suggestions when cruxes exist."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "agents": ["claude", "gemini"],
-            "uncertainty_metrics": {
-                "cruxes": [
-                    {
-                        "description": "Key disagreement",
-                        "agents": ["claude", "gemini"],
-                        "evidence_needed": "More data",
-                        "severity": 0.8,
-                    }
-                ]
-            },
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "agents": ["claude", "gemini"],
+                "uncertainty_metrics": {
+                    "cruxes": [
+                        {
+                            "description": "Key disagreement",
+                            "agents": ["claude", "gemini"],
+                            "evidence_needed": "More data",
+                            "severity": 0.8,
+                        }
+                    ]
+                },
+            }
+        )
 
         mock_suggestion = Mock()
         mock_suggestion.to_dict.return_value = {
@@ -964,13 +1049,15 @@ class TestFollowupSuggestions:
 
     def test_followup_suggestions_no_cruxes(self, handler, mock_storage):
         """Test followup suggestions when no cruxes are found."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "agents": ["claude", "gemini"],
-            "messages": [],
-            "votes": [],
-            "proposals": {},
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "agents": ["claude", "gemini"],
+                "messages": [],
+                "votes": [],
+                "proposals": {},
+            }
+        )
 
         # This test may need additional mocking depending on the analyzer behavior
         # For now, we test the structure
@@ -987,16 +1074,22 @@ class TestFollowupSuggestions:
 class TestCreateFollowup:
     """Tests for creating followup debates."""
 
-    def test_create_followup_with_custom_task(self, handler, mock_storage, mock_handler_request, temp_nomic_dir):
+    def test_create_followup_with_custom_task(
+        self, handler, mock_storage, mock_handler_request, temp_nomic_dir
+    ):
         """Test creating followup with custom task."""
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "agents": ["claude", "gemini"],
-        })
-        handler.read_json_body = Mock(return_value={
-            "task": "Custom followup task",
-            "agents": ["claude"],
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "agents": ["claude", "gemini"],
+            }
+        )
+        handler.read_json_body = Mock(
+            return_value={
+                "task": "Custom followup task",
+                "agents": ["claude"],
+            }
+        )
 
         result = handler._create_followup_debate(mock_handler_request, "d1")
 
@@ -1005,7 +1098,9 @@ class TestCreateFollowup:
         assert body["success"] is True
         assert body["task"] == "Custom followup task"
 
-    def test_create_followup_missing_task_and_crux(self, handler, mock_storage, mock_handler_request):
+    def test_create_followup_missing_task_and_crux(
+        self, handler, mock_storage, mock_handler_request
+    ):
         """Test creating followup without task or crux_id."""
         mock_storage.get_debate = Mock(return_value={"id": "d1"})
         handler.read_json_body = Mock(return_value={})
@@ -1028,6 +1123,7 @@ class TestCreateFollowup:
 # Verify Outcome Tests
 # =============================================================================
 
+
 class TestVerifyOutcome:
     """Tests for outcome verification endpoint."""
 
@@ -1035,10 +1131,12 @@ class TestVerifyOutcome:
         """Test verifying outcome when position tracker is available."""
         mock_tracker = Mock()
         handler.ctx["position_tracker"] = mock_tracker
-        handler.read_json_body = Mock(return_value={
-            "correct": True,
-            "source": "manual",
-        })
+        handler.read_json_body = Mock(
+            return_value={
+                "correct": True,
+                "source": "manual",
+            }
+        )
 
         result = handler._verify_outcome(mock_handler_request, "d1")
 
@@ -1060,6 +1158,7 @@ class TestVerifyOutcome:
 # =============================================================================
 # Handle Method Integration Tests
 # =============================================================================
+
 
 class TestHandleMethod:
     """Integration tests for the main handle method."""
@@ -1090,11 +1189,13 @@ class TestHandleMethod:
     def test_handle_impasse_dispatch(self, mock_auth, handler, mock_storage, mock_handler_request):
         """Test dispatching to impasse endpoint."""
         mock_auth.enabled = False
-        mock_storage.get_debate = Mock(return_value={
-            "id": "d1",
-            "consensus_reached": True,
-            "critiques": [],
-        })
+        mock_storage.get_debate = Mock(
+            return_value={
+                "id": "d1",
+                "consensus_reached": True,
+                "critiques": [],
+            }
+        )
         mock_storage.is_public = Mock(return_value=True)
 
         result = handler.handle("/api/debates/d1/impasse", {}, mock_handler_request)
@@ -1135,6 +1236,7 @@ class TestHandlePatch:
 # Error Handling Tests
 # =============================================================================
 
+
 class TestErrorHandling:
     """Tests for error handling."""
 
@@ -1161,11 +1263,14 @@ class TestErrorHandling:
 # Artifact Access Tests
 # =============================================================================
 
+
 class TestArtifactAccess:
     """Tests for artifact endpoint access control."""
 
     @patch("aragora.server.auth.auth_config")
-    def test_artifact_access_public_debate(self, mock_auth, handler, mock_storage, mock_handler_request):
+    def test_artifact_access_public_debate(
+        self, mock_auth, handler, mock_storage, mock_handler_request
+    ):
         """Test accessing artifacts from public debate without auth."""
         mock_auth.enabled = True
         mock_storage.is_public = Mock(return_value=True)
@@ -1175,7 +1280,9 @@ class TestArtifactAccess:
         assert result is None  # Access allowed
 
     @patch("aragora.server.auth.auth_config")
-    def test_artifact_access_private_debate_no_auth(self, mock_auth, handler, mock_storage, mock_handler_request):
+    def test_artifact_access_private_debate_no_auth(
+        self, mock_auth, handler, mock_storage, mock_handler_request
+    ):
         """Test accessing artifacts from private debate without auth."""
         mock_auth.enabled = True
         mock_auth.api_token = "secret"
@@ -1188,7 +1295,9 @@ class TestArtifactAccess:
         assert result is not None
         assert result.status_code == 401
 
-    def test_artifact_access_non_artifact_endpoint(self, handler, mock_storage, mock_handler_request):
+    def test_artifact_access_non_artifact_endpoint(
+        self, handler, mock_storage, mock_handler_request
+    ):
         """Test accessing non-artifact endpoint."""
         result = handler._check_artifact_access("d1", "/impasse", mock_handler_request)
 

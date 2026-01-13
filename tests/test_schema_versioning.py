@@ -87,7 +87,9 @@ class TestSchemaManager:
         assert manager.get_version() == 1
 
         # Table should exist
-        cursor = db_conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+        cursor = db_conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+        )
         assert cursor.fetchone() is not None
 
     def test_ensure_schema_already_current(self, db_conn):

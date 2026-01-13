@@ -84,7 +84,7 @@ class HybridExecutor:
         self,
         repo_path: Path,
         claude_timeout: int = 1200,  # 20 min - doubled from 600
-        codex_timeout: int = 1200,   # 20 min - doubled from 600
+        codex_timeout: int = 1200,  # 20 min - doubled from 600
         max_retries: int = 2,
     ):
         self.repo_path = repo_path
@@ -162,7 +162,11 @@ Make only the changes specified. Follow existing code style."""
 
     def _build_prompt(self, task: ImplementTask) -> str:
         """Build the implementation prompt for a task."""
-        files_str = "\n".join(f"- {f}" for f in task.files) if task.files else "- (determine from description)"
+        files_str = (
+            "\n".join(f"- {f}" for f in task.files)
+            if task.files
+            else "- (determine from description)"
+        )
 
         return TASK_PROMPT_TEMPLATE.format(
             description=task.description,
@@ -215,15 +219,21 @@ Make only the changes specified. Follow existing code style."""
             model_name = "codex-fallback"
             # Use 2x timeout for fallback
             agent.timeout = base_timeout * 2
-            logger.info(f"  Retry [{task.complexity}] {task.id} with {model_name} (attempt {attempt}, timeout {agent.timeout}s)...")
+            logger.info(
+                f"  Retry [{task.complexity}] {task.id} with {model_name} (attempt {attempt}, timeout {agent.timeout}s)..."
+            )
         else:
             agent, model_name = self._select_agent(task.complexity)
             # Scale timeout by attempt number
             agent.timeout = base_timeout * attempt
             if attempt > 1:
-                logger.info(f"  Retry [{task.complexity}] {task.id} with {model_name} (attempt {attempt}, timeout {agent.timeout}s)...")
+                logger.info(
+                    f"  Retry [{task.complexity}] {task.id} with {model_name} (attempt {attempt}, timeout {agent.timeout}s)..."
+                )
             else:
-                logger.info(f"  Executing [{task.complexity}] {task.id} with {model_name} (timeout {agent.timeout}s)...")
+                logger.info(
+                    f"  Executing [{task.complexity}] {task.id} with {model_name} (timeout {agent.timeout}s)..."
+                )
 
         prompt = self._build_prompt(task)
         start_time = time.time()
@@ -368,7 +378,9 @@ Make only the changes specified. Follow existing code style."""
 
                 # Already tried with retry, try one more time with max timeout
                 logger.info(f"  Final retry for {task.id}...")
-                result = await self.execute_task(task, attempt=self.max_retries + 1, use_fallback=True)
+                result = await self.execute_task(
+                    task, attempt=self.max_retries + 1, use_fallback=True
+                )
 
                 # Update results (replace the failed one)
                 for i, r in enumerate(results):
@@ -419,10 +431,7 @@ Make only the changes specified. Follow existing code style."""
 
         while remaining:
             # Find tasks with all dependencies met
-            ready = [
-                t for t in remaining
-                if all(dep in completed for dep in t.dependencies)
-            ]
+            ready = [t for t in remaining if all(dep in completed for dep in t.dependencies)]
 
             if not ready:
                 # Deadlock - remaining tasks have unmet dependencies
@@ -435,9 +444,9 @@ Make only the changes specified. Follow existing code style."""
             batch = ready[:max_parallel]
             logger.info(f"    Parallel batch: {[t.id for t in batch]}")
 
-            batch_results = await asyncio.gather(*[
-                self.execute_task_with_retry(t) for t in batch
-            ], return_exceptions=True)
+            batch_results = await asyncio.gather(
+                *[self.execute_task_with_retry(t) for t in batch], return_exceptions=True
+            )
 
             for task, result in zip(batch, batch_results):
                 # Handle exceptions from gather
@@ -453,7 +462,7 @@ Make only the changes specified. Follow existing code style."""
                 results.append(result)
                 remaining.remove(task)
 
-                if getattr(result, 'success', False):  # type: ignore[union-attr]
+                if getattr(result, "success", False):  # type: ignore[union-attr]
                     completed.add(task.id)
 
                 if on_task_complete:
@@ -461,7 +470,9 @@ Make only the changes specified. Follow existing code style."""
 
         return results  # type: ignore[return-value]
 
-    async def review_with_codex(self, diff: str, timeout: int = 2400) -> dict:  # 40 min - Codex is slow but thorough
+    async def review_with_codex(
+        self, diff: str, timeout: int = 2400
+    ) -> dict:  # 40 min - Codex is slow but thorough
         """
         Run Codex code review on implemented changes.
 

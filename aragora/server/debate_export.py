@@ -18,6 +18,7 @@ CSVWriter = Any
 @dataclass
 class ExportResult:
     """Result of export formatting."""
+
     content: bytes
     content_type: str
     filename: str
@@ -63,40 +64,46 @@ def _write_messages_csv(writer: CSVWriter, debate: dict) -> None:
     """Write messages timeline to CSV."""
     writer.writerow(["round", "agent", "role", "content", "timestamp"])
     for msg in debate.get("messages", []):
-        writer.writerow([
-            msg.get("round", ""),
-            msg.get("agent", ""),
-            msg.get("role", ""),
-            msg.get("content", "")[:1000],  # Truncate for CSV
-            msg.get("timestamp", ""),
-        ])
+        writer.writerow(
+            [
+                msg.get("round", ""),
+                msg.get("agent", ""),
+                msg.get("role", ""),
+                msg.get("content", "")[:1000],  # Truncate for CSV
+                msg.get("timestamp", ""),
+            ]
+        )
 
 
 def _write_critiques_csv(writer: CSVWriter, debate: dict) -> None:
     """Write critiques to CSV."""
     writer.writerow(["round", "critic", "target", "severity", "summary", "timestamp"])
     for critique in debate.get("critiques", []):
-        writer.writerow([
-            critique.get("round", ""),
-            critique.get("critic", ""),
-            critique.get("target", ""),
-            critique.get("severity", ""),
-            critique.get("summary", "")[:500],
-            critique.get("timestamp", ""),
-        ])
+        writer.writerow(
+            [
+                critique.get("round", ""),
+                critique.get("critic", ""),
+                critique.get("target", ""),
+                critique.get("severity", ""),
+                critique.get("summary", "")[:500],
+                critique.get("timestamp", ""),
+            ]
+        )
 
 
 def _write_votes_csv(writer: CSVWriter, debate: dict) -> None:
     """Write votes to CSV."""
     writer.writerow(["round", "voter", "choice", "reason", "timestamp"])
     for vote in debate.get("votes", []):
-        writer.writerow([
-            vote.get("round", ""),
-            vote.get("voter", ""),
-            vote.get("choice", ""),
-            vote.get("reason", "")[:500],
-            vote.get("timestamp", ""),
-        ])
+        writer.writerow(
+            [
+                vote.get("round", ""),
+                vote.get("voter", ""),
+                vote.get("choice", ""),
+                vote.get("reason", "")[:500],
+                vote.get("timestamp", ""),
+            ]
+        )
 
 
 def _write_summary_csv(writer: CSVWriter, debate: dict) -> None:
@@ -158,14 +165,16 @@ def _build_messages_html(messages: list, limit: int = 50) -> str:
         content = html.escape(msg.get("content", "")[:500])
         role = msg.get("role", "speaker")
         round_num = msg.get("round", 0)
-        html_parts.append(f'''
+        html_parts.append(
+            f"""
         <div class="message {role}">
             <div class="message-header">
                 <span class="agent">{agent}</span>
                 <span class="round">Round {round_num}</span>
             </div>
             <div class="message-content">{content}</div>
-        </div>''')
+        </div>"""
+        )
     return "".join(html_parts)
 
 
@@ -179,7 +188,7 @@ def _build_html_template(
     debate: dict,
 ) -> str:
     """Build complete HTML template."""
-    return f'''<!DOCTYPE html>
+    return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -315,4 +324,4 @@ def _build_html_template(
         </p>
     </div>
 </body>
-</html>'''
+</html>"""

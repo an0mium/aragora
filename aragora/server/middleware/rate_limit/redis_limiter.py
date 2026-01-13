@@ -39,13 +39,9 @@ except ImportError:
 
 # Redis rate limiter fail-open policy (SECURITY: default to fail-closed)
 # Set ARAGORA_RATE_LIMIT_FAIL_OPEN=true only in dev/testing
-RATE_LIMIT_FAIL_OPEN = (
-    os.environ.get("ARAGORA_RATE_LIMIT_FAIL_OPEN", "false").lower() == "true"
-)
+RATE_LIMIT_FAIL_OPEN = os.environ.get("ARAGORA_RATE_LIMIT_FAIL_OPEN", "false").lower() == "true"
 # Number of consecutive Redis failures before falling back to in-memory limiting
-REDIS_FAILURE_THRESHOLD = int(
-    os.environ.get("ARAGORA_REDIS_FAILURE_THRESHOLD", "3")
-)
+REDIS_FAILURE_THRESHOLD = int(os.environ.get("ARAGORA_REDIS_FAILURE_THRESHOLD", "3"))
 
 # Global Redis client (lazy-initialized)
 _redis_client: Optional["redis.Redis"] = None
@@ -74,6 +70,7 @@ def get_redis_client() -> Optional["redis.Redis"]:
     # Try centralized redis_config first (preferred)
     try:
         from aragora.server.redis_config import get_redis_client as get_shared_client
+
         shared_client = get_shared_client()
         if shared_client is not None:
             _redis_client = shared_client
@@ -222,14 +219,8 @@ class RedisRateLimiter:
         token: str | None = None,
     ) -> RateLimitResult:
         """Check if a request should be allowed."""
-        normalized_endpoint = (
-            normalize_rate_limit_path(endpoint) if endpoint else None
-        )
-        config = (
-            self.get_config(normalized_endpoint)
-            if normalized_endpoint
-            else RateLimitConfig()
-        )
+        normalized_endpoint = normalize_rate_limit_path(endpoint) if endpoint else None
+        config = self.get_config(normalized_endpoint) if normalized_endpoint else RateLimitConfig()
         if not config.enabled:
             return RateLimitResult(allowed=True, limit=0)
 
@@ -237,9 +228,7 @@ class RedisRateLimiter:
         safe_ip = sanitize_rate_limit_key_component(client_ip)
         safe_token = sanitize_rate_limit_key_component(token) if token else None
         safe_endpoint = (
-            sanitize_rate_limit_key_component(normalized_endpoint)
-            if normalized_endpoint
-            else None
+            sanitize_rate_limit_key_component(normalized_endpoint) if normalized_endpoint else None
         )
 
         # Determine the key based on config
@@ -286,11 +275,7 @@ class RedisRateLimiter:
         """Get rate limiter statistics including observability metrics."""
         with self._lock:
             total_requests = self._requests_allowed + self._requests_rejected
-            rejection_rate = (
-                self._requests_rejected / total_requests
-                if total_requests > 0
-                else 0.0
-            )
+            rejection_rate = self._requests_rejected / total_requests if total_requests > 0 else 0.0
             base_stats = {
                 "backend": "redis",
                 "configured_endpoints": list(self._endpoint_configs.keys()),

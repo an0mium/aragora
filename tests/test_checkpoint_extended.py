@@ -62,9 +62,25 @@ def sample_checkpoint():
         current_round=3,
         total_rounds=5,
         phase="critique",
-        messages=[{"agent": "claude", "content": "Hello", "role": "assistant", "round": 1, "timestamp": "2026-01-06T12:00:00"}],
+        messages=[
+            {
+                "agent": "claude",
+                "content": "Hello",
+                "role": "assistant",
+                "round": 1,
+                "timestamp": "2026-01-06T12:00:00",
+            }
+        ],
         critiques=[],
-        votes=[{"agent": "claude", "choice": "A", "confidence": 0.8, "reasoning": "Good", "continue_debate": True}],
+        votes=[
+            {
+                "agent": "claude",
+                "choice": "A",
+                "confidence": 0.8,
+                "reasoning": "Good",
+                "continue_debate": True,
+            }
+        ],
         agent_states=[
             AgentState(
                 agent_name="claude",
@@ -232,7 +248,7 @@ class TestCorruptionHandling:
         # Truncate the file
         path = store._get_path(sample_checkpoint.checkpoint_id)
         content = path.read_bytes()
-        path.write_bytes(content[:len(content)//2])  # Cut in half
+        path.write_bytes(content[: len(content) // 2])  # Cut in half
 
         # Current implementation raises EOFError for truncated gzip
         with pytest.raises(EOFError):
@@ -900,7 +916,9 @@ class TestWebhookExtended:
         webhook = CheckpointWebhook(webhook_url="https://example.com/webhook")
 
         with patch("aiohttp.ClientSession") as MockSession:
-            MockSession.return_value.__aenter__ = AsyncMock(side_effect=Exception("Connection failed"))
+            MockSession.return_value.__aenter__ = AsyncMock(
+                side_effect=Exception("Connection failed")
+            )
             MockSession.return_value.__aexit__ = AsyncMock(return_value=None)
 
             # Should not raise
@@ -1023,7 +1041,13 @@ class TestCompressionExtended:
 
         # Create checkpoint with large content
         large_messages = [
-            {"agent": "claude", "content": "A" * 10000, "role": "assistant", "round": i, "timestamp": "2026-01-06T12:00:00"}
+            {
+                "agent": "claude",
+                "content": "A" * 10000,
+                "role": "assistant",
+                "round": i,
+                "timestamp": "2026-01-06T12:00:00",
+            }
             for i in range(100)
         ]
 
@@ -1052,8 +1076,12 @@ class TestCompressionExtended:
     @pytest.mark.asyncio
     async def test_compression_flag_respected(self, temp_checkpoint_dir):
         """Compress flag should control file extension."""
-        compressed_store = FileCheckpointStore(base_dir=str(temp_checkpoint_dir / "compressed"), compress=True)
-        uncompressed_store = FileCheckpointStore(base_dir=str(temp_checkpoint_dir / "uncompressed"), compress=False)
+        compressed_store = FileCheckpointStore(
+            base_dir=str(temp_checkpoint_dir / "compressed"), compress=True
+        )
+        uncompressed_store = FileCheckpointStore(
+            base_dir=str(temp_checkpoint_dir / "uncompressed"), compress=False
+        )
 
         checkpoint = DebateCheckpoint(
             checkpoint_id="cp-test",
@@ -1241,10 +1269,7 @@ class TestDatabaseCheckpointStore:
     async def test_compression(self, store, sample_checkpoint):
         """Should compress data when enabled."""
         # Add more data to see compression effect
-        sample_checkpoint.messages = [
-            {"role": "agent", "content": "A" * 1000}
-            for _ in range(10)
-        ]
+        sample_checkpoint.messages = [{"role": "agent", "content": "A" * 1000} for _ in range(10)]
 
         await store.save(sample_checkpoint)
 

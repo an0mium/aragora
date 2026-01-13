@@ -322,6 +322,7 @@ class TestUserUpdate:
         original_updated = test_user.updated_at
 
         import time
+
         time.sleep(0.1)  # Ensure time difference
 
         store.update_user(test_user.id, name="New Name")
@@ -821,10 +822,7 @@ class TestEdgeCases:
 
     def test_large_settings_json(self, store, test_org):
         """Should handle large settings JSON."""
-        large_settings = {
-            f"key_{i}": f"value_{i}" * 100
-            for i in range(100)
-        }
+        large_settings = {f"key_{i}": f"value_{i}" * 100 for i in range(100)}
 
         result = store.update_organization(test_org.id, settings=large_settings)
         assert result is True

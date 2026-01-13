@@ -152,11 +152,13 @@ class Span:
             name: Event name
             attributes: Optional event attributes
         """
-        self.events.append({
-            "name": name,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "attributes": attributes or {},
-        })
+        self.events.append(
+            {
+                "name": name,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "attributes": attributes or {},
+            }
+        )
 
     def set_error(self, error: Exception) -> None:
         """Mark the span as errored.
@@ -166,10 +168,13 @@ class Span:
         """
         self.status = "error"
         self.error = f"{type(error).__name__}: {str(error)}"
-        self.add_event("exception", {
-            "type": type(error).__name__,
-            "message": str(error),
-        })
+        self.add_event(
+            "exception",
+            {
+                "type": type(error).__name__,
+                "message": str(error),
+            },
+        )
 
     def finish(self) -> None:
         """Mark the span as finished."""
@@ -189,7 +194,11 @@ class Span:
             "parent_span_id": self.parent_span_id,
             "operation": self.operation,
             "start_time": datetime.fromtimestamp(self.start_time, tz=timezone.utc).isoformat(),
-            "end_time": datetime.fromtimestamp(self.end_time, tz=timezone.utc).isoformat() if self.end_time else None,
+            "end_time": (
+                datetime.fromtimestamp(self.end_time, tz=timezone.utc).isoformat()
+                if self.end_time
+                else None
+            ),
             "duration_ms": round(self.duration_ms, 2),
             "status": self.status,
             "error": self.error,
@@ -288,6 +297,7 @@ def traced(operation: Optional[str] = None) -> Callable:
         def process_message(msg: dict) -> None:
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         op_name = operation or func.__name__
 
@@ -310,6 +320,7 @@ def traced(operation: Optional[str] = None) -> Callable:
                     raise
 
         import asyncio
+
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         return sync_wrapper

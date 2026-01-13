@@ -462,6 +462,7 @@ class TestClassifyException:
     # Subclass matching
     def test_subclass_match_aragora_error(self):
         """Unknown AragoraError subclass returns 500, error, message."""
+
         class CustomAragoraError(AragoraError):
             pass
 
@@ -473,6 +474,7 @@ class TestClassifyException:
 
     def test_subclass_match_handler_error_custom_status(self):
         """Custom HandlerError subclass with status_code is respected."""
+
         class CustomHandlerError(HandlerError):
             status_code = 422
 

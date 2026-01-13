@@ -58,8 +58,10 @@ class PreflightResult:
     def to_dict(self) -> dict:
         return {
             "passed": self.passed,
-            "checks": {k: {"status": v.status.value, "message": v.message, "latency_ms": v.latency_ms}
-                       for k, v in self.checks.items()},
+            "checks": {
+                k: {"status": v.status.value, "message": v.message, "latency_ms": v.latency_ms}
+                for k, v in self.checks.items()
+            },
             "warnings": self.warnings,
             "blocking_issues": self.blocking_issues,
             "recommended_agents": self.recommended_agents,
@@ -212,7 +214,7 @@ class PreflightHealthCheck:
                 name="api_keys",
                 status=CheckStatus.FAILED,
                 message="No API keys found. Set at least one of: "
-                        "ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY",
+                "ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY",
                 latency_ms=latency,
             )
 
@@ -301,17 +303,21 @@ class PreflightHealthCheck:
                 # Just verify the key looks valid (basic format check)
                 key = os.environ.get(env_var, "")
                 if len(key) < 10:
-                    results.append(CheckResult(
-                        name=f"provider_{provider}",
-                        status=CheckStatus.WARNING,
-                        message=f"{provider} API key looks too short",
-                    ))
+                    results.append(
+                        CheckResult(
+                            name=f"provider_{provider}",
+                            status=CheckStatus.WARNING,
+                            message=f"{provider} API key looks too short",
+                        )
+                    )
                 else:
-                    results.append(CheckResult(
-                        name=f"provider_{provider}",
-                        status=CheckStatus.PASSED,
-                        message=f"{provider} API key configured",
-                    ))
+                    results.append(
+                        CheckResult(
+                            name=f"provider_{provider}",
+                            status=CheckStatus.PASSED,
+                            message=f"{provider} API key configured",
+                        )
+                    )
 
         return results
 
@@ -350,6 +356,7 @@ class PreflightHealthCheck:
             # Minimal probe based on provider
             if provider == "anthropic":
                 import anthropic
+
                 client = anthropic.AsyncAnthropic()
                 # Just check auth by making a minimal request
                 await asyncio.wait_for(
@@ -363,6 +370,7 @@ class PreflightHealthCheck:
 
             elif provider == "openai":
                 import openai
+
                 client = openai.AsyncOpenAI()
                 await asyncio.wait_for(
                     client.chat.completions.create(
@@ -446,8 +454,8 @@ async def run_preflight(
                 details=result.to_dict(),
                 audience_message=(
                     f"System ready with {len(result.recommended_agents)} agents!"
-                    if result.passed else
-                    f"System issues detected: {', '.join(result.blocking_issues)}"
+                    if result.passed
+                    else f"System issues detected: {', '.join(result.blocking_issues)}"
                 ),
             )
         except ImportError:

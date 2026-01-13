@@ -28,16 +28,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class DatabaseInventory:
     """Tracks database files and their metadata."""
+
     path: Path
     tables: List[str] = field(default_factory=list)
     row_counts: Dict[str, int] = field(default_factory=dict)
@@ -48,6 +46,7 @@ class DatabaseInventory:
 @dataclass
 class MigrationResult:
     """Result of a migration operation."""
+
     source_db: str
     target_db: str
     tables_migrated: List[str]
@@ -69,131 +68,153 @@ class DatabaseMigrator:
         # === CORE DATABASE (debates, traces, tournaments, embeddings, positions) ===
         # From server/storage.py
         "debates.db": ("core.db", {"debates": "debates"}),
-
         # From debate/traces.py (embedded in various DBs)
         # Traces are typically in-memory or debate-specific
-
         # From tournaments/tournament.py
         # Tournaments may be in aragora_positions.db or separate
-
         # From memory/embeddings.py
         "debate_embeddings.db": ("core.db", {"embeddings": "embeddings"}),
-
         # From insights/flip_detector.py, agents/grounded.py
-        "aragora_positions.db": ("core.db", {"positions": "positions", "detected_flips": "detected_flips"}),
+        "aragora_positions.db": (
+            "core.db",
+            {"positions": "positions", "detected_flips": "detected_flips"},
+        ),
         "grounded_positions.db": ("core.db", {"positions": "positions"}),
         "position_ledger.db": ("core.db", {"positions": "positions"}),
-
         # === MEMORY DATABASE (continuum, memories, consensus, critiques, patterns) ===
         # From memory/continuum.py
-        "continuum.db": ("memory.db", {
-            "continuum_memory": "continuum_memory",
-            "tier_transitions": "tier_transitions",
-            "continuum_memory_archive": "continuum_memory_archive",
-            "meta_learning_state": "meta_learning_state",
-        }),
-
+        "continuum.db": (
+            "memory.db",
+            {
+                "continuum_memory": "continuum_memory",
+                "tier_transitions": "tier_transitions",
+                "continuum_memory_archive": "continuum_memory_archive",
+                "meta_learning_state": "meta_learning_state",
+            },
+        ),
         # From memory/streams.py
-        "agent_memories.db": ("memory.db", {
-            "memories": "memories",
-            "reflection_schedule": "reflection_schedule",
-        }),
-
+        "agent_memories.db": (
+            "memory.db",
+            {
+                "memories": "memories",
+                "reflection_schedule": "reflection_schedule",
+            },
+        ),
         # From memory/consensus.py
-        "consensus_memory.db": ("memory.db", {
-            "consensus": "consensus",
-            "dissent": "dissent",
-        }),
-
+        "consensus_memory.db": (
+            "memory.db",
+            {
+                "consensus": "consensus",
+                "dissent": "dissent",
+            },
+        ),
         # From memory/store.py
-        "agora_memory.db": ("memory.db", {
-            "debates": "debates",
-            "critiques": "critiques",
-            "patterns": "patterns",
-            "pattern_embeddings": "pattern_embeddings",
-            "agent_reputation": "agent_reputation",
-            "patterns_archive": "patterns_archive",
-        }),
-
+        "agora_memory.db": (
+            "memory.db",
+            {
+                "debates": "debates",
+                "critiques": "critiques",
+                "patterns": "patterns",
+                "pattern_embeddings": "pattern_embeddings",
+                "agent_reputation": "agent_reputation",
+                "patterns_archive": "patterns_archive",
+            },
+        ),
         # From audience/feedback.py
-        "suggestion_feedback.db": ("memory.db", {
-            "suggestion_injections": "suggestion_injections",
-            "contributor_stats": "contributor_stats",
-        }),
-
+        "suggestion_feedback.db": (
+            "memory.db",
+            {
+                "suggestion_injections": "suggestion_injections",
+                "contributor_stats": "contributor_stats",
+            },
+        ),
         # From memory/embeddings.py (semantic)
         "semantic_patterns.db": ("memory.db", {"embeddings": "semantic_embeddings"}),
-
         # === ANALYTICS DATABASE (ELO, calibration, insights, evolution) ===
         # From ranking/elo.py
-        "agent_elo.db": ("analytics.db", {
-            "ratings": "ratings",
-            "matches": "matches",
-            "elo_history": "elo_history",
-            "calibration_predictions": "calibration_predictions",
-            "domain_calibration": "domain_calibration",
-            "calibration_buckets": "calibration_buckets",
-            "agent_relationships": "agent_relationships",
-        }),
+        "agent_elo.db": (
+            "analytics.db",
+            {
+                "ratings": "ratings",
+                "matches": "matches",
+                "elo_history": "elo_history",
+                "calibration_predictions": "calibration_predictions",
+                "domain_calibration": "domain_calibration",
+                "calibration_buckets": "calibration_buckets",
+                "agent_relationships": "agent_relationships",
+            },
+        ),
         "elo.db": ("analytics.db", {"ratings": "ratings", "matches": "matches"}),
-
         # From agents/calibration.py
         "agent_calibration.db": ("analytics.db", {"predictions": "calibration_predictions"}),
-
         # From insights/store.py
-        "aragora_insights.db": ("analytics.db", {
-            "insights": "insights",
-            "debate_summaries": "debate_summaries",
-            "agent_performance_history": "agent_performance_history",
-            "pattern_clusters": "pattern_clusters",
-        }),
-
+        "aragora_insights.db": (
+            "analytics.db",
+            {
+                "insights": "insights",
+                "debate_summaries": "debate_summaries",
+                "agent_performance_history": "agent_performance_history",
+                "pattern_clusters": "pattern_clusters",
+            },
+        ),
         # From evolution/evolver.py
-        "prompt_evolution.db": ("analytics.db", {
-            "prompt_versions": "prompt_versions",
-            "extracted_patterns": "extracted_patterns",
-            "evolution_history": "evolution_history",
-        }),
-
+        "prompt_evolution.db": (
+            "analytics.db",
+            {
+                "prompt_versions": "prompt_versions",
+                "extracted_patterns": "extracted_patterns",
+                "evolution_history": "evolution_history",
+            },
+        ),
         # From learning/meta.py
-        "meta_learning.db": ("analytics.db", {
-            "meta_hyperparams": "meta_hyperparams",
-            "meta_efficiency_log": "meta_efficiency_log",
-        }),
-
+        "meta_learning.db": (
+            "analytics.db",
+            {
+                "meta_hyperparams": "meta_hyperparams",
+                "meta_efficiency_log": "meta_efficiency_log",
+            },
+        ),
         # === AGENTS DATABASE (personas, relationships, experiments, genomes) ===
         # From agents/personas.py
-        "agent_personas.db": ("agents.db", {
-            "personas": "personas",
-            "performance_history": "performance_history",
-        }),
-        "aragora_personas.db": ("agents.db", {
-            "personas": "personas",
-            "performance_history": "performance_history",
-        }),
+        "agent_personas.db": (
+            "agents.db",
+            {
+                "personas": "personas",
+                "performance_history": "performance_history",
+            },
+        ),
+        "aragora_personas.db": (
+            "agents.db",
+            {
+                "personas": "personas",
+                "performance_history": "performance_history",
+            },
+        ),
         "personas.db": ("agents.db", {"personas": "personas"}),
-
         # From agents/grounded.py (relationships in elo DB)
         "agent_relationships.db": ("agents.db", {"agent_relationships": "agent_relationships"}),
-
         # From agents/truth_grounding.py
         # position_history and debate_outcomes
-
         # From agents/laboratory.py
-        "persona_lab.db": ("agents.db", {
-            "experiments": "experiments",
-            "emergent_traits": "emergent_traits",
-            "trait_transfers": "trait_transfers",
-            "evolution_history": "agent_evolution_history",
-        }),
-
+        "persona_lab.db": (
+            "agents.db",
+            {
+                "experiments": "experiments",
+                "emergent_traits": "emergent_traits",
+                "trait_transfers": "trait_transfers",
+                "evolution_history": "agent_evolution_history",
+            },
+        ),
         # From genesis/genome.py
-        "genesis.db": ("agents.db", {
-            "genomes": "genomes",
-            "populations": "populations",
-            "active_population": "active_population",
-            "genesis_events": "genesis_events",
-        }),
+        "genesis.db": (
+            "agents.db",
+            {
+                "genomes": "genomes",
+                "populations": "populations",
+                "active_population": "active_population",
+                "genesis_events": "genesis_events",
+            },
+        ),
     }
 
     TARGET_DATABASES = ["core.db", "memory.db", "analytics.db", "agents.db"]
@@ -337,6 +358,14 @@ class DatabaseMigrator:
                 continue
 
             inv = self.inventory[source_db]
+
+            # Skip empty databases - they have no data to migrate
+            # Filter out SQLite internal tables (sqlite_*)
+            user_tables = [t for t in inv.tables if not t.startswith("sqlite_")]
+            if not user_tables:
+                warnings.append(f"Empty database (no user tables): {source_db}")
+                continue
+
             for source_table in table_map.keys():
                 if source_table not in inv.tables:
                     errors.append(f"Missing table {source_table} in {source_db}")
@@ -399,9 +428,7 @@ class DatabaseMigrator:
                 if source_db in self.inventory:
                     inv = self.inventory[source_db]
                     total_rows = sum(
-                        inv.row_counts.get(t, 0)
-                        for t in table_map.keys()
-                        if t in inv.row_counts
+                        inv.row_counts.get(t, 0) for t in table_map.keys() if t in inv.row_counts
                     )
                     tables_str = ", ".join(f"{s}->{t}" for s, t in table_map.items())
                     logger.info(f"  {source_db} -> {target_db}: [{tables_str}] ({total_rows} rows)")
@@ -481,9 +508,7 @@ class DatabaseMigrator:
 
         try:
             for source_table, target_table in table_map.items():
-                rows = self._migrate_table(
-                    source_conn, target_conn, source_table, target_table
-                )
+                rows = self._migrate_table(source_conn, target_conn, source_table, target_table)
                 total_rows += rows
         finally:
             source_conn.close()
@@ -532,9 +557,7 @@ class DatabaseMigrator:
         common_columns = source_columns & target_columns
 
         if not common_columns:
-            logger.warning(
-                f"No common columns between {source_table} and {target_table}"
-            )
+            logger.warning(f"No common columns between {source_table} and {target_table}")
             return 0
 
         # Build insert statement
@@ -641,7 +664,7 @@ class DatabaseMigrator:
                 # Check schema version exists
                 cursor.execute(
                     "SELECT version FROM _schema_versions WHERE module = ?",
-                    (target_db.replace(".db", ""),)
+                    (target_db.replace(".db", ""),),
                 )
                 row = cursor.fetchone()
                 if not row:
@@ -706,9 +729,7 @@ class DatabaseMigrator:
                 report["migration_plan"][source] = {
                     "target": target,
                     "table_mappings": table_map,
-                    "estimated_rows": sum(
-                        inv.row_counts.get(t, 0) for t in table_map.keys()
-                    ),
+                    "estimated_rows": sum(inv.row_counts.get(t, 0) for t in table_map.keys()),
                 }
 
         return report
@@ -726,62 +747,46 @@ Examples:
   python scripts/migrate_databases.py --migrate
 
 See docs/DATABASE_CONSOLIDATION.md for full documentation.
-        """
+        """,
     )
 
     parser.add_argument(
         "--source-dir",
         type=Path,
         default=Path.cwd(),
-        help="Directory containing source databases (default: current directory)"
+        help="Directory containing source databases (default: current directory)",
     )
     parser.add_argument(
         "--target-dir",
         type=Path,
         default=Path.cwd() / "consolidated",
-        help="Directory for consolidated databases (default: ./consolidated)"
+        help="Directory for consolidated databases (default: ./consolidated)",
     )
     parser.add_argument(
         "--backup-dir",
         type=Path,
         default=Path.cwd() / "backups",
-        help="Directory for backups (default: ./backups)"
+        help="Directory for backups (default: ./backups)",
     )
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show migration plan without executing"
+        "--dry-run", action="store_true", help="Show migration plan without executing"
+    )
+    parser.add_argument("--validate", action="store_true", help="Validate source databases")
+    parser.add_argument("--backup", action="store_true", help="Create backups of all databases")
+    parser.add_argument(
+        "--migrate", action="store_true", help="Execute the migration (requires --backup first)"
     )
     parser.add_argument(
-        "--validate",
-        action="store_true",
-        help="Validate source databases"
-    )
-    parser.add_argument(
-        "--backup",
-        action="store_true",
-        help="Create backups of all databases"
-    )
-    parser.add_argument(
-        "--migrate",
-        action="store_true",
-        help="Execute the migration (requires --backup first)"
-    )
-    parser.add_argument(
-        "--report",
-        action="store_true",
-        help="Generate JSON report of current state"
+        "--report", action="store_true", help="Generate JSON report of current state"
     )
     parser.add_argument(
         "--rollback",
         type=str,
         metavar="BACKUP_DIR",
-        help="Rollback to a previous backup (specify backup directory name)"
+        help="Rollback to a previous backup (specify backup directory name)",
     )
     parser.add_argument(
-        "--verify",
-        action="store_true",
-        help="Verify migrated databases match expected row counts"
+        "--verify", action="store_true", help="Verify migrated databases match expected row counts"
     )
 
     args = parser.parse_args()
@@ -863,7 +868,9 @@ See docs/DATABASE_CONSOLIDATION.md for full documentation.
         print(f"  Total Rows: {rows}")
 
     print("\n" + "-" * 60)
-    print(f"Total: {len(migrator.inventory)} databases, {total_size / 1024:.1f} KB, {total_rows} rows")
+    print(
+        f"Total: {len(migrator.inventory)} databases, {total_size / 1024:.1f} KB, {total_rows} rows"
+    )
     print("\nRun with --dry-run to see migration plan")
     return 0
 

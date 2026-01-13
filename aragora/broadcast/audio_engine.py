@@ -46,6 +46,7 @@ _tts_backend: Optional[TTSBackend] = None
 # Legacy fallback availability (pyttsx3)
 try:
     import pyttsx3
+
     FALLBACK_AVAILABLE = True
 except ImportError:
     FALLBACK_AVAILABLE = False
@@ -116,20 +117,20 @@ async def _generate_edge_tts(
                 logger.debug("edge-tts not found in PATH or environment")
                 return False
             cmd += [
-                "--voice", voice,
-                "--text", text,
-                "--write-media", str(output_path),
-                "--write-subtitles", str(output_path.with_suffix('.vtt'))  # Optional subtitles
+                "--voice",
+                voice,
+                "--text",
+                text,
+                "--write-media",
+                str(output_path),
+                "--write-subtitles",
+                str(output_path.with_suffix(".vtt")),  # Optional subtitles
             ]
             process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), timeout=timeout
-                )
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
@@ -145,12 +146,16 @@ async def _generate_edge_tts(
                     return True
 
                 # Non-zero return code - capture error for logging
-                error_msg = stderr.decode('utf-8', errors='replace').strip() if stderr else "unknown error"
+                error_msg = (
+                    stderr.decode("utf-8", errors="replace").strip() if stderr else "unknown error"
+                )
                 logger.debug(
                     f"edge-tts failed (attempt {attempt + 1}/{max_retries}): "
                     f"returncode={process.returncode}, error={error_msg[:200]}"
                 )
-                last_error = RuntimeError(f"edge-tts returned {process.returncode}: {error_msg[:100]}")
+                last_error = RuntimeError(
+                    f"edge-tts returned {process.returncode}: {error_msg[:100]}"
+                )
 
         except FileNotFoundError:
             # edge-tts not installed - no point retrying
@@ -162,7 +167,7 @@ async def _generate_edge_tts(
 
         # Exponential backoff before retry (except on last attempt)
         if attempt < max_retries - 1:
-            delay = base_delay * (2 ** attempt)
+            delay = base_delay * (2**attempt)
             logger.debug(f"Retrying edge-tts in {delay:.1f}s...")
             await asyncio.sleep(delay)
 
@@ -215,7 +220,7 @@ async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Op
         Path to generated audio file, or None if failed
     """
     # Create safe filename using stable hash (sha256 is deterministic across sessions)
-    text_hash = hashlib.sha256(segment.text.encode('utf-8')).hexdigest()[:12]
+    text_hash = hashlib.sha256(segment.text.encode("utf-8")).hexdigest()[:12]
     backend = get_audio_backend()
     backend_ext = ".wav" if backend.name == "xtts" else ".mp3"
     safe_name = f"{segment.speaker}_{text_hash}{backend_ext}"
@@ -245,7 +250,9 @@ async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Op
     return None
 
 
-async def generate_audio(segments: list[ScriptSegment], output_dir: Optional[Path] = None) -> list[Path]:
+async def generate_audio(
+    segments: list[ScriptSegment], output_dir: Optional[Path] = None
+) -> list[Path]:
     """
     Generate audio files for all script segments.
 

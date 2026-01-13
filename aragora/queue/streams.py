@@ -409,9 +409,7 @@ async def create_redis_queue(
     try:
         import redis.asyncio as redis
     except ImportError:
-        raise ImportError(
-            "redis package required for queue. Install with: pip install redis"
-        )
+        raise ImportError("redis package required for queue. Install with: pip install redis")
 
     config = get_queue_config()
     url = redis_url or config.redis_url

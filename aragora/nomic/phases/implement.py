@@ -120,9 +120,12 @@ class ImplementPhase:
                     self._log(f"  [scope] Suggestion: {suggestion}")
 
                 self._stream_emit(
-                    "on_phase_end", "implement", self.cycle_count, False,
+                    "on_phase_end",
+                    "implement",
+                    self.cycle_count,
+                    False,
                     (datetime.now() - phase_start).total_seconds(),
-                    {"error": "scope_exceeded", "evaluation": scope_eval.to_dict()}
+                    {"error": "scope_exceeded", "evaluation": scope_eval.to_dict()},
                 )
 
                 return ImplementResult(
@@ -134,7 +137,9 @@ class ImplementPhase:
                     diff_summary="",
                 )
             else:
-                self._log(f"  [scope] Design approved (complexity: {scope_eval.complexity_score:.2f})")
+                self._log(
+                    f"  [scope] Design approved (complexity: {scope_eval.complexity_score:.2f})"
+                )
 
         if not use_hybrid:
             return await self._legacy_implement(design)
@@ -143,7 +148,7 @@ class ImplementPhase:
 
         # Check for crash recovery
         progress = self._progress_loader(self.aragora_path) if self._progress_loader else None
-        if progress and hasattr(progress, 'plan') and progress.plan.design_hash == design_hash:
+        if progress and hasattr(progress, "plan") and progress.plan.design_hash == design_hash:
             self._log("  Resuming from checkpoint...")
             plan = progress.plan
             completed: Set[str] = set(progress.completed_tasks)
@@ -173,19 +178,24 @@ class ImplementPhase:
             stash_ref = await self._git_stash_create()
 
             if self._progress_saver:
-                self._progress_saver({
-                    "plan": plan,
-                    "completed_tasks": [],
-                    "git_stash_ref": stash_ref,
-                }, self.aragora_path)
+                self._progress_saver(
+                    {
+                        "plan": plan,
+                        "completed_tasks": [],
+                        "git_stash_ref": stash_ref,
+                    },
+                    self.aragora_path,
+                )
 
         # Save state
-        self._save_state({
-            "phase": "implement",
-            "stage": "executing",
-            "total_tasks": len(plan.tasks),
-            "completed_tasks": len(completed),
-        })
+        self._save_state(
+            {
+                "phase": "implement",
+                "stage": "executing",
+                "total_tasks": len(plan.tasks),
+                "completed_tasks": len(completed),
+            }
+        )
 
         # Execute tasks
         if not self._executor:
@@ -196,12 +206,15 @@ class ImplementPhase:
             completed.add(task_id)
             self._log(f"  Task {task_id}: {'completed' if result.success else 'failed'}")
             if self._progress_saver:
-                self._progress_saver({
-                    "plan": plan,
-                    "completed_tasks": list(completed),
-                    "current_task": None,
-                    "git_stash_ref": stash_ref,
-                }, self.aragora_path)
+                self._progress_saver(
+                    {
+                        "plan": plan,
+                        "completed_tasks": list(completed),
+                        "current_task": None,
+                        "git_stash_ref": stash_ref,
+                    },
+                    self.aragora_path,
+                )
 
         try:
             results = await self._executor.execute_plan(
@@ -221,8 +234,12 @@ class ImplementPhase:
                 diff = await self._get_git_diff()
                 phase_duration = (datetime.now() - phase_start).total_seconds()
                 self._stream_emit(
-                    "on_phase_end", "implement", self.cycle_count, True,
-                    phase_duration, {"tasks_completed": tasks_completed}
+                    "on_phase_end",
+                    "implement",
+                    self.cycle_count,
+                    True,
+                    phase_duration,
+                    {"tasks_completed": tasks_completed},
                 )
 
                 return ImplementResult(
@@ -240,8 +257,12 @@ class ImplementPhase:
                 self._log(f"  {len(failed)} tasks failed")
                 phase_duration = (datetime.now() - phase_start).total_seconds()
                 self._stream_emit(
-                    "on_phase_end", "implement", self.cycle_count, False,
-                    phase_duration, {"tasks_failed": len(failed)}
+                    "on_phase_end",
+                    "implement",
+                    self.cycle_count,
+                    False,
+                    phase_duration,
+                    {"tasks_failed": len(failed)},
                 )
 
                 diff = await self._get_git_diff()
@@ -263,8 +284,12 @@ class ImplementPhase:
             await self._git_stash_pop(stash_ref)
             phase_duration = (datetime.now() - phase_start).total_seconds()
             self._stream_emit(
-                "on_phase_end", "implement", self.cycle_count, False,
-                phase_duration, {"error": str(e)}
+                "on_phase_end",
+                "implement",
+                self.cycle_count,
+                False,
+                phase_duration,
+                {"error": str(e)},
             )
             self._stream_emit("on_error", "implement", str(e), True)
 
@@ -301,20 +326,21 @@ CRITICAL SAFETY RULES:
 
         try:
             proc = await asyncio.create_subprocess_exec(
-                "codex", "exec", "-C", str(self.aragora_path), prompt,
+                "codex",
+                "exec",
+                "-C",
+                str(self.aragora_path),
+                prompt,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=1200
-            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=1200)
 
             phase_duration = (datetime.now() - phase_start).total_seconds()
             success = proc.returncode == 0
 
             self._stream_emit(
-                "on_phase_end", "implement", self.cycle_count, success,
-                phase_duration, {}
+                "on_phase_end", "implement", self.cycle_count, success, phase_duration, {}
             )
 
             diff = await self._get_git_diff()
@@ -329,8 +355,12 @@ CRITICAL SAFETY RULES:
         except asyncio.TimeoutError:
             phase_duration = (datetime.now() - phase_start).total_seconds()
             self._stream_emit(
-                "on_phase_end", "implement", self.cycle_count, False,
-                phase_duration, {"error": "timeout"}
+                "on_phase_end",
+                "implement",
+                self.cycle_count,
+                False,
+                phase_duration,
+                {"error": "timeout"},
             )
             return ImplementResult(
                 success=False,
@@ -343,8 +373,12 @@ CRITICAL SAFETY RULES:
         except Exception as e:
             phase_duration = (datetime.now() - phase_start).total_seconds()
             self._stream_emit(
-                "on_phase_end", "implement", self.cycle_count, False,
-                phase_duration, {"error": str(e)}
+                "on_phase_end",
+                "implement",
+                self.cycle_count,
+                False,
+                phase_duration,
+                {"error": str(e)},
             )
             return ImplementResult(
                 success=False,
@@ -359,7 +393,9 @@ CRITICAL SAFETY RULES:
         """Create a git stash for rollback."""
         try:
             proc = await asyncio.create_subprocess_exec(
-                "git", "stash", "create",
+                "git",
+                "stash",
+                "create",
                 cwd=self.aragora_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -375,7 +411,10 @@ CRITICAL SAFETY RULES:
             return False
         try:
             proc = await asyncio.create_subprocess_exec(
-                "git", "stash", "apply", stash_ref,
+                "git",
+                "stash",
+                "apply",
+                stash_ref,
                 cwd=self.aragora_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -389,7 +428,9 @@ CRITICAL SAFETY RULES:
         """Get current git diff."""
         try:
             proc = await asyncio.create_subprocess_exec(
-                "git", "diff", "--stat",
+                "git",
+                "diff",
+                "--stat",
                 cwd=self.aragora_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -403,14 +444,16 @@ CRITICAL SAFETY RULES:
         """Get list of modified files."""
         try:
             proc = await asyncio.create_subprocess_exec(
-                "git", "diff", "--name-only",
+                "git",
+                "diff",
+                "--name-only",
                 cwd=self.aragora_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, _ = await proc.communicate()
             if proc.returncode == 0:
-                return [f.strip() for f in stdout.decode().strip().split('\n') if f.strip()]
+                return [f.strip() for f in stdout.decode().strip().split("\n") if f.strip()]
         except Exception:
             pass
         return []

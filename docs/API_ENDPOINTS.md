@@ -8,7 +8,10 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Analytics](#analytics)
 - [Audio](#audio)
 - [Auditing](#auditing)
+- [Auth](#auth)
 - [Belief](#belief)
+- [Billing](#billing)
+- [Breakpoints](#breakpoints)
 - [Broadcast](#broadcast)
 - [Calibration](#calibration)
 - [Consensus](#consensus)
@@ -17,23 +20,38 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Debates](#debates)
 - [Documents](#documents)
 - [Evolution](#evolution)
+- [Evolution Ab Testing](#evolution-ab-testing)
+- [Features](#features)
+- [Formal Verification](#formal-verification)
+- [Gallery](#gallery)
+- [Gauntlet](#gauntlet)
 - [Genesis](#genesis)
+- [Graph Debates](#graph-debates)
 - [Insights](#insights)
 - [Introspection](#introspection)
 - [Laboratory](#laboratory)
 - [LeaderboardView](#leaderboardview)
+- [Learning](#learning)
+- [Matrix Debates](#matrix-debates)
 - [Memory](#memory)
+- [Memory Analytics](#memory-analytics)
 - [Metrics](#metrics)
 - [Moments](#moments)
+- [Oauth](#oauth)
+- [Organizations](#organizations)
 - [Persona](#persona)
 - [Plugins](#plugins)
 - [Probes](#probes)
 - [Pulse](#pulse)
 - [Relationship](#relationship)
 - [Replays](#replays)
+- [Reviews](#reviews)
+- [Sharing](#sharing)
+- [Slack](#slack)
 - [Social](#social)
 - [System](#system)
-- [Tournaments](#tournaments)
+- [Tournament](#tournament)
+- [Training](#training)
 - [Verification](#verification)
 
 ---
@@ -49,6 +67,14 @@ Get agent rankings
 ### `GET` `/api/rankings`
 
 Get agent rankings (alias)
+
+### `GET` `/api/agents/local`
+
+List detected local LLM servers
+
+### `GET` `/api/agents/local/status`
+
+Get local LLM availability status
 
 ### `GET` `/api/agent/{name}/profile`
 
@@ -170,6 +196,56 @@ Run red team analysis on a debate
 
 ---
 
+## Auth
+
+User Authentication Handlers.
+
+### `POST` `/api/auth/register`
+
+Create a new user account
+
+### `POST` `/api/auth/login`
+
+Authenticate and get tokens
+
+### `POST` `/api/auth/logout`
+
+Invalidate current token (adds to blacklist)
+
+### `POST` `/api/auth/logout-all`
+
+Invalidate all tokens for user (logout all devices)
+
+### `POST` `/api/auth/refresh`
+
+Refresh access token (revokes old refresh token)
+
+### `POST` `/api/auth/revoke`
+
+Explicitly revoke a specific token
+
+### `GET` `/api/auth/me`
+
+Get current user information
+
+### `PUT` `/api/auth/me`
+
+Update current user information
+
+### `POST` `/api/auth/password`
+
+Change password
+
+### `POST` `/api/auth/api-key`
+
+Generate API key
+
+### `DELETE` `/api/auth/api-key`
+
+Revoke API key
+
+---
+
 ## Belief
 
 Belief Network and Reasoning endpoint handlers.
@@ -196,6 +272,62 @@ Get argument graph statistics
 
 ---
 
+## Billing
+
+Billing API Handlers.
+
+### `GET` `/api/billing/plans`
+
+List available subscription plans
+
+### `GET` `/api/billing/usage`
+
+Get current usage for authenticated user
+
+### `GET` `/api/billing/subscription`
+
+Get current subscription
+
+### `POST` `/api/billing/checkout`
+
+Create checkout session for subscription
+
+### `POST` `/api/billing/portal`
+
+Create billing portal session
+
+### `POST` `/api/billing/cancel`
+
+Cancel subscription
+
+### `POST` `/api/billing/resume`
+
+Resume canceled subscription
+
+### `POST` `/api/webhooks/stripe`
+
+Handle Stripe webhooks
+
+---
+
+## Breakpoints
+
+Breakpoints endpoint handlers for human-in-the-loop intervention.
+
+### `GET` `/api/breakpoints/pending`
+
+List pending breakpoints awaiting resolution
+
+### `POST` `/api/breakpoints/{id}/resolve`
+
+Resolve a pending breakpoint
+
+### `GET` `/api/breakpoints/{id}/status`
+
+Get status of a specific breakpoint
+
+---
+
 ## Broadcast
 
 Broadcast generation handler.
@@ -203,6 +335,14 @@ Broadcast generation handler.
 ### `POST` `/api/debates/{id}/broadcast`
 
 Generate podcast audio from debate trace
+
+### `POST` `/api/debates/{id}/broadcast/full`
+
+Run full broadcast pipeline
+
+### `GET` `/api/podcast/feed.xml`
+
+Get RSS podcast feed
 
 ---
 
@@ -256,12 +396,6 @@ Get risk warnings and edge cases
 
 Get domain-specific history
 
-### `GET` `/api/consensus/seed-demo`
-
-Seed demo consensus data for search functionality
-
-Returns seeding status including records seeded and database state.
-
 ---
 
 ## Critique
@@ -302,6 +436,10 @@ Get consolidated debate metrics for dashboard
 | `limit` | string | Max items per list section |
 | `hours` | string | Time window for recent activity |
 
+### `GET` `/api/dashboard/quality-metrics`
+
+GET /api/dashboard/quality-metrics
+
 ---
 
 ## Debates
@@ -336,6 +474,10 @@ Get convergence status
 
 Get evidence citations for debate
 
+### `GET` `/api/debates/{id}/evidence` 🔒
+
+Get comprehensive evidence trail
+
 ### `GET` `/api/debate/{id}/meta-critique`
 
 Get meta-level debate analysis
@@ -347,6 +489,14 @@ Get argument graph statistics
 ### `POST` `/api/debates/{id}/fork` 🔒
 
 Fork debate at a branch point
+
+### `PATCH` `/api/debates/{id}` 🔒
+
+Update debate metadata (title, tags, status)
+
+### `GET` `/api/search`
+
+Cross-debate search by query
 
 ---
 
@@ -366,15 +516,173 @@ Get supported file formats
 
 Get a document by ID
 
+### `POST` `/api/documents/upload`
+
+Upload a document
+
+### `DELETE` `/api/documents/{doc_id}`
+
+Delete a document by ID
+
 ---
 
 ## Evolution
 
 Prompt evolution endpoint handlers.
 
+### `GET` `/api/evolution/patterns`
+
+Get top patterns across all agents
+
+### `GET` `/api/evolution/summary`
+
+Get evolution summary statistics
+
 ### `GET` `/api/evolution/{agent}/history`
 
 Get prompt evolution history for an agent
+
+### `GET` `/api/evolution/{agent}/prompt`
+
+Get current/specific prompt version for an agent
+
+---
+
+## Evolution Ab Testing
+
+Evolution A/B testing endpoint handlers.
+
+### `GET` `/api/evolution/ab-tests` 🔒
+
+List all A/B tests
+
+### `GET` `/api/evolution/ab-tests/{agent}/active` 🔒
+
+Get active test for agent
+
+### `POST` `/api/evolution/ab-tests` 🔒
+
+Start new A/B test
+
+### `GET` `/api/evolution/ab-tests/{id}` 🔒
+
+Get specific test
+
+### `POST` `/api/evolution/ab-tests/{id}/record` 🔒
+
+Record debate result
+
+### `POST` `/api/evolution/ab-tests/{id}/conclude` 🔒
+
+Conclude test
+
+### `DELETE` `/api/evolution/ab-tests/{id}` 🔒
+
+Cancel test
+
+---
+
+## Features
+
+Handler for feature availability endpoints.
+
+### `GET` `/api/features`
+
+Get full feature matrix
+
+### `GET` `/api/features/available`
+
+Get list of available features
+
+### `GET` `/api/features/all`
+
+Get full feature matrix
+
+### `GET` `/api/features/handlers`
+
+GET /api/features/handlers
+
+### `GET` `/api/features/config`
+
+Get user's feature configuration
+
+### `GET` `/api/features/{feature_id}`
+
+GET /api/features/{feature_id}
+
+---
+
+## Formal Verification
+
+Formal Verification API Endpoints.
+
+### `POST` `/api/verify/claim`
+
+Verify a single claim
+
+### `POST` `/api/verify/batch`
+
+Batch verification of multiple claims
+
+### `GET` `/api/verify/status`
+
+Get backend availability status
+
+### `POST` `/api/verify/translate`
+
+Translate claim to formal language only
+
+---
+
+## Gallery
+
+Public Gallery endpoint handlers.
+
+### `GET` `/api/gallery`
+
+List public debates
+
+### `GET` `/api/gallery/:debate_id`
+
+Get specific debate with full history
+
+### `GET` `/api/gallery/:debate_id/embed`
+
+Get embeddable debate summary
+
+---
+
+## Gauntlet
+
+Gauntlet endpoint handlers for adversarial stress-testing.
+
+### `POST` `/api/gauntlet/run` 🔒
+
+Start a gauntlet stress-test
+
+### `GET` `/api/gauntlet/{id}` 🔒
+
+Get gauntlet status/results
+
+### `GET` `/api/gauntlet/{id}/receipt` 🔒
+
+Get decision receipt
+
+### `GET` `/api/gauntlet/{id}/heatmap` 🔒
+
+Get risk heatmap
+
+### `GET` `/api/gauntlet/personas` 🔒
+
+List available personas
+
+### `GET` `/api/gauntlet/results` 🔒
+
+List recent results with pagination
+
+### `GET` `/api/gauntlet/{id}/compare/{id2}` 🔒
+
+Compare two gauntlet runs
 
 ---
 
@@ -397,6 +705,40 @@ Get genome ancestry
 ### `GET` `/api/genesis/tree/:debate_id`
 
 Get debate tree structure
+
+### `GET` `/api/genesis/genomes`
+
+List all genomes
+
+### `GET` `/api/genesis/genomes/top`
+
+Get top genomes by fitness
+
+### `GET` `/api/genesis/genomes/:genome_id`
+
+Get single genome details
+
+---
+
+## Graph Debates
+
+Graph debates endpoint handlers.
+
+### `POST` `/api/debates/graph` 🔒
+
+Run a graph-structured debate with branching
+
+### `GET` `/api/debates/graph/{id}` 🔒
+
+Get graph debate by ID
+
+### `GET` `/api/debates/graph/{id}/branches` 🔒
+
+Get all branches for a debate
+
+### `GET` `/api/debates/graph/{id}/nodes` 🔒
+
+Get all nodes in debate graph
 
 ---
 
@@ -425,6 +767,10 @@ Get introspection for all agents
 ### `GET` `/api/introspection/leaderboard`
 
 Get agents ranked by reputation
+
+### `GET` `/api/introspection/agents`
+
+List available agents
 
 ### `GET` `/api/introspection/agents/{name}`
 
@@ -456,6 +802,50 @@ GET /api/leaderboard-view
 
 ---
 
+## Learning
+
+Cross-cycle learning analytics endpoint handlers.
+
+### `GET` `/api/learning/cycles`
+
+Get all cycle summaries
+
+### `GET` `/api/learning/patterns`
+
+Get learned patterns across cycles
+
+### `GET` `/api/learning/agent-evolution`
+
+Get agent performance evolution
+
+### `GET` `/api/learning/insights`
+
+Get aggregated insights from cycles
+
+---
+
+## Matrix Debates
+
+Matrix debates endpoint handlers.
+
+### `POST` `/api/debates/matrix` 🔒
+
+Run parallel scenario debates
+
+### `GET` `/api/debates/matrix/{id}` 🔒
+
+Get matrix debate results
+
+### `GET` `/api/debates/matrix/{id}/scenarios` 🔒
+
+Get all scenario results
+
+### `GET` `/api/debates/matrix/{id}/conclusions` 🔒
+
+Get universal/conditional conclusions
+
+---
+
 ## Memory
 
 Memory-related endpoint handlers.
@@ -476,6 +866,48 @@ Cleanup expired memories
 
 Get tier statistics
 
+### `GET` `/api/memory/archive-stats`
+
+Get archive statistics
+
+### `GET` `/api/memory/pressure`
+
+Get memory pressure and utilization
+
+### `DELETE` `/api/memory/continuum/{id}`
+
+Delete a memory by ID
+
+### `GET` `/api/memory/tiers`
+
+List all memory tiers with detailed stats
+
+### `GET` `/api/memory/search`
+
+Search memories across tiers
+
+### `GET` `/api/memory/critiques`
+
+Browse critique store entries
+
+---
+
+## Memory Analytics
+
+Memory analytics endpoint handlers.
+
+### `GET` `/api/memory/analytics`
+
+Get comprehensive memory tier analytics
+
+### `GET` `/api/memory/analytics/tier/{tier}`
+
+Get stats for specific tier
+
+### `POST` `/api/memory/analytics/snapshot`
+
+Take a manual snapshot
+
 ---
 
 ## Metrics
@@ -493,6 +925,14 @@ Detailed health check
 ### `GET` `/api/metrics/cache`
 
 Cache statistics
+
+### `GET` `/api/metrics/verification`
+
+Z3 formal verification statistics
+
+### `GET` `/api/metrics/system`
+
+System information
 
 ### `GET` `/metrics`
 
@@ -519,6 +959,74 @@ Filter moments by type
 ### `GET` `/api/moments/trending`
 
 Most significant recent moments
+
+---
+
+## Oauth
+
+OAuth Authentication Handlers.
+
+### `GET` `/api/auth/oauth/google`
+
+Redirect to Google OAuth consent screen
+
+### `GET` `/api/auth/oauth/google/callback`
+
+Handle OAuth callback
+
+### `POST` `/api/auth/oauth/link`
+
+Link OAuth account to existing user
+
+### `DELETE` `/api/auth/oauth/unlink`
+
+Unlink OAuth provider from account
+
+---
+
+## Organizations
+
+Organization Management Handlers.
+
+### `GET` `/api/org/{org_id}`
+
+Get organization details
+
+### `PUT` `/api/org/{org_id}`
+
+Update organization settings
+
+### `GET` `/api/org/{org_id}/members`
+
+List organization members
+
+### `POST` `/api/org/{org_id}/invite`
+
+Invite user to organization
+
+### `GET` `/api/org/{org_id}/invitations`
+
+List pending invitations
+
+### `DELETE` `/api/org/{org_id}/invitations/{invitation_id}`
+
+Revoke invitation
+
+### `DELETE` `/api/org/{org_id}/members/{user_id}`
+
+Remove member
+
+### `PUT` `/api/org/{org_id}/members/{user_id}/role`
+
+Update member role
+
+### `GET` `/api/invitations/pending`
+
+List pending invitations for current user
+
+### `POST` `/api/invitations/{token}/accept`
+
+Accept an invitation
 
 ---
 
@@ -572,6 +1080,18 @@ Get details for a specific plugin
 
 Run a plugin with provided input
 
+### `GET` `/api/plugins/installed`
+
+List installed plugins for user/org
+
+### `POST` `/api/plugins/{name}/install`
+
+Install a plugin
+
+### `DELETE` `/api/plugins/{name}/install`
+
+Uninstall a plugin
+
 ---
 
 ## Probes
@@ -595,6 +1115,14 @@ Get trending topics from multiple sources
 ### `GET` `/api/pulse/suggest`
 
 Suggest a trending topic for debate
+
+### `GET` `/api/pulse/analytics`
+
+Get analytics on trending topic debate outcomes
+
+### `POST` `/api/pulse/debate-topic`
+
+Start a debate on a trending topic
 
 ---
 
@@ -642,6 +1170,56 @@ Get meta-learning hyperparameters and efficiency stats
 
 ---
 
+## Reviews
+
+Reviews Handler - Serve shareable code reviews.
+
+### `GET` `/api/reviews/{id}`
+
+Get a specific review by ID
+
+### `GET` `/api/reviews`
+
+List recent reviews
+
+---
+
+## Sharing
+
+Handler for debate sharing endpoints.
+
+### `GET` `/api/debates/*/share`
+
+Generate a secure share token
+
+### `GET` `/api/debates/*/share/revoke` 🔒
+
+Revoke all share links for a debate
+
+### `GET` `/api/shared/*`
+
+GET /api/shared/*
+
+---
+
+## Slack
+
+Slack integration endpoint handlers.
+
+### `POST` `/api/integrations/slack/commands`
+
+Handle Slack slash commands
+
+### `POST` `/api/integrations/slack/interactive`
+
+Handle interactive components
+
+### `POST` `/api/integrations/slack/events`
+
+Handle Slack events
+
+---
+
 ## Social
 
 Social Media endpoint handlers for Twitter and YouTube.
@@ -672,9 +1250,25 @@ Publish debate to YouTube
 
 System and utility endpoint handlers.
 
+### `GET` `/healthz`
+
+Kubernetes liveness probe (lightweight)
+
+### `GET` `/readyz`
+
+Kubernetes readiness probe (checks dependencies)
+
 ### `GET` `/api/health`
 
 Health check
+
+### `GET` `/api/health/detailed`
+
+Detailed health check with component status
+
+### `GET` `/api/health/deep`
+
+Deep health check with all external dependencies
 
 ### `GET` `/api/nomic/state`
 
@@ -716,19 +1310,89 @@ Get history summary
 
 Run database maintenance (status|vacuum|analyze|checkpoint|full)
 
+### `GET` `/api/openapi`
+
+OpenAPI 3.0 JSON specification
+
+### `GET` `/api/openapi.yaml`
+
+OpenAPI 3.0 YAML specification
+
+### `GET` `/api/docs`
+
+Swagger UI interactive documentation
+
+### `GET` `/api/auth/stats`
+
+Get authentication statistics
+
+### `POST` `/api/auth/revoke`
+
+Revoke a token to invalidate it
+
+### `GET` `/api/circuit-breakers`
+
+Circuit breaker metrics for monitoring cascading failures
+
 ---
 
-## Tournaments
+## Tournament
 
-Tournament-related endpoint handlers.
+Handler for tournament-related endpoints.
 
-### `GET` `/api/tournaments`
+### `GET` `/api/tournaments` 🔒
 
-List all tournaments
+List all available tournaments
 
-### `GET` `/api/tournaments/{id}/standings`
+### `GET` `/api/tournaments/*`
 
-Get tournament standings
+GET /api/tournaments/*
+
+### `GET` `/api/tournaments/*/standings` 🔒
+
+Get current tournament standings
+
+### `GET` `/api/tournaments/*/bracket` 🔒
+
+Get tournament bracket structure
+
+### `GET` `/api/tournaments/*/matches` 🔒
+
+Get tournament match history
+
+### `GET` `/api/tournaments/*/advance` 🔒
+
+Advance tournament to next round (for elimination brackets)
+
+### `GET` `/api/tournaments/*/matches/*/result` 🔒
+
+Record a match result
+
+---
+
+## Training
+
+Handler for training data export endpoints.
+
+### `GET` `/api/training/export/sft`
+
+Get or create SFT exporter
+
+### `GET` `/api/training/export/dpo`
+
+Get or create DPO exporter
+
+### `GET` `/api/training/export/gauntlet`
+
+Get or create Gauntlet exporter
+
+### `GET` `/api/training/stats`
+
+GET /api/training/stats
+
+### `GET` `/api/training/formats`
+
+GET /api/training/formats
 
 ---
 

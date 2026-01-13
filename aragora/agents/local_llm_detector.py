@@ -117,10 +117,7 @@ class LocalLLMDetector:
             LocalLLMStatus with information about available servers
         """
         # Probe servers in parallel
-        tasks = [
-            self._probe_server(name, config)
-            for name, config in self.SERVERS.items()
-        ]
+        tasks = [self._probe_server(name, config) for name, config in self.SERVERS.items()]
         servers = await asyncio.gather(*tasks)
 
         # Calculate totals and recommendations

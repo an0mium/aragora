@@ -153,7 +153,10 @@ class TestGauntletResult:
             robustness_score=0.8,
             coverage_score=0.6,
             critical_findings=[Finding("c1", "a", 0.95, "Crit", "d")],
-            high_findings=[Finding("h1", "a", 0.75, "High", "d"), Finding("h2", "a", 0.8, "High2", "d")],
+            high_findings=[
+                Finding("h1", "a", 0.75, "High", "d"),
+                Finding("h2", "a", 0.8, "High2", "d"),
+            ],
             medium_findings=[Finding("m1", "a", 0.5, "Med", "d")],
             low_findings=[Finding("l1", "a", 0.2, "Low", "d")],
         )
@@ -422,7 +425,9 @@ class TestDecisionReceiptGenerator:
                 Finding("c1", "audit", 0.95, "Critical Bug", "Severe issue"),
             ],
             high_findings=[
-                Finding("h1", "attack", 0.75, "Security Gap", "Missing auth", mitigation="Add auth"),
+                Finding(
+                    "h1", "attack", 0.75, "Security Gap", "Missing auth", mitigation="Add auth"
+                ),
             ],
             medium_findings=[],
             low_findings=[],
@@ -485,10 +490,12 @@ class TestGauntletIntegration:
     @pytest.mark.asyncio
     async def test_run_gauntlet_minimal(self, mock_agent):
         """Test minimal gauntlet run."""
-        with patch("aragora.modes.gauntlet.GauntletOrchestrator._run_redteam") as mock_redteam, \
-             patch("aragora.modes.gauntlet.GauntletOrchestrator._run_probing") as mock_probe, \
-             patch("aragora.modes.gauntlet.GauntletOrchestrator._run_deep_audit") as mock_audit, \
-             patch("aragora.modes.gauntlet.GauntletOrchestrator._run_verification") as mock_verify:
+        with (
+            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_redteam") as mock_redteam,
+            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_probing") as mock_probe,
+            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_deep_audit") as mock_audit,
+            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_verification") as mock_verify,
+        ):
 
             # Mock returns
             mock_redteam.return_value = None
@@ -503,17 +510,24 @@ class TestGauntletIntegration:
             )
 
             assert result is not None
-            assert result.verdict in [Verdict.APPROVED, Verdict.APPROVED_WITH_CONDITIONS, Verdict.NEEDS_REVIEW, Verdict.REJECTED]
+            assert result.verdict in [
+                Verdict.APPROVED,
+                Verdict.APPROVED_WITH_CONDITIONS,
+                Verdict.NEEDS_REVIEW,
+                Verdict.REJECTED,
+            ]
             assert result.gauntlet_id.startswith("gauntlet-")
             assert result.input_type == InputType.SPEC
 
     @pytest.mark.asyncio
     async def test_full_gauntlet_workflow(self, mock_agent, tmp_path):
         """Test complete gauntlet workflow with receipt generation."""
-        with patch("aragora.modes.gauntlet.GauntletOrchestrator._run_redteam") as mock_redteam, \
-             patch("aragora.modes.gauntlet.GauntletOrchestrator._run_probing") as mock_probe, \
-             patch("aragora.modes.gauntlet.GauntletOrchestrator._run_deep_audit") as mock_audit, \
-             patch("aragora.modes.gauntlet.GauntletOrchestrator._run_verification") as mock_verify:
+        with (
+            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_redteam") as mock_redteam,
+            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_probing") as mock_probe,
+            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_deep_audit") as mock_audit,
+            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_verification") as mock_verify,
+        ):
 
             # Mock returns
             mock_redteam.return_value = None

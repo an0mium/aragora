@@ -24,76 +24,272 @@ logger = logging.getLogger(__name__)
 # Domain detection keywords
 DOMAIN_KEYWORDS: dict[str, list[str]] = {
     "security": [
-        "security", "auth", "authentication", "authorization", "encrypt",
-        "vulnerability", "attack", "xss", "sql injection", "csrf", "token",
-        "password", "credential", "permission", "access control", "firewall",
-        "sanitize", "validate input", "owasp", "rate limit", "brute force",
+        "security",
+        "auth",
+        "authentication",
+        "authorization",
+        "encrypt",
+        "vulnerability",
+        "attack",
+        "xss",
+        "sql injection",
+        "csrf",
+        "token",
+        "password",
+        "credential",
+        "permission",
+        "access control",
+        "firewall",
+        "sanitize",
+        "validate input",
+        "owasp",
+        "rate limit",
+        "brute force",
     ],
     "performance": [
-        "performance", "optimize", "speed", "latency", "cache", "caching",
-        "memory", "cpu", "throughput", "bottleneck", "profil", "benchmark",
-        "slow", "fast", "efficient", "scale", "scaling", "load", "concurrent",
+        "performance",
+        "optimize",
+        "speed",
+        "latency",
+        "cache",
+        "caching",
+        "memory",
+        "cpu",
+        "throughput",
+        "bottleneck",
+        "profil",
+        "benchmark",
+        "slow",
+        "fast",
+        "efficient",
+        "scale",
+        "scaling",
+        "load",
+        "concurrent",
     ],
     "architecture": [
-        "architecture", "design", "pattern", "refactor", "structure",
-        "modular", "decouple", "interface", "abstract", "dependency",
-        "solid", "dry", "single responsibility", "microservice", "monolith",
+        "architecture",
+        "design",
+        "pattern",
+        "refactor",
+        "structure",
+        "modular",
+        "decouple",
+        "interface",
+        "abstract",
+        "dependency",
+        "solid",
+        "dry",
+        "single responsibility",
+        "microservice",
+        "monolith",
     ],
     "testing": [
-        "test", "testing", "unittest", "pytest", "mock", "coverage",
-        "integration test", "e2e", "end-to-end", "tdd", "bdd", "fixture",
-        "assertion", "spec", "verify", "validate",
+        "test",
+        "testing",
+        "unittest",
+        "pytest",
+        "mock",
+        "coverage",
+        "integration test",
+        "e2e",
+        "end-to-end",
+        "tdd",
+        "bdd",
+        "fixture",
+        "assertion",
+        "spec",
+        "verify",
+        "validate",
     ],
     "api": [
-        "api", "endpoint", "rest", "graphql", "grpc", "http", "request",
-        "response", "route", "handler", "middleware", "cors", "versioning",
-        "openapi", "swagger", "webhook",
+        "api",
+        "endpoint",
+        "rest",
+        "graphql",
+        "grpc",
+        "http",
+        "request",
+        "response",
+        "route",
+        "handler",
+        "middleware",
+        "cors",
+        "versioning",
+        "openapi",
+        "swagger",
+        "webhook",
     ],
     "database": [
-        "database", "db", "sql", "query", "schema", "migration", "index",
-        "transaction", "orm", "postgresql", "mysql", "sqlite", "mongodb",
-        "redis", "cache", "nosql", "join", "foreign key",
+        "database",
+        "db",
+        "sql",
+        "query",
+        "schema",
+        "migration",
+        "index",
+        "transaction",
+        "orm",
+        "postgresql",
+        "mysql",
+        "sqlite",
+        "mongodb",
+        "redis",
+        "cache",
+        "nosql",
+        "join",
+        "foreign key",
     ],
     "frontend": [
-        "frontend", "ui", "ux", "react", "vue", "angular", "css", "html",
-        "component", "render", "state", "redux", "hook", "responsive",
-        "accessibility", "a11y", "animation",
+        "frontend",
+        "ui",
+        "ux",
+        "react",
+        "vue",
+        "angular",
+        "css",
+        "html",
+        "component",
+        "render",
+        "state",
+        "redux",
+        "hook",
+        "responsive",
+        "accessibility",
+        "a11y",
+        "animation",
     ],
     "devops": [
-        "deploy", "deployment", "ci", "cd", "docker", "kubernetes", "k8s",
-        "pipeline", "github actions", "terraform", "aws", "cloud", "infra",
-        "monitoring", "logging", "observability",
+        "deploy",
+        "deployment",
+        "ci",
+        "cd",
+        "docker",
+        "kubernetes",
+        "k8s",
+        "pipeline",
+        "github actions",
+        "terraform",
+        "aws",
+        "cloud",
+        "infra",
+        "monitoring",
+        "logging",
+        "observability",
     ],
     "debugging": [
-        "debug", "bug", "fix", "error", "exception", "traceback", "crash",
-        "issue", "problem", "broken", "fail", "not working", "investigate",
+        "debug",
+        "bug",
+        "fix",
+        "error",
+        "exception",
+        "traceback",
+        "crash",
+        "issue",
+        "problem",
+        "broken",
+        "fail",
+        "not working",
+        "investigate",
     ],
     "documentation": [
-        "document", "readme", "docstring", "comment", "explain", "tutorial",
-        "guide", "specification", "api doc",
+        "document",
+        "readme",
+        "docstring",
+        "comment",
+        "explain",
+        "tutorial",
+        "guide",
+        "specification",
+        "api doc",
     ],
     "ethics": [
-        "ethics", "ethical", "fairness", "bias", "privacy", "consent",
-        "responsible", "governance", "compliance", "gdpr", "moral",
-        "transparency", "accountability", "harm", "safety", "alignment",
+        "ethics",
+        "ethical",
+        "fairness",
+        "bias",
+        "privacy",
+        "consent",
+        "responsible",
+        "governance",
+        "compliance",
+        "gdpr",
+        "moral",
+        "transparency",
+        "accountability",
+        "harm",
+        "safety",
+        "alignment",
     ],
     "philosophy": [
-        "philosophy", "philosophical", "epistemology", "epistemological",
-        "ontology", "ontological", "logic", "logical", "reasoning",
-        "argument", "premise", "conclusion", "fallacy", "dialectic",
-        "metaphysics", "metaphysical", "theory of", "concept", "definition",
-        "truth claim", "knowledge", "belief", "justify", "justification",
-        "foundational", "first principles",
+        "philosophy",
+        "philosophical",
+        "epistemology",
+        "epistemological",
+        "ontology",
+        "ontological",
+        "logic",
+        "logical",
+        "reasoning",
+        "argument",
+        "premise",
+        "conclusion",
+        "fallacy",
+        "dialectic",
+        "metaphysics",
+        "metaphysical",
+        "theory of",
+        "concept",
+        "definition",
+        "truth claim",
+        "knowledge",
+        "belief",
+        "justify",
+        "justification",
+        "foundational",
+        "first principles",
     ],
     "data_analysis": [
-        "data", "analysis", "dataset", "statistics", "statistical", "pandas",
-        "numpy", "visualization", "chart", "plot", "correlation", "regression",
-        "machine learning", "ml", "prediction", "model", "feature", "training",
-        "jupyter", "notebook", "csv", "json", "etl", "pipeline",
+        "data",
+        "analysis",
+        "dataset",
+        "statistics",
+        "statistical",
+        "pandas",
+        "numpy",
+        "visualization",
+        "chart",
+        "plot",
+        "correlation",
+        "regression",
+        "machine learning",
+        "ml",
+        "prediction",
+        "model",
+        "feature",
+        "training",
+        "jupyter",
+        "notebook",
+        "csv",
+        "json",
+        "etl",
+        "pipeline",
     ],
     "general": [
-        "implement", "create", "build", "add", "update", "change", "modify",
-        "code", "function", "class", "method", "module", "library", "package",
+        "implement",
+        "create",
+        "build",
+        "add",
+        "update",
+        "change",
+        "modify",
+        "code",
+        "function",
+        "class",
+        "method",
+        "module",
+        "library",
+        "package",
     ],
 }
 
@@ -195,7 +391,7 @@ class DomainDetector:
             score = 0.0
             for keyword in keywords:
                 # Count occurrences with word boundaries
-                pattern = r'\b' + re.escape(keyword) + r'\b'
+                pattern = r"\b" + re.escape(keyword) + r"\b"
                 matches = len(re.findall(pattern, text_lower))
                 if matches > 0:
                     # Longer keywords are more specific, weight them higher
@@ -264,6 +460,7 @@ class DomainDetector:
             required_traits=traits,
         )
 
+
 if TYPE_CHECKING:
     from aragora.routing.probe_filter import ProbeFilter
 
@@ -302,12 +499,12 @@ class AgentProfile:
         # - 15% calibration quality
         # - 15% speed/cost
         base_score = (
-            self.elo_rating / 2000 * 0.30 +
-            self.success_rate * 0.20 +
-            self.probe_score * 0.20 +
-            self.calibration_score * 0.15 +
-            (1 - min(self.latency_ms, 5000) / 5000) * 0.075 +
-            (1 - min(self.cost_factor, 3) / 3) * 0.075
+            self.elo_rating / 2000 * 0.30
+            + self.success_rate * 0.20
+            + self.probe_score * 0.20
+            + self.calibration_score * 0.15
+            + (1 - min(self.latency_ms, 5000) / 5000) * 0.075
+            + (1 - min(self.cost_factor, 3) / 3) * 0.075
         )
         # Penalties for critical issues
         if self.has_critical_probes:
@@ -585,7 +782,9 @@ class AgentSelector:
 
         try:
             self._performance_insights = self.performance_monitor.get_performance_insights()
-            logger.debug(f"Refreshed performance insights for {len(self._performance_insights.get('agent_stats', {}))} agents")
+            logger.debug(
+                f"Refreshed performance insights for {len(self._performance_insights.get('agent_stats', {}))} agents"
+            )
         except Exception as e:
             logger.warning(f"Failed to refresh performance insights: {e}")
             self._performance_insights = {}
@@ -660,7 +859,8 @@ class AgentSelector:
         self.refresh_performance_insights()
 
         candidates = [
-            a for a in self.agent_pool.values()
+            a
+            for a in self.agent_pool.values()
             if a.name not in exclude and a.name not in self.bench
         ]
 
@@ -683,9 +883,7 @@ class AgentSelector:
         roles = self._assign_roles(team, requirements)
 
         # Calculate expected quality
-        expected_quality = sum(
-            self._score_for_task(a, requirements) for a in team
-        ) / len(team)
+        expected_quality = sum(self._score_for_task(a, requirements) for a in team) / len(team)
 
         # Calculate cost
         expected_cost = sum(a.cost_factor for a in team)
@@ -697,11 +895,13 @@ class AgentSelector:
         rationale = self._generate_rationale(team, requirements, scored)
 
         # Record selection
-        self._selection_history.append({
-            "task_id": requirements.task_id,
-            "selected": [a.name for a in team],
-            "timestamp": datetime.now().isoformat(),
-        })
+        self._selection_history.append(
+            {
+                "task_id": requirements.task_id,
+                "selected": [a.name for a in team],
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
         return TeamComposition(
             team_id=f"team-{requirements.task_id}",
@@ -741,7 +941,9 @@ class AgentSelector:
                         if trait not in traits:
                             traits.append(trait)
             except Exception as e:
-                logger.debug(f"Failed to get persona for {agent.name}: {e}. Using static expertise.")
+                logger.debug(
+                    f"Failed to get persona for {agent.name}: {e}. Using static expertise."
+                )
 
         # Domain expertise (using dynamic expertise)
         primary_exp = expertise.get(requirements.primary_domain, 0.5)
@@ -754,17 +956,13 @@ class AgentSelector:
         # Secondary domains (using dynamic expertise)
         if requirements.secondary_domains:
             secondary_score = sum(
-                expertise.get(d, 0.3)
-                for d in requirements.secondary_domains
+                expertise.get(d, 0.3) for d in requirements.secondary_domains
             ) / len(requirements.secondary_domains)
             score += secondary_score * 0.1
 
         # Trait matching (using dynamic traits)
         if requirements.required_traits:
-            matching_traits = sum(
-                1 for t in requirements.required_traits
-                if t in traits
-            )
+            matching_traits = sum(1 for t in requirements.required_traits if t in traits)
             score += matching_traits / len(requirements.required_traits) * 0.1
 
         # Adjust for quality priority
@@ -996,7 +1194,7 @@ class AgentSelector:
         elo_range = max(elos) - min(elos) if len(elos) > 1 else 0
         elo_div = min(elo_range / 500, 1.0)  # Normalize to 500 range
 
-        return (type_div * 0.4 + trait_div * 0.3 + elo_div * 0.3)
+        return type_div * 0.4 + trait_div * 0.3 + elo_div * 0.3
 
     def _generate_rationale(
         self,
@@ -1048,18 +1246,22 @@ class AgentSelector:
                 agent.success_rate = alpha * success + (1 - alpha) * agent.success_rate
 
         # Record to history
-        self._selection_history.append({
-            "task_id": team.task_id,
-            "selected": [a.name for a in team.agents],
-            "result": "success" if getattr(result, "consensus_reached", False) else "no_consensus",
-            "confidence": getattr(result, "confidence", 0),
-            "timestamp": datetime.now().isoformat(),
-        })
+        self._selection_history.append(
+            {
+                "task_id": team.task_id,
+                "selected": [a.name for a in team.agents],
+                "result": (
+                    "success" if getattr(result, "consensus_reached", False) else "no_consensus"
+                ),
+                "confidence": getattr(result, "confidence", 0),
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
     def get_selection_history(self, limit: Optional[int] = None) -> list[dict]:
         """Retrieve selection history for meta-analysis."""
         history = self._selection_history.copy()
-        history.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        history.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
         if limit:
             history = history[:limit]
         return history
@@ -1067,27 +1269,32 @@ class AgentSelector:
     def get_best_team_combinations(self, min_debates: int = 3) -> list[dict]:
         """Analyze history to find best-performing team combinations."""
         from collections import defaultdict
-        team_stats: dict[frozenset, dict] = defaultdict(lambda: {"wins": 0, "total": 0, "agents": []})
+
+        team_stats: dict[frozenset, dict] = defaultdict(
+            lambda: {"wins": 0, "total": 0, "agents": []}
+        )
 
         for entry in self._selection_history:
-            selected = entry.get('selected', [])
+            selected = entry.get("selected", [])
             if not selected:
                 continue
             team_key = frozenset(selected)
             team_stats[team_key]["agents"] = sorted(selected)
             team_stats[team_key]["total"] += 1
-            if entry.get('result') == 'success':
+            if entry.get("result") == "success":
                 team_stats[team_key]["wins"] += 1
 
         results = []
         for team_key, stats in team_stats.items():
             if stats["total"] >= min_debates:
-                results.append({
-                    "agents": stats["agents"],
-                    "success_rate": stats["wins"] / stats["total"],
-                    "total_debates": stats["total"],
-                    "wins": stats["wins"],
-                })
+                results.append(
+                    {
+                        "agents": stats["agents"],
+                        "success_rate": stats["wins"] / stats["total"],
+                        "total_debates": stats["total"],
+                        "wins": stats["wins"],
+                    }
+                )
         results.sort(key=lambda x: x["success_rate"], reverse=True)
         return results
 
@@ -1236,11 +1443,7 @@ class AgentSelector:
             expertise = agent.expertise.get(domain, 0.5)
             domain_elo = agent.domain_ratings.get(domain, agent.elo_rating)
             # Weight: 40% expertise, 40% domain ELO, 20% overall
-            return (
-                expertise * 0.4 +
-                (domain_elo - 1000) / 1000 * 0.4 +
-                agent.overall_score * 0.2
-            )
+            return expertise * 0.4 + (domain_elo - 1000) / 1000 * 0.4 + agent.overall_score * 0.2
 
         agents.sort(key=domain_score, reverse=True)
 

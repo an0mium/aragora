@@ -38,6 +38,7 @@ try:
         RedTeamMode,
         RedTeamResult,
     )
+
     REDTEAM_AVAILABLE = True
 except ImportError:
     REDTEAM_AVAILABLE = False
@@ -49,6 +50,7 @@ try:
         VulnerabilityReport,
         CapabilityProber,
     )
+
     PROBER_AVAILABLE = True
 except ImportError:
     PROBER_AVAILABLE = False
@@ -59,6 +61,7 @@ try:
         DeepAuditOrchestrator as DeepAuditOrc,
         DeepAuditVerdict,
     )
+
     DEEP_AUDIT_AVAILABLE = True
 except ImportError:
     DEEP_AUDIT_AVAILABLE = False
@@ -162,7 +165,7 @@ class GauntletOrchestrator:
         result = GauntletResult(
             config=config,
             input_text=input_text,
-            agents_used=config.agents[:config.max_agents],
+            agents_used=config.agents[: config.max_agents],
         )
 
         start_time = time.time()
@@ -197,7 +200,9 @@ class GauntletOrchestrator:
             # Phase 4: Formal Verification
             if config.enable_formal_verification:
                 result.current_phase = GauntletPhase.FORMAL_VERIFICATION
-                phase_result = await self._run_formal_verification(input_text, config, result.findings)
+                phase_result = await self._run_formal_verification(
+                    input_text, config, result.findings
+                )
                 result.phase_results.append(phase_result)
                 result.findings.extend(phase_result.findings)
                 result.verified_claims = phase_result.metrics.get("verified", 0)
@@ -242,9 +247,7 @@ class GauntletOrchestrator:
 
         return result
 
-    async def _run_risk_assessment(
-        self, input_text: str, config: GauntletConfig
-    ) -> PhaseResult:
+    async def _run_risk_assessment(self, input_text: str, config: GauntletConfig) -> PhaseResult:
         """Run domain risk assessment phase."""
         start = time.time()
         findings: list[GauntletFinding] = []
@@ -302,9 +305,7 @@ class GauntletOrchestrator:
                 error=str(e),
             )
 
-    async def _run_scenario_analysis(
-        self, input_text: str, config: GauntletConfig
-    ) -> PhaseResult:
+    async def _run_scenario_analysis(self, input_text: str, config: GauntletConfig) -> PhaseResult:
         """Run scenario matrix analysis phase."""
         start = time.time()
         findings: list[GauntletFinding] = []
@@ -324,6 +325,7 @@ class GauntletOrchestrator:
             # Add custom scenarios
             for scenario_data in config.custom_scenarios:
                 from aragora.debate.scenarios import Scenario, ScenarioType
+
                 scenario = Scenario(
                     id=scenario_data.get("id", f"custom-{len(config.custom_scenarios)}"),
                     name=scenario_data.get("name", "Custom Scenario"),
@@ -402,7 +404,7 @@ class GauntletOrchestrator:
                     redteam_result = await self._redteam_mode.run_redteam(
                         target_proposal=input_text,
                         proposer="input_author",
-                        red_team_agents=self.agents[:config.max_agents],
+                        red_team_agents=self.agents[: config.max_agents],
                         run_agent_fn=self.run_agent_fn,
                         max_rounds=3,
                     )
@@ -427,7 +429,9 @@ class GauntletOrchestrator:
 
                     probes_run += redteam_result.total_attacks
                     robustness_score = redteam_result.robustness_score
-                    logger.info(f"Red-team: {redteam_result.total_attacks} attacks, robustness={robustness_score:.0%}")
+                    logger.info(
+                        f"Red-team: {redteam_result.total_attacks} attacks, robustness={robustness_score:.0%}"
+                    )
 
                 except Exception as e:
                     logger.warning(f"Red-team failed: {e}")
@@ -461,7 +465,8 @@ class GauntletOrchestrator:
                                     severity=severity,
                                     category=f"probe_{probe_type}",
                                     title=f"Probe: {probe_type}",
-                                    description=probe_result.vulnerability_description or "Vulnerability detected",
+                                    description=probe_result.vulnerability_description
+                                    or "Vulnerability detected",
                                     source_phase=GauntletPhase.ADVERSARIAL_PROBING,
                                     metadata={"evidence": probe_result.evidence or ""},
                                 )
@@ -469,7 +474,9 @@ class GauntletOrchestrator:
                                 self._notify_finding(finding)
 
                     probes_run += probe_report.probes_run
-                    logger.info(f"Probing: {probe_report.vulnerabilities_found}/{probe_report.probes_run} vulnerabilities")
+                    logger.info(
+                        f"Probing: {probe_report.vulnerabilities_found}/{probe_report.probes_run} vulnerabilities"
+                    )
 
                 except Exception as e:
                     logger.warning(f"Probing failed: {e}")
@@ -540,7 +547,9 @@ class GauntletOrchestrator:
                     for finding in existing_findings:
                         if claim.lower() in finding.description.lower():
                             finding.is_verified = True
-                            finding.verification_method = result.language.value if result.language else "formal"
+                            finding.verification_method = (
+                                result.language.value if result.language else "formal"
+                            )
 
                 elif result.status == FormalProofStatus.PROOF_FAILED:
                     finding = GauntletFinding(
@@ -585,9 +594,7 @@ class GauntletOrchestrator:
                 error=str(e),
             )
 
-    async def _run_deep_audit(
-        self, input_text: str, config: GauntletConfig
-    ) -> PhaseResult:
+    async def _run_deep_audit(self, input_text: str, config: GauntletConfig) -> PhaseResult:
         """Run deep audit phase using DeepAuditOrchestrator."""
         start = time.time()
         findings: list[GauntletFinding] = []
@@ -599,7 +606,9 @@ class GauntletOrchestrator:
                 logger.info("Running deep audit...")
                 try:
                     audit_config = DeepAuditConfig(
-                        rounds=config.deep_audit_rounds if hasattr(config, 'deep_audit_rounds') else 4,
+                        rounds=(
+                            config.deep_audit_rounds if hasattr(config, "deep_audit_rounds") else 4
+                        ),
                         enable_research=False,
                         risk_threshold=0.7,
                     )
@@ -636,7 +645,9 @@ class GauntletOrchestrator:
                         self._notify_finding(finding)
 
                     consensus_reached = verdict.confidence > 0.7
-                    logger.info(f"Deep audit: confidence={verdict.confidence:.0%}, {len(verdict.findings)} findings")
+                    logger.info(
+                        f"Deep audit: confidence={verdict.confidence:.0%}, {len(verdict.findings)} findings"
+                    )
 
                 except Exception as e:
                     logger.warning(f"Deep audit failed: {e}")
@@ -651,7 +662,9 @@ class GauntletOrchestrator:
                 metrics={
                     "consensus": consensus_reached,
                     "votes": agent_votes,
-                    "rounds_completed": config.deep_audit_rounds if hasattr(config, 'deep_audit_rounds') else 4,
+                    "rounds_completed": (
+                        config.deep_audit_rounds if hasattr(config, "deep_audit_rounds") else 4
+                    ),
                 },
             )
 
@@ -676,39 +689,40 @@ class GauntletOrchestrator:
         }
 
         total_risk = sum(
-            severity_weights.get(f.severity, 0) * f.risk_score
-            for f in result.findings
+            severity_weights.get(f.severity, 0) * f.risk_score for f in result.findings
         )
         max_risk = len(result.findings) * 1.0  # Max if all critical
         result.risk_score = total_risk / max_risk if max_risk > 0 else 0.0
 
         # Calculate confidence based on phase completion
-        completed_phases = sum(
-            1 for p in result.phase_results if p.status == "completed"
-        )
+        completed_phases = sum(1 for p in result.phase_results if p.status == "completed")
         total_phases = len(result.phase_results)
         phase_confidence = completed_phases / total_phases if total_phases > 0 else 0.5
 
         # Factor in verification rate
         verification_confidence = (
-            result.verified_claims / result.total_claims
-            if result.total_claims > 0
-            else 0.5
+            result.verified_claims / result.total_claims if result.total_claims > 0 else 0.5
         )
 
         # Combine confidence factors
         result.confidence = (
-            0.4 * phase_confidence +
-            0.3 * result.robustness_score +
-            0.3 * verification_confidence
+            0.4 * phase_confidence + 0.3 * result.robustness_score + 0.3 * verification_confidence
         )
 
     def _extract_claims(self, text: str) -> list[str]:
         """Extract verifiable claims from text (simplified)."""
         # Simple heuristic: sentences containing assertion keywords
         assertion_patterns = [
-            "must", "always", "never", "guarantees", "ensures",
-            "will", "cannot", "impossible", "required", "mandatory",
+            "must",
+            "always",
+            "never",
+            "guarantees",
+            "ensures",
+            "will",
+            "cannot",
+            "impossible",
+            "required",
+            "mandatory",
         ]
 
         sentences = text.replace("\n", " ").split(".")
@@ -724,7 +738,11 @@ class GauntletOrchestrator:
 
     async def _save_artifacts(self, result: GauntletResult) -> None:
         """Save Gauntlet artifacts to disk."""
-        output_dir = Path(result.config.output_dir) if result.config.output_dir else self.nomic_dir / "gauntlets"
+        output_dir = (
+            Path(result.config.output_dir)
+            if result.config.output_dir
+            else self.nomic_dir / "gauntlets"
+        )
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Save result JSON

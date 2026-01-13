@@ -935,7 +935,11 @@ class TestEnhancedProvenanceManager:
             )
 
             with patch.object(manager.git_tracker, "check_staleness", return_value=fresh_check):
-                with patch.object(manager.web_tracker, "check_staleness", return_value=AsyncMock(return_value=fresh_check)()):
+                with patch.object(
+                    manager.web_tracker,
+                    "check_staleness",
+                    return_value=AsyncMock(return_value=fresh_check)(),
+                ):
                     checks = await manager.check_all_staleness()
                     assert len(checks) == 2
 
@@ -1162,7 +1166,9 @@ class TestProvenanceValidator:
                 reason="Changed",
             )
 
-            with patch.object(manager, "check_all_staleness", return_value=[fresh_check, stale_check]):
+            with patch.object(
+                manager, "check_all_staleness", return_value=[fresh_check, stale_check]
+            ):
                 result = await validator._check_staleness()
                 assert result["total_checked"] == 2
                 assert result["fresh_count"] == 1
@@ -1265,7 +1271,9 @@ class TestProvenanceIntegration:
                 return fresh_check
 
             with patch.object(manager.git_tracker, "check_staleness", return_value=fresh_check):
-                with patch.object(manager.web_tracker, "check_staleness", side_effect=mock_web_check):
+                with patch.object(
+                    manager.web_tracker, "check_staleness", side_effect=mock_web_check
+                ):
                     checks = await manager.check_all_staleness()
 
             # Validate
@@ -1281,8 +1289,7 @@ class TestProvenanceIntegration:
             # Export - staleness_checks was populated by check_all_staleness
             # Clear any coroutine objects that might have been stored
             manager.staleness_checks = {
-                k: v for k, v in manager.staleness_checks.items()
-                if isinstance(v, StalenessCheck)
+                k: v for k, v in manager.staleness_checks.items() if isinstance(v, StalenessCheck)
             }
             exported = manager.export_enhanced()
             assert exported["debate_id"] == "integration-test"
@@ -1305,7 +1312,9 @@ class TestProvenanceIntegration:
             )
             manager.staleness_checks["ev-1"] = stale_check
 
-            with patch.object(manager, "check_claim_evidence_staleness", return_value=[stale_check]):
+            with patch.object(
+                manager, "check_claim_evidence_staleness", return_value=[stale_check]
+            ):
                 triggers = manager.generate_revalidation_triggers(["claim-1"])
                 assert len(triggers) == 1
                 assert triggers[0].claim_id == "claim-1"
@@ -1317,6 +1326,7 @@ class TestProvenanceIntegration:
 
         # Verify all fields are JSON-serializable
         import json
+
         json_str = json.dumps(data)
         parsed = json.loads(json_str)
 

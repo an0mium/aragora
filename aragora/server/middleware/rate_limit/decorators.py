@@ -44,9 +44,7 @@ def _extract_handler(*args, **kwargs) -> Any:
     return handler
 
 
-def _error_response(
-    message: str, status: int, headers: Dict[str, str]
-) -> "HandlerResult":
+def _error_response(message: str, status: int, headers: Dict[str, str]) -> "HandlerResult":
     """Create an error response."""
     from aragora.server.handlers.base import error_response
 
@@ -100,9 +98,7 @@ def rate_limit(
             result = limiter.allow(client_key, endpoint=endpoint)
 
             if not result.allowed:
-                logger.warning(
-                    f"Rate limit exceeded for {client_key} on {func.__name__}"
-                )
+                logger.warning(f"Rate limit exceeded for {client_key} on {func.__name__}")
                 return _error_response(
                     "Rate limit exceeded. Please try again later.",
                     429,
@@ -114,9 +110,7 @@ def rate_limit(
 
             # Add headers to response if possible
             if hasattr(response, "headers") and isinstance(response.headers, dict):
-                response.headers.update(
-                    {k: v for k, v in rate_limit_headers(result).items()}
-                )
+                response.headers.update({k: v for k, v in rate_limit_headers(result).items()})
 
             return response
 
@@ -155,9 +149,7 @@ def user_rate_limit(
             result = check_user_rate_limit(handler, user_store, action)
 
             if not result.allowed:
-                logger.warning(
-                    f"User rate limit exceeded for {result.key} on {action}"
-                )
+                logger.warning(f"User rate limit exceeded for {result.key} on {action}")
                 return _error_response(
                     f"Rate limit exceeded for {action}. Please try again later.",
                     429,

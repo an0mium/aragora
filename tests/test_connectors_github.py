@@ -191,28 +191,30 @@ class TestIssueSearch:
     @pytest.fixture
     def mock_issues_json(self):
         """Sample gh CLI output for issues."""
-        return json.dumps([
-            {
-                "number": 1,
-                "title": "Bug Report",
-                "body": "This is a bug",
-                "author": {"login": "user1"},
-                "createdAt": "2026-01-01T00:00:00Z",
-                "url": "https://github.com/owner/repo/issues/1",
-                "state": "open",
-                "labels": [{"name": "bug"}],
-            },
-            {
-                "number": 2,
-                "title": "Feature Request",
-                "body": "Please add feature",
-                "author": {"login": "user2"},
-                "createdAt": "2026-01-02T00:00:00Z",
-                "url": "https://github.com/owner/repo/issues/2",
-                "state": "open",
-                "labels": [],
-            },
-        ])
+        return json.dumps(
+            [
+                {
+                    "number": 1,
+                    "title": "Bug Report",
+                    "body": "This is a bug",
+                    "author": {"login": "user1"},
+                    "createdAt": "2026-01-01T00:00:00Z",
+                    "url": "https://github.com/owner/repo/issues/1",
+                    "state": "open",
+                    "labels": [{"name": "bug"}],
+                },
+                {
+                    "number": 2,
+                    "title": "Feature Request",
+                    "body": "Please add feature",
+                    "author": {"login": "user2"},
+                    "createdAt": "2026-01-02T00:00:00Z",
+                    "url": "https://github.com/owner/repo/issues/2",
+                    "state": "open",
+                    "labels": [],
+                },
+            ]
+        )
 
     @pytest.mark.asyncio
     async def test_search_issues_parses_json(self, connector, mock_issues_json):
@@ -261,28 +263,30 @@ class TestPRSearch:
     @pytest.fixture
     def mock_prs_json(self):
         """Sample gh CLI output for PRs."""
-        return json.dumps([
-            {
-                "number": 10,
-                "title": "Add feature",
-                "body": "This PR adds a feature",
-                "author": {"login": "dev1"},
-                "createdAt": "2026-01-01T00:00:00Z",
-                "url": "https://github.com/owner/repo/pull/10",
-                "state": "open",
-                "mergedAt": None,
-            },
-            {
-                "number": 11,
-                "title": "Fix bug",
-                "body": "This PR fixes a bug",
-                "author": {"login": "dev2"},
-                "createdAt": "2026-01-02T00:00:00Z",
-                "url": "https://github.com/owner/repo/pull/11",
-                "state": "merged",
-                "mergedAt": "2026-01-03T00:00:00Z",
-            },
-        ])
+        return json.dumps(
+            [
+                {
+                    "number": 10,
+                    "title": "Add feature",
+                    "body": "This PR adds a feature",
+                    "author": {"login": "dev1"},
+                    "createdAt": "2026-01-01T00:00:00Z",
+                    "url": "https://github.com/owner/repo/pull/10",
+                    "state": "open",
+                    "mergedAt": None,
+                },
+                {
+                    "number": 11,
+                    "title": "Fix bug",
+                    "body": "This PR fixes a bug",
+                    "author": {"login": "dev2"},
+                    "createdAt": "2026-01-02T00:00:00Z",
+                    "url": "https://github.com/owner/repo/pull/11",
+                    "state": "merged",
+                    "mergedAt": "2026-01-03T00:00:00Z",
+                },
+            ]
+        )
 
     @pytest.mark.asyncio
     async def test_search_prs_parses_json(self, connector, mock_prs_json):
@@ -319,15 +323,17 @@ class TestCodeSearch:
     @pytest.fixture
     def mock_code_json(self):
         """Sample gh CLI output for code search."""
-        return json.dumps([
-            {
-                "path": "src/main.py",
-                "repository": {"fullName": "owner/repo"},
-                "textMatches": [
-                    {"fragment": "def hello():\n    print('world')"},
-                ],
-            },
-        ])
+        return json.dumps(
+            [
+                {
+                    "path": "src/main.py",
+                    "repository": {"fullName": "owner/repo"},
+                    "textMatches": [
+                        {"fragment": "def hello():\n    print('world')"},
+                    ],
+                },
+            ]
+        )
 
     @pytest.mark.asyncio
     async def test_search_code_parses_json(self, connector, mock_code_json):
@@ -358,41 +364,46 @@ class TestFetchOperations:
     @pytest.fixture
     def mock_issue_detail(self):
         """Sample gh CLI output for single issue."""
-        return json.dumps({
-            "number": 1,
-            "title": "Bug Report",
-            "body": "Detailed bug description",
-            "author": {"login": "user1"},
-            "createdAt": "2026-01-01T00:00:00Z",
-            "url": "https://github.com/owner/repo/issues/1",
-            "state": "open",
-            "labels": [],
-            "comments": [
-                {"author": {"login": "dev1"}, "body": "Looking into this"},
-            ],
-        })
+        return json.dumps(
+            {
+                "number": 1,
+                "title": "Bug Report",
+                "body": "Detailed bug description",
+                "author": {"login": "user1"},
+                "createdAt": "2026-01-01T00:00:00Z",
+                "url": "https://github.com/owner/repo/issues/1",
+                "state": "open",
+                "labels": [],
+                "comments": [
+                    {"author": {"login": "dev1"}, "body": "Looking into this"},
+                ],
+            }
+        )
 
     @pytest.fixture
     def mock_pr_detail(self):
         """Sample gh CLI output for single PR."""
-        return json.dumps({
-            "number": 10,
-            "title": "Fix Bug",
-            "body": "This fixes the bug",
-            "author": {"login": "dev1"},
-            "createdAt": "2026-01-01T00:00:00Z",
-            "url": "https://github.com/owner/repo/pull/10",
-            "state": "open",
-            "mergedAt": None,
-            "reviews": [
-                {"author": {"login": "reviewer"}, "state": "APPROVED", "body": "LGTM"},
-            ],
-        })
+        return json.dumps(
+            {
+                "number": 10,
+                "title": "Fix Bug",
+                "body": "This fixes the bug",
+                "author": {"login": "dev1"},
+                "createdAt": "2026-01-01T00:00:00Z",
+                "url": "https://github.com/owner/repo/pull/10",
+                "state": "open",
+                "mergedAt": None,
+                "reviews": [
+                    {"author": {"login": "reviewer"}, "state": "APPROVED", "body": "LGTM"},
+                ],
+            }
+        )
 
     @pytest.mark.asyncio
     async def test_fetch_returns_cached(self, connector):
         """fetch should return cached evidence if available."""
         import time
+
         cached_evidence = Evidence(
             id="gh-issue:owner/repo:1",
             source_type=SourceType.EXTERNAL_API,

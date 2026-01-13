@@ -191,7 +191,9 @@ class TestGauntletOrchestratorRun:
             # Make risk assessment take too long
             async def slow_risk(*args, **kwargs):
                 await asyncio.sleep(1)
-                return PhaseResult(phase=GauntletPhase.RISK_ASSESSMENT, status="completed", duration_ms=1000)
+                return PhaseResult(
+                    phase=GauntletPhase.RISK_ASSESSMENT, status="completed", duration_ms=1000
+                )
 
             mock_risk.side_effect = slow_risk
 
@@ -221,6 +223,7 @@ class TestGauntletOrchestratorRun:
     async def test_run_records_duration(self, orchestrator, minimal_config):
         """Test that run duration is recorded."""
         with patch.object(orchestrator, "_run_risk_assessment") as mock_risk:
+
             async def slow_risk(*args, **kwargs):
                 await asyncio.sleep(0.01)  # Small delay to ensure measurable duration
                 return PhaseResult(
@@ -228,6 +231,7 @@ class TestGauntletOrchestratorRun:
                     status="completed",
                     duration_ms=100,
                 )
+
             mock_risk.side_effect = slow_risk
 
             result = await orchestrator.run(
@@ -282,10 +286,15 @@ class TestGauntletOrchestratorPhases:
         mock_risk_level.CRITICAL = Mock()
 
         # Patch the import inside the function
-        with patch.dict("sys.modules", {"aragora.debate.risk_assessor": Mock(
-            RiskAssessor=Mock(return_value=mock_assessor_instance),
-            RiskLevel=mock_risk_level,
-        )}):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.debate.risk_assessor": Mock(
+                    RiskAssessor=Mock(return_value=mock_assessor_instance),
+                    RiskLevel=mock_risk_level,
+                )
+            },
+        ):
             result = await orchestrator._run_risk_assessment("Test", config)
 
             assert result.status == "completed"
@@ -600,7 +609,9 @@ class TestGauntletIntegration:
         # Mock phase methods
         with patch.object(orchestrator_with_agents, "_run_risk_assessment") as mock_risk:
             with patch.object(orchestrator_with_agents, "_run_scenario_analysis") as mock_scenario:
-                with patch.object(orchestrator_with_agents, "_run_adversarial_probing") as mock_probe:
+                with patch.object(
+                    orchestrator_with_agents, "_run_adversarial_probing"
+                ) as mock_probe:
                     # Setup returns with findings
                     mock_risk.return_value = PhaseResult(
                         phase=GauntletPhase.RISK_ASSESSMENT,

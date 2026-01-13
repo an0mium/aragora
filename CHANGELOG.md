@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - SOC2, PCI-DSS, and NIST CSF compliance personas for Gauntlet mode
+- `scripts/test_tiers.sh` for common test tiers (fast, ci, lint, typecheck, frontend, e2e)
+- `scripts/cleanup_runtime_artifacts.sh` to relocate root-level runtime DB artifacts
+
+### Changed
+- Onboarding docs now point to `docs/START_HERE.md` / `docs/GETTING_STARTED.md` as the canonical entry
+- Database docs now default to `ARAGORA_DATA_DIR` (`.nomic`) and clarify legacy paths
+- Frontend docs clarify dashboard vs SDK vs legacy frontend
+
+### Focus
+- Stabilization target: onboarding, test tiers, and runtime data hygiene (0.8.1)
 
 ## [0.8.0] - 2026-01-11
 

@@ -29,6 +29,7 @@ class CognitiveRole(Enum):
     - DEVIL_ADVOCATE: Argues against the emerging consensus
     - QUALITY_CHALLENGER: Evidence-Powered Trickster - challenges hollow consensus
     """
+
     ANALYST = "analyst"
     SKEPTIC = "skeptic"
     LATERAL_THINKER = "lateral_thinker"
@@ -58,7 +59,6 @@ Key questions to ask:
 - What data would help us decide?
 - Are there relevant precedents or case studies?
 """,
-
     CognitiveRole.SKEPTIC: """
 ## Your Cognitive Role: SKEPTIC
 
@@ -77,7 +77,6 @@ Key questions to ask:
 - What are we assuming without evidence?
 - What could go wrong that we haven't considered?
 """,
-
     CognitiveRole.LATERAL_THINKER: """
 ## Your Cognitive Role: LATERAL THINKER
 
@@ -96,7 +95,6 @@ Key questions to ask:
 - What if we inverted the problem?
 - What unconventional approach might actually work?
 """,
-
     CognitiveRole.SYNTHESIZER: """
 ## Your Cognitive Role: SYNTHESIZER
 
@@ -115,7 +113,6 @@ Key questions to ask:
 - What's the core insight we should preserve?
 - How do we resolve apparent contradictions?
 """,
-
     CognitiveRole.ADVOCATE: """
 ## Your Cognitive Role: ADVOCATE
 
@@ -134,7 +131,6 @@ Key questions to ask:
 - What evidence best supports this position?
 - Why is this the right choice given the constraints?
 """,
-
     CognitiveRole.DEVIL_ADVOCATE: """
 ## Your Cognitive Role: DEVIL'S ADVOCATE
 
@@ -153,7 +149,6 @@ Key questions to ask:
 - Who would disagree with this and why?
 - What's the strongest argument against the leading position?
 """,
-
     CognitiveRole.QUALITY_CHALLENGER: """
 ## Your Cognitive Role: QUALITY CHALLENGER (Evidence-Powered Trickster)
 
@@ -193,6 +188,7 @@ reach consensus without substantive backing.
 @dataclass
 class RoleAssignment:
     """An assignment of a cognitive role to an agent for a specific round."""
+
     agent_name: str
     role: CognitiveRole
     round_num: int
@@ -206,16 +202,19 @@ class RoleAssignment:
 @dataclass
 class RoleRotationConfig:
     """Configuration for role rotation across debate rounds."""
+
     # Whether to rotate roles each round
     enabled: bool = True
 
     # Available roles to assign
-    roles: list[CognitiveRole] = field(default_factory=lambda: [
-        CognitiveRole.ANALYST,
-        CognitiveRole.SKEPTIC,
-        CognitiveRole.LATERAL_THINKER,
-        CognitiveRole.SYNTHESIZER,
-    ])
+    roles: list[CognitiveRole] = field(
+        default_factory=lambda: [
+            CognitiveRole.ANALYST,
+            CognitiveRole.SKEPTIC,
+            CognitiveRole.LATERAL_THINKER,
+            CognitiveRole.SYNTHESIZER,
+        ]
+    )
 
     # Ensure each agent gets each role at least once (requires enough rounds)
     ensure_coverage: bool = True

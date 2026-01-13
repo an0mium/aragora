@@ -17,6 +17,7 @@ from aragora.debate.orchestrator import Arena, DebateProtocol
 
 # === Fixtures ===
 
+
 @pytest.fixture
 def mock_agent():
     """Create a mock agent for testing."""
@@ -58,12 +59,13 @@ def arena_with_emitter(mock_environment, mock_agent):
 
 # === Thread Safety Tests ===
 
+
 class TestMailboxThreadSafety:
     """Test thread-safe event queue handling."""
 
     def test_queue_initialized(self, arena_with_emitter):
         """Test that Arena initializes the event queue via AudienceManager."""
-        assert hasattr(arena_with_emitter, 'audience_manager')
+        assert hasattr(arena_with_emitter, "audience_manager")
         assert isinstance(arena_with_emitter.audience_manager._event_queue, queue.Queue)
 
     def test_handle_user_event_enqueues(self, arena_with_emitter):
@@ -146,6 +148,7 @@ class TestMailboxThreadSafety:
 
 
 # === Loop Scoping Tests ===
+
 
 class TestLoopScoping:
     """Test loop_id filtering for multi-tenant scenarios."""
@@ -264,6 +267,7 @@ class TestLoopScoping:
 
 # === Edge Cases ===
 
+
 class TestEdgeCases:
     """Test edge cases and error handling."""
 
@@ -294,9 +298,7 @@ class TestEdgeCases:
         from aragora.server.stream import StreamEventType
 
         # Event with None data (via AudienceManager)
-        arena_with_emitter.audience_manager._event_queue.put(
-            (StreamEventType.USER_VOTE, None)
-        )
+        arena_with_emitter.audience_manager._event_queue.put((StreamEventType.USER_VOTE, None))
 
         # Should not crash
         arena_with_emitter._drain_user_events()
@@ -320,6 +322,7 @@ class TestEdgeCases:
 
 # === Suggestion Integration Tests ===
 
+
 class TestSuggestionIntegration:
     """Test audience suggestion integration into prompts."""
 
@@ -330,7 +333,10 @@ class TestSuggestionIntegration:
         # Add multiple suggestions (via AudienceManager)
         for i in range(5):
             arena_with_emitter.audience_manager._event_queue.put(
-                (StreamEventType.USER_SUGGESTION, {"suggestion": f"Idea {i}", "user_id": f"user{i}"})
+                (
+                    StreamEventType.USER_SUGGESTION,
+                    {"suggestion": f"Idea {i}", "user_id": f"user{i}"},
+                )
             )
 
         arena_with_emitter._drain_user_events()
@@ -360,6 +366,7 @@ class TestSuggestionIntegration:
 
 
 # === Arena Parameter Tests ===
+
 
 class TestArenaParameters:
     """Test Arena constructor parameters."""

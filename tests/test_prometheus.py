@@ -366,6 +366,7 @@ class TestTimedHttpRequestDecorator:
 
     def test_decorator_times_function(self):
         """Decorator should time function execution."""
+
         @timed_http_request("/api/test")
         def test_handler():
             return MagicMock(status_code=200)
@@ -375,6 +376,7 @@ class TestTimedHttpRequestDecorator:
 
     def test_decorator_handles_exception(self):
         """Decorator should record 500 on exception."""
+
         @timed_http_request("/api/test")
         def failing_handler():
             raise ValueError("Test error")
@@ -389,6 +391,7 @@ class TestTimedAgentGenerationDecorator:
     @pytest.mark.asyncio
     async def test_decorator_times_async_function(self):
         """Decorator should time async function execution."""
+
         @timed_agent_generation("test_agent", "test_model")
         async def test_generate():
             return "Generated text"
@@ -399,6 +402,7 @@ class TestTimedAgentGenerationDecorator:
     @pytest.mark.asyncio
     async def test_decorator_records_failure(self):
         """Decorator should record failure on exception."""
+
         @timed_agent_generation("test_agent", "test_model")
         async def failing_generate():
             raise RuntimeError("Generation failed")

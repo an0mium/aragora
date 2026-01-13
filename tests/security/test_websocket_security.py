@@ -81,6 +81,7 @@ class TestOriginValidation:
 
         # Test with allowed origin
         from aragora.server.cors_config import WS_ALLOWED_ORIGINS
+
         if WS_ALLOWED_ORIGINS:
             allowed = list(WS_ALLOWED_ORIGINS)[0]
             headers = server._cors_headers(allowed)

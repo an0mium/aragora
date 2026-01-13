@@ -107,19 +107,13 @@ class TestClustering:
 
     def test_max_clusters_limit(self):
         """Test that max_clusters is respected."""
-        suggestions = [
-            {"content": f"Suggestion {i}", "user_id": f"user{i}"}
-            for i in range(10)
-        ]
+        suggestions = [{"content": f"Suggestion {i}", "user_id": f"user{i}"} for i in range(10)]
         result = cluster_suggestions(suggestions, max_clusters=3)
         assert len(result) <= 3
 
     def test_caps_at_50_suggestions(self):
         """Test that only first 50 suggestions are processed."""
-        suggestions = [
-            {"content": f"Suggestion {i}", "user_id": f"user{i}"}
-            for i in range(100)
-        ]
+        suggestions = [{"content": f"Suggestion {i}", "user_id": f"user{i}"} for i in range(100)]
         result = cluster_suggestions(suggestions, max_clusters=100)
         # Should be capped by the 50-suggestion limit
         assert len(result) <= 50
@@ -135,11 +129,9 @@ class TestFormatting:
 
     def test_single_cluster(self):
         """Test formatting with one cluster."""
-        clusters = [SuggestionCluster(
-            representative="Add feature X",
-            count=3,
-            user_ids=["u1", "u2", "u3"]
-        )]
+        clusters = [
+            SuggestionCluster(representative="Add feature X", count=3, user_ids=["u1", "u2", "u3"])
+        ]
         result = format_for_prompt(clusters)
         assert "audience_input" in result
         assert "Add feature X" in result
@@ -148,8 +140,7 @@ class TestFormatting:
     def test_limits_to_3_clusters(self):
         """Test that output is limited to top 3 clusters."""
         clusters = [
-            SuggestionCluster(f"Suggestion {i}", count=5-i, user_ids=[])
-            for i in range(5)
+            SuggestionCluster(f"Suggestion {i}", count=5 - i, user_ids=[]) for i in range(5)
         ]
         result = format_for_prompt(clusters)
         # Should only have 3 items

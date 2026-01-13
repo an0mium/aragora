@@ -89,7 +89,9 @@ class AttackSummary:
         return {
             "total_attacks": self.total_attacks,
             "successful_attacks": self.successful_attacks,
-            "success_rate": self.successful_attacks / self.total_attacks if self.total_attacks > 0 else 0,
+            "success_rate": (
+                self.successful_attacks / self.total_attacks if self.total_attacks > 0 else 0
+            ),
             "by_category": self.by_category,
             "robustness_score": self.robustness_score,
             "coverage_score": self.coverage_score,
@@ -253,7 +255,8 @@ class GauntletResult:
     def get_critical_vulnerabilities(self) -> list[Vulnerability]:
         """Get critical and high severity vulnerabilities."""
         return [
-            v for v in self.vulnerabilities
+            v
+            for v in self.vulnerabilities
             if v.severity in [SeverityLevel.CRITICAL, SeverityLevel.HIGH]
         ]
 

@@ -82,7 +82,9 @@ Examples:
             docs_dir = aragora_root / "docs"
             if docs_dir.exists():
                 static_dir = docs_dir
-                print(f"Note: Using docs/ for static files. Build live dashboard for full features.")
+                print(
+                    f"Note: Using docs/ for static files. Build live dashboard for full features."
+                )
 
     # Nomic directory - default to aragora/.nomic
     nomic_dir = args.nomic_dir

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../config';
 
 interface ContraryView {
   agent: string;
@@ -14,16 +15,19 @@ interface ContraryViewsPanelProps {
   apiBase?: string;
 }
 
-export function ContraryViewsPanel({ apiBase = '' }: ContraryViewsPanelProps) {
+export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
   const [views, setViews] = useState<ContraryView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Use centralized config if no apiBase provided
+  const baseUrl = apiBase || API_BASE_URL;
+
   useEffect(() => {
     const fetchViews = async () => {
       try {
-        const response = await fetch(`${apiBase}/api/consensus/contrarian-views`);
+        const response = await fetch(`${baseUrl}/api/consensus/contrarian-views`);
         if (response.ok) {
           const data = await response.json();
           setViews(data.views || data || []);
@@ -41,7 +45,7 @@ export function ContraryViewsPanel({ apiBase = '' }: ContraryViewsPanelProps) {
     // Refresh every 30 seconds
     const interval = setInterval(fetchViews, 30000);
     return () => clearInterval(interval);
-  }, [apiBase]);
+  }, [baseUrl]);
 
   if (!isExpanded) {
     return (

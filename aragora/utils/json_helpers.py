@@ -18,9 +18,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-def safe_json_loads(
-    data: str | None, default: T = None, context: str | None = None
-) -> T | Any:
+def safe_json_loads(data: str | None, default: T = None, context: str | None = None) -> T | Any:
     """Safely parse JSON string with fallback to default.
 
     Args:
@@ -68,7 +66,7 @@ def _extract_balanced_json(text: str, open_char: str, close_char: str) -> str | 
             escape_next = False
             continue
 
-        if char == '\\' and in_string:
+        if char == "\\" and in_string:
             escape_next = True
             continue
 
@@ -84,7 +82,7 @@ def _extract_balanced_json(text: str, open_char: str, close_char: str) -> str | 
         elif char == close_char:
             depth -= 1
             if depth == 0:
-                return text[start:i + 1]
+                return text[start : i + 1]
 
     return None
 
@@ -121,12 +119,12 @@ def extract_json_from_text(text: str) -> str:
         return array_block_match.group(1)
 
     # Try to find raw JSON object using balanced brace extraction
-    json_obj = _extract_balanced_json(text, '{', '}')
+    json_obj = _extract_balanced_json(text, "{", "}")
     if json_obj:
         return json_obj
 
     # Try to find raw JSON array using balanced bracket extraction
-    json_arr = _extract_balanced_json(text, '[', ']')
+    json_arr = _extract_balanced_json(text, "[", "]")
     if json_arr:
         return json_arr
 

@@ -36,6 +36,7 @@ PromptEvolver = None
 
 try:
     from aragora.evolution.evolver import PromptEvolver as _PE
+
     PromptEvolver = _PE
     EVOLUTION_AVAILABLE = True
 except ImportError:
@@ -77,8 +78,8 @@ class EvolutionHandler(BaseHandler):
 
         # Global patterns endpoint
         if path == "/api/evolution/patterns":
-            pattern_type = get_string_param(query_params, 'type')
-            limit = get_int_param(query_params, 'limit', 10)
+            pattern_type = get_string_param(query_params, "type")
+            limit = get_int_param(query_params, "limit", 10)
             limit = min(max(limit, 1), 50)
             return self._get_patterns(pattern_type, limit)
 
@@ -91,7 +92,7 @@ class EvolutionHandler(BaseHandler):
             agent, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
             if err:
                 return err
-            limit = get_int_param(query_params, 'limit', 10)
+            limit = get_int_param(query_params, "limit", 10)
             limit = min(max(limit, 1), 50)
             return self._get_evolution_history(agent, limit)
 
@@ -100,7 +101,7 @@ class EvolutionHandler(BaseHandler):
             agent, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
             if err:
                 return err
-            version = get_int_param(query_params, 'version')
+            version = get_int_param(query_params, "version")
             return self._get_prompt_version(agent, version)
 
         return None
@@ -115,14 +116,18 @@ class EvolutionHandler(BaseHandler):
             return error_response("Nomic directory not configured", 503)
 
         try:
-            evolver = PromptEvolver(db_path=str(get_db_path(DatabaseType.PROMPT_EVOLUTION, nomic_dir)))
+            evolver = PromptEvolver(
+                db_path=str(get_db_path(DatabaseType.PROMPT_EVOLUTION, nomic_dir))
+            )
             history = evolver.get_evolution_history(agent, limit=limit)
 
-            return json_response({
-                "agent": agent,
-                "history": history,
-                "count": len(history),
-            })
+            return json_response(
+                {
+                    "agent": agent,
+                    "history": history,
+                    "count": len(history),
+                }
+            )
         except Exception as e:
             logger.error(f"Error getting evolution history for {agent}: {e}", exc_info=True)
             return error_response("Failed to get evolution history", 500)
@@ -137,14 +142,18 @@ class EvolutionHandler(BaseHandler):
             return error_response("Nomic directory not configured", 503)
 
         try:
-            evolver = PromptEvolver(db_path=str(get_db_path(DatabaseType.PROMPT_EVOLUTION, nomic_dir)))
+            evolver = PromptEvolver(
+                db_path=str(get_db_path(DatabaseType.PROMPT_EVOLUTION, nomic_dir))
+            )
             patterns = evolver.get_top_patterns(pattern_type=pattern_type, limit=limit)
 
-            return json_response({
-                "patterns": patterns,
-                "count": len(patterns),
-                "filter": pattern_type,
-            })
+            return json_response(
+                {
+                    "patterns": patterns,
+                    "count": len(patterns),
+                    "filter": pattern_type,
+                }
+            )
         except Exception as e:
             logger.error(f"Error getting evolution patterns: {e}", exc_info=True)
             return error_response("Failed to get evolution patterns", 500)
@@ -159,22 +168,26 @@ class EvolutionHandler(BaseHandler):
             return error_response("Nomic directory not configured", 503)
 
         try:
-            evolver = PromptEvolver(db_path=str(get_db_path(DatabaseType.PROMPT_EVOLUTION, nomic_dir)))
+            evolver = PromptEvolver(
+                db_path=str(get_db_path(DatabaseType.PROMPT_EVOLUTION, nomic_dir))
+            )
             prompt_version = evolver.get_prompt_version(agent, version)
 
             if not prompt_version:
                 return error_response(f"No prompt version found for agent {agent}", 404)
 
-            return json_response({
-                "agent": agent,
-                "version": prompt_version.version,
-                "prompt": prompt_version.prompt,
-                "performance_score": prompt_version.performance_score,
-                "debates_count": prompt_version.debates_count,
-                "consensus_rate": prompt_version.consensus_rate,
-                "metadata": prompt_version.metadata,
-                "created_at": prompt_version.created_at,
-            })
+            return json_response(
+                {
+                    "agent": agent,
+                    "version": prompt_version.version,
+                    "prompt": prompt_version.prompt,
+                    "performance_score": prompt_version.performance_score,
+                    "debates_count": prompt_version.debates_count,
+                    "consensus_rate": prompt_version.consensus_rate,
+                    "metadata": prompt_version.metadata,
+                    "created_at": prompt_version.created_at,
+                }
+            )
         except Exception as e:
             logger.error(f"Error getting prompt version for {agent}: {e}", exc_info=True)
             return error_response("Failed to get prompt version", 500)
@@ -189,7 +202,9 @@ class EvolutionHandler(BaseHandler):
             return error_response("Nomic directory not configured", 503)
 
         try:
-            evolver = PromptEvolver(db_path=str(get_db_path(DatabaseType.PROMPT_EVOLUTION, nomic_dir)))
+            evolver = PromptEvolver(
+                db_path=str(get_db_path(DatabaseType.PROMPT_EVOLUTION, nomic_dir))
+            )
 
             # Get summary statistics from the database
             with evolver.db.connection() as conn:
@@ -208,23 +223,27 @@ class EvolutionHandler(BaseHandler):
                 total_patterns = cursor.fetchone()[0]
 
                 # Get pattern type distribution
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT pattern_type, COUNT(*) as count
                     FROM extracted_patterns
                     GROUP BY pattern_type
                     ORDER BY count DESC
-                """)
+                """
+                )
                 pattern_distribution = {row[0]: row[1] for row in cursor.fetchall()}
 
                 # Get top performing agents
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT agent_name, MAX(performance_score) as best_score,
                            MAX(version) as latest_version
                     FROM prompt_versions
                     GROUP BY agent_name
                     ORDER BY best_score DESC
                     LIMIT 10
-                """)
+                """
+                )
                 top_agents = [
                     {
                         "agent": row[0],
@@ -235,12 +254,14 @@ class EvolutionHandler(BaseHandler):
                 ]
 
                 # Get recent evolution activity
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT agent_name, strategy, created_at
                     FROM evolution_history
                     ORDER BY created_at DESC
                     LIMIT 5
-                """)
+                """
+                )
                 recent_activity = [
                     {
                         "agent": row[0],
@@ -250,14 +271,16 @@ class EvolutionHandler(BaseHandler):
                     for row in cursor.fetchall()
                 ]
 
-            return json_response({
-                "total_prompt_versions": total_versions,
-                "total_agents": total_agents,
-                "total_patterns": total_patterns,
-                "pattern_distribution": pattern_distribution,
-                "top_agents": top_agents,
-                "recent_activity": recent_activity,
-            })
+            return json_response(
+                {
+                    "total_prompt_versions": total_versions,
+                    "total_agents": total_agents,
+                    "total_patterns": total_patterns,
+                    "pattern_distribution": pattern_distribution,
+                    "top_agents": top_agents,
+                    "recent_activity": recent_activity,
+                }
+            )
         except Exception as e:
             logger.error(f"Error getting evolution summary: {e}", exc_info=True)
             return error_response("Failed to get evolution summary", 500)

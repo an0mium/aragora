@@ -41,13 +41,13 @@ from aragora.persistence.models import (
 class TestDatabaseMode:
     """Tests for database mode configuration."""
 
-    def test_legacy_mode_default(self):
-        """Default mode should be legacy when env not set."""
+    def test_consolidated_mode_default(self):
+        """Default mode should be consolidated when env not set."""
         with patch.dict(os.environ, {}, clear=True):
             # Clear ARAGORA_DB_MODE if set
             os.environ.pop("ARAGORA_DB_MODE", None)
             mode = get_db_mode()
-            assert mode == DatabaseMode.LEGACY
+            assert mode == DatabaseMode.CONSOLIDATED
 
     def test_legacy_mode_explicit(self):
         """Legacy mode when explicitly set."""
@@ -61,11 +61,11 @@ class TestDatabaseMode:
             mode = get_db_mode()
             assert mode == DatabaseMode.CONSOLIDATED
 
-    def test_invalid_mode_falls_back_to_legacy(self):
-        """Invalid mode values fall back to legacy."""
+    def test_invalid_mode_falls_back_to_consolidated(self):
+        """Invalid mode values fall back to consolidated (the default)."""
         with patch.dict(os.environ, {"ARAGORA_DB_MODE": "invalid_mode"}):
             mode = get_db_mode()
-            assert mode == DatabaseMode.LEGACY
+            assert mode == DatabaseMode.CONSOLIDATED
 
     def test_case_insensitive_mode(self):
         """Mode parsing should be case-insensitive."""
@@ -80,15 +80,22 @@ class TestNomicDir:
     def test_default_nomic_dir(self):
         """Default nomic dir is .nomic."""
         with patch.dict(os.environ, {}, clear=True):
+            os.environ.pop("ARAGORA_DATA_DIR", None)
             os.environ.pop("ARAGORA_NOMIC_DIR", None)
             nomic_dir = get_nomic_dir()
             assert nomic_dir == Path(".nomic")
 
     def test_custom_nomic_dir(self):
         """Custom nomic dir from environment."""
-        with patch.dict(os.environ, {"ARAGORA_NOMIC_DIR": "/custom/path"}):
+        with patch.dict(os.environ, {"ARAGORA_DATA_DIR": "/custom/path"}):
             nomic_dir = get_nomic_dir()
             assert nomic_dir == Path("/custom/path")
+
+    def test_custom_nomic_dir_legacy_alias(self):
+        """Legacy nomic dir alias still works."""
+        with patch.dict(os.environ, {"ARAGORA_NOMIC_DIR": "/legacy/path"}):
+            nomic_dir = get_nomic_dir()
+            assert nomic_dir == Path("/legacy/path")
 
 
 class TestDbPath:
@@ -145,34 +152,40 @@ class TestConvenienceFunctions:
     """Tests for convenience path functions."""
 
     def test_get_elo_db_path(self):
-        """ELO convenience function."""
+        """ELO convenience function (consolidated mode default)."""
         path = get_elo_db_path(Path("/test"))
-        assert path.name == "agent_elo.db"
+        # In consolidated mode (default), ELO maps to analytics.db
+        assert path.name == "analytics.db"
 
     def test_get_memory_db_path(self):
-        """Memory convenience function."""
+        """Memory convenience function (consolidated mode default)."""
         path = get_memory_db_path(Path("/test"))
-        assert path.name == "continuum.db"
+        # In consolidated mode (default), continuum memory maps to memory.db
+        assert path.name == "memory.db"
 
     def test_get_positions_db_path(self):
-        """Positions convenience function."""
+        """Positions convenience function (consolidated mode default)."""
         path = get_positions_db_path(Path("/test"))
-        assert path.name == "grounded_positions.db"
+        # In consolidated mode (default), positions maps to core.db
+        assert path.name == "core.db"
 
     def test_get_personas_db_path(self):
-        """Personas convenience function."""
+        """Personas convenience function (consolidated mode default)."""
         path = get_personas_db_path(Path("/test"))
-        assert path.name == "agent_personas.db"
+        # In consolidated mode (default), personas maps to agents.db
+        assert path.name == "agents.db"
 
     def test_get_insights_db_path(self):
         """Insights convenience function."""
         path = get_insights_db_path(Path("/test"))
-        assert path.name == "aragora_insights.db"
+        # In consolidated mode (default), insights maps to analytics.db
+        assert path.name == "analytics.db"
 
     def test_get_genesis_db_path(self):
         """Genesis convenience function."""
         path = get_genesis_db_path(Path("/test"))
-        assert path.name == "genesis.db"
+        # In consolidated mode (default), genesis maps to agents.db
+        assert path.name == "agents.db"
 
 
 class TestNomicCycleModel:
@@ -529,8 +542,8 @@ class TestEdgeCases:
     """Edge cases and boundary conditions."""
 
     def test_empty_nomic_dir_env(self):
-        """Empty string for ARAGORA_NOMIC_DIR."""
-        with patch.dict(os.environ, {"ARAGORA_NOMIC_DIR": ""}):
+        """Empty string for ARAGORA_DATA_DIR."""
+        with patch.dict(os.environ, {"ARAGORA_DATA_DIR": ""}):
             nomic_dir = get_nomic_dir()
             # Empty string should be treated as valid path
             assert nomic_dir == Path("")

@@ -62,7 +62,13 @@ def mock_event_emitter():
 
 
 @pytest.fixture
-def manager(mock_continuum_memory, mock_critique_store, mock_debate_embeddings, mock_spectator, mock_event_emitter):
+def manager(
+    mock_continuum_memory,
+    mock_critique_store,
+    mock_debate_embeddings,
+    mock_spectator,
+    mock_event_emitter,
+):
     """Create a MemoryManager with all mock dependencies."""
     return MemoryManager(
         continuum_memory=mock_continuum_memory,
@@ -95,7 +101,9 @@ def mock_debate_result():
 class TestTierCalculation:
     """Tests for tier calculation in store_debate_outcome."""
 
-    def test_slow_tier_for_low_quality_rounds_0(self, manager, mock_debate_result, mock_continuum_memory):
+    def test_slow_tier_for_low_quality_rounds_0(
+        self, manager, mock_debate_result, mock_continuum_memory
+    ):
         """Test that low-quality debates (rounds=0, low confidence) go to slow tier."""
         mock_debate_result.rounds_used = 0
         mock_debate_result.confidence = 0.3
@@ -107,7 +115,7 @@ class TestTierCalculation:
         mock_continuum_memory.add.assert_called_once()
         call_args = mock_continuum_memory.add.call_args
         tier = call_args.kwargs["tier"]
-        assert getattr(tier, 'value', tier) == "slow"
+        assert getattr(tier, "value", tier) == "slow"
 
     def test_slow_tier_for_low_confidence(self, manager, mock_debate_result, mock_continuum_memory):
         """Test that low confidence debates go to slow tier."""
@@ -119,9 +127,11 @@ class TestTierCalculation:
         mock_continuum_memory.add.assert_called_once()
         call_args = mock_continuum_memory.add.call_args
         tier = call_args.kwargs["tier"]
-        assert getattr(tier, 'value', tier) == "slow"
+        assert getattr(tier, "value", tier) == "slow"
 
-    def test_medium_tier_for_medium_quality(self, manager, mock_debate_result, mock_continuum_memory):
+    def test_medium_tier_for_medium_quality(
+        self, manager, mock_debate_result, mock_continuum_memory
+    ):
         """Test that medium quality debates go to medium tier."""
         mock_debate_result.rounds_used = 1
         mock_debate_result.confidence = 0.6
@@ -131,7 +141,7 @@ class TestTierCalculation:
         mock_continuum_memory.add.assert_called_once()
         call_args = mock_continuum_memory.add.call_args
         tier = call_args.kwargs["tier"]
-        assert getattr(tier, 'value', tier) == "medium"
+        assert getattr(tier, "value", tier) == "medium"
 
     def test_fast_tier_for_high_quality(self, manager, mock_debate_result, mock_continuum_memory):
         """Test that high quality debates go to fast tier."""
@@ -143,9 +153,11 @@ class TestTierCalculation:
         mock_continuum_memory.add.assert_called_once()
         call_args = mock_continuum_memory.add.call_args
         tier = call_args.kwargs["tier"]
-        assert getattr(tier, 'value', tier) == "fast"
+        assert getattr(tier, "value", tier) == "fast"
 
-    def test_importance_with_consensus_bonus(self, manager, mock_debate_result, mock_continuum_memory):
+    def test_importance_with_consensus_bonus(
+        self, manager, mock_debate_result, mock_continuum_memory
+    ):
         """Test that consensus adds 0.1 to importance."""
         mock_debate_result.confidence = 0.6
         mock_debate_result.consensus_reached = True
@@ -223,7 +235,9 @@ class TestEvidenceFiltering:
 class TestOutcomeUpdates:
     """Tests for outcome updates in update_memory_outcomes."""
 
-    def test_correct_prediction_error_based_on_success(self, manager, mock_debate_result, mock_continuum_memory):
+    def test_correct_prediction_error_based_on_success(
+        self, manager, mock_debate_result, mock_continuum_memory
+    ):
         """Test that prediction_error is calculated correctly based on success."""
         manager._retrieved_ids = ["mem_1", "mem_2"]
         mock_debate_result.consensus_reached = True
@@ -254,7 +268,9 @@ class TestOutcomeUpdates:
         assert call_args.kwargs["success"] is False
         assert call_args.kwargs["agent_prediction_error"] == 0.7
 
-    def test_partial_update_failures_handled(self, manager, mock_debate_result, mock_continuum_memory):
+    def test_partial_update_failures_handled(
+        self, manager, mock_debate_result, mock_continuum_memory
+    ):
         """Test that partial update failures are handled gracefully."""
         manager._retrieved_ids = ["mem_1", "mem_2", "mem_3"]
 
@@ -281,7 +297,9 @@ class TestEventEmission:
     """Tests for event emission in fetch_historical_context."""
 
     @pytest.mark.asyncio
-    async def test_spectator_memory_recall_event_structure(self, manager, mock_debate_embeddings, mock_spectator):
+    async def test_spectator_memory_recall_event_structure(
+        self, manager, mock_debate_embeddings, mock_spectator
+    ):
         """Test spectator memory_recall event has correct structure."""
         mock_debate_embeddings.find_similar_debates.return_value = [
             ("debate_1", "Topic 1", 0.85),
@@ -298,7 +316,9 @@ class TestEventEmission:
         assert call_args.kwargs["metric"] == 0.85  # Top similarity
 
     @pytest.mark.asyncio
-    async def test_websocket_stream_event_emission(self, manager, mock_debate_embeddings, mock_event_emitter):
+    async def test_websocket_stream_event_emission(
+        self, manager, mock_debate_embeddings, mock_event_emitter
+    ):
         """Test WebSocket StreamEvent emission."""
         mock_debate_embeddings.find_similar_debates.return_value = [
             ("debate_1", "Topic 1", 0.85),
@@ -316,7 +336,9 @@ class TestEventEmission:
                 mock_event_emitter.emit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handles_notification_failures_gracefully(self, manager, mock_debate_embeddings, mock_spectator):
+    async def test_handles_notification_failures_gracefully(
+        self, manager, mock_debate_embeddings, mock_spectator
+    ):
         """Test that notification failures don't crash the method."""
         mock_debate_embeddings.find_similar_debates.return_value = [
             ("debate_1", "Topic 1", 0.85),
@@ -394,8 +416,18 @@ class TestMemoryManagerIntegration:
     def test_format_patterns_for_prompt_with_patterns(self, manager):
         """Test formatting patterns includes severity labels."""
         patterns = [
-            {"category": "logic", "pattern": "Circular reasoning", "occurrences": 5, "avg_severity": 0.8},
-            {"category": "evidence", "pattern": "Missing sources", "occurrences": 3, "avg_severity": 0.5},
+            {
+                "category": "logic",
+                "pattern": "Circular reasoning",
+                "occurrences": 5,
+                "avg_severity": 0.8,
+            },
+            {
+                "category": "evidence",
+                "pattern": "Missing sources",
+                "occurrences": 3,
+                "avg_severity": 0.5,
+            },
         ]
 
         result = manager._format_patterns_for_prompt(patterns)

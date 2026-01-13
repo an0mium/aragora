@@ -84,10 +84,7 @@ async def run(context: PluginContext) -> dict:
             stderr=asyncio.subprocess.PIPE,
             cwd=context.working_dir,
         )
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(),
-            timeout=60.0
-        )
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=60.0)
     except asyncio.TimeoutError:
         context.error("Security scan timed out after 60 seconds")
         return {"vulnerabilities": [], "error": "Timeout"}
@@ -106,17 +103,19 @@ async def run(context: PluginContext) -> dict:
     # Extract vulnerabilities
     vulnerabilities = []
     for result in data.get("results", []):
-        vulnerabilities.append({
-            "file": result.get("filename", ""),
-            "line": result.get("line_number", 0),
-            "test_id": result.get("test_id", ""),
-            "test_name": result.get("test_name", ""),
-            "severity": result.get("issue_severity", "").lower(),
-            "confidence": result.get("issue_confidence", "").lower(),
-            "message": result.get("issue_text", ""),
-            "cwe": result.get("issue_cwe", {}).get("id", ""),
-            "more_info": result.get("more_info", ""),
-        })
+        vulnerabilities.append(
+            {
+                "file": result.get("filename", ""),
+                "line": result.get("line_number", 0),
+                "test_id": result.get("test_id", ""),
+                "test_name": result.get("test_name", ""),
+                "severity": result.get("issue_severity", "").lower(),
+                "confidence": result.get("issue_confidence", "").lower(),
+                "message": result.get("issue_text", ""),
+                "cwe": result.get("issue_cwe", {}).get("id", ""),
+                "more_info": result.get("more_info", ""),
+            }
+        )
 
     # Build summary
     summary = _build_summary(vulnerabilities)

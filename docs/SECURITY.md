@@ -11,6 +11,9 @@ This document covers security features implemented in Aragora, including authent
 - [Authorization](#authorization)
   - [Role-Based Access](#role-based-access)
   - [Organization Tiers](#organization-tiers)
+- [UI Access Controls](#ui-access-controls)
+  - [Admin Console](#admin-console)
+  - [Developer Portal](#developer-portal)
 - [Proof Sandbox](#proof-sandbox)
 - [Rate Limiting](#rate-limiting)
 - [Security Headers](#security-headers)
@@ -284,6 +287,29 @@ Tiers determine rate limits and feature access:
 | `starter` | 50/min | 100 | + Priority support |
 | `professional` | 200/min | 400 | + API access |
 | `enterprise` | 1000/min | 2000 | + Custom features |
+
+---
+
+## UI Access Controls
+
+### Admin Console
+
+The admin console (`/admin`) surfaces system health, circuit breakers, recent errors, and rate limits.
+It must be restricted to admin or owner roles.
+
+Security requirements:
+- JWT auth enabled and validated on `/api/system/*` handlers.
+- Role enforcement: only `admin` or `owner` should access admin endpoints.
+- Prefer additional controls (SSO, allowlist, VPN) for production.
+
+### Developer Portal
+
+The developer portal (`/developer`) allows users to manage API keys and view usage stats.
+
+Security requirements:
+- Authenticated user with a valid access token.
+- API key issuance is restricted to the requesting user.
+- API keys are bearer credentials; display once and encourage immediate secure storage.
 
 ---
 

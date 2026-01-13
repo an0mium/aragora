@@ -24,6 +24,7 @@ from aragora.storage.base_store import SQLiteStore
 @dataclass
 class SuggestionRecord:
     """A recorded suggestion injection."""
+
     id: str
     debate_id: str
     suggestion_text: str
@@ -59,6 +60,7 @@ class SuggestionRecord:
 @dataclass
 class ContributorStats:
     """Statistics for a suggestion contributor."""
+
     user_id: str
     total_suggestions: int = 0
     suggestions_in_consensus: int = 0
@@ -142,6 +144,7 @@ class SuggestionFeedbackTracker(SQLiteStore):
             List of injection IDs
         """
         import uuid
+
         injection_ids = []
 
         with self.connection() as conn:
@@ -151,27 +154,30 @@ class SuggestionFeedbackTracker(SQLiteStore):
                 injection_id = str(uuid.uuid4())
 
                 # Handle both SuggestionCluster objects and dicts
-                if hasattr(cluster, 'representative'):
+                if hasattr(cluster, "representative"):
                     text = cluster.representative
                     count = cluster.count
                     user_ids = cluster.user_ids
                 else:
-                    text = cluster.get('representative', '')
-                    count = cluster.get('count', 1)
-                    user_ids = cluster.get('user_ids', [])
+                    text = cluster.get("representative", "")
+                    count = cluster.get("count", 1)
+                    user_ids = cluster.get("user_ids", [])
 
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO suggestion_injections
                     (id, debate_id, suggestion_text, cluster_count, user_ids, injected_at)
                     VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    injection_id,
-                    debate_id,
-                    text,
-                    count,
-                    json.dumps(user_ids),
-                    datetime.now().isoformat(),
-                ))
+                """,
+                    (
+                        injection_id,
+                        debate_id,
+                        text,
+                        count,
+                        json.dumps(user_ids),
+                        datetime.now().isoformat(),
+                    ),
+                )
 
                 injection_ids.append(injection_id)
 
@@ -206,7 +212,7 @@ class SuggestionFeedbackTracker(SQLiteStore):
             # Get all injections for this debate
             cursor.execute(
                 "SELECT id, user_ids, cluster_count FROM suggestion_injections WHERE debate_id = ?",
-                (debate_id,)
+                (debate_id,),
             )
             injections = cursor.fetchall()
 
@@ -229,7 +235,8 @@ class SuggestionFeedbackTracker(SQLiteStore):
             effectiveness = min(1.0, max(0.0, effectiveness))
 
             # Update all injections for this debate
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE suggestion_injections
                 SET debate_completed = 1,
                     consensus_reached = ?,
@@ -237,13 +244,15 @@ class SuggestionFeedbackTracker(SQLiteStore):
                     duration_seconds = ?,
                     effectiveness_score = ?
                 WHERE debate_id = ?
-            """, (
-                1 if consensus_reached else 0,
-                consensus_confidence,
-                duration_seconds,
-                effectiveness,
-                debate_id,
-            ))
+            """,
+                (
+                    1 if consensus_reached else 0,
+                    consensus_confidence,
+                    duration_seconds,
+                    effectiveness,
+                    debate_id,
+                ),
+            )
 
             # Update contributor stats
             for injection_id, user_ids_json, cluster_count in injections:
@@ -270,7 +279,7 @@ class SuggestionFeedbackTracker(SQLiteStore):
         cursor.execute(
             "SELECT total_suggestions, suggestions_in_consensus, avg_effectiveness, reputation_score "
             "FROM contributor_stats WHERE user_id = ?",
-            (user_id,)
+            (user_id,),
         )
         row = cursor.fetchone()
 
@@ -290,18 +299,21 @@ class SuggestionFeedbackTracker(SQLiteStore):
             new_avg_eff = effectiveness
             new_rep = 0.5 + (effectiveness - 0.5) * 0.1
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO contributor_stats
             (user_id, total_suggestions, suggestions_in_consensus, avg_effectiveness, reputation_score, updated_at)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            user_id,
-            total,
-            in_consensus,
-            new_avg_eff,
-            new_rep,
-            datetime.now().isoformat(),
-        ))
+        """,
+            (
+                user_id,
+                total,
+                in_consensus,
+                new_avg_eff,
+                new_rep,
+                datetime.now().isoformat(),
+            ),
+        )
 
     def get_contributor_stats(self, user_id: str) -> Optional[ContributorStats]:
         """Get stats for a specific contributor."""
@@ -310,7 +322,7 @@ class SuggestionFeedbackTracker(SQLiteStore):
             cursor.execute(
                 "SELECT user_id, total_suggestions, suggestions_in_consensus, avg_effectiveness, reputation_score "
                 "FROM contributor_stats WHERE user_id = ?",
-                (user_id,)
+                (user_id,),
             )
             row = cursor.fetchone()
 
@@ -329,13 +341,16 @@ class SuggestionFeedbackTracker(SQLiteStore):
         """Get top contributors by reputation."""
         with self.connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT user_id, total_suggestions, suggestions_in_consensus, avg_effectiveness, reputation_score
                 FROM contributor_stats
                 WHERE total_suggestions >= 3
                 ORDER BY reputation_score DESC
                 LIMIT ?
-            """, (limit,))
+            """,
+                (limit,),
+            )
             rows = cursor.fetchall()
 
         return [
@@ -353,10 +368,7 @@ class SuggestionFeedbackTracker(SQLiteStore):
         """Get all suggestions for a debate."""
         with self.connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT * FROM suggestion_injections WHERE debate_id = ?",
-                (debate_id,)
-            )
+            cursor.execute("SELECT * FROM suggestion_injections WHERE debate_id = ?", (debate_id,))
             rows = cursor.fetchall()
 
         return [
@@ -389,24 +401,30 @@ class SuggestionFeedbackTracker(SQLiteStore):
             stats["total_suggestions"] = row[0] if row else 0
 
             # Completed debates with suggestions
-            cursor.execute("SELECT COUNT(DISTINCT debate_id) FROM suggestion_injections WHERE debate_completed = 1")
+            cursor.execute(
+                "SELECT COUNT(DISTINCT debate_id) FROM suggestion_injections WHERE debate_completed = 1"
+            )
             row = cursor.fetchone()
             stats["debates_with_suggestions"] = row[0] if row else 0
 
             # Consensus rate for debates with suggestions
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT AVG(consensus_reached) FROM suggestion_injections
                 WHERE debate_completed = 1
-            """)
+            """
+            )
             row = cursor.fetchone()
             avg = row[0] if row else None
             stats["consensus_rate"] = avg if avg else 0.0
 
             # Average effectiveness
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT AVG(effectiveness_score) FROM suggestion_injections
                 WHERE debate_completed = 1
-            """)
+            """
+            )
             row = cursor.fetchone()
             avg = row[0] if row else None
             stats["avg_effectiveness"] = avg if avg else 0.0
@@ -417,13 +435,15 @@ class SuggestionFeedbackTracker(SQLiteStore):
             stats["total_contributors"] = row[0] if row else 0
 
             # Top effectiveness suggestions
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT suggestion_text, effectiveness_score, cluster_count
                 FROM suggestion_injections
                 WHERE debate_completed = 1 AND effectiveness_score >= 0.7
                 ORDER BY effectiveness_score DESC
                 LIMIT 5
-            """)
+            """
+            )
             stats["top_suggestions"] = [
                 {"text": row[0][:100], "score": row[1], "count": row[2]}
                 for row in cursor.fetchall()
@@ -458,8 +478,7 @@ class SuggestionFeedbackTracker(SQLiteStore):
                     continue
 
                 cursor.execute(
-                    "SELECT reputation_score FROM contributor_stats WHERE user_id = ?",
-                    (user_id,)
+                    "SELECT reputation_score FROM contributor_stats WHERE user_id = ?", (user_id,)
                 )
                 row = cursor.fetchone()
                 rep = row[0] if row else 0.5

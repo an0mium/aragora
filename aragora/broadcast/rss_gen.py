@@ -261,7 +261,7 @@ class PodcastFeedGenerator:
             f"      <itunes:email>{_escape_xml(config.email)}</itunes:email>",
             f"    </itunes:owner>",
             f'    <itunes:image href="{_escape_xml(config.image_url)}"/>',
-            f"    <itunes:category text=\"{_escape_xml(config.category)}\">",
+            f'    <itunes:category text="{_escape_xml(config.category)}">',
             f'      <itunes:category text="{_escape_xml(config.subcategory)}"/>',
             f"    </itunes:category>",
             "",
@@ -272,10 +272,12 @@ class PodcastFeedGenerator:
             xml_parts.extend(self._generate_episode_xml(episode))
 
         # Close channel and rss
-        xml_parts.extend([
-            "  </channel>",
-            "</rss>",
-        ])
+        xml_parts.extend(
+            [
+                "  </channel>",
+                "</rss>",
+            ]
+        )
 
         return "\n".join(xml_parts)
 
@@ -290,7 +292,7 @@ class PodcastFeedGenerator:
             f"      <description>{_escape_xml(episode.description)}</description>",
             f"      <content:encoded><![CDATA[{_escape_cdata(episode.content)}]]></content:encoded>",
             f"      <pubDate>{pub_date}</pubDate>",
-            f"      <guid isPermaLink=\"false\">{_escape_xml(episode.guid)}</guid>",
+            f'      <guid isPermaLink="false">{_escape_xml(episode.guid)}</guid>',
             f'      <enclosure url="{_escape_xml(episode.audio_url)}" '
             f'length="{episode.file_size_bytes}" type="audio/mpeg"/>',
             "",

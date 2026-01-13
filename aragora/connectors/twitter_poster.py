@@ -56,7 +56,9 @@ class TwitterRateLimitError(TwitterError, ConnectorRateLimitError):
 class TwitterAPIError(TwitterError, ConnectorAPIError):
     """General API error."""
 
-    def __init__(self, message: str = "Twitter API request failed", status_code: Optional[int] = None):
+    def __init__(
+        self, message: str = "Twitter API request failed", status_code: Optional[int] = None
+    ):
         full_message = f"{message} (HTTP {status_code})" if status_code else message
         is_retryable = status_code is not None and 500 <= status_code < 600
         super().__init__(full_message, is_retryable=is_retryable)
@@ -157,9 +159,7 @@ class TwitterPosterConnector:
         self.api_key = api_key or os.environ.get("TWITTER_API_KEY", "")
         self.api_secret = api_secret or os.environ.get("TWITTER_API_SECRET", "")
         self.access_token = access_token or os.environ.get("TWITTER_ACCESS_TOKEN", "")
-        self.access_secret = access_secret or os.environ.get(
-            "TWITTER_ACCESS_SECRET", ""
-        )
+        self.access_secret = access_secret or os.environ.get("TWITTER_ACCESS_SECRET", "")
 
         self.base_url = "https://api.twitter.com/2"
         self.upload_url = "https://upload.twitter.com/1.1"
@@ -179,14 +179,14 @@ class TwitterPosterConnector:
                 missing.append("TWITTER_ACCESS_TOKEN")
             if not self.access_secret:
                 missing.append("TWITTER_ACCESS_SECRET")
-            logger.warning(f"Twitter credentials incomplete. Missing: {', '.join(missing)}. Posts will fail.")
+            logger.warning(
+                f"Twitter credentials incomplete. Missing: {', '.join(missing)}. Posts will fail."
+            )
 
     @property
     def is_configured(self) -> bool:
         """Check if Twitter credentials are configured."""
-        return all(
-            [self.api_key, self.api_secret, self.access_token, self.access_secret]
-        )
+        return all([self.api_key, self.api_secret, self.access_token, self.access_secret])
 
     def _generate_oauth_signature(
         self,
@@ -499,9 +499,7 @@ class TwitterPosterConnector:
                 elif response.status_code == 429:
                     raise TwitterRateLimitError("Rate limit exceeded for media upload")
                 else:
-                    raise TwitterAPIError(
-                        f"Media upload failed", status_code=response.status_code
-                    )
+                    raise TwitterAPIError(f"Media upload failed", status_code=response.status_code)
 
         except (TwitterAuthError, TwitterMediaError, TwitterAPIError, TwitterRateLimitError):
             raise
@@ -643,7 +641,9 @@ class DebateContentFormatter:
             tweets.append(f"{i + 1}. {highlight}")
 
         # Final tweet: Result
-        result_text = "Consensus reached!" if consensus_reached else "No consensus - debate continues..."
+        result_text = (
+            "Consensus reached!" if consensus_reached else "No consensus - debate continues..."
+        )
         if debate_url:
             result_text += f"\n\nFull debate: {debate_url}"
         tweets.append(result_text)

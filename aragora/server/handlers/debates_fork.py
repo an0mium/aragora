@@ -65,8 +65,7 @@ class ForkOperationsMixin:
             messages = debate.get("messages", [])
             if branch_point > len(messages):
                 return error_response(
-                    f"Branch point {branch_point} exceeds message count {len(messages)}",
-                    400
+                    f"Branch point {branch_point} exceeds message count {len(messages)}", 400
                 )
 
             # Import counterfactual module
@@ -78,21 +77,18 @@ class ForkOperationsMixin:
                 )
             except ImportError as e:
                 import_error_msg = str(e)
-                module_name = getattr(e, 'name', None)
-                logger.error(
-                    "Failed to import counterfactual module: %s",
-                    e, exc_info=True
-                )
-                if 'counterfactual' in str(module_name or import_error_msg).lower():
+                module_name = getattr(e, "name", None)
+                logger.error("Failed to import counterfactual module: %s", e, exc_info=True)
+                if "counterfactual" in str(module_name or import_error_msg).lower():
                     return error_response("Counterfactual forking feature not available", 503)
                 else:
                     return error_response(
-                        f"Internal error loading fork feature: {import_error_msg}",
-                        500
+                        f"Internal error loading fork feature: {import_error_msg}", 500
                     )
 
             # Create a pivot claim from the context
             import uuid as uuid_mod
+
             pivot = PivotClaim(
                 claim_id=f"pivot-{uuid_mod.uuid4().hex[:8]}",
                 statement=modified_context or f"Branch at round {branch_point}",
@@ -129,25 +125,35 @@ class ForkOperationsMixin:
             nomic_dir = self.get_nomic_dir()
             if nomic_dir:
                 import json as json_mod
+
                 branches_dir = nomic_dir / "branches"
                 branches_dir.mkdir(exist_ok=True)
                 branch_file = branches_dir / f"{branch_id}.json"
                 with open(branch_file, "w") as f:
                     json_mod.dump(branch_data, f, indent=2)
 
-            return json_response({
-                "success": True,
-                "branch_id": branch_id,
-                "parent_debate_id": debate_id,
-                "branch_point": branch_point,
-                "messages_inherited": branch_point,
-                "modified_context": modified_context,
-                "status": "created",
-                "message": f"Created fork '{branch_id}' from debate '{debate_id}' at round {branch_point}",
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "branch_id": branch_id,
+                    "parent_debate_id": debate_id,
+                    "branch_point": branch_point,
+                    "messages_inherited": branch_point,
+                    "modified_context": modified_context,
+                    "status": "created",
+                    "message": f"Created fork '{branch_id}' from debate '{debate_id}' at round {branch_point}",
+                }
+            )
 
         except Exception as e:
-            logger.error("Failed to create fork for %s at round %s: %s: %s", debate_id, branch_point, type(e).__name__, e, exc_info=True)
+            logger.error(
+                "Failed to create fork for %s at round %s: %s: %s",
+                debate_id,
+                branch_point,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
             return error_response(safe_error_message(e, "create fork"), 500)
 
     @handle_errors("verify debate outcome")
@@ -164,50 +170,51 @@ class ForkOperationsMixin:
         if body is None:
             return error_response("Invalid or missing JSON body", 400)
 
-        correct = body.get('correct', False)
-        source = body.get('source', 'manual')
+        correct = body.get("correct", False)
+        source = body.get("source", "manual")
 
         # Get position tracker from context
         position_tracker = self.ctx.get("position_tracker")
 
         if position_tracker:
             position_tracker.record_verification(debate_id, correct, source)
-            return json_response({
-                "status": "verified",
-                "debate_id": debate_id,
-                "correct": correct,
-                "source": source,
-            })
+            return json_response(
+                {
+                    "status": "verified",
+                    "debate_id": debate_id,
+                    "correct": correct,
+                    "source": source,
+                }
+            )
 
         # Try to create a temporary tracker
         try:
             from aragora.agents.truth_grounding import PositionTracker
+
             nomic_dir = self.get_nomic_dir()
             if nomic_dir:
                 db_path = nomic_dir / "aragora_positions.db"
                 if db_path.exists():
                     tracker = PositionTracker(db_path=str(db_path))
                     tracker.record_verification(debate_id, correct, source)
-                    return json_response({
-                        "status": "verified",
-                        "debate_id": debate_id,
-                        "correct": correct,
-                        "source": source,
-                    })
+                    return json_response(
+                        {
+                            "status": "verified",
+                            "debate_id": debate_id,
+                            "correct": correct,
+                            "source": source,
+                        }
+                    )
             return error_response("Position tracking not configured", 503)
         except ImportError as e:
             import_error_msg = str(e)
-            module_name = getattr(e, 'name', None)
-            logger.error(
-                "Failed to import PositionTracker module: %s",
-                e, exc_info=True
-            )
-            if 'truth_grounding' in str(module_name or import_error_msg).lower():
+            module_name = getattr(e, "name", None)
+            logger.error("Failed to import PositionTracker module: %s", e, exc_info=True)
+            if "truth_grounding" in str(module_name or import_error_msg).lower():
                 return error_response("Position tracking feature not available", 503)
             else:
                 return error_response(
-                    f"Internal error loading position tracker: {import_error_msg}",
-                    500
+                    f"Internal error loading position tracker: {import_error_msg}", 500
                 )
 
     @require_storage
@@ -248,6 +255,7 @@ class ForkOperationsMixin:
             # If no stored cruxes, analyze the debate
             if not cruxes:
                 from aragora.core import Vote, Message
+
                 votes_data = debate.get("votes", [])
                 messages_data = debate.get("messages", [])
                 proposals = debate.get("proposals", {})
@@ -255,27 +263,31 @@ class ForkOperationsMixin:
                 # Convert to Vote/Message objects if needed
                 votes = []
                 for v in votes_data:
-                    if hasattr(v, 'choice'):
+                    if hasattr(v, "choice"):
                         votes.append(v)
                     else:
-                        votes.append(Vote(
-                            agent=v.get("agent", "unknown"),
-                            choice=v.get("choice", ""),
-                            confidence=v.get("confidence", 0.5),
-                            reasoning=v.get("reasoning", ""),
-                        ))
+                        votes.append(
+                            Vote(
+                                agent=v.get("agent", "unknown"),
+                                choice=v.get("choice", ""),
+                                confidence=v.get("confidence", 0.5),
+                                reasoning=v.get("reasoning", ""),
+                            )
+                        )
 
                 messages = []
                 for m in messages_data:
-                    if hasattr(m, 'content'):
+                    if hasattr(m, "content"):
                         messages.append(m)
                     else:
-                        messages.append(Message(
-                            agent=m.get("agent", "unknown"),
-                            content=m.get("content", ""),
-                            role=m.get("role", "proposer"),
-                            round=m.get("round", 1),
-                        ))
+                        messages.append(
+                            Message(
+                                agent=m.get("agent", "unknown"),
+                                content=m.get("content", ""),
+                                role=m.get("role", "proposer"),
+                                round=m.get("round", 1),
+                            )
+                        )
 
                 # Run disagreement analysis
                 analyzer = DisagreementAnalyzer()
@@ -283,11 +295,13 @@ class ForkOperationsMixin:
                 cruxes = metrics.cruxes
 
             if not cruxes:
-                return json_response({
-                    "debate_id": debate_id,
-                    "suggestions": [],
-                    "message": "No significant disagreement cruxes identified",
-                })
+                return json_response(
+                    {
+                        "debate_id": debate_id,
+                        "suggestions": [],
+                        "message": "No significant disagreement cruxes identified",
+                    }
+                )
 
             # Generate follow-up suggestions
             analyzer = DisagreementAnalyzer()
@@ -298,14 +312,22 @@ class ForkOperationsMixin:
                 available_agents=available_agents,
             )
 
-            return json_response({
-                "debate_id": debate_id,
-                "suggestions": [s.to_dict() for s in suggestions],
-                "count": len(suggestions),
-            })
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "suggestions": [s.to_dict() for s in suggestions],
+                    "count": len(suggestions),
+                }
+            )
 
         except Exception as e:
-            logger.error("Failed to get followup suggestions for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            logger.error(
+                "Failed to get followup suggestions for %s: %s: %s",
+                debate_id,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
             return error_response(safe_error_message(e, "get followup suggestions"), 500)
 
     @require_storage
@@ -357,6 +379,7 @@ class ForkOperationsMixin:
             elif crux_data:
                 # Generate task from crux description
                 from aragora.uncertainty.estimator import DisagreementAnalyzer, DisagreementCrux
+
                 analyzer = DisagreementAnalyzer()
                 crux = DisagreementCrux(
                     description=crux_data.get("description", ""),
@@ -385,6 +408,7 @@ class ForkOperationsMixin:
             # Create unique ID for follow-up debate
             import time
             import hashlib
+
             followup_id = f"followup-{debate_id[:8]}-{int(time.time()) % 100000}"
 
             # Store follow-up debate metadata
@@ -403,6 +427,7 @@ class ForkOperationsMixin:
             nomic_dir = self.get_nomic_dir()
             if nomic_dir:
                 import json as json_mod
+
                 followups_dir = nomic_dir / "followups"
                 followups_dir.mkdir(exist_ok=True)
                 followup_file = followups_dir / f"{followup_id}.json"
@@ -411,20 +436,183 @@ class ForkOperationsMixin:
 
             logger.info(f"Created follow-up debate {followup_id} from parent {debate_id}")
 
-            return json_response({
-                "success": True,
-                "followup_id": followup_id,
-                "parent_debate_id": debate_id,
-                "task": task,
-                "agents": agents,
-                "crux_id": crux_id,
-                "status": "pending",
-                "message": f"Created follow-up debate to explore: {task[:100]}",
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "followup_id": followup_id,
+                    "parent_debate_id": debate_id,
+                    "task": task,
+                    "agents": agents,
+                    "crux_id": crux_id,
+                    "status": "pending",
+                    "message": f"Created follow-up debate to explore: {task[:100]}",
+                }
+            )
 
         except Exception as e:
-            logger.error("Failed to create followup debate for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            logger.error(
+                "Failed to create followup debate for %s: %s: %s",
+                debate_id,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
             return error_response(safe_error_message(e, "create followup debate"), 500)
+
+    @require_storage
+    def _list_debate_forks(self: "DebatesHandler", debate_id: str) -> HandlerResult:
+        """List all forks for a debate with tree structure.
+
+        Returns:
+            forks: List of fork data
+            tree: Hierarchical tree structure
+            total: Total fork count
+        """
+        import json as json_mod
+        import time as time_mod
+
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "forks": [],
+                    "tree": None,
+                    "total": 0,
+                }
+            )
+
+        branches_dir = nomic_dir / "branches"
+        if not branches_dir.exists():
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "forks": [],
+                    "tree": None,
+                    "total": 0,
+                }
+            )
+
+        forks = []
+        try:
+            # Scan for forks related to this debate
+            for branch_file in branches_dir.glob(f"fork-{debate_id}*.json"):
+                try:
+                    with open(branch_file) as f:
+                        fork_data = json_mod.load(f)
+                        # Add timestamp if missing
+                        if "created_at" not in fork_data:
+                            fork_data["created_at"] = branch_file.stat().st_mtime
+                        forks.append(fork_data)
+                except (json_mod.JSONDecodeError, OSError) as e:
+                    logger.warning("Failed to read fork file %s: %s", branch_file, e)
+                    continue
+
+            # Also check for child forks (forks of forks)
+            for fork in list(forks):
+                fork_id = fork.get("branch_id", "")
+                for child_file in branches_dir.glob(f"fork-{fork_id}*.json"):
+                    try:
+                        with open(child_file) as f:
+                            child_data = json_mod.load(f)
+                            if child_data not in forks:
+                                if "created_at" not in child_data:
+                                    child_data["created_at"] = child_file.stat().st_mtime
+                                forks.append(child_data)
+                    except (json_mod.JSONDecodeError, OSError):
+                        continue
+
+            # Sort by creation time
+            forks.sort(key=lambda x: x.get("created_at", 0))
+
+            # Build tree structure
+            tree = self._build_fork_tree(debate_id, forks)
+
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "forks": forks,
+                    "tree": tree,
+                    "total": len(forks),
+                }
+            )
+
+        except OSError as e:
+            logger.error("Failed to list forks for %s: %s", debate_id, e)
+            return error_response(safe_error_message(e, "list forks"), 500)
+
+    def _build_fork_tree(
+        self: "DebatesHandler",
+        root_id: str,
+        forks: list,
+    ) -> dict:
+        """Build a hierarchical tree structure from flat fork list.
+
+        Args:
+            root_id: The root debate ID
+            forks: List of fork data dicts
+
+        Returns:
+            Tree structure with nested children
+        """
+        # Create lookup by branch_id
+        fork_lookup = {f.get("branch_id"): f for f in forks}
+
+        # Build tree recursively
+        def build_node(node_id: str, is_root: bool = False) -> dict:
+            if is_root:
+                # Root node is the original debate
+                node = {
+                    "id": node_id,
+                    "type": "root",
+                    "branch_point": 0,
+                    "children": [],
+                }
+            else:
+                # Fork node
+                fork_data = fork_lookup.get(node_id, {})
+                node = {
+                    "id": node_id,
+                    "type": "fork",
+                    "branch_point": fork_data.get("branch_point", 0),
+                    "pivot_claim": fork_data.get("pivot_claim"),
+                    "status": fork_data.get("status", "unknown"),
+                    "modified_context": fork_data.get("modified_context"),
+                    "messages_inherited": fork_data.get("messages_inherited", 0),
+                    "created_at": fork_data.get("created_at"),
+                    "children": [],
+                }
+
+            # Find children (forks that have this node as parent)
+            for fork in forks:
+                if fork.get("parent_debate_id") == node_id:
+                    child_id = fork.get("branch_id")
+                    if child_id:
+                        child_node = build_node(child_id)
+                        node["children"].append(child_node)
+
+            return node
+
+        tree = build_node(root_id, is_root=True)
+
+        # Calculate tree stats
+        def count_nodes(node: dict) -> tuple:
+            """Count total nodes and max depth."""
+            if not node.get("children"):
+                return 1, 1
+            total = 1
+            max_depth = 1
+            for child in node["children"]:
+                child_count, child_depth = count_nodes(child)
+                total += child_count
+                max_depth = max(max_depth, child_depth + 1)
+            return total, max_depth
+
+        total_nodes, max_depth = count_nodes(tree)
+        tree["total_nodes"] = total_nodes
+        tree["max_depth"] = max_depth
+
+        return tree
 
 
 __all__ = ["ForkOperationsMixin"]

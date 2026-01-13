@@ -20,10 +20,11 @@ logger = logging.getLogger(__name__)
 
 class TelemetryLevel(Enum):
     """Observation levels for agent telemetry."""
-    SILENT = auto()      # No telemetry output
+
+    SILENT = auto()  # No telemetry output
     DIAGNOSTIC = auto()  # Internal debugging only (logs, no broadcast)
     CONTROLLED = auto()  # Filtered telemetry with security redaction
-    SPECTACLE = auto()   # Full transparency for demos/debugging
+    SPECTACLE = auto()  # Full transparency for demos/debugging
 
 
 # Level name mappings for environment variable parsing
@@ -48,7 +49,7 @@ class TelemetryConfig:
     Defaults to CONTROLLED for security.
     """
 
-    _instance: Optional['TelemetryConfig'] = None
+    _instance: Optional["TelemetryConfig"] = None
 
     def __init__(self, level: Optional[TelemetryLevel] = None):
         """
@@ -63,7 +64,7 @@ class TelemetryConfig:
             self._level = self._load_from_env()
 
     @classmethod
-    def get_instance(cls) -> 'TelemetryConfig':
+    def get_instance(cls) -> "TelemetryConfig":
         """Get singleton instance via ServiceRegistry.
 
         Falls back to class-level singleton if ServiceRegistry unavailable.
@@ -71,6 +72,7 @@ class TelemetryConfig:
         # Try ServiceRegistry first (preferred)
         try:
             from aragora.services import ServiceRegistry
+
             registry = ServiceRegistry.get()
             if registry.has(cls):
                 return registry.resolve(cls)
@@ -96,6 +98,7 @@ class TelemetryConfig:
         # Clear from ServiceRegistry
         try:
             from aragora.services import ServiceRegistry
+
             registry = ServiceRegistry.get()
             if registry.has(cls):
                 registry.unregister(cls)

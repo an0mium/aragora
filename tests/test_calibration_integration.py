@@ -292,6 +292,7 @@ class TestCalibrationLeaderboardEndpoint:
     def handler(self):
         """Create CalibrationHandler with mock server context."""
         from aragora.server.handlers.calibration import CalibrationHandler
+
         mock_context = MagicMock()
         return CalibrationHandler(mock_context)
 
@@ -308,11 +309,12 @@ class TestCalibrationLeaderboardEndpoint:
         """Test ROUTES includes leaderboard endpoint."""
         assert "/api/calibration/leaderboard" in handler.ROUTES
 
-    @patch('aragora.server.handlers.calibration.ELO_AVAILABLE', True)
-    @patch('aragora.server.handlers.calibration.EloSystem')
+    @patch("aragora.server.handlers.calibration.ELO_AVAILABLE", True)
+    @patch("aragora.server.handlers.calibration.EloSystem")
     def test_leaderboard_returns_json(self, mock_elo_cls, handler):
         """Test leaderboard returns JSON response."""
         import json
+
         # Setup mock ELO system
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = [
@@ -332,11 +334,11 @@ class TestCalibrationLeaderboardEndpoint:
 
         assert result is not None
         assert result.status_code == 200
-        body = json.loads(result.body.decode('utf-8'))
+        body = json.loads(result.body.decode("utf-8"))
         assert "agents" in body
         assert "metric" in body
 
-    @patch('aragora.server.handlers.calibration.ELO_AVAILABLE', False)
+    @patch("aragora.server.handlers.calibration.ELO_AVAILABLE", False)
     def test_leaderboard_unavailable_without_elo(self, handler):
         """Test leaderboard returns 503 without ELO system."""
         result = handler.handle("/api/calibration/leaderboard", {}, None)

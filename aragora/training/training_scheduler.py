@@ -329,7 +329,9 @@ class TrainingScheduler:
             )
 
             job.tinker_job_id = result.job_id
-            job.status = JobStatus.RUNNING if result.state == TrainingState.RUNNING else JobStatus.COMPLETED
+            job.status = (
+                JobStatus.RUNNING if result.state == TrainingState.RUNNING else JobStatus.COMPLETED
+            )
             job.result = result
 
             if result.state == TrainingState.COMPLETED:
@@ -443,7 +445,9 @@ class TrainingScheduler:
 
                 if dpo_result.state == TrainingState.COMPLETED:
                     job.status = JobStatus.COMPLETED
-                    logger.info("Combined job %s completed: model_id=%s", job.job_id, dpo_result.model_id)
+                    logger.info(
+                        "Combined job %s completed: model_id=%s", job.job_id, dpo_result.model_id
+                    )
                 else:
                     job.status = JobStatus.FAILED
                     job.error = dpo_result.error_message
@@ -452,7 +456,11 @@ class TrainingScheduler:
                 job.result = sft_result
                 job.model_id = sft_result.model_id
                 job.status = JobStatus.COMPLETED
-                logger.info("Combined job %s completed (SFT only): model_id=%s", job.job_id, sft_result.model_id)
+                logger.info(
+                    "Combined job %s completed (SFT only): model_id=%s",
+                    job.job_id,
+                    sft_result.model_id,
+                )
 
             job.completed_at = datetime.now().isoformat()
 

@@ -43,7 +43,7 @@ class TestPopulation:
                 AgentGenome(genome_id="a", name="agent-a"),
                 AgentGenome(genome_id="b", name="agent-b"),
                 AgentGenome(genome_id="c", name="agent-c"),
-            ]
+            ],
         )
 
         assert pop.size == 3
@@ -61,7 +61,7 @@ class TestPopulation:
                 AgentGenome(genome_id="a", name="a", fitness_score=0.2),
                 AgentGenome(genome_id="b", name="b", fitness_score=0.4),
                 AgentGenome(genome_id="c", name="c", fitness_score=0.6),
-            ]
+            ],
         )
 
         assert pop.average_fitness == pytest.approx(0.4, rel=0.01)
@@ -79,7 +79,7 @@ class TestPopulation:
                 AgentGenome(genome_id="a", name="a", fitness_score=0.3),
                 AgentGenome(genome_id="b", name="b", fitness_score=0.9),
                 AgentGenome(genome_id="c", name="c", fitness_score=0.5),
-            ]
+            ],
         )
 
         best = pop.best_genome
@@ -94,7 +94,7 @@ class TestPopulation:
             genomes=[
                 AgentGenome(genome_id="a", name="agent-a"),
                 AgentGenome(genome_id="b", name="agent-b"),
-            ]
+            ],
         )
 
         found = pop.get_by_id("b")
@@ -316,9 +316,9 @@ class TestGenomeBreeder:
 
         # At least some traits should be different (random delta applied)
         traits_changed = (
-            mutated.traits.get("analytical", 0) != 0.5 or
-            mutated.traits.get("cautious", 0) != 0.5 or
-            len(mutated.traits) != len(original.traits)
+            mutated.traits.get("analytical", 0) != 0.5
+            or mutated.traits.get("cautious", 0) != 0.5
+            or len(mutated.traits) != len(original.traits)
         )
         assert traits_changed
 
@@ -493,7 +493,7 @@ class TestBreederIntegration:
         # Check diversity - children shouldn't all be identical
         similarities = []
         for i, c1 in enumerate(mutated_children):
-            for c2 in mutated_children[i+1:]:
+            for c2 in mutated_children[i + 1 :]:
                 similarities.append(c1.similarity_to(c2))
 
         # Not all should be 1.0 (identical)

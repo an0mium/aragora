@@ -83,7 +83,7 @@ class HandlerNotFoundError(HandlerError):
     def __init__(self, resource_type: str, resource_id: str):
         super().__init__(
             f"{resource_type} not found: {resource_id}",
-            details={"resource_type": resource_type, "resource_id": resource_id}
+            details={"resource_type": resource_type, "resource_id": resource_id},
         )
         self.resource_type = resource_type
         self.resource_id = resource_id
@@ -135,7 +135,7 @@ class HandlerExternalServiceError(HandlerError):
             self.status_code = 503
         super().__init__(
             f"{service} service error: {message}",
-            details={"service": service, "unavailable": unavailable}
+            details={"service": service, "unavailable": unavailable},
         )
         self.service = service
 
@@ -167,33 +167,26 @@ EXCEPTION_MAP: dict[type, Tuple[int, str, bool]] = {
     ValueError: (400, "info", True),
     KeyError: (400, "info", False),  # Don't expose internal key names
     TypeError: (400, "warning", False),
-
     # Not found - client's fault, include message
     HandlerNotFoundError: (404, "info", True),
     RecordNotFoundError: (404, "info", True),
-
     # Authorization - client's fault, include message
     HandlerAuthorizationError: (403, "info", True),
     AuthorizationError: (403, "info", True),
     AuthenticationError: (401, "info", True),
     AuthError: (401, "info", True),
-
     # Rate limiting - client's fault, include message
     HandlerRateLimitError: (429, "info", True),
     RateLimitExceededError: (429, "info", True),
-
     # Conflict - depends on situation
     HandlerConflictError: (409, "info", True),
-
     # External service - not our fault, generic message
     HandlerExternalServiceError: (502, "error", True),
-
     # Database - our fault, generic message
     HandlerDatabaseError: (500, "error", False),
     DatabaseError: (500, "error", False),
     sqlite3.Error: (500, "error", False),
     sqlite3.IntegrityError: (409, "warning", False),  # Often a conflict
-
     # Timeouts
     TimeoutError: (504, "warning", False),
 }

@@ -30,6 +30,7 @@ from aragora.broadcast.storage import (
 # RSS Feed Generator Tests
 # =============================================================================
 
+
 class TestPodcastConfig:
     """Tests for PodcastConfig dataclass."""
 
@@ -288,6 +289,7 @@ class TestCreateDebateSummary:
 # Audio File Store Tests
 # =============================================================================
 
+
 class TestAudioMetadata:
     """Tests for AudioMetadata dataclass."""
 
@@ -455,6 +457,7 @@ class TestAudioFileStore:
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestRSSIntegration:
     """Integration tests for RSS and storage together."""

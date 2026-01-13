@@ -182,12 +182,14 @@ class ContextInitializer:
             if isinstance(msg, Message):
                 ctx.partial_messages.append(msg)
             elif isinstance(msg, dict):
-                ctx.partial_messages.append(Message(
-                    role=msg.get("role", "user"),
-                    agent=msg.get("agent", "fork_context"),
-                    content=msg.get("content", ""),
-                    round=msg.get("round", 0),
-                ))
+                ctx.partial_messages.append(
+                    Message(
+                        role=msg.get("role", "user"),
+                        agent=msg.get("agent", "fork_context"),
+                        content=msg.get("content", ""),
+                        round=msg.get("round", 0),
+                    )
+                )
 
     def _inject_trending_topic(self, ctx: "DebateContext") -> None:
         """Inject trending topic context into environment."""
@@ -195,16 +197,18 @@ class ContextInitializer:
             return
 
         try:
-            topic_context = "## TRENDING TOPIC\nThis debate was initiated based on trending topic:\n"
+            topic_context = (
+                "## TRENDING TOPIC\nThis debate was initiated based on trending topic:\n"
+            )
             topic_context += f"- **{self.trending_topic.topic}** ({self.trending_topic.platform})\n"
 
-            if hasattr(self.trending_topic, 'category') and self.trending_topic.category:
+            if hasattr(self.trending_topic, "category") and self.trending_topic.category:
                 topic_context += f"- Category: {self.trending_topic.category}\n"
 
-            if hasattr(self.trending_topic, 'volume') and self.trending_topic.volume:
+            if hasattr(self.trending_topic, "volume") and self.trending_topic.volume:
                 topic_context += f"- Engagement: {self.trending_topic.volume:,}\n"
 
-            if hasattr(self.trending_topic, 'to_debate_prompt'):
+            if hasattr(self.trending_topic, "to_debate_prompt"):
                 topic_context += f"\n{self.trending_topic.to_debate_prompt()}"
 
             if ctx.env.context:
@@ -228,14 +232,14 @@ class ContextInitializer:
         try:
             topics = await asyncio.wait_for(
                 self.pulse_manager.get_trending_topics(limit_per_platform=3),
-                timeout=5.0  # Don't delay debate startup
+                timeout=5.0,  # Don't delay debate startup
             )
 
             if not topics:
                 return
 
             # Select best topic for debate
-            if hasattr(self.pulse_manager, 'select_topic_for_debate'):
+            if hasattr(self.pulse_manager, "select_topic_for_debate"):
                 selected = self.pulse_manager.select_topic_for_debate(topics)
             else:
                 selected = topics[0] if topics else None
@@ -272,8 +276,7 @@ class ContextInitializer:
 
         try:
             ctx.historical_context_cache = await asyncio.wait_for(
-                self._fetch_historical_context(ctx.env.task, limit=2),
-                timeout=10.0
+                self._fetch_historical_context(ctx.env.task, limit=2), timeout=10.0
             )
         except asyncio.TimeoutError:
             logger.warning("Historical context fetch timed out")
@@ -294,9 +297,7 @@ class ContextInitializer:
 
         try:
             # 1. Inject common patterns (original behavior)
-            patterns = await self.insight_store.get_common_patterns(
-                min_occurrences=2, limit=5
-            )
+            patterns = await self.insight_store.get_common_patterns(min_occurrences=2, limit=5)
             if patterns and self._format_patterns_for_prompt:
                 pattern_context = self._format_patterns_for_prompt(patterns)
                 if ctx.env.context:
@@ -305,8 +306,8 @@ class ContextInitializer:
                     ctx.env.context = pattern_context
 
             # 2. Inject high-confidence insights as "learned practices" (B2 enhancement)
-            domain = getattr(ctx, 'domain', None)
-            if domain == 'general':
+            domain = getattr(ctx, "domain", None)
+            if domain == "general":
                 domain = None
 
             relevant_insights = await self.insight_store.get_relevant_insights(
@@ -318,10 +319,14 @@ class ContextInitializer:
             if relevant_insights:
                 # Format insights as learned practices
                 insight_context = "\n\n## LEARNED PRACTICES (from previous debates)\n"
-                insight_context += "The following insights have proven valuable in similar debates:\n"
+                insight_context += (
+                    "The following insights have proven valuable in similar debates:\n"
+                )
 
                 for insight in relevant_insights:
-                    insight_context += f"\n• **{insight.title}** (confidence: {insight.confidence:.0%})\n"
+                    insight_context += (
+                        f"\n• **{insight.title}** (confidence: {insight.confidence:.0%})\n"
+                    )
                     if insight.description:
                         insight_context += f"  {insight.description[:200]}\n"
 
@@ -370,8 +375,8 @@ class ContextInitializer:
         try:
             # Get debate preparation context with similar debates and dissents
             topic = ctx.env.task
-            domain = getattr(ctx, 'domain', None)
-            if domain == 'general':
+            domain = getattr(ctx, "domain", None)
+            if domain == "general":
                 domain = None
 
             historical = self.dissent_retriever.get_debate_preparation_context(
@@ -400,7 +405,7 @@ class ContextInitializer:
 
     async def _perform_pre_debate_research(self, ctx: "DebateContext") -> None:
         """Perform pre-debate research if enabled."""
-        if not self.protocol or not getattr(self.protocol, 'enable_research', False):
+        if not self.protocol or not getattr(self.protocol, "enable_research", False):
             return
 
         if not self._perform_research:
@@ -435,14 +440,14 @@ class ContextInitializer:
         if not self.evidence_collector:
             return
 
-        if not self.protocol or not getattr(self.protocol, 'enable_evidence_collection', True):
+        if not self.protocol or not getattr(self.protocol, "enable_evidence_collection", True):
             return
 
         try:
             logger.info("evidence_collection_start phase=evidence")
             evidence_pack = await asyncio.wait_for(
                 self.evidence_collector.collect_evidence(ctx.env.task),
-                timeout=15.0  # 15 second timeout for evidence collection
+                timeout=15.0,  # 15 second timeout for evidence collection
             )
 
             if evidence_pack and evidence_pack.snippets:
@@ -475,13 +480,15 @@ class ContextInitializer:
             return
 
         for msg in self.initial_messages:
-            if isinstance(msg, dict) and 'content' in msg:
-                ctx.context_messages.append(Message(
-                    agent=msg.get('agent', 'previous'),
-                    content=msg['content'],
-                    role=msg.get('role', 'assistant'),
-                    round=-1,  # Mark as pre-debate context
-                ))
+            if isinstance(msg, dict) and "content" in msg:
+                ctx.context_messages.append(
+                    Message(
+                        agent=msg.get("agent", "previous"),
+                        content=msg["content"],
+                        role=msg.get("role", "assistant"),
+                        round=-1,  # Mark as pre-debate context
+                    )
+                )
 
         if ctx.context_messages:
             logger.debug(f"fork_context loaded {len(ctx.context_messages)} initial messages")

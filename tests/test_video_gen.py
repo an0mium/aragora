@@ -27,6 +27,7 @@ from aragora.broadcast.video_gen import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def temp_dir():
     """Create a temporary directory for test files."""
@@ -51,6 +52,7 @@ def video_generator(temp_dir):
 # =============================================================================
 # VideoMetadata Tests
 # =============================================================================
+
 
 class TestVideoMetadata:
     """Tests for VideoMetadata dataclass."""
@@ -88,6 +90,7 @@ class TestVideoMetadata:
 # FFmpeg/FFprobe Check Tests
 # =============================================================================
 
+
 class TestFFmpegChecks:
     """Tests for FFmpeg availability checks."""
 
@@ -115,6 +118,7 @@ class TestFFmpegChecks:
 # =============================================================================
 # Audio Duration Tests
 # =============================================================================
+
 
 class TestGetAudioDuration:
     """Tests for audio duration extraction."""
@@ -173,6 +177,7 @@ class TestGetAudioDuration:
 # Thumbnail Generation Tests
 # =============================================================================
 
+
 class TestGenerateThumbnail:
     """Tests for thumbnail generation."""
 
@@ -195,7 +200,7 @@ class TestGenerateThumbnail:
         assert output_path.exists()
         # Verify it's a PNG (magic bytes)
         content = output_path.read_bytes()
-        assert content[:8] == b'\x89PNG\r\n\x1a\n'
+        assert content[:8] == b"\x89PNG\r\n\x1a\n"
 
     @pytest.mark.asyncio
     async def test_generate_thumbnail_imagemagick(self, temp_dir):
@@ -208,7 +213,7 @@ class TestGenerateThumbnail:
 
         # Create output file to simulate ImageMagick success
         def create_file(*args, **kwargs):
-            output_path.write_bytes(b'\x89PNG\r\n\x1a\n')
+            output_path.write_bytes(b"\x89PNG\r\n\x1a\n")
             return mock_process
 
         with patch("shutil.which", return_value="/usr/bin/convert"):
@@ -241,6 +246,7 @@ class TestGenerateThumbnail:
 # =============================================================================
 # VideoGenerator Tests
 # =============================================================================
+
 
 class TestVideoGenerator:
     """Tests for VideoGenerator class."""
@@ -307,8 +313,7 @@ class TestVideoGenerator:
         with patch("shutil.which", return_value="/usr/bin/ffmpeg"):
             with patch("asyncio.create_subprocess_exec", side_effect=create_output):
                 with patch.object(
-                    VideoGenerator, "generate_static_video",
-                    return_value=output_path
+                    VideoGenerator, "generate_static_video", return_value=output_path
                 ):
                     generator = VideoGenerator(output_dir=temp_dir)
                     result = await generator.generate_static_video(
@@ -328,6 +333,7 @@ class TestVideoGenerator:
         mock_thumb_process.communicate = AsyncMock(return_value=(b"", b""))
 
         call_count = 0
+
         def mock_subprocess(*args, **kwargs):
             nonlocal call_count
             call_count += 1

@@ -30,7 +30,9 @@ class MockAgent(Agent):
     async def generate(self, prompt: str, context: list = None) -> str:
         """Return mock response."""
         if self.generate_responses:
-            response = self.generate_responses[self._generate_call_count % len(self.generate_responses)]
+            response = self.generate_responses[
+                self._generate_call_count % len(self.generate_responses)
+            ]
             self._generate_call_count += 1
             return response
         return f"Mock response from {self.name}"
@@ -38,7 +40,9 @@ class MockAgent(Agent):
     async def critique(self, proposal: str, task: str, context: list = None) -> Critique:
         """Return mock critique."""
         if self.critique_responses:
-            response = self.critique_responses[self._critique_call_count % len(self.critique_responses)]
+            response = self.critique_responses[
+                self._critique_call_count % len(self.critique_responses)
+            ]
             self._critique_call_count += 1
             return response
         return Critique(
@@ -48,7 +52,7 @@ class MockAgent(Agent):
             issues=["Test issue"],
             suggestions=["Test suggestion"],
             severity=0.5,
-            reasoning="Test reasoning"
+            reasoning="Test reasoning",
         )
 
     async def vote(self, proposals: dict, task: str) -> Vote:
@@ -63,7 +67,7 @@ class MockAgent(Agent):
             choice=choice,
             reasoning="Test vote",
             confidence=0.8,
-            continue_debate=False
+            continue_debate=False,
         )
 
 
@@ -166,20 +170,24 @@ class TestDebateExecution:
             MockAgent("agent2", role="critic"),
         ]
         # Both agents vote for same choice with high confidence
-        agents[0].vote_responses = [Vote(
-            agent="agent1",
-            choice="agent1",
-            reasoning="Good solution",
-            confidence=0.95,
-            continue_debate=False
-        )]
-        agents[1].vote_responses = [Vote(
-            agent="agent2",
-            choice="agent1",
-            reasoning="Agreed",
-            confidence=0.9,
-            continue_debate=False
-        )]
+        agents[0].vote_responses = [
+            Vote(
+                agent="agent1",
+                choice="agent1",
+                reasoning="Good solution",
+                confidence=0.95,
+                continue_debate=False,
+            )
+        ]
+        agents[1].vote_responses = [
+            Vote(
+                agent="agent2",
+                choice="agent1",
+                reasoning="Agreed",
+                confidence=0.9,
+                continue_debate=False,
+            )
+        ]
 
         env = Environment(task="Test task", max_rounds=5)
         protocol = DebateProtocol(rounds=5, early_stopping=True)
@@ -214,10 +222,7 @@ class TestCritiqueGeneration:
         """Test critique contains all required fields."""
         agent = MockAgent("critic", role="critic")
 
-        critique = await agent.critique(
-            proposal="Test proposal",
-            task="Test task"
-        )
+        critique = await agent.critique(proposal="Test proposal", task="Test task")
 
         assert isinstance(critique, Critique)
         assert critique.agent == "critic"
@@ -236,8 +241,7 @@ class TestVoting:
         agent = MockAgent("voter")
 
         vote = await agent.vote(
-            proposals={"agent1": "Proposal 1", "agent2": "Proposal 2"},
-            task="Test task"
+            proposals={"agent1": "Proposal 1", "agent2": "Proposal 2"}, task="Test task"
         )
 
         assert isinstance(vote, Vote)
@@ -263,7 +267,7 @@ class TestEnvironment:
         env = Environment(
             task="Design API",
             context="RESTful principles preferred",
-            roles=["architect", "reviewer"]
+            roles=["architect", "reviewer"],
         )
 
         assert env.context == "RESTful principles preferred"
@@ -275,12 +279,7 @@ class TestMessage:
 
     def test_message_creation(self):
         """Test message can be created."""
-        msg = Message(
-            role="proposer",
-            agent="agent1",
-            content="Test content",
-            round=1
-        )
+        msg = Message(role="proposer", agent="agent1", content="Test content", round=1)
 
         assert msg.role == "proposer"
         assert msg.agent == "agent1"
@@ -289,12 +288,7 @@ class TestMessage:
 
     def test_message_str(self):
         """Test message string representation."""
-        msg = Message(
-            role="proposer",
-            agent="agent1",
-            content="A" * 200,
-            round=1
-        )
+        msg = Message(role="proposer", agent="agent1", content="A" * 200, round=1)
 
         str_repr = str(msg)
         assert "[proposer:agent1]" in str_repr
@@ -320,7 +314,7 @@ class TestDebateResult:
             confidence=0.85,
             consensus_reached=True,
             rounds_used=2,
-            duration_seconds=5.0
+            duration_seconds=5.0,
         )
 
         summary = result.summary()
@@ -341,11 +335,29 @@ class TestConsensusMechanisms:
             MockAgent("agent2", role="critic"),
         ]
         # Both vote for same choice
-        agents[0].vote_responses = [Vote(agent="agent1", choice="agent1", reasoning="Best", confidence=0.9, continue_debate=False)]
-        agents[1].vote_responses = [Vote(agent="agent2", choice="agent1", reasoning="Agreed", confidence=0.85, continue_debate=False)]
+        agents[0].vote_responses = [
+            Vote(
+                agent="agent1",
+                choice="agent1",
+                reasoning="Best",
+                confidence=0.9,
+                continue_debate=False,
+            )
+        ]
+        agents[1].vote_responses = [
+            Vote(
+                agent="agent2",
+                choice="agent1",
+                reasoning="Agreed",
+                confidence=0.85,
+                continue_debate=False,
+            )
+        ]
 
         env = Environment(task="Test consensus", max_rounds=1)
-        protocol = DebateProtocol(rounds=1, consensus="majority", early_stopping=False, convergence_detection=False)
+        protocol = DebateProtocol(
+            rounds=1, consensus="majority", early_stopping=False, convergence_detection=False
+        )
 
         arena = Arena(env, agents, protocol)
         result = await arena.run()
@@ -363,10 +375,20 @@ class TestConsensusMechanisms:
         ]
         # All vote for same choice
         for i, agent in enumerate(agents):
-            agent.vote_responses = [Vote(agent=f"agent{i+1}", choice="agent1", reasoning="Best", confidence=0.9, continue_debate=False)]
+            agent.vote_responses = [
+                Vote(
+                    agent=f"agent{i+1}",
+                    choice="agent1",
+                    reasoning="Best",
+                    confidence=0.9,
+                    continue_debate=False,
+                )
+            ]
 
         env = Environment(task="Test unanimous", max_rounds=1)
-        protocol = DebateProtocol(rounds=1, consensus="unanimous", early_stopping=False, convergence_detection=False)
+        protocol = DebateProtocol(
+            rounds=1, consensus="unanimous", early_stopping=False, convergence_detection=False
+        )
 
         arena = Arena(env, agents, protocol)
         result = await arena.run()
@@ -380,7 +402,9 @@ class TestConsensusMechanisms:
         agents = [MockAgent("agent1"), MockAgent("agent2")]
 
         env = Environment(task="Test no consensus", max_rounds=1)
-        protocol = DebateProtocol(rounds=1, consensus="none", early_stopping=False, convergence_detection=False)
+        protocol = DebateProtocol(
+            rounds=1, consensus="none", early_stopping=False, convergence_detection=False
+        )
 
         arena = Arena(env, agents, protocol)
         result = await arena.run()
@@ -398,7 +422,13 @@ class TestTopology:
         agents = [MockAgent(f"agent{i}") for i in range(3)]
 
         env = Environment(task="Test topology", max_rounds=1)
-        protocol = DebateProtocol(rounds=1, topology="round-robin", consensus="none", early_stopping=False, convergence_detection=False)
+        protocol = DebateProtocol(
+            rounds=1,
+            topology="round-robin",
+            consensus="none",
+            early_stopping=False,
+            convergence_detection=False,
+        )
 
         arena = Arena(env, agents, protocol)
         result = await arena.run()
@@ -417,7 +447,7 @@ class TestTopology:
             topology_hub_agent="agent0",
             consensus="none",
             early_stopping=False,
-            convergence_detection=False
+            convergence_detection=False,
         )
 
         arena = Arena(env, agents, protocol)
@@ -432,6 +462,7 @@ class TestTimeoutHandling:
     @pytest.mark.asyncio
     async def test_timeout_returns_partial_result(self):
         """Test debate timeout returns partial results."""
+
         class SlowAgent(MockAgent):
             async def generate(self, prompt: str, context: list = None) -> str:
                 await asyncio.sleep(2)  # Slow
@@ -445,7 +476,7 @@ class TestTimeoutHandling:
             timeout_seconds=1,  # 1 second timeout
             consensus="none",
             early_stopping=False,
-            convergence_detection=False
+            convergence_detection=False,
         )
 
         arena = Arena(env, agents, protocol)
@@ -465,7 +496,9 @@ class TestEdgeCases:
         agents = [MockAgent("solo")]
 
         env = Environment(task="Solo debate", max_rounds=1)
-        protocol = DebateProtocol(rounds=1, consensus="none", early_stopping=False, convergence_detection=False)
+        protocol = DebateProtocol(
+            rounds=1, consensus="none", early_stopping=False, convergence_detection=False
+        )
 
         arena = Arena(env, agents, protocol)
         result = await arena.run()
@@ -479,7 +512,9 @@ class TestEdgeCases:
         agents = [MockAgent(f"agent{i}") for i in range(5)]
 
         env = Environment(task="Many agents", max_rounds=1)
-        protocol = DebateProtocol(rounds=1, consensus="majority", early_stopping=False, convergence_detection=False)
+        protocol = DebateProtocol(
+            rounds=1, consensus="majority", early_stopping=False, convergence_detection=False
+        )
 
         arena = Arena(env, agents, protocol)
         result = await arena.run()
@@ -523,14 +558,12 @@ class TestUserEventQueue:
         arena = Arena(env, agents, protocol)
 
         # Manually enqueue some vote events (via AudienceManager)
-        arena.audience_manager._event_queue.put_nowait((
-            StreamEventType.USER_VOTE,
-            {"choice": "proposal_a", "user_id": "user1"}
-        ))
-        arena.audience_manager._event_queue.put_nowait((
-            StreamEventType.USER_VOTE,
-            {"choice": "proposal_b", "user_id": "user2"}
-        ))
+        arena.audience_manager._event_queue.put_nowait(
+            (StreamEventType.USER_VOTE, {"choice": "proposal_a", "user_id": "user1"})
+        )
+        arena.audience_manager._event_queue.put_nowait(
+            (StreamEventType.USER_VOTE, {"choice": "proposal_b", "user_id": "user2"})
+        )
 
         arena._drain_user_events()
 
@@ -548,10 +581,9 @@ class TestUserEventQueue:
         arena = Arena(env, agents, protocol)
 
         # Manually enqueue suggestion events (via AudienceManager)
-        arena.audience_manager._event_queue.put_nowait((
-            StreamEventType.USER_SUGGESTION,
-            {"text": "Consider X", "user_id": "user1"}
-        ))
+        arena.audience_manager._event_queue.put_nowait(
+            (StreamEventType.USER_SUGGESTION, {"text": "Consider X", "user_id": "user1"})
+        )
 
         arena._drain_user_events()
 
@@ -573,17 +605,15 @@ class TestUserEventQueue:
 
         # Fill the queue
         for i in range(5):
-            arena.audience_manager._event_queue.put_nowait((
-                StreamEventType.USER_VOTE,
-                {"choice": f"choice_{i}"}
-            ))
+            arena.audience_manager._event_queue.put_nowait(
+                (StreamEventType.USER_VOTE, {"choice": f"choice_{i}"})
+            )
 
         # Queue is now full - additional put_nowait should raise
         with pytest.raises(queue.Full):
-            arena.audience_manager._event_queue.put_nowait((
-                StreamEventType.USER_VOTE,
-                {"choice": "overflow"}
-            ))
+            arena.audience_manager._event_queue.put_nowait(
+                (StreamEventType.USER_VOTE, {"choice": "overflow"})
+            )
 
     def test_handle_user_event_filters_by_loop_id(self):
         """Events from other loops should be ignored."""
@@ -596,9 +626,7 @@ class TestUserEventQueue:
 
         # Event for different loop should be ignored
         other_event = StreamEvent(
-            type=StreamEventType.USER_VOTE,
-            loop_id="other-loop-456",
-            data={"choice": "proposal_a"}
+            type=StreamEventType.USER_VOTE, loop_id="other-loop-456", data={"choice": "proposal_a"}
         )
         arena._handle_user_event(other_event)
 
@@ -616,9 +644,7 @@ class TestUserEventQueue:
 
         # Event for this loop should be enqueued
         my_event = StreamEvent(
-            type=StreamEventType.USER_VOTE,
-            loop_id="my-loop-123",
-            data={"choice": "proposal_a"}
+            type=StreamEventType.USER_VOTE, loop_id="my-loop-123", data={"choice": "proposal_a"}
         )
         arena._handle_user_event(my_event)
 
@@ -864,9 +890,7 @@ class TestJudgeTermination:
         arena = Arena(env, agents, protocol)
 
         should_continue, reason = await arena._check_judge_termination(
-            round_num=2,
-            proposals={"agent1": "Proposal 1"},
-            context=[]
+            round_num=2, proposals={"agent1": "Proposal 1"}, context=[]
         )
 
         assert should_continue is True
@@ -877,19 +901,13 @@ class TestJudgeTermination:
         """Test judge termination skips check in early rounds."""
         agents = [MockAgent("agent1"), MockAgent("agent2")]
         env = Environment(task="Test task", max_rounds=5)
-        protocol = DebateProtocol(
-            rounds=5,
-            judge_termination=True,
-            min_rounds_before_judge_check=3
-        )
+        protocol = DebateProtocol(rounds=5, judge_termination=True, min_rounds_before_judge_check=3)
 
         arena = Arena(env, agents, protocol)
 
         # Round 1 should skip check
         should_continue, reason = await arena._check_judge_termination(
-            round_num=1,
-            proposals={"agent1": "Proposal"},
-            context=[]
+            round_num=1, proposals={"agent1": "Proposal"}, context=[]
         )
 
         assert should_continue is True
@@ -907,7 +925,7 @@ class TestMomentDetectorAutoInit:
 
         mock_elo = MagicMock()
 
-        with patch('aragora.agents.grounded.MomentDetector') as mock_md:
+        with patch("aragora.agents.grounded.MomentDetector") as mock_md:
             arena = Arena(env, agents, protocol, elo_system=mock_elo)
             # MomentDetector should be auto-initialized
             # (may or may not succeed depending on import)
@@ -920,7 +938,7 @@ class TestMomentDetectorAutoInit:
 
         mock_elo = MagicMock()
 
-        with patch.dict('sys.modules', {'aragora.agents.grounded': None}):
+        with patch.dict("sys.modules", {"aragora.agents.grounded": None}):
             # Should not raise even if import fails
             arena = Arena(env, agents, protocol, elo_system=mock_elo)
             assert arena is not None
@@ -1058,9 +1076,7 @@ class TestEarlyStoppingLogic:
         arena = Arena(env, agents, protocol)
 
         result = await arena._check_early_stopping(
-            round_num=2,
-            proposals={"agent1": "Proposal"},
-            context=[]
+            round_num=2, proposals={"agent1": "Proposal"}, context=[]
         )
 
         assert result is True  # Continue debate

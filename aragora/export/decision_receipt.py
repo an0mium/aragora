@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 @dataclass
 class ReceiptFinding:
     """Simplified finding for receipt export."""
+
     id: str
     severity: str  # "CRITICAL", "HIGH", "MEDIUM", "LOW"
     category: str
@@ -42,6 +43,7 @@ class ReceiptFinding:
 @dataclass
 class ReceiptDissent:
     """Simplified dissent record for receipt export."""
+
     agent: str
     type: str
     severity: float
@@ -52,6 +54,7 @@ class ReceiptDissent:
 @dataclass
 class ReceiptVerification:
     """Verification result for receipt export."""
+
     claim: str
     verified: bool
     method: str
@@ -98,7 +101,9 @@ class DecisionReceipt:
     input_type: str = "spec"
 
     # Core verdict
-    verdict: str = "NEEDS_REVIEW"  # "APPROVED", "APPROVED_WITH_CONDITIONS", "NEEDS_REVIEW", "REJECTED"
+    verdict: str = (
+        "NEEDS_REVIEW"  # "APPROVED", "APPROVED_WITH_CONDITIONS", "NEEDS_REVIEW", "REJECTED"
+    )
     confidence: float = 0.0
     risk_level: str = "MEDIUM"  # "LOW", "MEDIUM", "HIGH", "CRITICAL"
     risk_score: float = 0.0
@@ -140,14 +145,17 @@ class DecisionReceipt:
 
     def _compute_checksum(self) -> str:
         """Compute integrity checksum."""
-        content = json.dumps({
-            "receipt_id": self.receipt_id,
-            "verdict": self.verdict,
-            "confidence": self.confidence,
-            "findings_count": len(self.findings),
-            "critical_count": self.critical_count,
-            "timestamp": self.timestamp,
-        }, sort_keys=True)
+        content = json.dumps(
+            {
+                "receipt_id": self.receipt_id,
+                "verdict": self.verdict,
+                "confidence": self.confidence,
+                "findings_count": len(self.findings),
+                "critical_count": self.critical_count,
+                "timestamp": self.timestamp,
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
     def verify_integrity(self) -> bool:
@@ -244,18 +252,22 @@ class DecisionReceipt:
         # Critical findings
         critical = [f for f in self.findings if f.severity == "CRITICAL"]
         if critical:
-            lines.extend([
-                "### Critical Issues",
-                "",
-            ])
+            lines.extend(
+                [
+                    "### Critical Issues",
+                    "",
+                ]
+            )
             for f in critical:
-                lines.extend([
-                    f"#### {f.title}",
-                    "",
-                    f.description,
-                    "",
-                    f"**Source:** {f.source}",
-                ])
+                lines.extend(
+                    [
+                        f"#### {f.title}",
+                        "",
+                        f.description,
+                        "",
+                        f"**Source:** {f.source}",
+                    ]
+                )
                 if f.mitigation:
                     lines.append(f"**Mitigation:** {f.mitigation}")
                 if f.verified:
@@ -265,44 +277,54 @@ class DecisionReceipt:
         # High findings
         high = [f for f in self.findings if f.severity == "HIGH"]
         if high:
-            lines.extend([
-                "### High-Severity Issues",
-                "",
-            ])
+            lines.extend(
+                [
+                    "### High-Severity Issues",
+                    "",
+                ]
+            )
             for f in high:
-                lines.extend([
-                    f"- **{f.title}**: {f.description[:200]}{'...' if len(f.description) > 200 else ''}",
-                ])
+                lines.extend(
+                    [
+                        f"- **{f.title}**: {f.description[:200]}{'...' if len(f.description) > 200 else ''}",
+                    ]
+                )
             lines.append("")
 
         # Mitigations
         if self.mitigations:
-            lines.extend([
-                "---",
-                "",
-                "## Recommended Mitigations",
-                "",
-            ])
+            lines.extend(
+                [
+                    "---",
+                    "",
+                    "## Recommended Mitigations",
+                    "",
+                ]
+            )
             for m in self.mitigations:
                 lines.append(f"- {m}")
             lines.append("")
 
         # Dissenting views
         if self.dissenting_views:
-            lines.extend([
-                "---",
-                "",
-                "## Dissenting Views",
-                "",
-            ])
-            for d in self.dissenting_views:
-                lines.extend([
-                    f"### {d.agent}",
-                    f"**Type:** {d.type}",
-                    f"**Severity:** {d.severity:.0%}",
+            lines.extend(
+                [
+                    "---",
                     "",
-                    "**Reasons:**",
-                ])
+                    "## Dissenting Views",
+                    "",
+                ]
+            )
+            for d in self.dissenting_views:
+                lines.extend(
+                    [
+                        f"### {d.agent}",
+                        f"**Type:** {d.type}",
+                        f"**Severity:** {d.severity:.0%}",
+                        "",
+                        "**Reasons:**",
+                    ]
+                )
                 for r in d.reasons:
                     lines.append(f"- {r}")
                 if d.alternative:
@@ -311,33 +333,39 @@ class DecisionReceipt:
 
         # Unresolved tensions
         if self.unresolved_tensions:
-            lines.extend([
-                "---",
-                "",
-                "## Unresolved Tensions",
-                "",
-            ])
+            lines.extend(
+                [
+                    "---",
+                    "",
+                    "## Unresolved Tensions",
+                    "",
+                ]
+            )
             for t in self.unresolved_tensions:
                 lines.append(f"- {t}")
             lines.append("")
 
         # Verification results
         if self.verified_claims or self.unverified_claims:
-            lines.extend([
-                "---",
-                "",
-                "## Verification Results",
-                "",
-                f"**Coverage:** {self.verification_coverage:.0%}",
-                "",
-            ])
+            lines.extend(
+                [
+                    "---",
+                    "",
+                    "## Verification Results",
+                    "",
+                    f"**Coverage:** {self.verification_coverage:.0%}",
+                    "",
+                ]
+            )
 
             if self.verified_claims:
                 lines.append("### Verified Claims")
                 lines.append("")
                 for v in self.verified_claims:
                     status = "VERIFIED" if v.verified else "REFUTED"
-                    lines.append(f"- [{status}] {v.claim[:100]}{'...' if len(v.claim) > 100 else ''}")
+                    lines.append(
+                        f"- [{status}] {v.claim[:100]}{'...' if len(v.claim) > 100 else ''}"
+                    )
                     if v.proof_hash:
                         lines.append(f"  - Proof: `{v.proof_hash}`")
                 lines.append("")
@@ -352,20 +380,22 @@ class DecisionReceipt:
                 lines.append("")
 
         # Audit trail
-        lines.extend([
-            "---",
-            "",
-            "## Audit Trail",
-            "",
-            f"**Agents:** {', '.join(self.agents_involved)}",
-            f"**Rounds:** {self.rounds_completed}",
-            f"**Duration:** {self.duration_seconds:.1f}s",
-            "",
-            "---",
-            "",
-            "*This receipt was generated by Aragora Gauntlet.*",
-            f"*Integrity checksum: `{self.checksum}`*",
-        ])
+        lines.extend(
+            [
+                "---",
+                "",
+                "## Audit Trail",
+                "",
+                f"**Agents:** {', '.join(self.agents_involved)}",
+                f"**Rounds:** {self.rounds_completed}",
+                f"**Duration:** {self.duration_seconds:.1f}s",
+                "",
+                "---",
+                "",
+                "*This receipt was generated by Aragora Gauntlet.*",
+                f"*Integrity checksum: `{self.checksum}`*",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -550,43 +580,46 @@ class DecisionReceiptGenerator:
         # Convert findings
         findings = []
         for f in result.all_findings:
-            findings.append(ReceiptFinding(
-                id=f.finding_id,
-                severity=f.severity_level,
-                category=f.category,
-                title=f.title,
-                description=f.description,
-                mitigation=f.mitigation,
-                source=f.source,
-                verified=f.verified,
-            ))
+            findings.append(
+                ReceiptFinding(
+                    id=f.finding_id,
+                    severity=f.severity_level,
+                    category=f.category,
+                    title=f.title,
+                    description=f.description,
+                    mitigation=f.mitigation,
+                    source=f.source,
+                    verified=f.verified,
+                )
+            )
 
         # Convert dissenting views
         dissents = []
         for d in result.dissenting_views:
-            dissents.append(ReceiptDissent(
-                agent=d.agent,
-                type=d.dissent_type,
-                severity=d.severity,
-                reasons=d.reasons,
-                alternative=d.alternative_view,
-            ))
+            dissents.append(
+                ReceiptDissent(
+                    agent=d.agent,
+                    type=d.dissent_type,
+                    severity=d.severity,
+                    reasons=d.reasons,
+                    alternative=d.alternative_view,
+                )
+            )
 
         # Convert verified claims
         verified = []
         for v in result.verified_claims:
-            verified.append(ReceiptVerification(
-                claim=v.claim,
-                verified=v.verified,
-                method=v.verification_method,
-                proof_hash=v.proof_hash,
-            ))
+            verified.append(
+                ReceiptVerification(
+                    claim=v.claim,
+                    verified=v.verified,
+                    method=v.verification_method,
+                    proof_hash=v.proof_hash,
+                )
+            )
 
         # Extract mitigations from findings
-        mitigations = list(set(
-            f.mitigation for f in result.all_findings
-            if f.mitigation
-        ))
+        mitigations = list(set(f.mitigation for f in result.all_findings if f.mitigation))
 
         # Determine risk level from score
         if result.risk_score >= 0.8:

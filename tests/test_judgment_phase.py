@@ -21,6 +21,7 @@ from aragora.debate.phases.judgment import JudgmentPhase
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str
     role: Optional[str] = None
 
@@ -28,6 +29,7 @@ class MockAgent:
 @dataclass
 class MockProtocol:
     """Mock protocol for testing."""
+
     judge_selection: str = "last"
     judge_termination: bool = False
     min_rounds_before_judge_check: int = 2
@@ -36,6 +38,7 @@ class MockProtocol:
 @dataclass
 class MockMessage:
     """Mock message for testing."""
+
     content: str
     agent: str
 
@@ -59,6 +62,7 @@ def protocol():
 @dataclass
 class MockAgentRating:
     """Mock AgentRating for testing."""
+
     agent_name: str
     elo: float = 1500.0
 
@@ -254,7 +258,8 @@ class TestSelectJudgeCalibrated:
             return {"agent1": 0.7, "agent2": 0.9, "agent3": 0.8}[name]
 
         phase = JudgmentPhase(
-            protocol, three_agents,
+            protocol,
+            three_agents,
             elo_system=mock_elo_system,
             composite_score_fn=composite_fn,
         )
@@ -269,7 +274,8 @@ class TestSelectJudgeCalibrated:
         """Should fall back to elo_ranked without composite_score_fn."""
         protocol.judge_selection = "calibrated"
         phase = JudgmentPhase(
-            protocol, three_agents,
+            protocol,
+            three_agents,
             elo_system=mock_elo_system,
             # No composite_score_fn
         )
@@ -290,9 +296,7 @@ class TestSelectJudgeCalibrated:
 
         assert judge in three_agents
 
-    def test_handles_score_computation_errors(
-        self, protocol, three_agents, mock_elo_system
-    ):
+    def test_handles_score_computation_errors(self, protocol, three_agents, mock_elo_system):
         """Should handle score computation errors gracefully."""
         protocol.judge_selection = "calibrated"
 
@@ -302,7 +306,8 @@ class TestSelectJudgeCalibrated:
             return 0.8
 
         phase = JudgmentPhase(
-            protocol, three_agents,
+            protocol,
+            three_agents,
             elo_system=mock_elo_system,
             composite_score_fn=failing_composite_fn,
         )
@@ -469,9 +474,7 @@ class TestGetJudgeStats:
         assert stats["role"] == "synthesizer"
         assert stats["selection_method"] == "last"
 
-    def test_includes_elo_when_available(
-        self, protocol, three_agents, mock_elo_system
-    ):
+    def test_includes_elo_when_available(self, protocol, three_agents, mock_elo_system):
         """Should include ELO stats when system available."""
         phase = JudgmentPhase(protocol, three_agents, elo_system=mock_elo_system)
         judge = three_agents[0]
@@ -481,9 +484,7 @@ class TestGetJudgeStats:
         assert "elo" in stats
         assert stats["elo"] == 1600
 
-    def test_handles_elo_lookup_failure(
-        self, protocol, three_agents, mock_elo_system, caplog
-    ):
+    def test_handles_elo_lookup_failure(self, protocol, three_agents, mock_elo_system, caplog):
         """Should handle ELO lookup errors gracefully."""
         mock_elo_system.get_rating.side_effect = KeyError("Unknown agent")
         phase = JudgmentPhase(protocol, three_agents, elo_system=mock_elo_system)
@@ -496,14 +497,13 @@ class TestGetJudgeStats:
         assert stats["name"] == "agent1"
         assert "elo" not in stats
 
-    def test_includes_calibration_weight_when_fn_available(
-        self, protocol, three_agents
-    ):
+    def test_includes_calibration_weight_when_fn_available(self, protocol, three_agents):
         """Should include calibration weight when function provided."""
         cal_fn = lambda name: 0.85
 
         phase = JudgmentPhase(
-            protocol, three_agents,
+            protocol,
+            three_agents,
             calibration_weight_fn=cal_fn,
         )
         judge = three_agents[0]
@@ -513,15 +513,15 @@ class TestGetJudgeStats:
         assert "calibration_weight" in stats
         assert stats["calibration_weight"] == 0.85
 
-    def test_handles_calibration_lookup_failure(
-        self, protocol, three_agents, caplog
-    ):
+    def test_handles_calibration_lookup_failure(self, protocol, three_agents, caplog):
         """Should handle calibration lookup errors gracefully."""
+
         def failing_cal_fn(name):
             raise TypeError("Invalid agent")
 
         phase = JudgmentPhase(
-            protocol, three_agents,
+            protocol,
+            three_agents,
             calibration_weight_fn=failing_cal_fn,
         )
         judge = three_agents[0]

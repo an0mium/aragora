@@ -154,9 +154,7 @@ class TestCLIAgentRunCli:
         with patch("asyncio.create_subprocess_exec") as mock_exec:
             mock_proc = AsyncMock()
             mock_proc.returncode = 1
-            mock_proc.communicate = AsyncMock(
-                return_value=(b"", b"Specific error details")
-            )
+            mock_proc.communicate = AsyncMock(return_value=(b"", b"Specific error details"))
             mock_exec.return_value = mock_proc
 
             with pytest.raises(RuntimeError, match="Specific error details"):
@@ -850,9 +848,7 @@ class TestOpenAIAgent:
     async def test_generate_json_response_parsing(self):
         """generate() should parse JSON response."""
         agent = OpenAIAgent(name="test", model="test")
-        json_response = json.dumps({
-            "choices": [{"message": {"content": "Parsed content"}}]
-        })
+        json_response = json.dumps({"choices": [{"message": {"content": "Parsed content"}}]})
 
         with patch.object(agent, "_run_cli", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = json_response
@@ -1112,6 +1108,7 @@ class TestCLIAgentGetFallbackAgent:
         """Should return None without OPENROUTER_API_KEY."""
         with patch.dict("os.environ", {}, clear=True):
             import os
+
             if "OPENROUTER_API_KEY" in os.environ:
                 del os.environ["OPENROUTER_API_KEY"]
             result = agent._get_fallback_agent()
@@ -1263,6 +1260,7 @@ class TestCLIAgentFallbackIntegration:
 
             with patch.dict("os.environ", {}, clear=True):
                 import os
+
                 if "OPENROUTER_API_KEY" in os.environ:
                     del os.environ["OPENROUTER_API_KEY"]
 
@@ -1276,7 +1274,9 @@ class TestCLIAgentModelMapping:
     def test_claude_model_mapping(self):
         """Should map Claude models correctly."""
         agent = ClaudeAgent(name="test", model="claude-opus-4-5-20251101")
-        assert agent.OPENROUTER_MODEL_MAP.get("claude-opus-4-5-20251101") == "anthropic/claude-opus-4"
+        assert (
+            agent.OPENROUTER_MODEL_MAP.get("claude-opus-4-5-20251101") == "anthropic/claude-opus-4"
+        )
 
     def test_codex_model_mapping(self):
         """Should map Codex models correctly."""
@@ -1301,7 +1301,9 @@ class TestCLIAgentModelMapping:
     def test_qwen_model_mapping(self):
         """Should map Qwen models correctly."""
         agent = QwenCLIAgent(name="test", model="qwen-2.5-coder")
-        assert agent.OPENROUTER_MODEL_MAP.get("qwen-2.5-coder") == "qwen/qwen-2.5-coder-32b-instruct"
+        assert (
+            agent.OPENROUTER_MODEL_MAP.get("qwen-2.5-coder") == "qwen/qwen-2.5-coder-32b-instruct"
+        )
 
     def test_unknown_model_uses_default(self):
         """Unknown models should use default fallback model."""
@@ -1470,6 +1472,7 @@ class TestFallbackErrorDetection:
     def test_detects_subprocess_error(self, agent):
         """Should detect subprocess errors."""
         import subprocess
+
         error = subprocess.SubprocessError("Process failed")
         assert agent._is_fallback_error(error) is True
 

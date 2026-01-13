@@ -522,11 +522,13 @@ class TestAgentSelectorProbeAdjustment:
     def test_get_probe_adjusted_score_from_profile(self):
         """get_probe_adjusted_score should use agent profile data."""
         selector = AgentSelector()
-        selector.register_agent(AgentProfile(
-            name="vulnerable",
-            agent_type="claude",
-            probe_score=0.5,
-        ))
+        selector.register_agent(
+            AgentProfile(
+                name="vulnerable",
+                agent_type="claude",
+                probe_score=0.5,
+            )
+        )
 
         adjusted = selector.get_probe_adjusted_score("vulnerable", 0.8)
 
@@ -537,12 +539,14 @@ class TestAgentSelectorProbeAdjustment:
     def test_get_probe_adjusted_score_with_critical(self):
         """get_probe_adjusted_score should apply extra penalty for critical issues."""
         selector = AgentSelector()
-        selector.register_agent(AgentProfile(
-            name="critical",
-            agent_type="claude",
-            probe_score=0.5,
-            has_critical_probes=True,
-        ))
+        selector.register_agent(
+            AgentProfile(
+                name="critical",
+                agent_type="claude",
+                probe_score=0.5,
+                has_critical_probes=True,
+            )
+        )
 
         base_adjusted = selector.get_probe_adjusted_score("critical", 0.8)
 
@@ -583,11 +587,13 @@ class TestAgentSelectorCalibrationAdjustment:
     def test_get_calibration_adjusted_score_from_profile(self):
         """get_calibration_adjusted_score should use agent profile data."""
         selector = AgentSelector()
-        selector.register_agent(AgentProfile(
-            name="poorly_calibrated",
-            agent_type="claude",
-            calibration_score=0.5,
-        ))
+        selector.register_agent(
+            AgentProfile(
+                name="poorly_calibrated",
+                agent_type="claude",
+                calibration_score=0.5,
+            )
+        )
 
         adjusted = selector.get_calibration_adjusted_score("poorly_calibrated", 0.8)
 
@@ -598,12 +604,14 @@ class TestAgentSelectorCalibrationAdjustment:
     def test_get_calibration_adjusted_score_overconfident(self):
         """get_calibration_adjusted_score should penalize overconfidence."""
         selector = AgentSelector()
-        selector.register_agent(AgentProfile(
-            name="overconfident",
-            agent_type="claude",
-            calibration_score=0.8,
-            is_overconfident=True,
-        ))
+        selector.register_agent(
+            AgentProfile(
+                name="overconfident",
+                agent_type="claude",
+                calibration_score=0.8,
+                is_overconfident=True,
+            )
+        )
 
         adjusted = selector.get_calibration_adjusted_score("overconfident", 0.8)
 
@@ -736,23 +744,29 @@ class TestAgentSelectorTeamSelection:
         selector = AgentSelector()
 
         # Low ELO agent
-        selector.register_agent(AgentProfile(
-            name="low",
-            agent_type="claude",
-            elo_rating=1200,
-        ))
+        selector.register_agent(
+            AgentProfile(
+                name="low",
+                agent_type="claude",
+                elo_rating=1200,
+            )
+        )
         # High ELO agent
-        selector.register_agent(AgentProfile(
-            name="high",
-            agent_type="claude",
-            elo_rating=1800,
-        ))
+        selector.register_agent(
+            AgentProfile(
+                name="high",
+                agent_type="claude",
+                elo_rating=1800,
+            )
+        )
         # Medium ELO agent
-        selector.register_agent(AgentProfile(
-            name="medium",
-            agent_type="claude",
-            elo_rating=1500,
-        ))
+        selector.register_agent(
+            AgentProfile(
+                name="medium",
+                agent_type="claude",
+                elo_rating=1500,
+            )
+        )
 
         req = TaskRequirements(
             task_id="test",
@@ -1060,11 +1074,13 @@ class TestAgentSelectorHistory:
 
         # Add history entries manually
         for i in range(10):
-            selector._selection_history.append({
-                "task_id": f"task-{i}",
-                "selected": ["agent"],
-                "timestamp": datetime.now().isoformat(),
-            })
+            selector._selection_history.append(
+                {
+                    "task_id": f"task-{i}",
+                    "selected": ["agent"],
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
         history = selector.get_selection_history(limit=5)
 
@@ -1220,18 +1236,22 @@ class TestAgentSelectorLeaderboard:
         """get_leaderboard should rank by domain ELO."""
         selector = AgentSelector()
 
-        selector.register_agent(AgentProfile(
-            name="backend-expert",
-            agent_type="claude",
-            elo_rating=1500,
-            domain_ratings={"backend": 1900, "frontend": 1200},
-        ))
-        selector.register_agent(AgentProfile(
-            name="frontend-expert",
-            agent_type="gemini",
-            elo_rating=1600,
-            domain_ratings={"backend": 1200, "frontend": 1900},
-        ))
+        selector.register_agent(
+            AgentProfile(
+                name="backend-expert",
+                agent_type="claude",
+                elo_rating=1500,
+                domain_ratings={"backend": 1900, "frontend": 1200},
+            )
+        )
+        selector.register_agent(
+            AgentProfile(
+                name="frontend-expert",
+                agent_type="gemini",
+                elo_rating=1600,
+                domain_ratings={"backend": 1200, "frontend": 1900},
+            )
+        )
 
         backend_lb = selector.get_leaderboard(domain="backend")
         frontend_lb = selector.get_leaderboard(domain="frontend")
@@ -1274,16 +1294,20 @@ class TestAgentSelectorRecommendations:
         """get_recommendations should return scored recommendations."""
         selector = AgentSelector()
 
-        selector.register_agent(AgentProfile(
-            name="expert",
-            agent_type="claude",
-            expertise={"backend": 0.9},
-        ))
-        selector.register_agent(AgentProfile(
-            name="novice",
-            agent_type="gemini",
-            expertise={"backend": 0.2},
-        ))
+        selector.register_agent(
+            AgentProfile(
+                name="expert",
+                agent_type="claude",
+                expertise={"backend": 0.9},
+            )
+        )
+        selector.register_agent(
+            AgentProfile(
+                name="novice",
+                agent_type="gemini",
+                expertise={"backend": 0.2},
+            )
+        )
 
         req = TaskRequirements(
             task_id="test",
@@ -1378,11 +1402,13 @@ class TestAgentSelectorRefresh:
         mock_elo.get_ratings_batch.return_value = {"test": mock_rating}
 
         selector = AgentSelector(elo_system=mock_elo)
-        selector.register_agent(AgentProfile(
-            name="test",
-            agent_type="claude",
-            elo_rating=1500,
-        ))
+        selector.register_agent(
+            AgentProfile(
+                name="test",
+                agent_type="claude",
+                elo_rating=1500,
+            )
+        )
 
         selector.refresh_from_elo_system()
 

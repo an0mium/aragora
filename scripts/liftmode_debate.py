@@ -9,9 +9,9 @@ import os
 import sys
 
 # Set environment before importing heavy libraries
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow warnings
-os.environ['TOKENIZERS_PARALLELISM'] = 'false'  # Prevent tokenizer deadlock
-os.environ['SENTENCE_TRANSFORMERS_HOME'] = '/tmp/sentence_transformers'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # Suppress TensorFlow warnings
+os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Prevent tokenizer deadlock
+os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/sentence_transformers"
 
 import asyncio
 from datetime import datetime
@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 print("Importing aragora modules...", flush=True)
 from aragora import Arena, Environment, DebateProtocol
 from aragora.agents.registry import AgentRegistry
+
 print("Imports complete.", flush=True)
 
 # Agent imports are done dynamically in run_debate() based on available API keys
@@ -178,6 +179,7 @@ async def run_debate():
     try:
         # Claude Opus 4.5 - Anthropic's best
         from aragora.agents.api_agents.anthropic import AnthropicAPIAgent  # noqa: F401
+
         claude_agent = AgentRegistry.create(
             "anthropic-api",
             name="strategic-consultant",
@@ -195,6 +197,7 @@ async def run_debate():
     try:
         # GPT 5.2 - OpenAI's best
         from aragora.agents.api_agents.openai import OpenAIAPIAgent  # noqa: F401
+
         gpt_agent = AgentRegistry.create(
             "openai-api",
             name="cfo-advisor",
@@ -244,6 +247,7 @@ async def run_debate():
     try:
         # DeepSeek R1 - via OpenRouter
         from aragora.agents.api_agents.openrouter import DeepSeekR1Agent  # noqa: F401
+
         deepseek_agent = AgentRegistry.create(
             "deepseek-r1",
             name="operations-expert",
@@ -438,6 +442,7 @@ What's the probability of success for each option?
         debate_agents = []
         try:
             from aragora.agents.api_agents.gemini import GeminiAgent  # noqa: F401
+
             agent1 = AgentRegistry.create(
                 "gemini",
                 name="analyst-1",
@@ -452,6 +457,7 @@ What's the probability of success for each option?
 
         try:
             from aragora.agents.api_agents.grok import GrokAgent  # noqa: F401
+
             agent2 = AgentRegistry.create(
                 "grok",
                 name="analyst-2",
@@ -484,8 +490,12 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Run LiftMode business turnaround debate")
-    parser.add_argument("--focused", action="store_true", help="Run focused debates on specific decisions")
-    parser.add_argument("--full", action="store_true", help="Run full comprehensive debate (default)")
+    parser.add_argument(
+        "--focused", action="store_true", help="Run focused debates on specific decisions"
+    )
+    parser.add_argument(
+        "--full", action="store_true", help="Run full comprehensive debate (default)"
+    )
 
     args = parser.parse_args()
 

@@ -18,6 +18,7 @@ class TestFormalVerificationHandlerRouting:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.formal_verification import FormalVerificationHandler
+
         return FormalVerificationHandler({})
 
     def test_can_handle_verify_claim(self, handler):
@@ -52,6 +53,7 @@ class TestVerifyClaimEndpoint:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.formal_verification import FormalVerificationHandler
+
         return FormalVerificationHandler({})
 
     @pytest.fixture
@@ -98,7 +100,7 @@ class TestVerifyClaimEndpoint:
         mock_manager = Mock()
         mock_manager.attempt_formal_verification = AsyncMock(return_value=mock_result)
 
-        with patch.object(handler, '_get_manager', return_value=mock_manager):
+        with patch.object(handler, "_get_manager", return_value=mock_manager):
             result = await handler.handle_async(
                 mock_http_handler,
                 "POST",
@@ -117,6 +119,7 @@ class TestVerifyBatchEndpoint:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.formal_verification import FormalVerificationHandler
+
         return FormalVerificationHandler({})
 
     @pytest.fixture
@@ -170,6 +173,7 @@ class TestVerifyStatusEndpoint:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.formal_verification import FormalVerificationHandler
+
         return FormalVerificationHandler({})
 
     @pytest.fixture
@@ -188,8 +192,10 @@ class TestVerifyStatusEndpoint:
             "any_available": True,
         }
 
-        with patch.object(handler, '_get_manager', return_value=mock_manager):
-            with patch('aragora.server.handlers.formal_verification.DeepSeekProverTranslator', create=True) as mock_ds:
+        with patch.object(handler, "_get_manager", return_value=mock_manager):
+            with patch(
+                "aragora.server.handlers.formal_verification.DeepSeekProverTranslator", create=True
+            ) as mock_ds:
                 mock_ds.return_value.is_available = False
                 result = await handler.handle_async(
                     mock_http_handler,
@@ -209,6 +215,7 @@ class TestVerifyTranslateEndpoint:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.formal_verification import FormalVerificationHandler
+
         return FormalVerificationHandler({})
 
     @pytest.fixture
@@ -259,12 +266,14 @@ class TestFormalVerificationHandlerImport:
     def test_handler_importable(self):
         """FormalVerificationHandler can be imported."""
         from aragora.server.handlers.formal_verification import FormalVerificationHandler
+
         assert FormalVerificationHandler is not None
 
     def test_handler_has_routes(self):
         """FormalVerificationHandler defines ROUTES."""
         from aragora.server.handlers.formal_verification import FormalVerificationHandler
+
         handler = FormalVerificationHandler({})
-        assert hasattr(handler, 'ROUTES')
+        assert hasattr(handler, "ROUTES")
         assert len(handler.ROUTES) > 0
         assert "/api/verify/claim" in handler.ROUTES

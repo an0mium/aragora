@@ -20,6 +20,7 @@ from aragora.debate.phases.roles_manager import RolesManager
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str
     role: Optional[str] = None
     stance: Optional[str] = None
@@ -29,6 +30,7 @@ class MockAgent:
 @dataclass
 class MockProtocol:
     """Mock protocol for testing."""
+
     proposer_count: int = 1
     asymmetric_stances: bool = False
     rotate_stances: bool = False
@@ -414,9 +416,7 @@ class TestStanceSummary:
 
         # Each stance should have exactly one agent
         total_assigned = (
-            len(summary["affirmative"])
-            + len(summary["negative"])
-            + len(summary["neutral"])
+            len(summary["affirmative"]) + len(summary["negative"]) + len(summary["neutral"])
         )
         assert total_assigned == 3
 

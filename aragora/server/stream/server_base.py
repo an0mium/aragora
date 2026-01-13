@@ -36,6 +36,7 @@ WS_TOKEN_REVALIDATION_INTERVAL = 300.0
 @dataclass
 class ServerConfig:
     """Configuration for server behavior."""
+
     # Rate limiter settings
     rate_limiter_ttl: float = 3600.0  # 1 hour TTL for rate limiters
     rate_limiter_cleanup_interval: int = 100  # Cleanup every N accesses
@@ -162,10 +163,7 @@ class ServerBase:
         Returns number of items removed.
         """
         cutoff = now - self._config.rate_limiter_ttl
-        stale_keys = [
-            k for k, v in self._rate_limiter_last_access.items()
-            if v < cutoff
-        ]
+        stale_keys = [k for k, v in self._rate_limiter_last_access.items() if v < cutoff]
         for k in stale_keys:
             self._rate_limiters.pop(k, None)
             self._rate_limiter_last_access.pop(k, None)
@@ -222,10 +220,7 @@ class ServerBase:
         cutoff = now - self._config.debate_states_ttl
 
         with self._debate_states_lock:
-            stale_keys = [
-                k for k, v in self._debate_states_last_access.items()
-                if v < cutoff
-            ]
+            stale_keys = [k for k, v in self._debate_states_last_access.items() if v < cutoff]
             for k in stale_keys:
                 self.debate_states.pop(k, None)
                 self._debate_states_last_access.pop(k, None)
@@ -269,11 +264,13 @@ class ServerBase:
             elif event_type == "round_start":
                 state["current_round"] = event.get("round", 0)
             elif event_type == "agent_message":
-                state["messages"].append({
-                    "agent": event.get("agent"),
-                    "content": event.get("content", "")[:500],  # Truncate
-                    "round": event.get("round", 0),
-                })
+                state["messages"].append(
+                    {
+                        "agent": event.get("agent"),
+                        "content": event.get("content", "")[:500],  # Truncate
+                        "round": event.get("round", 0),
+                    }
+                )
             elif event_type in ("debate_end", "consensus_reached"):
                 state["status"] = "completed"
                 state["result"] = event.get("result")
@@ -330,10 +327,7 @@ class ServerBase:
         cutoff = now - self._config.active_loops_ttl
 
         with self._active_loops_lock:
-            stale_keys = [
-                k for k, v in self._active_loops_last_access.items()
-                if v < cutoff
-            ]
+            stale_keys = [k for k, v in self._active_loops_last_access.items() if v < cutoff]
             for k in stale_keys:
                 self.active_loops.pop(k, None)
                 self._active_loops_last_access.pop(k, None)
@@ -468,10 +462,7 @@ class ServerBase:
         with self._ws_auth_lock:
             # Remove entries for WebSocket IDs not in clients
             client_ws_ids = {id(c) for c in self.clients}
-            stale_keys = [
-                ws_id for ws_id in self._ws_auth_states
-                if ws_id not in client_ws_ids
-            ]
+            stale_keys = [ws_id for ws_id in self._ws_auth_states if ws_id not in client_ws_ids]
             for ws_id in stale_keys:
                 del self._ws_auth_states[ws_id]
 
@@ -507,8 +498,7 @@ class ServerBase:
         with self._ws_auth_lock:
             auth_states_count = len(self._ws_auth_states)
             authenticated_count = sum(
-                1 for s in self._ws_auth_states.values()
-                if s.get("authenticated", False)
+                1 for s in self._ws_auth_states.values() if s.get("authenticated", False)
             )
 
         return {

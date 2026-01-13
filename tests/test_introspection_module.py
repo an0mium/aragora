@@ -21,6 +21,7 @@ from aragora.introspection.api import get_agent_introspection, format_introspect
 # IntrospectionSnapshot Tests
 # ============================================================================
 
+
 class TestIntrospectionSnapshot:
     """Tests for IntrospectionSnapshot dataclass."""
 
@@ -370,6 +371,7 @@ class TestToDict:
 # IntrospectionCache Tests
 # ============================================================================
 
+
 class TestIntrospectionCacheInit:
     """Tests for IntrospectionCache initialization."""
 
@@ -568,6 +570,7 @@ class TestIntrospectionCacheGetAll:
 # get_agent_introspection Tests
 # ============================================================================
 
+
 class TestGetAgentIntrospection:
     """Tests for get_agent_introspection() function."""
 
@@ -671,6 +674,7 @@ class TestGetAgentIntrospection:
 # ============================================================================
 # format_introspection_section Tests
 # ============================================================================
+
 
 class TestFormatIntrospectionSection:
     """Tests for format_introspection_section() function."""

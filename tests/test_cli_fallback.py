@@ -218,22 +218,28 @@ class TestFallbackUsedTracking:
 class TestMultipleCLIAgents:
     """Test fallback behavior across different CLI agent types."""
 
-    @pytest.mark.parametrize("agent_class,agent_name,model", [
-        (ClaudeAgent, "claude", "claude-3"),
-        (GeminiCLIAgent, "gemini", "gemini-pro"),
-        (CodexAgent, "codex", "codex"),
-    ])
+    @pytest.mark.parametrize(
+        "agent_class,agent_name,model",
+        [
+            (ClaudeAgent, "claude", "claude-3"),
+            (GeminiCLIAgent, "gemini", "gemini-pro"),
+            (CodexAgent, "codex", "codex"),
+        ],
+    )
     def test_all_agents_have_fallback_method(self, agent_class, agent_name, model) -> None:
         """All CLI agents have _is_fallback_error method."""
         agent = agent_class(name=agent_name, model=model, role="test")
         assert hasattr(agent, "_is_fallback_error")
         assert callable(agent._is_fallback_error)
 
-    @pytest.mark.parametrize("agent_class,agent_name,model", [
-        (ClaudeAgent, "claude", "claude-3"),
-        (GeminiCLIAgent, "gemini", "gemini-pro"),
-        (CodexAgent, "codex", "codex"),
-    ])
+    @pytest.mark.parametrize(
+        "agent_class,agent_name,model",
+        [
+            (ClaudeAgent, "claude", "claude-3"),
+            (GeminiCLIAgent, "gemini", "gemini-pro"),
+            (CodexAgent, "codex", "codex"),
+        ],
+    )
     def test_all_agents_have_get_fallback(self, agent_class, agent_name, model) -> None:
         """All CLI agents have _get_fallback_agent method."""
         agent = agent_class(name=agent_name, model=model, role="test")

@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class PathTraversalError(ValueError):
     """Raised when a path traversal attempt is detected."""
+
     pass
 
 

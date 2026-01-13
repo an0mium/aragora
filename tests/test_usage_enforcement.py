@@ -27,6 +27,7 @@ from aragora.billing.models import (
 # Test Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def free_tier_org():
     """Create a free tier organization."""
@@ -73,6 +74,7 @@ def professional_tier_org():
 # Tier Limit Configuration Tests
 # =============================================================================
 
+
 class TestTierLimits:
     """Tests for tier limit configuration."""
 
@@ -100,6 +102,7 @@ class TestTierLimits:
 # =============================================================================
 # Organization Usage Tracking Tests
 # =============================================================================
+
 
 class TestOrganizationUsageTracking:
     """Tests for organization usage tracking."""
@@ -155,6 +158,7 @@ class TestOrganizationUsageTracking:
 # Usage Endpoint Tests
 # =============================================================================
 
+
 class TestUsageEndpoint:
     """Tests for billing usage endpoint."""
 
@@ -174,6 +178,7 @@ class TestUsageEndpoint:
     def billing_handler(self, mock_user_store):
         """Create billing handler."""
         from aragora.server.handlers.billing import BillingHandler
+
         ctx = {"user_store": mock_user_store}
         return BillingHandler(ctx)
 
@@ -235,6 +240,7 @@ class TestUsageEndpoint:
 # Forecast Endpoint Tests
 # =============================================================================
 
+
 class TestForecastEndpoint:
     """Tests for usage forecast endpoint."""
 
@@ -254,6 +260,7 @@ class TestForecastEndpoint:
     def billing_handler(self, mock_user_store):
         """Create billing handler."""
         from aragora.server.handlers.billing import BillingHandler
+
         ctx = {"user_store": mock_user_store}
         return BillingHandler(ctx)
 
@@ -303,9 +310,7 @@ class TestForecastEndpoint:
         assert data["forecast"]["will_hit_limit"] is True
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
-    def test_forecast_suggests_upgrade(
-        self, mock_extract, billing_handler, mock_user_store
-    ):
+    def test_forecast_suggests_upgrade(self, mock_extract, billing_handler, mock_user_store):
         """Forecast suggests tier upgrade when approaching limit."""
         # Create starter tier org approaching limit
         starter_org = Organization(
@@ -345,6 +350,7 @@ class TestForecastEndpoint:
 # Debate Limit Enforcement Tests
 # =============================================================================
 
+
 class TestDebateLimitEnforcement:
     """Tests for debate limit enforcement in unified server."""
 
@@ -380,6 +386,7 @@ class TestDebateLimitEnforcement:
 # =============================================================================
 # Monthly Reset Tests
 # =============================================================================
+
 
 class TestMonthlyReset:
     """Tests for monthly usage reset."""
@@ -424,6 +431,7 @@ class TestMonthlyReset:
 # =============================================================================
 # Edge Case Tests
 # =============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases in usage enforcement."""

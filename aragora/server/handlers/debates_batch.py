@@ -16,8 +16,8 @@ from aragora.server.handlers.base import (
     HandlerResult,
     handle_errors,
     safe_error_message,
-    require_quota,
 )
+from aragora.server.middleware.tier_enforcement import check_org_quota, increment_org_usage
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.entities import validate_path_segment, SAFE_ID_PATTERN
 from aragora.server.validation.schema import validate_against_schema, BATCH_SUBMIT_SCHEMA
@@ -112,9 +112,9 @@ class BatchOperationsMixin:
 
         if errors:
             return error_response(
-                f"Validation failed: {'; '.join(errors[:5])}" +
-                (f" (and {len(errors) - 5} more)" if len(errors) > 5 else ""),
-                400
+                f"Validation failed: {'; '.join(errors[:5])}"
+                + (f" (and {len(errors) - 5} more)" if len(errors) > 5 else ""),
+                400,
             )
 
         # Check quota before proceeding
@@ -122,41 +122,48 @@ class BatchOperationsMixin:
         from aragora.billing.jwt_auth import extract_user_from_request
 
         user_store = None
-        if hasattr(handler, 'user_store'):
+        if hasattr(handler, "user_store"):
             user_store = handler.user_store
-        elif hasattr(handler.__class__, 'user_store'):
+        elif hasattr(handler.__class__, "user_store"):
             user_store = handler.__class__.user_store
 
         user_ctx = extract_user_from_request(handler, user_store) if user_store else None
 
         if user_ctx and user_ctx.is_authenticated and user_ctx.org_id:
-            if user_store and hasattr(user_store, 'get_organization_by_id'):
+            if user_store and hasattr(user_store, "get_organization_by_id"):
                 org = user_store.get_organization_by_id(user_ctx.org_id)
                 if org:
                     if org.is_at_limit:
-                        return json_response({
-                            "error": "Monthly debate quota exceeded",
-                            "code": "quota_exceeded",
-                            "limit": org.limits.debates_per_month,
-                            "used": org.debates_used_this_month,
-                            "remaining": 0,
-                            "tier": org.tier.value,
-                            "upgrade_url": "/pricing",
-                            "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Upgrade to increase your limit.",
-                        }, status=429)
+                        return json_response(
+                            {
+                                "error": "quota_exceeded",
+                                "code": "QUOTA_EXCEEDED",
+                                "limit": org.limits.debates_per_month,
+                                "used": org.debates_used_this_month,
+                                "remaining": 0,
+                                "tier": org.tier.value,
+                                "upgrade_url": "/pricing",
+                                "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Upgrade to increase your limit.",
+                            },
+                            status=402,
+                        )  # Payment Required
 
                     remaining = org.limits.debates_per_month - org.debates_used_this_month
                     if batch_size > remaining:
-                        return json_response({
-                            "error": f"Insufficient quota: requested {batch_size} debates but only {remaining} remaining",
-                            "code": "quota_insufficient",
-                            "limit": org.limits.debates_per_month,
-                            "used": org.debates_used_this_month,
-                            "remaining": remaining,
-                            "requested": batch_size,
-                            "tier": org.tier.value,
-                            "upgrade_url": "/pricing",
-                        }, status=429)
+                        return json_response(
+                            {
+                                "error": "quota_insufficient",
+                                "code": "QUOTA_INSUFFICIENT",
+                                "limit": org.limits.debates_per_month,
+                                "used": org.debates_used_this_month,
+                                "remaining": remaining,
+                                "requested": batch_size,
+                                "tier": org.tier.value,
+                                "upgrade_url": "/pricing",
+                                "message": f"Requested {batch_size} debates but only {remaining} remaining. Upgrade to increase your limit.",
+                            },
+                            status=402,
+                        )  # Payment Required
 
         webhook_url = body.get("webhook_url")
         if webhook_url:
@@ -164,9 +171,7 @@ class BatchOperationsMixin:
             if not is_valid:
                 return error_response(error_msg, 400)
 
-        webhook_headers, header_error = sanitize_webhook_headers(
-            body.get("webhook_headers")
-        )
+        webhook_headers, header_error = sanitize_webhook_headers(body.get("webhook_headers"))
         if header_error:
             return error_response(header_error, 400)
 
@@ -202,13 +207,11 @@ class BatchOperationsMixin:
 
             batch_id = run_async(submit())
 
-            logger.info(
-                f"Batch {batch_id} submitted with {len(items)} items"
-            )
+            logger.info(f"Batch {batch_id} submitted with {len(items)} items")
 
             # Increment usage on successful batch submission
             if user_ctx and user_ctx.is_authenticated and user_ctx.org_id:
-                if user_store and hasattr(user_store, 'increment_usage'):
+                if user_store and hasattr(user_store, "increment_usage"):
                     try:
                         user_store.increment_usage(user_ctx.org_id, batch_size)
                         logger.info(
@@ -217,12 +220,14 @@ class BatchOperationsMixin:
                     except Exception as ue:
                         logger.warning(f"Usage increment failed for org {user_ctx.org_id}: {ue}")
 
-            return json_response({
-                "success": True,
-                "batch_id": batch_id,
-                "items_queued": len(items),
-                "status_url": f"/api/debates/batch/{batch_id}/status",
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "batch_id": batch_id,
+                    "items_queued": len(items),
+                    "status_url": f"/api/debates/batch/{batch_id}/status",
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to submit batch: {e}", exc_info=True)
@@ -264,7 +269,7 @@ class BatchOperationsMixin:
             else:
                 raise DebateStartError(
                     debate_id=response.debate_id or "unknown",
-                    reason=response.error or "Debate failed to start"
+                    reason=response.error or "Debate failed to start",
                 )
 
         return execute_debate
@@ -293,9 +298,7 @@ class BatchOperationsMixin:
 
     @handle_errors("list batches")
     def _list_batches(
-        self: "DebatesHandler",
-        limit: int,
-        status_filter: Optional[str] = None
+        self: "DebatesHandler", limit: int, status_filter: Optional[str] = None
     ) -> HandlerResult:
         """List batch requests.
 
@@ -316,17 +319,16 @@ class BatchOperationsMixin:
                 status = BatchStatus(status_filter)
             except ValueError:
                 valid = ", ".join(s.value for s in BatchStatus)
-                return error_response(
-                    f"Invalid status '{status_filter}'. Valid: {valid}",
-                    400
-                )
+                return error_response(f"Invalid status '{status_filter}'. Valid: {valid}", 400)
 
         batches = queue.list_batches(status=status, limit=limit)
 
-        return json_response({
-            "batches": batches,
-            "count": len(batches),
-        })
+        return json_response(
+            {
+                "batches": batches,
+                "count": len(batches),
+            }
+        )
 
     @handle_errors("get queue status")
     def _get_queue_status(self: "DebatesHandler") -> HandlerResult:
@@ -338,10 +340,12 @@ class BatchOperationsMixin:
 
         queue = get_debate_queue_sync()
         if not queue:
-            return json_response({
-                "active": False,
-                "message": "Queue not initialized",
-            })
+            return json_response(
+                {
+                    "active": False,
+                    "message": "Queue not initialized",
+                }
+            )
 
         # Count batches by status
         all_batches = queue.list_batches(limit=1000)
@@ -350,13 +354,15 @@ class BatchOperationsMixin:
             status = batch.get("status", "unknown")
             status_counts[status] = status_counts.get(status, 0) + 1
 
-        return json_response({
-            "active": True,
-            "max_concurrent": queue.max_concurrent,
-            "active_count": queue._active_count,
-            "total_batches": len(all_batches),
-            "status_counts": status_counts,
-        })
+        return json_response(
+            {
+                "active": True,
+                "max_concurrent": queue.max_concurrent,
+                "active_count": queue._active_count,
+                "total_batches": len(all_batches),
+                "status_counts": status_counts,
+            }
+        )
 
 
 __all__ = ["BatchOperationsMixin"]

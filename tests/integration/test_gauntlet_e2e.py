@@ -93,15 +93,24 @@ Mitigation: Add validation for edge cases.
 def mock_agents() -> list[Agent]:
     """Create a set of mock agents for testing."""
     return [
-        MockAgent("security-agent", {
-            "security": "HIGH SEVERITY: SQL injection vulnerability detected in line 42.",
-        }),
-        MockAgent("compliance-agent", {
-            "compliance": "MEDIUM SEVERITY: Missing audit logging requirement.",
-        }),
-        MockAgent("edge-case-agent", {
-            "edge": "LOW SEVERITY: Undefined behavior for empty input.",
-        }),
+        MockAgent(
+            "security-agent",
+            {
+                "security": "HIGH SEVERITY: SQL injection vulnerability detected in line 42.",
+            },
+        ),
+        MockAgent(
+            "compliance-agent",
+            {
+                "compliance": "MEDIUM SEVERITY: Missing audit logging requirement.",
+            },
+        ),
+        MockAgent(
+            "edge-case-agent",
+            {
+                "edge": "LOW SEVERITY: Undefined behavior for empty input.",
+            },
+        ),
     ]
 
 
@@ -226,23 +235,23 @@ class TestGauntletOrchestrator:
         result = await orchestrator.run(config)
 
         # Core fields
-        assert hasattr(result, 'gauntlet_id')
-        assert hasattr(result, 'verdict')
-        assert hasattr(result, 'confidence')
-        assert hasattr(result, 'risk_score')
-        assert hasattr(result, 'robustness_score')
-        assert hasattr(result, 'coverage_score')
+        assert hasattr(result, "gauntlet_id")
+        assert hasattr(result, "verdict")
+        assert hasattr(result, "confidence")
+        assert hasattr(result, "risk_score")
+        assert hasattr(result, "robustness_score")
+        assert hasattr(result, "coverage_score")
 
         # Finding lists
-        assert hasattr(result, 'critical_findings')
-        assert hasattr(result, 'high_findings')
-        assert hasattr(result, 'medium_findings')
-        assert hasattr(result, 'low_findings')
+        assert hasattr(result, "critical_findings")
+        assert hasattr(result, "high_findings")
+        assert hasattr(result, "medium_findings")
+        assert hasattr(result, "low_findings")
 
         # Metadata
-        assert hasattr(result, 'agents_involved')
-        assert hasattr(result, 'duration_seconds')
-        assert hasattr(result, 'checksum')
+        assert hasattr(result, "agents_involved")
+        assert hasattr(result, "duration_seconds")
+        assert hasattr(result, "checksum")
 
     @pytest.mark.asyncio
     async def test_verdict_determination(self, mock_agents, sample_policy):
@@ -489,7 +498,7 @@ class TestAuditTrail:
 
         event_types = [e.event_type for e in trail.events]
         assert AuditEventType.GAUNTLET_START in event_types
-        assert AuditEventType.GAUNTLET_COMPLETE in event_types
+        assert AuditEventType.GAUNTLET_END in event_types
 
     @pytest.mark.asyncio
     async def test_audit_trail_json_export(self, mock_agents, sample_policy):
@@ -693,10 +702,10 @@ class TestFindings:
 
         # All findings should be in one of the severity lists
         total = (
-            len(result.critical_findings) +
-            len(result.high_findings) +
-            len(result.medium_findings) +
-            len(result.low_findings)
+            len(result.critical_findings)
+            + len(result.high_findings)
+            + len(result.medium_findings)
+            + len(result.low_findings)
         )
         assert total == result.total_findings
 

@@ -23,7 +23,7 @@ import asyncio
 from aragora.core import Environment
 from aragora.debate.orchestrator import Arena
 from aragora.debate.protocol import DebateProtocol
-from aragora.agents.api_agents import AnthropicAgent, OpenAIAgent
+from aragora.agents.api_agents import AnthropicAPIAgent, OpenAIAPIAgent
 
 async def run_debate():
     # Create environment with the task
@@ -31,8 +31,8 @@ async def run_debate():
 
     # Create agents
     agents = [
-        AnthropicAgent(name="claude"),
-        OpenAIAgent(name="gpt4"),
+        AnthropicAPIAgent(name="anthropic-api"),
+        OpenAIAPIAgent(name="openai-api"),
     ]
 
     # Configure debate protocol
@@ -59,22 +59,22 @@ result = asyncio.run(run_debate())
 ### Using Pre-configured Agent Sets
 
 ```python
-from aragora.agents.registry import get_agent, list_available_agents
+from aragora.agents.base import create_agent, list_available_agents
 
-# List available agents
+# List available agents (returns metadata by type)
 available = list_available_agents()
-# ['anthropic-api', 'openai-api', 'gemini', 'grok', ...]
+# list(available.keys()) -> ['anthropic-api', 'openai-api', 'gemini', 'grok', ...]
 
-# Get agents by name
-claude = get_agent("anthropic-api")
-gpt4 = get_agent("openai-api")
+# Create agents by type
+anthropic_agent = create_agent("anthropic-api")
+openai_agent = create_agent("openai-api")
 
-# With custom configuration
-claude_custom = get_agent(
+# With custom model selection
+anthropic_custom = create_agent(
     "anthropic-api",
-    model="claude-3-opus-20240229",
-    temperature=0.7,
+    model="claude-opus-4-5-20251101",
 )
+anthropic_custom.set_generation_params(temperature=0.7)
 ```
 
 ---
@@ -84,55 +84,46 @@ claude_custom = get_agent(
 ### Basic Custom Agent
 
 ```python
-from aragora.core import Agent, Message, Critique
+from aragora.agents.registry import AgentRegistry
+from aragora.core import Agent, Critique, Message
 
+@AgentRegistry.register("my-custom", default_model="custom", agent_type="Custom")
 class MyCustomAgent(Agent):
     """A custom agent implementation."""
 
-    def __init__(self, name: str = "custom"):
-        super().__init__(name=name)
-        self.provider = "custom"
+    def __init__(self, name: str = "my-custom", model: str = "custom", role: str = "proposer"):
+        super().__init__(name=name, model=model, role=role)
 
-    async def propose(self, env, context=None) -> Message:
-        """Generate a proposal for the debate topic."""
-        # Your logic here
-        response = self._call_your_api(env.task)
-        return Message(
-            agent=self.name,
-            content=response,
-            role="speaker",
-        )
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response to the prompt."""
+        return self._call_your_api(prompt)
 
-    async def critique(self, message: Message, env, context=None) -> Critique:
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+    ) -> Critique:
         """Critique another agent's proposal."""
-        response = self._analyze_proposal(message.content)
+        analysis = self._analyze_proposal(proposal, task)
         return Critique(
             agent=self.name,
-            target_message=message,
-            content=response,
-            vote="agree" if self._agrees(response) else "disagree",
-        )
-
-    async def revise(self, message: Message, critiques: list[Critique], env) -> Message:
-        """Revise proposal based on critiques."""
-        revised = self._incorporate_feedback(message.content, critiques)
-        return Message(
-            agent=self.name,
-            content=revised,
-            role="speaker",
+            target_agent="proposal",
+            target_content=proposal[:200],
+            issues=[analysis],
+            suggestions=[],
+            severity=0.5,
+            reasoning="Heuristic critique",
         )
 ```
 
 ### Registering Custom Agents
 
 ```python
-from aragora.agents.registry import register_agent
+from aragora.agents.base import create_agent
 
-# Register for use with get_agent()
-register_agent("my-custom", MyCustomAgent)
-
-# Now available
-agent = get_agent("my-custom")
+# Create via the registry after registration
+agent = create_agent("my-custom")
 ```
 
 ---
@@ -181,7 +172,7 @@ record = ConsensusRecord(
     topic="Rate limiter design",
     conclusion="Token bucket algorithm is preferred",
     confidence=0.85,
-    participating_agents=["claude", "gpt4"],
+    participating_agents=["anthropic-api", "openai-api"],
     strength="strong",
 )
 consensus_mem.store(record)

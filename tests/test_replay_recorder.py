@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 from aragora.replay.recorder import ReplayRecorder
 
+
 def test_recorder_files(tmp_path):
     recorder = ReplayRecorder("test", "topic", "prop", [], str(tmp_path))
     recorder.start()

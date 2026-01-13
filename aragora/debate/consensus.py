@@ -145,11 +145,14 @@ class ConsensusProof:
     @property
     def checksum(self) -> str:
         """Generate checksum for proof integrity."""
-        content = json.dumps({
-            "final_claim": self.final_claim,
-            "votes": [asdict(v) for v in self.votes],
-            "claims": [asdict(c) for c in self.claims],
-        }, sort_keys=True)
+        content = json.dumps(
+            {
+                "final_claim": self.final_claim,
+                "votes": [asdict(v) for v in self.votes],
+                "claims": [asdict(c) for c in self.claims],
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
     @property
@@ -258,7 +261,7 @@ class ConsensusProof:
         """
         correlation: dict[str, list[str]] = {
             "unanimous": [],  # All agents agree
-            "majority": [],   # Most agents agree
+            "majority": [],  # Most agents agree
             "contested": [],  # Significant disagreement
         }
 
@@ -360,7 +363,9 @@ class ConsensusProof:
             for agent in self.dissenting_agents:
                 vote = next((v for v in self.votes if v.agent == agent), None)
                 if vote:
-                    lines.append(f"- **{agent}** ({vote.confidence:.0%}): {vote.reasoning[:100]}...")
+                    lines.append(
+                        f"- **{agent}** ({vote.confidence:.0%}): {vote.reasoning[:100]}..."
+                    )
                 else:
                     lines.append(f"- **{agent}**")
         else:
@@ -539,7 +544,9 @@ class ConsensusBuilder:
     ) -> ConsensusProof:
         """Build the final ConsensusProof."""
         # Categorize agents by vote
-        supporting = [v.agent for v in self.votes if v.vote in (VoteType.AGREE, VoteType.CONDITIONAL)]
+        supporting = [
+            v.agent for v in self.votes if v.vote in (VoteType.AGREE, VoteType.CONDITIONAL)
+        ]
         dissenting = [v.agent for v in self.votes if v.vote == VoteType.DISAGREE]
 
         return ConsensusProof(
@@ -621,7 +628,11 @@ class ConsensusBuilder:
                         agents=[critique.agent, critique.target_agent],
                         options=[
                             f"{critique.target_agent}'s approach",
-                            ", ".join(critique.suggestions[:2]) if critique.suggestions else "Alternative approach",
+                            (
+                                ", ".join(critique.suggestions[:2])
+                                if critique.suggestions
+                                else "Alternative approach"
+                            ),
                         ],
                         impact="May affect final solution quality",
                     )
@@ -651,7 +662,11 @@ class ConsensusBuilder:
                     agent=agent,
                     vote=VoteType.AGREE if result.consensus_reached else VoteType.CONDITIONAL,
                     confidence=result.confidence,
-                    reasoning="Supported final consensus" if result.consensus_reached else "Partial agreement",
+                    reasoning=(
+                        "Supported final consensus"
+                        if result.consensus_reached
+                        else "Partial agreement"
+                    ),
                 )
 
         return builder

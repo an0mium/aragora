@@ -35,14 +35,40 @@ logger = logging.getLogger(__name__)
 ALLOWED_COMMANDS: dict[str, Optional[list[str]]] = {
     # Version control
     "git": [
-        "rev-parse", "diff", "status", "checkout", "add", "commit", "push", "pull",
-        "branch", "log", "show", "fetch", "merge", "rebase", "stash", "reset",
-        "clone", "init", "remote", "tag", "config", "ls-files", "describe",
+        "rev-parse",
+        "diff",
+        "status",
+        "checkout",
+        "add",
+        "commit",
+        "push",
+        "pull",
+        "branch",
+        "log",
+        "show",
+        "fetch",
+        "merge",
+        "rebase",
+        "stash",
+        "reset",
+        "clone",
+        "init",
+        "remote",
+        "tag",
+        "config",
+        "ls-files",
+        "describe",
     ],
     "gh": [
-        "auth", "api", "pr", "issue", "repo", "release", "gist", "workflow",
+        "auth",
+        "api",
+        "pr",
+        "issue",
+        "repo",
+        "release",
+        "gist",
+        "workflow",
     ],
-
     # Build and test tools
     "pytest": None,  # All subcommands allowed
     "python": ["-m", "-c", "--version"],  # Only these flags
@@ -53,15 +79,12 @@ ALLOWED_COMMANDS: dict[str, Optional[list[str]]] = {
     "pip": ["install", "list", "show", "freeze", "--version"],
     "npm": ["install", "run", "test", "build", "ci", "audit", "--version"],
     "node": ["--version"],
-
     # Media processing (sandboxed to specific flags)
     "ffmpeg": None,  # Complex enough to allow all flags
     "ffprobe": None,
-
     # Formal verification
     "lean": ["--version", "--run", "--print-prefix"],
     "z3": ["--version"],
-
     # System info (read-only)
     "which": None,
     "uname": None,
@@ -77,21 +100,48 @@ ALLOWED_COMMANDS: dict[str, Optional[list[str]]] = {
 }
 
 # Commands that should never be allowed regardless of subcommand
-BLOCKED_COMMANDS: frozenset[str] = frozenset({
-    "rm", "rmdir", "mv", "cp", "chmod", "chown", "chgrp",
-    "kill", "pkill", "killall",
-    "sudo", "su", "doas",
-    "curl", "wget",  # Use WebFetch tool instead
-    "ssh", "scp", "rsync",
-    "docker", "podman",
-    "systemctl", "service",
-    "mount", "umount",
-    "dd", "mkfs", "fdisk",
-    "iptables", "ufw",
-    "passwd", "useradd", "userdel",
-    "reboot", "shutdown", "halt",
-    "eval", "exec", "source",
-})
+BLOCKED_COMMANDS: frozenset[str] = frozenset(
+    {
+        "rm",
+        "rmdir",
+        "mv",
+        "cp",
+        "chmod",
+        "chown",
+        "chgrp",
+        "kill",
+        "pkill",
+        "killall",
+        "sudo",
+        "su",
+        "doas",
+        "curl",
+        "wget",  # Use WebFetch tool instead
+        "ssh",
+        "scp",
+        "rsync",
+        "docker",
+        "podman",
+        "systemctl",
+        "service",
+        "mount",
+        "umount",
+        "dd",
+        "mkfs",
+        "fdisk",
+        "iptables",
+        "ufw",
+        "passwd",
+        "useradd",
+        "userdel",
+        "reboot",
+        "shutdown",
+        "halt",
+        "eval",
+        "exec",
+        "source",
+    }
+)
 
 # Default timeout in seconds
 DEFAULT_TIMEOUT: float = 30.0
@@ -103,6 +153,7 @@ MAX_TIMEOUT: float = 600.0
 @dataclass
 class SandboxedResult:
     """Result from a sandboxed subprocess execution."""
+
     returncode: int
     stdout: str
     stderr: str
@@ -117,6 +168,7 @@ class SandboxedResult:
 
 class SandboxError(Exception):
     """Raised when a command fails sandbox validation."""
+
     pass
 
 
@@ -181,18 +233,34 @@ class SandboxedCommand:
 
         # Variables to preserve
         preserve_vars = {
-            "PATH", "HOME", "USER", "LANG", "LC_ALL", "TERM",
-            "SHELL", "TMPDIR", "TMP", "TEMP",
+            "PATH",
+            "HOME",
+            "USER",
+            "LANG",
+            "LC_ALL",
+            "TERM",
+            "SHELL",
+            "TMPDIR",
+            "TMP",
+            "TEMP",
             # Python-related
-            "PYTHONPATH", "VIRTUAL_ENV", "CONDA_DEFAULT_ENV",
+            "PYTHONPATH",
+            "VIRTUAL_ENV",
+            "CONDA_DEFAULT_ENV",
             # API keys (needed for some tools)
-            "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GITHUB_TOKEN",
-            "OPENROUTER_API_KEY", "MISTRAL_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "GITHUB_TOKEN",
+            "OPENROUTER_API_KEY",
+            "MISTRAL_API_KEY",
             # Git-related
-            "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL",
-            "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
+            "GIT_AUTHOR_NAME",
+            "GIT_AUTHOR_EMAIL",
+            "GIT_COMMITTER_NAME",
+            "GIT_COMMITTER_EMAIL",
             # Node-related
-            "NODE_PATH", "NPM_CONFIG_PREFIX",
+            "NODE_PATH",
+            "NPM_CONFIG_PREFIX",
         }
 
         for var in preserve_vars:
@@ -287,8 +355,8 @@ async def run_sandboxed(
         logger.warning(f"Command timed out after {timeout}s: {shlex.join(cmd)}")
         return SandboxedResult(
             returncode=-1,
-            stdout=e.stdout or "" if hasattr(e, 'stdout') else "",
-            stderr=e.stderr or "" if hasattr(e, 'stderr') else "",
+            stdout=e.stdout or "" if hasattr(e, "stdout") else "",
+            stderr=e.stderr or "" if hasattr(e, "stderr") else "",
             command=list(cmd),
             timed_out=True,
         )
@@ -379,8 +447,8 @@ def run_sandboxed_sync(
         logger.warning(f"Command timed out after {timeout}s: {shlex.join(cmd)}")
         return SandboxedResult(
             returncode=-1,
-            stdout=e.stdout or "" if hasattr(e, 'stdout') else "",
-            stderr=e.stderr or "" if hasattr(e, 'stderr') else "",
+            stdout=e.stdout or "" if hasattr(e, "stdout") else "",
+            stderr=e.stderr or "" if hasattr(e, "stderr") else "",
             command=list(cmd),
             timed_out=True,
         )

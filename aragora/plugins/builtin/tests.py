@@ -96,8 +96,7 @@ async def run(context: PluginContext) -> dict:
             cwd=context.working_dir,
         )
         stdout, stderr = await asyncio.wait_for(
-            process.communicate(),
-            timeout=300.0  # 5 minute overall timeout
+            process.communicate(), timeout=300.0  # 5 minute overall timeout
         )
         exit_code = process.returncode
     except asyncio.TimeoutError:
@@ -167,8 +166,9 @@ def _parse_text_output(output: str) -> dict:
 
     # Look for summary line like "5 passed, 2 failed in 1.23s"
     summary_match = re.search(
-        r'(\d+) passed.*?(?:(\d+) failed)?.*?(?:(\d+) skipped)?.*?in ([\d.]+)s',
-        output, re.IGNORECASE
+        r"(\d+) passed.*?(?:(\d+) failed)?.*?(?:(\d+) skipped)?.*?in ([\d.]+)s",
+        output,
+        re.IGNORECASE,
     )
     if summary_match:
         result["passed"] = int(summary_match.group(1) or 0)
@@ -179,10 +179,10 @@ def _parse_text_output(output: str) -> dict:
     # Also try other patterns
     if not summary_match:
         for pattern, key in [
-            (r'(\d+) passed', 'passed'),
-            (r'(\d+) failed', 'failed'),
-            (r'(\d+) skipped', 'skipped'),
-            (r'(\d+) error', 'errors'),
+            (r"(\d+) passed", "passed"),
+            (r"(\d+) failed", "failed"),
+            (r"(\d+) skipped", "skipped"),
+            (r"(\d+) error", "errors"),
         ]:
             match = re.search(pattern, output, re.IGNORECASE)
             if match:
@@ -190,15 +190,14 @@ def _parse_text_output(output: str) -> dict:
 
     # Extract failure details
     failures = []
-    failure_blocks = re.findall(
-        r'FAILED ([^\n]+)\n(.*?)(?=FAILED|$)',
-        output, re.DOTALL
-    )
+    failure_blocks = re.findall(r"FAILED ([^\n]+)\n(.*?)(?=FAILED|$)", output, re.DOTALL)
     for test_name, details in failure_blocks[:10]:  # Limit to 10
-        failures.append({
-            "test": test_name.strip(),
-            "details": details.strip()[:500],
-        })
+        failures.append(
+            {
+                "test": test_name.strip(),
+                "details": details.strip()[:500],
+            }
+        )
 
     if failures:
         result["failures"] = failures

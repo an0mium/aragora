@@ -91,7 +91,7 @@ def main():
         try:
             content = filepath.read_text(encoding="utf-8")
             # Use regex for word boundaries
-            new_content, count = re.subn(r'\baagora\b', 'aragora', content)
+            new_content, count = re.subn(r"\baagora\b", "aragora", content)
             if count > 0:
                 if args.dry_run:
                     print(f"  Would replace {count}x standalone 'aragora' in {filepath}")
@@ -144,7 +144,8 @@ def main():
     print("=" * 60)
     print("Step 4: Manual steps required")
     print("=" * 60)
-    print("""
+    print(
+        """
 After running this script, you should:
 
 1. Rename the project directory:
@@ -163,7 +164,8 @@ After running this script, you should:
    - npm: npm publish
 
 6. Update DNS for aragora.ai
-""")
+"""
+    )
 
     if args.dry_run:
         print("\n*** DRY RUN COMPLETE - no changes made ***")

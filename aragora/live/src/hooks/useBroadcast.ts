@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const API_BASE = API_BASE_URL;
 
 interface BroadcastStatus {
   hasAudio: boolean;

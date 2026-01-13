@@ -40,6 +40,7 @@ from aragora.connectors.twitter_poster import (
 # YouTubeVideoMetadata Tests
 # =============================================================================
 
+
 class TestYouTubeVideoMetadata:
     """Tests for YouTube video metadata."""
 
@@ -116,6 +117,7 @@ class TestYouTubeVideoMetadata:
 # YouTubeRateLimiter Tests
 # =============================================================================
 
+
 class TestYouTubeRateLimiter:
     """Tests for YouTube API quota management."""
 
@@ -159,6 +161,7 @@ class TestYouTubeRateLimiter:
 # =============================================================================
 # YouTube CircuitBreaker Tests
 # =============================================================================
+
 
 class TestYouTubeCircuitBreaker:
     """Tests for YouTube circuit breaker."""
@@ -205,6 +208,7 @@ class TestYouTubeCircuitBreaker:
 # =============================================================================
 # YouTubeUploaderConnector Tests
 # =============================================================================
+
 
 class TestYouTubeUploaderConnector:
     """Tests for YouTube upload connector."""
@@ -322,6 +326,7 @@ class TestYouTubeUploaderConnector:
 # create_video_metadata_from_debate Tests
 # =============================================================================
 
+
 class TestCreateVideoMetadataFromDebate:
     """Tests for debate-to-metadata conversion."""
 
@@ -357,6 +362,7 @@ class TestCreateVideoMetadataFromDebate:
 # =============================================================================
 # TweetResult and ThreadResult Tests
 # =============================================================================
+
 
 class TestTweetResult:
     """Tests for TweetResult dataclass."""
@@ -411,6 +417,7 @@ class TestThreadResult:
 # TwitterRateLimiter Tests
 # =============================================================================
 
+
 class TestTwitterRateLimiter:
     """Tests for Twitter rate limiter."""
 
@@ -441,6 +448,7 @@ class TestTwitterRateLimiter:
 # Twitter CircuitBreaker Tests
 # =============================================================================
 
+
 class TestTwitterCircuitBreaker:
     """Tests for Twitter circuit breaker."""
 
@@ -464,6 +472,7 @@ class TestTwitterCircuitBreaker:
 # =============================================================================
 # TwitterPosterConnector Tests
 # =============================================================================
+
 
 class TestTwitterPosterConnector:
     """Tests for Twitter posting connector."""
@@ -530,12 +539,14 @@ class TestTwitterPosterConnector:
         tweets = [f"Tweet {i}" for i in range(30)]
 
         # Mock post_tweet to succeed
-        connector.post_tweet = AsyncMock(return_value=TweetResult(
-            tweet_id="1",
-            text="Test",
-            created_at="2025-01-06",
-            url="https://t.co/1",
-        ))
+        connector.post_tweet = AsyncMock(
+            return_value=TweetResult(
+                tweet_id="1",
+                text="Test",
+                created_at="2025-01-06",
+                url="https://t.co/1",
+            )
+        )
 
         result = await connector.post_thread(tweets)
 
@@ -546,6 +557,7 @@ class TestTwitterPosterConnector:
     async def test_upload_media_fails_without_credentials(self):
         """upload_media should raise TwitterAuthError when not configured."""
         from aragora.connectors.twitter_poster import TwitterAuthError
+
         connector = TwitterPosterConnector()
 
         with tempfile.NamedTemporaryFile(suffix=".png") as f:
@@ -558,6 +570,7 @@ class TestTwitterPosterConnector:
     async def test_upload_media_fails_for_missing_file(self):
         """upload_media should raise TwitterMediaError for missing file."""
         from aragora.connectors.twitter_poster import TwitterMediaError
+
         connector = TwitterPosterConnector(
             api_key="key",
             api_secret="secret",
@@ -572,6 +585,7 @@ class TestTwitterPosterConnector:
     async def test_upload_media_fails_for_oversized_file(self):
         """upload_media should raise TwitterMediaError for files exceeding size limit."""
         from aragora.connectors.twitter_poster import TwitterMediaError
+
         connector = TwitterPosterConnector(
             api_key="key",
             api_secret="secret",
@@ -590,6 +604,7 @@ class TestTwitterPosterConnector:
 # =============================================================================
 # DebateContentFormatter Tests
 # =============================================================================
+
 
 class TestDebateContentFormatter:
     """Tests for debate content formatting."""
@@ -675,6 +690,7 @@ class TestDebateContentFormatter:
 # =============================================================================
 # create_debate_summary Tests
 # =============================================================================
+
 
 class TestCreateDebateSummary:
     """Tests for create_debate_summary helper."""

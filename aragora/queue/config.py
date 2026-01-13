@@ -24,9 +24,7 @@ class QueueConfig:
     """Configuration for the Redis Streams queue system."""
 
     # Redis connection
-    redis_url: str = field(
-        default_factory=lambda: os.getenv("REDIS_URL", "redis://localhost:6379")
-    )
+    redis_url: str = field(default_factory=lambda: os.getenv("REDIS_URL", "redis://localhost:6379"))
 
     # Key prefix for all queue-related Redis keys
     key_prefix: str = field(

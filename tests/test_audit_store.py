@@ -34,7 +34,8 @@ def temp_db():
 def db_with_schema(temp_db):
     """Create database with required schema."""
     conn = sqlite3.connect(str(temp_db))
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS audit_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT NOT NULL,
@@ -49,19 +50,12 @@ def db_with_schema(temp_db):
             ip_address TEXT,
             user_agent TEXT
         )
-    """)
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)"
+    """
     )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_audit_user_id ON audit_log(user_id)"
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_audit_org_id ON audit_log(org_id)"
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action)"
-    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_user_id ON audit_log(user_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_org_id ON audit_log(org_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action)")
     conn.commit()
     conn.close()
     yield temp_db
@@ -76,6 +70,7 @@ def store(db_with_schema):
 # =============================================================================
 # Event Logging Tests
 # =============================================================================
+
 
 class TestEventLogging:
     """Tests for audit event logging."""
@@ -497,8 +492,12 @@ class TestSecurityEvents:
             assert any(
                 event["action"].startswith(prefix)
                 for prefix in [
-                    "login.", "password.", "api_key.",
-                    "permission.", "auth.", "lockout."
+                    "login.",
+                    "password.",
+                    "api_key.",
+                    "permission.",
+                    "auth.",
+                    "lockout.",
                 ]
             )
 
@@ -522,6 +521,7 @@ class TestConnectionManagement:
 
     def test_external_connection(self, db_with_schema):
         """Test using external connection factory."""
+
         def get_conn():
             conn = sqlite3.connect(str(db_with_schema), check_same_thread=False)
             conn.row_factory = sqlite3.Row

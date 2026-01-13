@@ -53,12 +53,20 @@ tags:
     description: Dashboard aggregated data
   - name: Probes
     description: Capability probing and vulnerability detection
+  - name: Evolution
+    description: Prompt evolution and pattern extraction
+  - name: Broadcast
+    description: Podcast generation and publishing
   - name: Laboratory
     description: Persona laboratory and emergent traits
   - name: Insights
     description: Insight extraction and analysis
   - name: Routing
     description: Agent routing and team selection
+  - name: Pulse
+    description: Trending topics and pulse monitoring
+  - name: Integrations
+    description: Slack, Discord, and webhook integrations
 
 paths:
   # =============================================================================
@@ -94,6 +102,79 @@ paths:
                       $ref: '#/components/schemas/DebateSummary'
         '401':
           $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Debates]
+      summary: Create a new debate
+      description: Starts an ad-hoc debate with the provided task/question.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebateCreateRequest'
+      responses:
+        '200':
+          description: Debate created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebateCreateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          description: Quota exceeded
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  # Legacy endpoint - DEPRECATED. Use POST /api/debates instead.
+  /api/debate:
+    post:
+      tags: [Debates]
+      summary: Create a new debate (DEPRECATED)
+      description: |
+        **DEPRECATED**: This endpoint will be removed on 2026-08-01.
+        Use POST /api/debates instead.
+      deprecated: true
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebateCreateRequest'
+      responses:
+        '200':
+          description: Debate created successfully
+          headers:
+            Deprecation:
+              schema:
+                type: string
+              description: Indicates this endpoint is deprecated
+            Sunset:
+              schema:
+                type: string
+              description: Date when this endpoint will be removed (RFC 8594)
+            Link:
+              schema:
+                type: string
+              description: Link to successor endpoint
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebateCreateResponse'
+        '400':
+          description: Invalid request body
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          description: Quota exceeded
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /api/debates/slug/{slug}:
     get:
@@ -1741,6 +1822,255 @@ paths:
         '503':
           description: Agent selector not available
 
+  # =============================================================================
+  # EVOLUTION
+  # =============================================================================
+  /api/evolution/patterns:
+    get:
+      tags: [Evolution]
+      summary: Get top evolution patterns
+      description: Returns the most successful patterns extracted from winning debate strategies
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [argument, structure, citation, all]
+          description: Filter by pattern type
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Maximum patterns to return
+      responses:
+        '200':
+          description: List of evolution patterns
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  patterns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EvolutionPattern'
+        '503':
+          description: Evolution system not available
+
+  /api/evolution/summary:
+    get:
+      tags: [Evolution]
+      summary: Get evolution summary
+      description: Returns aggregate statistics about prompt evolution
+      responses:
+        '200':
+          description: Evolution statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_patterns:
+                    type: integer
+                  agents_evolved:
+                    type: integer
+                  success_rate:
+                    type: number
+                    format: float
+                  last_evolution:
+                    type: string
+                    format: date-time
+
+  /api/evolution/{agent}/history:
+    get:
+      tags: [Evolution]
+      summary: Get agent evolution history
+      description: Returns prompt evolution history for a specific agent
+      parameters:
+        - name: agent
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Evolution history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent:
+                    type: string
+                  history:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EvolutionEvent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/evolution/{agent}/prompt:
+    get:
+      tags: [Evolution]
+      summary: Get agent prompt
+      description: Returns current or specific version of agent's evolved prompt
+      parameters:
+        - name: agent
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: query
+          schema:
+            type: integer
+          description: Specific version (latest if not provided)
+      responses:
+        '200':
+          description: Agent prompt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent:
+                    type: string
+                  version:
+                    type: integer
+                  prompt:
+                    type: string
+                  patterns_applied:
+                    type: array
+                    items:
+                      type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # =============================================================================
+  # BROADCAST
+  # =============================================================================
+  /api/debates/{id}/broadcast:
+    post:
+      tags: [Broadcast]
+      summary: Generate podcast audio
+      description: Generates podcast-style audio from a debate trace
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                voice_mapping:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: Agent to voice mapping
+                include_intro:
+                  type: boolean
+                  default: true
+                include_outro:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Broadcast generation started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [queued, processing, completed, failed]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          description: Broadcast system not available
+
+  /api/debates/{id}/broadcast/full:
+    post:
+      tags: [Broadcast]
+      summary: Run full broadcast pipeline
+      description: Runs complete broadcast pipeline including TTS, mixing, and publishing
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                platforms:
+                  type: array
+                  items:
+                    type: string
+                    enum: [rss, youtube, twitter]
+                  default: [rss]
+                tts_backend:
+                  type: string
+                  enum: [elevenlabs, google, openai]
+                  default: elevenlabs
+      responses:
+        '200':
+          description: Full pipeline started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                  status:
+                    type: string
+                  estimated_duration:
+                    type: integer
+                    description: Estimated completion time in seconds
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          description: Broadcast pipeline not available
+
+  /api/podcast/feed.xml:
+    get:
+      tags: [Broadcast]
+      summary: Get podcast RSS feed
+      description: Returns RSS feed for the Aragora podcast
+      responses:
+        '200':
+          description: RSS feed
+          content:
+            application/rss+xml:
+              schema:
+                type: string
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1793,30 +2123,154 @@ components:
             $ref: '#/components/schemas/APIError'
 
   schemas:
+    DebateStatus:
+      type: string
+      description: |
+        Canonical status values for debates.
+        Legacy values (active, concluded, archived, created, in_progress, starting) are normalized in responses.
+      enum:
+        - created
+        - starting
+        - pending
+        - running
+        - in_progress
+        - completed
+        - failed
+        - cancelled
+        - paused
+        - active
+        - concluded
+        - archived
+      example: running
+
+    ConsensusResult:
+      type: object
+      properties:
+        reached:
+          type: boolean
+        agreement:
+          type: number
+          format: float
+        confidence:
+          type: number
+          format: float
+        final_answer:
+          type: string
+        conclusion:
+          type: string
+        supporting_agents:
+          type: array
+          items:
+            type: string
+        dissenting_agents:
+          type: array
+          items:
+            type: string
+
+    DebateCreateRequest:
+      type: object
+      properties:
+        task:
+          type: string
+          description: The topic or question to debate
+          minLength: 1
+          maxLength: 2000
+        question:
+          type: string
+          description: Alias for task (legacy field)
+          minLength: 1
+          maxLength: 2000
+        agents:
+          type: array
+          items:
+            type: string
+          description: List of agent IDs to include
+        rounds:
+          type: integer
+          description: Number of debate rounds
+          minimum: 1
+          maximum: 10
+          default: 3
+        consensus:
+          type: string
+          description: Consensus detection method
+          enum: [majority, unanimous, supermajority, hybrid]
+          default: majority
+        auto_select:
+          type: boolean
+          description: Whether to auto-select optimal agents
+          default: false
+        auto_select_config:
+          type: object
+          description: Optional auto-select configuration
+        use_trending:
+          type: boolean
+          description: Use a trending topic instead of provided task
+          default: false
+        trending_category:
+          type: string
+          description: Trending category filter
+        context:
+          type: string
+          description: Additional context for the debate
+          maxLength: 5000
+
+    DebateCreateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        debate_id:
+          type: string
+          description: Unique identifier for the created debate
+        status:
+          $ref: '#/components/schemas/DebateStatus'
+        task:
+          type: string
+          description: The debate topic
+        error:
+          type: string
+
     DebateSummary:
       type: object
       properties:
+        debate_id:
+          type: string
         id:
           type: string
         slug:
           type: string
         task:
           type: string
-        outcome:
-          type: string
+        status:
+          $ref: '#/components/schemas/DebateStatus'
+        consensus_reached:
+          type: boolean
+        confidence:
+          type: number
+          format: float
         created_at:
           type: string
           format: date-time
-        rounds:
+        rounds_used:
           type: integer
+        duration_seconds:
+          type: number
+          format: float
         agents:
           type: array
           items:
             type: string
+        view_count:
+          type: integer
+        is_public:
+          type: boolean
 
     Debate:
       type: object
       properties:
+        debate_id:
+          type: string
         id:
           type: string
         slug:
@@ -1825,10 +2279,30 @@ components:
           type: string
         context:
           type: string
+        status:
+          $ref: '#/components/schemas/DebateStatus'
         outcome:
           type: string
         final_answer:
           type: string
+        consensus:
+          $ref: '#/components/schemas/ConsensusResult'
+        consensus_proof:
+          type: object
+        consensus_reached:
+          type: boolean
+        confidence:
+          type: number
+          format: float
+        rounds_used:
+          type: integer
+        duration_seconds:
+          type: number
+          format: float
+        agents:
+          type: array
+          items:
+            type: string
         rounds:
           type: array
           items:
@@ -1836,6 +2310,11 @@ components:
         created_at:
           type: string
           format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
 
     Round:
       type: object
@@ -1854,10 +2333,14 @@ components:
     Message:
       type: object
       properties:
+        agent_id:
+          type: string
         agent:
           type: string
         content:
           type: string
+        round:
+          type: integer
         timestamp:
           type: string
           format: date-time
@@ -2697,3 +3180,58 @@ components:
         trait_match:
           type: number
           format: float
+
+    # =============================================================================
+    # Evolution Schemas
+    # =============================================================================
+    EvolutionPattern:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [argument, structure, citation, rhetorical]
+        pattern:
+          type: string
+          description: The extracted pattern text
+        success_rate:
+          type: number
+          format: float
+        usage_count:
+          type: integer
+        agents_using:
+          type: array
+          items:
+            type: string
+        extracted_from:
+          type: string
+          description: Debate ID where pattern was first seen
+        created_at:
+          type: string
+          format: date-time
+
+    EvolutionEvent:
+      type: object
+      properties:
+        version:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        strategy:
+          type: string
+          enum: [append, replace, refine]
+        patterns_applied:
+          type: array
+          items:
+            type: string
+        success_rate_before:
+          type: number
+          format: float
+        success_rate_after:
+          type: number
+          format: float
+        prompt_diff:
+          type: string
+          description: Summary of changes made

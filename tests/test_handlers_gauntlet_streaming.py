@@ -108,10 +108,13 @@ class TestGauntletStreamEmitter:
         from aragora.server.stream.gauntlet_emitter import GauntletStreamEmitter
 
         mock_broadcast = Mock()
-        return GauntletStreamEmitter(
-            broadcast_fn=mock_broadcast,
-            gauntlet_id="test-gauntlet-123",
-        ), mock_broadcast
+        return (
+            GauntletStreamEmitter(
+                broadcast_fn=mock_broadcast,
+                gauntlet_id="test-gauntlet-123",
+            ),
+            mock_broadcast,
+        )
 
     def test_emitter_init(self, emitter):
         """Emitter initializes with correct state."""

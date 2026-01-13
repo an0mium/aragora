@@ -25,12 +25,13 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, TypedDict
 
 logger = logging.getLogger(__name__)
 
 from aragora.config import DB_MEMORY_PATH
-from aragora.storage.schema import SchemaManager, get_wal_connection
+from aragora.storage.base_store import SQLiteStore
+from aragora.storage.schema import SchemaManager, get_wal_connection, safe_add_column
 from aragora.utils.json_helpers import safe_json_loads
 from aragora.memory.tier_manager import (
     TierManager,
@@ -50,9 +51,37 @@ DEFAULT_RETENTION_MULTIPLIER = 2.0
 TIER_CONFIGS = DEFAULT_TIER_CONFIGS
 
 
+class MaxEntriesPerTier(TypedDict):
+    """Type definition for max entries per tier configuration."""
+
+    fast: int
+    medium: int
+    slow: int
+    glacial: int
+
+
+class ContinuumHyperparams(TypedDict):
+    """
+    Type definition for ContinuumMemory hyperparameters.
+
+    These parameters control memory consolidation, tier transitions,
+    and retention policies. They can be modified by MetaLearner.
+    """
+
+    surprise_weight_success: float  # Weight for success rate surprise
+    surprise_weight_semantic: float  # Weight for semantic novelty
+    surprise_weight_temporal: float  # Weight for timing surprise
+    surprise_weight_agent: float  # Weight for agent prediction error
+    consolidation_threshold: float  # Updates to reach full consolidation
+    promotion_cooldown_hours: float  # Minimum time between promotions
+    max_entries_per_tier: MaxEntriesPerTier  # Max entries per tier
+    retention_multiplier: float  # multiplier * half_life for cleanup
+
+
 @dataclass
 class ContinuumMemoryEntry:
     """A single entry in the continuum memory system."""
+
     id: str
     tier: MemoryTier
     content: str
@@ -102,7 +131,7 @@ class AwaitableList(list):
         return _wrap().__await__()
 
 
-class ContinuumMemory:
+class ContinuumMemory(SQLiteStore):
     """
     Continuum Memory System with multi-timescale updates.
 
@@ -126,6 +155,89 @@ class ContinuumMemory:
         cms.consolidate()
     """
 
+    SCHEMA_NAME = "continuum_memory"
+    SCHEMA_VERSION = CONTINUUM_SCHEMA_VERSION
+
+    INITIAL_SCHEMA = """
+        -- Main continuum memory table
+        CREATE TABLE IF NOT EXISTS continuum_memory (
+            id TEXT PRIMARY KEY,
+            tier TEXT NOT NULL DEFAULT 'slow',
+            content TEXT NOT NULL,
+            importance REAL DEFAULT 0.5,
+            surprise_score REAL DEFAULT 0.0,
+            consolidation_score REAL DEFAULT 0.0,
+            update_count INTEGER DEFAULT 0,
+            success_count INTEGER DEFAULT 0,
+            failure_count INTEGER DEFAULT 0,
+            semantic_centroid BLOB,
+            last_promotion_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            metadata TEXT DEFAULT '{}',
+            expires_at TEXT
+        );
+
+        -- Indexes for efficient tier-based retrieval
+        CREATE INDEX IF NOT EXISTS idx_continuum_tier ON continuum_memory(tier);
+        CREATE INDEX IF NOT EXISTS idx_continuum_surprise ON continuum_memory(surprise_score DESC);
+        CREATE INDEX IF NOT EXISTS idx_continuum_importance ON continuum_memory(importance DESC);
+        -- Composite index for cleanup_expired_memories() performance
+        CREATE INDEX IF NOT EXISTS idx_continuum_tier_updated ON continuum_memory(tier, updated_at);
+        -- Composite index for tier-filtered retrieval by importance
+        CREATE INDEX IF NOT EXISTS idx_continuum_tier_importance ON continuum_memory(tier, importance DESC);
+        -- Composite index for promotion queries (tier + surprise_score)
+        CREATE INDEX IF NOT EXISTS idx_continuum_tier_surprise ON continuum_memory(tier, surprise_score DESC);
+        -- Index for TTL-based cleanup queries
+        CREATE INDEX IF NOT EXISTS idx_continuum_expires ON continuum_memory(expires_at);
+
+        -- Meta-learning state table for hyperparameter tracking
+        CREATE TABLE IF NOT EXISTS meta_learning_state (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            hyperparams TEXT NOT NULL,
+            learning_efficiency REAL,
+            pattern_retention_rate REAL,
+            forgetting_rate REAL,
+            cycles_evaluated INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Tier transition history for analysis
+        CREATE TABLE IF NOT EXISTS tier_transitions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_id TEXT NOT NULL,
+            from_tier TEXT NOT NULL,
+            to_tier TEXT NOT NULL,
+            reason TEXT,
+            surprise_score REAL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (memory_id) REFERENCES continuum_memory(id)
+        );
+
+        -- Archive table for deleted memories
+        CREATE TABLE IF NOT EXISTS continuum_memory_archive (
+            id TEXT PRIMARY KEY,
+            tier TEXT NOT NULL,
+            content TEXT NOT NULL,
+            importance REAL,
+            surprise_score REAL,
+            consolidation_score REAL,
+            update_count INTEGER,
+            success_count INTEGER,
+            failure_count INTEGER,
+            semantic_centroid BLOB,
+            created_at TEXT,
+            updated_at TEXT,
+            archived_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            archive_reason TEXT,
+            metadata TEXT
+        );
+
+        -- Indexes for archive queries
+        CREATE INDEX IF NOT EXISTS idx_archive_tier ON continuum_memory_archive(tier);
+        CREATE INDEX IF NOT EXISTS idx_archive_archived_at ON continuum_memory_archive(archived_at);
+    """
+
     def __init__(
         self,
         db_path: str = DB_MEMORY_PATH,
@@ -143,9 +255,8 @@ class ContinuumMemory:
             else:
                 resolved_path = base / "continuum_memory.db"
 
-        self.db_path = Path(resolved_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._init_db()
+        # Initialize SQLiteStore base class (handles schema creation)
+        super().__init__(resolved_path)
 
         # Use provided TierManager or get the shared instance
         self._tier_manager = tier_manager or get_tier_manager()
@@ -154,13 +265,13 @@ class ContinuumMemory:
         self.event_emitter = event_emitter
 
         # Hyperparameters (can be modified by MetaLearner)
-        self.hyperparams = {
+        self.hyperparams: ContinuumHyperparams = {
             "surprise_weight_success": 0.3,  # Weight for success rate surprise
             "surprise_weight_semantic": 0.3,  # Weight for semantic novelty
             "surprise_weight_temporal": 0.2,  # Weight for timing surprise
-            "surprise_weight_agent": 0.2,    # Weight for agent prediction error
-            "consolidation_threshold": 100,   # Updates to reach full consolidation
-            "promotion_cooldown_hours": 24,   # Minimum time between promotions
+            "surprise_weight_agent": 0.2,  # Weight for agent prediction error
+            "consolidation_threshold": 100.0,  # Updates to reach full consolidation
+            "promotion_cooldown_hours": 24.0,  # Minimum time between promotions
             # Retention policy settings
             "max_entries_per_tier": {
                 "fast": 1000,
@@ -172,10 +283,17 @@ class ContinuumMemory:
         }
 
         # Sync tier manager settings with hyperparams
-        self._tier_manager.promotion_cooldown_hours = float(self.hyperparams["promotion_cooldown_hours"])  # type: ignore[arg-type]
+        self._tier_manager.promotion_cooldown_hours = self.hyperparams["promotion_cooldown_hours"]
 
         # Lock for atomic tier transitions (prevents TOCTOU race in promote/demote)
         self._tier_lock = threading.Lock()
+
+    def register_migrations(self, manager: SchemaManager) -> None:
+        """Register schema migrations for ContinuumMemory."""
+        # Migration from v1 to v2 is handled by including archive table in INITIAL_SCHEMA
+        # since v2 is the current version. Old v1 databases will get the archive table
+        # automatically when the schema is applied.
+        pass
 
     @property
     def tier_manager(self) -> TierManager:
@@ -185,106 +303,6 @@ class ContinuumMemory:
     def get_tier_metrics(self) -> Dict[str, Any]:
         """Get tier transition metrics from the tier manager."""
         return self._tier_manager.get_metrics_dict()
-
-    def _init_db(self) -> None:
-        """Initialize the continuum memory tables using SchemaManager."""
-        with get_wal_connection(self.db_path) as conn:
-            manager = SchemaManager(conn, "continuum_memory", current_version=CONTINUUM_SCHEMA_VERSION)
-
-            # Initial schema (v1)
-            initial_schema = """
-                -- Main continuum memory table
-                CREATE TABLE IF NOT EXISTS continuum_memory (
-                    id TEXT PRIMARY KEY,
-                    tier TEXT NOT NULL DEFAULT 'slow',
-                    content TEXT NOT NULL,
-                    importance REAL DEFAULT 0.5,
-                    surprise_score REAL DEFAULT 0.0,
-                    consolidation_score REAL DEFAULT 0.0,
-                    update_count INTEGER DEFAULT 0,
-                    success_count INTEGER DEFAULT 0,
-                    failure_count INTEGER DEFAULT 0,
-                    semantic_centroid BLOB,
-                    last_promotion_at TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    metadata TEXT DEFAULT '{}',
-                    expires_at TEXT
-                );
-
-                -- Indexes for efficient tier-based retrieval
-                CREATE INDEX IF NOT EXISTS idx_continuum_tier ON continuum_memory(tier);
-                CREATE INDEX IF NOT EXISTS idx_continuum_surprise ON continuum_memory(surprise_score DESC);
-                CREATE INDEX IF NOT EXISTS idx_continuum_importance ON continuum_memory(importance DESC);
-                -- Composite index for cleanup_expired_memories() performance
-                CREATE INDEX IF NOT EXISTS idx_continuum_tier_updated ON continuum_memory(tier, updated_at);
-                -- Composite index for tier-filtered retrieval by importance
-                CREATE INDEX IF NOT EXISTS idx_continuum_tier_importance ON continuum_memory(tier, importance DESC);
-                -- Composite index for promotion queries (tier + surprise_score)
-                CREATE INDEX IF NOT EXISTS idx_continuum_tier_surprise ON continuum_memory(tier, surprise_score DESC);
-                -- Index for TTL-based cleanup queries
-                CREATE INDEX IF NOT EXISTS idx_continuum_expires ON continuum_memory(expires_at);
-
-                -- Meta-learning state table for hyperparameter tracking
-                CREATE TABLE IF NOT EXISTS meta_learning_state (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    hyperparams TEXT NOT NULL,
-                    learning_efficiency REAL,
-                    pattern_retention_rate REAL,
-                    forgetting_rate REAL,
-                    cycles_evaluated INTEGER DEFAULT 0,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-
-                -- Tier transition history for analysis
-                CREATE TABLE IF NOT EXISTS tier_transitions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    memory_id TEXT NOT NULL,
-                    from_tier TEXT NOT NULL,
-                    to_tier TEXT NOT NULL,
-                    reason TEXT,
-                    surprise_score REAL,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (memory_id) REFERENCES continuum_memory(id)
-                );
-            """
-
-            # Register v2 migration: Add retention policy support
-            manager.register_migration(
-                from_version=1,
-                to_version=2,
-                sql="""
-                    -- Archive table for deleted memories
-                    CREATE TABLE IF NOT EXISTS continuum_memory_archive (
-                        id TEXT PRIMARY KEY,
-                        tier TEXT NOT NULL,
-                        content TEXT NOT NULL,
-                        importance REAL,
-                        surprise_score REAL,
-                        consolidation_score REAL,
-                        update_count INTEGER,
-                        success_count INTEGER,
-                        failure_count INTEGER,
-                        semantic_centroid BLOB,
-                        created_at TEXT,
-                        updated_at TEXT,
-                        archived_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                        archive_reason TEXT,
-                        metadata TEXT
-                    );
-
-                    -- Indexes for archive queries
-                    CREATE INDEX IF NOT EXISTS idx_archive_tier ON continuum_memory_archive(tier);
-                    CREATE INDEX IF NOT EXISTS idx_archive_archived_at ON continuum_memory_archive(archived_at);
-                """,
-                description="Add retention policy support with archive table",
-            )
-
-            manager.ensure_schema(initial_schema=initial_schema)
-
-            # Add expires_at column using safe_add_column (handles existing DBs)
-            from aragora.storage.schema import safe_add_column
-            safe_add_column(conn, "continuum_memory", "expires_at", "TEXT")
 
     def add(
         self,
@@ -309,7 +327,7 @@ class ContinuumMemory:
         """
         now = datetime.now().isoformat()
 
-        with get_wal_connection(self.db_path) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -357,7 +375,7 @@ class ContinuumMemory:
 
     def get(self, id: str) -> Optional[ContinuumMemoryEntry]:
         """Get a memory entry by ID."""
-        with get_wal_connection(self.db_path) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -440,16 +458,16 @@ class ContinuumMemory:
             # Split query into words and require at least one match
             # Limit to 50 keywords to prevent unbounded SQL condition generation
             MAX_QUERY_KEYWORDS = 50
-            keywords = [kw.strip().lower() for kw in query.split()[:MAX_QUERY_KEYWORDS] if kw.strip()]
+            keywords = [
+                kw.strip().lower() for kw in query.split()[:MAX_QUERY_KEYWORDS] if kw.strip()
+            ]
             if keywords:
                 # Use INSTR for case-insensitive containment check (faster than LIKE)
-                keyword_conditions = [
-                    "INSTR(LOWER(content), ?) > 0" for _ in keywords
-                ]
+                keyword_conditions = ["INSTR(LOWER(content), ?) > 0" for _ in keywords]
                 keyword_clause = f" AND ({' OR '.join(keyword_conditions)})"
                 keyword_params = keywords
 
-        with get_wal_connection(self.db_path) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Retrieval query with time-decay scoring
@@ -522,7 +540,7 @@ class ContinuumMemory:
         Returns:
             Updated surprise score
         """
-        with get_wal_connection(self.db_path) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Use BEGIN IMMEDIATE to acquire write lock before reading.
@@ -559,9 +577,10 @@ class ContinuumMemory:
                 success_surprise = abs(actual - expected_rate)
 
                 # Combine surprise signals
-                new_surprise = (
-                    float(self.hyperparams["surprise_weight_success"]) * success_surprise +  # type: ignore[arg-type]
-                    float(self.hyperparams["surprise_weight_agent"]) * (agent_prediction_error or 0.0)  # type: ignore[arg-type]
+                new_surprise = self.hyperparams[
+                    "surprise_weight_success"
+                ] * success_surprise + self.hyperparams["surprise_weight_agent"] * (
+                    agent_prediction_error or 0.0
                 )
 
                 # Exponential moving average for surprise
@@ -570,9 +589,11 @@ class ContinuumMemory:
 
                 # Update consolidation score
                 update_count = total + 1
-                consolidation = min(1.0, math.log(1 + update_count) / math.log(
-                    float(self.hyperparams["consolidation_threshold"])  # type: ignore[arg-type]
-                ))
+                consolidation = min(
+                    1.0,
+                    math.log(1 + update_count)
+                    / math.log(self.hyperparams["consolidation_threshold"]),
+                )
 
                 # Update database
                 if success:
@@ -609,7 +630,9 @@ class ContinuumMemory:
                 raise
             except Exception as e:
                 # Rollback on any exception, then re-raise unchanged
-                logger.warning(f"Non-database exception during surprise update, rolling back: {type(e).__name__}: {e}")
+                logger.warning(
+                    f"Non-database exception during surprise update, rolling back: {type(e).__name__}: {e}"
+                )
                 cursor.execute("ROLLBACK")
                 raise
 
@@ -623,7 +646,7 @@ class ContinuumMemory:
         slow tiers have low initial LR with gradual decay.
         """
         config = TIER_CONFIGS[tier]
-        return config.base_learning_rate * (config.decay_rate ** update_count)
+        return config.base_learning_rate * (config.decay_rate**update_count)
 
     def promote(self, id: str) -> Optional[MemoryTier]:
         """
@@ -634,7 +657,7 @@ class ContinuumMemory:
 
         Returns the new tier if promoted, None otherwise.
         """
-        with self._tier_lock, get_wal_connection(self.db_path) as conn:
+        with self._tier_lock, self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -661,7 +684,9 @@ class ContinuumMemory:
             # Get next tier using TierManager
             tm_new = self._tier_manager.get_next_tier(tm_current, "faster")
             if tm_new is None:
-                logger.debug(f"[memory] No faster tier available for {id} (already at {current_tier.value})")
+                logger.debug(
+                    f"[memory] No faster tier available for {id} (already at {current_tier.value})"
+                )
                 return None
 
             new_tier = MemoryTier(tm_new.value)
@@ -710,7 +735,7 @@ class ContinuumMemory:
 
         Returns the new tier if demoted, None otherwise.
         """
-        with self._tier_lock, get_wal_connection(self.db_path) as conn:
+        with self._tier_lock, self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -737,7 +762,9 @@ class ContinuumMemory:
             # Get next tier using TierManager
             tm_new = self._tier_manager.get_next_tier(tm_current, "slower")
             if tm_new is None:
-                logger.debug(f"[memory] No slower tier available for {id} (already at {current_tier.value})")
+                logger.debug(
+                    f"[memory] No slower tier available for {id} (already at {current_tier.value})"
+                )
                 return None
 
             new_tier = MemoryTier(tm_new.value)
@@ -798,15 +825,17 @@ class ContinuumMemory:
                 else StreamEventType.MEMORY_TIER_DEMOTION
             )
 
-            self.event_emitter.emit(StreamEvent(
-                type=stream_type,
-                data={
-                    "memory_id": memory_id,
-                    "from_tier": from_tier.value,
-                    "to_tier": to_tier.value,
-                    "surprise_score": surprise_score,
-                }
-            ))
+            self.event_emitter.emit(
+                StreamEvent(
+                    type=stream_type,
+                    data={
+                        "memory_id": memory_id,
+                        "from_tier": from_tier.value,
+                        "to_tier": to_tier.value,
+                        "surprise_score": surprise_score,
+                    },
+                )
+            )
         except ImportError:
             # Stream module not available - expected in minimal installations
             logger.debug("[memory] Stream module not available for tier event emission")
@@ -844,10 +873,10 @@ class ContinuumMemory:
             return 0
 
         now = datetime.now().isoformat()
-        cooldown_hours = float(self.hyperparams["promotion_cooldown_hours"])  # type: ignore[arg-type]
+        cooldown_hours = self.hyperparams["promotion_cooldown_hours"]
         cutoff_time = (datetime.now() - timedelta(hours=cooldown_hours)).isoformat()
 
-        with self._tier_lock, get_wal_connection(self.db_path) as conn:
+        with self._tier_lock, self.connection() as conn:
             cursor = conn.cursor()
 
             # Batch UPDATE with cooldown check
@@ -925,7 +954,7 @@ class ContinuumMemory:
 
         now = datetime.now().isoformat()
 
-        with self._tier_lock, get_wal_connection(self.db_path) as conn:
+        with self._tier_lock, self.connection() as conn:
             cursor = conn.cursor()
 
             # Batch UPDATE - update_count check is already done in candidate selection
@@ -1012,7 +1041,7 @@ class ContinuumMemory:
         promotion_candidates: Dict[tuple, List[str]] = {}
         demotion_candidates: Dict[tuple, List[str]] = {}
 
-        with get_wal_connection(self.db_path) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Collect promotion candidates for all tier pairs
@@ -1078,17 +1107,19 @@ class ContinuumMemory:
 
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the continuum memory system."""
-        with get_wal_connection(self.db_path) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             stats: Dict[str, Any] = {}
 
             # Count by tier
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT tier, COUNT(*), AVG(importance), AVG(surprise_score), AVG(consolidation_score)
                 FROM continuum_memory
                 GROUP BY tier
-            """)
+            """
+            )
             stats["by_tier"] = {
                 row[0]: {
                     "count": row[1],
@@ -1105,14 +1136,15 @@ class ContinuumMemory:
             stats["total_memories"] = row[0] if row else 0
 
             # Transition history
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT from_tier, to_tier, COUNT(*)
                 FROM tier_transitions
                 GROUP BY from_tier, to_tier
-            """)
+            """
+            )
             stats["transitions"] = [
-                {"from": row[0], "to": row[1], "count": row[2]}
-                for row in cursor.fetchall()
+                {"from": row[0], "to": row[1], "count": row[2]} for row in cursor.fetchall()
             ]
 
         return stats
@@ -1150,13 +1182,15 @@ class ContinuumMemory:
         if not max_entries:
             return 0.0
 
-        with get_wal_connection(self.db_path) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT tier, COUNT(*)
                 FROM continuum_memory
                 GROUP BY tier
-            """)
+            """
+            )
             tier_counts = {row[0]: row[1] for row in cursor.fetchall()}
 
         # Calculate utilization for each tier
@@ -1192,9 +1226,9 @@ class ContinuumMemory:
         """
         results: Dict[str, Any] = {"archived": 0, "deleted": 0, "by_tier": {}}
         tiers_to_process = [tier] if tier else list(MemoryTier)
-        retention_multiplier = float(self.hyperparams.get("retention_multiplier", DEFAULT_RETENTION_MULTIPLIER))  # type: ignore[arg-type]
+        retention_multiplier = self.hyperparams["retention_multiplier"]
 
-        with get_wal_connection(self.db_path) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             for t in tiers_to_process:
@@ -1280,14 +1314,11 @@ class ContinuumMemory:
         """
         result: Dict[str, Any] = {"deleted": False, "archived": False, "id": memory_id}
 
-        with get_wal_connection(self.db_path) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Check if memory exists
-            cursor.execute(
-                "SELECT id FROM continuum_memory WHERE id = ?",
-                (memory_id,)
-            )
+            cursor.execute("SELECT id FROM continuum_memory WHERE id = ?", (memory_id,))
             if not cursor.fetchone():
                 logger.debug("Memory %s not found for deletion", memory_id)
                 return result
@@ -1323,8 +1354,7 @@ class ContinuumMemory:
 
         if result["deleted"]:
             logger.info(
-                "Memory %s deleted (archived=%s, reason=%s)",
-                memory_id, result["archived"], reason
+                "Memory %s deleted (archived=%s, reason=%s)", memory_id, result["archived"], reason
             )
 
         return result
@@ -1349,9 +1379,9 @@ class ContinuumMemory:
         """
         results: Dict[str, int] = {}
         tiers_to_process = [tier] if tier else list(MemoryTier)
-        max_entries: Dict[str, int] = self.hyperparams.get("max_entries_per_tier", {})  # type: ignore
+        max_entries = self.hyperparams["max_entries_per_tier"]
 
-        with get_wal_connection(self.db_path) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             for t in tiers_to_process:
@@ -1421,17 +1451,19 @@ class ContinuumMemory:
 
     def get_archive_stats(self) -> Dict[str, Any]:
         """Get statistics about archived memories."""
-        with get_wal_connection(self.db_path) as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             stats: Dict[str, Any] = {}
 
             # Count by tier and reason
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT tier, archive_reason, COUNT(*)
                 FROM continuum_memory_archive
                 GROUP BY tier, archive_reason
-            """)
+            """
+            )
             by_tier_reason: Dict[str, Dict[str, int]] = {}
             for row in cursor.fetchall():
                 tier, reason, count = row
@@ -1446,10 +1478,12 @@ class ContinuumMemory:
             stats["total_archived"] = row[0] if row else 0
 
             # Oldest and newest archived
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT MIN(archived_at), MAX(archived_at)
                 FROM continuum_memory_archive
-            """)
+            """
+            )
             row = cursor.fetchone()
             stats["oldest_archived"] = row[0]
             stats["newest_archived"] = row[1]

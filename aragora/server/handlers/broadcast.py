@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Optional imports for broadcast functionality
 try:
     from aragora.broadcast import broadcast_debate
+
     BROADCAST_AVAILABLE = True
 except ImportError:
     BROADCAST_AVAILABLE = False
@@ -41,6 +42,7 @@ except ImportError:
 
 try:
     from aragora.broadcast.pipeline import BroadcastPipeline, BroadcastOptions
+
     PIPELINE_AVAILABLE = True
 except ImportError:
     PIPELINE_AVAILABLE = False
@@ -49,6 +51,7 @@ except ImportError:
 
 try:
     from mutagen.mp3 import MP3
+
     MUTAGEN_AVAILABLE = True
 except ImportError:
     MUTAGEN_AVAILABLE = False
@@ -74,29 +77,29 @@ class BroadcastHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the request."""
-        if path.startswith('/api/debates/') and '/broadcast' in path:
+        if path.startswith("/api/debates/") and "/broadcast" in path:
             return True
-        if path == '/api/podcast/feed.xml':
+        if path == "/api/podcast/feed.xml":
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle GET requests."""
-        if path == '/api/podcast/feed.xml':
+        if path == "/api/podcast/feed.xml":
             return self._get_rss_feed()
         return None
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests."""
         # Full pipeline
-        if path.startswith('/api/debates/') and path.endswith('/broadcast/full'):
+        if path.startswith("/api/debates/") and path.endswith("/broadcast/full"):
             debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err
             return self._run_full_pipeline(debate_id, query_params, handler)
 
         # Basic broadcast generation
-        if path.startswith('/api/debates/') and path.endswith('/broadcast'):
+        if path.startswith("/api/debates/") and path.endswith("/broadcast"):
             debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err
@@ -120,9 +123,7 @@ class BroadcastHandler(BaseHandler):
         return self._pipeline
 
     @rate_limit(requests_per_minute=2, burst=1, limiter_name="broadcast_full_pipeline")
-    def _run_full_pipeline(
-        self, debate_id: str, query_params: dict, handler
-    ) -> HandlerResult:
+    def _run_full_pipeline(self, debate_id: str, query_params: dict, handler) -> HandlerResult:
         """Run the full broadcast pipeline with all options.
 
         Query params:
@@ -138,29 +139,31 @@ class BroadcastHandler(BaseHandler):
         # Parse options from query params
         options = BroadcastOptions(
             audio_enabled=True,
-            video_enabled=get_bool_param(query_params, 'video', False),
-            generate_rss_episode=get_bool_param(query_params, 'rss', True),
-            custom_title=get_string_param(query_params, 'title'),
-            custom_description=get_string_param(query_params, 'description'),
-            episode_number=get_int_param(query_params, 'episode_number'),
+            video_enabled=get_bool_param(query_params, "video", False),
+            generate_rss_episode=get_bool_param(query_params, "rss", True),
+            custom_title=get_string_param(query_params, "title"),
+            custom_description=get_string_param(query_params, "description"),
+            episode_number=get_int_param(query_params, "episode_number"),
         )
 
         try:
             result = _run_async(pipeline.run(debate_id, options))
 
-            return json_response({
-                "debate_id": result.debate_id,
-                "success": result.success,
-                "audio_path": str(result.audio_path) if result.audio_path else None,
-                "audio_url": f"/audio/{debate_id}.mp3" if result.audio_path else None,
-                "video_path": str(result.video_path) if result.video_path else None,
-                "video_url": f"/video/{debate_id}.mp4" if result.video_path else None,
-                "rss_episode_guid": result.rss_episode_guid,
-                "duration_seconds": result.duration_seconds,
-                "steps_completed": result.steps_completed,
-                "generated_at": result.generated_at,
-                "error": result.error_message,
-            })
+            return json_response(
+                {
+                    "debate_id": result.debate_id,
+                    "success": result.success,
+                    "audio_path": str(result.audio_path) if result.audio_path else None,
+                    "audio_url": f"/audio/{debate_id}.mp3" if result.audio_path else None,
+                    "video_path": str(result.video_path) if result.video_path else None,
+                    "video_url": f"/video/{debate_id}.mp4" if result.video_path else None,
+                    "rss_episode_guid": result.rss_episode_guid,
+                    "duration_seconds": result.duration_seconds,
+                    "steps_completed": result.steps_completed,
+                    "generated_at": result.generated_at,
+                    "error": result.error_message,
+                }
+            )
         except Exception as e:
             logger.error(f"Pipeline failed for {debate_id}: {e}", exc_info=True)
             return error_response(_safe_error_message(e, "broadcast_pipeline"), status=500)
@@ -176,6 +179,7 @@ class BroadcastHandler(BaseHandler):
             # Return empty feed if no episodes yet
             try:
                 from aragora.broadcast.rss_gen import PodcastFeedGenerator, PodcastConfig
+
                 config = PodcastConfig()
                 generator = PodcastFeedGenerator(config)
                 feed_xml = generator.generate()
@@ -183,7 +187,7 @@ class BroadcastHandler(BaseHandler):
                 return error_response("RSS generator not available", status=503)
 
         # Return XML with correct content type
-        return (feed_xml.encode('utf-8'), 200, "application/rss+xml; charset=utf-8")
+        return (feed_xml.encode("utf-8"), 200, "application/rss+xml; charset=utf-8")
 
     @rate_limit(requests_per_minute=3, burst=2, limiter_name="broadcast_generation")
     def _generate_broadcast(self, debate_id: str, handler) -> HandlerResult:
@@ -219,13 +223,15 @@ class BroadcastHandler(BaseHandler):
         if audio_store and audio_store.exists(actual_debate_id):
             existing = audio_store.get_metadata(actual_debate_id)
             audio_path = audio_store.get_path(actual_debate_id)
-            return json_response({
-                "debate_id": actual_debate_id,
-                "status": "exists",
-                "audio_url": f"/audio/{actual_debate_id}.mp3",
-                "audio_path": str(audio_path) if audio_path else None,
-                "generated_at": existing.get("generated_at") if existing else None,
-            })
+            return json_response(
+                {
+                    "debate_id": actual_debate_id,
+                    "status": "exists",
+                    "audio_url": f"/audio/{actual_debate_id}.mp3",
+                    "audio_path": str(audio_path) if audio_path else None,
+                    "generated_at": existing.get("generated_at") if existing else None,
+                }
+            )
 
         # Load trace
         from aragora.debate.traces import DebateTrace
@@ -258,7 +264,9 @@ class BroadcastHandler(BaseHandler):
                             audio = MP3(temp_output_path)
                             duration_seconds = int(audio.info.length)
                         except Exception as e:
-                            logger.warning(f"Failed to extract audio metadata from {temp_output_path}: {e}")
+                            logger.warning(
+                                f"Failed to extract audio metadata from {temp_output_path}: {e}"
+                            )
 
                     stored_path = audio_store.save(
                         debate_id=actual_debate_id,
@@ -272,29 +280,35 @@ class BroadcastHandler(BaseHandler):
                         audio_path=str(stored_path),
                     )
 
-                    return json_response({
-                        "debate_id": actual_debate_id,
-                        "status": "generated",
-                        "audio_url": f"/audio/{actual_debate_id}.mp3",
-                        "audio_path": str(stored_path),
-                        "duration_seconds": duration_seconds,
-                    })
+                    return json_response(
+                        {
+                            "debate_id": actual_debate_id,
+                            "status": "generated",
+                            "audio_url": f"/audio/{actual_debate_id}.mp3",
+                            "audio_path": str(stored_path),
+                            "duration_seconds": duration_seconds,
+                        }
+                    )
 
                 except Exception as e:
                     logger.warning(f"Failed to persist audio: {e}")
-                    return json_response({
+                    return json_response(
+                        {
+                            "debate_id": actual_debate_id,
+                            "status": "generated",
+                            "audio_path": str(temp_output_path),
+                            "duration_seconds": None,
+                            "warning": "Audio generated but not persisted",
+                        }
+                    )
+            else:
+                return json_response(
+                    {
                         "debate_id": actual_debate_id,
                         "status": "generated",
                         "audio_path": str(temp_output_path),
-                        "duration_seconds": None,
-                        "warning": "Audio generated but not persisted",
-                    })
-            else:
-                return json_response({
-                    "debate_id": actual_debate_id,
-                    "status": "generated",
-                    "audio_path": str(temp_output_path),
-                })
+                    }
+                )
 
         except Exception as e:
             return error_response(_safe_error_message(e, "broadcast_generation"), status=500)

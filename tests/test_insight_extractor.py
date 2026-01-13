@@ -65,30 +65,36 @@ def mock_result_no_consensus():
 @pytest.fixture
 def mock_message():
     """Factory for mock messages."""
+
     def _make(agent, content="Test content", round_num=1):
         msg = MagicMock()
         msg.configure_mock(agent=agent, content=content, round=round_num)
         return msg
+
     return _make
 
 
 @pytest.fixture
 def mock_critique():
     """Factory for mock critiques."""
+
     def _make(agent, target, issues, severity=0.5):
         critique = MagicMock()
         critique.configure_mock(agent=agent, target_agent=target, issues=issues, severity=severity)
         return critique
+
     return _make
 
 
 @pytest.fixture
 def mock_vote():
     """Factory for mock votes."""
+
     def _make(agent, choice):
         vote = MagicMock()
         vote.configure_mock(agent=agent, choice=choice)
         return vote
+
     return _make
 
 
@@ -332,20 +338,36 @@ class TestDebateInsights:
     def test_all_insights_combined(self):
         """Should combine all insight types."""
         consensus = Insight(
-            id="c1", type=InsightType.CONSENSUS, title="C", description="D",
-            confidence=0.9, debate_id="d1"
+            id="c1",
+            type=InsightType.CONSENSUS,
+            title="C",
+            description="D",
+            confidence=0.9,
+            debate_id="d1",
         )
         dissent = Insight(
-            id="d1", type=InsightType.DISSENT, title="D", description="D",
-            confidence=0.6, debate_id="d1"
+            id="d1",
+            type=InsightType.DISSENT,
+            title="D",
+            description="D",
+            confidence=0.6,
+            debate_id="d1",
         )
         pattern = Insight(
-            id="p1", type=InsightType.PATTERN, title="P", description="D",
-            confidence=0.7, debate_id="d1"
+            id="p1",
+            type=InsightType.PATTERN,
+            title="P",
+            description="D",
+            confidence=0.7,
+            debate_id="d1",
         )
         convergence = Insight(
-            id="cv1", type=InsightType.CONVERGENCE, title="CV", description="D",
-            confidence=0.7, debate_id="d1"
+            id="cv1",
+            type=InsightType.CONVERGENCE,
+            title="CV",
+            description="D",
+            confidence=0.7,
+            debate_id="d1",
         )
         insights = DebateInsights(
             debate_id="d1",
@@ -637,10 +659,12 @@ class TestExtractPatternInsights:
         ]
         insights_2 = extractor._extract_pattern_insights(result, "d1")
 
-        result.critiques.extend([
-            mock_critique("a4", "a2", ["security vulnerability"]),
-            mock_critique("a5", "a2", ["security flaw"]),
-        ])
+        result.critiques.extend(
+            [
+                mock_critique("a4", "a2", ["security vulnerability"]),
+                mock_critique("a5", "a2", ["security flaw"]),
+            ]
+        )
         insights_4 = extractor._extract_pattern_insights(result, "d1")
 
         assert insights_4[0].confidence > insights_2[0].confidence
@@ -667,8 +691,10 @@ class TestExtractConvergenceInsight:
         result = MagicMock()
         # Early messages: long, Late messages: short
         result.messages = [
-            "x" * 1000, "x" * 1000,  # Early
-            "x" * 200, "x" * 200,    # Late (much shorter)
+            "x" * 1000,
+            "x" * 1000,  # Early
+            "x" * 200,
+            "x" * 200,  # Late (much shorter)
         ]
         result.consensus_variance = 0.1
         insight = extractor._extract_convergence_insight(result, "d1")
@@ -679,8 +705,10 @@ class TestExtractConvergenceInsight:
         """Should detect mild convergence."""
         result = MagicMock()
         result.messages = [
-            "x" * 1000, "x" * 1000,
-            "x" * 850, "x" * 850,  # Slightly shorter
+            "x" * 1000,
+            "x" * 1000,
+            "x" * 850,
+            "x" * 850,  # Slightly shorter
         ]
         result.consensus_variance = 0.1
         insight = extractor._extract_convergence_insight(result, "d1")
@@ -690,8 +718,10 @@ class TestExtractConvergenceInsight:
         """Should detect divergence when late messages are longer."""
         result = MagicMock()
         result.messages = [
-            "x" * 100, "x" * 100,
-            "x" * 500, "x" * 500,  # Much longer
+            "x" * 100,
+            "x" * 100,
+            "x" * 500,
+            "x" * 500,  # Much longer
         ]
         result.consensus_variance = 0.5
         insight = extractor._extract_convergence_insight(result, "d1")
@@ -701,8 +731,10 @@ class TestExtractConvergenceInsight:
         """Should detect stable when lengths are similar."""
         result = MagicMock()
         result.messages = [
-            "x" * 100, "x" * 100,
-            "x" * 100, "x" * 100,
+            "x" * 100,
+            "x" * 100,
+            "x" * 100,
+            "x" * 100,
         ]
         result.consensus_variance = 0.1
         insight = extractor._extract_convergence_insight(result, "d1")

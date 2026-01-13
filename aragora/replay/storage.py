@@ -6,13 +6,14 @@ from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
+
 class ReplayStorage:
     """Manages replay storage and indexing."""
-    
+
     def __init__(self, storage_dir: str = ".nomic/replays"):
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
-    
+
     def list_recordings(self, limit: int = 50) -> List[Dict[str, Any]]:
         recordings = []
         try:
@@ -28,20 +29,22 @@ class ReplayStorage:
                 meta_path = session_dir / "meta.json"
                 if not meta_path.exists():
                     continue
-                with open(meta_path, 'r') as f:
+                with open(meta_path, "r") as f:
                     meta = json.load(f)
-                recordings.append({
-                    "id": meta.get("debate_id"),
-                    "topic": meta.get("topic"),
-                    "status": meta.get("status"),
-                    "event_count": meta.get("event_count"),
-                    "started_at": meta.get("started_at")
-                })
+                recordings.append(
+                    {
+                        "id": meta.get("debate_id"),
+                        "topic": meta.get("topic"),
+                        "status": meta.get("status"),
+                        "event_count": meta.get("event_count"),
+                        "started_at": meta.get("started_at"),
+                    }
+                )
             except (OSError, json.JSONDecodeError) as e:
                 logger.debug(f"Skipping invalid replay {session_dir}: {e}")
         recordings.sort(key=lambda x: x.get("started_at", ""), reverse=True)
         return recordings[:limit]
-    
+
     def prune(self, keep_last: int = 100) -> int:
         """Prune old recordings, keeping only the most recent ones.
 

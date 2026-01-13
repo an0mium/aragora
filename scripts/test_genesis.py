@@ -101,6 +101,7 @@ def test_population():
 
     # Create population manager with temp database
     import tempfile
+
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
 
@@ -137,6 +138,7 @@ def test_ledger():
     print("\n=== Testing Genesis Ledger ===")
 
     import tempfile
+
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
 
@@ -226,6 +228,7 @@ def main():
     except Exception as e:
         print(f"\nTEST FAILED: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

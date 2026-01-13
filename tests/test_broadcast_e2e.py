@@ -43,9 +43,21 @@ class MockDebateTrace:
             self.agents = ["claude-3-opus", "gpt-4", "gemini-pro"]
         if self.messages is None:
             self.messages = [
-                {"role": "proposer", "agent": "claude-3-opus", "content": "AI systems should have human oversight..."},
-                {"role": "critic", "agent": "gpt-4", "content": "I agree with the core premise but..."},
-                {"role": "synthesizer", "agent": "gemini-pro", "content": "Building on both perspectives..."},
+                {
+                    "role": "proposer",
+                    "agent": "claude-3-opus",
+                    "content": "AI systems should have human oversight...",
+                },
+                {
+                    "role": "critic",
+                    "agent": "gpt-4",
+                    "content": "I agree with the core premise but...",
+                },
+                {
+                    "role": "synthesizer",
+                    "agent": "gemini-pro",
+                    "content": "Building on both perspectives...",
+                },
             ]
 
     @classmethod
@@ -75,15 +87,18 @@ def sample_trace(temp_nomic_dir):
     trace = MockDebateTrace()
     trace_path = temp_nomic_dir / "traces" / f"{trace.id}.json"
     with open(trace_path, "w") as f:
-        json.dump({
-            "id": trace.id,
-            "task": trace.task,
-            "agents": trace.agents,
-            "messages": trace.messages,
-            "consensus_reached": trace.consensus_reached,
-            "confidence": trace.confidence,
-            "rounds_used": trace.rounds_used,
-        }, f)
+        json.dump(
+            {
+                "id": trace.id,
+                "task": trace.task,
+                "agents": trace.agents,
+                "messages": trace.messages,
+                "consensus_reached": trace.consensus_reached,
+                "confidence": trace.confidence,
+                "rounds_used": trace.rounds_used,
+            },
+            f,
+        )
     return trace
 
 
@@ -140,10 +155,10 @@ class TestBroadcastPipelineRun:
         # Create mock audio file
         mock_audio_path = temp_nomic_dir / "audio" / f"{sample_trace.id}.mp3"
 
-        with patch.object(pipeline, '_load_trace', return_value=sample_trace):
-            with patch.object(pipeline, '_generate_audio', new_callable=AsyncMock) as mock_gen:
+        with patch.object(pipeline, "_load_trace", return_value=sample_trace):
+            with patch.object(pipeline, "_generate_audio", new_callable=AsyncMock) as mock_gen:
                 mock_gen.return_value = mock_audio_path
-                with patch.object(pipeline, '_get_audio_duration', return_value=120):
+                with patch.object(pipeline, "_get_audio_duration", return_value=120):
                     result = await pipeline.run(sample_trace.id)
 
         assert result.success is True
@@ -154,8 +169,8 @@ class TestBroadcastPipelineRun:
     @pytest.mark.asyncio
     async def test_audio_failure_stops_pipeline(self, pipeline, sample_trace):
         """Pipeline should stop if audio generation fails."""
-        with patch.object(pipeline, '_load_trace', return_value=sample_trace):
-            with patch.object(pipeline, '_generate_audio', new_callable=AsyncMock) as mock_gen:
+        with patch.object(pipeline, "_load_trace", return_value=sample_trace):
+            with patch.object(pipeline, "_generate_audio", new_callable=AsyncMock) as mock_gen:
                 mock_gen.return_value = None
                 result = await pipeline.run(sample_trace.id)
 
@@ -171,12 +186,14 @@ class TestBroadcastPipelineRun:
 
         options = BroadcastOptions(video_enabled=True)
 
-        with patch.object(pipeline, '_load_trace', return_value=sample_trace):
-            with patch.object(pipeline, '_generate_audio', new_callable=AsyncMock) as mock_audio:
+        with patch.object(pipeline, "_load_trace", return_value=sample_trace):
+            with patch.object(pipeline, "_generate_audio", new_callable=AsyncMock) as mock_audio:
                 mock_audio.return_value = mock_audio_path
-                with patch.object(pipeline, '_generate_video', new_callable=AsyncMock) as mock_video:
+                with patch.object(
+                    pipeline, "_generate_video", new_callable=AsyncMock
+                ) as mock_video:
                     mock_video.return_value = mock_video_path
-                    with patch.object(pipeline, '_get_audio_duration', return_value=120):
+                    with patch.object(pipeline, "_get_audio_duration", return_value=120):
                         result = await pipeline.run(sample_trace.id, options)
 
         assert result.success is True
@@ -191,12 +208,14 @@ class TestBroadcastPipelineRun:
 
         options = BroadcastOptions(video_enabled=True)
 
-        with patch.object(pipeline, '_load_trace', return_value=sample_trace):
-            with patch.object(pipeline, '_generate_audio', new_callable=AsyncMock) as mock_audio:
+        with patch.object(pipeline, "_load_trace", return_value=sample_trace):
+            with patch.object(pipeline, "_generate_audio", new_callable=AsyncMock) as mock_audio:
                 mock_audio.return_value = mock_audio_path
-                with patch.object(pipeline, '_generate_video', new_callable=AsyncMock) as mock_video:
+                with patch.object(
+                    pipeline, "_generate_video", new_callable=AsyncMock
+                ) as mock_video:
                     mock_video.return_value = None  # Video fails
-                    with patch.object(pipeline, '_get_audio_duration', return_value=120):
+                    with patch.object(pipeline, "_get_audio_duration", return_value=120):
                         result = await pipeline.run(sample_trace.id, options)
 
         # Pipeline should still succeed with audio
@@ -213,12 +232,12 @@ class TestBroadcastPipelineRun:
 
         options = BroadcastOptions(generate_rss_episode=True)
 
-        with patch.object(pipeline, '_load_trace', return_value=sample_trace):
-            with patch.object(pipeline, '_generate_audio', new_callable=AsyncMock) as mock_audio:
+        with patch.object(pipeline, "_load_trace", return_value=sample_trace):
+            with patch.object(pipeline, "_generate_audio", new_callable=AsyncMock) as mock_audio:
                 mock_audio.return_value = mock_audio_path
-                with patch.object(pipeline, '_create_rss_episode') as mock_rss:
+                with patch.object(pipeline, "_create_rss_episode") as mock_rss:
                     mock_rss.return_value = mock_episode_guid
-                    with patch.object(pipeline, '_get_audio_duration', return_value=120):
+                    with patch.object(pipeline, "_get_audio_duration", return_value=120):
                         result = await pipeline.run(sample_trace.id, options)
 
         assert result.success is True
@@ -235,10 +254,10 @@ class TestBroadcastPipelineRun:
         mock_store.save.return_value = mock_stored_path
         pipeline.audio_store = mock_store
 
-        with patch.object(pipeline, '_load_trace', return_value=sample_trace):
-            with patch.object(pipeline, '_generate_audio', new_callable=AsyncMock) as mock_audio:
+        with patch.object(pipeline, "_load_trace", return_value=sample_trace):
+            with patch.object(pipeline, "_generate_audio", new_callable=AsyncMock) as mock_audio:
                 mock_audio.return_value = mock_audio_path
-                with patch.object(pipeline, '_get_audio_duration', return_value=120):
+                with patch.object(pipeline, "_get_audio_duration", return_value=120):
                     result = await pipeline.run(sample_trace.id)
 
         assert result.success is True
@@ -319,11 +338,11 @@ class TestFullPipelineIntegration:
         mock_audio_path = temp_nomic_dir / "audio" / f"{sample_trace.id}.mp3"
         mock_audio_path.write_bytes(b"fake audio data")
 
-        with patch.object(pipeline, '_load_trace', return_value=sample_trace):
-            with patch.object(pipeline, '_generate_audio', new_callable=AsyncMock) as mock_gen:
+        with patch.object(pipeline, "_load_trace", return_value=sample_trace):
+            with patch.object(pipeline, "_generate_audio", new_callable=AsyncMock) as mock_gen:
                 mock_gen.return_value = mock_audio_path
-                with patch.object(pipeline, '_get_audio_duration', return_value=180):
-                    with patch.object(pipeline, '_create_rss_episode', return_value="ep-123"):
+                with patch.object(pipeline, "_get_audio_duration", return_value=180):
+                    with patch.object(pipeline, "_create_rss_episode", return_value="ep-123"):
                         result = await pipeline.run(sample_trace.id)
 
         assert result.success is True
@@ -346,13 +365,15 @@ class TestFullPipelineIntegration:
             custom_title="AI Oversight Debate",
         )
 
-        with patch.object(pipeline, '_load_trace', return_value=sample_trace):
-            with patch.object(pipeline, '_generate_audio', new_callable=AsyncMock) as mock_audio:
+        with patch.object(pipeline, "_load_trace", return_value=sample_trace):
+            with patch.object(pipeline, "_generate_audio", new_callable=AsyncMock) as mock_audio:
                 mock_audio.return_value = mock_audio_path
-                with patch.object(pipeline, '_generate_video', new_callable=AsyncMock) as mock_video:
+                with patch.object(
+                    pipeline, "_generate_video", new_callable=AsyncMock
+                ) as mock_video:
                     mock_video.return_value = mock_video_path
-                    with patch.object(pipeline, '_get_audio_duration', return_value=240):
-                        with patch.object(pipeline, '_create_rss_episode', return_value="ep-456"):
+                    with patch.object(pipeline, "_get_audio_duration", return_value=240):
+                        with patch.object(pipeline, "_create_rss_episode", return_value="ep-456"):
                             result = await pipeline.run(sample_trace.id, options)
 
         assert result.success is True
@@ -371,14 +392,16 @@ class TestFullPipelineIntegration:
             generate_rss_episode=True,
         )
 
-        with patch.object(pipeline, '_load_trace', return_value=sample_trace):
-            with patch.object(pipeline, '_generate_audio', new_callable=AsyncMock) as mock_audio:
+        with patch.object(pipeline, "_load_trace", return_value=sample_trace):
+            with patch.object(pipeline, "_generate_audio", new_callable=AsyncMock) as mock_audio:
                 mock_audio.return_value = mock_audio_path
-                with patch.object(pipeline, '_generate_video', new_callable=AsyncMock) as mock_video:
+                with patch.object(
+                    pipeline, "_generate_video", new_callable=AsyncMock
+                ) as mock_video:
                     mock_video.return_value = None  # Video fails
-                    with patch.object(pipeline, '_create_rss_episode') as mock_rss:
+                    with patch.object(pipeline, "_create_rss_episode") as mock_rss:
                         mock_rss.return_value = None  # RSS also fails
-                        with patch.object(pipeline, '_get_audio_duration', return_value=60):
+                        with patch.object(pipeline, "_get_audio_duration", return_value=60):
                             result = await pipeline.run(sample_trace.id, options)
 
         # Should still succeed with just audio
@@ -394,7 +417,7 @@ class TestPipelineErrorHandling:
     @pytest.mark.asyncio
     async def test_handles_load_trace_exception(self, pipeline):
         """Pipeline should propagate exceptions during trace loading."""
-        with patch.object(pipeline, '_load_trace', side_effect=Exception("Load failed")):
+        with patch.object(pipeline, "_load_trace", side_effect=Exception("Load failed")):
             # Pipeline propagates exceptions rather than catching them
             with pytest.raises(Exception, match="Load failed"):
                 await pipeline.run("test-debate")
@@ -402,8 +425,8 @@ class TestPipelineErrorHandling:
     @pytest.mark.asyncio
     async def test_handles_audio_generation_exception(self, pipeline, sample_trace):
         """Pipeline should propagate exceptions during audio generation."""
-        with patch.object(pipeline, '_load_trace', return_value=sample_trace):
-            with patch.object(pipeline, '_generate_audio', new_callable=AsyncMock) as mock_gen:
+        with patch.object(pipeline, "_load_trace", return_value=sample_trace):
+            with patch.object(pipeline, "_generate_audio", new_callable=AsyncMock) as mock_gen:
                 mock_gen.side_effect = Exception("TTS service unavailable")
                 # Pipeline propagates the exception
                 with pytest.raises(Exception, match="TTS service unavailable"):
@@ -418,10 +441,10 @@ class TestPipelineErrorHandling:
         mock_store.save.side_effect = Exception("Storage full")
         pipeline.audio_store = mock_store
 
-        with patch.object(pipeline, '_load_trace', return_value=sample_trace):
-            with patch.object(pipeline, '_generate_audio', new_callable=AsyncMock) as mock_audio:
+        with patch.object(pipeline, "_load_trace", return_value=sample_trace):
+            with patch.object(pipeline, "_generate_audio", new_callable=AsyncMock) as mock_audio:
                 mock_audio.return_value = mock_audio_path
-                with patch.object(pipeline, '_get_audio_duration', return_value=120):
+                with patch.object(pipeline, "_get_audio_duration", return_value=120):
                     result = await pipeline.run(sample_trace.id)
 
         # Should still succeed, just without storage step

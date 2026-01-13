@@ -132,6 +132,7 @@ class TestTimeoutHandling:
     @pytest.mark.asyncio
     async def test_with_timeout_returns_partial_on_timeout(self):
         """with_timeout should allow partial result recovery."""
+
         async def slow_task():
             await asyncio.sleep(10)
             return "completed"

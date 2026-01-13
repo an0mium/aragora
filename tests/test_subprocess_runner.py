@@ -88,6 +88,7 @@ class TestSandboxedCommand:
     def test_sanitize_env_excludes_dangerous(self):
         """Sanitized environment should exclude dangerous vars."""
         import os
+
         # Set a dangerous variable temporarily
         original = os.environ.get("LD_PRELOAD")
         os.environ["LD_PRELOAD"] = "/tmp/evil.so"

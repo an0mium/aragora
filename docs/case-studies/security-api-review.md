@@ -99,7 +99,7 @@ CloudPay fixed all critical and high-severity issues in 5 days:
     {
       "attack_id": "sec-003",
       "finding": "BOLA vulnerability in /transactions/{id}",
-      "agents_agreed": ["claude-opus", "gpt-4", "gemini-pro"],
+      "agents_agreed": ["anthropic-api", "openai-api", "gemini"],
       "dissenting": [],
       "severity": "critical"
     }

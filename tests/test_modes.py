@@ -27,6 +27,7 @@ from aragora.modes.handoff import HandoffContext, ModeHandoff
 # ToolGroup Tests
 # ============================================================================
 
+
 class TestToolGroup:
     """Tests for ToolGroup enum and permissions."""
 
@@ -158,6 +159,7 @@ class TestCanUseTool:
 # Mode Base Class Tests
 # ============================================================================
 
+
 class ConcreteMode(Mode):
     """Concrete implementation for testing that auto-registers."""
 
@@ -277,6 +279,7 @@ class TestModeBase:
 # ModeRegistry Tests
 # ============================================================================
 
+
 class TestModeRegistry:
     """Tests for ModeRegistry."""
 
@@ -391,6 +394,7 @@ class TestModeRegistry:
 # Built-in Modes Tests
 # ============================================================================
 
+
 class TestBuiltinModes:
     """Tests for built-in operational modes."""
 
@@ -398,6 +402,7 @@ class TestBuiltinModes:
         """Clear and re-register builtins before each test."""
         ModeRegistry.clear()
         from aragora.modes.builtin import register_all_builtins
+
         register_all_builtins()
 
     def test_architect_mode_exists(self):
@@ -460,6 +465,7 @@ class TestBuiltinModes:
 # ============================================================================
 # Handoff Context Tests
 # ============================================================================
+
 
 class TestHandoffContext:
     """Tests for HandoffContext."""
@@ -532,6 +538,7 @@ class TestHandoffContext:
 # ============================================================================
 # ModeHandoff Tests
 # ============================================================================
+
 
 class TestModeHandoff:
     """Tests for ModeHandoff manager."""
@@ -639,6 +646,7 @@ class TestModeHandoff:
 # Integration Tests
 # ============================================================================
 
+
 class TestModeSystemIntegration:
     """Integration tests for the mode system."""
 
@@ -646,6 +654,7 @@ class TestModeSystemIntegration:
         """Set up clean registry."""
         ModeRegistry.clear()
         from aragora.modes.builtin import register_all_builtins
+
         register_all_builtins()
 
     def test_full_workflow_transitions(self):
@@ -709,6 +718,7 @@ class TestCustomMode:
         """Clear registry before each test."""
         ModeRegistry.clear()
         from aragora.modes.builtin import register_all_builtins
+
         register_all_builtins()
 
     def test_basic_creation(self):
@@ -1160,9 +1170,7 @@ class TestDeepAuditVerdict:
         verdict = DeepAuditVerdict(
             recommendation="Do not proceed",
             confidence=0.3,
-            findings=[
-                AuditFinding("risk", "Security issue", "Details")
-            ],
+            findings=[AuditFinding("risk", "Security issue", "Details")],
             unanimous_issues=["Input validation missing"],
             split_opinions=["API design"],
             risk_areas=["Authentication bypass"],
@@ -1433,6 +1441,7 @@ class TestRunDeepAuditFunction:
         # We can't actually run the debate without mocking Arena
         # but we can verify the function signature works
         import inspect
+
         sig = inspect.signature(run_deep_audit)
 
         assert "task" in sig.parameters

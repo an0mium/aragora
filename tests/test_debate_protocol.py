@@ -15,6 +15,7 @@ from aragora.debate.protocol import DebateProtocol, user_vote_multiplier
 # DebateProtocol Tests
 # =============================================================================
 
+
 class TestDebateProtocol:
     """Tests for DebateProtocol configuration."""
 
@@ -117,12 +118,15 @@ class TestDebateProtocol:
 
         # Uses config constants for consistent timeout hierarchy
         assert protocol.timeout_seconds == DEBATE_TIMEOUT_SECONDS  # 15 min default
-        assert protocol.round_timeout_seconds == AGENT_TIMEOUT_SECONDS + 60  # Agent timeout + margin
+        assert (
+            protocol.round_timeout_seconds == AGENT_TIMEOUT_SECONDS + 60
+        )  # Agent timeout + margin
 
 
 # =============================================================================
 # User Vote Multiplier Tests
 # =============================================================================
+
 
 class TestUserVoteMultiplier:
     """Tests for conviction-weighted vote multiplier calculation."""

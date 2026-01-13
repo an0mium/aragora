@@ -49,6 +49,7 @@ from aragora.server.validation import (
 # BoundedTTLCache Tests
 # ============================================================================
 
+
 class TestBoundedTTLCache:
     """Tests for BoundedTTLCache class."""
 
@@ -77,7 +78,7 @@ class TestBoundedTTLCache:
         cache.set("key1", "value1")
 
         # Simulate time passing (cache module was extracted from base)
-        with patch('aragora.server.handlers.cache.time.time') as mock_time:
+        with patch("aragora.server.handlers.cache.time.time") as mock_time:
             # Initial set was at time 0
             mock_time.return_value = 0
             cache.set("key2", "value2")
@@ -180,6 +181,7 @@ class TestBoundedTTLCache:
 # ttl_cache Decorator Tests
 # ============================================================================
 
+
 class TestTTLCacheDecorator:
     """Tests for ttl_cache decorator."""
 
@@ -241,6 +243,7 @@ class TestTTLCacheDecorator:
 
     def test_clear_cache_by_prefix(self):
         """Should clear cache by prefix."""
+
         @ttl_cache(ttl_seconds=60, key_prefix="prefix1", skip_first=False)
         def func1(x):
             return x
@@ -259,6 +262,7 @@ class TestTTLCacheDecorator:
 # ============================================================================
 # Parameter Parsing Tests
 # ============================================================================
+
 
 class TestParameterParsing:
     """Tests for parameter parsing utilities."""
@@ -355,6 +359,7 @@ class TestParameterParsing:
 # ============================================================================
 # Bounded Parameter Edge Case Tests
 # ============================================================================
+
 
 class TestClampedIntParamEdgeCases:
     """Comprehensive edge case tests for get_clamped_int_param."""
@@ -627,6 +632,7 @@ class TestBoundedStringParamEdgeCases:
 # Validation Tests
 # ============================================================================
 
+
 class TestValidation:
     """Tests for validation functions."""
 
@@ -730,11 +736,13 @@ class TestSchemaValidation:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestErrorHandling:
     """Tests for error handling decorators."""
 
     def test_handle_errors_catches_exception(self):
         """Should catch exceptions and return error response."""
+
         @handle_errors("test operation")
         def failing_func():
             raise ValueError("Test error")
@@ -746,6 +754,7 @@ class TestErrorHandling:
 
     def test_handle_errors_includes_trace_id(self):
         """Should include trace ID in response headers."""
+
         @handle_errors("test operation")
         def failing_func():
             raise ValueError("Test error")
@@ -756,7 +765,8 @@ class TestErrorHandling:
 
     def test_handle_errors_logs_exception(self):
         """Should log the exception."""
-        with patch('aragora.server.handlers.base.logger') as mock_logger:
+        with patch("aragora.server.handlers.base.logger") as mock_logger:
+
             @handle_errors("test operation")
             def failing_func():
                 raise ValueError("Test error")
@@ -767,6 +777,7 @@ class TestErrorHandling:
 
     def test_handle_errors_returns_success_on_no_error(self):
         """Should pass through successful results."""
+
         @handle_errors("test operation")
         def success_func():
             return json_response({"result": "ok"})
@@ -789,6 +800,7 @@ class TestErrorRecovery:
 
     def test_returns_fallback_on_error(self):
         """Should return fallback value on error."""
+
         @with_error_recovery(fallback_value=[])
         def failing_func():
             raise RuntimeError("Error")
@@ -798,6 +810,7 @@ class TestErrorRecovery:
 
     def test_returns_result_on_success(self):
         """Should return actual result on success."""
+
         @with_error_recovery(fallback_value=[])
         def success_func():
             return [1, 2, 3]
@@ -807,7 +820,8 @@ class TestErrorRecovery:
 
     def test_logs_error_when_enabled(self):
         """Should log errors when log_errors=True."""
-        with patch('aragora.server.handlers.base.logger') as mock_logger:
+        with patch("aragora.server.handlers.base.logger") as mock_logger:
+
             @with_error_recovery(fallback_value=None, log_errors=True)
             def failing_func():
                 raise RuntimeError("Error")
@@ -818,7 +832,8 @@ class TestErrorRecovery:
 
     def test_no_log_when_disabled(self):
         """Should not log when log_errors=False."""
-        with patch('aragora.server.handlers.base.logger') as mock_logger:
+        with patch("aragora.server.handlers.base.logger") as mock_logger:
+
             @with_error_recovery(fallback_value=None, log_errors=False)
             def failing_func():
                 raise RuntimeError("Error")
@@ -831,6 +846,7 @@ class TestErrorRecovery:
 # ============================================================================
 # JSON Response Tests
 # ============================================================================
+
 
 class TestJSONResponse:
     """Tests for JSON response helpers."""
@@ -851,6 +867,7 @@ class TestJSONResponse:
     def test_json_response_serializes_dates(self):
         """Should serialize datetime objects."""
         from datetime import datetime
+
         data = {"timestamp": datetime(2024, 1, 1, 12, 0, 0)}
 
         result = json_response(data)
@@ -880,6 +897,7 @@ class TestJSONResponse:
 # Trace ID Tests
 # ============================================================================
 
+
 class TestTraceID:
     """Tests for trace ID generation."""
 
@@ -900,6 +918,7 @@ class TestTraceID:
 # HandlerResult Tests
 # ============================================================================
 
+
 class TestHandlerResult:
     """Tests for HandlerResult dataclass."""
 
@@ -911,10 +930,7 @@ class TestHandlerResult:
     def test_custom_headers(self):
         """Should accept custom headers."""
         result = HandlerResult(
-            status_code=200,
-            content_type="text/plain",
-            body=b"test",
-            headers={"X-Custom": "value"}
+            status_code=200, content_type="text/plain", body=b"test", headers={"X-Custom": "value"}
         )
         assert result.headers["X-Custom"] == "value"
 
@@ -922,6 +938,7 @@ class TestHandlerResult:
 # ============================================================================
 # Cache Stats Tests
 # ============================================================================
+
 
 class TestCacheStats:
     """Tests for cache statistics."""
@@ -944,6 +961,7 @@ class TestCacheStats:
 # ============================================================================
 # Exception Handling Edge Case Tests
 # ============================================================================
+
 
 class TestExceptionStatusMapping:
     """Edge case tests for exception to HTTP status mapping."""
@@ -990,8 +1008,10 @@ class TestExceptionStatusMapping:
 
     def test_custom_exception_maps_to_500(self):
         """Custom exceptions should map to 500."""
+
         class CustomError(Exception):
             pass
+
         assert _map_exception_to_status(CustomError("custom")) == 500
 
 
@@ -1000,6 +1020,7 @@ class TestHandleErrorsDecorator:
 
     def test_preserves_return_value_on_success(self):
         """Should return original value when no exception."""
+
         @handle_errors("test")
         def success_func():
             return json_response({"key": "value"})
@@ -1009,6 +1030,7 @@ class TestHandleErrorsDecorator:
 
     def test_maps_file_not_found_to_404(self):
         """Should return 404 for FileNotFoundError."""
+
         @handle_errors("test")
         def not_found_func():
             raise FileNotFoundError("missing file")
@@ -1018,6 +1040,7 @@ class TestHandleErrorsDecorator:
 
     def test_maps_key_error_to_404(self):
         """Should return 404 for KeyError."""
+
         @handle_errors("test")
         def key_error_func():
             raise KeyError("missing key")
@@ -1027,6 +1050,7 @@ class TestHandleErrorsDecorator:
 
     def test_maps_permission_error_to_403(self):
         """Should return 403 for PermissionError."""
+
         @handle_errors("test")
         def permission_func():
             raise PermissionError("access denied")
@@ -1036,6 +1060,7 @@ class TestHandleErrorsDecorator:
 
     def test_maps_timeout_error_to_504(self):
         """Should return 504 for TimeoutError."""
+
         @handle_errors("test")
         def timeout_func():
             raise TimeoutError("timed out")
@@ -1045,6 +1070,7 @@ class TestHandleErrorsDecorator:
 
     def test_maps_connection_error_to_502(self):
         """Should return 502 for ConnectionError."""
+
         @handle_errors("test")
         def connection_func():
             raise ConnectionError("connection failed")
@@ -1054,6 +1080,7 @@ class TestHandleErrorsDecorator:
 
     def test_uses_custom_default_status(self):
         """Should use custom default status when provided."""
+
         @handle_errors("test", default_status=503)
         def failing_func():
             raise RuntimeError("unknown error")
@@ -1063,6 +1090,7 @@ class TestHandleErrorsDecorator:
 
     def test_includes_trace_id_in_headers(self):
         """Should include X-Trace-Id header on error."""
+
         @handle_errors("test")
         def failing_func():
             raise ValueError("error")
@@ -1073,6 +1101,7 @@ class TestHandleErrorsDecorator:
 
     def test_error_body_contains_message(self):
         """Should include error message in response body."""
+
         @handle_errors("test")
         def failing_func():
             raise ValueError("test error message")
@@ -1087,6 +1116,7 @@ class TestWithErrorRecoveryDecorator:
 
     def test_returns_none_fallback(self):
         """Should return None as fallback value."""
+
         @with_error_recovery(fallback_value=None)
         def failing_func():
             raise RuntimeError("error")
@@ -1096,6 +1126,7 @@ class TestWithErrorRecoveryDecorator:
 
     def test_returns_empty_dict_fallback(self):
         """Should return empty dict as fallback value."""
+
         @with_error_recovery(fallback_value={})
         def failing_func():
             raise RuntimeError("error")
@@ -1105,6 +1136,7 @@ class TestWithErrorRecoveryDecorator:
 
     def test_returns_empty_list_fallback(self):
         """Should return empty list as fallback value."""
+
         @with_error_recovery(fallback_value=[])
         def failing_func():
             raise RuntimeError("error")
@@ -1114,6 +1146,7 @@ class TestWithErrorRecoveryDecorator:
 
     def test_returns_default_value_fallback(self):
         """Should return specific default value as fallback."""
+
         @with_error_recovery(fallback_value={"status": "degraded", "data": []})
         def failing_func():
             raise RuntimeError("error")
@@ -1123,6 +1156,7 @@ class TestWithErrorRecoveryDecorator:
 
     def test_returns_actual_result_on_success(self):
         """Should return actual result when no exception."""
+
         @with_error_recovery(fallback_value=[])
         def success_func():
             return [1, 2, 3]
@@ -1132,7 +1166,8 @@ class TestWithErrorRecoveryDecorator:
 
     def test_logs_error_when_enabled(self):
         """Should log error when log_errors=True."""
-        with patch('aragora.server.handlers.base.logger') as mock_logger:
+        with patch("aragora.server.handlers.base.logger") as mock_logger:
+
             @with_error_recovery(fallback_value=None, log_errors=True)
             def failing_func():
                 raise ValueError("test error")
@@ -1142,7 +1177,8 @@ class TestWithErrorRecoveryDecorator:
 
     def test_does_not_log_when_disabled(self):
         """Should not log when log_errors=False."""
-        with patch('aragora.server.handlers.base.logger') as mock_logger:
+        with patch("aragora.server.handlers.base.logger") as mock_logger:
+
             @with_error_recovery(fallback_value=None, log_errors=False)
             def failing_func():
                 raise ValueError("test error")
@@ -1152,6 +1188,7 @@ class TestWithErrorRecoveryDecorator:
 
     def test_handles_nested_exceptions(self):
         """Should handle exceptions raised during exception handling."""
+
         @with_error_recovery(fallback_value="safe_default")
         def complex_failing_func():
             try:

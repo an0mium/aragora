@@ -22,6 +22,12 @@ from aragora.ranking.redteam import (
     RedTeamResult,
     VulnerabilitySummary,
 )
+from aragora.ranking.tournaments import (
+    TournamentManager,
+    Tournament,
+    TournamentMatch,
+    TournamentStanding,
+)
 
 __all__ = [
     # Core ELO
@@ -41,4 +47,9 @@ __all__ = [
     "RedTeamIntegrator",
     "RedTeamResult",
     "VulnerabilitySummary",
+    # Tournaments
+    "TournamentManager",
+    "Tournament",
+    "TournamentMatch",
+    "TournamentStanding",
 ]

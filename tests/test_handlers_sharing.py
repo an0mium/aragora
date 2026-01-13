@@ -143,20 +143,14 @@ class TestShareSettings:
         """is_expired returns False for future expiration."""
         from aragora.server.handlers.sharing import ShareSettings
 
-        settings = ShareSettings(
-            debate_id="test",
-            expires_at=time.time() + 3600  # 1 hour from now
-        )
+        settings = ShareSettings(debate_id="test", expires_at=time.time() + 3600)  # 1 hour from now
         assert settings.is_expired is False
 
     def test_is_expired_past(self):
         """is_expired returns True for past expiration."""
         from aragora.server.handlers.sharing import ShareSettings
 
-        settings = ShareSettings(
-            debate_id="test",
-            expires_at=time.time() - 3600  # 1 hour ago
-        )
+        settings = ShareSettings(debate_id="test", expires_at=time.time() - 3600)  # 1 hour ago
         assert settings.is_expired is True
 
 
@@ -172,12 +166,14 @@ class TestShareStore:
     def store(self):
         """Create fresh ShareStore instance."""
         from aragora.server.handlers.sharing import ShareStore
+
         return ShareStore()
 
     @pytest.fixture
     def sample_settings(self):
         """Create sample ShareSettings."""
         from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+
         return ShareSettings(
             debate_id="debate-1",
             visibility=DebateVisibility.PUBLIC,
@@ -317,6 +313,7 @@ class TestSharingHandlerRouting:
     def handler(self):
         """Create SharingHandler instance."""
         from aragora.server.handlers.sharing import SharingHandler
+
         return SharingHandler()
 
     def test_routes_defined(self, handler):
@@ -342,6 +339,7 @@ class TestExtractDebateId:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.sharing import SharingHandler
+
         return SharingHandler()
 
     def test_extract_from_share_path(self, handler):
@@ -382,6 +380,7 @@ class TestSharingHandlerGet:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.sharing import SharingHandler, ShareStore
+
         handler = SharingHandler()
         handler._store = ShareStore()
         return handler
@@ -465,6 +464,7 @@ class TestGetSharedDebate:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.sharing import SharingHandler, ShareStore
+
         handler = SharingHandler()
         handler._store = ShareStore()
         return handler
@@ -562,6 +562,7 @@ class TestSharingHandlerPost:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.sharing import SharingHandler, ShareStore
+
         handler = SharingHandler()
         handler._store = ShareStore()
         return handler
@@ -577,7 +578,7 @@ class TestSharingHandlerPost:
         """Update requires authentication."""
         mock_http = Mock()
         mock_http.headers = {"Content-Length": "2"}
-        mock_http.rfile.read.return_value = b'{}'
+        mock_http.rfile.read.return_value = b"{}"
 
         with patch.object(handler, "get_current_user", return_value=None):
             result = handler._update_share_settings("debate-1", mock_http)
@@ -739,6 +740,7 @@ class TestRevokeShare:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.sharing import SharingHandler, ShareStore
+
         handler = SharingHandler()
         handler._store = ShareStore()
         return handler
@@ -823,6 +825,7 @@ class TestGenerateShareToken:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.sharing import SharingHandler
+
         return SharingHandler()
 
     def test_generates_unique_tokens(self, handler):
@@ -838,7 +841,8 @@ class TestGenerateShareToken:
 
         # URL-safe base64 characters
         import re
-        assert re.match(r'^[A-Za-z0-9_-]+$', token)
+
+        assert re.match(r"^[A-Za-z0-9_-]+$", token)
 
     def test_token_length(self, handler):
         """Token has reasonable length."""
@@ -859,6 +863,7 @@ class TestHandleMethod:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.sharing import SharingHandler, ShareStore
+
         handler = SharingHandler()
         handler._store = ShareStore()
         return handler
@@ -900,6 +905,7 @@ class TestHandlePostMethod:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.sharing import SharingHandler, ShareStore
+
         handler = SharingHandler()
         handler._store = ShareStore()
         return handler
@@ -941,6 +947,7 @@ class TestSharingIntegration:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.sharing import SharingHandler, ShareStore
+
         handler = SharingHandler()
         handler._store = ShareStore()
         return handler

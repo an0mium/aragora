@@ -178,6 +178,7 @@ Propose a specific architecture with trade-offs clearly stated."""
     except Exception as e:
         print(f"\nDEBATE ERROR: {e}")
         import traceback
+
         traceback.print_exc()
         return None
 

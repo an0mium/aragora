@@ -18,6 +18,7 @@ from datetime import datetime
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_user():
     """Create a mock user object."""
@@ -32,13 +33,15 @@ def mock_user():
     user.mfa_secret = "JBSWY3DPEHPK3PXP"  # Test TOTP secret
     user.mfa_backup_codes = "[]"
     user.verify_password = Mock(return_value=True)
-    user.to_dict = Mock(return_value={
-        "id": "user-123",
-        "email": "test@example.com",
-        "name": "Test User",
-        "org_id": "org-456",
-        "role": "member",
-    })
+    user.to_dict = Mock(
+        return_value={
+            "id": "user-123",
+            "email": "test@example.com",
+            "name": "Test User",
+            "org_id": "org-456",
+            "role": "member",
+        }
+    )
     return user
 
 
@@ -68,6 +71,7 @@ def mock_handler():
 def clear_rate_limiters():
     """Clear rate limiters before each test."""
     from aragora.server.handlers.utils.rate_limit import _limiters
+
     for limiter in _limiters.values():
         limiter._buckets.clear()
     yield
@@ -79,6 +83,7 @@ def clear_rate_limiters():
 # MFA Rate Limiting Tests
 # ============================================================================
 
+
 class TestMFARateLimiting:
     """Tests for MFA brute force prevention."""
 
@@ -87,11 +92,10 @@ class TestMFARateLimiting:
         from aragora.server.handlers.auth import AuthHandler
 
         # Check the method exists and has rate limiting
-        assert hasattr(AuthHandler, '_handle_mfa_verify')
+        assert hasattr(AuthHandler, "_handle_mfa_verify")
 
     @pytest.mark.skipif(
-        True,  # Skip if pyotp is not available
-        reason="pyotp not installed in test environment"
+        True, reason="pyotp not installed in test environment"  # Skip if pyotp is not available
     )
     @patch("aragora.server.handlers.auth.extract_user_from_request")
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
@@ -117,9 +121,13 @@ class TestMFARateLimiting:
 
         # Setup request body
         import io
+
         body = b'{"code": "123456", "pending_token": "valid_token"}'
         mock_handler.rfile.read = Mock(return_value=body)
-        mock_handler.headers = {"Content-Type": "application/json", "Content-Length": str(len(body))}
+        mock_handler.headers = {
+            "Content-Type": "application/json",
+            "Content-Length": str(len(body)),
+        }
 
         # Call the handler directly (skip the IP rate limit decorator)
         result = handler._handle_mfa_verify.__wrapped__(handler, mock_handler)
@@ -147,6 +155,7 @@ class TestSessionRegeneration:
 
         # Setup request body
         import io
+
         body = b'{"current_password": "oldpassword", "new_password": "NewPassword123!"}'
         mock_handler.rfile.read = Mock(return_value=body)
         mock_handler.headers = {
@@ -171,9 +180,7 @@ class TestSessionRegeneration:
         response_body = result.body.decode()
         assert "sessions_invalidated" in response_body
 
-    def test_mfa_enable_invalidates_sessions(
-        self, mock_user_store, mock_user, mock_handler
-    ):
+    def test_mfa_enable_invalidates_sessions(self, mock_user_store, mock_user, mock_handler):
         """Test that enabling MFA calls increment_token_version."""
         pyotp = pytest.importorskip("pyotp")  # Skip if pyotp not installed
         from aragora.server.handlers.auth import AuthHandler
@@ -192,6 +199,7 @@ class TestSessionRegeneration:
 
         # Setup request with valid TOTP code
         import io
+
         body = b'{"code": "123456"}'
         mock_handler.rfile.read = Mock(return_value=body)
         mock_handler.headers = {
@@ -223,6 +231,7 @@ class TestSessionRegeneration:
 # Config Validator Tests
 # ============================================================================
 
+
 class TestConfigValidator:
     """Tests for startup configuration validation."""
 
@@ -230,11 +239,14 @@ class TestConfigValidator:
         """Test validation passes with valid configuration."""
         from aragora.server.config_validator import ConfigValidator
 
-        with patch.dict(os.environ, {
-            "ARAGORA_API_TOKEN": "a_valid_token_here_12345",
-            "ANTHROPIC_API_KEY": "sk-ant-test-key-12345",
-            "JWT_SECRET": "a" * 32,  # 32 chars minimum
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_API_TOKEN": "a_valid_token_here_12345",
+                "ANTHROPIC_API_KEY": "sk-ant-test-key-12345",
+                "JWT_SECRET": "a" * 32,  # 32 chars minimum
+            },
+        ):
             result = ConfigValidator.validate_all()
             # Should have no errors (but may have warnings)
             assert len(result.errors) == 0
@@ -243,11 +255,15 @@ class TestConfigValidator:
         """Test validation fails without LLM key in production."""
         from aragora.server.config_validator import ConfigValidator
 
-        with patch.dict(os.environ, {
-            "ARAGORA_ENV": "production",
-            "ARAGORA_API_TOKEN": "a_valid_token_here_12345",
-            "JWT_SECRET": "a" * 32,
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_ENV": "production",
+                "ARAGORA_API_TOKEN": "a_valid_token_here_12345",
+                "JWT_SECRET": "a" * 32,
+            },
+            clear=True,
+        ):
             result = ConfigValidator.validate_all()
             # Should have error about missing LLM key
             assert any("LLM API key" in err for err in result.errors)
@@ -256,10 +272,14 @@ class TestConfigValidator:
         """Test validation fails with short JWT secret."""
         from aragora.server.config_validator import ConfigValidator
 
-        with patch.dict(os.environ, {
-            "JWT_SECRET": "tooshort",  # Less than 32 chars
-            "ANTHROPIC_API_KEY": "sk-ant-test-key-12345",
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "JWT_SECRET": "tooshort",  # Less than 32 chars
+                "ANTHROPIC_API_KEY": "sk-ant-test-key-12345",
+            },
+            clear=True,
+        ):
             result = ConfigValidator.validate_all()
             # Should have error about JWT secret length
             assert any("JWT_SECRET" in err and "32 characters" in err for err in result.errors)
@@ -268,10 +288,14 @@ class TestConfigValidator:
         """Test validation fails with invalid URL format."""
         from aragora.server.config_validator import ConfigValidator
 
-        with patch.dict(os.environ, {
-            "SUPABASE_URL": "not-a-valid-url",
-            "ANTHROPIC_API_KEY": "sk-ant-test-key-12345",
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "SUPABASE_URL": "not-a-valid-url",
+                "ANTHROPIC_API_KEY": "sk-ant-test-key-12345",
+            },
+            clear=True,
+        ):
             result = ConfigValidator.validate_all()
             # Should have error about URL format
             assert any("SUPABASE_URL" in err and "URL" in err for err in result.errors)
@@ -280,10 +304,14 @@ class TestConfigValidator:
         """Test validation fails with non-integer rate limit."""
         from aragora.server.config_validator import ConfigValidator
 
-        with patch.dict(os.environ, {
-            "ARAGORA_RATE_LIMIT": "not_an_integer",
-            "ANTHROPIC_API_KEY": "sk-ant-test-key-12345",
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_RATE_LIMIT": "not_an_integer",
+                "ANTHROPIC_API_KEY": "sk-ant-test-key-12345",
+            },
+            clear=True,
+        ):
             result = ConfigValidator.validate_all()
             # Should have error about integer format
             assert any("ARAGORA_RATE_LIMIT" in err and "integer" in err for err in result.errors)
@@ -292,9 +320,13 @@ class TestConfigValidator:
         """Test validation warns (not errors) without LLM key in development."""
         from aragora.server.config_validator import ConfigValidator
 
-        with patch.dict(os.environ, {
-            "ARAGORA_ENV": "development",
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_ENV": "development",
+            },
+            clear=True,
+        ):
             result = ConfigValidator.validate_all()
             # Should have warning about missing LLM key, not error
             assert any("LLM API key" in warn for warn in result.warnings)
@@ -304,10 +336,14 @@ class TestConfigValidator:
         """Test config summary returns expected structure."""
         from aragora.server.config_validator import ConfigValidator
 
-        with patch.dict(os.environ, {
-            "ARAGORA_ENV": "development",
-            "ANTHROPIC_API_KEY": "sk-ant-test",
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_ENV": "development",
+                "ANTHROPIC_API_KEY": "sk-ant-test",
+            },
+            clear=True,
+        ):
             summary = ConfigValidator.get_config_summary()
 
             assert "environment" in summary
@@ -324,9 +360,13 @@ class TestConfigValidator:
         from aragora.server.config_validator import ConfigValidator
 
         # Valid config
-        with patch.dict(os.environ, {
-            "ANTHROPIC_API_KEY": "sk-ant-test-key-12345",
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "ANTHROPIC_API_KEY": "sk-ant-test-key-12345",
+            },
+            clear=True,
+        ):
             # Development mode - should pass even without all required vars
             result = ConfigValidator.validate_and_log()
             assert result == True
@@ -335,12 +375,16 @@ class TestConfigValidator:
         """Test production mode requires API token."""
         from aragora.server.config_validator import ConfigValidator
 
-        with patch.dict(os.environ, {
-            "ARAGORA_ENV": "production",
-            "ANTHROPIC_API_KEY": "sk-ant-test-key-12345",
-            "JWT_SECRET": "a" * 32,
-            # Missing ARAGORA_API_TOKEN
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_ENV": "production",
+                "ANTHROPIC_API_KEY": "sk-ant-test-key-12345",
+                "JWT_SECRET": "a" * 32,
+                # Missing ARAGORA_API_TOKEN
+            },
+            clear=True,
+        ):
             result = ConfigValidator.validate_all()
             assert any("ARAGORA_API_TOKEN" in err for err in result.errors)
 
@@ -348,6 +392,7 @@ class TestConfigValidator:
 # ============================================================================
 # Trusted Proxy Tests
 # ============================================================================
+
 
 class TestTrustedProxyValidation:
     """Tests for X-Forwarded-For trusted proxy validation."""
@@ -394,6 +439,7 @@ class TestTrustedProxyValidation:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestSecurityIntegration:
     """Integration tests for security features."""

@@ -94,8 +94,11 @@ class ScopeLimiter:
         self.max_complexity = max_complexity
         self.max_files = max_files
         self.protected_files = protected_files or [
-            "CLAUDE.md", "core.py", "aragora/__init__.py",
-            ".env", "scripts/nomic_loop.py",
+            "CLAUDE.md",
+            "core.py",
+            "aragora/__init__.py",
+            ".env",
+            "scripts/nomic_loop.py",
         ]
 
     def evaluate(self, design: str) -> ScopeEvaluation:
@@ -131,7 +134,7 @@ class ScopeLimiter:
             re.IGNORECASE,
         )
         # Also check for file paths mentioned
-        file_paths = re.findall(r'[a-zA-Z_][a-zA-Z0-9_/]+\.py', design)
+        file_paths = re.findall(r"[a-zA-Z_][a-zA-Z0-9_/]+\.py", design)
         all_files = set(file_matches + file_paths)
         evaluation.file_count = len(all_files)
 
@@ -139,7 +142,9 @@ class ScopeLimiter:
         for f in all_files:
             for protected in self.protected_files:
                 if protected in f:
-                    evaluation.risk_factors.append(f"Attempts to modify protected file: {protected}")
+                    evaluation.risk_factors.append(
+                        f"Attempts to modify protected file: {protected}"
+                    )
                     evaluation.is_implementable = False
 
         # Determine implementability
@@ -161,9 +166,7 @@ class ScopeLimiter:
 
         return evaluation
 
-    def _suggest_simplifications(
-        self, design: str, evaluation: ScopeEvaluation
-    ) -> List[str]:
+    def _suggest_simplifications(self, design: str, evaluation: ScopeEvaluation) -> List[str]:
         """Generate simplification suggestions based on risk factors."""
         suggestions = []
 

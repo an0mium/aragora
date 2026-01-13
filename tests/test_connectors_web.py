@@ -237,10 +237,8 @@ class TestSearchWithMockedDDGS:
             },
         ]
 
-        with patch.object(connector, '_search_web_actual', new_callable=AsyncMock) as mock_search:
-            mock_evidence = [
-                connector._result_to_evidence(r, "python") for r in mock_results
-            ]
+        with patch.object(connector, "_search_web_actual", new_callable=AsyncMock) as mock_search:
+            mock_evidence = [connector._result_to_evidence(r, "python") for r in mock_results]
             mock_search.return_value = mock_evidence
 
             results = await connector.search("python", limit=2)
@@ -264,13 +262,17 @@ class TestSearchWithMockedDDGS:
             content="Cached content",
             title="Cached Title",
         )
-        cache_file.write_text(json.dumps({
-            "query": query,
-            "timestamp": datetime.now().isoformat(),
-            "results": [cached_evidence.to_dict()],
-        }))
+        cache_file.write_text(
+            json.dumps(
+                {
+                    "query": query,
+                    "timestamp": datetime.now().isoformat(),
+                    "results": [cached_evidence.to_dict()],
+                }
+            )
+        )
 
-        with patch.object(connector, '_search_web_actual', new_callable=AsyncMock) as mock_search:
+        with patch.object(connector, "_search_web_actual", new_callable=AsyncMock) as mock_search:
             results = await connector.search(query)
 
             # Should not call actual search
@@ -283,7 +285,7 @@ class TestSearchWithMockedDDGS:
         """Test that search handles errors gracefully."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch.object(connector, '_search_web_actual', new_callable=AsyncMock) as mock_search:
+        with patch.object(connector, "_search_web_actual", new_callable=AsyncMock) as mock_search:
             mock_search.return_value = [
                 connector._create_error_evidence("Search failed: Network error")
             ]
@@ -306,11 +308,13 @@ class TestURLFetchWithMockedHTTPX:
 
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch('aragora.connectors.web.httpx.AsyncClient') as mock_client_class:
+        with patch("aragora.connectors.web.httpx.AsyncClient") as mock_client_class:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.headers = {"content-type": "text/html"}
-            mock_response.text = "<html><head><title>Test</title></head><body><p>Content</p></body></html>"
+            mock_response.text = (
+                "<html><head><title>Test</title></head><body><p>Content</p></body></html>"
+            )
             mock_response.raise_for_status = MagicMock()
 
             mock_client = AsyncMock()
@@ -344,8 +348,9 @@ class TestURLFetchWithMockedHTTPX:
 
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch('aragora.connectors.web.httpx.AsyncClient') as mock_client_class:
+        with patch("aragora.connectors.web.httpx.AsyncClient") as mock_client_class:
             import httpx
+
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -410,6 +415,7 @@ class TestRateLimiting:
         connector = WebConnector(cache_dir=str(temp_dir), rate_limit_delay=0.1)
 
         import time
+
         start = time.time()
 
         # First call
@@ -444,7 +450,7 @@ class TestAgentFriendlyMethods:
         """Test that search_web returns formatted markdown."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch.object(connector, 'search', new_callable=AsyncMock) as mock_search:
+        with patch.object(connector, "search", new_callable=AsyncMock) as mock_search:
             mock_search.return_value = [
                 Evidence(
                     id="1",
@@ -469,7 +475,7 @@ class TestAgentFriendlyMethods:
         """Test search_web with no results."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch.object(connector, 'search', new_callable=AsyncMock) as mock_search:
+        with patch.object(connector, "search", new_callable=AsyncMock) as mock_search:
             mock_search.return_value = []
 
             result = await connector.search_web("impossible query")
@@ -481,7 +487,7 @@ class TestAgentFriendlyMethods:
         """Test that read_url returns formatted content."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch.object(connector, 'fetch_url', new_callable=AsyncMock) as mock_fetch:
+        with patch.object(connector, "fetch_url", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = Evidence(
                 id="1",
                 source_type=SourceType.WEB_SEARCH,
@@ -513,7 +519,7 @@ class TestSSRFProtection:
         """DNS resolution failure should block request (fail-closed)."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+        with patch("socket.getaddrinfo") as mock_getaddrinfo:
             mock_getaddrinfo.side_effect = socket.gaierror(8, "Name resolution failed")
 
             is_safe, error_msg = connector._resolve_and_validate_ip("http://nonexistent.invalid/")
@@ -525,26 +531,28 @@ class TestSSRFProtection:
         """IPv6 loopback address ::1 should be blocked."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+        with patch("socket.getaddrinfo") as mock_getaddrinfo:
             # Return IPv6 loopback
-            mock_getaddrinfo.return_value = [
-                (10, 1, 6, '', ('::1', 80, 0, 0))  # AF_INET6
-            ]
+            mock_getaddrinfo.return_value = [(10, 1, 6, "", ("::1", 80, 0, 0))]  # AF_INET6
 
             is_safe, error_msg = connector._resolve_and_validate_ip("http://evil.com/")
 
             assert is_safe is False
             # Python's ipaddress classifies ::1 as both loopback AND private
-            assert "::1" in error_msg or "loopback" in error_msg.lower() or "private" in error_msg.lower()
+            assert (
+                "::1" in error_msg
+                or "loopback" in error_msg.lower()
+                or "private" in error_msg.lower()
+            )
 
     def test_ipv6_private_blocked(self, temp_dir):
         """IPv6 private range fc00::/7 should be blocked."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+        with patch("socket.getaddrinfo") as mock_getaddrinfo:
             # Return IPv6 private address
             mock_getaddrinfo.return_value = [
-                (10, 1, 6, '', ('fd00::1', 80, 0, 0))  # Unique local address
+                (10, 1, 6, "", ("fd00::1", 80, 0, 0))  # Unique local address
             ]
 
             is_safe, error_msg = connector._resolve_and_validate_ip("http://evil.com/")
@@ -556,27 +564,27 @@ class TestSSRFProtection:
         """IPv6 link-local fe80::/10 should be blocked."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+        with patch("socket.getaddrinfo") as mock_getaddrinfo:
             # Return IPv6 link-local address
-            mock_getaddrinfo.return_value = [
-                (10, 1, 6, '', ('fe80::1', 80, 0, 0))
-            ]
+            mock_getaddrinfo.return_value = [(10, 1, 6, "", ("fe80::1", 80, 0, 0))]
 
             is_safe, error_msg = connector._resolve_and_validate_ip("http://evil.com/")
 
             assert is_safe is False
             # Python's ipaddress classifies fe80:: as both link-local AND private
-            assert "fe80::1" in error_msg or "link-local" in error_msg.lower() or "private" in error_msg.lower()
+            assert (
+                "fe80::1" in error_msg
+                or "link-local" in error_msg.lower()
+                or "private" in error_msg.lower()
+            )
 
     def test_multicast_ipv4_blocked(self, temp_dir):
         """IPv4 multicast 224.0.0.0/4 should be blocked."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+        with patch("socket.getaddrinfo") as mock_getaddrinfo:
             # Return multicast address
-            mock_getaddrinfo.return_value = [
-                (2, 1, 6, '', ('224.0.0.1', 80))  # AF_INET
-            ]
+            mock_getaddrinfo.return_value = [(2, 1, 6, "", ("224.0.0.1", 80))]  # AF_INET
 
             is_safe, error_msg = connector._resolve_and_validate_ip("http://evil.com/")
 
@@ -587,11 +595,9 @@ class TestSSRFProtection:
         """IPv6 multicast ff00::/8 should be blocked."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+        with patch("socket.getaddrinfo") as mock_getaddrinfo:
             # Return IPv6 multicast address
-            mock_getaddrinfo.return_value = [
-                (10, 1, 6, '', ('ff02::1', 80, 0, 0))
-            ]
+            mock_getaddrinfo.return_value = [(10, 1, 6, "", ("ff02::1", 80, 0, 0))]
 
             is_safe, error_msg = connector._resolve_and_validate_ip("http://evil.com/")
 
@@ -602,11 +608,11 @@ class TestSSRFProtection:
         """When multiple IPs are returned, ALL must be validated."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+        with patch("socket.getaddrinfo") as mock_getaddrinfo:
             # Return multiple IPs - one public, one private
             mock_getaddrinfo.return_value = [
-                (2, 1, 6, '', ('8.8.8.8', 80)),      # Public IP (OK)
-                (2, 1, 6, '', ('192.168.1.1', 80)),  # Private IP (blocked)
+                (2, 1, 6, "", ("8.8.8.8", 80)),  # Public IP (OK)
+                (2, 1, 6, "", ("192.168.1.1", 80)),  # Private IP (blocked)
             ]
 
             is_safe, error_msg = connector._resolve_and_validate_ip("http://mixed-dns.com/")
@@ -618,26 +624,30 @@ class TestSSRFProtection:
         """Hosts with both IPv4 and IPv6 must check all addresses."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+        with patch("socket.getaddrinfo") as mock_getaddrinfo:
             # Return both IPv4 public and IPv6 loopback
             mock_getaddrinfo.return_value = [
-                (2, 1, 6, '', ('1.2.3.4', 80)),      # Public IPv4 (OK)
-                (10, 1, 6, '', ('::1', 80, 0, 0)),   # IPv6 loopback (blocked)
+                (2, 1, 6, "", ("1.2.3.4", 80)),  # Public IPv4 (OK)
+                (10, 1, 6, "", ("::1", 80, 0, 0)),  # IPv6 loopback (blocked)
             ]
 
             is_safe, error_msg = connector._resolve_and_validate_ip("http://dual-stack.com/")
 
             assert is_safe is False
             # Python's ipaddress classifies ::1 as both loopback AND private
-            assert "::1" in error_msg or "loopback" in error_msg.lower() or "private" in error_msg.lower()
+            assert (
+                "::1" in error_msg
+                or "loopback" in error_msg.lower()
+                or "private" in error_msg.lower()
+            )
 
     def test_public_ipv4_allowed(self, temp_dir):
         """Public IPv4 addresses should be allowed."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+        with patch("socket.getaddrinfo") as mock_getaddrinfo:
             mock_getaddrinfo.return_value = [
-                (2, 1, 6, '', ('8.8.8.8', 80)),
+                (2, 1, 6, "", ("8.8.8.8", 80)),
             ]
 
             is_safe, error_msg = connector._resolve_and_validate_ip("http://google.com/")
@@ -649,9 +659,9 @@ class TestSSRFProtection:
         """Public IPv6 addresses should be allowed."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+        with patch("socket.getaddrinfo") as mock_getaddrinfo:
             mock_getaddrinfo.return_value = [
-                (10, 1, 6, '', ('2001:4860:4860::8888', 80, 0, 0)),
+                (10, 1, 6, "", ("2001:4860:4860::8888", 80, 0, 0)),
             ]
 
             is_safe, error_msg = connector._resolve_and_validate_ip("http://google.com/")
@@ -663,7 +673,7 @@ class TestSSRFProtection:
         """Empty DNS result should be blocked."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+        with patch("socket.getaddrinfo") as mock_getaddrinfo:
             mock_getaddrinfo.return_value = []
 
             is_safe, error_msg = connector._resolve_and_validate_ip("http://nohost.com/")

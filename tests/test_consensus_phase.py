@@ -18,9 +18,11 @@ from aragora.debate.phases.consensus_phase import ConsensusPhase
 # Mock Classes
 # ============================================================================
 
+
 @dataclass
 class MockEnvironment:
     """Mock environment for testing."""
+
     task: str = "Test task"
     context: str = ""
 
@@ -28,6 +30,7 @@ class MockEnvironment:
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str = "test_agent"
     role: str = "proposer"
     stance: Optional[str] = None
@@ -36,6 +39,7 @@ class MockAgent:
 @dataclass
 class MockVote:
     """Mock vote for testing."""
+
     agent: str = "test_agent"
     choice: str = "proposal_a"
     confidence: float = 0.8
@@ -45,6 +49,7 @@ class MockVote:
 @dataclass
 class MockDebateResult:
     """Mock debate result for testing."""
+
     id: str = "debate_001"
     votes: list = field(default_factory=list)
     critiques: list = field(default_factory=list)
@@ -63,6 +68,7 @@ class MockDebateResult:
 @dataclass
 class MockProtocol:
     """Mock protocol for testing."""
+
     consensus: str = "majority"
     consensus_threshold: float = 0.5
     user_vote_weight: float = 0.5
@@ -73,6 +79,7 @@ class MockProtocol:
 # ============================================================================
 # ConsensusPhase Construction Tests
 # ============================================================================
+
 
 class TestConsensusPhaseConstruction:
     """Tests for ConsensusPhase construction."""
@@ -103,6 +110,7 @@ class TestConsensusPhaseConstruction:
 # None Consensus Mode Tests
 # ============================================================================
 
+
 class TestNoneConsensusMode:
     """Tests for 'none' consensus mode."""
 
@@ -127,6 +135,7 @@ class TestNoneConsensusMode:
 # ============================================================================
 # Majority Consensus Mode Tests
 # ============================================================================
+
 
 class TestMajorityConsensusMode:
     """Tests for 'majority' consensus mode."""
@@ -161,6 +170,7 @@ class TestMajorityConsensusMode:
         protocol = MockProtocol(consensus="majority", consensus_threshold=0.8)
 
         vote_idx = [0]
+
         async def vote_with_agent(agent, proposals, task):
             vote_idx[0] += 1
             if vote_idx[0] == 1:
@@ -263,6 +273,7 @@ class TestMajorityConsensusMode:
 # Unanimous Consensus Mode Tests
 # ============================================================================
 
+
 class TestUnanimousConsensusMode:
     """Tests for 'unanimous' consensus mode."""
 
@@ -296,6 +307,7 @@ class TestUnanimousConsensusMode:
         protocol = MockProtocol(consensus="unanimous")
 
         vote_idx = [0]
+
         async def vote_with_agent(agent, proposals, task):
             vote_idx[0] += 1
             if vote_idx[0] == 1:
@@ -351,6 +363,7 @@ class TestUnanimousConsensusMode:
 # ============================================================================
 # Judge Consensus Mode Tests
 # ============================================================================
+
 
 class TestJudgeConsensusMode:
     """Tests for 'judge' consensus mode."""
@@ -434,6 +447,7 @@ class TestJudgeConsensusMode:
 # Vote Grouping Tests
 # ============================================================================
 
+
 class TestVoteGrouping:
     """Tests for vote grouping and choice mapping."""
 
@@ -468,6 +482,7 @@ class TestVoteGrouping:
 # ============================================================================
 # User Vote Tests
 # ============================================================================
+
 
 class TestUserVotes:
     """Tests for user vote handling."""
@@ -505,6 +520,7 @@ class TestUserVotes:
 # Calibration Tracker Tests
 # ============================================================================
 
+
 class TestCalibrationTracking:
     """Tests for calibration prediction tracking."""
 
@@ -538,6 +554,7 @@ class TestCalibrationTracking:
 # ============================================================================
 # Position Tracker Tests
 # ============================================================================
+
 
 class TestPositionTracking:
     """Tests for position tracker integration."""
@@ -596,6 +613,7 @@ class TestPositionTracking:
 # ============================================================================
 # Spectator Notification Tests
 # ============================================================================
+
 
 class TestSpectatorNotifications:
     """Tests for spectator notifications."""
@@ -657,6 +675,7 @@ class TestSpectatorNotifications:
 # ============================================================================
 # Edge Case Tests
 # ============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases."""
@@ -740,6 +759,7 @@ class TestEdgeCases:
 # ============================================================================
 # Phase 11C: Extended Edge Case Tests
 # ============================================================================
+
 
 class TestPhase11CEdgeCases:
     """Phase 11C: Extended edge case tests for consensus phase hardening."""
@@ -975,6 +995,7 @@ class TestPhase11CEdgeCases:
     async def test_concurrent_vote_collection(self):
         """Votes should be collected even with varying response times."""
         import asyncio
+
         protocol = MockProtocol(consensus="majority")
 
         async def slow_vote(agent, proposals, task):

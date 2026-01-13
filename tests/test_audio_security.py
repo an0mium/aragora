@@ -25,6 +25,7 @@ from aragora.server.validation.entities import (
 # Path Traversal Protection Tests
 # ============================================================================
 
+
 class TestPathTraversalProtection:
     """Tests for path traversal attack prevention."""
 
@@ -65,6 +66,7 @@ class TestPathTraversalProtection:
 # Null Byte Injection Tests
 # ============================================================================
 
+
 class TestNullByteProtection:
     """Tests for null byte injection prevention."""
 
@@ -82,6 +84,7 @@ class TestNullByteProtection:
 # ============================================================================
 # Special Characters Tests
 # ============================================================================
+
 
 class TestSpecialCharacterProtection:
     """Tests for special character handling."""
@@ -126,6 +129,7 @@ class TestSpecialCharacterProtection:
 # Valid ID Format Tests
 # ============================================================================
 
+
 class TestValidIdFormats:
     """Tests for valid debate ID formats."""
 
@@ -160,6 +164,7 @@ class TestValidIdFormats:
 # Length Validation Tests
 # ============================================================================
 
+
 class TestLengthValidation:
     """Tests for ID length validation."""
 
@@ -188,6 +193,7 @@ class TestLengthValidation:
 # Audio Handler Integration Tests
 # ============================================================================
 
+
 class TestAudioHandlerSecurity:
     """Integration tests for audio handler security."""
 
@@ -211,9 +217,7 @@ class TestAudioHandlerSecurity:
         mock_http_handler = Mock()
 
         result = audio_handler.handle(
-            "/api/audio/debate/../../../etc/passwd/audio",
-            {},
-            mock_http_handler
+            "/api/audio/debate/../../../etc/passwd/audio", {}, mock_http_handler
         )
 
         # Should return 400 for invalid ID format
@@ -225,9 +229,7 @@ class TestAudioHandlerSecurity:
         mock_http_handler = Mock()
 
         result = audio_handler.handle(
-            "/api/audio/debate/valid-debate-123/audio",
-            {},
-            mock_http_handler
+            "/api/audio/debate/valid-debate-123/audio", {}, mock_http_handler
         )
 
         # Should return 404 for not found (valid ID, but no file)
@@ -238,6 +240,7 @@ class TestAudioHandlerSecurity:
 # ============================================================================
 # Pattern Regex Tests
 # ============================================================================
+
 
 class TestSafeSlugPattern:
     """Tests for SAFE_SLUG_PATTERN regex."""

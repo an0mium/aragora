@@ -236,7 +236,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
     } finally {
       setIsSubmitting(false);
     }
-  }, [question, placeholder, agents, rounds, debateMode, apiBase, isSubmitting, onDebateStarted, onError]);
+  }, [question, placeholder, agents, rounds, debateMode, apiBase, isSubmitting, onDebateStarted, onError, router]);
 
   const isDisabled = isSubmitting || apiStatus === 'offline' || apiStatus === 'checking';
 

@@ -284,9 +284,7 @@ class TestOAuthAuthentication:
 
     def test_get_auth_url_includes_youtube_upload_scope(self, configured_connector):
         """Test that auth URL includes youtube.upload scope."""
-        url = configured_connector.get_auth_url(
-            redirect_uri="http://localhost/callback"
-        )
+        url = configured_connector.get_auth_url(redirect_uri="http://localhost/callback")
 
         assert "youtube.upload" in url
         assert "scope=" in url
@@ -523,9 +521,7 @@ class TestVideoStatusAndFactory:
     """Tests for video status and metadata factory."""
 
     @pytest.mark.asyncio
-    async def test_get_video_status_success_with_items_array(
-        self, configured_connector
-    ):
+    async def test_get_video_status_success_with_items_array(self, configured_connector):
         """Test get_video_status returns first item from items array."""
         configured_connector._access_token = "test_token"
         configured_connector._token_expiry = time.time() + 3600
@@ -547,9 +543,7 @@ class TestVideoStatusAndFactory:
             assert result["id"] == "abc123"
 
     @pytest.mark.asyncio
-    async def test_get_video_status_raises_error_when_token_unavailable(
-        self, configured_connector
-    ):
+    async def test_get_video_status_raises_error_when_token_unavailable(self, configured_connector):
         """Test that get_video_status raises error when token unavailable."""
         from aragora.connectors.youtube_uploader import YouTubeAuthError
 

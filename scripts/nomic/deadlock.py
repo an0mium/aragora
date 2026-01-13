@@ -115,12 +115,14 @@ class DeadlockManager:
             outcome: Outcome type (e.g., "success", "design_no_consensus")
             details: Optional additional details
         """
-        self.state.cycle_history.append({
-            "cycle": cycle,
-            "outcome": outcome,
-            "timestamp": datetime.now().isoformat(),
-            "details": details or {},
-        })
+        self.state.cycle_history.append(
+            {
+                "cycle": cycle,
+                "outcome": outcome,
+                "timestamp": datetime.now().isoformat(),
+                "details": details or {},
+            }
+        )
 
         # Trim history
         if len(self.state.cycle_history) > self.state.max_history:
@@ -176,12 +178,14 @@ class DeadlockManager:
         if key not in self.state.phase_progress:
             self.state.phase_progress[key] = []
 
-        self.state.phase_progress[key].append({
-            "round": round_num,
-            "consensus": consensus,
-            "changed": changed,
-            "timestamp": datetime.now(),
-        })
+        self.state.phase_progress[key].append(
+            {
+                "round": round_num,
+                "consensus": consensus,
+                "changed": changed,
+                "timestamp": datetime.now(),
+            }
+        )
 
         # Detect stall: 3+ rounds with <5% consensus change and no position changes
         history = self.state.phase_progress[key]
@@ -229,8 +233,7 @@ class DeadlockManager:
             if belief_network is not None:
                 try:
                     self._log(
-                        "  [DEADLOCK] Attempting counterfactual resolution "
-                        "via belief network..."
+                        "  [DEADLOCK] Attempting counterfactual resolution " "via belief network..."
                     )
                     contested = belief_network.get_contested_claims()
                     if contested:

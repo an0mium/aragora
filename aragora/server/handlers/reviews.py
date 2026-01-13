@@ -44,7 +44,7 @@ class ReviewsHandler(BaseHandler):
             return {"error": "Method not allowed", "status": 405}
 
         # Strip prefix
-        subpath = path[len(self.prefix):]
+        subpath = path[len(self.prefix) :]
 
         if not subpath or subpath == "/":
             # List recent reviews
@@ -70,14 +70,18 @@ class ReviewsHandler(BaseHandler):
             try:
                 data = json.loads(review_file.read_text())
                 # Return summary only
-                reviews.append({
-                    "id": data.get("id"),
-                    "created_at": data.get("created_at"),
-                    "agents": data.get("agents", []),
-                    "pr_url": data.get("pr_url"),
-                    "unanimous_count": len(data.get("findings", {}).get("unanimous_critiques", [])),
-                    "agreement_score": data.get("findings", {}).get("agreement_score", 0),
-                })
+                reviews.append(
+                    {
+                        "id": data.get("id"),
+                        "created_at": data.get("created_at"),
+                        "agents": data.get("agents", []),
+                        "pr_url": data.get("pr_url"),
+                        "unanimous_count": len(
+                            data.get("findings", {}).get("unanimous_critiques", [])
+                        ),
+                        "agreement_score": data.get("findings", {}).get("agreement_score", 0),
+                    }
+                )
             except (json.JSONDecodeError, KeyError):
                 continue
 

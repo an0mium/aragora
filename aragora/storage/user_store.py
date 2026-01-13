@@ -81,7 +81,8 @@ class UserStore:
         # Use class-level lock to prevent concurrent schema modifications
         with self._schema_lock, self._transaction() as cursor:
             # Users table
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS users (
                     id TEXT PRIMARY KEY,
                     email TEXT UNIQUE NOT NULL,
@@ -102,13 +103,15 @@ class UserStore:
                     last_login_at TEXT,
                     FOREIGN KEY (org_id) REFERENCES organizations(id)
                 )
-            """)
+            """
+            )
 
             # Migration: Add new columns if they don't exist
             self._migrate_api_key_columns(cursor)
 
             # Organizations table
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS organizations (
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -124,10 +127,12 @@ class UserStore:
                     updated_at TEXT NOT NULL,
                     FOREIGN KEY (owner_id) REFERENCES users(id)
                 )
-            """)
+            """
+            )
 
             # Usage events table
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS usage_events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     org_id TEXT NOT NULL,
@@ -137,10 +142,12 @@ class UserStore:
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (org_id) REFERENCES organizations(id)
                 )
-            """)
+            """
+            )
 
             # OAuth providers table (for SSO)
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS oauth_providers (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id TEXT NOT NULL,
@@ -151,10 +158,12 @@ class UserStore:
                     FOREIGN KEY (user_id) REFERENCES users(id),
                     UNIQUE(provider, provider_user_id)
                 )
-            """)
+            """
+            )
 
             # Audit log table (for billing/subscription changes)
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS audit_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
@@ -171,10 +180,12 @@ class UserStore:
                     FOREIGN KEY (user_id) REFERENCES users(id),
                     FOREIGN KEY (org_id) REFERENCES organizations(id)
                 )
-            """)
+            """
+            )
 
             # Organization invitations table
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS org_invitations (
                     id TEXT PRIMARY KEY,
                     org_id TEXT NOT NULL,
@@ -189,32 +200,45 @@ class UserStore:
                     FOREIGN KEY (org_id) REFERENCES organizations(id),
                     FOREIGN KEY (invited_by) REFERENCES users(id)
                 )
-            """)
+            """
+            )
 
             # Create indexes
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_api_key ON users(api_key)")
-            cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key_hash ON users(api_key_hash)")
+            cursor.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key_hash ON users(api_key_hash)"
+            )
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_org_id ON users(org_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_orgs_slug ON organizations(slug)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_orgs_stripe ON organizations(stripe_customer_id)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_orgs_stripe ON organizations(stripe_customer_id)"
+            )
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_usage_org ON usage_events(org_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_oauth_user ON oauth_providers(user_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_oauth_provider ON oauth_providers(provider, provider_user_id)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_oauth_provider ON oauth_providers(provider, provider_user_id)"
+            )
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_org ON audit_log(org_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_invitations_org ON org_invitations(org_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_invitations_email ON org_invitations(email)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_invitations_token ON org_invitations(token)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_invitations_status ON org_invitations(status)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_invitations_org ON org_invitations(org_id)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_invitations_email ON org_invitations(email)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_invitations_token ON org_invitations(token)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_invitations_status ON org_invitations(status)"
+            )
 
             # Composite indexes for common query patterns (Phase 5 optimization)
             # Filter users by org and role together (e.g., "get all admins in org X")
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_users_org_role ON users(org_id, role)"
-            )
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_org_role ON users(org_id, role)")
             # Active user lookups by email (common for authentication)
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_users_email_active ON users(email, is_active)"
@@ -298,14 +322,17 @@ class UserStore:
         migrated = 0
         with self._transaction() as cursor:
             # Find users with plaintext keys but no hash
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT id, api_key, api_key_created_at
                 FROM users
                 WHERE api_key IS NOT NULL
                   AND api_key_hash IS NULL
-            """)
+            """
+            )
 
             from datetime import timedelta
+
             for row in cursor.fetchall():
                 user_id = row[0]
                 api_key = row[1]
@@ -318,14 +345,17 @@ class UserStore:
                 # Set expiration to 1 year from now for existing keys
                 expires_at = (datetime.utcnow() + timedelta(days=365)).isoformat()
 
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE users
                     SET api_key_hash = ?,
                         api_key_prefix = ?,
                         api_key_expires_at = ?,
                         updated_at = ?
                     WHERE id = ?
-                """, (key_hash, prefix, expires_at, datetime.utcnow().isoformat(), user_id))
+                """,
+                    (key_hash, prefix, expires_at, datetime.utcnow().isoformat(), user_id),
+                )
 
                 migrated += 1
                 logger.info(f"Migrated API key for user {user_id}")
@@ -732,6 +762,7 @@ class UserStore:
 
     def _row_to_user(self, row: sqlite3.Row) -> User:
         """Convert database row to User object."""
+
         # Helper to safely get column that may not exist yet
         def safe_get(name: str, default=None):
             try:
@@ -752,17 +783,21 @@ class UserStore:
             api_key=row["api_key"],  # Legacy field
             api_key_hash=safe_get("api_key_hash"),
             api_key_prefix=safe_get("api_key_prefix"),
-            api_key_created_at=datetime.fromisoformat(row["api_key_created_at"])
-            if row["api_key_created_at"]
-            else None,
-            api_key_expires_at=datetime.fromisoformat(safe_get("api_key_expires_at"))
-            if safe_get("api_key_expires_at")
-            else None,
+            api_key_created_at=(
+                datetime.fromisoformat(row["api_key_created_at"])
+                if row["api_key_created_at"]
+                else None
+            ),
+            api_key_expires_at=(
+                datetime.fromisoformat(safe_get("api_key_expires_at"))
+                if safe_get("api_key_expires_at")
+                else None
+            ),
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
-            last_login_at=datetime.fromisoformat(row["last_login_at"])
-            if row["last_login_at"]
-            else None,
+            last_login_at=(
+                datetime.fromisoformat(row["last_login_at"]) if row["last_login_at"] else None
+            ),
             mfa_secret=safe_get("mfa_secret"),
             mfa_enabled=bool(safe_get("mfa_enabled", 0)),
             mfa_backup_codes=safe_get("mfa_backup_codes"),
@@ -796,6 +831,7 @@ class UserStore:
             slug = name.lower().replace(" ", "-").replace("_", "-")
             # Make unique by appending random suffix if needed
             import secrets
+
             base_slug = slug
             for _ in range(10):
                 with self._transaction() as cursor:
@@ -860,7 +896,9 @@ class UserStore:
                 return self._row_to_org(row)
         return None
 
-    def get_organization_by_stripe_customer(self, stripe_customer_id: str) -> Optional[Organization]:
+    def get_organization_by_stripe_customer(
+        self, stripe_customer_id: str
+    ) -> Optional[Organization]:
         """Get organization by Stripe customer ID."""
         with self._transaction() as cursor:
             cursor.execute(
@@ -958,9 +996,7 @@ class UserStore:
             cursor.execute("SELECT * FROM users WHERE org_id = ?", (org_id,))
             return [self._row_to_user(row) for row in cursor.fetchall()]
 
-    def get_org_members_eager(
-        self, org_id: str
-    ) -> tuple[Optional[Organization], list[User]]:
+    def get_org_members_eager(self, org_id: str) -> tuple[Optional[Organization], list[User]]:
         """
         Get organization and all its members in a single query operation.
 
@@ -1627,12 +1663,12 @@ class UserStore:
     # =========================================================================
 
     # Lockout policy constants
-    LOCKOUT_THRESHOLD_1 = 5   # 5 attempts -> 15 min lockout
+    LOCKOUT_THRESHOLD_1 = 5  # 5 attempts -> 15 min lockout
     LOCKOUT_THRESHOLD_2 = 10  # 10 attempts -> 1 hour lockout
     LOCKOUT_THRESHOLD_3 = 20  # 20 attempts -> 24 hour lockout
 
-    LOCKOUT_DURATION_1 = 15 * 60       # 15 minutes
-    LOCKOUT_DURATION_2 = 60 * 60       # 1 hour
+    LOCKOUT_DURATION_1 = 15 * 60  # 15 minutes
+    LOCKOUT_DURATION_2 = 60 * 60  # 1 hour
     LOCKOUT_DURATION_3 = 24 * 60 * 60  # 24 hours
 
     def is_account_locked(self, email: str) -> tuple[bool, Optional[datetime], int]:
@@ -1790,7 +1826,9 @@ class UserStore:
         # Warn if approaching lockout
         if not is_locked:
             if failed_attempts >= self.LOCKOUT_THRESHOLD_1 - 2:
-                info["warning"] = f"Account will be locked after {self.LOCKOUT_THRESHOLD_1 - failed_attempts} more failed attempts"
+                info["warning"] = (
+                    f"Account will be locked after {self.LOCKOUT_THRESHOLD_1 - failed_attempts} more failed attempts"
+                )
 
         return info
 

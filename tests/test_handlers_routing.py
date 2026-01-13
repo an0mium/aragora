@@ -24,6 +24,7 @@ from aragora.server.handlers.routing import RoutingHandler
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def routing_handler(handler_context):
     """Create a RoutingHandler with mock context."""
@@ -35,28 +36,31 @@ def mock_http_handler():
     """Create a mock HTTP handler object."""
     handler = Mock()
     handler.headers = {"Content-Type": "application/json"}
-    handler.command = 'GET'
+    handler.command = "GET"
     return handler
 
 
 @pytest.fixture
 def mock_http_handler_post():
     """Create a mock HTTP handler for POST requests."""
+
     def create_handler(body: dict):
         handler = Mock()
         handler.headers = {
             "Content-Type": "application/json",
-            "Content-Length": str(len(json.dumps(body)))
+            "Content-Length": str(len(json.dumps(body))),
         }
-        handler.command = 'POST'
+        handler.command = "POST"
         handler.rfile = io.BytesIO(json.dumps(body).encode())
         return handler
+
     return create_handler
 
 
 # =============================================================================
 # can_handle Tests
 # =============================================================================
+
 
 class TestCanHandle:
     """Test route matching for RoutingHandler."""
@@ -92,17 +96,14 @@ class TestCanHandle:
 # Best Teams Endpoint Tests
 # =============================================================================
 
+
 class TestBestTeamsEndpoint:
     """Test /api/routing/best-teams endpoint."""
 
     def test_best_teams_routing_unavailable_returns_503(self, routing_handler, mock_http_handler):
         """Test error when routing module unavailable."""
         with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", False):
-            result = routing_handler.handle(
-                "/api/routing/best-teams",
-                {},
-                mock_http_handler
-            )
+            result = routing_handler.handle("/api/routing/best-teams", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -115,12 +116,14 @@ class TestBestTeamsEndpoint:
             {"team": ["claude", "gemini"], "score": 0.85},
         ]
 
-        with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True), \
-             patch("aragora.server.handlers.routing.AgentSelector", return_value=mock_selector):
+        with (
+            patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True),
+            patch("aragora.server.handlers.routing.AgentSelector", return_value=mock_selector),
+        ):
             result = routing_handler.handle(
                 "/api/routing/best-teams",
                 {"min_debates": ["5"], "limit": ["10"]},
-                mock_http_handler
+                mock_http_handler,
             )
 
         assert result is not None
@@ -134,13 +137,15 @@ class TestBestTeamsEndpoint:
         mock_selector = MagicMock()
         mock_selector.get_best_team_combinations.return_value = []
 
-        with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True), \
-             patch("aragora.server.handlers.routing.AgentSelector", return_value=mock_selector):
+        with (
+            patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True),
+            patch("aragora.server.handlers.routing.AgentSelector", return_value=mock_selector),
+        ):
             # Should not error on extreme values
             result = routing_handler.handle(
                 "/api/routing/best-teams",
                 {"limit": ["1000"]},  # Will be clamped to 50
-                mock_http_handler
+                mock_http_handler,
             )
 
         assert result is not None
@@ -151,6 +156,7 @@ class TestBestTeamsEndpoint:
 # Domain Leaderboard Endpoint Tests
 # =============================================================================
 
+
 class TestDomainLeaderboardEndpoint:
     """Test /api/routing/domain-leaderboard endpoint."""
 
@@ -158,9 +164,7 @@ class TestDomainLeaderboardEndpoint:
         """Test error when routing module unavailable."""
         with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", False):
             result = routing_handler.handle(
-                "/api/routing/domain-leaderboard",
-                {},
-                mock_http_handler
+                "/api/routing/domain-leaderboard", {}, mock_http_handler
             )
 
         assert result is not None
@@ -174,13 +178,15 @@ class TestDomainLeaderboardEndpoint:
             {"agent": "gpt4", "score": 1250},
         ]
 
-        with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True), \
-             patch("aragora.server.handlers.routing.AgentSelector") as MockSelector:
+        with (
+            patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True),
+            patch("aragora.server.handlers.routing.AgentSelector") as MockSelector,
+        ):
             MockSelector.create_with_defaults.return_value = mock_selector
             result = routing_handler.handle(
                 "/api/routing/domain-leaderboard",
                 {"domain": ["coding"], "limit": ["5"]},
-                mock_http_handler
+                mock_http_handler,
             )
 
         assert result is not None
@@ -194,13 +200,13 @@ class TestDomainLeaderboardEndpoint:
         mock_selector = MagicMock()
         mock_selector.get_domain_leaderboard.return_value = []
 
-        with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True), \
-             patch("aragora.server.handlers.routing.AgentSelector") as MockSelector:
+        with (
+            patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True),
+            patch("aragora.server.handlers.routing.AgentSelector") as MockSelector,
+        ):
             MockSelector.create_with_defaults.return_value = mock_selector
             result = routing_handler.handle(
-                "/api/routing/domain-leaderboard",
-                {},
-                mock_http_handler
+                "/api/routing/domain-leaderboard", {}, mock_http_handler
             )
 
         assert result is not None
@@ -213,19 +219,18 @@ class TestDomainLeaderboardEndpoint:
 # Recommendations Endpoint Tests (POST)
 # =============================================================================
 
+
 class TestRecommendationsEndpoint:
     """Test /api/routing/recommendations endpoint."""
 
-    def test_recommendations_routing_unavailable_returns_503(self, routing_handler, mock_http_handler_post):
+    def test_recommendations_routing_unavailable_returns_503(
+        self, routing_handler, mock_http_handler_post
+    ):
         """Test error when routing module unavailable."""
         handler = mock_http_handler_post({"primary_domain": "coding"})
 
         with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", False):
-            result = routing_handler.handle_post(
-                "/api/routing/recommendations",
-                {},
-                handler
-            )
+            result = routing_handler.handle_post("/api/routing/recommendations", {}, handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -237,23 +242,21 @@ class TestRecommendationsEndpoint:
         handler.rfile = io.BytesIO(b"invalid json")
 
         with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True):
-            result = routing_handler.handle_post(
-                "/api/routing/recommendations",
-                {},
-                handler
-            )
+            result = routing_handler.handle_post("/api/routing/recommendations", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
 
     def test_recommendations_success(self, routing_handler, mock_http_handler_post):
         """Test successful recommendations retrieval."""
-        handler = mock_http_handler_post({
-            "primary_domain": "coding",
-            "secondary_domains": ["analysis"],
-            "required_traits": ["analytical"],
-            "limit": 3
-        })
+        handler = mock_http_handler_post(
+            {
+                "primary_domain": "coding",
+                "secondary_domains": ["analysis"],
+                "required_traits": ["analytical"],
+                "limit": 3,
+            }
+        )
 
         mock_selector = MagicMock()
         mock_selector.get_recommendations.return_value = [
@@ -261,14 +264,12 @@ class TestRecommendationsEndpoint:
             {"agent": "gpt4", "score": 0.85},
         ]
 
-        with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True), \
-             patch("aragora.server.handlers.routing.AgentSelector", return_value=mock_selector), \
-             patch("aragora.server.handlers.routing.TaskRequirements"):
-            result = routing_handler.handle_post(
-                "/api/routing/recommendations",
-                {},
-                handler
-            )
+        with (
+            patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True),
+            patch("aragora.server.handlers.routing.AgentSelector", return_value=mock_selector),
+            patch("aragora.server.handlers.routing.TaskRequirements"),
+        ):
+            result = routing_handler.handle_post("/api/routing/recommendations", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -281,19 +282,18 @@ class TestRecommendationsEndpoint:
 # Auto-Route Endpoint Tests (POST)
 # =============================================================================
 
+
 class TestAutoRouteEndpoint:
     """Test /api/routing/auto-route endpoint."""
 
-    def test_auto_route_routing_unavailable_returns_503(self, routing_handler, mock_http_handler_post):
+    def test_auto_route_routing_unavailable_returns_503(
+        self, routing_handler, mock_http_handler_post
+    ):
         """Test error when routing module unavailable."""
         handler = mock_http_handler_post({"task": "Build a REST API"})
 
         with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", False):
-            result = routing_handler.handle_post(
-                "/api/routing/auto-route",
-                {},
-                handler
-            )
+            result = routing_handler.handle_post("/api/routing/auto-route", {}, handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -302,24 +302,21 @@ class TestAutoRouteEndpoint:
         """Test error when task field missing."""
         handler = mock_http_handler_post({})
 
-        with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True), \
-             patch("aragora.server.handlers.routing.AgentSelector"), \
-             patch("aragora.server.handlers.routing.DomainDetector"):
-            result = routing_handler.handle_post(
-                "/api/routing/auto-route",
-                {},
-                handler
-            )
+        with (
+            patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True),
+            patch("aragora.server.handlers.routing.AgentSelector"),
+            patch("aragora.server.handlers.routing.DomainDetector"),
+        ):
+            result = routing_handler.handle_post("/api/routing/auto-route", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
 
     def test_auto_route_success(self, routing_handler, mock_http_handler_post):
         """Test successful auto-routing."""
-        handler = mock_http_handler_post({
-            "task": "Build a REST API with authentication",
-            "exclude": ["gpt4"]
-        })
+        handler = mock_http_handler_post(
+            {"task": "Build a REST API with authentication", "exclude": ["gpt4"]}
+        )
 
         mock_agent = MagicMock()
         mock_agent.name = "claude"
@@ -336,15 +333,13 @@ class TestAutoRouteEndpoint:
         mock_selector = MagicMock()
         mock_selector.auto_route.return_value = mock_team
 
-        with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True), \
-             patch("aragora.server.handlers.routing.AgentSelector") as MockSelector, \
-             patch("aragora.server.handlers.routing.DomainDetector"):
+        with (
+            patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True),
+            patch("aragora.server.handlers.routing.AgentSelector") as MockSelector,
+            patch("aragora.server.handlers.routing.DomainDetector"),
+        ):
             MockSelector.create_with_defaults.return_value = mock_selector
-            result = routing_handler.handle_post(
-                "/api/routing/auto-route",
-                {},
-                handler
-            )
+            result = routing_handler.handle_post("/api/routing/auto-route", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -358,19 +353,18 @@ class TestAutoRouteEndpoint:
 # Detect Domain Endpoint Tests (POST)
 # =============================================================================
 
+
 class TestDetectDomainEndpoint:
     """Test /api/routing/detect-domain endpoint."""
 
-    def test_detect_domain_routing_unavailable_returns_503(self, routing_handler, mock_http_handler_post):
+    def test_detect_domain_routing_unavailable_returns_503(
+        self, routing_handler, mock_http_handler_post
+    ):
         """Test error when routing module unavailable."""
         handler = mock_http_handler_post({"task": "Build a REST API"})
 
         with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", False):
-            result = routing_handler.handle_post(
-                "/api/routing/detect-domain",
-                {},
-                handler
-            )
+            result = routing_handler.handle_post("/api/routing/detect-domain", {}, handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -379,23 +373,20 @@ class TestDetectDomainEndpoint:
         """Test error when task field missing."""
         handler = mock_http_handler_post({})
 
-        with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True), \
-             patch("aragora.server.handlers.routing.DomainDetector"):
-            result = routing_handler.handle_post(
-                "/api/routing/detect-domain",
-                {},
-                handler
-            )
+        with (
+            patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True),
+            patch("aragora.server.handlers.routing.DomainDetector"),
+        ):
+            result = routing_handler.handle_post("/api/routing/detect-domain", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
 
     def test_detect_domain_success(self, routing_handler, mock_http_handler_post):
         """Test successful domain detection."""
-        handler = mock_http_handler_post({
-            "task": "Build a machine learning model for image classification",
-            "top_n": 3
-        })
+        handler = mock_http_handler_post(
+            {"task": "Build a machine learning model for image classification", "top_n": 3}
+        )
 
         mock_detector = MagicMock()
         mock_detector.detect.return_value = [
@@ -404,13 +395,11 @@ class TestDetectDomainEndpoint:
             ("data_science", 0.6),
         ]
 
-        with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True), \
-             patch("aragora.server.handlers.routing.DomainDetector", return_value=mock_detector):
-            result = routing_handler.handle_post(
-                "/api/routing/detect-domain",
-                {},
-                handler
-            )
+        with (
+            patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True),
+            patch("aragora.server.handlers.routing.DomainDetector", return_value=mock_detector),
+        ):
+            result = routing_handler.handle_post("/api/routing/detect-domain", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -428,13 +417,11 @@ class TestDetectDomainEndpoint:
         mock_detector = MagicMock()
         mock_detector.detect.return_value = [("general", 0.5)]
 
-        with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True), \
-             patch("aragora.server.handlers.routing.DomainDetector", return_value=mock_detector):
-            result = routing_handler.handle_post(
-                "/api/routing/detect-domain",
-                {},
-                handler
-            )
+        with (
+            patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True),
+            patch("aragora.server.handlers.routing.DomainDetector", return_value=mock_detector),
+        ):
+            result = routing_handler.handle_post("/api/routing/detect-domain", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -447,6 +434,7 @@ class TestDetectDomainEndpoint:
 # handle_post Routing Tests
 # =============================================================================
 
+
 class TestHandlePostRouting:
     """Test POST request routing."""
 
@@ -454,10 +442,6 @@ class TestHandlePostRouting:
         """Test unknown POST route returns None."""
         handler = mock_http_handler_post({"task": "test"})
 
-        result = routing_handler.handle_post(
-            "/api/routing/unknown",
-            {},
-            handler
-        )
+        result = routing_handler.handle_post("/api/routing/unknown", {}, handler)
 
         assert result is None

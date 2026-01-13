@@ -39,12 +39,14 @@ class DeepAuditConfig:
     enable_research: bool = True
 
     # Cognitive roles to rotate through
-    roles: list[CognitiveRole] = field(default_factory=lambda: [
-        CognitiveRole.ANALYST,
-        CognitiveRole.SKEPTIC,
-        CognitiveRole.LATERAL_THINKER,
-        CognitiveRole.ADVOCATE,
-    ])
+    roles: list[CognitiveRole] = field(
+        default_factory=lambda: [
+            CognitiveRole.ANALYST,
+            CognitiveRole.SKEPTIC,
+            CognitiveRole.LATERAL_THINKER,
+            CognitiveRole.ADVOCATE,
+        ]
+    )
 
     # Force synthesizer in final round
     synthesizer_final_round: bool = True
@@ -60,6 +62,7 @@ class DeepAuditConfig:
 @dataclass
 class AuditFinding:
     """A finding from the Deep Audit process."""
+
     category: str  # "unanimous", "split", "risk", "insight"
     summary: str
     details: str
@@ -73,6 +76,7 @@ class AuditFinding:
 @dataclass
 class DeepAuditVerdict:
     """The final verdict from a Deep Audit."""
+
     recommendation: str
     confidence: float
     findings: list[AuditFinding] = field(default_factory=list)
@@ -135,12 +139,14 @@ class DeepAuditOrchestrator:
         self.research_fn = research_fn  # Optional function for web research
 
         # Initialize role rotator
-        self.role_rotator = RoleRotator(RoleRotationConfig(
-            enabled=True,
-            roles=self.config.roles,
-            ensure_coverage=True,
-            synthesizer_final_round=self.config.synthesizer_final_round,
-        ))
+        self.role_rotator = RoleRotator(
+            RoleRotationConfig(
+                enabled=True,
+                roles=self.config.roles,
+                ensure_coverage=True,
+                synthesizer_final_round=self.config.synthesizer_final_round,
+            )
+        )
 
         # Tracking
         self.findings: list[AuditFinding] = []

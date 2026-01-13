@@ -119,8 +119,8 @@ class TestGatherEvidenceContext:
     async def test_returns_none_when_no_connectors_available(self):
         """Should return None when no evidence connectors are available."""
         gatherer = ContextGatherer()
-        with patch.dict('sys.modules', {'aragora.evidence.collector': None}):
-            with patch('aragora.debate.context_gatherer.logger'):
+        with patch.dict("sys.modules", {"aragora.evidence.collector": None}):
+            with patch("aragora.debate.context_gatherer.logger"):
                 # ImportError will be caught
                 result = await gatherer.gather_evidence_context("test task")
                 # Result depends on whether evidence module exists
@@ -143,7 +143,9 @@ class TestGatherEvidenceContext:
         mock_collector.collect_evidence = AsyncMock(return_value=mock_pack)
         mock_collector_class.return_value = mock_collector
 
-        with patch('aragora.debate.context_gatherer.ContextGatherer.gather_evidence_context') as mock:
+        with patch(
+            "aragora.debate.context_gatherer.ContextGatherer.gather_evidence_context"
+        ) as mock:
             mock.return_value = "## EVIDENCE CONTEXT\nEvidence text"
             result = await mock("test task")
             assert result is not None
@@ -170,16 +172,16 @@ class TestGatherTrendingContext:
         # Mock the PulseManager to raise an error during initialization
         # This tests the error handling path without manipulating sys.modules
         with patch(
-            'aragora.debate.context_gatherer.ContextGatherer.gather_trending_context',
+            "aragora.debate.context_gatherer.ContextGatherer.gather_trending_context",
             new_callable=AsyncMock,
-            return_value=None
+            return_value=None,
         ) as mock_method:
             # Verify the method handles errors gracefully
             result = await mock_method()
             assert result is None
 
         # Also test actual error handling by mocking the import at module level
-        with patch.dict('sys.modules', {'aragora.pulse.ingestor': None}):
+        with patch.dict("sys.modules", {"aragora.pulse.ingestor": None}):
             # When the module is None in sys.modules, import will fail
             # Create fresh gatherer to avoid any caching
             fresh_gatherer = ContextGatherer()
@@ -204,10 +206,10 @@ class TestGatherTrendingContext:
         mock_manager = MagicMock()
         mock_manager.get_trending_topics = AsyncMock(return_value=[mock_topic])
 
-        with patch('aragora.pulse.ingestor.PulseManager', return_value=mock_manager):
-            with patch('aragora.pulse.ingestor.TwitterIngestor'):
-                with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                    with patch('aragora.pulse.ingestor.RedditIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager", return_value=mock_manager):
+            with patch("aragora.pulse.ingestor.TwitterIngestor"):
+                with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                    with patch("aragora.pulse.ingestor.RedditIngestor"):
                         result = await gatherer.gather_trending_context()
                         # Will fail due to ImportError in test env
                         assert result is None or "TRENDING" in result
@@ -221,9 +223,11 @@ class TestGatherAll:
         """Should return default message when no context available."""
         gatherer = ContextGatherer(project_root=Path("/nonexistent"))
 
-        with patch.object(gatherer, 'gather_aragora_context', AsyncMock(return_value=None)):
-            with patch.object(gatherer, 'gather_evidence_context', AsyncMock(return_value=None)):
-                with patch.object(gatherer, 'gather_trending_context', AsyncMock(return_value=None)):
+        with patch.object(gatherer, "gather_aragora_context", AsyncMock(return_value=None)):
+            with patch.object(gatherer, "gather_evidence_context", AsyncMock(return_value=None)):
+                with patch.object(
+                    gatherer, "gather_trending_context", AsyncMock(return_value=None)
+                ):
                     result = await gatherer.gather_all("test task")
                     assert result == "No research context available."
 
@@ -232,9 +236,17 @@ class TestGatherAll:
         """Should combine context from multiple sources."""
         gatherer = ContextGatherer()
 
-        with patch.object(gatherer, 'gather_aragora_context', AsyncMock(return_value="## ARAGORA\nDocs")):
-            with patch.object(gatherer, 'gather_evidence_context', AsyncMock(return_value="## EVIDENCE\nData")):
-                with patch.object(gatherer, 'gather_trending_context', AsyncMock(return_value="## TRENDING\nTopics")):
+        with patch.object(
+            gatherer, "gather_aragora_context", AsyncMock(return_value="## ARAGORA\nDocs")
+        ):
+            with patch.object(
+                gatherer, "gather_evidence_context", AsyncMock(return_value="## EVIDENCE\nData")
+            ):
+                with patch.object(
+                    gatherer,
+                    "gather_trending_context",
+                    AsyncMock(return_value="## TRENDING\nTopics"),
+                ):
                     result = await gatherer.gather_all("test task")
 
                     assert "ARAGORA" in result
@@ -246,9 +258,13 @@ class TestGatherAll:
         """Should cache result and return cached value on subsequent calls."""
         gatherer = ContextGatherer()
 
-        with patch.object(gatherer, 'gather_aragora_context', AsyncMock(return_value="## CONTEXT\nTest")) as mock:
-            with patch.object(gatherer, 'gather_evidence_context', AsyncMock(return_value=None)):
-                with patch.object(gatherer, 'gather_trending_context', AsyncMock(return_value=None)):
+        with patch.object(
+            gatherer, "gather_aragora_context", AsyncMock(return_value="## CONTEXT\nTest")
+        ) as mock:
+            with patch.object(gatherer, "gather_evidence_context", AsyncMock(return_value=None)):
+                with patch.object(
+                    gatherer, "gather_trending_context", AsyncMock(return_value=None)
+                ):
                     result1 = await gatherer.gather_all("test task")
                     result2 = await gatherer.gather_all("test task")
 
@@ -261,9 +277,13 @@ class TestGatherAll:
         """Should return partial context if only some sources available."""
         gatherer = ContextGatherer()
 
-        with patch.object(gatherer, 'gather_aragora_context', AsyncMock(return_value=None)):
-            with patch.object(gatherer, 'gather_evidence_context', AsyncMock(return_value="## EVIDENCE\nData")):
-                with patch.object(gatherer, 'gather_trending_context', AsyncMock(return_value=None)):
+        with patch.object(gatherer, "gather_aragora_context", AsyncMock(return_value=None)):
+            with patch.object(
+                gatherer, "gather_evidence_context", AsyncMock(return_value="## EVIDENCE\nData")
+            ):
+                with patch.object(
+                    gatherer, "gather_trending_context", AsyncMock(return_value=None)
+                ):
                     result = await gatherer.gather_all("test task")
 
                     assert "EVIDENCE" in result
@@ -283,12 +303,12 @@ class TestIntegrationWithOrchestrator:
         )
 
         # Verify interface is compatible
-        assert hasattr(gatherer, 'gather_all')
-        assert hasattr(gatherer, 'gather_aragora_context')
-        assert hasattr(gatherer, 'gather_evidence_context')
-        assert hasattr(gatherer, 'gather_trending_context')
-        assert hasattr(gatherer, 'evidence_pack')
-        assert hasattr(gatherer, 'clear_cache')
+        assert hasattr(gatherer, "gather_all")
+        assert hasattr(gatherer, "gather_aragora_context")
+        assert hasattr(gatherer, "gather_evidence_context")
+        assert hasattr(gatherer, "gather_trending_context")
+        assert hasattr(gatherer, "evidence_pack")
+        assert hasattr(gatherer, "clear_cache")
 
     @pytest.mark.asyncio
     async def test_evidence_pack_updated_after_gather(self):

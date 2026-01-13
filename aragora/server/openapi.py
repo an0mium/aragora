@@ -57,16 +57,82 @@ COMMON_SCHEMAS = {
             "calibration_score": {"type": "number", "description": "Calibration accuracy (0-1)"},
         },
     },
+    "DebateStatus": {
+        "type": "string",
+        "enum": [
+            "created",
+            "starting",
+            "pending",
+            "running",
+            "in_progress",
+            "completed",
+            "failed",
+            "cancelled",
+            "paused",
+            "active",
+            "concluded",
+            "archived",
+        ],
+    },
+    "ConsensusResult": {
+        "type": "object",
+        "properties": {
+            "reached": {"type": "boolean"},
+            "agreement": {"type": "number"},
+            "confidence": {"type": "number"},
+            "final_answer": {"type": "string"},
+            "conclusion": {"type": "string"},
+            "supporting_agents": {"type": "array", "items": {"type": "string"}},
+            "dissenting_agents": {"type": "array", "items": {"type": "string"}},
+        },
+    },
+    "DebateCreateRequest": {
+        "type": "object",
+        "properties": {
+            "task": {"type": "string"},
+            "question": {"type": "string"},
+            "agents": {"type": "array", "items": {"type": "string"}},
+            "rounds": {"type": "integer"},
+            "consensus": {"type": "string"},
+            "context": {"type": "string"},
+            "auto_select": {"type": "boolean"},
+            "auto_select_config": {"type": "object"},
+            "use_trending": {"type": "boolean"},
+            "trending_category": {"type": "string"},
+        },
+    },
+    "DebateCreateResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "debate_id": {"type": "string"},
+            "status": {"$ref": "#/components/schemas/DebateStatus"},
+            "task": {"type": "string"},
+            "error": {"type": "string"},
+        },
+    },
     "Debate": {
         "type": "object",
         "properties": {
-            "id": {"type": "string", "description": "Debate ID"},
-            "topic": {"type": "string", "description": "Debate topic/question"},
-            "status": {"type": "string", "enum": ["active", "completed", "failed"]},
-            "created_at": {"type": "string", "format": "date-time"},
-            "agents": {"type": "array", "items": {"type": "string"}},
-            "rounds": {"type": "integer"},
+            "debate_id": {"type": "string"},
+            "id": {"type": "string"},
+            "slug": {"type": "string"},
+            "task": {"type": "string"},
+            "context": {"type": "string"},
+            "status": {"$ref": "#/components/schemas/DebateStatus"},
+            "outcome": {"type": "string"},
+            "final_answer": {"type": "string"},
+            "consensus": {"$ref": "#/components/schemas/ConsensusResult"},
+            "consensus_proof": {"type": "object"},
             "consensus_reached": {"type": "boolean"},
+            "confidence": {"type": "number"},
+            "rounds_used": {"type": "integer"},
+            "duration_seconds": {"type": "number"},
+            "agents": {"type": "array", "items": {"type": "string"}},
+            "rounds": {"type": "array", "items": {"$ref": "#/components/schemas/Round"}},
+            "created_at": {"type": "string", "format": "date-time"},
+            "completed_at": {"type": "string", "format": "date-time"},
+            "metadata": {"type": "object"},
         },
     },
     "Message": {
@@ -75,6 +141,7 @@ COMMON_SCHEMAS = {
             "role": {"type": "string", "enum": ["system", "user", "assistant"]},
             "content": {"type": "string"},
             "agent": {"type": "string"},
+            "agent_id": {"type": "string"},
             "round": {"type": "integer"},
             "timestamp": {"type": "string", "format": "date-time"},
         },
@@ -124,29 +191,50 @@ COMMON_SCHEMAS = {
 # Endpoint Definitions by Category
 # =============================================================================
 
+
 # Helper functions for common response patterns
 def _ok_response(description: str, schema_ref: str = None) -> dict:
     resp: dict = {"description": description}
     if schema_ref:
-        resp["content"] = {"application/json": {"schema": {"$ref": f"#/components/schemas/{schema_ref}"}}}
+        resp["content"] = {
+            "application/json": {"schema": {"$ref": f"#/components/schemas/{schema_ref}"}}
+        }
     return resp
+
 
 def _array_response(description: str, schema_ref: str):
     return {
         "description": description,
-        "content": {"application/json": {"schema": {"type": "object", "properties": {
-            "items": {"type": "array", "items": {"$ref": f"#/components/schemas/{schema_ref}"}},
-            "total": {"type": "integer"},
-        }}}},
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "items": {
+                            "type": "array",
+                            "items": {"$ref": f"#/components/schemas/{schema_ref}"},
+                        },
+                        "total": {"type": "integer"},
+                    },
+                }
+            }
+        },
     }
 
+
 def _error_response(status: str, description: str):
-    return {"description": description, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+    return {
+        "description": description,
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
+    }
+
 
 STANDARD_ERRORS = {
     "400": _error_response("400", "Bad request"),
     "401": _error_response("401", "Unauthorized"),
     "404": _error_response("404", "Not found"),
+    "402": _error_response("402", "Quota exceeded"),
+    "429": _error_response("429", "Rate limited"),
     "500": _error_response("500", "Server error"),
 }
 
@@ -195,7 +283,11 @@ SYSTEM_ENDPOINTS = {
             "summary": "Get nomic logs",
             "description": "Get recent nomic loop log lines",
             "parameters": [
-                {"name": "lines", "in": "query", "schema": {"type": "integer", "default": 100, "maximum": 1000}},
+                {
+                    "name": "lines",
+                    "in": "query",
+                    "schema": {"type": "integer", "default": 100, "maximum": 1000},
+                },
             ],
             "responses": {"200": _ok_response("Log lines")},
         },
@@ -206,7 +298,11 @@ SYSTEM_ENDPOINTS = {
             "summary": "Risk register",
             "description": "Get risk register entries from nomic loop execution",
             "parameters": [
-                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50, "maximum": 200}},
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "default": 50, "maximum": 200},
+                },
             ],
             "responses": {"200": _ok_response("Risk entries")},
         },
@@ -265,7 +361,15 @@ SYSTEM_ENDPOINTS = {
             "tags": ["System"],
             "summary": "Run database maintenance",
             "parameters": [
-                {"name": "task", "in": "query", "schema": {"type": "string", "enum": ["status", "vacuum", "analyze", "checkpoint", "full"], "default": "status"}},
+                {
+                    "name": "task",
+                    "in": "query",
+                    "schema": {
+                        "type": "string",
+                        "enum": ["status", "vacuum", "analyze", "checkpoint", "full"],
+                        "default": "status",
+                    },
+                },
             ],
             "responses": {"200": _ok_response("Maintenance results")},
         },
@@ -275,7 +379,9 @@ SYSTEM_ENDPOINTS = {
             "tags": ["System"],
             "summary": "OpenAPI specification",
             "description": "Get OpenAPI 3.0 schema for this API",
-            "responses": {"200": {"description": "OpenAPI schema", "content": {"application/json": {}}}},
+            "responses": {
+                "200": {"description": "OpenAPI schema", "content": {"application/json": {}}}
+            },
         },
     },
 }
@@ -290,7 +396,11 @@ AGENT_ENDPOINTS = {
             "summary": "List all agents",
             "description": "Get list of all known agents with optional stats",
             "parameters": [
-                {"name": "include_stats", "in": "query", "schema": {"type": "boolean", "default": False}},
+                {
+                    "name": "include_stats",
+                    "in": "query",
+                    "schema": {"type": "boolean", "default": False},
+                },
             ],
             "responses": {"200": _array_response("List of agents", "Agent")},
         },
@@ -301,8 +411,17 @@ AGENT_ENDPOINTS = {
             "summary": "Agent leaderboard",
             "description": "Get agents ranked by ELO rating",
             "parameters": [
-                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20, "maximum": 100}},
-                {"name": "domain", "in": "query", "schema": {"type": "string"}, "description": "Filter by expertise domain"},
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "default": 20, "maximum": 100},
+                },
+                {
+                    "name": "domain",
+                    "in": "query",
+                    "schema": {"type": "string"},
+                    "description": "Filter by expertise domain",
+                },
             ],
             "responses": {"200": _ok_response("Agent rankings")},
         },
@@ -335,7 +454,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Get agent profile",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Agent profile", "Agent"), **STANDARD_ERRORS},
         },
     },
@@ -354,7 +475,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Agent calibration data",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Calibration data", "Calibration")},
         },
     },
@@ -362,7 +485,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Agent calibration curve",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Calibration curve data")},
         },
     },
@@ -370,7 +495,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Agent calibration summary",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Calibration summary")},
         },
     },
@@ -378,7 +505,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Agent consistency score",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Consistency metrics")},
         },
     },
@@ -398,7 +527,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Agent relationship network",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Relationship network")},
         },
     },
@@ -406,7 +537,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Agent rivals",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Rival agents")},
         },
     },
@@ -414,7 +547,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Agent allies",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Allied agents")},
         },
     },
@@ -423,7 +558,9 @@ AGENT_ENDPOINTS = {
             "tags": ["Agents"],
             "summary": "Agent moments",
             "description": "Get significant moments for this agent",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Agent moments")},
         },
     },
@@ -431,7 +568,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Agent reputation",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Reputation data")},
         },
     },
@@ -439,7 +578,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Agent persona",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Persona data")},
         },
     },
@@ -448,7 +589,9 @@ AGENT_ENDPOINTS = {
             "tags": ["Agents"],
             "summary": "Agent grounded persona",
             "description": "Get persona derived from debate performance",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Grounded persona")},
         },
     },
@@ -456,7 +599,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Agent identity prompt",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Identity prompt")},
         },
     },
@@ -464,7 +609,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Agent performance",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Performance metrics")},
         },
     },
@@ -472,7 +619,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Agent expertise domains",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Domain expertise")},
         },
     },
@@ -480,7 +629,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Agent accuracy",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Accuracy metrics")},
         },
     },
@@ -500,7 +651,9 @@ AGENT_ENDPOINTS = {
         "get": {
             "tags": ["Agents"],
             "summary": "Recent matches",
-            "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}],
+            "parameters": [
+                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}
+            ],
             "responses": {"200": _ok_response("Recent matches")},
         },
     },
@@ -509,7 +662,9 @@ AGENT_ENDPOINTS = {
             "tags": ["Agents"],
             "summary": "Calibration leaderboard",
             "description": "Get agents ranked by calibration score",
-            "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}],
+            "parameters": [
+                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}
+            ],
             "responses": {"200": _ok_response("Calibration rankings")},
         },
     },
@@ -532,27 +687,84 @@ DEBATE_ENDPOINTS = {
             "summary": "List debates",
             "description": "Get list of all debates (requires auth)",
             "parameters": [
-                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20, "maximum": 100}},
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "default": 20, "maximum": 100},
+                },
                 {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
             ],
             "responses": {"200": _array_response("List of debates", "Debate")},
             "security": [{"bearerAuth": []}],
+        },
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Create a new debate",
+            "description": "Start a new multi-agent debate on a given topic",
+            "security": [{"bearerAuth": []}],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/DebateCreateRequest"}
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("Debate created successfully", "DebateCreateResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "402": STANDARD_ERRORS["402"],
+                "429": STANDARD_ERRORS["429"],
+            },
+        },
+    },
+    "/api/debate": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Create a new debate (deprecated)",
+            "description": "Deprecated. Use POST /api/debates instead.",
+            "deprecated": True,
+            "security": [{"bearerAuth": []}],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/DebateCreateRequest"}
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("Debate created successfully", "DebateCreateResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+            },
         },
     },
     "/api/debates/{id}": {
         "get": {
             "tags": ["Debates"],
             "summary": "Get debate by ID",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
-            "responses": {"200": _ok_response("Debate details", "Debate"), "404": STANDARD_ERRORS["404"]},
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response("Debate details", "Debate"),
+                "404": STANDARD_ERRORS["404"],
+            },
         },
     },
     "/api/debates/slug/{slug}": {
         "get": {
             "tags": ["Debates"],
             "summary": "Get debate by slug",
-            "parameters": [{"name": "slug", "in": "path", "required": True, "schema": {"type": "string"}}],
-            "responses": {"200": _ok_response("Debate details", "Debate"), "404": STANDARD_ERRORS["404"]},
+            "parameters": [
+                {"name": "slug", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response("Debate details", "Debate"),
+                "404": STANDARD_ERRORS["404"],
+            },
         },
     },
     "/api/debates/{id}/messages": {
@@ -562,7 +774,11 @@ DEBATE_ENDPOINTS = {
             "description": "Get paginated message history for a debate",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}},
-                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50, "maximum": 200}},
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "default": 50, "maximum": 200},
+                },
                 {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
             ],
             "responses": {"200": _ok_response("Paginated messages")},
@@ -573,7 +789,9 @@ DEBATE_ENDPOINTS = {
             "tags": ["Debates"],
             "summary": "Get convergence status",
             "description": "Check if debate has reached semantic convergence",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Convergence status")},
         },
     },
@@ -582,7 +800,9 @@ DEBATE_ENDPOINTS = {
             "tags": ["Debates"],
             "summary": "Get evidence citations",
             "description": "Get grounded verdict with evidence citations",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Citations and grounding score")},
         },
     },
@@ -590,7 +810,9 @@ DEBATE_ENDPOINTS = {
         "get": {
             "tags": ["Debates"],
             "summary": "Get debate evidence",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Evidence data")},
         },
     },
@@ -599,7 +821,9 @@ DEBATE_ENDPOINTS = {
             "tags": ["Debates"],
             "summary": "Get impasse status",
             "description": "Check if debate reached an impasse",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Impasse status")},
         },
     },
@@ -607,7 +831,9 @@ DEBATE_ENDPOINTS = {
         "get": {
             "tags": ["Debates"],
             "summary": "Get meta-critique",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Meta-critique data")},
         },
     },
@@ -615,7 +841,9 @@ DEBATE_ENDPOINTS = {
         "get": {
             "tags": ["Debates"],
             "summary": "Get debate graph stats",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Graph statistics")},
         },
     },
@@ -624,14 +852,32 @@ DEBATE_ENDPOINTS = {
             "tags": ["Debates"],
             "summary": "Fork debate",
             "description": "Create a counterfactual branch from a specific round",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "requestBody": {
-                "content": {"application/json": {"schema": {"type": "object", "properties": {
-                    "branch_point": {"type": "integer", "description": "Round to branch from"},
-                    "new_premise": {"type": "string", "description": "New premise for fork"},
-                }}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "branch_point": {
+                                    "type": "integer",
+                                    "description": "Round to branch from",
+                                },
+                                "new_premise": {
+                                    "type": "string",
+                                    "description": "New premise for fork",
+                                },
+                            },
+                        }
+                    }
+                },
             },
-            "responses": {"201": _ok_response("Forked debate created"), "400": STANDARD_ERRORS["400"]},
+            "responses": {
+                "201": _ok_response("Forked debate created"),
+                "400": STANDARD_ERRORS["400"],
+            },
         },
     },
     "/api/debates/{id}/export/{format}": {
@@ -640,7 +886,12 @@ DEBATE_ENDPOINTS = {
             "summary": "Export debate",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}},
-                {"name": "format", "in": "path", "required": True, "schema": {"type": "string", "enum": ["json", "markdown", "html", "pdf"]}},
+                {
+                    "name": "format",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string", "enum": ["json", "markdown", "html", "pdf"]},
+                },
             ],
             "responses": {"200": _ok_response("Exported debate")},
         },
@@ -650,12 +901,21 @@ DEBATE_ENDPOINTS = {
             "tags": ["Debates"],
             "summary": "Generate debate broadcast",
             "description": "Generate audio/video broadcast of debate",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "requestBody": {
-                "content": {"application/json": {"schema": {"type": "object", "properties": {
-                    "format": {"type": "string", "enum": ["audio", "video"]},
-                    "voices": {"type": "object"},
-                }}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "format": {"type": "string", "enum": ["audio", "video"]},
+                                "voices": {"type": "object"},
+                            },
+                        }
+                    }
+                },
             },
             "responses": {"202": _ok_response("Broadcast generation started")},
             "security": [{"bearerAuth": []}],
@@ -665,7 +925,9 @@ DEBATE_ENDPOINTS = {
         "post": {
             "tags": ["Social"],
             "summary": "Publish to Twitter",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Published to Twitter")},
             "security": [{"bearerAuth": []}],
         },
@@ -674,7 +936,9 @@ DEBATE_ENDPOINTS = {
         "post": {
             "tags": ["Social"],
             "summary": "Publish to YouTube",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Published to YouTube")},
             "security": [{"bearerAuth": []}],
         },
@@ -683,7 +947,9 @@ DEBATE_ENDPOINTS = {
         "get": {
             "tags": ["Auditing"],
             "summary": "Get red team results",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Red team results")},
         },
     },
@@ -757,7 +1023,9 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Insights"],
             "summary": "Recent position flips",
-            "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}],
+            "parameters": [
+                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}
+            ],
             "responses": {"200": _ok_response("Recent flips")},
         },
     },
@@ -772,7 +1040,9 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Insights"],
             "summary": "Recent insights",
-            "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}],
+            "parameters": [
+                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}
+            ],
             "responses": {"200": _ok_response("Recent insights")},
         },
     },
@@ -811,7 +1081,9 @@ ANALYTICS_ENDPOINTS = {
         "get": {
             "tags": ["Insights"],
             "summary": "Moments by type",
-            "parameters": [{"name": "type", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "type", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Moments of specified type")},
         },
     },
@@ -855,7 +1127,9 @@ CONSENSUS_ENDPOINTS = {
         "get": {
             "tags": ["Consensus"],
             "summary": "Dissenting views",
-            "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}],
+            "parameters": [
+                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}
+            ],
             "responses": {"200": _ok_response("Dissenting views")},
         },
     },
@@ -877,7 +1151,9 @@ CONSENSUS_ENDPOINTS = {
         "get": {
             "tags": ["Consensus"],
             "summary": "Domain consensus",
-            "parameters": [{"name": "domain", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "domain", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Domain consensus data")},
         },
     },
@@ -933,7 +1209,11 @@ MEMORY_ENDPOINTS = {
             "description": "Retrieve memories from continuum store",
             "parameters": [
                 {"name": "query", "in": "query", "schema": {"type": "string"}},
-                {"name": "tier", "in": "query", "schema": {"type": "string", "enum": ["fast", "medium", "slow", "glacial"]}},
+                {
+                    "name": "tier",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": ["fast", "medium", "slow", "glacial"]},
+                },
                 {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10}},
             ],
             "responses": {"200": _ok_response("Retrieved memories")},
@@ -981,7 +1261,9 @@ BELIEF_ENDPOINTS = {
         "get": {
             "tags": ["Belief"],
             "summary": "Get debate cruxes",
-            "parameters": [{"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Debate cruxes")},
         },
     },
@@ -989,7 +1271,9 @@ BELIEF_ENDPOINTS = {
         "get": {
             "tags": ["Belief"],
             "summary": "Get load-bearing claims",
-            "parameters": [{"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Load-bearing claims")},
         },
     },
@@ -997,7 +1281,9 @@ BELIEF_ENDPOINTS = {
         "get": {
             "tags": ["Belief"],
             "summary": "Get debate graph stats",
-            "parameters": [{"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Graph statistics")},
         },
     },
@@ -1012,7 +1298,13 @@ PULSE_ENDPOINTS = {
             "tags": ["Pulse"],
             "summary": "Trending topics",
             "description": "Get current trending debate topics",
-            "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10, "maximum": 50}}],
+            "parameters": [
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "default": 10, "maximum": 50},
+                }
+            ],
             "responses": {"200": _ok_response("Trending topics")},
         },
     },
@@ -1064,7 +1356,12 @@ METRICS_ENDPOINTS = {
             "tags": ["Monitoring"],
             "summary": "Prometheus metrics",
             "description": "Metrics in Prometheus format",
-            "responses": {"200": {"description": "Prometheus-formatted metrics", "content": {"text/plain": {}}}},
+            "responses": {
+                "200": {
+                    "description": "Prometheus-formatted metrics",
+                    "content": {"text/plain": {}},
+                }
+            },
         },
     },
 }
@@ -1198,7 +1495,9 @@ PLUGIN_ENDPOINTS = {
         "get": {
             "tags": ["Plugins"],
             "summary": "Get plugin details",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Plugin details")},
         },
     },
@@ -1206,7 +1505,9 @@ PLUGIN_ENDPOINTS = {
         "post": {
             "tags": ["Plugins"],
             "summary": "Run plugin",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
             "responses": {"200": _ok_response("Plugin result")},
             "security": [{"bearerAuth": []}],
@@ -1217,7 +1518,11 @@ PLUGIN_ENDPOINTS = {
             "tags": ["Laboratory"],
             "summary": "Emergent traits",
             "parameters": [
-                {"name": "min_confidence", "in": "query", "schema": {"type": "number", "default": 0.5}},
+                {
+                    "name": "min_confidence",
+                    "in": "query",
+                    "schema": {"type": "number", "default": 0.5},
+                },
                 {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}},
             ],
             "responses": {"200": _ok_response("Emergent traits")},
@@ -1247,7 +1552,9 @@ ADDITIONAL_ENDPOINTS = {
         "get": {
             "tags": ["Tournaments"],
             "summary": "Tournament standings",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Standings")},
         },
     },
@@ -1269,7 +1576,9 @@ ADDITIONAL_ENDPOINTS = {
         "get": {
             "tags": ["Genesis"],
             "summary": "Agent lineage",
-            "parameters": [{"name": "agent", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "agent", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Lineage data")},
         },
     },
@@ -1277,7 +1586,9 @@ ADDITIONAL_ENDPOINTS = {
         "get": {
             "tags": ["Genesis"],
             "summary": "Agent tree",
-            "parameters": [{"name": "agent", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "agent", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Tree data")},
         },
     },
@@ -1285,7 +1596,9 @@ ADDITIONAL_ENDPOINTS = {
         "get": {
             "tags": ["Evolution"],
             "summary": "Agent evolution history",
-            "parameters": [{"name": "agent", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "agent", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Evolution history")},
         },
     },
@@ -1300,7 +1613,9 @@ ADDITIONAL_ENDPOINTS = {
         "get": {
             "tags": ["Replays"],
             "summary": "Get replay",
-            "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Replay data")},
         },
     },
@@ -1354,11 +1669,20 @@ ADDITIONAL_ENDPOINTS = {
         "post": {
             "tags": ["Routing"],
             "summary": "Agent recommendations",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object", "properties": {
-                "primary_domain": {"type": "string"},
-                "secondary_domains": {"type": "array", "items": {"type": "string"}},
-                "required_traits": {"type": "array", "items": {"type": "string"}},
-            }}}}},
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "primary_domain": {"type": "string"},
+                                "secondary_domains": {"type": "array", "items": {"type": "string"}},
+                                "required_traits": {"type": "array", "items": {"type": "string"}},
+                            },
+                        }
+                    }
+                }
+            },
             "responses": {"200": _ok_response("Recommendations")},
         },
     },
@@ -1387,7 +1711,9 @@ ADDITIONAL_ENDPOINTS = {
         "get": {
             "tags": ["Introspection"],
             "summary": "Agent introspection",
-            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
             "responses": {"200": _ok_response("Agent introspection")},
         },
     },
@@ -1421,15 +1747,15 @@ def generate_openapi_schema() -> dict[str, Any]:
         "info": {
             "title": "Aragora API",
             "description": "AI red team / decision stress-test API for Aragora LiveWire. "
-                          "Provides endpoints for gauntlet runs, debate-backed decision receipts, "
-                          "agent rankings, consensus tracking, and real-time collaboration.",
+            "Provides endpoints for gauntlet runs, debate-backed decision receipts, "
+            "agent rankings, consensus tracking, and real-time collaboration.",
             "version": API_VERSION,
             "contact": {"name": "Aragora Team"},
             "license": {"name": "MIT"},
         },
         "servers": [
             {"url": "http://localhost:8080", "description": "Development server"},
-            {"url": "https://api.aragora.dev", "description": "Production server"},
+            {"url": "https://api.aragora.ai", "description": "Production server"},
         ],
         "tags": [
             {"name": "System", "description": "Health checks and system status"},
@@ -1483,6 +1809,7 @@ def get_openapi_yaml() -> str:
     """Get OpenAPI schema as YAML string."""
     try:
         import yaml
+
         return yaml.dump(generate_openapi_schema(), default_flow_style=False, sort_keys=False)
     except ImportError:
         # Fallback to JSON if PyYAML not installed

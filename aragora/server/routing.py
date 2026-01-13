@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 
 # Maximum values for integer/float parameters to prevent overflow attacks
 _MAX_INT_VALUE = 2**31 - 1  # 32-bit signed int max
-_MIN_INT_VALUE = -(2**31)   # 32-bit signed int min
-_MAX_FLOAT_VALUE = 1e308    # Avoid float overflow
+_MIN_INT_VALUE = -(2**31)  # 32-bit signed int min
+_MAX_FLOAT_VALUE = 1e308  # Avoid float overflow
 
 
 class ParameterConversionError(ValueError):
@@ -79,8 +79,10 @@ def _convert_int(value: str) -> int:
         result = int(value)
         if result > _MAX_INT_VALUE or result < _MIN_INT_VALUE:
             raise ParameterConversionError(
-                "unknown", value, "int",
-                f"value out of bounds ({_MIN_INT_VALUE} to {_MAX_INT_VALUE})"
+                "unknown",
+                value,
+                "int",
+                f"value out of bounds ({_MIN_INT_VALUE} to {_MAX_INT_VALUE})",
             )
         return result
     except ValueError as e:
@@ -103,8 +105,7 @@ def _convert_float(value: str) -> float:
         result = float(value)
         if abs(result) > _MAX_FLOAT_VALUE:
             raise ParameterConversionError(
-                "unknown", value, "float",
-                f"value out of bounds (magnitude <= {_MAX_FLOAT_VALUE})"
+                "unknown", value, "float", f"value out of bounds (magnitude <= {_MAX_FLOAT_VALUE})"
             )
         return result
     except ValueError as e:
@@ -124,6 +125,7 @@ PARAM_PATTERNS = {
 @dataclass
 class ParamSpec:
     """Specification for a route parameter."""
+
     name: str
     param_type: type = str
     pattern: Optional[str] = None  # Key in PARAM_PATTERNS or custom regex
@@ -172,9 +174,7 @@ class ParamSpec:
             return value
         except ParameterConversionError as e:
             # Re-raise with proper parameter name
-            raise ParameterConversionError(
-                self.name, value, e.expected_type, e.reason
-            )
+            raise ParameterConversionError(self.name, value, e.expected_type, e.reason)
 
 
 @dataclass
@@ -188,6 +188,7 @@ class Route:
         /api/agent/{name}/profile - captures 'name', matches literal 'profile'
         /api/debates/* - wildcard, matches any suffix
     """
+
     pattern: str
     handler_name: str  # Handler class name for lookup
     method: str = "GET"
@@ -277,6 +278,7 @@ class Route:
 @dataclass
 class RouteMatch:
     """Result of matching a request to a route."""
+
     route: Route
     path: str
     method: str
@@ -455,13 +457,11 @@ def create_default_routes() -> List[Route]:
         api_route("/api/history/events", "SystemHandler"),
         api_route("/api/history/debates", "SystemHandler"),
         api_route("/api/history/summary", "SystemHandler"),
-
         # Debates routes
         api_route("/api/debates", "DebatesHandler"),
         api_route("/api/debates/{id}", "DebatesHandler", id={"pattern": "slug"}),
         api_route("/api/debates/{id}/export", "DebatesHandler", id={"pattern": "slug"}),
         api_route("/api/debates/{id}/messages", "DebatesHandler", id={"pattern": "slug"}),
-
         # Agent routes
         api_route("/api/leaderboard", "AgentsHandler"),
         api_route("/api/rankings", "AgentsHandler"),
@@ -486,7 +486,6 @@ def create_default_routes() -> List[Route]:
         ),
         api_route("/api/flips/recent", "AgentsHandler"),
         api_route("/api/flips/summary", "AgentsHandler"),
-
         # Analytics routes
         api_route("/api/analytics/disagreements", "AnalyticsHandler"),
         api_route("/api/analytics/role-rotation", "AnalyticsHandler"),
@@ -494,11 +493,9 @@ def create_default_routes() -> List[Route]:
         api_route("/api/ranking/stats", "AnalyticsHandler"),
         api_route("/api/memory/stats", "AnalyticsHandler"),
         api_route("/api/memory/tier-stats", "AnalyticsHandler"),
-
         # Pulse routes
         api_route("/api/pulse/trending", "PulseHandler"),
         api_route("/api/pulse/suggest", "PulseHandler"),
-
         # Consensus routes
         api_route("/api/consensus/similar", "ConsensusHandler"),
         api_route("/api/consensus/settled", "ConsensusHandler"),
@@ -506,47 +503,54 @@ def create_default_routes() -> List[Route]:
         api_route("/api/consensus/dissents", "ConsensusHandler"),
         api_route("/api/consensus/contrarian-views", "ConsensusHandler"),
         api_route("/api/consensus/risk-warnings", "ConsensusHandler"),
-        api_route("/api/consensus/domain/{domain}", "ConsensusHandler", domain={"pattern": "domain"}),
-
+        api_route(
+            "/api/consensus/domain/{domain}", "ConsensusHandler", domain={"pattern": "domain"}
+        ),
         # Belief network routes
-        api_route("/api/belief-network/{debate_id}/cruxes", "BeliefHandler", debate_id={"pattern": "id"}),
-        api_route("/api/belief-network/{debate_id}/claims/{claim_id}/support", "BeliefHandler",
-                  debate_id={"pattern": "id"}, claim_id={"pattern": "id"}),
-        api_route("/api/belief-network/{debate_id}/trace", "BeliefHandler", debate_id={"pattern": "id"}),
-
+        api_route(
+            "/api/belief-network/{debate_id}/cruxes", "BeliefHandler", debate_id={"pattern": "id"}
+        ),
+        api_route(
+            "/api/belief-network/{debate_id}/claims/{claim_id}/support",
+            "BeliefHandler",
+            debate_id={"pattern": "id"},
+            claim_id={"pattern": "id"},
+        ),
+        api_route(
+            "/api/belief-network/{debate_id}/trace", "BeliefHandler", debate_id={"pattern": "id"}
+        ),
         # Critique routes
         api_route("/api/critique/patterns", "CritiqueHandler"),
-        api_route("/api/critique/patterns/domain/{domain}", "CritiqueHandler", domain={"pattern": "domain"}),
+        api_route(
+            "/api/critique/patterns/domain/{domain}",
+            "CritiqueHandler",
+            domain={"pattern": "domain"},
+        ),
         api_route("/api/critique/reputation/{agent}", "CritiqueHandler", agent={"pattern": "name"}),
-
         # Genesis routes
         api_route("/api/genesis/ledger", "GenesisHandler"),
         api_route("/api/genesis/genome/{genome_id}", "GenesisHandler", genome_id={"pattern": "id"}),
-        api_route("/api/genesis/debate/{debate_id}/events", "GenesisHandler", debate_id={"pattern": "id"}),
-
+        api_route(
+            "/api/genesis/debate/{debate_id}/events", "GenesisHandler", debate_id={"pattern": "id"}
+        ),
         # Replay routes
         api_route("/api/replays", "ReplaysHandler"),
         api_route("/api/replays/{id}", "ReplaysHandler", id={"pattern": "id"}),
         api_route("/api/replays/{id}/evolution", "ReplaysHandler", id={"pattern": "id"}),
         api_route("/api/replays/{id}/events", "ReplaysHandler", id={"pattern": "id"}),
-
         # Tournament routes
         api_route("/api/tournaments/active", "TournamentHandler"),
         api_route("/api/tournaments/{id}", "TournamentHandler", id={"pattern": "id"}),
         api_route("/api/tournaments/{id}/brackets", "TournamentHandler", id={"pattern": "id"}),
         api_route("/api/tournaments/{id}/calibration", "TournamentHandler", id={"pattern": "id"}),
-
         # Memory routes
         api_route("/api/memory/continuum/retrieve", "MemoryHandler"),
         api_route("/api/memory/continuum/consolidate", "MemoryHandler", method="POST"),
-
         # Leaderboard view
         api_route("/api/leaderboard-view", "LeaderboardViewHandler"),
-
         # Metrics
         api_route("/api/metrics", "MetricsHandler"),
         api_route("/api/metrics/cache", "MetricsHandler"),
-
         # Dashboard
         api_route("/api/dashboard/debates", "DashboardHandler"),
     ]

@@ -61,13 +61,9 @@ async def run(context: PluginContext) -> dict:
 
     # Build command
     if tool == "ruff":
-        cmd = _build_ruff_command(
-            files, exclude, max_line_length, select_rules, ignore_rules
-        )
+        cmd = _build_ruff_command(files, exclude, max_line_length, select_rules, ignore_rules)
     else:
-        cmd = _build_flake8_command(
-            files, exclude, max_line_length, select_rules, ignore_rules
-        )
+        cmd = _build_flake8_command(files, exclude, max_line_length, select_rules, ignore_rules)
 
     # Run linter
     try:
@@ -77,10 +73,7 @@ async def run(context: PluginContext) -> dict:
             stderr=asyncio.subprocess.PIPE,
             cwd=context.working_dir,
         )
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(),
-            timeout=30.0
-        )
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30.0)
     except asyncio.TimeoutError:
         context.error("Linting timed out after 30 seconds")
         return {"issues": [], "error": "Timeout"}
@@ -181,14 +174,16 @@ def _parse_output(output: str, tool: str) -> list[dict]:
         try:
             data = json.loads(output) if output.strip() else []
             for item in data:
-                issues.append({
-                    "file": item.get("filename", ""),
-                    "line": item.get("location", {}).get("row", 0),
-                    "column": item.get("location", {}).get("column", 0),
-                    "code": item.get("code", ""),
-                    "message": item.get("message", ""),
-                    "severity": _code_to_severity(item.get("code", "")),
-                })
+                issues.append(
+                    {
+                        "file": item.get("filename", ""),
+                        "line": item.get("location", {}).get("row", 0),
+                        "column": item.get("location", {}).get("column", 0),
+                        "code": item.get("code", ""),
+                        "message": item.get("message", ""),
+                        "severity": _code_to_severity(item.get("code", "")),
+                    }
+                )
         except json.JSONDecodeError:
             # Fall back to text parsing
             for line in output.strip().split("\n"):
@@ -202,13 +197,15 @@ def _parse_output(output: str, tool: str) -> list[dict]:
                 continue
             parts = line.split(":", 3)
             if len(parts) >= 4:
-                issues.append({
-                    "file": parts[0],
-                    "line": int(parts[1]) if parts[1].isdigit() else 0,
-                    "column": int(parts[2]) if parts[2].isdigit() else 0,
-                    "message": parts[3].strip(),
-                    "severity": "warning",
-                })
+                issues.append(
+                    {
+                        "file": parts[0],
+                        "line": int(parts[1]) if parts[1].isdigit() else 0,
+                        "column": int(parts[2]) if parts[2].isdigit() else 0,
+                        "message": parts[3].strip(),
+                        "severity": "warning",
+                    }
+                )
 
     return issues
 

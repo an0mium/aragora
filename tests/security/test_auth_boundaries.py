@@ -23,6 +23,7 @@ class TestTokenValidation:
 
     def test_rejects_empty_token(self):
         """Empty tokens should be rejected."""
+
         def validate_token(token: str) -> bool:
             if not token or not token.strip():
                 return False
@@ -34,6 +35,7 @@ class TestTokenValidation:
 
     def test_rejects_malformed_bearer_header(self):
         """Malformed Authorization headers should be rejected."""
+
         def extract_token(auth_header: str) -> str | None:
             if not auth_header:
                 return None
@@ -53,6 +55,7 @@ class TestTokenValidation:
 
     def test_rejects_expired_token(self):
         """Expired tokens should be rejected."""
+
         def is_token_expired(expiry_timestamp: float) -> bool:
             return time.time() > expiry_timestamp
 
@@ -66,6 +69,7 @@ class TestTokenValidation:
 
     def test_rejects_token_from_future(self):
         """Tokens with future issued-at should be rejected."""
+
         def is_token_valid_time(issued_at: float, max_clock_skew: float = 60) -> bool:
             now = time.time()
             # Token issued in future (beyond clock skew) is suspicious
@@ -131,6 +135,7 @@ class TestAuthorizationBoundaries:
 
     def test_user_cannot_access_other_org_resources(self):
         """Users should only access their own organization's resources."""
+
         def check_org_access(user_org: str, resource_org: str) -> bool:
             return user_org == resource_org
 
@@ -139,6 +144,7 @@ class TestAuthorizationBoundaries:
 
     def test_debate_ownership_enforced(self):
         """Users should only access debates they own or have access to."""
+
         class MockDebate:
             def __init__(self, owner_org: str, shared_with: list = None):
                 self.owner_org = owner_org
@@ -159,6 +165,7 @@ class TestAuthorizationBoundaries:
 
     def test_gauntlet_result_access_control(self):
         """Gauntlet results should respect org boundaries."""
+
         def can_access_gauntlet_result(user_org: str, result_org: str) -> bool:
             return user_org == result_org
 
@@ -167,6 +174,7 @@ class TestAuthorizationBoundaries:
 
     def test_api_key_scoping(self):
         """API keys should be scoped to specific permissions."""
+
         class APIKey:
             def __init__(self, scopes: list):
                 self.scopes = set(scopes)
@@ -214,6 +222,7 @@ class TestSessionSecurity:
 
     def test_session_binding(self):
         """Sessions should be bound to user attributes."""
+
         class Session:
             def __init__(self, user_id: str, ip: str, user_agent: str):
                 self.user_id = user_id
@@ -279,6 +288,7 @@ class TestCORSSecurity:
 
     def test_wildcard_origin_rejected_for_credentials(self):
         """Wildcard origin (*) should not be used with credentials."""
+
         def validate_cors_config(allow_origin: str, allow_credentials: bool) -> bool:
             # Can't use wildcard with credentials
             if allow_origin == "*" and allow_credentials:
@@ -294,10 +304,7 @@ class TestCORSSecurity:
         ALLOWED_METHODS = {"GET", "POST", "PUT", "DELETE", "PATCH"}
         ALLOWED_HEADERS = {"Content-Type", "Authorization", "X-Request-ID"}
 
-        def validate_preflight(
-            requested_method: str,
-            requested_headers: list[str]
-        ) -> bool:
+        def validate_preflight(requested_method: str, requested_headers: list[str]) -> bool:
             if requested_method not in ALLOWED_METHODS:
                 return False
             for header in requested_headers:
@@ -363,6 +370,7 @@ class TestMultiTenancySecurity:
 
     def test_org_data_isolation(self):
         """Organizations should have complete data isolation."""
+
         class MockDatabase:
             def __init__(self):
                 self.data = {
@@ -382,6 +390,7 @@ class TestMultiTenancySecurity:
 
     def test_sql_query_includes_org_filter(self):
         """SQL queries should always include org_id filter."""
+
         def build_safe_query(base_query: str, org_id: str) -> tuple[str, tuple]:
             """Ensure org_id filter is always present."""
             # Add org_id filter if not present

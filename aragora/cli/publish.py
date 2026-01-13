@@ -408,13 +408,15 @@ Examples:
         """,
     )
     parser.add_argument(
-        "--format", "-f",
+        "--format",
+        "-f",
         choices=["html", "md", "json"],
         default="html",
         help="Output format (default: html)",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default=".",
         help="Output directory (default: current)",
     )
@@ -438,9 +440,18 @@ Examples:
             rounds_used=2,
             duration_seconds=45.3,
             messages=[
-                Message(role="proposer", agent="gemini", content="Python is the clear winner...", round=0),
-                Message(role="proposer", agent="codex", content="We should consider Rust...", round=0),
-                Message(role="critic", agent="claude", content="Both have valid points...", round=1),
+                Message(
+                    role="proposer",
+                    agent="gemini",
+                    content="Python is the clear winner...",
+                    round=0,
+                ),
+                Message(
+                    role="proposer", agent="codex", content="We should consider Rust...", round=0
+                ),
+                Message(
+                    role="critic", agent="claude", content="Both have valid points...", round=1
+                ),
             ],
             critiques=[
                 Critique(

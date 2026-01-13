@@ -21,9 +21,11 @@ from aragora.insights.extractor import (
 # Test Data Fixtures
 # ============================================================================
 
+
 @dataclass
 class MockCritique:
     """Mock critique object."""
+
     agent: str = "claude"
     target_agent: str = "gpt4"
     issues: list = field(default_factory=list)
@@ -33,6 +35,7 @@ class MockCritique:
 @dataclass
 class MockVote:
     """Mock vote object."""
+
     agent: str = "claude"
     choice: str = "A"
 
@@ -40,6 +43,7 @@ class MockVote:
 @dataclass
 class MockMessage:
     """Mock message object."""
+
     agent: str = "claude"
     content: str = "Test message"
 
@@ -47,6 +51,7 @@ class MockMessage:
 @dataclass
 class MockDebateResult:
     """Mock debate result for testing."""
+
     id: str = "debate_001"
     task: str = "Test task"
     consensus_reached: bool = True
@@ -65,6 +70,7 @@ class MockDebateResult:
 # ============================================================================
 # Insight Dataclass Tests
 # ============================================================================
+
 
 class TestInsight:
     """Tests for Insight dataclass."""
@@ -151,16 +157,28 @@ class TestDebateInsights:
     def test_all_insights_with_content(self):
         """Should collect all insights types."""
         consensus = Insight(
-            id="c1", type=InsightType.CONSENSUS, title="T",
-            description="D", confidence=0.9, debate_id="d001",
+            id="c1",
+            type=InsightType.CONSENSUS,
+            title="T",
+            description="D",
+            confidence=0.9,
+            debate_id="d001",
         )
         dissent = Insight(
-            id="d1", type=InsightType.DISSENT, title="T",
-            description="D", confidence=0.6, debate_id="d001",
+            id="d1",
+            type=InsightType.DISSENT,
+            title="T",
+            description="D",
+            confidence=0.6,
+            debate_id="d001",
         )
         pattern = Insight(
-            id="p1", type=InsightType.PATTERN, title="T",
-            description="D", confidence=0.7, debate_id="d001",
+            id="p1",
+            type=InsightType.PATTERN,
+            title="T",
+            description="D",
+            confidence=0.7,
+            debate_id="d001",
         )
 
         insights = DebateInsights(
@@ -183,6 +201,7 @@ class TestDebateInsights:
 # ============================================================================
 # InsightExtractor Tests
 # ============================================================================
+
 
 class TestInsightExtractor:
     """Tests for InsightExtractor class."""
@@ -271,10 +290,7 @@ class TestInsightExtractor:
         insights = await extractor.extract(result)
 
         # Should find security pattern (2 mentions)
-        security_patterns = [
-            p for p in insights.pattern_insights
-            if "security" in p.title.lower()
-        ]
+        security_patterns = [p for p in insights.pattern_insights if "security" in p.title.lower()]
         assert len(security_patterns) == 1
 
     @pytest.mark.asyncio
@@ -470,6 +486,7 @@ class TestInsightExtractorEdgeCases:
     @pytest.mark.asyncio
     async def test_extract_generates_id_from_hash(self, extractor):
         """Should generate ID when not provided."""
+
         @dataclass
         class ResultWithoutId:
             task: str = "Test"
@@ -486,6 +503,7 @@ class TestInsightExtractorEdgeCases:
 # ============================================================================
 # Additional Edge Case Tests (Phase 2 Coverage Improvements)
 # ============================================================================
+
 
 class TestInsightExtractorAdditionalEdgeCases:
     """Additional edge case tests for InsightExtractor."""
@@ -613,8 +631,7 @@ class TestInsightExtractorAdditionalEdgeCases:
         """Should handle debates with many messages."""
         # Create a large debate with 500 messages
         large_messages = [
-            {"agent": f"agent-{i % 5}", "content": f"Message {i}"}
-            for i in range(500)
+            {"agent": f"agent-{i % 5}", "content": f"Message {i}"} for i in range(500)
         ]
 
         result = MockDebateResult(
@@ -755,7 +772,7 @@ class TestInsightExtractorAdditionalEdgeCases:
             messages=[
                 {"agent": "agent<script>", "content": "msg"},
                 {"agent": "agent&name", "content": "msg"},
-                {"agent": "agent\"quotes\"", "content": "msg"},
+                {"agent": 'agent"quotes"', "content": "msg"},
             ],
         )
 
@@ -811,7 +828,9 @@ class TestInsightExtractorAdditionalEdgeCases:
 
     def test_categorize_issue_partial_match(self, extractor):
         """Issue categorization should match partial keywords."""
-        assert extractor._categorize_issue("vulnerabilities found") == "security"  # matches 'vulnerab'
+        assert (
+            extractor._categorize_issue("vulnerabilities found") == "security"
+        )  # matches 'vulnerab'
         assert extractor._categorize_issue("readable code") == "clarity"  # matches 'readab'
 
     @pytest.mark.asyncio

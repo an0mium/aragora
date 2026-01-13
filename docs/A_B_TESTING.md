@@ -29,7 +29,7 @@ manager = ABTestManager(db_path="ab_tests.db")
 
 # Create a test comparing two prompts
 test = manager.create_test(
-    agent_name="claude-3-opus",
+    agent_name="anthropic-api",
     control_prompt="You are a thoughtful debate participant...",
     variant_prompt="You are an analytical debater who prioritizes evidence...",
     description="Testing evidence-focused prompt",
@@ -54,7 +54,7 @@ GET /api/evolution/ab-tests?limit=10&status=running
   "tests": [
     {
       "id": "test_abc123",
-      "agent_name": "claude-3-opus",
+      "agent_name": "anthropic-api",
       "status": "running",
       "control_wins": 12,
       "variant_wins": 18,
@@ -78,7 +78,7 @@ GET /api/evolution/ab-tests/{agent_name}/active
 {
   "test": {
     "id": "test_abc123",
-    "agent_name": "claude-3-opus",
+    "agent_name": "anthropic-api",
     "control_prompt": "You are a thoughtful...",
     "variant_prompt": "You are an analytical...",
     "control_wins": 12,
@@ -95,7 +95,7 @@ POST /api/evolution/ab-tests
 Content-Type: application/json
 
 {
-  "agent_name": "claude-3-opus",
+  "agent_name": "anthropic-api",
   "control_prompt": "You are a thoughtful debate participant...",
   "variant_prompt": "You are an analytical debater...",
   "description": "Testing evidence-focused prompt",
@@ -176,7 +176,7 @@ Identify a potential improvement to test:
 
 ```python
 test = manager.create_test(
-    agent_name="claude-3-opus",
+    agent_name="anthropic-api",
     control_prompt=current_prompt,  # Existing prompt
     variant_prompt=new_prompt,       # Proposed improvement
     description="Testing structured argumentation",

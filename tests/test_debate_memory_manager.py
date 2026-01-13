@@ -17,6 +17,7 @@ from aragora.memory.continuum import MemoryTier
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_continuum_memory():
     """Create a mock ContinuumMemory."""
@@ -109,6 +110,7 @@ def memory_manager(
 # Initialization Tests
 # ============================================================================
 
+
 class TestMemoryManagerInit:
     """Tests for MemoryManager initialization."""
 
@@ -181,6 +183,7 @@ class TestMemoryManagerInit:
 # Domain Extraction Tests
 # ============================================================================
 
+
 class TestDomainExtraction:
     """Tests for domain extraction."""
 
@@ -213,6 +216,7 @@ class TestDomainExtraction:
 # ============================================================================
 # Store Debate Outcome Tests
 # ============================================================================
+
 
 class TestStoreDebateOutcome:
     """Tests for store_debate_outcome method."""
@@ -332,6 +336,7 @@ class TestStoreDebateOutcome:
 # Store Consensus Record Tests
 # ============================================================================
 
+
 class TestStoreConsensusRecord:
     """Tests for store_consensus_record method."""
 
@@ -363,12 +368,14 @@ class TestStoreConsensusRecord:
 # Confidence to Strength Tests
 # ============================================================================
 
+
 class TestConfidenceToStrength:
     """Tests for _confidence_to_strength helper."""
 
     def test_unanimous_strength(self, memory_manager):
         """Test UNANIMOUS strength for confidence >= 0.95."""
         from aragora.memory.consensus import ConsensusStrength
+
         assert memory_manager._confidence_to_strength(0.95) == ConsensusStrength.UNANIMOUS
         assert memory_manager._confidence_to_strength(0.99) == ConsensusStrength.UNANIMOUS
         assert memory_manager._confidence_to_strength(1.0) == ConsensusStrength.UNANIMOUS
@@ -376,6 +383,7 @@ class TestConfidenceToStrength:
     def test_strong_strength(self, memory_manager):
         """Test STRONG strength for confidence 0.8-0.95."""
         from aragora.memory.consensus import ConsensusStrength
+
         assert memory_manager._confidence_to_strength(0.8) == ConsensusStrength.STRONG
         assert memory_manager._confidence_to_strength(0.9) == ConsensusStrength.STRONG
         assert memory_manager._confidence_to_strength(0.94) == ConsensusStrength.STRONG
@@ -383,6 +391,7 @@ class TestConfidenceToStrength:
     def test_moderate_strength(self, memory_manager):
         """Test MODERATE strength for confidence 0.6-0.8."""
         from aragora.memory.consensus import ConsensusStrength
+
         assert memory_manager._confidence_to_strength(0.6) == ConsensusStrength.MODERATE
         assert memory_manager._confidence_to_strength(0.7) == ConsensusStrength.MODERATE
         assert memory_manager._confidence_to_strength(0.79) == ConsensusStrength.MODERATE
@@ -390,18 +399,21 @@ class TestConfidenceToStrength:
     def test_weak_strength(self, memory_manager):
         """Test WEAK strength for confidence 0.5-0.6."""
         from aragora.memory.consensus import ConsensusStrength
+
         assert memory_manager._confidence_to_strength(0.5) == ConsensusStrength.WEAK
         assert memory_manager._confidence_to_strength(0.55) == ConsensusStrength.WEAK
 
     def test_split_strength(self, memory_manager):
         """Test SPLIT strength for confidence 0.3-0.5."""
         from aragora.memory.consensus import ConsensusStrength
+
         assert memory_manager._confidence_to_strength(0.3) == ConsensusStrength.SPLIT
         assert memory_manager._confidence_to_strength(0.4) == ConsensusStrength.SPLIT
 
     def test_contested_strength(self, memory_manager):
         """Test CONTESTED strength for confidence < 0.3."""
         from aragora.memory.consensus import ConsensusStrength
+
         assert memory_manager._confidence_to_strength(0.1) == ConsensusStrength.CONTESTED
         assert memory_manager._confidence_to_strength(0.0) == ConsensusStrength.CONTESTED
         assert memory_manager._confidence_to_strength(0.29) == ConsensusStrength.CONTESTED
@@ -410,6 +422,7 @@ class TestConfidenceToStrength:
 # ============================================================================
 # Store Evidence Tests
 # ============================================================================
+
 
 class TestStoreEvidence:
     """Tests for store_evidence method."""
@@ -487,6 +500,7 @@ class TestStoreEvidence:
 # Update Memory Outcomes Tests
 # ============================================================================
 
+
 class TestUpdateMemoryOutcomes:
     """Tests for update_memory_outcomes method."""
 
@@ -541,6 +555,7 @@ class TestUpdateMemoryOutcomes:
 # Fetch Historical Context Tests
 # ============================================================================
 
+
 class TestFetchHistoricalContext:
     """Tests for fetch_historical_context method."""
 
@@ -562,7 +577,9 @@ class TestFetchHistoricalContext:
         assert result == ""
 
     @pytest.mark.asyncio
-    async def test_fetch_context_success(self, mock_debate_embeddings, mock_spectator, mock_event_emitter):
+    async def test_fetch_context_success(
+        self, mock_debate_embeddings, mock_spectator, mock_event_emitter
+    ):
         """Test successful historical context retrieval."""
         mock_debate_embeddings.find_similar_debates = AsyncMock(
             return_value=[
@@ -602,6 +619,7 @@ class TestFetchHistoricalContext:
 # ============================================================================
 # Get Successful Patterns Tests
 # ============================================================================
+
 
 class TestGetSuccessfulPatterns:
     """Tests for get_successful_patterns method."""
@@ -672,6 +690,7 @@ class TestGetSuccessfulPatterns:
 # Format Patterns Tests
 # ============================================================================
 
+
 class TestFormatPatternsForPrompt:
     """Tests for _format_patterns_for_prompt method."""
 
@@ -682,9 +701,7 @@ class TestFormatPatternsForPrompt:
 
     def test_format_single_pattern(self, memory_manager):
         """Test formatting single pattern."""
-        patterns = [
-            {"category": "logic", "pattern": "test pattern", "occurrences": 3}
-        ]
+        patterns = [{"category": "logic", "pattern": "test pattern", "occurrences": 3}]
         result = memory_manager._format_patterns_for_prompt(patterns)
 
         assert "LEARNED PATTERNS" in result
@@ -695,7 +712,12 @@ class TestFormatPatternsForPrompt:
     def test_format_high_severity_pattern(self, memory_manager):
         """Test formatting high severity pattern."""
         patterns = [
-            {"category": "security", "pattern": "SQL injection", "occurrences": 5, "avg_severity": 0.9}
+            {
+                "category": "security",
+                "pattern": "SQL injection",
+                "occurrences": 5,
+                "avg_severity": 0.9,
+            }
         ]
         result = memory_manager._format_patterns_for_prompt(patterns)
 
@@ -704,7 +726,12 @@ class TestFormatPatternsForPrompt:
     def test_format_medium_severity_pattern(self, memory_manager):
         """Test formatting medium severity pattern."""
         patterns = [
-            {"category": "style", "pattern": "inconsistent naming", "occurrences": 2, "avg_severity": 0.5}
+            {
+                "category": "style",
+                "pattern": "inconsistent naming",
+                "occurrences": 2,
+                "avg_severity": 0.5,
+            }
         ]
         result = memory_manager._format_patterns_for_prompt(patterns)
 
@@ -713,8 +740,7 @@ class TestFormatPatternsForPrompt:
     def test_format_limits_to_5(self, memory_manager):
         """Test formatting limits to 5 patterns."""
         patterns = [
-            {"category": f"cat-{i}", "pattern": f"pattern {i}", "occurrences": i}
-            for i in range(10)
+            {"category": f"cat-{i}", "pattern": f"pattern {i}", "occurrences": i} for i in range(10)
         ]
         result = memory_manager._format_patterns_for_prompt(patterns)
 
@@ -725,6 +751,7 @@ class TestFormatPatternsForPrompt:
 # ============================================================================
 # Track Retrieved IDs Tests
 # ============================================================================
+
 
 class TestTrackRetrievedIds:
     """Tests for track_retrieved_ids method."""
@@ -759,6 +786,7 @@ class TestTrackRetrievedIds:
 # Clear Retrieved IDs Tests
 # ============================================================================
 
+
 class TestClearRetrievedIds:
     """Tests for clear_retrieved_ids method."""
 
@@ -777,6 +805,7 @@ class TestClearRetrievedIds:
 # Retrieved IDs Property Tests
 # ============================================================================
 
+
 class TestRetrievedIdsProperty:
     """Tests for retrieved_ids property."""
 
@@ -794,6 +823,7 @@ class TestRetrievedIdsProperty:
 # ============================================================================
 # Spectator Notification Tests
 # ============================================================================
+
 
 class TestNotifySpectator:
     """Tests for _notify_spectator method."""

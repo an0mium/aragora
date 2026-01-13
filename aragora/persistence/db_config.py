@@ -12,8 +12,9 @@ Usage:
     memory_path = get_db_path(DatabaseType.CONTINUUM_MEMORY)
 
 Environment Variables:
-    ARAGORA_DB_MODE: "legacy" or "consolidated" (default: "legacy")
-    ARAGORA_NOMIC_DIR: Base directory for databases (default: ".nomic")
+    ARAGORA_DB_MODE: "legacy" or "consolidated" (default: "consolidated")
+    ARAGORA_DATA_DIR: Base directory for databases (default: ".nomic")
+    ARAGORA_NOMIC_DIR: Legacy alias for data directory (default: ".nomic")
 """
 
 import os
@@ -133,16 +134,18 @@ CONSOLIDATED_DB_MAPPING = {
 
 def get_db_mode() -> DatabaseMode:
     """Get the current database mode from environment."""
-    mode_str = os.environ.get("ARAGORA_DB_MODE", "legacy").lower()
+    mode_str = os.environ.get("ARAGORA_DB_MODE", "consolidated").lower()
     try:
         return DatabaseMode(mode_str)
     except ValueError:
-        return DatabaseMode.LEGACY
+        return DatabaseMode.CONSOLIDATED
 
 
 def get_nomic_dir() -> Path:
     """Get the base directory for databases."""
-    nomic_dir = os.environ.get("ARAGORA_NOMIC_DIR", ".nomic")
+    nomic_dir = os.environ.get("ARAGORA_DATA_DIR")
+    if nomic_dir is None:
+        nomic_dir = os.environ.get("ARAGORA_NOMIC_DIR", ".nomic")
     return Path(nomic_dir)
 
 
@@ -156,8 +159,8 @@ def get_db_path(
 
     Args:
         db_type: The type of database to get the path for
-        nomic_dir: Base directory (defaults to ARAGORA_NOMIC_DIR or ".nomic")
-        mode: Database mode (defaults to ARAGORA_DB_MODE or "legacy")
+        nomic_dir: Base directory (defaults to ARAGORA_DATA_DIR or ".nomic")
+        mode: Database mode (defaults to ARAGORA_DB_MODE or "consolidated")
 
     Returns:
         Path to the database file
@@ -218,7 +221,8 @@ def get_genesis_db_path(nomic_dir: Optional[Path] = None) -> Path:
 
 # Database path constants for backwards compatibility
 # These will be deprecated in favor of get_db_path()
-DEFAULT_NOMIC_DIR = Path(".nomic")
+DEFAULT_DATA_DIR = Path(".nomic")
+DEFAULT_NOMIC_DIR = DEFAULT_DATA_DIR
 
 # Legacy path constants (for reference during migration)
 DB_ELO_PATH = DEFAULT_NOMIC_DIR / "agent_elo.db"

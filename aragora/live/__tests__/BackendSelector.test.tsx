@@ -40,6 +40,17 @@ describe('BackendSelector', () => {
       return Promise.reject(new Error('Network error'));
     });
   });
+  const waitForDevAvailability = async (available: boolean) => {
+    await waitFor(() => {
+      const devButton = screen.getByText('DEV').closest('button');
+      expect(devButton).toBeTruthy();
+      if (available) {
+        expect(devButton).not.toBeDisabled();
+      } else {
+        expect(devButton).toBeDisabled();
+      }
+    });
+  };
 
   describe('BACKENDS Configuration', () => {
     it('has production backend configured', () => {
@@ -55,16 +66,18 @@ describe('BackendSelector', () => {
   });
 
   describe('Compact Mode', () => {
-    it('renders compact buttons', () => {
+    it('renders compact buttons', async () => {
       render(<BackendSelector compact />);
       expect(screen.getByText('PROD')).toBeInTheDocument();
       expect(screen.getByText('DEV')).toBeInTheDocument();
+      await waitForDevAvailability(false);
     });
 
-    it('selects production by default', () => {
+    it('selects production by default', async () => {
       render(<BackendSelector compact />);
       const prodButton = screen.getByText('PROD');
       expect(prodButton.closest('button')).toHaveClass('bg-acid-green');
+      await waitForDevAvailability(false);
     });
 
     it('allows switching to dev when available', async () => {
@@ -91,16 +104,18 @@ describe('BackendSelector', () => {
   });
 
   describe('Full Mode', () => {
-    it('renders full selector with descriptions', () => {
+    it('renders full selector with descriptions', async () => {
       render(<BackendSelector />);
       expect(screen.getByText('API BACKEND')).toBeInTheDocument();
       expect(screen.getByText('PROD')).toBeInTheDocument();
       expect(screen.getByText('DEV')).toBeInTheDocument();
+      await waitForDevAvailability(false);
     });
 
-    it('shows backend descriptions', () => {
+    it('shows backend descriptions', async () => {
       render(<BackendSelector />);
       expect(screen.getByText(BACKENDS.production.description)).toBeInTheDocument();
+      await waitForDevAvailability(false);
     });
   });
 
@@ -109,6 +124,7 @@ describe('BackendSelector', () => {
       mockFetch.mockImplementation(() => Promise.resolve({ ok: true }));
 
       render(<BackendSelector compact />);
+      await waitForDevAvailability(true);
 
       // Production should be selected by default
       const prodButton = screen.getByText('PROD').closest('button');
@@ -119,10 +135,12 @@ describe('BackendSelector', () => {
       expect(prodButton).toHaveClass('bg-acid-green');
     });
 
-    it('persists production selection to localStorage', () => {
+    it('persists production selection to localStorage', async () => {
       mockFetch.mockImplementation(() => Promise.resolve({ ok: true }));
 
       render(<BackendSelector compact />);
+
+      await waitForDevAvailability(true);
 
       // Click PROD
       const prodButton = screen.getByText('PROD').closest('button')!;
@@ -131,13 +149,16 @@ describe('BackendSelector', () => {
       expect(localStorageMock.getItem('aragora-backend')).toBe('production');
     });
 
-    it('loads saved selection from localStorage', () => {
+    it('loads saved selection from localStorage', async () => {
       localStorageMock.setItem('aragora-backend', 'development');
 
       render(<BackendSelector compact />);
 
-      const devButton = screen.getByText('DEV').closest('button');
-      expect(devButton).toHaveClass('bg-acid-cyan');
+      await waitFor(() => {
+        const devButton = screen.getByText('DEV').closest('button');
+        expect(devButton).toHaveClass('bg-acid-cyan');
+      });
+      await waitForDevAvailability(false);
     });
   });
 

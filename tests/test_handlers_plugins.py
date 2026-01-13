@@ -18,9 +18,11 @@ from aragora.server.handlers.base import clear_cache
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_plugin_manifest():
     """Create a mock plugin manifest."""
+
     def create_manifest(name, description="A test plugin"):
         manifest = Mock()
         manifest.name = name
@@ -36,6 +38,7 @@ def mock_plugin_manifest():
             "requirements": ["numpy", "pandas"],
         }
         return manifest
+
     return create_manifest
 
 
@@ -92,6 +95,7 @@ def clear_caches():
 # Route Matching Tests
 # ============================================================================
 
+
 class TestPluginsRouting:
     """Tests for route matching."""
 
@@ -118,11 +122,13 @@ class TestPluginsRouting:
 # GET /api/plugins Tests
 # ============================================================================
 
+
 class TestListPlugins:
     """Tests for GET /api/plugins endpoint."""
 
     def test_list_plugins_module_unavailable(self, plugins_handler):
         import aragora.server.handlers.plugins as mod
+
         original = mod.PLUGINS_AVAILABLE
         mod.PLUGINS_AVAILABLE = False
         try:
@@ -140,7 +146,7 @@ class TestListPlugins:
         if not mod.PLUGINS_AVAILABLE:
             pytest.skip("Plugins module not available")
 
-        with patch.object(mod, 'get_registry', return_value=mock_registry):
+        with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/plugins", {}, None)
 
             assert result is not None
@@ -158,7 +164,7 @@ class TestListPlugins:
 
         mock_registry.list_plugins.return_value = []
 
-        with patch.object(mod, 'get_registry', return_value=mock_registry):
+        with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/plugins", {}, None)
 
             assert result is not None
@@ -172,11 +178,13 @@ class TestListPlugins:
 # GET /api/plugins/{name} Tests
 # ============================================================================
 
+
 class TestGetPluginDetails:
     """Tests for GET /api/plugins/{name} endpoint."""
 
     def test_get_plugin_module_unavailable(self, plugins_handler):
         import aragora.server.handlers.plugins as mod
+
         original = mod.PLUGINS_AVAILABLE
         mod.PLUGINS_AVAILABLE = False
         try:
@@ -192,7 +200,7 @@ class TestGetPluginDetails:
         if not mod.PLUGINS_AVAILABLE:
             pytest.skip("Plugins module not available")
 
-        with patch.object(mod, 'get_registry', return_value=mock_registry):
+        with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/plugins/test-plugin-1", {}, None)
 
             assert result is not None
@@ -208,7 +216,7 @@ class TestGetPluginDetails:
         if not mod.PLUGINS_AVAILABLE:
             pytest.skip("Plugins module not available")
 
-        with patch.object(mod, 'get_registry', return_value=mock_registry):
+        with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/plugins/nonexistent", {}, None)
 
             assert result is not None
@@ -221,7 +229,9 @@ class TestGetPluginDetails:
         assert result is not None
         assert result.status_code == 400
 
-    def test_get_plugin_with_missing_requirements(self, plugins_handler, mock_registry, mock_plugin_runner):
+    def test_get_plugin_with_missing_requirements(
+        self, plugins_handler, mock_registry, mock_plugin_runner
+    ):
         import aragora.server.handlers.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
@@ -229,7 +239,7 @@ class TestGetPluginDetails:
 
         mock_plugin_runner._validate_requirements.return_value = (False, ["missing-lib"])
 
-        with patch.object(mod, 'get_registry', return_value=mock_registry):
+        with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/plugins/test-plugin-1", {}, None)
 
             assert result is not None
@@ -242,6 +252,7 @@ class TestGetPluginDetails:
 # ============================================================================
 # Security Tests
 # ============================================================================
+
 
 class TestPluginsSecurity:
     """Security tests for plugins endpoints."""
@@ -267,7 +278,7 @@ class TestPluginsSecurity:
 
         valid_names = ["test-plugin", "plugin_name", "plugin123"]
         for name in valid_names:
-            with patch.object(mod, 'get_registry', return_value=mock_registry):
+            with patch.object(mod, "get_registry", return_value=mock_registry):
                 result = plugins_handler.handle(f"/api/plugins/{name}", {}, None)
                 # Should not be 400 (validation error)
                 assert result.status_code != 400
@@ -276,6 +287,7 @@ class TestPluginsSecurity:
 # ============================================================================
 # Error Handling Tests
 # ============================================================================
+
 
 class TestPluginsErrorHandling:
     """Tests for error handling."""
@@ -293,7 +305,7 @@ class TestPluginsErrorHandling:
         mock_registry = Mock()
         mock_registry.list_plugins.side_effect = Exception("Database error")
 
-        with patch.object(mod, 'get_registry', return_value=mock_registry):
+        with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/plugins", {}, None)
 
             assert result is not None
@@ -308,7 +320,7 @@ class TestPluginsErrorHandling:
         mock_registry = Mock()
         mock_registry.get.side_effect = Exception("Database error")
 
-        with patch.object(mod, 'get_registry', return_value=mock_registry):
+        with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/plugins/test", {}, None)
 
             assert result is not None
@@ -318,6 +330,7 @@ class TestPluginsErrorHandling:
 # ============================================================================
 # Edge Cases
 # ============================================================================
+
 
 class TestPluginsEdgeCases:
     """Tests for edge cases."""
@@ -343,7 +356,7 @@ class TestPluginsEdgeCases:
         # No runner available
         mock_registry.get_runner.return_value = None
 
-        with patch.object(mod, 'get_registry', return_value=mock_registry):
+        with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/plugins/test-plugin-1", {}, None)
 
             assert result is not None

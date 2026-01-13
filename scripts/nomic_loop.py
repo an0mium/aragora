@@ -104,6 +104,7 @@ try:
         NOMIC_MAX_CYCLE_SECONDS as _NOMIC_MAX_CYCLE_SECONDS,
         NOMIC_STALL_THRESHOLD as _NOMIC_STALL_THRESHOLD,
     )
+
     # Import extracted phase classes from aragora.nomic package
     from aragora.nomic.phases import (
         ContextPhase,
@@ -118,6 +119,7 @@ try:
         BeliefContext,
         PostDebateHooks,
     )
+
     _NOMIC_PHASES_AVAILABLE = True
     _NOMIC_PACKAGE_AVAILABLE = True
 except ImportError:
@@ -133,6 +135,7 @@ try:
         load_issue_history,
         save_issue_attempt,
     )
+
     _ISSUE_GENERATOR_AVAILABLE = True
 except ImportError:
     _ISSUE_GENERATOR_AVAILABLE = False
@@ -164,7 +167,10 @@ NOMIC_STALL_THRESHOLD = int(os.environ.get("NOMIC_STALL_THRESHOLD", "1800"))
 
 class PhaseError(Exception):
     """Exception raised when a phase fails."""
-    def __init__(self, phase: str, message: str, recoverable: bool = True, original_error: Exception = None):
+
+    def __init__(
+        self, phase: str, message: str, recoverable: bool = True, original_error: Exception = None
+    ):
         self.phase = phase
         self.recoverable = recoverable
         self.original_error = original_error
@@ -195,12 +201,20 @@ class PhaseRecovery:
     # Individual phase timeouts (seconds) - complements cycle-level timeout
     # Configurable via environment variables: NOMIC_<PHASE>_TIMEOUT
     PHASE_TIMEOUTS = {
-        "context": int(os.environ.get("NOMIC_CONTEXT_TIMEOUT", "1200")),     # 20 min - codebase exploration (doubled for Codex)
-        "debate": int(os.environ.get("NOMIC_DEBATE_TIMEOUT", "3600")),       # 60 min - multi-agent discussion (increased from 30)
-        "design": int(os.environ.get("NOMIC_DESIGN_TIMEOUT", "1800")),       # 30 min - architecture planning (increased from 15)
-        "implement": int(os.environ.get("NOMIC_IMPLEMENT_TIMEOUT", "2400")), # 40 min - code generation
-        "verify": int(os.environ.get("NOMIC_VERIFY_TIMEOUT", "600")),        # 10 min - test execution
-        "commit": int(os.environ.get("NOMIC_COMMIT_TIMEOUT", "180")),        # 3 min - git operations
+        "context": int(
+            os.environ.get("NOMIC_CONTEXT_TIMEOUT", "1200")
+        ),  # 20 min - codebase exploration (doubled for Codex)
+        "debate": int(
+            os.environ.get("NOMIC_DEBATE_TIMEOUT", "3600")
+        ),  # 60 min - multi-agent discussion (increased from 30)
+        "design": int(
+            os.environ.get("NOMIC_DESIGN_TIMEOUT", "1800")
+        ),  # 30 min - architecture planning (increased from 15)
+        "implement": int(
+            os.environ.get("NOMIC_IMPLEMENT_TIMEOUT", "2400")
+        ),  # 40 min - code generation
+        "verify": int(os.environ.get("NOMIC_VERIFY_TIMEOUT", "600")),  # 10 min - test execution
+        "commit": int(os.environ.get("NOMIC_COMMIT_TIMEOUT", "180")),  # 3 min - git operations
     }
 
     # Timeout escalation settings for retries
@@ -219,25 +233,42 @@ class PhaseRecovery:
     # Keep in sync with aragora.agents.cli_agents.RATE_LIMIT_PATTERNS
     RATE_LIMIT_PATTERNS = [
         # Rate limiting
-        "rate limit", "rate_limit", "ratelimit",
-        "429", "too many requests", "throttl",
+        "rate limit",
+        "rate_limit",
+        "ratelimit",
+        "429",
+        "too many requests",
+        "throttl",
         # Quota/usage limit errors
-        "quota exceeded", "quota_exceeded",
-        "resource exhausted", "resource_exhausted",
-        "insufficient_quota", "limit exceeded",
-        "usage_limit", "usage limit",  # OpenAI/Codex usage limits
+        "quota exceeded",
+        "quota_exceeded",
+        "resource exhausted",
+        "resource_exhausted",
+        "insufficient_quota",
+        "limit exceeded",
+        "usage_limit",
+        "usage limit",  # OpenAI/Codex usage limits
         "limit has been reached",
         # Billing errors
-        "billing", "credit balance", "payment required",
-        "purchase credits", "402",
+        "billing",
+        "credit balance",
+        "payment required",
+        "purchase credits",
+        "402",
         # Capacity/availability errors
-        "503", "service unavailable",
-        "502", "bad gateway",
-        "overloaded", "capacity",
-        "temporarily unavailable", "try again later",
-        "server busy", "high demand",
+        "503",
+        "service unavailable",
+        "502",
+        "bad gateway",
+        "overloaded",
+        "capacity",
+        "temporarily unavailable",
+        "try again later",
+        "server busy",
+        "high demand",
         # API-specific errors
-        "model overloaded", "model is currently overloaded",
+        "model overloaded",
+        "model is currently overloaded",
         "engine is currently overloaded",
         # CLI-specific errors
         "argument list too long",  # E2BIG - prompt too large for CLI
@@ -271,7 +302,7 @@ class PhaseRecovery:
         failures = self.consecutive_failures.get(phase, 0)
 
         # Exponential backoff: base * 2^failures
-        delay = base * (2 ** failures)
+        delay = base * (2**failures)
 
         # Check for rate limiting (use longer delay)
         error_str = str(error).lower()
@@ -300,10 +331,7 @@ class PhaseRecovery:
             return base_timeout
 
         # Escalate by factor^attempt, capped at max multiplier
-        multiplier = min(
-            self.TIMEOUT_ESCALATION_FACTOR ** attempt,
-            self.TIMEOUT_MAX_MULTIPLIER
-        )
+        multiplier = min(self.TIMEOUT_ESCALATION_FACTOR**attempt, self.TIMEOUT_MAX_MULTIPLIER)
         escalated = base_timeout * multiplier
         return int(escalated)
 
@@ -340,11 +368,7 @@ class PhaseRecovery:
         }
 
     async def run_with_recovery(
-        self,
-        phase: str,
-        phase_func: Callable,
-        *args,
-        **kwargs
+        self, phase: str, phase_func: Callable, *args, **kwargs
     ) -> tuple[bool, Any]:
         """
         Run a phase function with automatic retry and recovery.
@@ -386,7 +410,9 @@ class PhaseRecovery:
                 if self.is_retryable(e, phase) and attempts <= config["max_retries"]:
                     delay = self.get_retry_delay(e, phase)
                     next_timeout = self.get_escalated_timeout(phase, attempts)
-                    self.log(f"  [recovery] Retrying in {delay:.0f}s with {next_timeout}s timeout...")
+                    self.log(
+                        f"  [recovery] Retrying in {delay:.0f}s with {next_timeout}s timeout..."
+                    )
                     await asyncio.sleep(delay)
                 else:
                     # Log full traceback for debugging
@@ -409,25 +435,22 @@ PROTECTED_FILES = [
     # Core nomic loop infrastructure
     "scripts/nomic_loop.py",  # The nomic loop itself - CRITICAL
     "scripts/run_nomic_with_stream.py",  # Streaming wrapper - protects --auto flag
-
     # Core aragora modules
-    "aragora/__init__.py",     # Core package initialization
-    "aragora/core.py",         # Core types and abstractions
+    "aragora/__init__.py",  # Core package initialization
+    "aragora/core.py",  # Core types and abstractions
     "aragora/debate/orchestrator.py",  # Debate infrastructure
-    "aragora/agents/__init__.py",      # Agent system
-    "aragora/implement/__init__.py",   # Implementation system
-
+    "aragora/agents/__init__.py",  # Agent system
+    "aragora/implement/__init__.py",  # Implementation system
     # Valuable features added by nomic loop
-    "aragora/agents/cli_agents.py",    # CLI agent harnesses (KiloCode, Claude, Codex, Grok)
-    "aragora/server/stream.py",        # Streaming, AudienceInbox, TokenBucket
-    "aragora/memory/store.py",         # CritiqueStore, AgentReputation
-    "aragora/debate/embeddings.py",    # DebateEmbeddingsDatabase for historical search
-
+    "aragora/agents/cli_agents.py",  # CLI agent harnesses (KiloCode, Claude, Codex, Grok)
+    "aragora/server/stream.py",  # Streaming, AudienceInbox, TokenBucket
+    "aragora/memory/store.py",  # CritiqueStore, AgentReputation
+    "aragora/debate/embeddings.py",  # DebateEmbeddingsDatabase for historical search
     # Live dashboard (web interface)
-    "aragora/live/src/components/AgentPanel.tsx",       # Agent activity panel with colors
-    "aragora/live/src/components/UserParticipation.tsx", # User participation UI
-    "aragora/live/src/app/page.tsx",                    # Main dashboard page
-    "aragora/live/tailwind.config.js",                  # Tailwind config with agent colors
+    "aragora/live/src/components/AgentPanel.tsx",  # Agent activity panel with colors
+    "aragora/live/src/components/UserParticipation.tsx",  # User participation UI
+    "aragora/live/src/app/page.tsx",  # Main dashboard page
+    "aragora/live/tailwind.config.js",  # Tailwind config with agent colors
 ]
 
 # Global cache for protected file checksums (computed at startup)
@@ -437,6 +460,7 @@ _PROTECTED_FILE_CHECKSUMS: dict[str, str] = {}
 def _compute_file_checksum(filepath: Path) -> str:
     """Compute SHA-256 checksum of a file."""
     import hashlib
+
     if not filepath.exists():
         return ""
     with open(filepath, "rb") as f:
@@ -470,6 +494,7 @@ def verify_protected_files_unchanged(base_path: Path) -> tuple[bool, list[str]]:
         if current_hash != expected_hash:
             modified.append(rel_path)
     return len(modified) == 0, modified
+
 
 SAFETY_PREAMBLE = """
 === CRITICAL SAFETY RULES ===
@@ -525,8 +550,8 @@ def load_dotenv(env_path: Path):
         with open(env_path) as f:
             for line in f:
                 line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
                     os.environ.setdefault(key.strip(), value.strip())
 
 
@@ -549,6 +574,7 @@ from aragora.agents.airlock import AirlockProxy, AirlockConfig
 KILOCODE_AVAILABLE = False
 try:
     import subprocess
+
     result = subprocess.run(["which", "kilocode"], capture_output=True, text=True)
     KILOCODE_AVAILABLE = result.returncode == 0
 except Exception:
@@ -569,6 +595,7 @@ try:
         create_genesis_hooks,
         create_logging_hooks,
     )
+
     GENESIS_AVAILABLE = True
 except ImportError:
     pass
@@ -586,6 +613,7 @@ from aragora.implement import (
 try:
     from aragora.server.stream import SyncEventEmitter, create_arena_hooks
     from aragora.server.nomic_stream import create_nomic_hooks
+
     STREAMING_AVAILABLE = True
 except ImportError:
     STREAMING_AVAILABLE = False
@@ -596,6 +624,7 @@ except ImportError:
 # Optional Supabase persistence
 try:
     from aragora.persistence import SupabaseClient, NomicCycle, StreamEvent, DebateArtifact
+
     PERSISTENCE_AVAILABLE = True
 except ImportError:
     PERSISTENCE_AVAILABLE = False
@@ -607,6 +636,7 @@ except ImportError:
 # Debate embeddings for historical search
 try:
     from aragora.debate.embeddings import DebateEmbeddingsDatabase
+
     EMBEDDINGS_AVAILABLE = True
 except ImportError:
     EMBEDDINGS_AVAILABLE = False
@@ -615,6 +645,7 @@ except ImportError:
 # ContinuumMemory for multi-timescale learning
 try:
     from aragora.memory.continuum import ContinuumMemory, MemoryTier
+
     CONTINUUM_AVAILABLE = True
 except ImportError:
     CONTINUUM_AVAILABLE = False
@@ -624,6 +655,7 @@ except ImportError:
 # ReplayRecorder for cycle event recording
 try:
     from aragora.replay.recorder import ReplayRecorder
+
     REPLAY_AVAILABLE = True
 except ImportError:
     REPLAY_AVAILABLE = False
@@ -632,6 +664,7 @@ except ImportError:
 # MetaLearner for self-tuning hyperparameters
 try:
     from aragora.learning.meta import MetaLearner
+
     METALEARNER_AVAILABLE = True
 except ImportError:
     METALEARNER_AVAILABLE = False
@@ -640,6 +673,7 @@ except ImportError:
 # IntrospectionAPI for agent self-awareness
 try:
     from aragora.introspection.api import get_agent_introspection, format_introspection_section
+
     INTROSPECTION_AVAILABLE = True
 except ImportError:
     INTROSPECTION_AVAILABLE = False
@@ -649,6 +683,7 @@ except ImportError:
 # ArgumentCartographer for debate visualization
 try:
     from aragora.visualization.mapper import ArgumentCartographer
+
     CARTOGRAPHER_AVAILABLE = True
 except ImportError:
     CARTOGRAPHER_AVAILABLE = False
@@ -657,6 +692,7 @@ except ImportError:
 # WebhookDispatcher for external event notifications
 try:
     from aragora.integrations.webhooks import WebhookDispatcher, WebhookConfig
+
     WEBHOOKS_AVAILABLE = True
 except ImportError:
     WEBHOOKS_AVAILABLE = False
@@ -666,6 +702,7 @@ except ImportError:
 # ConsensusMemory for tracking settled vs contested topics
 try:
     from aragora.memory.consensus import ConsensusMemory, ConsensusStrength, DissentRetriever
+
     CONSENSUS_MEMORY_AVAILABLE = True
 except ImportError:
     CONSENSUS_MEMORY_AVAILABLE = False
@@ -676,6 +713,7 @@ except ImportError:
 # InsightExtractor for post-debate pattern learning
 try:
     from aragora.insights.extractor import InsightExtractor
+
     INSIGHTS_AVAILABLE = True
 except ImportError:
     INSIGHTS_AVAILABLE = False
@@ -684,6 +722,7 @@ except ImportError:
 # FlipDetector for position reversal detection
 try:
     from aragora.insights.flip_detector import FlipDetector
+
     FLIP_DETECTOR_AVAILABLE = True
 except ImportError:
     FLIP_DETECTOR_AVAILABLE = False
@@ -692,6 +731,7 @@ except ImportError:
 # NomicIntegration for advanced feature coordination
 try:
     from aragora.nomic.integration import NomicIntegration, create_nomic_integration
+
     NOMIC_INTEGRATION_AVAILABLE = True
 except ImportError:
     NOMIC_INTEGRATION_AVAILABLE = False
@@ -701,6 +741,7 @@ except ImportError:
 # MemoryStream for per-agent persistent memory (Phase 3)
 try:
     from aragora.memory.streams import MemoryStream
+
     MEMORY_STREAM_AVAILABLE = True
 except ImportError:
     MEMORY_STREAM_AVAILABLE = False
@@ -709,6 +750,7 @@ except ImportError:
 # LocalDocsConnector for evidence grounding (Phase 3)
 try:
     from aragora.connectors.local_docs import LocalDocsConnector
+
     LOCAL_DOCS_AVAILABLE = True
 except ImportError:
     LOCAL_DOCS_AVAILABLE = False
@@ -717,6 +759,7 @@ except ImportError:
 # CounterfactualOrchestrator for deadlock resolution (Phase 3)
 try:
     from aragora.debate.counterfactual import CounterfactualOrchestrator
+
     COUNTERFACTUAL_AVAILABLE = True
 except ImportError:
     COUNTERFACTUAL_AVAILABLE = False
@@ -725,6 +768,7 @@ except ImportError:
 # CapabilityProber for agent quality assurance (Phase 3)
 try:
     from aragora.modes.prober import CapabilityProber, ProbeType
+
     PROBER_AVAILABLE = True
 except ImportError:
     PROBER_AVAILABLE = False
@@ -734,6 +778,7 @@ except ImportError:
 # DeepAuditMode for intensive review of protected file changes (Heavy3-inspired)
 try:
     from aragora.modes.deep_audit import run_deep_audit, CODE_ARCHITECTURE_AUDIT, DeepAuditConfig
+
     DEEP_AUDIT_AVAILABLE = True
 except ImportError:
     DEEP_AUDIT_AVAILABLE = False
@@ -744,6 +789,7 @@ except ImportError:
 # DebateTemplates for structured debate formats (Phase 3)
 try:
     from aragora.templates import CODE_REVIEW_TEMPLATE, DESIGN_DOC_TEMPLATE, DebateTemplate
+
     TEMPLATES_AVAILABLE = True
 except ImportError:
     TEMPLATES_AVAILABLE = False
@@ -754,6 +800,7 @@ except ImportError:
 # PersonaManager for agent traits/expertise evolution (Phase 4)
 try:
     from aragora.agents.personas import PersonaManager, get_or_create_persona, EXPERTISE_DOMAINS
+
     PERSONAS_AVAILABLE = True
 except ImportError:
     PERSONAS_AVAILABLE = False
@@ -764,6 +811,7 @@ except ImportError:
 # PromptEvolver for prompt evolution from winning patterns (Phase 4)
 try:
     from aragora.evolution.evolver import PromptEvolver, EvolutionStrategy
+
     EVOLVER_AVAILABLE = True
 except ImportError:
     EVOLVER_AVAILABLE = False
@@ -773,6 +821,7 @@ except ImportError:
 # Tournament for periodic competitive benchmarking (Phase 4)
 try:
     from aragora.tournaments import Tournament, TournamentFormat, create_default_tasks
+
     TOURNAMENT_AVAILABLE = True
 except ImportError:
     TOURNAMENT_AVAILABLE = False
@@ -783,6 +832,7 @@ except ImportError:
 # ConvergenceDetector for early stopping (Phase 5)
 try:
     from aragora.debate.convergence import ConvergenceDetector, ConvergenceResult
+
     CONVERGENCE_AVAILABLE = True
 except ImportError:
     CONVERGENCE_AVAILABLE = False
@@ -792,6 +842,7 @@ except ImportError:
 # MetaCritiqueAnalyzer for process feedback (Phase 5)
 try:
     from aragora.debate.meta import MetaCritiqueAnalyzer, MetaCritique
+
     META_CRITIQUE_AVAILABLE = True
 except ImportError:
     META_CRITIQUE_AVAILABLE = False
@@ -801,6 +852,7 @@ except ImportError:
 # EloSystem for agent skill tracking (Phase 5)
 try:
     from aragora.ranking.elo import EloSystem, AgentRating
+
     ELO_AVAILABLE = True
 except ImportError:
     ELO_AVAILABLE = False
@@ -810,6 +862,7 @@ except ImportError:
 # AgentSelector for smart team selection (Phase 5)
 try:
     from aragora.routing.selection import AgentSelector, AgentProfile, TaskRequirements
+
     SELECTOR_AVAILABLE = True
 except ImportError:
     SELECTOR_AVAILABLE = False
@@ -820,6 +873,7 @@ except ImportError:
 # ProbeFilter for probe-aware agent selection (Phase 10)
 try:
     from aragora.routing.probe_filter import ProbeFilter, ProbeProfile
+
     PROBE_FILTER_AVAILABLE = True
 except ImportError:
     PROBE_FILTER_AVAILABLE = False
@@ -829,6 +883,7 @@ except ImportError:
 # RiskRegister for risk tracking (Phase 5)
 try:
     from aragora.pipeline.risk_register import RiskLevel
+
     RISK_REGISTER_AVAILABLE = True
 except ImportError:
     RISK_REGISTER_AVAILABLE = False
@@ -841,9 +896,15 @@ except ImportError:
 # ClaimsKernel for structured reasoning (Phase 6)
 try:
     from aragora.reasoning.claims import (
-        ClaimsKernel, TypedClaim, TypedEvidence, ClaimRelation,
-        ClaimType, RelationType, EvidenceType
+        ClaimsKernel,
+        TypedClaim,
+        TypedEvidence,
+        ClaimRelation,
+        ClaimType,
+        RelationType,
+        EvidenceType,
     )
+
     CLAIMS_KERNEL_AVAILABLE = True
 except ImportError:
     CLAIMS_KERNEL_AVAILABLE = False
@@ -855,8 +916,12 @@ except ImportError:
 # ProvenanceManager for evidence tracking (Phase 6)
 try:
     from aragora.reasoning.provenance import (
-        ProvenanceManager, ProvenanceChain, SourceType, TransformationType
+        ProvenanceManager,
+        ProvenanceChain,
+        SourceType,
+        TransformationType,
     )
+
     PROVENANCE_AVAILABLE = True
 except ImportError:
     PROVENANCE_AVAILABLE = False
@@ -866,8 +931,11 @@ except ImportError:
 # BeliefNetwork for probabilistic reasoning (Phase 6)
 try:
     from aragora.reasoning.belief import (
-        BeliefNetwork, BeliefPropagationAnalyzer, BeliefDistribution
+        BeliefNetwork,
+        BeliefPropagationAnalyzer,
+        BeliefDistribution,
     )
+
     BELIEF_NETWORK_AVAILABLE = True
 except ImportError:
     BELIEF_NETWORK_AVAILABLE = False
@@ -877,9 +945,15 @@ except ImportError:
 # ProofExecutor for executable verification (Phase 6)
 try:
     from aragora.verification.proofs import (
-        ProofExecutor, ClaimVerifier, VerificationProof, VerificationReport,
-        ProofType, ProofStatus, ProofBuilder
+        ProofExecutor,
+        ClaimVerifier,
+        VerificationProof,
+        VerificationReport,
+        ProofType,
+        ProofStatus,
+        ProofBuilder,
     )
+
     PROOF_EXECUTOR_AVAILABLE = True
 except ImportError:
     PROOF_EXECUTOR_AVAILABLE = False
@@ -891,9 +965,14 @@ except ImportError:
 # ScenarioMatrix for robustness testing (Phase 6)
 try:
     from aragora.debate.scenarios import (
-        ScenarioMatrix, MatrixDebateRunner, ScenarioComparator,
-        Scenario, ScenarioType, OutcomeCategory
+        ScenarioMatrix,
+        MatrixDebateRunner,
+        ScenarioComparator,
+        Scenario,
+        ScenarioType,
+        OutcomeCategory,
     )
+
     SCENARIO_MATRIX_AVAILABLE = True
 except ImportError:
     SCENARIO_MATRIX_AVAILABLE = False
@@ -907,9 +986,13 @@ except ImportError:
 # EnhancedProvenanceManager for staleness detection (Phase 7)
 try:
     from aragora.reasoning.provenance_enhanced import (
-        EnhancedProvenanceManager, GitProvenanceTracker, StalenessCheck,
-        StalenessStatus, RevalidationTrigger
+        EnhancedProvenanceManager,
+        GitProvenanceTracker,
+        StalenessCheck,
+        StalenessStatus,
+        RevalidationTrigger,
     )
+
     ENHANCED_PROVENANCE_AVAILABLE = True
 except ImportError:
     ENHANCED_PROVENANCE_AVAILABLE = False
@@ -919,8 +1002,12 @@ except ImportError:
 # CheckpointManager for pause/resume (Phase 7)
 try:
     from aragora.debate.checkpoint import (
-        CheckpointManager, DebateCheckpoint, FileCheckpointStore, CheckpointConfig
+        CheckpointManager,
+        DebateCheckpoint,
+        FileCheckpointStore,
+        CheckpointConfig,
     )
+
     CHECKPOINT_AVAILABLE = True
 except ImportError:
     CHECKPOINT_AVAILABLE = False
@@ -929,8 +1016,13 @@ except ImportError:
 # BreakpointManager for human intervention (Phase 7)
 try:
     from aragora.debate.breakpoints import (
-        BreakpointManager, BreakpointConfig, Breakpoint, HumanGuidance, BreakpointTrigger
+        BreakpointManager,
+        BreakpointConfig,
+        Breakpoint,
+        HumanGuidance,
+        BreakpointTrigger,
     )
+
     BREAKPOINT_AVAILABLE = True
 except ImportError:
     BREAKPOINT_AVAILABLE = False
@@ -940,8 +1032,12 @@ except ImportError:
 # ReliabilityScorer for confidence scoring (Phase 7)
 try:
     from aragora.reasoning.reliability import (
-        ReliabilityScorer, ClaimReliability, EvidenceReliability, ReliabilityLevel
+        ReliabilityScorer,
+        ClaimReliability,
+        EvidenceReliability,
+        ReliabilityLevel,
     )
+
     RELIABILITY_SCORER_AVAILABLE = True
 except ImportError:
     RELIABILITY_SCORER_AVAILABLE = False
@@ -950,9 +1046,8 @@ except ImportError:
 
 # DebateTracer for audit logs (Phase 7)
 try:
-    from aragora.debate.traces import (
-        DebateTracer, DebateTrace, TraceEvent, EventType
-    )
+    from aragora.debate.traces import DebateTracer, DebateTrace, TraceEvent, EventType
+
     DEBATE_TRACER_AVAILABLE = True
 except ImportError:
     DEBATE_TRACER_AVAILABLE = False
@@ -966,8 +1061,12 @@ except ImportError:
 # PersonaLaboratory for agent evolution (Phase 8)
 try:
     from aragora.agents.laboratory import (
-        PersonaLaboratory, PersonaExperiment, EmergentTrait, TraitTransfer
+        PersonaLaboratory,
+        PersonaExperiment,
+        EmergentTrait,
+        TraitTransfer,
     )
+
     PERSONA_LAB_AVAILABLE = True
 except ImportError:
     PERSONA_LAB_AVAILABLE = False
@@ -976,9 +1075,8 @@ except ImportError:
 
 # SemanticRetriever for pattern matching (Phase 8)
 try:
-    from aragora.memory.embeddings import (
-        SemanticRetriever, EmbeddingProvider, cosine_similarity
-    )
+    from aragora.memory.embeddings import SemanticRetriever, EmbeddingProvider, cosine_similarity
+
     SEMANTIC_RETRIEVER_AVAILABLE = True
 except ImportError:
     SEMANTIC_RETRIEVER_AVAILABLE = False
@@ -987,9 +1085,12 @@ except ImportError:
 # FormalVerificationManager for theorem proving (Phase 8)
 try:
     from aragora.verification.formal import (
-        FormalVerificationManager, FormalProofResult,
-        FormalProofStatus, FormalLanguage
+        FormalVerificationManager,
+        FormalProofResult,
+        FormalProofStatus,
+        FormalLanguage,
     )
+
     FORMAL_VERIFICATION_AVAILABLE = True
 except ImportError:
     FORMAL_VERIFICATION_AVAILABLE = False
@@ -999,9 +1100,14 @@ except ImportError:
 # DebateGraph for DAG-based debates (Phase 8)
 try:
     from aragora.debate.graph import (
-        DebateGraph, DebateNode, GraphDebateOrchestrator,
-        NodeType, BranchReason, MergeStrategy
+        DebateGraph,
+        DebateNode,
+        GraphDebateOrchestrator,
+        NodeType,
+        BranchReason,
+        MergeStrategy,
     )
+
     DEBATE_GRAPH_AVAILABLE = True
 except ImportError:
     DEBATE_GRAPH_AVAILABLE = False
@@ -1011,8 +1117,14 @@ except ImportError:
 # DebateForker for parallel exploration (Phase 8)
 try:
     from aragora.debate.forking import (
-        DebateForker, ForkDetector, Branch, ForkPoint, ForkDecision, MergeResult
+        DebateForker,
+        ForkDetector,
+        Branch,
+        ForkPoint,
+        ForkDecision,
+        MergeResult,
     )
+
     DEBATE_FORKER_AVAILABLE = True
 except ImportError:
     DEBATE_FORKER_AVAILABLE = False
@@ -1026,8 +1138,12 @@ except ImportError:
 # PositionTracker for truth-grounded personas (Phase 9)
 try:
     from aragora.agents.truth_grounding import (
-        PositionTracker, Position, TruthGroundedPersona, TruthGroundedLaboratory
+        PositionTracker,
+        Position,
+        TruthGroundedPersona,
+        TruthGroundedLaboratory,
     )
+
     POSITION_TRACKER_AVAILABLE = True
 except ImportError:
     POSITION_TRACKER_AVAILABLE = False
@@ -1037,9 +1153,14 @@ except ImportError:
 # GroundedPersonas for evidence-based identity (Phase 9)
 try:
     from aragora.agents.grounded import (
-        PositionLedger, RelationshipTracker, PersonaSynthesizer,
-        GroundedPersona, Position as GroundedPosition, MomentDetector
+        PositionLedger,
+        RelationshipTracker,
+        PersonaSynthesizer,
+        GroundedPersona,
+        Position as GroundedPosition,
+        MomentDetector,
     )
+
     GROUNDED_PERSONAS_AVAILABLE = True
 except ImportError:
     GROUNDED_PERSONAS_AVAILABLE = False
@@ -1052,6 +1173,7 @@ except ImportError:
 # CalibrationTracker for prediction accuracy tracking (Phase 10)
 try:
     from aragora.agents.calibration import CalibrationTracker, CalibrationSummary
+
     CALIBRATION_AVAILABLE = True
 except ImportError:
     CALIBRATION_AVAILABLE = False
@@ -1061,6 +1183,7 @@ except ImportError:
 # SuggestionFeedbackTracker for audience suggestion effectiveness (Phase 10)
 try:
     from aragora.audience.feedback import SuggestionFeedbackTracker
+
     SUGGESTION_FEEDBACK_AVAILABLE = True
 except ImportError:
     SUGGESTION_FEEDBACK_AVAILABLE = False
@@ -1073,9 +1196,15 @@ except ImportError:
 # CitationStore for evidence-backed verdicts
 try:
     from aragora.reasoning.citations import (
-        CitationStore, CitationExtractor, GroundedVerdict,
-        ScholarlyEvidence, CitedClaim, CitationType, CitationQuality
+        CitationStore,
+        CitationExtractor,
+        GroundedVerdict,
+        ScholarlyEvidence,
+        CitedClaim,
+        CitationType,
+        CitationQuality,
     )
+
     CITATION_GROUNDING_AVAILABLE = True
 except ImportError:
     CITATION_GROUNDING_AVAILABLE = False
@@ -1089,6 +1218,7 @@ except ImportError:
 
 try:
     from aragora.broadcast.script_gen import DebateSummaryGenerator
+
     BROADCAST_AVAILABLE = True
 except ImportError:
     BROADCAST_AVAILABLE = False
@@ -1100,6 +1230,7 @@ except ImportError:
 
 try:
     from aragora.pulse import PulseManager, TrendingTopic, PulseIngestor
+
     PULSE_AVAILABLE = True
 except ImportError:
     PULSE_AVAILABLE = False
@@ -1110,6 +1241,7 @@ except ImportError:
 # =============================================================================
 # Circuit Breaker for Agent Failure Handling
 # =============================================================================
+
 
 class AgentCircuitBreaker:
     """
@@ -1200,8 +1332,9 @@ class AgentCircuitBreaker:
             self.task_success_rate[agent_name] = {}
 
         # Increment task-specific failure count
-        self.task_failures[agent_name][task_type] = \
+        self.task_failures[agent_name][task_type] = (
             self.task_failures[agent_name].get(task_type, 0) + 1
+        )
 
         # Update running average (exponential moving average toward 0)
         current_rate = self.task_success_rate[agent_name].get(task_type, 0.5)
@@ -1260,6 +1393,7 @@ class AgentCircuitBreaker:
             "task_cooldowns": dict(self.task_cooldowns),
             "task_success_rates": dict(self.task_success_rate),
         }
+
 
 if _NOMIC_PACKAGE_AVAILABLE:
     # Prefer extracted helpers when available to avoid inline duplication.
@@ -1337,7 +1471,9 @@ class NomicLoop:
         self.population_manager = None
         if self.use_genesis:
             self.genesis_ledger = GenesisLedger(str(self.aragora_path / ".nomic" / "genesis.db"))
-            self.population_manager = PopulationManager(str(self.aragora_path / ".nomic" / "genesis.db"))
+            self.population_manager = PopulationManager(
+                str(self.aragora_path / ".nomic" / "genesis.db")
+            )
 
         # Setup logging infrastructure (must be before other initializations that use nomic_dir)
         self.nomic_dir = self.aragora_path / ".nomic"
@@ -1363,7 +1499,9 @@ class NomicLoop:
                     for agent, rates in state.get("task_success_rate", {}).items():
                         self.circuit_breaker.task_success_rate[agent] = rates
                     task_count = sum(len(t) for t in self.circuit_breaker.task_cooldowns.values())
-                    print(f"[circuit-breaker] Restored state: {len(self.circuit_breaker.cooldowns)} agents in cooldown, {task_count} task cooldowns")
+                    print(
+                        f"[circuit-breaker] Restored state: {len(self.circuit_breaker.cooldowns)} agents in cooldown, {task_count} task cooldowns"
+                    )
             except Exception as e:
                 print(f"[circuit-breaker] Failed to restore state: {e}")
 
@@ -1379,7 +1517,9 @@ class NomicLoop:
                 self.constitution_verifier = _ConstitutionVerifier(constitution_path)
                 if self.constitution_verifier.is_available():
                     rules = len(self.constitution_verifier.constitution.rules)
-                    print(f"[constitution] Loaded v{self.constitution_verifier.constitution.version} with {rules} rules")
+                    print(
+                        f"[constitution] Loaded v{self.constitution_verifier.constitution.version} with {rules} rules"
+                    )
                 else:
                     print(f"[constitution] File exists but failed to load")
             else:
@@ -1393,7 +1533,9 @@ class NomicLoop:
             outcomes_path = self.nomic_dir / "outcomes.db"
             self.outcome_tracker = _OutcomeTracker(outcomes_path)
             stats = self.outcome_tracker.get_overall_stats()
-            print(f"[outcomes] Tracker initialized ({stats['total_outcomes']} historical outcomes, {stats['success_rate']:.0%} success rate)")
+            print(
+                f"[outcomes] Tracker initialized ({stats['total_outcomes']} historical outcomes, {stats['success_rate']:.0%} success rate)"
+            )
         except Exception as e:
             print(f"[outcomes] Failed to initialize: {e}")
 
@@ -1417,6 +1559,7 @@ class NomicLoop:
         self.critique_store = None
         try:
             from aragora.memory.store import CritiqueStore
+
             critique_db_path = self.nomic_dir / "agora_memory.db"
             self.critique_store = CritiqueStore(str(critique_db_path))
             print(f"[memory] CritiqueStore initialized for patterns and reputation")
@@ -1483,6 +1626,7 @@ class NomicLoop:
         if INSIGHTS_AVAILABLE:
             try:
                 from aragora.insights.store import InsightStore
+
                 insights_path = self.nomic_dir / "aragora_insights.db"
                 self.insight_store = InsightStore(str(insights_path))
                 print(f"[insights] InsightStore initialized for debate persistence")
@@ -1519,10 +1663,7 @@ class NomicLoop:
         # Phase 3: LocalDocsConnector for evidence grounding
         self.local_docs = None
         if LOCAL_DOCS_AVAILABLE:
-            self.local_docs = LocalDocsConnector(
-                root_path=str(self.aragora_path),
-                file_types='all'
-            )
+            self.local_docs = LocalDocsConnector(root_path=str(self.aragora_path), file_types="all")
             print(f"[connectors] LocalDocsConnector initialized for evidence grounding")
 
         # Phase 3: CounterfactualOrchestrator for deadlock resolution
@@ -1571,7 +1712,7 @@ class NomicLoop:
             self.prompt_evolver = PromptEvolver(
                 db_path=str(evolver_db_path),
                 critique_store=self.critique_store,
-                strategy=EvolutionStrategy.HYBRID
+                strategy=EvolutionStrategy.HYBRID,
             )
             print(f"[evolver] Prompt evolution enabled")
 
@@ -1583,8 +1724,7 @@ class NomicLoop:
         self.convergence_detector = None
         if CONVERGENCE_AVAILABLE:
             self.convergence_detector = ConvergenceDetector(
-                convergence_threshold=0.85,
-                min_rounds_before_check=2
+                convergence_threshold=0.85, min_rounds_before_check=2
             )
             print(f"[convergence] Early stopping enabled")
 
@@ -1628,8 +1768,7 @@ class NomicLoop:
         self.agent_selector = None
         if SELECTOR_AVAILABLE and ELO_AVAILABLE and self.elo_system:
             self.agent_selector = AgentSelector(
-                elo_system=self.elo_system,
-                persona_manager=self.persona_manager
+                elo_system=self.elo_system, persona_manager=self.persona_manager
             )
             print(f"[selector] Smart agent selection enabled")
 
@@ -1640,7 +1779,7 @@ class NomicLoop:
             print(f"[probe-filter] Probe-aware agent selection enabled")
 
             # Wire ProbeFilter into AgentSelector for reliability-weighted team selection
-            if self.agent_selector and hasattr(self.agent_selector, 'set_probe_filter'):
+            if self.agent_selector and hasattr(self.agent_selector, "set_probe_filter"):
                 self.agent_selector.set_probe_filter(self.probe_filter)
                 print(f"[selector] Probe reliability weighting enabled")
 
@@ -1687,7 +1826,7 @@ class NomicLoop:
             print(f"[calibration] Agent prediction calibration tracking enabled")
 
             # Wire CalibrationTracker into AgentSelector for calibration-weighted team selection
-            if self.agent_selector and hasattr(self.agent_selector, 'set_calibration_tracker'):
+            if self.agent_selector and hasattr(self.agent_selector, "set_calibration_tracker"):
                 self.agent_selector.set_calibration_tracker(self.calibration_tracker)
                 print(f"[selector] Calibration quality weighting enabled")
 
@@ -1713,6 +1852,7 @@ class NomicLoop:
         if FLIP_DETECTOR_AVAILABLE:
             try:
                 from aragora.insights.flip_detector import FlipDetector
+
                 # Use grounded_positions.db where PositionLedger stores data
                 flip_db_path = self.nomic_dir / "grounded_positions.db"
                 self.flip_detector = FlipDetector(str(flip_db_path))
@@ -1765,8 +1905,7 @@ class NomicLoop:
         # Note: This REPLACES the base ProvenanceManager from Phase 6 if available
         if ENHANCED_PROVENANCE_AVAILABLE:
             self.provenance_manager = EnhancedProvenanceManager(
-                debate_id=f"nomic-cycle-0",
-                repo_path=str(self.aragora_path)
+                debate_id=f"nomic-cycle-0", repo_path=str(self.aragora_path)
             )
             print(f"[provenance] Enhanced with staleness detection")
 
@@ -1777,7 +1916,7 @@ class NomicLoop:
             checkpoint_dir.mkdir(exist_ok=True)
             self.checkpoint_manager = CheckpointManager(
                 store=FileCheckpointStore(str(checkpoint_dir)),
-                config=CheckpointConfig(interval_rounds=1, max_checkpoints=5)
+                config=CheckpointConfig(interval_rounds=1, max_checkpoints=5),
             )
             print(f"[checkpoint] Pause/resume enabled")
 
@@ -1812,8 +1951,7 @@ class NomicLoop:
         if PERSONA_LAB_AVAILABLE and PERSONAS_AVAILABLE and self.persona_manager:
             lab_db = self.nomic_dir / "persona_lab.db"
             self.persona_lab = PersonaLaboratory(
-                persona_manager=self.persona_manager,
-                db_path=str(lab_db)
+                persona_manager=self.persona_manager, db_path=str(lab_db)
             )
             print(f"[lab] Persona evolution enabled")
 
@@ -1877,12 +2015,13 @@ class NomicLoop:
             self._setup_phase_metrics()
         elif not self.use_extracted_phases:
             import warnings
+
             warnings.warn(
                 "USE_EXTRACTED_PHASES=0 uses deprecated legacy code. "
                 "This will be removed in 2026-06. "
                 "Set USE_EXTRACTED_PHASES=1 (default) to use the new modular phases.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             print(f"[phases] Using legacy inline implementations (USE_EXTRACTED_PHASES=0)")
         self._extracted_phases = {}
@@ -1906,7 +2045,10 @@ class NomicLoop:
                     loop_id=self.loop_id,
                     cycle=self.cycle_count,
                     event_type=hook_name,
-                    event_data={"args": [str(a)[:10000] for a in args], "kwargs": {k: str(v)[:10000] for k, v in kwargs.items()}},
+                    event_data={
+                        "args": [str(a)[:10000] for a in args],
+                        "kwargs": {k: str(v)[:10000] for k, v in kwargs.items()},
+                    },
                     agent=kwargs.get("agent"),
                 )
                 # Run async save in background (fire and forget)
@@ -1934,9 +2076,15 @@ class NomicLoop:
         except Exception as e:
             logger.warning(f"[metrics] Failed to setup phase metrics: {e}")
 
-    async def _persist_cycle(self, phase: str, stage: str, success: bool = None,
-                              git_commit: str = None, task_description: str = None,
-                              error_message: str = None) -> None:
+    async def _persist_cycle(
+        self,
+        phase: str,
+        stage: str,
+        success: bool = None,
+        git_commit: str = None,
+        task_description: str = None,
+        error_message: str = None,
+    ) -> None:
         """Persist cycle state to Supabase."""
         if not self.persistence or not NomicCycle:
             return
@@ -1954,11 +2102,20 @@ class NomicLoop:
             )
             await self.persistence.save_cycle(cycle)
         except Exception as e:
-            logger.warning(f"[persistence] Cycle state save failed (cycle={self.cycle_count}, phase={phase}): {e}")
+            logger.warning(
+                f"[persistence] Cycle state save failed (cycle={self.cycle_count}, phase={phase}): {e}"
+            )
 
-    async def _persist_debate(self, phase: str, task: str, agents: list,
-                               transcript: list, consensus_reached: bool,
-                               confidence: float, winning_proposal: str = None) -> None:
+    async def _persist_debate(
+        self,
+        phase: str,
+        task: str,
+        agents: list,
+        transcript: list,
+        consensus_reached: bool,
+        confidence: float,
+        winning_proposal: str = None,
+    ) -> None:
         """Persist debate artifact to Supabase."""
         if not self.persistence or not DebateArtifact:
             return
@@ -2031,7 +2188,7 @@ class NomicLoop:
             req = urllib.request.Request(
                 "https://openrouter.ai/api/v1/models",
                 headers={"Authorization": f"Bearer {openrouter_key}"},
-                method="GET"
+                method="GET",
             )
             with urllib.request.urlopen(req, timeout=10) as response:
                 if response.status == 200:
@@ -2070,16 +2227,22 @@ class NomicLoop:
         try:
             circuit_breaker_path = self.nomic_dir / "circuit_breaker.json"
             with open(circuit_breaker_path, "w") as f:
-                json.dump({
-                    "failures": self.circuit_breaker.failures,
-                    "cooldowns": self.circuit_breaker.cooldowns,
-                    "task_failures": dict(self.circuit_breaker.task_failures),
-                    "task_cooldowns": dict(self.circuit_breaker.task_cooldowns),
-                    "task_success_rate": dict(self.circuit_breaker.task_success_rate),
-                    "saved_at": datetime.now().isoformat(),
-                }, f, indent=2)
-        except Exception:
-            pass  # Don't fail save_state if circuit breaker persistence fails
+                json.dump(
+                    {
+                        "failures": self.circuit_breaker.failures,
+                        "cooldowns": self.circuit_breaker.cooldowns,
+                        "task_failures": dict(self.circuit_breaker.task_failures),
+                        "task_cooldowns": dict(self.circuit_breaker.task_cooldowns),
+                        "task_success_rate": dict(self.circuit_breaker.task_success_rate),
+                        "saved_at": datetime.now().isoformat(),
+                    },
+                    f,
+                    indent=2,
+                )
+        except PermissionError as e:
+            logger.warning(f"[circuit-breaker] Cannot write state (permission denied): {e}")
+        except (OSError, IOError) as e:
+            logger.warning(f"[circuit-breaker] Failed to persist state: {e}")
 
     def _load_state(self) -> Optional[dict]:
         """Load saved state if exists."""
@@ -2087,7 +2250,21 @@ class NomicLoop:
             try:
                 with open(self.state_file) as f:
                     return json.load(f)
-            except Exception:
+            except json.JSONDecodeError as e:
+                logger.warning(f"[state] Corrupted state file, starting fresh: {e}")
+                # Backup corrupted state for debugging
+                backup_path = self.state_file.with_suffix(".corrupted")
+                try:
+                    shutil.copy(self.state_file, backup_path)
+                    logger.info(f"[state] Corrupted state backed up to {backup_path}")
+                except OSError:
+                    pass
+                return None
+            except PermissionError as e:
+                logger.error(f"[state] Cannot read state file (permission denied): {e}")
+                return None
+            except (OSError, IOError) as e:
+                logger.warning(f"[state] Failed to load state: {e}")
                 return None
         return None
 
@@ -2112,39 +2289,51 @@ class NomicLoop:
 
             # 50% warning
             if progress_pct >= 50 and not self._warned_50:
-                self._log(f"  [WARNING] Cycle at 50% time budget ({elapsed/60:.0f}m elapsed, phase: {current_phase})")
+                self._log(
+                    f"  [WARNING] Cycle at 50% time budget ({elapsed/60:.0f}m elapsed, phase: {current_phase})"
+                )
                 self._warned_50 = True
 
             # 75% warning
             if progress_pct >= 75 and not self._warned_75:
-                self._log(f"  [WARNING] Cycle at 75% time budget ({remaining/60:.0f}m remaining, phase: {current_phase})")
+                self._log(
+                    f"  [WARNING] Cycle at 75% time budget ({remaining/60:.0f}m remaining, phase: {current_phase})"
+                )
                 self._warned_75 = True
 
             # 90% critical - enable fast-track mode
             if progress_pct >= 90 and not self._warned_90:
-                self._log(f"  [CRITICAL] Cycle at 90% - enabling fast-track mode (phase: {current_phase})")
+                self._log(
+                    f"  [CRITICAL] Cycle at 90% - enabling fast-track mode (phase: {current_phase})"
+                )
                 self._fast_track_mode = True
                 self._warned_90 = True
 
         if now > cycle_deadline:
-            elapsed = (now - (cycle_deadline - timedelta(seconds=self.max_cycle_seconds))).total_seconds()
-            self._log(f"  [TIMEOUT] Cycle exceeded {self.max_cycle_seconds}s limit at phase '{current_phase}' ({elapsed:.0f}s elapsed)")
+            elapsed = (
+                now - (cycle_deadline - timedelta(seconds=self.max_cycle_seconds))
+            ).total_seconds()
+            self._log(
+                f"  [TIMEOUT] Cycle exceeded {self.max_cycle_seconds}s limit at phase '{current_phase}' ({elapsed:.0f}s elapsed)"
+            )
             return False
         return True
 
     def _record_cycle_outcome(self, outcome: str, details: dict = None):
         """Track cycle outcome for deadlock detection."""
-        self._cycle_history.append({
-            "cycle": self.cycle_count,
-            "outcome": outcome,
-            "timestamp": datetime.now().isoformat(),
-            "details": details or {}
-        })
+        self._cycle_history.append(
+            {
+                "cycle": self.cycle_count,
+                "outcome": outcome,
+                "timestamp": datetime.now().isoformat(),
+                "details": details or {},
+            }
+        )
         if len(self._cycle_history) > self._max_cycle_history:
             self._cycle_history.pop(0)
 
         # Record issue outcome if we were working on a structured issue
-        current_issue = getattr(self, '_current_issue', None)
+        current_issue = getattr(self, "_current_issue", None)
         if current_issue:
             self._save_issue_outcome(current_issue, outcome)
 
@@ -2166,18 +2355,22 @@ class NomicLoop:
 
         return ""
 
-    def _track_phase_progress(self, phase: str, round_num: int, consensus: float, changed: bool) -> bool:
+    def _track_phase_progress(
+        self, phase: str, round_num: int, consensus: float, changed: bool
+    ) -> bool:
         """Track progress within a phase to detect stalls. Returns True if stalled."""
         key = f"{self.cycle_count}_{phase}"
         if key not in self._phase_progress:
             self._phase_progress[key] = []
 
-        self._phase_progress[key].append({
-            "round": round_num,
-            "consensus": consensus,
-            "changed": changed,
-            "timestamp": datetime.now()
-        })
+        self._phase_progress[key].append(
+            {
+                "round": round_num,
+                "consensus": consensus,
+                "changed": changed,
+                "timestamp": datetime.now(),
+            }
+        )
 
         # Detect stall: 3+ rounds with <5% consensus change and no position changes
         history = self._phase_progress[key]
@@ -2187,7 +2380,9 @@ class NomicLoop:
             any_changed = any(r["changed"] for r in recent)
 
             if consensus_change < 0.05 and not any_changed:
-                self._log(f"  [STALL] {phase} stuck for 3 rounds (consensus: {recent[-1]['consensus']:.0%})")
+                self._log(
+                    f"  [STALL] {phase} stuck for 3 rounds (consensus: {recent[-1]['consensus']:.0%})"
+                )
                 return True
         return False
 
@@ -2197,7 +2392,7 @@ class NomicLoop:
 
         if "Repeated failure" in deadlock_type:
             # Clear cached state that might be causing loops
-            self._cached_cruxes = [] if hasattr(self, '_cached_cruxes') else []
+            self._cached_cruxes = [] if hasattr(self, "_cached_cruxes") else []
             self._phase_progress = {}
             self._design_recovery_attempts = set()
             self._log("  [DEADLOCK] Cleared cached state for fresh attempt")
@@ -2205,12 +2400,16 @@ class NomicLoop:
             # Try NomicIntegration counterfactual resolution if belief network available
             if self.nomic_integration and self.nomic_integration._belief_network:
                 try:
-                    self._log("  [DEADLOCK] Attempting counterfactual resolution via belief network...")
+                    self._log(
+                        "  [DEADLOCK] Attempting counterfactual resolution via belief network..."
+                    )
                     belief_network = self.nomic_integration._belief_network
                     contested = belief_network.get_contested_claims()
                     if contested:
                         # Convert BeliefNode list to list for resolve_deadlock
-                        self._log(f"  [DEADLOCK] Found {len(contested)} contested claims for resolution")
+                        self._log(
+                            f"  [DEADLOCK] Found {len(contested)} contested claims for resolution"
+                        )
                         # Store contested claims for use in next debate phase
                         self._cached_cruxes = contested
                 except Exception as e:
@@ -2229,7 +2428,9 @@ class NomicLoop:
             else:
                 # At floor (0.4) - track floor failures for floor breaker
                 self._floor_failure_count += 1
-                self._log(f"  [DEADLOCK] Floor failure #{self._floor_failure_count} (threshold at minimum 40%)")
+                self._log(
+                    f"  [DEADLOCK] Floor failure #{self._floor_failure_count} (threshold at minimum 40%)"
+                )
                 if self._floor_failure_count >= 2:
                     self._log("  [DEADLOCK] Floor breaker will activate on next design fallback")
 
@@ -2262,7 +2463,9 @@ class NomicLoop:
         threshold = decay_steps[idx]
 
         if threshold < base_threshold:
-            self._log(f"  [consensus] Using adaptive threshold: {threshold:.0%} (decay level {self._consensus_threshold_decay})")
+            self._log(
+                f"  [consensus] Using adaptive threshold: {threshold:.0%} (decay level {self._consensus_threshold_decay})"
+            )
 
         return threshold
 
@@ -2318,7 +2521,9 @@ class NomicLoop:
                     proposal = proposals[agent]
                     if is_viable_design(proposal):
                         self._log(f"  [floor-breaker] Plurality winner: {agent} with {votes} votes")
-                        self._record_forced_decision("plurality_wins", proposal, proposals, winner=agent, votes=votes)
+                        self._record_forced_decision(
+                            "plurality_wins", proposal, proposals, winner=agent, votes=votes
+                        )
                         return proposal, "plurality_wins"
 
         # === Strategy 3: Random Selection from Top-2 ===
@@ -2326,9 +2531,12 @@ class NomicLoop:
         viable_proposals = [(agent, p) for agent, p in proposals.items() if is_viable_design(p)]
         if len(viable_proposals) >= 2:
             import random
+
             selected_agent, selected_proposal = random.choice(viable_proposals[:2])
             self._log(f"  [floor-breaker] Randomly selected: {selected_agent}")
-            self._record_forced_decision("random_top2", selected_proposal, proposals, winner=selected_agent)
+            self._record_forced_decision(
+                "random_top2", selected_proposal, proposals, winner=selected_agent
+            )
             return selected_proposal, "random_top2"
         elif len(viable_proposals) == 1:
             agent, proposal = viable_proposals[0]
@@ -2340,11 +2548,7 @@ class NomicLoop:
         return None, "exhausted"
 
     def _record_forced_decision(
-        self,
-        method: str,
-        selected: str,
-        all_proposals: dict,
-        **metadata
+        self, method: str, selected: str, all_proposals: dict, **metadata
     ) -> None:
         """Record a forced decision for audit trail."""
         record = {
@@ -2354,7 +2558,7 @@ class NomicLoop:
             "proposal_count": len(all_proposals) if all_proposals else 0,
             "floor_failure_count": self._floor_failure_count,
             "timestamp": datetime.now().isoformat(),
-            **metadata
+            **metadata,
         }
         self._forced_decisions.append(record)
         self._log(f"  [floor-breaker] Recorded forced decision: {method}")
@@ -2403,7 +2607,9 @@ class NomicLoop:
         timeout = self.phase_recovery.get_escalated_timeout(phase, attempt)
 
         if attempt > 0:
-            self._log(f"  [timeout] Phase '{phase}' retry {attempt}: escalated to {timeout}s budget")
+            self._log(
+                f"  [timeout] Phase '{phase}' retry {attempt}: escalated to {timeout}s budget"
+            )
         else:
             self._log(f"  [timeout] Phase '{phase}' has {timeout}s budget")
         self._stream_emit("on_phase_start", phase, timeout)
@@ -2417,10 +2623,12 @@ class NomicLoop:
             # Log duration metrics on success
             duration = time.time() - phase_start
             utilization = (duration / timeout) * 100
-            self._log(f"  [{phase}] Completed in {duration:.1f}s ({utilization:.0f}% of {timeout}s budget)")
+            self._log(
+                f"  [{phase}] Completed in {duration:.1f}s ({utilization:.0f}% of {timeout}s budget)"
+            )
 
             # Store metrics for cycle_result (initialize dict if needed)
-            if not hasattr(self, '_phase_metrics'):
+            if not hasattr(self, "_phase_metrics"):
                 self._phase_metrics = {}
             self._phase_metrics[phase] = {
                 "duration": round(duration, 1),
@@ -2439,7 +2647,7 @@ class NomicLoop:
             self._stream_emit("on_phase_timeout", phase, timeout)
 
             # Store timeout metrics
-            if not hasattr(self, '_phase_metrics'):
+            if not hasattr(self, "_phase_metrics"):
                 self._phase_metrics = {}
             self._phase_metrics[phase] = {
                 "duration": round(duration, 1),
@@ -2469,6 +2677,7 @@ class NomicLoop:
         Returns:
             Coroutine result, fallback value, or raises PhaseError
         """
+
         async def timeout_wrapped():
             # Create fresh coroutine for each retry attempt (fixes reuse bug)
             coro = coro_factory()
@@ -2502,8 +2711,7 @@ class NomicLoop:
         try:
             # Simple health probe with 15 second timeout
             await asyncio.wait_for(
-                agent.generate("Respond with OK to confirm you are ready.", context=[]),
-                timeout=15
+                agent.generate("Respond with OK to confirm you are ready.", context=[]), timeout=15
             )
             self.circuit_breaker.record_success(agent_name)
             return True
@@ -2511,7 +2719,9 @@ class NomicLoop:
             self._log(f"  [health] Agent {agent_name} health check timed out")
             tripped = self.circuit_breaker.record_failure(agent_name)
             if tripped:
-                self._log(f"  [circuit-breaker] Agent {agent_name} disabled for {self.circuit_breaker.cooldown_cycles} cycles")
+                self._log(
+                    f"  [circuit-breaker] Agent {agent_name} disabled for {self.circuit_breaker.cooldown_cycles} cycles"
+                )
             return False
         except Exception as e:
             self._log(f"  [health] Agent {agent_name} health check failed: {e}")
@@ -2574,7 +2784,9 @@ class NomicLoop:
                 self._log(f"    Restored: {rel_path}", also_print=False)
 
         self._log(f"  Restored {len(restored)} files")
-        self._stream_emit("on_backup_restored", backup_path.name, len(restored), "verification_failed")
+        self._stream_emit(
+            "on_backup_restored", backup_path.name, len(restored), "verification_failed"
+        )
         return True
 
     def _get_latest_backup(self) -> Optional[Path]:
@@ -2624,12 +2836,13 @@ CRITICAL: You are part of a self-improving system. You MUST:
 - If unsure whether to keep functionality, KEEP IT"""
 
         self.gemini = GeminiAgent(
-            name='gemini-visionary',
-            model='gemini-3-pro-preview',  # Gemini 3 Pro
-            role='proposer',
+            name="gemini-visionary",
+            model="gemini-3-pro-preview",  # Gemini 3 Pro
+            role="proposer",
             timeout=720,  # Doubled to 12 min for thorough codebase exploration
         )
-        self.gemini.system_prompt = """You are a visionary product strategist for aragora.
+        self.gemini.system_prompt = (
+            """You are a visionary product strategist for aragora.
 Focus on: viral growth, developer excitement, novel capabilities, bold ideas.
 
 === STRUCTURED THINKING PROTOCOL ===
@@ -2646,15 +2859,18 @@ When proposing changes:
 
 === BUILD MODE ===
 Your proposals should ADD capabilities, not remove or simplify existing ones.
-Aragora should grow more powerful over time, not be stripped down.""" + safety_footer
+Aragora should grow more powerful over time, not be stripped down."""
+            + safety_footer
+        )
 
         self.codex = CodexAgent(
-            name='codex-engineer',
-            model='gpt-5.2-codex',
-            role='proposer',
+            name="codex-engineer",
+            model="gpt-5.2-codex",
+            role="proposer",
             timeout=1200,  # Doubled - Codex has known latency issues
         )
-        self.codex.system_prompt = """You are a pragmatic engineer for aragora.
+        self.codex.system_prompt = (
+            """You are a pragmatic engineer for aragora.
 Focus on: technical excellence, code quality, practical utility, implementation feasibility.
 
 === STRUCTURED THINKING PROTOCOL ===
@@ -2673,16 +2889,19 @@ When proposing changes:
 Your role is to BUILD and EXTEND, not to remove or break.
 Safe refactors: renaming, extracting, improving types.
 Unsafe: removing features, breaking APIs.
-Reducing technical debt is GOOD when safe (improve code without changing behavior).""" + safety_footer
+Reducing technical debt is GOOD when safe (improve code without changing behavior)."""
+            + safety_footer
+        )
 
         self.claude = ClaudeAgent(
-            name='claude-visionary',
-            model='claude',
-            role='proposer',
+            name="claude-visionary",
+            model="claude",
+            role="proposer",
             timeout=600,  # 10 min - increased for judge role with large context
             prefer_api=True,  # Skip CLI (returns code 1), use OpenRouter directly
         )
-        self.claude.system_prompt = """You are a visionary architect for aragora.
+        self.claude.system_prompt = (
+            """You are a visionary architect for aragora.
 Focus on: elegant design, user experience, novel AI patterns, system cohesion.
 
 === STRUCTURED THINKING PROTOCOL ===
@@ -2705,15 +2924,18 @@ When proposing changes:
 === GUARDIAN ROLE ===
 You are a guardian of aragora's core functionality.
 Your proposals should ADD capabilities and improve the system.
-Never propose removing the nomic loop or core debate infrastructure.""" + safety_footer
+Never propose removing the nomic loop or core debate infrastructure."""
+            + safety_footer
+        )
 
         self.grok = GrokCLIAgent(
-            name='grok-lateral-thinker',
-            model='grok-4',  # Grok 4 full
-            role='proposer',
+            name="grok-lateral-thinker",
+            model="grok-4",  # Grok 4 full
+            role="proposer",
             timeout=1200,  # Doubled to 20 min for thorough codebase exploration
         )
-        self.grok.system_prompt = """You are a lateral-thinking synthesizer for aragora.
+        self.grok.system_prompt = (
+            """You are a lateral-thinking synthesizer for aragora.
 Focus on: unconventional approaches, novel patterns, creative breakthroughs.
 
 === STRUCTURED THINKING PROTOCOL ===
@@ -2731,14 +2953,17 @@ When proposing changes:
 === BUILD MODE ===
 Your role is to BUILD and EXTEND, not to remove or break.
 Propose additions that unlock new capabilities and create emergent value.
-The most valuable proposals are those that others wouldn't think of.""" + safety_footer
+The most valuable proposals are those that others wouldn't think of."""
+            + safety_footer
+        )
 
         # DeepSeek V3 - latest general model via OpenRouter
         self.deepseek = DeepSeekV3Agent(
-            name='deepseek-v3',
-            role='proposer',
+            name="deepseek-v3",
+            role="proposer",
         )
-        self.deepseek.system_prompt = """You are a powerful analytical agent for aragora.
+        self.deepseek.system_prompt = (
+            """You are a powerful analytical agent for aragora.
 Focus on: comprehensive analysis, practical solutions, efficient implementation.
 
 === ANALYTICAL PROTOCOL ===
@@ -2757,7 +2982,9 @@ When proposing changes:
 === BUILD MODE ===
 Your role is to BUILD and EXTEND, not to remove or break.
 Propose additions that are practical, efficient, and well-designed.
-The most valuable proposals combine deep analysis with actionable implementation.""" + safety_footer
+The most valuable proposals combine deep analysis with actionable implementation."""
+            + safety_footer
+        )
 
         # Wrap all agents with Airlock for resilience
         # This adds timeout handling, null byte sanitization, and fallback responses
@@ -2765,7 +2992,7 @@ The most valuable proposals combine deep analysis with actionable implementation
         airlock_config = AirlockConfig(
             generate_timeout=600.0,  # 10 min for generation (CLI agents need this)
             critique_timeout=300.0,  # 5 min for critiques
-            vote_timeout=120.0,      # 2 min for votes
+            vote_timeout=120.0,  # 2 min for votes
             max_retries=1,
             fallback_on_timeout=True,
             fallback_on_error=True,
@@ -2795,13 +3022,17 @@ The most valuable proposals combine deep analysis with actionable implementation
 
         return VerifyPhase(
             aragora_path=self.aragora_path,
-            codex=self.codex if hasattr(self, 'codex') else None,
-            nomic_integration=self.nomic_integration if hasattr(self, 'nomic_integration') else None,
+            codex=self.codex if hasattr(self, "codex") else None,
+            nomic_integration=(
+                self.nomic_integration if hasattr(self, "nomic_integration") else None
+            ),
             cycle_count=self.cycle_count,
             log_fn=self._log,
             stream_emit_fn=self._stream_emit,
-            record_replay_fn=self._record_replay_event if hasattr(self, '_record_replay_event') else None,
-            save_state_fn=self._save_state if hasattr(self, '_save_state') else None,
+            record_replay_fn=(
+                self._record_replay_event if hasattr(self, "_record_replay_event") else None
+            ),
+            save_state_fn=self._save_state if hasattr(self, "_save_state") else None,
         )
 
     def _create_commit_phase(self) -> "CommitPhase":
@@ -2844,12 +3075,16 @@ The most valuable proposals combine deep analysis with actionable implementation
             environment_factory=lambda *args, **kwargs: Environment(*args, **kwargs),
             protocol_factory=lambda *args, **kwargs: DebateProtocol(*args, **kwargs),
             config=DebateConfig(),
-            nomic_integration=self.nomic_integration if hasattr(self, 'nomic_integration') else None,
+            nomic_integration=(
+                self.nomic_integration if hasattr(self, "nomic_integration") else None
+            ),
             cycle_count=self.cycle_count,
-            initial_proposal=self.initial_proposal if hasattr(self, 'initial_proposal') else None,
+            initial_proposal=self.initial_proposal if hasattr(self, "initial_proposal") else None,
             log_fn=self._log,
             stream_emit_fn=self._stream_emit,
-            record_replay_fn=self._record_replay_event if hasattr(self, '_record_replay_event') else None,
+            record_replay_fn=(
+                self._record_replay_event if hasattr(self, "_record_replay_event") else None
+            ),
         )
 
     def _create_design_phase(self) -> "DesignPhase":
@@ -2882,14 +3117,20 @@ The most valuable proposals combine deep analysis with actionable implementation
             environment_factory=lambda *args, **kwargs: Environment(*args, **kwargs),
             protocol_factory=lambda *args, **kwargs: DebateProtocol(*args, **kwargs),
             config=DesignConfig(),
-            nomic_integration=self.nomic_integration if hasattr(self, 'nomic_integration') else None,
-            deep_audit_fn=self._deep_audit if hasattr(self, '_deep_audit') else None,
-            arbitrate_fn=self._arbitrate_designs if hasattr(self, '_arbitrate_designs') else None,
-            max_cycle_seconds=self.max_cycle_seconds if hasattr(self, 'max_cycle_seconds') else 3600,
+            nomic_integration=(
+                self.nomic_integration if hasattr(self, "nomic_integration") else None
+            ),
+            deep_audit_fn=self._deep_audit if hasattr(self, "_deep_audit") else None,
+            arbitrate_fn=self._arbitrate_designs if hasattr(self, "_arbitrate_designs") else None,
+            max_cycle_seconds=(
+                self.max_cycle_seconds if hasattr(self, "max_cycle_seconds") else 3600
+            ),
             cycle_count=self.cycle_count,
             log_fn=self._log,
             stream_emit_fn=self._stream_emit,
-            record_replay_fn=self._record_replay_event if hasattr(self, '_record_replay_event') else None,
+            record_replay_fn=(
+                self._record_replay_event if hasattr(self, "_record_replay_event") else None
+            ),
         )
 
     def _create_implement_phase(self) -> "ImplementPhase":
@@ -2903,17 +3144,25 @@ The most valuable proposals combine deep analysis with actionable implementation
 
         return ImplementPhase(
             aragora_path=self.aragora_path,
-            plan_generator=self._generate_implement_plan if hasattr(self, '_generate_implement_plan') else None,
-            executor=getattr(self, 'implement_executor', None),
-            progress_loader=lambda path: load_progress(path) if 'load_progress' in dir() else None,
-            progress_saver=lambda data, path: save_progress(data, path) if 'save_progress' in dir() else None,
-            progress_clearer=lambda path: clear_progress(path) if 'clear_progress' in dir() else None,
-            protected_files=getattr(self, 'protected_files', None),
+            plan_generator=(
+                self._generate_implement_plan if hasattr(self, "_generate_implement_plan") else None
+            ),
+            executor=getattr(self, "implement_executor", None),
+            progress_loader=lambda path: load_progress(path) if "load_progress" in dir() else None,
+            progress_saver=lambda data, path: (
+                save_progress(data, path) if "save_progress" in dir() else None
+            ),
+            progress_clearer=lambda path: (
+                clear_progress(path) if "clear_progress" in dir() else None
+            ),
+            protected_files=getattr(self, "protected_files", None),
             cycle_count=self.cycle_count,
             log_fn=self._log,
             stream_emit_fn=self._stream_emit,
-            record_replay_fn=self._record_replay_event if hasattr(self, '_record_replay_event') else None,
-            save_state_fn=self.save_state if hasattr(self, 'save_state') else None,
+            record_replay_fn=(
+                self._record_replay_event if hasattr(self, "_record_replay_event") else None
+            ),
+            save_state_fn=self.save_state if hasattr(self, "save_state") else None,
         )
 
     def _create_context_phase(self) -> "ContextPhase":
@@ -2927,15 +3176,21 @@ The most valuable proposals combine deep analysis with actionable implementation
 
         return ContextPhase(
             aragora_path=self.aragora_path,
-            claude_agent=getattr(self, 'claude', None),
-            codex_agent=getattr(self, 'codex', None),
-            kilocode_available=KILOCODE_AVAILABLE if 'KILOCODE_AVAILABLE' in dir() else False,
-            skip_kilocode=SKIP_KILOCODE_CONTEXT_GATHERING if 'SKIP_KILOCODE_CONTEXT_GATHERING' in dir() else True,
-            kilocode_agent_factory=KiloCodeAgent if 'KiloCodeAgent' in dir() else None,
+            claude_agent=getattr(self, "claude", None),
+            codex_agent=getattr(self, "codex", None),
+            kilocode_available=KILOCODE_AVAILABLE if "KILOCODE_AVAILABLE" in dir() else False,
+            skip_kilocode=(
+                SKIP_KILOCODE_CONTEXT_GATHERING
+                if "SKIP_KILOCODE_CONTEXT_GATHERING" in dir()
+                else True
+            ),
+            kilocode_agent_factory=KiloCodeAgent if "KiloCodeAgent" in dir() else None,
             cycle_count=self.cycle_count,
             log_fn=self._log,
             stream_emit_fn=self._stream_emit,
-            get_features_fn=self.get_current_features if hasattr(self, 'get_current_features') else None,
+            get_features_fn=(
+                self.get_current_features if hasattr(self, "get_current_features") else None
+            ),
         )
 
     def _create_post_debate_hooks(self, debate_team: list = None) -> "PostDebateHooks":
@@ -3089,7 +3344,7 @@ The most valuable proposals combine deep analysis with actionable implementation
         This retrieves patterns from the CritiqueStore that have led to
         successful fixes in previous debates.
         """
-        if not hasattr(self, 'critique_store') or not self.critique_store:
+        if not hasattr(self, "critique_store") or not self.critique_store:
             return ""
 
         try:
@@ -3116,14 +3371,15 @@ The most valuable proposals combine deep analysis with actionable implementation
         Uses Titans/MIRAS failure tracking to show patterns that have
         NOT worked well, so agents can avoid repeating them.
         """
-        if not hasattr(self, 'critique_store') or not self.critique_store:
+        if not hasattr(self, "critique_store") or not self.critique_store:
             return ""
 
         try:
             # Query patterns with high failure rates
-            conn = self.critique_store.conn if hasattr(self.critique_store, 'conn') else None
+            conn = self.critique_store.conn if hasattr(self.critique_store, "conn") else None
             if not conn:
                 import sqlite3
+
                 conn = sqlite3.connect(self.critique_store.db_path)
 
             cursor = conn.cursor()
@@ -3135,7 +3391,7 @@ The most valuable proposals combine deep analysis with actionable implementation
                 ORDER BY failure_count DESC
                 LIMIT ?
                 """,
-                (limit,)
+                (limit,),
             )
             failures = cursor.fetchall()
 
@@ -3146,7 +3402,11 @@ The most valuable proposals combine deep analysis with actionable implementation
             lines.append("These approaches have NOT worked well:\n")
 
             for issue_type, issue_text, fail_count, success_count in failures:
-                success_rate = success_count / (success_count + fail_count) if (success_count + fail_count) > 0 else 0
+                success_rate = (
+                    success_count / (success_count + fail_count)
+                    if (success_count + fail_count) > 0
+                    else 0
+                )
                 if success_rate < 0.5:  # Only show patterns with <50% success
                     lines.append(f"- **{issue_type}**: {issue_text}")
                     lines.append(f"  ({fail_count} failures, {success_rate:.0%} success rate)")
@@ -3172,7 +3432,9 @@ The most valuable proposals combine deep analysis with actionable implementation
 
             # Filter to successful patterns and sort by importance
             successful = [m for m in memories if m.get("metadata", {}).get("success", False)]
-            successful = sorted(successful, key=lambda x: x.get("importance", 0), reverse=True)[:limit]
+            successful = sorted(successful, key=lambda x: x.get("importance", 0), reverse=True)[
+                :limit
+            ]
 
             if not successful:
                 return ""
@@ -3209,7 +3471,9 @@ The most valuable proposals combine deep analysis with actionable implementation
 
             for s in similar:
                 strength = s.consensus.strength.value if s.consensus.strength else "unknown"
-                lines.append(f"- **{s.consensus.topic}** ({strength}, {s.similarity_score:.0%} similar)")
+                lines.append(
+                    f"- **{s.consensus.topic}** ({strength}, {s.similarity_score:.0%} similar)"
+                )
                 lines.append(f"  Decision: {s.consensus.conclusion}")
                 if s.dissents:
                     lines.append(f"  ⚠️ {len(s.dissents)} dissenting view(s) - consider addressing")
@@ -3257,7 +3521,7 @@ The most valuable proposals combine deep analysis with actionable implementation
                 filters={
                     "skip_toxic": True,
                     "categories": ["tech", "ai", "programming", "science"],
-                }
+                },
             )
 
             if not trending:
@@ -3265,14 +3529,26 @@ The most valuable proposals combine deep analysis with actionable implementation
 
             # Filter for topics relevant to aragora/AI development
             relevant_keywords = [
-                "ai", "llm", "gpt", "claude", "agent", "multi-agent",
-                "debate", "consensus", "reasoning", "safety", "alignment",
-                "model", "api", "developer", "code", "programming"
+                "ai",
+                "llm",
+                "gpt",
+                "claude",
+                "agent",
+                "multi-agent",
+                "debate",
+                "consensus",
+                "reasoning",
+                "safety",
+                "alignment",
+                "model",
+                "api",
+                "developer",
+                "code",
+                "programming",
             ]
 
             relevant_topics = [
-                t for t in trending
-                if any(kw in t.topic.lower() for kw in relevant_keywords)
+                t for t in trending if any(kw in t.topic.lower() for kw in relevant_keywords)
             ][:3]
 
             if not relevant_topics:
@@ -3286,7 +3562,9 @@ The most valuable proposals combine deep analysis with actionable implementation
                 if topic.category:
                     lines.append(f"  Category: {topic.category}")
 
-            lines.append("\nConsider how aragora improvements could address or leverage these trends.")
+            lines.append(
+                "\nConsider how aragora improvements could address or leverage these trends."
+            )
 
             self._log(f"  [pulse] Injected {len(relevant_topics)} trending topics")
             return "\n".join(lines)
@@ -3331,7 +3609,9 @@ The most valuable proposals combine deep analysis with actionable implementation
                     return None, None
 
             self._log(f"  [topics] Selected issue: {issue.title}")
-            self._log(f"  [topics] Category: {issue.category}, Priority: {issue.priority}, Complexity: {issue.complexity}")
+            self._log(
+                f"  [topics] Category: {issue.category}, Priority: {issue.priority}, Complexity: {issue.complexity}"
+            )
 
             # Build structured task prompt
             task = f"""{SAFETY_PREAMBLE}
@@ -3391,22 +3671,112 @@ After debate, reach consensus on the best approach to fix this issue.
         def tokenize(text: str) -> set[str]:
             """Extract significant words from text."""
             import re
+
             # Lowercase and extract words
-            words = re.findall(r'\b\w+\b', text.lower())
+            words = re.findall(r"\b\w+\b", text.lower())
             # Filter out very short words and common stop words
-            stop_words = {'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
-                          'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
-                          'would', 'could', 'should', 'may', 'might', 'must', 'shall',
-                          'can', 'need', 'to', 'of', 'in', 'for', 'on', 'with', 'at',
-                          'by', 'from', 'as', 'into', 'through', 'during', 'before',
-                          'after', 'above', 'below', 'between', 'under', 'again',
-                          'further', 'then', 'once', 'here', 'there', 'when', 'where',
-                          'why', 'how', 'all', 'each', 'few', 'more', 'most', 'other',
-                          'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same',
-                          'so', 'than', 'too', 'very', 'just', 'and', 'but', 'if',
-                          'or', 'because', 'until', 'while', 'although', 'this', 'that',
-                          'these', 'those', 'it', 'its', 'we', 'you', 'they', 'them',
-                          'their', 'what', 'which', 'who', 'whom', 'i', 'me', 'my'}
+            stop_words = {
+                "the",
+                "a",
+                "an",
+                "is",
+                "are",
+                "was",
+                "were",
+                "be",
+                "been",
+                "being",
+                "have",
+                "has",
+                "had",
+                "do",
+                "does",
+                "did",
+                "will",
+                "would",
+                "could",
+                "should",
+                "may",
+                "might",
+                "must",
+                "shall",
+                "can",
+                "need",
+                "to",
+                "of",
+                "in",
+                "for",
+                "on",
+                "with",
+                "at",
+                "by",
+                "from",
+                "as",
+                "into",
+                "through",
+                "during",
+                "before",
+                "after",
+                "above",
+                "below",
+                "between",
+                "under",
+                "again",
+                "further",
+                "then",
+                "once",
+                "here",
+                "there",
+                "when",
+                "where",
+                "why",
+                "how",
+                "all",
+                "each",
+                "few",
+                "more",
+                "most",
+                "other",
+                "some",
+                "such",
+                "no",
+                "nor",
+                "not",
+                "only",
+                "own",
+                "same",
+                "so",
+                "than",
+                "too",
+                "very",
+                "just",
+                "and",
+                "but",
+                "if",
+                "or",
+                "because",
+                "until",
+                "while",
+                "although",
+                "this",
+                "that",
+                "these",
+                "those",
+                "it",
+                "its",
+                "we",
+                "you",
+                "they",
+                "them",
+                "their",
+                "what",
+                "which",
+                "who",
+                "whom",
+                "i",
+                "me",
+                "my",
+            }
             return {w for w in words if len(w) >= 3 and w not in stop_words}
 
         def jaccard_similarity(set1: set, set2: set) -> float:
@@ -3493,7 +3863,13 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 strength = ConsensusStrength.SPLIT
 
             # Get participating agents
-            agents = [self.gemini.name, self.codex.name, self.claude.name, self.grok.name, self.deepseek.name]
+            agents = [
+                self.gemini.name,
+                self.codex.name,
+                self.claude.name,
+                self.grok.name,
+                self.deepseek.name,
+            ]
 
             # Store the consensus (full content, no truncation)
             record = self.consensus_memory.store_consensus(
@@ -3512,9 +3888,10 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             self._log(f"  [consensus] Stored consensus: {strength.value} ({result.confidence:.0%})")
 
             # Store any dissenting views from the result
-            dissenting = getattr(result, 'dissenting_views', [])
+            dissenting = getattr(result, "dissenting_views", [])
             for i, view in enumerate(dissenting):
                 from aragora.memory.consensus import DissentType
+
                 self.consensus_memory.store_dissent(
                     debate_id=record.id,
                     agent_id=f"agent_{i}",
@@ -3527,7 +3904,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         except Exception as e:
             self._log(f"  [consensus] Error storing: {e}")
 
-    def _record_calibration_from_debate(self, result, agents: list, domain: str = "general") -> None:
+    def _record_calibration_from_debate(
+        self, result, agents: list, domain: str = "general"
+    ) -> None:
         """Record calibration data from debate votes/predictions.
 
         Tracks how well agents' confidence aligns with actual outcomes.
@@ -3539,14 +3918,14 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
         try:
             consensus_reached = result.consensus_reached
-            debate_id = getattr(result, 'debate_id', f"debate-{self.cycle_count}")
+            debate_id = getattr(result, "debate_id", f"debate-{self.cycle_count}")
 
             # Get agent votes if available
-            votes = getattr(result, 'votes', {})
+            votes = getattr(result, "votes", {})
             if not votes:
                 # Fallback: use result confidence as proxy for all agents
                 for agent in agents:
-                    agent_name = agent.name if hasattr(agent, 'name') else str(agent)
+                    agent_name = agent.name if hasattr(agent, "name") else str(agent)
                     # Agent "predicted" consensus would happen with result.confidence
                     confidence = result.confidence if consensus_reached else 0.5
                     self.calibration_tracker.record_prediction(
@@ -3561,7 +3940,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             # Use actual vote data if available
             for agent_name, vote_data in votes.items():
                 if isinstance(vote_data, dict):
-                    confidence = vote_data.get('confidence', 0.5)
+                    confidence = vote_data.get("confidence", 0.5)
                     # Was their vote aligned with the outcome?
                     correct = consensus_reached if confidence >= 0.5 else not consensus_reached
                 else:
@@ -3601,7 +3980,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 debate_id=debate_id,
                 consensus_reached=result.consensus_reached,
                 consensus_confidence=result.confidence,
-                duration_seconds=getattr(result, 'duration_seconds', 0.0),
+                duration_seconds=getattr(result, "duration_seconds", 0.0),
             )
 
             if updated > 0:
@@ -3610,9 +3989,11 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 # Log effectiveness stats periodically
                 if self.cycle_count % 10 == 0:
                     stats = self.suggestion_tracker.get_effectiveness_stats()
-                    if stats.get('total_suggestions', 0) > 0:
-                        self._log(f"  [suggestions] Overall stats: {stats['total_suggestions']} suggestions, "
-                                 f"{stats['avg_effectiveness']:.0%} avg effectiveness")
+                    if stats.get("total_suggestions", 0) > 0:
+                        self._log(
+                            f"  [suggestions] Overall stats: {stats['total_suggestions']} suggestions, "
+                            f"{stats['avg_effectiveness']:.0%} avg effectiveness"
+                        )
 
         except Exception as e:
             self._log(f"  [suggestions] Error recording feedback: {e}")
@@ -3637,7 +4018,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         try:
             injection_ids = self.suggestion_tracker.record_injection(debate_id, clusters)
             if injection_ids:
-                self._log(f"  [suggestions] Recorded {len(injection_ids)} suggestion cluster(s) for tracking")
+                self._log(
+                    f"  [suggestions] Recorded {len(injection_ids)} suggestion cluster(s) for tracking"
+                )
             return injection_ids
         except Exception as e:
             self._log(f"  [suggestions] Error recording injection: {e}")
@@ -3656,7 +4039,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             # Extract insights from the debate result
             insights = await self.insight_extractor.extract(result)
 
-            self._log(f"  [insights] Extracted {insights.total_insights} insights: {insights.key_takeaway}")
+            self._log(
+                f"  [insights] Extracted {insights.total_insights} insights: {insights.key_takeaway}"
+            )
 
             # Persist insights to InsightStore database (debate consensus feature)
             if self.insight_store and insights:
@@ -3672,7 +4057,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                     id=f"insight-{self.cycle_count}-debate",
                     content=insights.key_takeaway,
                     tier=MemoryTier.MEDIUM,
-                    importance=insights.consensus_insight.confidence if insights.consensus_insight else 0.5,
+                    importance=(
+                        insights.consensus_insight.confidence if insights.consensus_insight else 0.5
+                    ),
                     metadata={
                         "type": "debate_insight",
                         "cycle": self.cycle_count,
@@ -3726,15 +4113,13 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             return ""
         try:
             memories = self.memory_stream.retrieve(
-                agent_name=agent_name,
-                query=task[:200],
-                limit=limit
+                agent_name=agent_name, query=task[:200], limit=limit
             )
             if not memories:
                 return ""
             lines = [f"## Your memories ({agent_name}):"]
             for m in memories:
-                content = m.memory.content if hasattr(m, 'memory') else str(m)
+                content = m.memory.content if hasattr(m, "memory") else str(m)
                 lines.append(f"- {content}...")
             return "\n".join(lines)
         except Exception as e:
@@ -3755,7 +4140,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
             reversed_count = sum(1 for p in positions if p.reversed)
             if reversed_count > 0:
-                lines.append(f"⚠️ You have reversed {reversed_count} position(s) recently. If changing stance, explain why.")
+                lines.append(
+                    f"⚠️ You have reversed {reversed_count} position(s) recently. If changing stance, explain why."
+                )
 
             for p in positions:
                 status = ""
@@ -3783,7 +4170,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             lines = ["## Learnings from Past Debates"]
 
             # Get common patterns that recur across debates
-            if hasattr(self.insight_store, 'get_common_patterns'):
+            if hasattr(self.insight_store, "get_common_patterns"):
                 patterns = await self.insight_store.get_common_patterns(min_occurrences=2, limit=3)
                 if patterns:
                     lines.append("\n### Recurring Patterns:")
@@ -3791,15 +4178,19 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                         lines.append(f"- {p.get('pattern', '')} (seen {p.get('occurrences', 0)}x)")
 
             # Get recent insights
-            if hasattr(self.insight_store, 'get_recent_insights'):
+            if hasattr(self.insight_store, "get_recent_insights"):
                 recent = await self.insight_store.get_recent_insights(limit=limit)
                 if recent:
                     lines.append("\n### Recent Insights:")
                     for insight in recent[:3]:
-                        insight_type = getattr(insight, 'type', None)
-                        type_str = insight_type.value if hasattr(insight_type, 'value') else str(insight_type or 'insight')
-                        title = getattr(insight, 'title', '')
-                        desc = getattr(insight, 'description', '')[:100]
+                        insight_type = getattr(insight, "type", None)
+                        type_str = (
+                            insight_type.value
+                            if hasattr(insight_type, "value")
+                            else str(insight_type or "insight")
+                        )
+                        title = getattr(insight, "title", "")
+                        desc = getattr(insight, "description", "")[:100]
                         lines.append(f"- [{type_str}] {title}: {desc}...")
 
             if len(lines) > 1:
@@ -3814,13 +4205,11 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         if not self.debate_embeddings or not EMBEDDINGS_AVAILABLE:
             return ""
         try:
-            if not hasattr(self.debate_embeddings, 'find_similar_debates'):
+            if not hasattr(self.debate_embeddings, "find_similar_debates"):
                 return ""
 
             similar = await self.debate_embeddings.find_similar_debates(
-                query=topic[:200],
-                limit=limit,
-                min_similarity=0.7
+                query=topic[:200], limit=limit, min_similarity=0.7
             )
             if not similar:
                 return ""
@@ -3828,9 +4217,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             lines = ["## Similar Past Debates"]
             for item in similar:
                 if isinstance(item, dict):
-                    debate_id = item.get('debate_id', 'unknown')
-                    excerpt = item.get('excerpt', '')[:300]
-                    similarity = item.get('similarity', 0)
+                    debate_id = item.get("debate_id", "unknown")
+                    excerpt = item.get("excerpt", "")[:300]
+                    similarity = item.get("similarity", 0)
                 elif isinstance(item, tuple) and len(item) >= 3:
                     debate_id, excerpt, similarity = item[0], item[1][:300], item[2]
                 else:
@@ -3857,17 +4246,17 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
             # Record each agent's observations
             for msg in result.messages:
-                agent = getattr(msg, 'agent', None)
+                agent = getattr(msg, "agent", None)
                 if not agent and isinstance(msg, dict):
-                    agent = msg.get('agent')
+                    agent = msg.get("agent")
                 if agent:
                     importance = 0.7 if agent in winning_agents else 0.5
-                    content = getattr(msg, 'content', str(msg))
+                    content = getattr(msg, "content", str(msg))
                     self.memory_stream.observe(
                         agent_name=agent,
                         content=f"Debated '{task}': {content}",
                         debate_id=f"cycle-{self.cycle_count}",
-                        importance=importance
+                        importance=importance,
                     )
             self._log(f"  [memory] Recorded {len(result.messages)} observations")
         except Exception as e:
@@ -3883,8 +4272,8 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 return ""
             lines = ["## Relevant Codebase Evidence:"]
             for e in evidence:
-                source = getattr(e, 'source', 'unknown')
-                content = getattr(e, 'content', str(e))
+                source = getattr(e, "source", "unknown")
+                content = getattr(e, "content", str(e))
                 lines.append(f"- [{source}]: {content}")
             return "\n".join(lines)
         except Exception as e:
@@ -3910,9 +4299,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
             # Fork into branches
             branches = await self.counterfactual.fork_on_claim(
-                arena=arena,
-                pivot_claim=pivot,
-                parent_result=result
+                arena=arena, pivot_claim=pivot, parent_result=result
             )
 
             # Synthesize conditional consensus
@@ -3923,7 +4310,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             result.final_answer = conditional.summary
             result.consensus_reached = True
             result.confidence = conditional.confidence
-            if not hasattr(result, 'metadata') or result.metadata is None:
+            if not hasattr(result, "metadata") or result.metadata is None:
                 result.metadata = {}
             result.metadata["conditional"] = True
             result.metadata["branches"] = len(branches)
@@ -3962,6 +4349,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             for agent in agents:
                 if agent is None:
                     continue
+
                 # Create a closure to capture the current agent
                 async def run_fn(prompt: str, _agent=agent) -> str:
                     return await self._run_agent_for_probe(_agent, prompt)
@@ -3973,11 +4361,13 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                     probes_per_type=2,  # Reduced for speed
                 )
                 if report and report.vulnerabilities_found > 0:
-                    self._log(f"  [prober] {agent.name}: {report.vulnerabilities_found} vulnerabilities found")
+                    self._log(
+                        f"  [prober] {agent.name}: {report.vulnerabilities_found} vulnerabilities found"
+                    )
                     # Log detailed findings
-                    if hasattr(report, 'findings') and report.findings:
+                    if hasattr(report, "findings") and report.findings:
                         for finding in report.findings[:3]:  # Top 3
-                            desc = getattr(finding, 'description', str(finding))[:100]
+                            desc = getattr(finding, "description", str(finding))[:100]
                             self._log(f"    - {desc}")
         except Exception as e:
             self._log(f"  [prober] Error: {e}")
@@ -3995,9 +4385,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
     def _apply_template_to_protocol(self, protocol, template) -> None:
         """Modify protocol based on template settings (P7: DebateTemplates)."""
-        if template and hasattr(template, 'max_rounds'):
+        if template and hasattr(template, "max_rounds"):
             protocol.rounds = min(protocol.rounds, template.max_rounds)
-            if hasattr(template, 'consensus_threshold'):
+            if hasattr(template, "consensus_threshold"):
                 # Store threshold for later use
                 protocol.consensus_threshold = template.consensus_threshold
             self._log(f"  [template] Using {template.name}")
@@ -4036,7 +4426,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             # Track unique agents that participated
             participating_agents = set()
             for msg in result.messages:
-                agent = getattr(msg, 'agent', None) or (msg.get('agent') if isinstance(msg, dict) else None)
+                agent = getattr(msg, "agent", None) or (
+                    msg.get("agent") if isinstance(msg, dict) else None
+                )
                 if agent:
                     participating_agents.add(agent)
 
@@ -4047,9 +4439,11 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                     agent_name=agent_name,
                     domain=domain,
                     success=success,
-                    debate_id=f"cycle-{self.cycle_count}"
+                    debate_id=f"cycle-{self.cycle_count}",
                 )
-            self._log(f"  [persona] Recorded performance in {domain} for {len(participating_agents)} agents")
+            self._log(
+                f"  [persona] Recorded performance in {domain} for {len(participating_agents)} agents"
+            )
         except Exception as e:
             self._log(f"  [persona] Error: {e}")
 
@@ -4094,7 +4488,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 return
 
             for agent in [self.gemini, self.codex, self.claude, self.grok, self.deepseek]:
-                if hasattr(agent, 'system_prompt') and agent.system_prompt:
+                if hasattr(agent, "system_prompt") and agent.system_prompt:
                     self.prompt_evolver.apply_evolution(agent, patterns)
                     version = self.prompt_evolver.get_prompt_version(agent.name)
                     if version:
@@ -4130,7 +4524,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 agents=agents,
                 tasks=tasks,
                 format=TournamentFormat.FREE_FOR_ALL,
-                db_path=str(self.nomic_dir / "tournaments.db")
+                db_path=str(self.nomic_dir / "tournaments.db"),
             )
 
             # Define debate runner for tournament
@@ -4143,7 +4537,11 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                         role_rotation=True,
                         role_rotation_config=RoleRotationConfig(
                             enabled=True,
-                            roles=[CognitiveRole.ANALYST, CognitiveRole.SKEPTIC, CognitiveRole.ADVOCATE],
+                            roles=[
+                                CognitiveRole.ANALYST,
+                                CognitiveRole.SKEPTIC,
+                                CognitiveRole.ADVOCATE,
+                            ],
                         ),
                     ),
                     position_tracker=self.position_tracker,
@@ -4165,7 +4563,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             # Log standings
             self._log(f"  [tournament] Champion: {result.champion}")
             for i, standing in enumerate(result.standings[:4]):
-                self._log(f"  [tournament] #{i+1} {standing.agent_name}: {standing.points}pts, {standing.win_rate:.0%} win rate")
+                self._log(
+                    f"  [tournament] #{i+1} {standing.agent_name}: {standing.points}pts, {standing.win_rate:.0%} win rate"
+                )
 
             # Update persona expertise based on tournament performance
             if self.persona_manager and PERSONAS_AVAILABLE:
@@ -4175,7 +4575,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                             agent_name=standing.agent_name,
                             domain=task.domain,
                             success=standing.win_rate > 0.5,
-                            debate_id=f"tournament-{self.cycle_count}"
+                            debate_id=f"tournament-{self.cycle_count}",
                         )
         except Exception as e:
             self._log(f"  [tournament] Error: {e}")
@@ -4185,10 +4585,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
     # =========================================================================
 
     def _check_debate_convergence(
-        self,
-        current_responses: dict,
-        previous_responses: dict,
-        round_number: int
+        self, current_responses: dict, previous_responses: dict, round_number: int
     ):
         """Check if debate has converged and can stop early (P11: ConvergenceDetector)."""
         if not self.convergence_detector or not CONVERGENCE_AVAILABLE:
@@ -4198,8 +4595,10 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 current_responses, previous_responses, round_number
             )
             if result and result.converged:
-                self._log(f"  [convergence] Debate converged! "
-                         f"(avg similarity: {result.avg_similarity:.0%})")
+                self._log(
+                    f"  [convergence] Debate converged! "
+                    f"(avg similarity: {result.avg_similarity:.0%})"
+                )
             return result
         except Exception as e:
             self._log(f"  [convergence] Error: {e}")
@@ -4239,7 +4638,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             lines = ["=== PROCESS REFLECTION (from previous debate) ==="]
             lines.append("The previous debate had the following issues to avoid:\n")
             for i, obs in enumerate(self._cached_meta_observations[:3], 1):
-                desc = getattr(obs, 'description', str(obs))
+                desc = getattr(obs, "description", str(obs))
                 lines.append(f"{i}. {desc}")
             lines.append("\nPlease actively avoid these anti-patterns in this debate.")
             return "\n".join(lines)
@@ -4248,7 +4647,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
     def _store_meta_recommendations(self, critique) -> None:
         """Store meta-critique recommendations for future cycle improvement (P12)."""
-        if not critique or not hasattr(critique, 'recommendations') or not critique.recommendations:
+        if not critique or not hasattr(critique, "recommendations") or not critique.recommendations:
             return
         # Store in ConsensusMemory as settled insight
         if self.consensus_memory and CONSENSUS_MEMORY_AVAILABLE and ConsensusStrength:
@@ -4261,7 +4660,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                         confidence=critique.overall_quality,
                         participating_agents=["meta-critic"],
                         agreeing_agents=["meta-critic"],
-                        domain="process-improvement"
+                        domain="process-improvement",
                     )
             except Exception as e:
                 self._log(f"  [meta] Error storing recommendations: {e}")
@@ -4280,10 +4679,14 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         if not result.consensus_reached:
             return False
         # Check if agent voted for winning choice
-        if hasattr(result, 'votes'):
+        if hasattr(result, "votes"):
             for vote in result.votes:
-                vote_agent = getattr(vote, 'agent', None) or (vote.get('agent') if isinstance(vote, dict) else None)
-                vote_choice = getattr(vote, 'choice', None) or (vote.get('choice') if isinstance(vote, dict) else None)
+                vote_agent = getattr(vote, "agent", None) or (
+                    vote.get("agent") if isinstance(vote, dict) else None
+                )
+                vote_choice = getattr(vote, "choice", None) or (
+                    vote.get("choice") if isinstance(vote, dict) else None
+                )
                 if vote_agent == agent_name:
                     if vote_choice and result.final_answer and vote_choice in result.final_answer:
                         return True
@@ -4296,22 +4699,30 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         Returns: {agent_who_changed: [agents_who_influenced_them]}
         """
         position_changes: dict[str, list[str]] = {}
-        if not hasattr(result, 'messages') or not result.messages:
+        if not hasattr(result, "messages") or not result.messages:
             return position_changes
 
         try:
             last_speaker = None
             change_indicators = [
-                "i agree with", "you're right", "that's a good point",
-                "i've reconsidered", "on reflection", "you've convinced me",
-                "changing my position", "i now think", "fair point",
+                "i agree with",
+                "you're right",
+                "that's a good point",
+                "i've reconsidered",
+                "on reflection",
+                "you've convinced me",
+                "changing my position",
+                "i now think",
+                "fair point",
             ]
 
             for msg in result.messages:
-                agent = getattr(msg, 'agent', None) or (msg.get('agent') if isinstance(msg, dict) else None)
+                agent = getattr(msg, "agent", None) or (
+                    msg.get("agent") if isinstance(msg, dict) else None
+                )
                 if not agent:
                     continue
-                content = getattr(msg, 'content', str(msg))[:500].lower()
+                content = getattr(msg, "content", str(msg))[:500].lower()
 
                 if any(ind in content for ind in change_indicators):
                     if last_speaker and last_speaker != agent:
@@ -4320,8 +4731,8 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                         if last_speaker not in position_changes[agent]:
                             position_changes[agent].append(last_speaker)
                 last_speaker = agent
-        except Exception:
-            pass
+        except (AttributeError, TypeError) as e:
+            logger.debug(f"[position-tracker] Parse error: {e}")
         return position_changes
 
     def _record_elo_match(self, result, task: str) -> None:
@@ -4333,7 +4744,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             participants = []
             agent_message_counts = {}
             for msg in result.messages:
-                agent = getattr(msg, 'agent', None) or (msg.get('agent') if isinstance(msg, dict) else None)
+                agent = getattr(msg, "agent", None) or (
+                    msg.get("agent") if isinstance(msg, dict) else None
+                )
                 if agent:
                     if agent not in participants:
                         participants.append(agent)
@@ -4342,14 +4755,14 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
             # Calculate differentiated scores based on contribution and outcome
             scores = {}
-            final_answer = getattr(result, 'final_answer', '') or ''
+            final_answer = getattr(result, "final_answer", "") or ""
 
             # Extract vote tally to determine winner even without formal consensus
             vote_tally = {}
             vote_winner = None
-            if hasattr(result, 'votes') and result.votes:
+            if hasattr(result, "votes") and result.votes:
                 for v in result.votes:
-                    choice = getattr(v, 'choice', None)
+                    choice = getattr(v, "choice", None)
                     if choice:
                         vote_tally[choice] = vote_tally.get(choice, 0) + 1
                 if vote_tally:
@@ -4357,7 +4770,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                     self._log(f"  [elo] Vote tally: {vote_tally}, winner: {vote_winner}")
 
             # Also check result.winner if set by consensus phase
-            declared_winner = getattr(result, 'winner', None) or vote_winner
+            declared_winner = getattr(result, "winner", None) or vote_winner
 
             for agent in participants:
                 base_score = result.confidence if result.consensus_reached else 0.5
@@ -4375,11 +4788,20 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                             winner_bonus = 0.1 * (vote_tally.get(agent, 0) / total_votes)
 
                 # Check if agent's content appears in final answer (indicates influence)
-                agent_msgs = [msg for msg in result.messages
-                             if (getattr(msg, 'agent', None) or (msg.get('agent') if isinstance(msg, dict) else None)) == agent]
+                agent_msgs = [
+                    msg
+                    for msg in result.messages
+                    if (
+                        getattr(msg, "agent", None)
+                        or (msg.get("agent") if isinstance(msg, dict) else None)
+                    )
+                    == agent
+                ]
                 influence_bonus = 0.0
                 for msg in agent_msgs:
-                    content = getattr(msg, 'content', '') or (msg.get('content', '') if isinstance(msg, dict) else '')
+                    content = getattr(msg, "content", "") or (
+                        msg.get("content", "") if isinstance(msg, dict) else ""
+                    )
                     # Check for content overlap with final answer (simple heuristic)
                     if content and final_answer:
                         # Find key phrases that match
@@ -4394,12 +4816,15 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 activity_bonus = min(0.1, agent_message_counts.get(agent, 0) * 0.02)
 
                 # Combine scores with variance
-                scores[agent] = min(1.0, max(0.1, base_score + winner_bonus + influence_bonus + activity_bonus))
+                scores[agent] = min(
+                    1.0, max(0.1, base_score + winner_bonus + influence_bonus + activity_bonus)
+                )
 
             # Ensure score variance (critical for ELO changes)
             if len(set(scores.values())) == 1 and len(scores) > 1:
                 # Add small random variance if all scores equal
                 import random
+
                 for agent in scores:
                     scores[agent] += random.uniform(-0.05, 0.05)
                     scores[agent] = min(1.0, max(0.1, scores[agent]))
@@ -4409,7 +4834,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
                 # Calculate confidence weight from probe results (P13: probe → ELO feedback)
                 confidence_weight = 1.0
-                if hasattr(self, '_last_probe_weights') and self._last_probe_weights:
+                if hasattr(self, "_last_probe_weights") and self._last_probe_weights:
                     weights = [self._last_probe_weights.get(p, 0.7) for p in participants]
                     confidence_weight = sum(weights) / len(weights) if weights else 1.0
                     self._log(f"  [elo] Confidence weight from probes: {confidence_weight:.2f}")
@@ -4451,10 +4876,12 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             leaderboard = self.elo_system.get_leaderboard(limit=4)
             self._log(f"  [elo] === LEADERBOARD ===")
             for i, rating in enumerate(leaderboard):
-                self._log(f"  [elo] #{i+1} {rating.agent_name}: {rating.elo:.0f} "
-                         f"({rating.wins}W/{rating.losses}L)")
-        except Exception:
-            pass
+                self._log(
+                    f"  [elo] #{i+1} {rating.agent_name}: {rating.elo:.0f} "
+                    f"({rating.wins}W/{rating.losses}L)"
+                )
+        except (AttributeError, TypeError) as e:
+            logger.debug(f"[elo] Leaderboard fetch failed: {e}")
 
     def _select_debate_team(self, task: str) -> list:
         """Select optimal agent team for the task (P14: AgentSelector + P10: ProbeFilter)."""
@@ -4482,13 +4909,13 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 # Log probe status for visibility
                 probed_agents = [n for n, s in probe_scores.items() if s != 1.0]
                 if probed_agents:
-                    self._log(f"  [probe-filter] Probe scores: {[(n, f'{s:.0%}') for n, s in sorted(probe_scores.items(), key=lambda x: x[1], reverse=True)]}")
+                    self._log(
+                        f"  [probe-filter] Probe scores: {[(n, f'{s:.0%}') for n, s in sorted(probe_scores.items(), key=lambda x: x[1], reverse=True)]}"
+                    )
 
                 # Filter out high-risk agents (>50% vulnerability rate)
                 safe_names = self.probe_filter.filter_agents(
-                    candidates=agent_names,
-                    max_vulnerability_rate=0.5,
-                    exclude_critical=True
+                    candidates=agent_names, max_vulnerability_rate=0.5, exclude_critical=True
                 )
 
                 if len(safe_names) >= 2:
@@ -4521,12 +4948,16 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                     overall_elo = self.elo_system.get_rating(agent.name).elo
                     # Enhanced: 70% domain expertise + 30% ELO when agent has proven domain knowledge
                     domain_weight = 0.7 if domain_score > 0.5 else 0.6
-                    combined = (domain_score * domain_weight) + ((overall_elo - 1400) / 200 * (1 - domain_weight))
+                    combined = (domain_score * domain_weight) + (
+                        (overall_elo - 1400) / 200 * (1 - domain_weight)
+                    )
                     domain_scores.append((agent, combined))
                 domain_scores.sort(key=lambda x: x[1], reverse=True)
                 # Use ELO-sorted team as the default
                 default_team = [a for a, _ in domain_scores]
-                self._log(f"  [routing] Domain '{detected_domain}' ELO ranking: {[(a.name, f'{s:.2f}') for a, s in domain_scores]}")
+                self._log(
+                    f"  [routing] Domain '{detected_domain}' ELO ranking: {[(a.name, f'{s:.2f}') for a, s in domain_scores]}"
+                )
             except Exception as e:
                 self._log(f"  [elo] Domain scoring failed: {e}")
 
@@ -4562,13 +4993,15 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
                 profile = AgentProfile(
                     name=agent.name,
-                    agent_type=agent.model if hasattr(agent, 'model') else agent.name,
-                    elo_rating=self.elo_system.get_rating(agent.name).elo if self.elo_system else 1500,
+                    agent_type=agent.model if hasattr(agent, "model") else agent.name,
+                    elo_rating=(
+                        self.elo_system.get_rating(agent.name).elo if self.elo_system else 1500
+                    ),
                     probe_score=probe_score,
                     has_critical_probes=has_critical,
                     calibration_score=calibration_score,
                     brier_score=brier_score,
-                    is_overconfident=is_overconfident
+                    is_overconfident=is_overconfident,
                 )
                 self.agent_selector.register_agent(profile)
 
@@ -4579,7 +5012,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 min_agents=3,
                 max_agents=4,
                 quality_priority=0.7,
-                diversity_preference=0.5
+                diversity_preference=0.5,
             )
             team = self.agent_selector.select_team(requirements)
             self._log(f"  [selector] Selected team: {[a.name for a in team.agents]}")
@@ -4616,7 +5049,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 briefings = []
                 for opponent in opponent_names:
                     try:
-                        briefing = self.persona_synthesizer.get_opponent_briefing(agent.name, opponent)
+                        briefing = self.persona_synthesizer.get_opponent_briefing(
+                            agent.name, opponent
+                        )
                         if briefing:
                             briefings.append(briefing)
                     except Exception:
@@ -4630,8 +5065,10 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
                     # Inject agent-specific memories (P3: MemoryStream)
                     try:
-                        topic_hint = getattr(self, 'initial_proposal', '') or 'aragora improvement'
-                        agent_memories = self._format_agent_memories(agent.name, topic_hint[:200], limit=3)
+                        topic_hint = getattr(self, "initial_proposal", "") or "aragora improvement"
+                        agent_memories = self._format_agent_memories(
+                            agent.name, topic_hint[:200], limit=3
+                        )
                         if agent_memories:
                             full_prompt += f"\n\n{agent_memories}"
                     except Exception as e:
@@ -4639,8 +5076,10 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
                     # Inject position history for consistency tracking (P9: PositionLedger read)
                     try:
-                        topic_hint = getattr(self, 'initial_proposal', '') or 'aragora improvement'
-                        position_history = self._format_position_history(agent.name, topic_hint[:200], limit=5)
+                        topic_hint = getattr(self, "initial_proposal", "") or "aragora improvement"
+                        position_history = self._format_position_history(
+                            agent.name, topic_hint[:200], limit=5
+                        )
                         if position_history:
                             full_prompt += f"\n\n{position_history}"
                     except Exception as e:
@@ -4655,16 +5094,20 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                                 flip_warning += f"You have changed your position {consistency.total_flips} times.\n"
                                 flip_warning += f"- Contradictions: {consistency.contradictions}\n"
                                 flip_warning += f"- Retractions: {consistency.retractions}\n"
-                                flip_warning += f"Consistency score: {consistency.consistency_score:.0%}\n"
+                                flip_warning += (
+                                    f"Consistency score: {consistency.consistency_score:.0%}\n"
+                                )
                                 flip_warning += f"Be mindful of intellectual consistency. Acknowledge past positions when changing."
                                 full_prompt += flip_warning
                     except Exception as e:
                         self._log(f"  [flip] Warning injection failed for {agent.name}: {e}")
 
                     # Prepend identity to system prompt
-                    original_prompt = getattr(agent, 'system_prompt', '') or ''
+                    original_prompt = getattr(agent, "system_prompt", "") or ""
                     agent.system_prompt = f"{full_prompt}\n\n{original_prompt}"
-                    self._log(f"  [personas] Injected grounded identity for {agent.name} with {len(briefings)} opponent briefings")
+                    self._log(
+                        f"  [personas] Injected grounded identity for {agent.name} with {len(briefings)} opponent briefings"
+                    )
             except Exception as e:
                 self._log(f"  [personas] Error injecting persona for {agent.name}: {e}")
                 # Don't break debate on persona injection failure
@@ -4680,9 +5123,11 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             try:
                 persona = self.persona_synthesizer.get_grounded_persona(agent.name)
                 if persona:
-                    self._log(f"    {agent.name}: {persona.overall_calibration:.0%} calibration, "
-                             f"{persona.position_accuracy:.0%} accuracy, "
-                             f"{len(persona.rivals)} rivals")
+                    self._log(
+                        f"    {agent.name}: {persona.overall_calibration:.0%} calibration, "
+                        f"{persona.position_accuracy:.0%} accuracy, "
+                        f"{len(persona.rivals)} rivals"
+                    )
             except Exception:
                 pass
 
@@ -4694,8 +5139,8 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         if self.position_ledger:
             try:
                 stats = self.position_ledger.get_all_stats()
-                total = stats.get('total', 0)
-                agents = len(stats.get('by_agent', {}))
+                total = stats.get("total", 0)
+                agents = len(stats.get("by_agent", {}))
                 self._log(f"    PositionLedger: {total} positions from {agents} agents")
             except Exception:
                 self._log("    PositionLedger: unavailable")
@@ -4730,8 +5175,10 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                     probed_count = len(profiles)
                     avg_score = sum(p.probe_score for p in profiles.values()) / probed_count
                     high_risk = sum(1 for p in profiles.values() if p.is_high_risk())
-                    self._log(f"    ProbeFilter: {probed_count} agents probed, "
-                             f"{avg_score:.0%} avg score, {high_risk} high-risk")
+                    self._log(
+                        f"    ProbeFilter: {probed_count} agents probed, "
+                        f"{avg_score:.0%} avg score, {high_risk} high-risk"
+                    )
                 else:
                     self._log("    ProbeFilter: no probe data yet")
             except Exception:
@@ -4745,9 +5192,11 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 agents = [self.gemini, self.claude, self.codex, self.grok, self.deepseek]
                 for agent in agents:
                     cal = self.elo_system.get_domain_calibration(agent.name)
-                    if cal and cal.get('total', 0) > 0:
-                        self._log(f"    {agent.name} calibration: {cal['total']} predictions, "
-                                 f"{cal['accuracy']:.0%} accuracy")
+                    if cal and cal.get("total", 0) > 0:
+                        self._log(
+                            f"    {agent.name} calibration: {cal['total']} predictions, "
+                            f"{cal['accuracy']:.0%} accuracy"
+                        )
             except Exception:
                 pass
 
@@ -4760,13 +5209,14 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             return
         try:
             import json
+
             risk_level = "high" if not result.consensus_reached else "medium"
             risk_entry = {
                 "cycle": self.cycle_count,
                 "task": task,
                 "confidence": result.confidence,
                 "consensus": result.consensus_reached,
-                "level": risk_level
+                "level": risk_level,
             }
             risk_file = self.nomic_dir / "risk_register.jsonl"
             with open(risk_file, "a") as f:
@@ -4789,19 +5239,25 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
             # Extract claims from messages
             for msg in result.messages:
-                agent = getattr(msg, 'agent', None) or (msg.get('agent') if isinstance(msg, dict) else None)
-                content = getattr(msg, 'content', None) or (msg.get('content', '') if isinstance(msg, dict) else '')
-                role = getattr(msg, 'role', None) or (msg.get('role', 'proposer') if isinstance(msg, dict) else 'proposer')
+                agent = getattr(msg, "agent", None) or (
+                    msg.get("agent") if isinstance(msg, dict) else None
+                )
+                content = getattr(msg, "content", None) or (
+                    msg.get("content", "") if isinstance(msg, dict) else ""
+                )
+                role = getattr(msg, "role", None) or (
+                    msg.get("role", "proposer") if isinstance(msg, dict) else "proposer"
+                )
 
                 if not agent or not content:
                     continue
 
-                claim_type = ClaimType.PROPOSAL if role == 'proposer' else ClaimType.OBJECTION
+                claim_type = ClaimType.PROPOSAL if role == "proposer" else ClaimType.OBJECTION
                 self.claims_kernel.add_claim(
                     statement=content[:500],
                     author=agent,
                     claim_type=claim_type,
-                    confidence=result.confidence if result.consensus_reached else 0.5
+                    confidence=result.confidence if result.consensus_reached else 0.5,
                 )
             self._log(f"  [claims] Extracted {len(self.claims_kernel.claims)} claims")
         except Exception as e:
@@ -4817,15 +5273,17 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             strongest = self.claims_kernel.get_strongest_claims(3)
             coverage = self.claims_kernel.get_evidence_coverage()
 
-            self._log(f"  [claims] Unsupported: {len(unsupported)}, "
-                     f"Contradictions: {len(contradictions)}, "
-                     f"Coverage: {coverage['coverage_ratio']:.0%}")
+            self._log(
+                f"  [claims] Unsupported: {len(unsupported)}, "
+                f"Contradictions: {len(contradictions)}, "
+                f"Coverage: {coverage['coverage_ratio']:.0%}"
+            )
 
             return {
                 "unsupported_count": len(unsupported),
                 "contradiction_count": len(contradictions),
                 "strongest_claims": [(c.statement, s) for c, s in strongest],
-                "evidence_coverage": coverage
+                "evidence_coverage": coverage,
             }
         except Exception as e:
             self._log(f"  [claims] Analysis error: {e}")
@@ -4836,12 +5294,12 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         if not self.provenance_manager or not PROVENANCE_AVAILABLE:
             return ""
         try:
-            source = SourceType.AGENT_GENERATED if source_type == "agent" else SourceType.CODE_ANALYSIS
+            source = (
+                SourceType.AGENT_GENERATED if source_type == "agent" else SourceType.CODE_ANALYSIS
+            )
             # Store full content, no truncation
             record = self.provenance_manager.record_evidence(
-                content=content,
-                source_type=source,
-                source_id=source_id
+                content=content, source_type=source, source_id=source_id
             )
             return record.id
         except Exception as e:
@@ -4893,7 +5351,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
         return evidence_ids
 
-    def _build_phase_provenance(self, phase: str, content: str, parent_ids: list[str] = None) -> str:
+    def _build_phase_provenance(
+        self, phase: str, content: str, parent_ids: list[str] = None
+    ) -> str:
         """Build provenance chain from phase to phase.
 
         Tracks: Source → Claim → Design → Implementation
@@ -4935,18 +5395,22 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
         stale_items = []
         try:
-            if hasattr(self.provenance_manager, 'check_staleness'):
+            if hasattr(self.provenance_manager, "check_staleness"):
                 for evidence_id in evidence_ids[:20]:  # Limit checks
                     staleness = self.provenance_manager.check_staleness(evidence_id)
                     if staleness and staleness.get("is_stale", False):
-                        stale_items.append({
-                            "evidence_id": evidence_id,
-                            "reason": staleness.get("reason", "Unknown"),
-                            "age_hours": staleness.get("age_hours", 0),
-                        })
+                        stale_items.append(
+                            {
+                                "evidence_id": evidence_id,
+                                "reason": staleness.get("reason", "Unknown"),
+                                "age_hours": staleness.get("age_hours", 0),
+                            }
+                        )
 
             if stale_items:
-                self._log(f"  [provenance] WARNING: {len(stale_items)} stale evidence items detected")
+                self._log(
+                    f"  [provenance] WARNING: {len(stale_items)} stale evidence items detected"
+                )
                 for item in stale_items[:3]:
                     self._log(f"    - {item['evidence_id'][:8]}: {item['reason']}")
 
@@ -4978,8 +5442,10 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             self.belief_network = BeliefNetwork(debate_id=f"nomic-cycle-{self.cycle_count}")
             self.belief_network.from_claims_kernel(self.claims_kernel)
             result = self.belief_network.propagate()
-            self._log(f"  [belief] Network built: {len(self.belief_network.nodes)} nodes, "
-                     f"converged={result.converged} after {result.iterations} iterations")
+            self._log(
+                f"  [belief] Network built: {len(self.belief_network.nodes)} nodes, "
+                f"converged={result.converged} after {result.iterations} iterations"
+            )
         except Exception as e:
             self._log(f"  [belief] Error: {e}")
 
@@ -5007,8 +5473,8 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             lines = ["=== PIVOTAL CLAIMS FROM PREVIOUS DEBATE ==="]
             lines.append("Focus on these high-impact questions that could swing the outcome:\n")
             for i, crux in enumerate(self._cached_cruxes[:3], 1):
-                statement = crux.get('statement', crux.get('claim', 'Unknown'))
-                impact = crux.get('impact_score', crux.get('sensitivity', 0.0))
+                statement = crux.get("statement", crux.get("claim", "Unknown"))
+                impact = crux.get("impact_score", crux.get("sensitivity", 0.0))
                 lines.append(f"{i}. {statement}")
                 if impact:
                     lines.append(f"   (Impact: {impact:.0%})")
@@ -5040,19 +5506,21 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 code_start = final_answer.find("```")
                 code_end = final_answer.find("```", code_start + 3)
                 if code_end > code_start:
-                    code_block = final_answer[code_start+3:code_end].strip()
+                    code_block = final_answer[code_start + 3 : code_end].strip()
                     # Skip language identifier if present
                     if "\n" in code_block:
                         first_line = code_block.split("\n")[0]
                         if first_line.strip().isalpha():
                             code_block = "\n".join(code_block.split("\n")[1:])
 
-                    builder = ProofBuilder(claim_id=f"cycle-{self.cycle_count}-final", created_by="nomic")
+                    builder = ProofBuilder(
+                        claim_id=f"cycle-{self.cycle_count}-final", created_by="nomic"
+                    )
                     # Create syntax verification proof
                     proof = builder.assertion(
                         description="Verify proposed code is syntactically valid Python",
                         code=f"import ast\ncode = '''{code_block[:300]}'''\nast.parse(code)",
-                        assertion="True"
+                        assertion="True",
                     )
                     self.claim_verifier.add_proof(proof)
                     proof_count += 1
@@ -5105,9 +5573,11 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                         roles=[CognitiveRole.ANALYST, CognitiveRole.SKEPTIC],
                     ),
                 )
-                agents = [self.gemini, self.claude] if hasattr(self, 'claude') else [self.gemini]
+                agents = [self.gemini, self.claude] if hasattr(self, "claude") else [self.gemini]
                 arena = Arena(
-                    env, agents, protocol,
+                    env,
+                    agents,
+                    protocol,
                     position_tracker=self.position_tracker,
                     calibration_tracker=self.calibration_tracker,
                     event_hooks=self._create_arena_hooks("scenario"),
@@ -5126,12 +5596,14 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
             self._log(f"  [scenarios] Outcome: {result.outcome_category.value}")
             if result.universal_conclusions:
-                self._log(f"  [scenarios] Universal: {len(result.universal_conclusions)} conclusions")
+                self._log(
+                    f"  [scenarios] Universal: {len(result.universal_conclusions)} conclusions"
+                )
 
             return {
                 "outcome": result.outcome_category.value,
                 "scenarios_run": len(result.results),
-                "universal_conclusions": result.universal_conclusions[:3]
+                "universal_conclusions": result.universal_conclusions[:3],
             }
         except Exception as e:
             self._log(f"  [scenarios] Error: {e}")
@@ -5142,8 +5614,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
     # =========================================================================
 
     def _record_code_evidence(
-        self, file_path: str, line_start: int, line_end: int,
-        content: str, claim_id: str = None
+        self, file_path: str, line_start: int, line_end: int, content: str, claim_id: str = None
     ) -> str:
         """Record code evidence with git tracking for staleness detection (P21: EnhancedProvenance)."""
         if not ENHANCED_PROVENANCE_AVAILABLE or not self.provenance_manager:
@@ -5155,7 +5626,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 line_start=line_start,
                 line_end=line_end,
                 content=content,
-                claim_id=claim_id
+                claim_id=claim_id,
             )
             self._log(f"  [provenance] Recorded code evidence: {file_path}:{line_start}-{line_end}")
             return evidence_id
@@ -5183,15 +5654,20 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 "fresh": fresh_count,
                 "stale": stale_count,
                 "total": len(staleness_results),
-                "living_status": self.provenance_manager.get_living_document_status()
+                "living_status": self.provenance_manager.get_living_document_status(),
             }
         except Exception as e:
             self._log(f"  [provenance] Staleness check error: {e}")
             return {}
 
     async def _create_debate_checkpoint(
-        self, debate_id: str, task: str, round_num: int,
-        messages: list, agents: list, consensus: dict = None
+        self,
+        debate_id: str,
+        task: str,
+        round_num: int,
+        messages: list,
+        agents: list,
+        consensus: dict = None,
     ) -> str:
         """Create a checkpoint for crash recovery (P22: CheckpointManager)."""
         if not CHECKPOINT_AVAILABLE or not self.checkpoint_manager:
@@ -5223,13 +5699,15 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         try:
             resumed = self.checkpoint_manager.resume_from_checkpoint(checkpoint_id)
             if resumed:
-                self._log(f"  [checkpoint] Resumed: {resumed.original_debate_id} at round {resumed.checkpoint.current_round}")
+                self._log(
+                    f"  [checkpoint] Resumed: {resumed.original_debate_id} at round {resumed.checkpoint.current_round}"
+                )
                 return {
                     "debate_id": resumed.original_debate_id,
                     "task": resumed.checkpoint.task,
                     "round": resumed.checkpoint.current_round,
                     "messages": resumed.messages,  # Already deserialized Message objects
-                    "consensus": resumed.checkpoint.current_consensus
+                    "consensus": resumed.checkpoint.current_consensus,
                 }
             return {}
         except Exception as e:
@@ -5237,8 +5715,13 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             return {}
 
     def _check_debate_breakpoints(
-        self, debate_id: str, task: str, messages: list,
-        confidence: float, round_num: int, critiques: list = None
+        self,
+        debate_id: str,
+        task: str,
+        messages: list,
+        confidence: float,
+        round_num: int,
+        critiques: list = None,
     ) -> "Breakpoint":
         """Check if debate triggers breakpoint for human review (P23: BreakpointManager)."""
         if not BREAKPOINT_AVAILABLE or not self.breakpoint_manager:
@@ -5251,7 +5734,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 "messages": messages,
                 "confidence": confidence,
                 "round": round_num,
-                "critiques": critiques or []
+                "critiques": critiques or [],
             }
             breakpoint = self.breakpoint_manager.check_triggers(debate_state)
             if breakpoint:
@@ -5292,9 +5775,13 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 reliability = self.reliability_scorer.score_claim(claim)
                 return {
                     "claim_id": claim_id,
-                    "level": reliability.level.value if hasattr(reliability.level, 'value') else str(reliability.level),
+                    "level": (
+                        reliability.level.value
+                        if hasattr(reliability.level, "value")
+                        else str(reliability.level)
+                    ),
                     "score": reliability.score,
-                    "factors": reliability.factors
+                    "factors": reliability.factors,
                 }
             return {}
         except Exception as e:
@@ -5318,13 +5805,21 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             report = self.reliability_scorer.generate_reliability_report(claims_dict)
             # report["claims"] is a dict of {claim_id: result_dict}, iterate .values()
             claims_results = report.get("claims", {})
-            claims_list = list(claims_results.values()) if isinstance(claims_results, dict) else claims_results
-            high_reliability = sum(1 for c in claims_list
-                                   if c.get("level") in ("VERY_HIGH", "HIGH"))
-            low_reliability = sum(1 for c in claims_list
-                                  if c.get("level") in ("VERY_LOW", "SPECULATIVE"))
+            claims_list = (
+                list(claims_results.values())
+                if isinstance(claims_results, dict)
+                else claims_results
+            )
+            high_reliability = sum(
+                1 for c in claims_list if c.get("level") in ("VERY_HIGH", "HIGH")
+            )
+            low_reliability = sum(
+                1 for c in claims_list if c.get("level") in ("VERY_LOW", "SPECULATIVE")
+            )
 
-            self._log(f"  [reliability] Report: {high_reliability} high, {low_reliability} low reliability")
+            self._log(
+                f"  [reliability] Report: {high_reliability} high, {low_reliability} low reliability"
+            )
             return report
         except Exception as e:
             self._log(f"  [reliability] Report error: {e}")
@@ -5335,13 +5830,10 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         if not DEBATE_TRACER_AVAILABLE or not self.debate_trace_db:
             return
         try:
-            agent_names = [a.name for a in agents if hasattr(a, 'name')]
+            agent_names = [a.name for a in agents if hasattr(a, "name")]
             # Create a new tracer for this debate
             self._current_tracer = DebateTracer(
-                debate_id=debate_id,
-                task=task,
-                agents=agent_names,
-                db_path=self.debate_trace_db
+                debate_id=debate_id, task=task, agents=agent_names, db_path=self.debate_trace_db
             )
             self._log(f"  [tracer] Started trace for debate {debate_id[:8]}")
         except Exception as e:
@@ -5350,7 +5842,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
     def _trace_event(self, event_type: str, content: str, agent: str = None) -> None:
         """Record an event to the debate trace (P25: DebateTracer)."""
-        if not DEBATE_TRACER_AVAILABLE or not getattr(self, '_current_tracer', None):
+        if not DEBATE_TRACER_AVAILABLE or not getattr(self, "_current_tracer", None):
             return
         try:
             # Use specialized record methods where available
@@ -5376,14 +5868,14 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
     def _finalize_debate_trace(self, result: "DebateResult") -> str:
         """Finalize and save the debate trace (P25: DebateTracer)."""
-        if not DEBATE_TRACER_AVAILABLE or not getattr(self, '_current_tracer', None):
+        if not DEBATE_TRACER_AVAILABLE or not getattr(self, "_current_tracer", None):
             return ""
         try:
             # Build result dict for finalize
             result_dict = {
-                "final_answer": getattr(result, 'final_answer', ""),
-                "consensus_reached": getattr(result, 'consensus_reached', False),
-                "confidence": getattr(result, 'confidence', 0.0),
+                "final_answer": getattr(result, "final_answer", ""),
+                "consensus_reached": getattr(result, "consensus_reached", False),
+                "confidence": getattr(result, "confidence", 0.0),
             }
             trace = self._current_tracer.finalize(result_dict)
             trace_id = trace.trace_id if trace else ""
@@ -5406,7 +5898,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             experiment = self.persona_lab.create_experiment(
                 agent_name=agent_name,
                 variant_traits=variant_traits,
-                hypothesis=f"Testing traits: {', '.join(variant_traits)}"
+                hypothesis=f"Testing traits: {', '.join(variant_traits)}",
             )
             self._log(f"  [lab] Created experiment {experiment.experiment_id[:8]} for {agent_name}")
             return experiment.experiment_id
@@ -5423,7 +5915,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             self.persona_lab.record_experiment_result(
                 experiment_id=experiment_id,
                 is_variant=not is_control,  # Invert: is_control -> is_variant
-                success=success
+                success=success,
             )
         except Exception as e:
             self._log(f"  [lab] Trial recording error: {e}")
@@ -5450,9 +5942,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         try:
             # cross_pollinate returns TraitTransfer or None
             transfer = self.persona_lab.cross_pollinate(
-                from_agent=from_agent,
-                to_agent=to_agent,
-                trait=trait
+                from_agent=from_agent, to_agent=to_agent, trait=trait
             )
             if transfer:
                 self._log(f"  [lab] Cross-pollinated '{trait}' from {from_agent} to {to_agent}")
@@ -5478,9 +5968,15 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                         rating = self.elo_system.get_rating(agent_name)
                         if rating and rating.elo < 1450:
                             candidate_traits = ["analytical", "concise", "thorough", "skeptical"]
-                            current = self.persona_lab.get_persona(agent_name) if hasattr(self.persona_lab, 'get_persona') else None
-                            current_traits = getattr(current, 'traits', []) if current else []
-                            new_traits = [t for t in candidate_traits if t not in current_traits][:2]
+                            current = (
+                                self.persona_lab.get_persona(agent_name)
+                                if hasattr(self.persona_lab, "get_persona")
+                                else None
+                            )
+                            current_traits = getattr(current, "traits", []) if current else []
+                            new_traits = [t for t in candidate_traits if t not in current_traits][
+                                :2
+                            ]
                             if new_traits:
                                 exp_id = self._run_persona_experiment(agent_name, new_traits)
                                 if exp_id:
@@ -5488,7 +5984,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                     except Exception:
                         pass
                 if experiments_created > 0:
-                    self._log(f"  [lab] Created {experiments_created} experiments for underperformers")
+                    self._log(
+                        f"  [lab] Created {experiments_created} experiments for underperformers"
+                    )
 
             # Check experiments for significant results and apply mutations
             experiments = self.persona_lab.get_running_experiments()
@@ -5496,31 +5994,46 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             applied = 0
             for exp in experiments:
                 if exp.is_significant:
-                    self._log(f"  [lab] Experiment {exp.experiment_id[:8]} significant: {exp.relative_improvement:+.1%}")
+                    self._log(
+                        f"  [lab] Experiment {exp.experiment_id[:8]} significant: {exp.relative_improvement:+.1%}"
+                    )
                     concluded = self.persona_lab.conclude_experiment(exp.experiment_id)
                     if concluded:
                         completed += 1
                         if concluded.variant_rate > concluded.control_rate:
-                            self._log(f"  [lab] Applied variant traits to {exp.agent_name}: {concluded.variant_persona.traits}")
+                            self._log(
+                                f"  [lab] Applied variant traits to {exp.agent_name}: {concluded.variant_persona.traits}"
+                            )
                             applied += 1
 
             # Cross-pollinate successful traits between agents (every 20 cycles)
             traits_shared = 0
             if self.cycle_count % 20 == 0 and self.elo_system:
                 try:
-                    ratings = [(a, self.elo_system.get_rating(a)) for a in ["gemini", "claude", "codex", "grok"]]
+                    ratings = [
+                        (a, self.elo_system.get_rating(a))
+                        for a in ["gemini", "claude", "codex", "grok"]
+                    ]
                     ratings = [(a, r.elo) for a, r in ratings if r]
                     if len(ratings) >= 2:
                         ratings.sort(key=lambda x: x[1], reverse=True)
                         best_agent, best_elo = ratings[0]
                         worst_agent, worst_elo = ratings[-1]
                         if best_elo - worst_elo > 100:
-                            best_persona = self.persona_lab.get_persona(best_agent) if hasattr(self.persona_lab, 'get_persona') else None
-                            if best_persona and getattr(best_persona, 'traits', []):
+                            best_persona = (
+                                self.persona_lab.get_persona(best_agent)
+                                if hasattr(self.persona_lab, "get_persona")
+                                else None
+                            )
+                            if best_persona and getattr(best_persona, "traits", []):
                                 trait_to_share = best_persona.traits[0]
-                                if self._cross_pollinate_traits(best_agent, worst_agent, trait_to_share):
+                                if self._cross_pollinate_traits(
+                                    best_agent, worst_agent, trait_to_share
+                                ):
                                     traits_shared += 1
-                                    self._log(f"  [lab] Shared '{trait_to_share}' from {best_agent} to {worst_agent}")
+                                    self._log(
+                                        f"  [lab] Shared '{trait_to_share}' from {best_agent} to {worst_agent}"
+                                    )
                 except Exception as e:
                     self._log(f"  [lab] Cross-pollination error: {e}")
 
@@ -5530,7 +6043,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 "experiments_checked": len(experiments),
                 "significant_results": completed,
                 "mutations_applied": applied,
-                "traits_shared": traits_shared
+                "traits_shared": traits_shared,
             }
         except Exception as e:
             self._log(f"  [lab] Evolution error: {e}")
@@ -5592,8 +6105,19 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
     def _is_formally_verifiable(self, claim_text: str) -> bool:
         """Check if a claim is suitable for formal verification (P28: FormalVerificationManager)."""
         # Simple heuristic: look for mathematical/logical keywords
-        keywords = ["for all", "exists", "implies", "if and only if", "<=", ">=",
-                    "equals", "greater than", "less than", "always", "never"]
+        keywords = [
+            "for all",
+            "exists",
+            "implies",
+            "if and only if",
+            "<=",
+            ">=",
+            "equals",
+            "greater than",
+            "less than",
+            "always",
+            "never",
+        ]
         claim_lower = claim_text.lower()
         return any(kw in claim_lower for kw in keywords)
 
@@ -5607,7 +6131,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 self._record_evidence_provenance(
                     f"Formally verified: {proof_result.get('formal_statement', '')}",
                     source_type="formal_proof",
-                    source_id=claim_id
+                    source_id=claim_id,
                 )
         except Exception as e:
             self._log(f"  [formal] Proof recording error: {e}")
@@ -5638,7 +6162,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 id=f"{agent}-{len(graph.nodes)}",
                 node_type=node_type_enum,
                 agent_id=agent,
-                content=content
+                content=content,
             )
             graph.add_node(node)
             return node.id
@@ -5663,7 +6187,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             result = await orchestrator.run_debate(task)
             # Verify result has required DebateResult interface (consensus_reached, confidence)
             # GraphDebateOrchestrator is a placeholder - returns DebateGraph not DebateResult
-            if not hasattr(result, 'consensus_reached') or not hasattr(result, 'confidence'):
+            if not hasattr(result, "consensus_reached") or not hasattr(result, "confidence"):
                 self._log(f"  [graph] Incomplete result - falling back to arena")
                 return None
             return result
@@ -5679,7 +6203,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             # Create detector on demand
             detector = ForkDetector()
             decision = detector.should_fork(messages, round_num, agents)
-            if decision and hasattr(decision, 'should_fork') and decision.should_fork:
+            if decision and hasattr(decision, "should_fork") and decision.should_fork:
                 self._log(f"  [forking] Fork triggered: {getattr(decision, 'reason', 'unknown')}")
             return decision
         except Exception as e:
@@ -5701,7 +6225,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         if not DEBATE_FORKER_AVAILABLE or not self.fork_debate_enabled or not fork_decision:
             return None
         try:
-            branches = getattr(fork_decision, 'branches', [])
+            branches = getattr(fork_decision, "branches", [])
             if not branches:
                 self._log("  [forking] No branches in fork decision")
                 return None
@@ -5777,7 +6301,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         except Exception as e:
             self._log(f"  [forking] Record error: {e}")
 
-    def _record_replay_event(self, event_type: str, agent: str, content: str, round_num: int = 0) -> None:
+    def _record_replay_event(
+        self, event_type: str, agent: str, content: str, round_num: int = 0
+    ) -> None:
         """Record an event to the ReplayRecorder if active."""
         if not self.replay_recorder:
             return
@@ -5790,12 +6316,17 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 self.replay_recorder.record_phase_change(content)
             elif event_type == "system":
                 self.replay_recorder.record_system(content)
-        except Exception:
-            pass  # Don't let replay errors break the loop
+        except (AttributeError, TypeError, ValueError) as e:
+            logger.debug(f"[replay] Event recording skipped: {e}")
 
     def _record_cartographer_event(
-        self, event_type: str, agent: str, content: str,
-        role: str = "proposer", round_num: int = 1, **kwargs
+        self,
+        event_type: str,
+        agent: str,
+        content: str,
+        role: str = "proposer",
+        round_num: int = 1,
+        **kwargs,
     ) -> None:
         """Record an event to the ArgumentCartographer if active."""
         if not self.cartographer:
@@ -5807,7 +6338,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                     content=content,
                     role=role,
                     round_num=round_num,
-                    metadata=kwargs.get("metadata", {})
+                    metadata=kwargs.get("metadata", {}),
                 )
             elif event_type == "critique":
                 self.cartographer.update_from_critique(
@@ -5815,22 +6346,18 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                     target_agent=kwargs.get("target", "unknown"),
                     severity=kwargs.get("severity", 0.5),
                     round_num=round_num,
-                    critique_text=content
+                    critique_text=content,
                 )
             elif event_type == "vote":
                 self.cartographer.update_from_vote(
-                    agent=agent,
-                    vote_value=content,
-                    round_num=round_num
+                    agent=agent, vote_value=content, round_num=round_num
                 )
             elif event_type == "consensus":
                 self.cartographer.update_from_consensus(
-                    result=content,
-                    round_num=round_num,
-                    vote_counts=kwargs.get("vote_counts", {})
+                    result=content, round_num=round_num, vote_counts=kwargs.get("vote_counts", {})
                 )
-        except Exception:
-            pass  # Don't let cartographer errors break the loop
+        except (AttributeError, TypeError, ValueError) as e:
+            logger.debug(f"[cartographer] Event recording skipped: {e}")
 
     def _dispatch_webhook(self, event_type: str, data: dict = None) -> None:
         """Dispatch an event to external webhooks if configured."""
@@ -5845,8 +6372,8 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 "data": data or {},
             }
             self.webhook_dispatcher.enqueue(event)
-        except Exception:
-            pass  # Don't let webhook errors break the loop
+        except (AttributeError, TypeError, ValueError) as e:
+            logger.debug(f"[webhook] Event dispatch skipped: {e}")
 
     def _format_agent_reputations(self) -> str:
         """Format agent reputations for prompt injection.
@@ -5854,7 +6381,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         Shows which agents have been most successful so agents can
         weight their collaboration accordingly.
         """
-        if not hasattr(self, 'critique_store') or not self.critique_store:
+        if not hasattr(self, "critique_store") or not self.critique_store:
             return ""
 
         try:
@@ -5866,7 +6393,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             for rep in sorted(reputations, key=lambda r: r.score, reverse=True):
                 if rep.proposals_made > 0:
                     acceptance = rep.proposals_accepted / rep.proposals_made
-                    lines.append(f"- {rep.agent_name}: {acceptance:.0%} proposal acceptance ({rep.proposals_accepted}/{rep.proposals_made})")
+                    lines.append(
+                        f"- {rep.agent_name}: {acceptance:.0%} proposal acceptance ({rep.proposals_accepted}/{rep.proposals_made})"
+                    )
 
             return "\n".join(lines) if len(lines) > 1 else ""
         except Exception:
@@ -5881,7 +6410,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
             # Get influence network per agent
             agents = ["gemini", "claude", "codex", "grok"]
-            if hasattr(self.relationship_tracker, 'get_influence_network'):
+            if hasattr(self.relationship_tracker, "get_influence_network"):
                 lines.append("\n### Influence Patterns:")
                 influence_scores = []
                 for agent in agents:
@@ -5899,9 +6428,13 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             # Get rivals and allies for each agent
             dynamics_found = False
             for agent in agents:
-                if hasattr(self.relationship_tracker, 'get_rivals'):
+                if hasattr(self.relationship_tracker, "get_rivals"):
                     rivals = self.relationship_tracker.get_rivals(agent, limit=2)
-                    allies = self.relationship_tracker.get_allies(agent, limit=2) if hasattr(self.relationship_tracker, 'get_allies') else []
+                    allies = (
+                        self.relationship_tracker.get_allies(agent, limit=2)
+                        if hasattr(self.relationship_tracker, "get_allies")
+                        else []
+                    )
                     if rivals or allies:
                         dynamics_found = True
                         rival_names = [r[0] for r in rivals] if rivals else []
@@ -5922,12 +6455,16 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             flagged = []
 
             for agent_name in ["gemini", "claude", "codex", "grok"]:
-                if hasattr(self.elo_system, 'get_expected_calibration_error'):
+                if hasattr(self.elo_system, "get_expected_calibration_error"):
                     ece = self.elo_system.get_expected_calibration_error(agent_name)
                     if ece and ece > 0.2:  # Poorly calibrated
                         flagged.append((agent_name, ece))
-                        lines.append(f"- WARNING: {agent_name} has high calibration error ({ece:.2f})")
-                        lines.append(f"  Consider weighing their opinions lower on uncertain topics")
+                        lines.append(
+                            f"- WARNING: {agent_name} has high calibration error ({ece:.2f})"
+                        )
+                        lines.append(
+                            f"  Consider weighing their opinions lower on uncertain topics"
+                        )
 
             if flagged:
                 self._log(f"  [calibration] Flagged {len(flagged)} poorly calibrated agents")
@@ -5988,7 +6525,9 @@ Be concise (1-2 sentences). Focus on correctness and safety issues only.
                 self._log(f"    {name}: {result if result else 'No response'}", agent=name)
                 # Emit full review
                 if result:
-                    self._stream_emit("on_log_message", result, level="info", phase="review", agent=name)
+                    self._stream_emit(
+                        "on_log_message", result, level="info", phase="review", agent=name
+                    )
                 return (name, result if result else "No response")
             except Exception as e:
                 self._log(f"    {name}: review error - {e}", agent=name)
@@ -5996,6 +6535,7 @@ Be concise (1-2 sentences). Focus on correctness and safety issues only.
 
         # Run all 4 agents in parallel
         import asyncio
+
         reviews = await asyncio.gather(
             review_with_agent(self.gemini, "gemini"),
             review_with_agent(self.codex, "codex"),
@@ -6050,14 +6590,29 @@ Be concise (1-2 sentences). Focus on correctness and safety issues only.
 
         # High-priority triggers for deep audit
         critical_keywords = [
-            "architecture", "security", "authentication", "authorization",
-            "database", "migration", "breaking change", "api contract",
-            "consensus", "voting", "protocol", "protected file",
+            "architecture",
+            "security",
+            "authentication",
+            "authorization",
+            "database",
+            "migration",
+            "breaking change",
+            "api contract",
+            "consensus",
+            "voting",
+            "protocol",
+            "protected file",
         ]
 
         strategy_keywords = [
-            "strategy", "design pattern", "refactor", "restructure",
-            "system design", "infrastructure", "scale", "performance",
+            "strategy",
+            "design pattern",
+            "refactor",
+            "restructure",
+            "system design",
+            "infrastructure",
+            "scale",
+            "performance",
         ]
 
         # Check for critical topics
@@ -6152,8 +6707,12 @@ Cross-examine each other's reasoning. Be thorough.""",
             self._log("    [deep-audit] Not available, falling back to regular review")
             return True, None
 
-        self._log(f"    [deep-audit] Starting intensive review for protected files: {touched_files}")
-        self._log("    [deep-audit] Running 5-round CODE_ARCHITECTURE_AUDIT with cross-examination...")
+        self._log(
+            f"    [deep-audit] Starting intensive review for protected files: {touched_files}"
+        )
+        self._log(
+            "    [deep-audit] Running 5-round CODE_ARCHITECTURE_AUDIT with cross-examination..."
+        )
 
         try:
             # Create agents list for deep audit
@@ -6245,7 +6804,9 @@ Be rigorous. These files are protected for a reason.""",
         for pattern, description in dangerous_patterns:
             if re.search(pattern, sanitized, re.IGNORECASE):
                 filtered_count += 1
-                sanitized = re.sub(pattern, f"[FILTERED:{description}]", sanitized, flags=re.IGNORECASE)
+                sanitized = re.sub(
+                    pattern, f"[FILTERED:{description}]", sanitized, flags=re.IGNORECASE
+                )
 
         if filtered_count > 0:
             self._log(f"  [security] Filtered {filtered_count} suspicious patterns from {source}")
@@ -6283,7 +6844,9 @@ Be concise (max 500 words). Focus on actionable guidance."""
                 if result and not ("[Agent" in result and "failed" in result):
                     self._log(f"    {name}: suggestions received", agent=name)
                     # Emit full suggestion content to stream for dashboard visibility
-                    self._stream_emit("on_log_message", result, level="info", phase="implement", agent=name)
+                    self._stream_emit(
+                        "on_log_message", result, level="info", phase="implement", agent=name
+                    )
                     return (name, result)  # Return full result, no truncation
                 else:
                     return (name, "")
@@ -6334,6 +6897,7 @@ Synthesize these suggestions into a coherent, working implementation.
         def make_combined_hook(log_fn, stream_hook_name):
             """Combine logging and streaming for a hook."""
             stream_fn = stream_hooks.get(stream_hook_name)
+
             def combined(*args, **kwargs):
                 log_fn(*args, **kwargs)
                 if stream_fn:
@@ -6341,44 +6905,46 @@ Synthesize these suggestions into a coherent, working implementation.
                         stream_fn(*args, **kwargs)
                     except Exception:
                         pass  # Don't let streaming errors break the loop
+
             return combined
 
         return {
             "on_debate_start": make_combined_hook(
                 lambda task, agents: self._log(f"    Debate started: {len(agents)} agents"),
-                "on_debate_start"
+                "on_debate_start",
             ),
             "on_message": make_combined_hook(
                 lambda agent, content, role, round_num: self._log(
                     f"    [{role}] {agent} (round {round_num}): {content}"  # Full content, no truncation
                 ),
-                "on_message"
+                "on_message",
             ),
             "on_critique": make_combined_hook(
                 lambda agent, target, issues, severity, round_num, full_content=None: self._log(
                     f"    [critique] {agent} -> {target}: {len(issues)} issues, severity {severity:.1f}"
                 ),
-                "on_critique"
+                "on_critique",
             ),
             "on_round_start": make_combined_hook(
-                lambda round_num: self._log(f"    --- Round {round_num} ---"),
-                "on_round_start"
+                lambda round_num: self._log(f"    --- Round {round_num} ---"), "on_round_start"
             ),
             "on_consensus": make_combined_hook(
                 lambda reached, confidence, answer: self._log(
                     f"    Consensus: {'Yes' if reached else 'No'} ({confidence:.0%})"
                 ),
-                "on_consensus"
+                "on_consensus",
             ),
             "on_vote": make_combined_hook(
                 lambda agent, vote, confidence: self._log(
                     f"    [vote] {agent}: {vote} ({confidence:.0%})"
                 ),
-                "on_vote"
+                "on_vote",
             ),
             "on_debate_end": make_combined_hook(
-                lambda duration, rounds: self._log(f"    Completed in {duration:.1f}s ({rounds} rounds)"),
-                "on_debate_end"
+                lambda duration, rounds: self._log(
+                    f"    Completed in {duration:.1f}s ({rounds} rounds)"
+                ),
+                "on_debate_end",
             ),
         }
 
@@ -6409,26 +6975,36 @@ Synthesize these suggestions into a coherent, working implementation.
 
         # ACTION 1: Auto-reject on unanimous critiques (>= 3 unanimous issues)
         if len(report.unanimous_critiques) >= 3:
-            self._log(f"    [disagreement] REJECT: {len(report.unanimous_critiques)} unanimous issues - proposal blocked")
+            self._log(
+                f"    [disagreement] REJECT: {len(report.unanimous_critiques)} unanimous issues - proposal blocked"
+            )
             actions["should_reject"] = True
             actions["rejection_reasons"] = report.unanimous_critiques[:5]
             critical_warning = True
 
         # ACTION 2: Fork trigger for low agreement (< 0.4)
         if report.agreement_score < 0.4 and not actions["should_reject"]:
-            self._log(f"    [disagreement] FORK: Low agreement ({report.agreement_score:.0%}) - exploring alternatives")
+            self._log(
+                f"    [disagreement] FORK: Low agreement ({report.agreement_score:.0%}) - exploring alternatives"
+            )
             actions["should_fork"] = True
             # Create fork topic from the main disagreement
             if report.split_opinions:
-                first_split = report.split_opinions[0] if isinstance(report.split_opinions, list) else str(report.split_opinions)
+                first_split = (
+                    report.split_opinions[0]
+                    if isinstance(report.split_opinions, list)
+                    else str(report.split_opinions)
+                )
                 actions["fork_topic"] = f"Resolve disagreement: {first_split[:200]}"
             critical_warning = True
 
         # ACTION 3: Escalate split opinions for persistent patterns
         if len(report.split_opinions) >= 3:
-            self._log(f"    [disagreement] ESCALATE: {len(report.split_opinions)} split opinions detected")
+            self._log(
+                f"    [disagreement] ESCALATE: {len(report.split_opinions)} split opinions detected"
+            )
             # Track which agents consistently disagree
-            if not hasattr(self, '_agent_disagreement_patterns'):
+            if not hasattr(self, "_agent_disagreement_patterns"):
                 self._agent_disagreement_patterns = {}
 
             # Store for pattern analysis
@@ -6438,25 +7014,31 @@ Synthesize these suggestions into a coherent, working implementation.
 
         # If very low agreement but not rejecting, warn
         if report.agreement_score < 0.4 and not actions["should_reject"]:
-            self._log(f"    [disagreement] WARNING: Low agreement ({report.agreement_score:.0%}) - consider revising proposal")
+            self._log(
+                f"    [disagreement] WARNING: Low agreement ({report.agreement_score:.0%}) - consider revising proposal"
+            )
             critical_warning = True
 
         # If high-stakes phase (design/implement) and significant disagreement, log prominently
         if phase_name in ("design", "implement") and (
             len(report.unanimous_critiques) >= 2 or report.agreement_score < 0.5
         ):
-            self._log(f"    [disagreement] ATTENTION: High-stakes phase '{phase_name}' has significant disagreement")
+            self._log(
+                f"    [disagreement] ATTENTION: High-stakes phase '{phase_name}' has significant disagreement"
+            )
             # Store for later review
-            if not hasattr(self, '_critical_disagreements'):
+            if not hasattr(self, "_critical_disagreements"):
                 self._critical_disagreements = []
-            self._critical_disagreements.append({
-                "phase": phase_name,
-                "cycle": self.cycle_count,
-                "unanimous_critiques": report.unanimous_critiques,
-                "agreement_score": report.agreement_score,
-                "actions_taken": actions,
-                "timestamp": datetime.now().isoformat(),
-            })
+            self._critical_disagreements.append(
+                {
+                    "phase": phase_name,
+                    "cycle": self.cycle_count,
+                    "unanimous_critiques": report.unanimous_critiques,
+                    "agreement_score": report.agreement_score,
+                    "actions_taken": actions,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
         # If many risk areas identified, log them prominently
         if len(report.risk_areas) >= 2:
@@ -6499,18 +7081,31 @@ Synthesize these suggestions into a coherent, working implementation.
             # Log and act on DisagreementReport (Heavy3-inspired unanimous issues/split opinions)
             if result.disagreement_report:
                 report = result.disagreement_report
-                self._log(f"    [disagreement] Agreement Score: {report.agreement_score:.1%}", also_print=False)
+                self._log(
+                    f"    [disagreement] Agreement Score: {report.agreement_score:.1%}",
+                    also_print=False,
+                )
                 if report.unanimous_critiques:
-                    self._log(f"    [disagreement] {len(report.unanimous_critiques)} UNANIMOUS ISSUES (high priority):")
+                    self._log(
+                        f"    [disagreement] {len(report.unanimous_critiques)} UNANIMOUS ISSUES (high priority):"
+                    )
                     for issue in report.unanimous_critiques[:3]:
                         self._log(f"      - {issue[:100]}...")
                 if report.split_opinions:
-                    self._log(f"    [disagreement] {len(report.split_opinions)} split opinions (review carefully)", also_print=False)
+                    self._log(
+                        f"    [disagreement] {len(report.split_opinions)} split opinions (review carefully)",
+                        also_print=False,
+                    )
                 if report.risk_areas:
-                    self._log(f"    [disagreement] {len(report.risk_areas)} risk areas identified", also_print=False)
+                    self._log(
+                        f"    [disagreement] {len(report.risk_areas)} risk areas identified",
+                        also_print=False,
+                    )
 
                 # Heavy3-inspired decision influence based on disagreement patterns
-                disagreement_actions = self._handle_disagreement_influence(report, phase_name, result)
+                disagreement_actions = self._handle_disagreement_influence(
+                    report, phase_name, result
+                )
 
                 # Store actions on result for phase handlers to use
                 result.disagreement_actions = disagreement_actions
@@ -6518,10 +7113,14 @@ Synthesize these suggestions into a coherent, working implementation.
                 # Execute forking when triggered (requires fork_debate_enabled)
                 if disagreement_actions.get("should_fork"):
                     fork_topic = disagreement_actions.get("fork_topic", "unknown")
-                    fork_reason = disagreement_actions.get("fork_reason", "deep disagreement detected")
+                    fork_reason = disagreement_actions.get(
+                        "fork_reason", "deep disagreement detected"
+                    )
 
                     # Check if forking is enabled
-                    execute_forks = getattr(self, 'execute_forks', True) and self.fork_debate_enabled
+                    execute_forks = (
+                        getattr(self, "execute_forks", True) and self.fork_debate_enabled
+                    )
 
                     if execute_forks and DEBATE_FORKER_AVAILABLE:
                         # Create ForkDecision from split opinions
@@ -6531,11 +7130,12 @@ Synthesize these suggestions into a coherent, working implementation.
                         split_opinions = report.split_opinions[:3] if report.split_opinions else []
                         branches = []
                         for i, opinion in enumerate(split_opinions):
-                            agent_name = arena.agents[i % len(arena.agents)].name if arena.agents else "unknown"
-                            branches.append({
-                                "hypothesis": opinion[:200],
-                                "lead_agent": agent_name
-                            })
+                            agent_name = (
+                                arena.agents[i % len(arena.agents)].name
+                                if arena.agents
+                                else "unknown"
+                            )
+                            branches.append({"hypothesis": opinion[:200], "lead_agent": agent_name})
 
                         # Ensure at least 2 branches for meaningful fork
                         if len(branches) < 2:
@@ -6543,19 +7143,25 @@ Synthesize these suggestions into a coherent, working implementation.
                             agent2 = arena.agents[1].name if len(arena.agents) > 1 else "gpt-4"
                             branches = [
                                 {"hypothesis": fork_topic, "lead_agent": agent1},
-                                {"hypothesis": f"Alternative to: {fork_topic[:150]}", "lead_agent": agent2}
+                                {
+                                    "hypothesis": f"Alternative to: {fork_topic[:150]}",
+                                    "lead_agent": agent2,
+                                },
                             ]
 
                         fork_decision = ForkDecision(
                             should_fork=True,
                             reason=fork_reason,
                             branches=branches,
-                            disagreement_score=1.0 - (report.agreement_score if report.agreement_score else 0.5)
+                            disagreement_score=1.0
+                            - (report.agreement_score if report.agreement_score else 0.5),
                         )
 
                         # Execute forked debate
                         self._log(f"    [forking] 🔀 EXECUTING FORK: '{fork_topic[:50]}...'")
-                        self._log(f"    [forking] Branches: {len(branches)}, reason: {fork_reason[:50]}")
+                        self._log(
+                            f"    [forking] Branches: {len(branches)}, reason: {fork_reason[:50]}"
+                        )
 
                         merge_result = await self._run_forked_debate(
                             fork_decision=fork_decision,
@@ -6569,8 +7175,12 @@ Synthesize these suggestions into a coherent, working implementation.
                         )
 
                         if merge_result:
-                            self._log(f"    [forking] ✅ Fork complete: winner={merge_result.winning_branch_id}")
-                            self._log(f"    [forking] Winning hypothesis: {merge_result.winning_hypothesis[:100]}...")
+                            self._log(
+                                f"    [forking] ✅ Fork complete: winner={merge_result.winning_branch_id}"
+                            )
+                            self._log(
+                                f"    [forking] Winning hypothesis: {merge_result.winning_hypothesis[:100]}..."
+                            )
 
                             # Log merged insights
                             if merge_result.merged_insights:
@@ -6578,7 +7188,9 @@ Synthesize these suggestions into a coherent, working implementation.
                                     self._log(f"    [forking] Insight: {insight[:80]}...")
 
                             # Get winning branch result
-                            winning_result = merge_result.all_branch_results.get(merge_result.winning_branch_id)
+                            winning_result = merge_result.all_branch_results.get(
+                                merge_result.winning_branch_id
+                            )
                             if winning_result:
                                 # Replace main result with winning branch
                                 result = winning_result
@@ -6587,30 +7199,40 @@ Synthesize these suggestions into a coherent, working implementation.
                                     "forked": True,
                                     "winning_branch": merge_result.winning_branch_id,
                                     "hypothesis": merge_result.winning_hypothesis,
-                                    "comparison": merge_result.comparison_summary[:500] if merge_result.comparison_summary else "",
+                                    "comparison": (
+                                        merge_result.comparison_summary[:500]
+                                        if merge_result.comparison_summary
+                                        else ""
+                                    ),
                                     "branches_evaluated": len(merge_result.all_branch_results),
                                 }
 
                             # Record fork outcome for learning
-                            self._add_risk_entry({
-                                "type": "fork_executed",
-                                "feature": "debate_forking",
-                                "topic": fork_topic[:100],
-                                "winner": merge_result.winning_branch_id,
-                                "branches": len(merge_result.all_branch_results),
-                                "severity": "info",
-                                "action": "completed",
-                            })
+                            self._add_risk_entry(
+                                {
+                                    "type": "fork_executed",
+                                    "feature": "debate_forking",
+                                    "topic": fork_topic[:100],
+                                    "winner": merge_result.winning_branch_id,
+                                    "branches": len(merge_result.all_branch_results),
+                                    "severity": "info",
+                                    "action": "completed",
+                                }
+                            )
                         else:
-                            self._log(f"    [forking] ⚠️ Fork execution failed, continuing with main path")
-                            self._add_risk_entry({
-                                "type": "fork_failed",
-                                "feature": "debate_forking",
-                                "topic": fork_topic[:100],
-                                "reason": "merge_result was None",
-                                "severity": "low",
-                                "action": "fallback_to_main",
-                            })
+                            self._log(
+                                f"    [forking] ⚠️ Fork execution failed, continuing with main path"
+                            )
+                            self._add_risk_entry(
+                                {
+                                    "type": "fork_failed",
+                                    "feature": "debate_forking",
+                                    "topic": fork_topic[:100],
+                                    "reason": "merge_result was None",
+                                    "severity": "low",
+                                    "action": "fallback_to_main",
+                                }
+                            )
                     else:
                         # Forking disabled or not available - log and continue
                         self._log(
@@ -6619,20 +7241,42 @@ Synthesize these suggestions into a coherent, working implementation.
                             f"fork_enabled={self.fork_debate_enabled}, available={DEBATE_FORKER_AVAILABLE})"
                         )
 
-            self._save_state({
-                "phase": phase_name,
-                "stage": "arena_complete",
-                "consensus_reached": result.consensus_reached,
-                "confidence": result.confidence,
-                "final_answer_preview": result.final_answer if result.final_answer else None,
-                # Include disagreement report summary
-                "disagreement_report": {
-                    "unanimous_critiques": result.disagreement_report.unanimous_critiques if result.disagreement_report else [],
-                    "split_opinions_count": len(result.disagreement_report.split_opinions) if result.disagreement_report else 0,
-                    "agreement_score": result.disagreement_report.agreement_score if result.disagreement_report else None,
-                    "actions": result.disagreement_actions if hasattr(result, 'disagreement_actions') else None,
-                } if result.disagreement_report else None,
-            })
+            self._save_state(
+                {
+                    "phase": phase_name,
+                    "stage": "arena_complete",
+                    "consensus_reached": result.consensus_reached,
+                    "confidence": result.confidence,
+                    "final_answer_preview": result.final_answer if result.final_answer else None,
+                    # Include disagreement report summary
+                    "disagreement_report": (
+                        {
+                            "unanimous_critiques": (
+                                result.disagreement_report.unanimous_critiques
+                                if result.disagreement_report
+                                else []
+                            ),
+                            "split_opinions_count": (
+                                len(result.disagreement_report.split_opinions)
+                                if result.disagreement_report
+                                else 0
+                            ),
+                            "agreement_score": (
+                                result.disagreement_report.agreement_score
+                                if result.disagreement_report
+                                else None
+                            ),
+                            "actions": (
+                                result.disagreement_actions
+                                if hasattr(result, "disagreement_actions")
+                                else None
+                            ),
+                        }
+                        if result.disagreement_report
+                        else None
+                    ),
+                }
+            )
 
             return result
 
@@ -6641,7 +7285,9 @@ Synthesize these suggestions into a coherent, working implementation.
             self._save_state({"phase": phase_name, "stage": "arena_error", "error": str(e)})
             raise
 
-    async def _arbitrate_design(self, proposals: dict, improvement: str, alignment: float = None) -> Optional[str]:
+    async def _arbitrate_design(
+        self, proposals: dict, improvement: str, alignment: float = None
+    ) -> Optional[str]:
         """Use a judge agent to pick between competing design proposals.
 
         When design voting is tied or close, this method uses Claude as an impartial
@@ -6705,7 +7351,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             try:
                 response = await asyncio.wait_for(
                     judge.generate(arbitration_prompt),
-                    timeout=180  # 3 minute max for judge arbitration
+                    timeout=180,  # 3 minute max for judge arbitration
                 )
             except asyncio.TimeoutError:
                 self._log("  [arbitration] Judge timeout - using highest-voted proposal")
@@ -6721,7 +7367,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             self._log(f"  [arbitration] Error: {e}")
             return None
 
-    async def _run_fractal_with_logging(self, task: str, agents: list, phase_name: str) -> "DebateResult":
+    async def _run_fractal_with_logging(
+        self, task: str, agents: list, phase_name: str
+    ) -> "DebateResult":
         """Run a fractal debate with agent evolution and real-time logging."""
         if not self.use_genesis or not GENESIS_AVAILABLE:
             # Fall back to regular arena
@@ -6734,16 +7382,26 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 role_rotation=True,
                 role_rotation_config=RoleRotationConfig(
                     enabled=True,
-                    roles=[CognitiveRole.ANALYST, CognitiveRole.SKEPTIC, CognitiveRole.LATERAL_THINKER],
+                    roles=[
+                        CognitiveRole.ANALYST,
+                        CognitiveRole.SKEPTIC,
+                        CognitiveRole.LATERAL_THINKER,
+                    ],
                 ),
             )
             arena = Arena(
-                environment=env, agents=agents, protocol=protocol,
-                memory=self.critique_store, debate_embeddings=self.debate_embeddings,
-                insight_store=self.insight_store, position_tracker=self.position_tracker,
-                position_ledger=self.position_ledger, calibration_tracker=self.calibration_tracker,
+                environment=env,
+                agents=agents,
+                protocol=protocol,
+                memory=self.critique_store,
+                debate_embeddings=self.debate_embeddings,
+                insight_store=self.insight_store,
+                position_tracker=self.position_tracker,
+                position_ledger=self.position_ledger,
+                calibration_tracker=self.calibration_tracker,
                 elo_system=self.elo_system,
-                event_emitter=self.stream_emitter, loop_id=self.loop_id,
+                event_emitter=self.stream_emitter,
+                loop_id=self.loop_id,
                 event_hooks=self._create_arena_hooks("fractal"),
                 persona_manager=self.persona_manager,
                 relationship_tracker=self.relationship_tracker,
@@ -6789,15 +7447,17 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             for genome in fractal_result.evolved_genomes:
                 self._log(f"      - {genome.name} (gen {genome.generation})")
 
-            self._save_state({
-                "phase": phase_name,
-                "stage": "fractal_complete",
-                "genesis": True,
-                "total_depth": fractal_result.total_depth,
-                "sub_debates": len(fractal_result.sub_debates),
-                "evolved_genomes": len(fractal_result.evolved_genomes),
-                "consensus_reached": fractal_result.main_result.consensus_reached,
-            })
+            self._save_state(
+                {
+                    "phase": phase_name,
+                    "stage": "fractal_complete",
+                    "genesis": True,
+                    "total_depth": fractal_result.total_depth,
+                    "sub_debates": len(fractal_result.sub_debates),
+                    "evolved_genomes": len(fractal_result.evolved_genomes),
+                    "consensus_reached": fractal_result.main_result.consensus_reached,
+                }
+            )
 
             return fractal_result.main_result
 
@@ -6815,16 +7475,26 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 role_rotation=True,
                 role_rotation_config=RoleRotationConfig(
                     enabled=True,
-                    roles=[CognitiveRole.ANALYST, CognitiveRole.SKEPTIC, CognitiveRole.LATERAL_THINKER],
+                    roles=[
+                        CognitiveRole.ANALYST,
+                        CognitiveRole.SKEPTIC,
+                        CognitiveRole.LATERAL_THINKER,
+                    ],
                 ),
             )
             arena = Arena(
-                environment=env, agents=agents, protocol=protocol,
-                memory=self.critique_store, debate_embeddings=self.debate_embeddings,
-                insight_store=self.insight_store, position_tracker=self.position_tracker,
-                position_ledger=self.position_ledger, calibration_tracker=self.calibration_tracker,
+                environment=env,
+                agents=agents,
+                protocol=protocol,
+                memory=self.critique_store,
+                debate_embeddings=self.debate_embeddings,
+                insight_store=self.insight_store,
+                position_tracker=self.position_tracker,
+                position_ledger=self.position_ledger,
+                calibration_tracker=self.calibration_tracker,
                 elo_system=self.elo_system,
-                event_emitter=self.stream_emitter, loop_id=self.loop_id,
+                event_emitter=self.stream_emitter,
+                loop_id=self.loop_id,
                 event_hooks=self._create_arena_hooks("fractal_fallback"),
                 persona_manager=self.persona_manager,
                 relationship_tracker=self.relationship_tracker,
@@ -6877,6 +7547,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             hooks = self._create_post_debate_hooks(debate_team=debate_team)
             # Build learning context
             from aragora.nomic.phases.debate import LearningContext
+
             learning = LearningContext(
                 failure_lessons=self._analyze_failed_branches(),
                 successful_patterns=self._format_successful_patterns(),
@@ -6891,7 +7562,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             return {
                 "phase": "debate",
                 "improvement": result["improvement"],
-                "final_answer": result["improvement"],  # Alias for backward compat with _run_cycle_impl
+                "final_answer": result[
+                    "improvement"
+                ],  # Alias for backward compat with _run_cycle_impl
                 "consensus_reached": result["consensus_reached"],
                 "confidence": result["confidence"],
             }
@@ -6915,6 +7588,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             design_phase = self._create_design_phase()
             # Build belief context from analysis
             from aragora.nomic.phases.design import BeliefContext
+
             belief_ctx = None
             if belief_analysis:
                 belief_ctx = BeliefContext(
@@ -7052,7 +7726,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                     self._log(f"  [memory] Pressure at {pressure*100:.1f}%, running cleanup")
                     result = self.continuum.cleanup_expired_memories(archive=True)
                     if result["archived"] > 0 or result["deleted"] > 0:
-                        self._log(f"  [memory] Cleanup: archived={result['archived']}, deleted={result['deleted']}")
+                        self._log(
+                            f"  [memory] Cleanup: archived={result['archived']}, deleted={result['deleted']}"
+                        )
             except Exception as e:
                 self._log(f"  [memory] Pressure check failed: {e}")
 
@@ -7071,7 +7747,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         # Log circuit breaker status
         cb_status = self.circuit_breaker.get_status()
         if any(cb_status["cooldowns"].values()):
-            self._log(f"  [circuit-breaker] Agents in cooldown: {[k for k,v in cb_status['cooldowns'].items() if v > 0]}")
+            self._log(
+                f"  [circuit-breaker] Agents in cooldown: {[k for k,v in cb_status['cooldowns'].items() if v > 0]}"
+            )
 
         # Security: Verify protected files haven't been tampered with
         all_ok, modified = verify_protected_files_unchanged(self.aragora_path)
@@ -7082,7 +7760,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             _init_protected_checksums(self.aragora_path)
 
         # Emit cycle start event
-        self._stream_emit("on_cycle_start", self.cycle_count, self.max_cycles, cycle_start.isoformat())
+        self._stream_emit(
+            "on_cycle_start", self.cycle_count, self.max_cycles, cycle_start.isoformat()
+        )
         self._dispatch_webhook("cycle_start", {"max_cycles": self.max_cycles})
 
         # Initialize ReplayRecorder for this cycle
@@ -7094,7 +7774,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 topic=f"Nomic Loop Cycle {self.cycle_count}",
                 proposal=self.initial_proposal or "Self-improvement",
                 agents=[{"name": a, "model": a} for a in ["gemini", "claude", "codex", "grok"]],
-                storage_dir=str(replay_dir)
+                storage_dir=str(replay_dir),
             )
             self.replay_recorder.start()
             self._log(f"  [replay] Recording cycle {self.cycle_count}")
@@ -7104,7 +7784,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             self.cartographer = ArgumentCartographer()
             self.cartographer.set_debate_context(
                 debate_id=f"nomic-cycle-{self.cycle_count}",
-                topic=self.initial_proposal or "Self-improvement"
+                topic=self.initial_proposal or "Self-improvement",
             )
             self._log(f"  [viz] Cartographer ready for cycle {self.cycle_count}")
 
@@ -7129,7 +7809,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                     "outcome": "constitution_violation",
                     "error": "Constitution signature verification failed",
                 }
-            self._log(f"  [constitution] Signature verified (v{self.constitution_verifier.constitution.version})")
+            self._log(
+                f"  [constitution] Signature verified (v{self.constitution_verifier.constitution.version})"
+            )
 
         cycle_result = {
             "cycle": self.cycle_count,
@@ -7138,18 +7820,19 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             "phases": {},
         }
 
-        self._save_state({
-            "phase": "cycle_start",
-            "cycle": self.cycle_count,
-            "backup_path": str(backup_path),
-        })
+        self._save_state(
+            {
+                "phase": "cycle_start",
+                "cycle": self.cycle_count,
+                "backup_path": str(backup_path),
+            }
+        )
 
         # Phase 0: Context Gathering (Claude + Codex explore codebase)
         # This ensures Gemini and Grok get accurate context about existing features
         try:
             context_result = await self._run_with_phase_timeout(
-                "context",
-                self.phase_context_gathering()
+                "context", self.phase_context_gathering()
             )
             cycle_result["phases"]["context"] = context_result
             codebase_context = context_result.get("codebase_context", "")
@@ -7176,8 +7859,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         # Phase 1: Debate (all agents, with gathered context)
         try:
             debate_result = await self._run_with_phase_timeout(
-                "debate",
-                self.phase_debate(codebase_context=codebase_context)
+                "debate", self.phase_debate(codebase_context=codebase_context)
             )
             cycle_result["phases"]["debate"] = debate_result
             self.phase_recovery.record_success("debate")
@@ -7213,8 +7895,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         belief_analysis = debate_result.get("belief_analysis")
         try:
             design_result = await self._run_with_phase_timeout(
-                "design",
-                self.phase_design(improvement, belief_analysis=belief_analysis)
+                "design", self.phase_design(improvement, belief_analysis=belief_analysis)
             )
             cycle_result["phases"]["design"] = design_result
             self.phase_recovery.record_success("design")
@@ -7236,7 +7917,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         design_confidence = design_result.get("confidence", 0.0)
         vote_counts = design_result.get("vote_counts", {})
         individual_proposals = design_result.get("individual_proposals", {})
-        self._log(f"\nDesign complete (consensus={design_consensus}, confidence={design_confidence:.0%})")
+        self._log(
+            f"\nDesign complete (consensus={design_consensus}, confidence={design_confidence:.0%})"
+        )
 
         # === Design Fallback: Multi-strategy recovery for no consensus ===
         if not design_consensus:
@@ -7258,12 +7941,16 @@ Start directly with "## 1. FILE CHANGES" or similar."""
 
             # Strategy 1: Always try judge arbitration first (not just close contests)
             if individual_proposals and len(individual_proposals) >= 2:
-                self._log("  [arbitration] Multiple proposals exist - invoking judge arbitration...")
+                self._log(
+                    "  [arbitration] Multiple proposals exist - invoking judge arbitration..."
+                )
                 try:
                     arbitrated = await self._arbitrate_design(individual_proposals, improvement)
                     if arbitrated and is_viable_design(arbitrated):
                         candidate_design = arbitrated
-                        self._log(f"  [arbitration] Judge synthesized viable design ({len(arbitrated)} chars)")
+                        self._log(
+                            f"  [arbitration] Judge synthesized viable design ({len(arbitrated)} chars)"
+                        )
                 except Exception as e:
                     self._log(f"  [arbitration] Judge arbitration failed: {e}")
 
@@ -7275,10 +7962,14 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                         proposal = individual_proposals[agent]
                         if is_viable_design(proposal):
                             candidate_design = proposal
-                            self._log(f"  [fallback] Selected {agent}'s design with {votes} votes ({len(proposal)} chars)")
+                            self._log(
+                                f"  [fallback] Selected {agent}'s design with {votes} votes ({len(proposal)} chars)"
+                            )
                             break
                         else:
-                            self._log(f"  [fallback] Skipped {agent}'s design (not viable: {len(proposal) if proposal else 0} chars)")
+                            self._log(
+                                f"  [fallback] Skipped {agent}'s design (not viable: {len(proposal) if proposal else 0} chars)"
+                            )
 
             # Strategy 3: Use any viable proposal regardless of votes
             if not candidate_design and individual_proposals:
@@ -7296,7 +7987,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
 
             # Strategy 5: Floor breaker escalation (emergency last resort)
             if not candidate_design and activate_floor_breaker and individual_proposals:
-                self._log("  [fallback] Standard strategies exhausted - activating floor breaker...")
+                self._log(
+                    "  [fallback] Standard strategies exhausted - activating floor breaker..."
+                )
                 candidate_design, floor_breaker_method = await self._activate_floor_breaker(
                     individual_proposals, vote_counts, improvement
                 )
@@ -7313,7 +8006,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 self._log("  [warning] No viable design recovered - skipping implementation")
                 cycle_result["outcome"] = "design_no_consensus"
                 cycle_result["vote_counts"] = vote_counts
-                cycle_result["proposals_checked"] = len(individual_proposals) if individual_proposals else 0
+                cycle_result["proposals_checked"] = (
+                    len(individual_proposals) if individual_proposals else 0
+                )
                 cycle_result["floor_breaker_attempted"] = activate_floor_breaker
                 self._record_cycle_outcome("design_no_consensus", {"vote_counts": vote_counts})
                 return cycle_result
@@ -7335,8 +8030,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         # Phase 3: Implement (with circuit breaker integration)
         try:
             impl_result = await self._run_with_phase_timeout(
-                "implement",
-                self.phase_implement(design)
+                "implement", self.phase_implement(design)
             )
             cycle_result["phases"]["implement"] = impl_result
             self.phase_recovery.record_success("implement")
@@ -7377,19 +8071,22 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 changed_files = self._get_git_changed_files()
                 if changed_files:
                     staleness = await self.nomic_integration.check_staleness(
-                        list(self.claims_kernel.claims.values()),
-                        changed_files
+                        list(self.claims_kernel.claims.values()), changed_files
                     )
                     if staleness.stale_claims:
-                        self._log(f"  [staleness] {len(staleness.stale_claims)} claims have stale evidence")
+                        self._log(
+                            f"  [staleness] {len(staleness.stale_claims)} claims have stale evidence"
+                        )
                         for claim in staleness.stale_claims[:3]:  # Log first 3
                             self._log(f"    - {claim.statement[:60]}...")
 
                         # Queue ALL stale claims for next cycle's debate agenda
-                        if not hasattr(self, '_pending_redebate_claims'):
+                        if not hasattr(self, "_pending_redebate_claims"):
                             self._pending_redebate_claims = []
                         self._pending_redebate_claims.extend(staleness.stale_claims)
-                        self._log(f"  [staleness] Queued {len(staleness.stale_claims)} claims for re-debate in next cycle")
+                        self._log(
+                            f"  [staleness] Queued {len(staleness.stale_claims)} claims for re-debate in next cycle"
+                        )
 
                     if staleness.needs_redebate:
                         self._log(f"  [staleness] WARNING: High-severity stale evidence detected!")
@@ -7407,7 +8104,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 self._log(f"    - {issue}")
 
             # Preserve work before rollback
-            preserve_branch = await self._preserve_failed_work(f"nomic-protected-damaged-{self.cycle_count}")
+            preserve_branch = await self._preserve_failed_work(
+                f"nomic-protected-damaged-{self.cycle_count}"
+            )
             if preserve_branch:
                 cycle_result["preserved_branch"] = preserve_branch
                 self._log(f"  Work preserved in branch: {preserve_branch}")
@@ -7435,12 +8134,16 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             if cycle_deadline:
                 remaining_seconds = (cycle_deadline - datetime.now()).total_seconds()
                 if remaining_seconds < 300:  # Less than 5 minutes remaining
-                    self._log(f"\n  [deadline] Only {remaining_seconds:.0f}s remaining - exiting fix loop early")
+                    self._log(
+                        f"\n  [deadline] Only {remaining_seconds:.0f}s remaining - exiting fix loop early"
+                    )
                     cycle_result["outcome"] = "deadline_reached"
                     cycle_result["deadline_remaining_seconds"] = remaining_seconds
                     # Try to preserve any partial progress
                     if best_test_score > 0:
-                        self._log(f"  [deadline] Preserving partial progress: {best_test_score} passing tests")
+                        self._log(
+                            f"  [deadline] Preserving partial progress: {best_test_score} passing tests"
+                        )
                         cycle_result["partial_success"] = True
                         cycle_result["best_test_score"] = best_test_score
                     break
@@ -7448,10 +8151,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             # Phase 4: Verify (with timeout and recovery)
             try:
                 # Use phase timeout to prevent indefinite hangs
-                verify_result = await self._run_with_phase_timeout(
-                    "verify",
-                    self.phase_verify()
-                )
+                verify_result = await self._run_with_phase_timeout("verify", self.phase_verify())
                 cycle_result["phases"]["verify"] = verify_result
                 self.phase_recovery.record_success("verify")
             except PhaseError as e:
@@ -7480,7 +8180,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             # Track progress - count passing tests
             test_counts = self._count_test_results(test_output)
             current_score = test_counts["passed"]
-            self._log(f"  Test results: {test_counts['passed']} passed, {test_counts['failed']} failed, {test_counts['errors']} errors")
+            self._log(
+                f"  Test results: {test_counts['passed']} passed, {test_counts['failed']} failed, {test_counts['errors']} errors"
+            )
 
             # Update best score if improving
             if current_score > best_test_score:
@@ -7488,7 +8190,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 best_test_output = test_output
                 self._log(f"  Progress: New best score = {best_test_score} passing tests")
                 # Commit partial progress when improving
-                partial_commit = self._commit_partial_progress(f"cycle-{self.cycle_count}-iter-{fix_iteration}-{best_test_score}passed")
+                partial_commit = self._commit_partial_progress(
+                    f"cycle-{self.cycle_count}-iter-{fix_iteration}-{best_test_score}passed"
+                )
                 if partial_commit:
                     self._log(f"  Partial progress committed: {partial_commit}")
 
@@ -7527,7 +8231,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
 
                 if problematic_files and len(problematic_files) < len(modified_files):
                     # Try selective rollback
-                    self._log(f"  Found {len(problematic_files)} potentially problematic files (keeping {len(modified_files) - len(problematic_files)} others)")
+                    self._log(
+                        f"  Found {len(problematic_files)} potentially problematic files (keeping {len(modified_files) - len(problematic_files)} others)"
+                    )
                     if self._selective_rollback(problematic_files):
                         # Re-verify after selective rollback
                         self._log("  Re-verifying after selective rollback...")
@@ -7542,10 +8248,14 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                             cycle_result["selective_rollback"] = problematic_files
                             break
                         else:
-                            self._log("  Selective rollback did not fix all issues, proceeding to full rollback")
+                            self._log(
+                                "  Selective rollback did not fix all issues, proceeding to full rollback"
+                            )
 
                 # Preserve work in a branch before full rollback
-                preserve_branch = await self._preserve_failed_work(f"nomic-failed-cycle-{self.cycle_count}")
+                preserve_branch = await self._preserve_failed_work(
+                    f"nomic-failed-cycle-{self.cycle_count}"
+                )
                 if preserve_branch:
                     cycle_result["preserved_branch"] = preserve_branch
                     self._log(f"  Work preserved in branch: {preserve_branch}")
@@ -7554,7 +8264,9 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 if self.critique_store:
                     self._record_failure_patterns(test_output, cycle_result.get("design", ""))
 
-                self._log(f"Verification failed after {fix_iteration - 1} fix attempts. Rolling back.")
+                self._log(
+                    f"Verification failed after {fix_iteration - 1} fix attempts. Rolling back."
+                )
                 self._restore_backup(backup_path)
                 subprocess.run(["git", "checkout", "."], cwd=self.aragora_path)
                 cycle_result["outcome"] = "verification_failed"
@@ -7571,6 +8283,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             # Step 1: Codex reviews the failed changes
             self._log("\n  Step 1: Codex analyzing test failures...", agent="codex")
             from aragora.implement import HybridExecutor
+
             executor = HybridExecutor(self.aragora_path)
             diff = self._get_git_diff()
 
@@ -7585,18 +8298,23 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             failing_test_files = self._extract_failing_files(test_output)
             failing_tests_info = ""
             if failing_test_files:
-                failing_tests_info = f"\n## Failing Test Files (FIX THESE)\n" + "\n".join(f"- {f}" for f in failing_test_files[:5])
+                failing_tests_info = f"\n## Failing Test Files (FIX THESE)\n" + "\n".join(
+                    f"- {f}" for f in failing_test_files[:5]
+                )
 
             # Check if these are new regressions vs pre-existing failures
             baseline_info = ""
-            if hasattr(self, '_test_baseline') and self._test_baseline:
+            if hasattr(self, "_test_baseline") and self._test_baseline:
                 pre_existing = self._test_baseline.get("failing_tests", [])
                 new_failures = self._extract_failing_tests(test_output)
                 actually_new = [t for t in new_failures if t not in pre_existing]
                 if pre_existing:
                     baseline_info = f"\n## Note: {len(pre_existing)} tests were already failing before implementation."
                 if actually_new:
-                    baseline_info += f"\nNEW REGRESSIONS ({len(actually_new)}): Focus on these:\n" + "\n".join(f"- {t}" for t in actually_new[:5])
+                    baseline_info += (
+                        f"\nNEW REGRESSIONS ({len(actually_new)}): Focus on these:\n"
+                        + "\n".join(f"- {t}" for t in actually_new[:5])
+                    )
 
             review_prompt = f"""The following code changes caused test failures. Analyze and suggest fixes.
 {failing_tests_info}
@@ -7622,12 +8340,20 @@ Provide specific, actionable fixes. Focus on:
 5. If pivotal claims are listed above, ensure your fix addresses them directly.
 6. IMPORTANT: Only modify files related to the failing tests - don't change unrelated code.
 """
-            review_result = await executor.review_with_codex(review_prompt, timeout=2400)  # 40 min for thorough review
+            review_result = await executor.review_with_codex(
+                review_prompt, timeout=2400
+            )  # 40 min for thorough review
             iteration_result["codex_review"] = review_result
             self._log(f"    Codex review complete", agent="codex")
             # Emit Codex's full review
             if review_result.get("review"):
-                self._stream_emit("on_log_message", review_result["review"], level="info", phase="fix", agent="codex")
+                self._stream_emit(
+                    "on_log_message",
+                    review_result["review"],
+                    level="info",
+                    phase="fix",
+                    agent="codex",
+                )
 
             # Step 2: Claude fixes based on Codex review
             self._log("\n  Step 2: Claude applying fixes...", agent="claude")
@@ -7688,14 +8414,25 @@ Working directory: {self.aragora_path}
 Reply with: LOOKS_GOOD or ISSUES: <brief description>
 """
                 # Use retry wrapper for resilience
-                gemini_result = await self._call_agent_with_retry(self.gemini, gemini_review_prompt, max_retries=2)
-                iteration_result["gemini_review"] = gemini_result if gemini_result else "No response"
-                self._log(f"    Gemini: {gemini_result if gemini_result else 'No response'}", agent="gemini")
+                gemini_result = await self._call_agent_with_retry(
+                    self.gemini, gemini_review_prompt, max_retries=2
+                )
+                iteration_result["gemini_review"] = (
+                    gemini_result if gemini_result else "No response"
+                )
+                self._log(
+                    f"    Gemini: {gemini_result if gemini_result else 'No response'}",
+                    agent="gemini",
+                )
                 # Emit Gemini's full review
                 if gemini_result and not ("[Agent" in gemini_result and "failed" in gemini_result):
-                    self._stream_emit("on_log_message", gemini_result, level="info", phase="fix", agent="gemini")
+                    self._stream_emit(
+                        "on_log_message", gemini_result, level="info", phase="fix", agent="gemini"
+                    )
                     # Check if Gemini found issues
-                    gemini_issues = "ISSUES:" in gemini_result.upper() or "ISSUE:" in gemini_result.upper()
+                    gemini_issues = (
+                        "ISSUES:" in gemini_result.upper() or "ISSUE:" in gemini_result.upper()
+                    )
             except Exception as e:
                 self._log(f"    Gemini review skipped: {e}", agent="gemini")
 
@@ -7731,17 +8468,26 @@ Previous fix attempt may have issues. Please apply an alternative fix for these 
 Working directory: {self.aragora_path}
 """
                     # Use retry wrapper for resilience
-                    grok_result = await self._call_agent_with_retry(self.grok, grok_fix_prompt, max_retries=2)
+                    grok_result = await self._call_agent_with_retry(
+                        self.grok, grok_fix_prompt, max_retries=2
+                    )
                     iteration_result["grok_fix"] = grok_result if grok_result else "No response"
                     if grok_result and not ("[Agent" in grok_result and "failed" in grok_result):
                         self._log(f"    Grok fix applied", agent="grok")
-                        self._stream_emit("on_log_message", grok_result, level="info", phase="fix", agent="grok")
+                        self._stream_emit(
+                            "on_log_message", grok_result, level="info", phase="fix", agent="grok"
+                        )
                     else:
-                        self._log(f"    Grok fix failed: {grok_result if grok_result else 'No response'}", agent="grok")
+                        self._log(
+                            f"    Grok fix failed: {grok_result if grok_result else 'No response'}",
+                            agent="grok",
+                        )
                 except Exception as e:
                     self._log(f"    Grok fix skipped: {e}", agent="grok")
             else:
-                self._log("\n  Step 4: Grok fix skipped (Gemini approved Claude's changes)", agent="grok")
+                self._log(
+                    "\n  Step 4: Grok fix skipped (Gemini approved Claude's changes)", agent="grok"
+                )
 
             cycle_result["fix_iterations"].append(iteration_result)
 
@@ -7750,7 +8496,9 @@ Working directory: {self.aragora_path}
             if protected_issues:
                 self._log("  CRITICAL: Fix damaged protected files!")
                 # Preserve work before rollback
-                preserve_branch = await self._preserve_failed_work(f"nomic-fix-damaged-{self.cycle_count}")
+                preserve_branch = await self._preserve_failed_work(
+                    f"nomic-fix-damaged-{self.cycle_count}"
+                )
                 if preserve_branch:
                     cycle_result["preserved_branch"] = preserve_branch
                     self._log(f"  Work preserved in branch: {preserve_branch}")
@@ -7766,8 +8514,7 @@ Working directory: {self.aragora_path}
         # Phase 5: Commit (with recovery tracking)
         try:
             commit_result = await self._run_with_phase_timeout(
-                "commit",
-                self.phase_commit(improvement)
+                "commit", self.phase_commit(improvement)
             )
             cycle_result["phases"]["commit"] = commit_result
             self.phase_recovery.record_success("commit")
@@ -7814,13 +8561,15 @@ Working directory: {self.aragora_path}
         cycle_result["duration_seconds"] = (datetime.now() - cycle_start).total_seconds()
 
         # Add phase duration metrics for analysis (Phase 4 enhancement)
-        if hasattr(self, '_phase_metrics') and self._phase_metrics:
+        if hasattr(self, "_phase_metrics") and self._phase_metrics:
             cycle_result["phase_metrics"] = self._phase_metrics
             # Log summary of phase efficiency
             total_budget = sum(m["budget"] for m in self._phase_metrics.values())
             total_duration = sum(m["duration"] for m in self._phase_metrics.values())
             overall_efficiency = (total_duration / total_budget * 100) if total_budget > 0 else 0
-            self._log(f"\n  [metrics] Cycle {self.cycle_count} phase efficiency: {overall_efficiency:.0f}% ({total_duration:.0f}s / {total_budget}s budget)")
+            self._log(
+                f"\n  [metrics] Cycle {self.cycle_count} phase efficiency: {overall_efficiency:.0f}% ({total_duration:.0f}s / {total_budget}s budget)"
+            )
 
         # Record outcome for calibration and learning
         if self.outcome_tracker:
@@ -7846,25 +8595,34 @@ Working directory: {self.aragora_path}
                     consensus_text=design_result.get("consensus", "")[:500],
                     consensus_confidence=confidence,
                     implementation_attempted=True,
-                    implementation_succeeded=cycle_result.get("outcome") in ("success", "partial_success"),
+                    implementation_succeeded=cycle_result.get("outcome")
+                    in ("success", "partial_success"),
                     tests_passed=tests_passed,
                     tests_failed=tests_failed,
                     rollback_triggered=cycle_result.get("outcome") == "verification_failed",
-                    failure_reason=cycle_result.get("error") if cycle_result.get("outcome") != "success" else None,
+                    failure_reason=(
+                        cycle_result.get("error")
+                        if cycle_result.get("outcome") != "success"
+                        else None
+                    ),
                 )
                 self.outcome_tracker.record_outcome(outcome)
-                self._log(f"  [outcomes] Recorded outcome: {cycle_result.get('outcome')} (confidence={confidence:.2f})")
+                self._log(
+                    f"  [outcomes] Recorded outcome: {cycle_result.get('outcome')} (confidence={confidence:.2f})"
+                )
             except Exception as e:
                 self._log(f"  [outcomes] Failed to record: {e}")
 
         self.history.append(cycle_result)
 
-        self._save_state({
-            "phase": "cycle_complete",
-            "cycle": self.cycle_count,
-            "outcome": cycle_result["outcome"],
-            "duration_seconds": cycle_result["duration_seconds"],
-        })
+        self._save_state(
+            {
+                "phase": "cycle_complete",
+                "cycle": self.cycle_count,
+                "outcome": cycle_result["outcome"],
+                "duration_seconds": cycle_result["duration_seconds"],
+            }
+        )
 
         # Emit cycle end event
         self._stream_emit(
@@ -7874,11 +8632,14 @@ Working directory: {self.aragora_path}
             cycle_result["duration_seconds"],
             cycle_result.get("outcome", "unknown"),
         )
-        self._dispatch_webhook("cycle_end", {
-            "outcome": cycle_result.get("outcome", "unknown"),
-            "duration_seconds": cycle_result.get("duration_seconds", 0),
-            "success": cycle_result.get("outcome") == "success",
-        })
+        self._dispatch_webhook(
+            "cycle_end",
+            {
+                "outcome": cycle_result.get("outcome", "unknown"),
+                "duration_seconds": cycle_result.get("duration_seconds", 0),
+                "success": cycle_result.get("outcome") == "success",
+            },
+        )
 
         # Finalize ReplayRecorder
         if self.replay_recorder:
@@ -7910,7 +8671,9 @@ Working directory: {self.aragora_path}
                     f.write(self.cartographer.export_json(include_full_content=True))
 
                 stats = self.cartographer.get_statistics()
-                self._log(f"  [viz] Exported: {stats.get('total_nodes', 0)} nodes, {stats.get('total_edges', 0)} edges")
+                self._log(
+                    f"  [viz] Exported: {stats.get('total_nodes', 0)} nodes, {stats.get('total_edges', 0)} edges"
+                )
             except Exception as e:
                 self._log(f"  [viz] Export error: {e}")
             finally:
@@ -7920,7 +8683,9 @@ Working directory: {self.aragora_path}
         if self.continuum and CONTINUUM_AVAILABLE:
             try:
                 outcome = cycle_result.get("outcome", "unknown")
-                improvement = cycle_result.get("phases", {}).get("debate", {}).get("final_answer", "")
+                improvement = (
+                    cycle_result.get("phases", {}).get("debate", {}).get("final_answer", "")
+                )
                 is_success = outcome == "success"
 
                 # Extract domain and participating agents for cross-cycle learning
@@ -7928,8 +8693,8 @@ Working directory: {self.aragora_path}
                 debate_agents = []
                 if cycle_result.get("phases", {}).get("debate", {}).get("agents"):
                     debate_agents = cycle_result["phases"]["debate"]["agents"]
-                elif hasattr(self, '_last_debate_team'):
-                    debate_agents = [a.name for a in getattr(self, '_last_debate_team', [])]
+                elif hasattr(self, "_last_debate_team"):
+                    debate_agents = [a.name for a in getattr(self, "_last_debate_team", [])]
 
                 # Store in SLOW tier (strategic learning across cycles)
                 memory_id = f"cycle-{self.cycle_count}-{outcome}"
@@ -7946,7 +8711,7 @@ Working directory: {self.aragora_path}
                         "domain": domain,
                         "agents": debate_agents,
                         "phases_completed": list(cycle_result.get("phases", {}).keys()),
-                    }
+                    },
                 )
                 self._log(f"  [continuum] Stored cycle outcome in SLOW tier (domain={domain})")
 
@@ -7966,21 +8731,29 @@ Working directory: {self.aragora_path}
                             # Get the actual numeric hyperparameters after adjustments
                             new_hyperparams = self.meta_learner.get_current_hyperparams()
                             # Apply adjustments to ContinuumMemory
-                            if hasattr(self.continuum, 'hyperparams') and isinstance(self.continuum.hyperparams, dict):
+                            if hasattr(self.continuum, "hyperparams") and isinstance(
+                                self.continuum.hyperparams, dict
+                            ):
                                 self.continuum.hyperparams.update(new_hyperparams)
-                            elif hasattr(self.continuum, 'hyperparams'):
+                            elif hasattr(self.continuum, "hyperparams"):
                                 for key, value in new_hyperparams.items():
                                     if hasattr(self.continuum.hyperparams, key):
                                         setattr(self.continuum.hyperparams, key, value)
-                            self._log(f"  [meta] Applied hyperparameter adjustments: {list(adjustments.keys())}")
+                            self._log(
+                                f"  [meta] Applied hyperparameter adjustments: {list(adjustments.keys())}"
+                            )
 
                             # Also apply relevant adjustments to next debate protocol
                             # MetaLearner's consensus_rate metric influences debate behavior
-                            if hasattr(self, 'debate_protocol') and metrics.consensus_rate < 0.5:
+                            if hasattr(self, "debate_protocol") and metrics.consensus_rate < 0.5:
                                 # Low consensus rate - allow more rounds for debate
-                                if hasattr(self.debate_protocol, 'rounds'):
-                                    self.debate_protocol.rounds = min(5, self.debate_protocol.rounds + 1)
-                                    self._log(f"  [meta] Increased debate rounds to {self.debate_protocol.rounds} (low consensus)")
+                                if hasattr(self.debate_protocol, "rounds"):
+                                    self.debate_protocol.rounds = min(
+                                        5, self.debate_protocol.rounds + 1
+                                    )
+                                    self._log(
+                                        f"  [meta] Increased debate rounds to {self.debate_protocol.rounds} (low consensus)"
+                                    )
                     except Exception as e:
                         self._log(f"  [meta] MetaLearner error: {e}")
             except Exception as e:
@@ -7989,11 +8762,9 @@ Working directory: {self.aragora_path}
         # Prune stale patterns periodically (every 10 cycles)
         if self.critique_store and self.cycle_count % 10 == 0:
             try:
-                if hasattr(self.critique_store, 'prune_stale_patterns'):
+                if hasattr(self.critique_store, "prune_stale_patterns"):
                     pruned = self.critique_store.prune_stale_patterns(
-                        max_age_days=90,
-                        min_success_rate=0.3,
-                        archive=True
+                        max_age_days=90, min_success_rate=0.3, archive=True
                     )
                     if pruned > 0:
                         self._log(f"  [memory] Pruned {pruned} stale patterns (archived)")
@@ -8003,17 +8774,20 @@ Working directory: {self.aragora_path}
         # Run robustness check on debate conclusions periodically
         if self.scenario_comparator and self.cycle_count % 5 == 0:
             try:
-                debate_answer = cycle_result.get("phases", {}).get("debate", {}).get("final_answer", "")
+                debate_answer = (
+                    cycle_result.get("phases", {}).get("debate", {}).get("final_answer", "")
+                )
                 if debate_answer:
                     robustness = await self._run_robustness_check(
-                        task=debate_answer[:500],
-                        base_context=""
+                        task=debate_answer[:500], base_context=""
                     )
                     if robustness:
                         cycle_result["robustness"] = robustness
                         vuln_score = robustness.get("vulnerability_score", 0)
                         if vuln_score > 0.5:
-                            self._log(f"  [robustness] Warning: high vulnerability score {vuln_score:.2f}")
+                            self._log(
+                                f"  [robustness] Warning: high vulnerability score {vuln_score:.2f}"
+                            )
             except Exception as e:
                 self._log(f"  [robustness] Check failed: {e}")
 
@@ -8021,21 +8795,23 @@ Working directory: {self.aragora_path}
         if self.agent_selector and self.elo_system and self.cycle_count % 25 == 0:
             try:
                 for agent_name in ["gemini", "claude", "codex", "grok"]:
-                    if hasattr(self.elo_system, 'get_expected_calibration_error'):
+                    if hasattr(self.elo_system, "get_expected_calibration_error"):
                         ece = self.elo_system.get_expected_calibration_error(agent_name)
                         if ece is None:
                             continue
 
-                        bench_list = getattr(self.agent_selector, 'bench', [])
+                        bench_list = getattr(self.agent_selector, "bench", [])
                         if ece > 0.25 and agent_name not in bench_list:
-                            if hasattr(self.agent_selector, 'move_to_bench'):
+                            if hasattr(self.agent_selector, "move_to_bench"):
                                 self.agent_selector.move_to_bench(agent_name)
-                                self._log(f"  [bench] Moved {agent_name} to probation (ECE: {ece:.2f})")
+                                self._log(
+                                    f"  [bench] Moved {agent_name} to probation (ECE: {ece:.2f})"
+                                )
 
                         elif agent_name in bench_list:
                             rating = self.elo_system.get_rating(agent_name)
                             if ece < 0.15 and rating.elo > 1550:
-                                if hasattr(self.agent_selector, 'promote_from_bench'):
+                                if hasattr(self.agent_selector, "promote_from_bench"):
                                     self.agent_selector.promote_from_bench(agent_name)
                                     self._log(f"  [bench] Promoted {agent_name} back to active")
             except Exception as e:
@@ -8051,10 +8827,13 @@ Working directory: {self.aragora_path}
         await self._run_tournament_if_due()
 
         # Record cycle outcome for deadlock detection
-        self._record_cycle_outcome(cycle_result.get("outcome", "unknown"), {
-            "duration": cycle_result.get("duration_seconds"),
-            "phases_completed": list(cycle_result.get("phases", {}).keys()),
-        })
+        self._record_cycle_outcome(
+            cycle_result.get("outcome", "unknown"),
+            {
+                "duration": cycle_result.get("duration_seconds"),
+                "phases_completed": list(cycle_result.get("phases", {}).keys()),
+            },
+        )
 
         # Record cycle outcome in ContinuumMemory for cross-cycle learning
         if self.continuum:
@@ -8087,11 +8866,15 @@ Working directory: {self.aragora_path}
         if cycle_result.get("outcome") == "success":
             self._deadlock_count = 0
             if self._consensus_threshold_decay > 0:
-                self._log(f"  [consensus] Resetting threshold decay (was level {self._consensus_threshold_decay})")
+                self._log(
+                    f"  [consensus] Resetting threshold decay (was level {self._consensus_threshold_decay})"
+                )
                 self._consensus_threshold_decay = 0
             # Reset floor breaker state
             if self._floor_failure_count > 0:
-                self._log(f"  [floor-breaker] Resetting floor failure count (was {self._floor_failure_count})")
+                self._log(
+                    f"  [floor-breaker] Resetting floor failure count (was {self._floor_failure_count})"
+                )
                 self._floor_failure_count = 0
                 self._floor_breaker_activated = False
 
@@ -8120,6 +8903,7 @@ Working directory: {self.aragora_path}
         # Run database maintenance on startup (WAL checkpoint, ANALYZE if due)
         try:
             from aragora.maintenance import run_startup_maintenance
+
             maintenance_results = run_startup_maintenance(self.nomic_dir)
             db_count = maintenance_results.get("stats", {}).get("database_count", 0)
             self._log(f"[maintenance] Startup complete: {db_count} databases checked")
@@ -8145,7 +8929,7 @@ Working directory: {self.aragora_path}
                         else:
                             try:
                                 response = input("Continue to next cycle? [Y/n]: ")
-                                if response.lower() == 'n':
+                                if response.lower() == "n":
                                     break
                             except EOFError:
                                 # Running in background/non-interactive mode
@@ -8161,7 +8945,9 @@ Working directory: {self.aragora_path}
         self._log("\n" + "=" * 70)
         self._log("NOMIC LOOP COMPLETE")
         self._log(f"Total cycles: {self.cycle_count}")
-        self._log(f"Successful commits: {sum(1 for h in self.history if h.get('outcome') == 'success')}")
+        self._log(
+            f"Successful commits: {sum(1 for h in self.history if h.get('outcome') == 'success')}"
+        )
         self._log("=" * 70)
 
         return self.history
@@ -8170,6 +8956,7 @@ Working directory: {self.aragora_path}
 # =============================================================================
 # CLI Commands for backup management
 # =============================================================================
+
 
 def list_backups(aragora_path: Path) -> None:
     """List available backups."""
@@ -8249,28 +9036,41 @@ async def main():
     # Run subcommand (default)
     run_parser = subparsers.add_parser("run", help="Run the nomic loop")
     run_parser.add_argument("--cycles", type=int, default=3, help="Maximum cycles to run")
-    run_parser.add_argument("--auto", action="store_true", help="Auto-commit without human approval")
+    run_parser.add_argument(
+        "--auto", action="store_true", help="Auto-commit without human approval"
+    )
     run_parser.add_argument("--path", type=str, help="Path to aragora repository")
     run_parser.add_argument(
-        "--proposal", "-p", type=str,
-        help="Initial proposal for agents to consider (they may adopt, improve, or reject it)"
+        "--proposal",
+        "-p",
+        type=str,
+        help="Initial proposal for agents to consider (they may adopt, improve, or reject it)",
     )
     run_parser.add_argument(
-        "--proposal-file", "-f", type=str,
-        help="File containing initial proposal (alternative to --proposal)"
+        "--proposal-file",
+        "-f",
+        type=str,
+        help="File containing initial proposal (alternative to --proposal)",
     )
     run_parser.add_argument(
-        "--genesis", action="store_true",
-        help="Enable genesis mode: fractal debates with agent evolution"
+        "--genesis",
+        action="store_true",
+        help="Enable genesis mode: fractal debates with agent evolution",
     )
     run_parser.add_argument(
-        "--no-rollback", action="store_true",
-        help="Disable rollback on verification failure (keep changes for inspection)"
+        "--no-rollback",
+        action="store_true",
+        help="Disable rollback on verification failure (keep changes for inspection)",
     )
     run_parser.add_argument(
-        "--no-stream", action="store_true",
-        help="DISCOURAGED: Run without live streaming. Use 'python scripts/run_nomic_with_stream.py run' instead."
+        "--no-stream",
+        action="store_true",
+        help="DISCOURAGED: Run without live streaming. Use 'python scripts/run_nomic_with_stream.py run' instead.",
     )
+
+    # Pre-flight health check subcommand
+    preflight_parser = subparsers.add_parser("preflight", help="Run pre-flight health checks only")
+    preflight_parser.add_argument("--path", type=str, help="Path to aragora repository")
 
     # Backup management subcommands
     list_parser = subparsers.add_parser("list-backups", help="List available backups")
@@ -8285,20 +9085,26 @@ async def main():
     parser.add_argument("--auto", action="store_true", help="Auto-commit without human approval")
     parser.add_argument("--path", type=str, help="Path to aragora repository")
     parser.add_argument(
-        "--proposal", "-p", type=str,
-        help="Initial proposal for agents to consider (they may adopt, improve, or reject it)"
+        "--proposal",
+        "-p",
+        type=str,
+        help="Initial proposal for agents to consider (they may adopt, improve, or reject it)",
     )
     parser.add_argument(
-        "--proposal-file", "-f", type=str,
-        help="File containing initial proposal (alternative to --proposal)"
+        "--proposal-file",
+        "-f",
+        type=str,
+        help="File containing initial proposal (alternative to --proposal)",
     )
     parser.add_argument(
-        "--genesis", action="store_true",
-        help="Enable genesis mode: fractal debates with agent evolution"
+        "--genesis",
+        action="store_true",
+        help="Enable genesis mode: fractal debates with agent evolution",
     )
     parser.add_argument(
-        "--no-stream", action="store_true",
-        help="DISCOURAGED: Run without live streaming. Use 'python scripts/run_nomic_with_stream.py run' instead."
+        "--no-stream",
+        action="store_true",
+        help="DISCOURAGED: Run without live streaming. Use 'python scripts/run_nomic_with_stream.py run' instead.",
     )
 
     args = parser.parse_args()
@@ -8322,11 +9128,17 @@ async def main():
         return
 
     if args.command == "restore":
-        restore_backup_cli(aragora_path, getattr(args, 'backup', None))
+        restore_backup_cli(aragora_path, getattr(args, "backup", None))
         return
 
+    if args.command == "preflight":
+        from scripts.nomic.preflight import preflight_cli
+
+        success = preflight_cli(aragora_path)
+        sys.exit(0 if success else 1)
+
     # Default: run the nomic loop (either "run" subcommand or no subcommand)
-    no_stream = getattr(args, 'no_stream', False)
+    no_stream = getattr(args, "no_stream", False)
 
     # ENFORCE STREAMING: Redirect to run_nomic_with_stream.py unless --no-stream is specified
     if not no_stream:
@@ -8387,12 +9199,25 @@ async def main():
         print("=" * 70)
         print()
 
-    initial_proposal = getattr(args, 'proposal', None)
-    if hasattr(args, 'proposal_file') and args.proposal_file:
+    initial_proposal = getattr(args, "proposal", None)
+    if hasattr(args, "proposal_file") and args.proposal_file:
         with open(args.proposal_file) as f:
             initial_proposal = f.read()
 
-    use_genesis = getattr(args, 'genesis', False)
+    use_genesis = getattr(args, "genesis", False)
+
+    # Run pre-flight checks before starting
+    from scripts.nomic.preflight import run_preflight_checks
+
+    print("Running pre-flight health checks...")
+    preflight_report = run_preflight_checks(aragora_path)
+    preflight_report.print_report()
+
+    if not preflight_report.all_passed:
+        print("Cannot start Nomic Loop: critical pre-flight checks failed.")
+        print("Fix the issues above and try again.")
+        print("\nTo run only pre-flight checks: python scripts/nomic_loop.py preflight")
+        sys.exit(1)
 
     loop = NomicLoop(
         aragora_path=args.path,

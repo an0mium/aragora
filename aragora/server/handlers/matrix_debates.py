@@ -190,15 +190,17 @@ class MatrixDebatesHandler(BaseHandler):
             results = await runner.run_all(max_rounds=max_rounds)
 
             # Build response
-            return json_response({
-                "matrix_id": matrix_id,
-                "task": task,
-                "scenario_count": len(results.scenario_results),
-                "results": [r.to_dict() for r in results.scenario_results],
-                "universal_conclusions": results.universal_conclusions,
-                "conditional_conclusions": results.conditional_conclusions,
-                "comparison_matrix": results.comparison_matrix,
-            })
+            return json_response(
+                {
+                    "matrix_id": matrix_id,
+                    "task": task,
+                    "scenario_count": len(results.scenario_results),
+                    "results": [r.to_dict() for r in results.scenario_results],
+                    "universal_conclusions": results.universal_conclusions,
+                    "conditional_conclusions": results.conditional_conclusions,
+                    "comparison_matrix": results.comparison_matrix,
+                }
+            )
 
         except ImportError as e:
             logger.warning(f"Matrix debate module not available, using fallback: {e}")
@@ -271,11 +273,13 @@ class MatrixDebatesHandler(BaseHandler):
                 else:
                     valid_results.append(r)
                     if r.get("final_answer"):
-                        all_conclusions.append({
-                            "scenario": r["scenario_name"],
-                            "conclusion": r["final_answer"],
-                            "confidence": r["confidence"],
-                        })
+                        all_conclusions.append(
+                            {
+                                "scenario": r["scenario_name"],
+                                "conclusion": r["final_answer"],
+                                "confidence": r["confidence"],
+                            }
+                        )
 
             # Find universal conclusions (conclusions that appear in all scenarios)
             universal_conclusions = self._find_universal_conclusions(valid_results)
@@ -283,15 +287,17 @@ class MatrixDebatesHandler(BaseHandler):
             # Find conditional conclusions (conclusions specific to scenarios)
             conditional_conclusions = self._find_conditional_conclusions(valid_results)
 
-            return json_response({
-                "matrix_id": matrix_id,
-                "task": task,
-                "scenario_count": len(valid_results),
-                "results": valid_results,
-                "universal_conclusions": universal_conclusions,
-                "conditional_conclusions": conditional_conclusions,
-                "comparison_matrix": self._build_comparison_matrix(valid_results),
-            })
+            return json_response(
+                {
+                    "matrix_id": matrix_id,
+                    "task": task,
+                    "scenario_count": len(valid_results),
+                    "results": valid_results,
+                    "universal_conclusions": universal_conclusions,
+                    "conditional_conclusions": conditional_conclusions,
+                    "comparison_matrix": self._build_comparison_matrix(valid_results),
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Matrix debate fallback failed: {e}")
@@ -314,19 +320,22 @@ class MatrixDebatesHandler(BaseHandler):
         conditional = []
         for r in results:
             if r.get("final_answer"):
-                conditional.append({
-                    "condition": f"When {r['scenario_name']}",
-                    "parameters": r.get("parameters", {}),
-                    "conclusion": r["final_answer"],
-                    "confidence": r.get("confidence", 0),
-                })
+                conditional.append(
+                    {
+                        "condition": f"When {r['scenario_name']}",
+                        "parameters": r.get("parameters", {}),
+                        "conclusion": r["final_answer"],
+                        "confidence": r.get("confidence", 0),
+                    }
+                )
         return conditional
 
     def _build_comparison_matrix(self, results: list[dict]) -> dict:
         """Build a comparison matrix of scenarios."""
         return {
             "scenarios": [r["scenario_name"] for r in results],
-            "consensus_rate": sum(1 for r in results if r.get("consensus_reached")) / max(len(results), 1),
+            "consensus_rate": sum(1 for r in results if r.get("consensus_reached"))
+            / max(len(results), 1),
             "avg_confidence": sum(r.get("confidence", 0) for r in results) / max(len(results), 1),
             "avg_rounds": sum(r.get("rounds_used", 0) for r in results) / max(len(results), 1),
         }
@@ -335,6 +344,7 @@ class MatrixDebatesHandler(BaseHandler):
         """Load agents by name."""
         try:
             from aragora.agents import load_agents
+
             return load_agents(agent_names or ["claude", "gpt4"])
         except Exception as e:
             logger.warning(f"Failed to load agents: {e}")
@@ -377,11 +387,13 @@ class MatrixDebatesHandler(BaseHandler):
 
         try:
             conclusions = await storage.get_matrix_conclusions(matrix_id)
-            return json_response({
-                "matrix_id": matrix_id,
-                "universal_conclusions": conclusions.get("universal", []),
-                "conditional_conclusions": conclusions.get("conditional", []),
-            })
+            return json_response(
+                {
+                    "matrix_id": matrix_id,
+                    "universal_conclusions": conclusions.get("universal", []),
+                    "conditional_conclusions": conclusions.get("conditional", []),
+                }
+            )
         except Exception as e:
             logger.error(f"Failed to get conclusions for {matrix_id}: {e}")
             return error_response("Failed to retrieve conclusions", 500)

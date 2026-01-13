@@ -176,14 +176,14 @@ class TestCSVExporterMessages:
 
         reader = csv.reader(StringIO(content))
         header = next(reader)
-        assert header == ['debate_id', 'round', 'agent', 'role', 'content', 'timestamp']
+        assert header == ["debate_id", "round", "agent", "role", "content", "timestamp"]
 
     def test_export_messages_no_trace_data(self, minimal_artifact):
         """Test export with no trace data returns only header."""
         exporter = CSVExporter(minimal_artifact)
         content = exporter.export_messages()
 
-        lines = content.strip().split('\n')
+        lines = content.strip().split("\n")
         assert len(lines) == 1  # Only header
 
     def test_export_messages_with_events(self, artifact_with_trace):
@@ -221,7 +221,7 @@ class TestCSVExporterMessages:
         assert output_path.exists()
         file_content = output_path.read_text()
         # Normalize line endings for comparison
-        assert file_content.replace('\r\n', '\n') == content.replace('\r\n', '\n')
+        assert file_content.replace("\r\n", "\n") == content.replace("\r\n", "\n")
 
     def test_export_messages_special_characters(self):
         """Test export handles special characters in content."""
@@ -281,14 +281,23 @@ class TestCSVExporterCritiques:
 
         reader = csv.reader(StringIO(content))
         header = next(reader)
-        assert header == ['debate_id', 'round', 'critic', 'target', 'severity', 'issue_count', 'issues', 'accepted']
+        assert header == [
+            "debate_id",
+            "round",
+            "critic",
+            "target",
+            "severity",
+            "issue_count",
+            "issues",
+            "accepted",
+        ]
 
     def test_export_critiques_no_trace_data(self, minimal_artifact):
         """Test export with no trace data returns only header."""
         exporter = CSVExporter(minimal_artifact)
         content = exporter.export_critiques()
 
-        lines = content.strip().split('\n')
+        lines = content.strip().split("\n")
         assert len(lines) == 1
 
     def test_export_critiques_with_events(self, artifact_with_trace):
@@ -391,14 +400,20 @@ class TestCSVExporterVotes:
 
         reader = csv.reader(StringIO(content))
         header = next(reader)
-        assert header == ['debate_id', 'agent', 'agreed_with_consensus', 'final_answer', 'confidence']
+        assert header == [
+            "debate_id",
+            "agent",
+            "agreed_with_consensus",
+            "final_answer",
+            "confidence",
+        ]
 
     def test_export_votes_no_consensus(self, minimal_artifact):
         """Test export with no consensus returns only header."""
         exporter = CSVExporter(minimal_artifact)
         content = exporter.export_votes()
 
-        lines = content.strip().split('\n')
+        lines = content.strip().split("\n")
         assert len(lines) == 1
 
     def test_export_votes_with_consensus(self, artifact_with_consensus):
@@ -470,9 +485,17 @@ class TestCSVExporterSummary:
         reader = csv.reader(StringIO(content))
         header = next(reader)
         expected = [
-            'debate_id', 'artifact_id', 'task', 'agents', 'rounds',
-            'messages', 'critiques', 'consensus_reached', 'confidence',
-            'duration_seconds', 'created_at',
+            "debate_id",
+            "artifact_id",
+            "task",
+            "agents",
+            "rounds",
+            "messages",
+            "critiques",
+            "consensus_reached",
+            "confidence",
+            "duration_seconds",
+            "created_at",
         ]
         assert header == expected
 
@@ -565,8 +588,14 @@ class TestCSVExporterVerifications:
         reader = csv.reader(StringIO(content))
         header = next(reader)
         expected = [
-            'debate_id', 'claim_id', 'claim_text', 'status', 'method',
-            'duration_ms', 'has_proof', 'has_counterexample',
+            "debate_id",
+            "claim_id",
+            "claim_text",
+            "status",
+            "method",
+            "duration_ms",
+            "has_proof",
+            "has_counterexample",
         ]
         assert header == expected
 
@@ -575,7 +604,7 @@ class TestCSVExporterVerifications:
         exporter = CSVExporter(minimal_artifact)
         content = exporter.export_verifications()
 
-        lines = content.strip().split('\n')
+        lines = content.strip().split("\n")
         assert len(lines) == 1  # Only header
 
     def test_export_verifications_with_results(self, artifact_with_verifications):
@@ -748,7 +777,9 @@ class TestExportDebateToCSV:
         """Test export with table='verifications'."""
         output_path = tmp_path / "verifications.csv"
 
-        content = export_debate_to_csv(artifact_with_verifications, output_path, table="verifications")
+        content = export_debate_to_csv(
+            artifact_with_verifications, output_path, table="verifications"
+        )
 
         assert "claim-1" in content
         assert "verified" in content
@@ -773,10 +804,7 @@ class TestExportMultipleDebates:
 
     def test_export_multiple_summary(self, tmp_path):
         """Test exporting multiple debates as summary."""
-        artifacts = [
-            DebateArtifact(debate_id=f"debate-{i}", task=f"Task {i}")
-            for i in range(3)
-        ]
+        artifacts = [DebateArtifact(debate_id=f"debate-{i}", task=f"Task {i}") for i in range(3)]
         output_path = tmp_path / "combined.csv"
 
         content = export_multiple_debates(artifacts, output_path, table="summary")
@@ -816,11 +844,7 @@ class TestExportMultipleDebates:
         artifacts = [
             DebateArtifact(
                 debate_id=f"debate-{i}",
-                trace_data={
-                    "events": [
-                        {"event_type": "critique", "agent": f"critic-{i}"}
-                    ]
-                },
+                trace_data={"events": [{"event_type": "critique", "agent": f"critic-{i}"}]},
             )
             for i in range(2)
         ]
@@ -925,11 +949,7 @@ class TestCSVExporterEdgeCases:
         long_content = "X" * 10000
         artifact = DebateArtifact(
             debate_id="long",
-            trace_data={
-                "events": [
-                    {"event_type": "message", "content": long_content}
-                ]
-            },
+            trace_data={"events": [{"event_type": "message", "content": long_content}]},
         )
         exporter = CSVExporter(artifact)
         content = exporter.export_messages()
@@ -977,7 +997,7 @@ class TestCSVExporterEdgeCases:
         exporter = CSVExporter(artifact)
         content = exporter.export_messages()
 
-        lines = content.strip().split('\n')
+        lines = content.strip().split("\n")
         assert len(lines) == 1  # Only header
 
     def test_multiple_quotes_in_content(self):

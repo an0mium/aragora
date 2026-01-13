@@ -136,8 +136,7 @@ class StalenessReport:
     def needs_redebate(self) -> bool:
         """Check if any stale claims require re-debate."""
         return any(
-            trigger.severity in ("high", "critical")
-            for trigger in self.revalidation_triggers
+            trigger.severity in ("high", "critical") for trigger in self.revalidation_triggers
         )
 
     @property
@@ -272,6 +271,7 @@ class NomicIntegration:
 
         # Build belief network from debate
         from aragora.reasoning.claims import RelationType
+
         network = BeliefNetwork()
 
         # Add nodes for each agent's final proposal
@@ -296,7 +296,8 @@ class NomicIntegration:
             choice_claim_id = f"proposal_{choice}"
             # Add supporting factor if both exist
             network.add_factor(
-                voter_claim_id, choice_claim_id,
+                voter_claim_id,
+                choice_claim_id,
                 relation_type=RelationType.SUPPORTS,
                 strength=0.8,
             )
@@ -309,7 +310,11 @@ class NomicIntegration:
 
             # Add factors from kernel relations
             for relation in claims_kernel.relations.values():
-                rel_type = relation.relation_type if isinstance(relation.relation_type, RelationType) else RelationType.SUPPORTS
+                rel_type = (
+                    relation.relation_type
+                    if isinstance(relation.relation_type, RelationType)
+                    else RelationType.SUPPORTS
+                )
                 network.add_factor(
                     relation.source_claim_id,
                     relation.target_claim_id,
@@ -482,19 +487,24 @@ class NomicIntegration:
 
         # Check claim statement for file patterns
         import re
+
         # Match common file path patterns
         # Order extensions longest-first to avoid partial matches (tsx before ts, json before js)
-        path_pattern = r'(?:[\w./\\-]+\.(?:py|tsx|jsx|ts|json|js|yaml|yml|md|txt))'
-        text = claim.statement if hasattr(claim, 'statement') else getattr(claim, 'text', '')
+        path_pattern = r"(?:[\w./\\-]+\.(?:py|tsx|jsx|ts|json|js|yaml|yml|md|txt))"
+        text = claim.statement if hasattr(claim, "statement") else getattr(claim, "text", "")
         matches = re.findall(path_pattern, text)
         files.extend(matches)
 
         # Check evidence sources
-        if hasattr(claim, 'evidence') and claim.evidence:
+        if hasattr(claim, "evidence") and claim.evidence:
             for evidence in claim.evidence:
-                if hasattr(evidence, 'source') and evidence.source:
-                    source_id = evidence.source.identifier if hasattr(evidence.source, 'identifier') else str(evidence.source)
-                    if source_id.startswith('/') or '.' in source_id:
+                if hasattr(evidence, "source") and evidence.source:
+                    source_id = (
+                        evidence.source.identifier
+                        if hasattr(evidence.source, "identifier")
+                        else str(evidence.source)
+                    )
+                    if source_id.startswith("/") or "." in source_id:
                         files.append(source_id)
 
         return list(set(files))
@@ -527,10 +537,7 @@ class NomicIntegration:
         # Find most important contested claim
         if self._belief_network:
             centralities = self._belief_network._compute_centralities()
-            pivot_node = max(
-                contested_claims,
-                key=lambda n: centralities.get(n.claim_id, 0)
-            )
+            pivot_node = max(contested_claims, key=lambda n: centralities.get(n.claim_id, 0))
         else:
             centralities = {}
             pivot_node = contested_claims[0]
@@ -607,7 +614,7 @@ class NomicIntegration:
                 "contested_count": 0,
                 "crux_count": 0,
                 "stale_count": 0,
-            }
+            },
         }
 
         # 1. Belief analysis (always run)
@@ -622,13 +629,14 @@ class NomicIntegration:
         # 2. Deadlock resolution (if needed and arena provided)
         if belief_result.has_deadlock:
             analysis["conditional"] = await self.resolve_deadlock(
-                belief_result.crux_claims,
-                arena=arena
+                belief_result.crux_claims, arena=arena
             )
 
         # 3. Staleness check (if files changed and claims available)
         if changed_files and claims_kernel:
-            claims_list = list(claims_kernel.claims.values()) if hasattr(claims_kernel, 'claims') else []
+            claims_list = (
+                list(claims_kernel.claims.values()) if hasattr(claims_kernel, "claims") else []
+            )
             if claims_list:
                 staleness_result = await self.check_staleness(claims_list, changed_files)  # type: ignore[arg-type]
                 analysis["staleness"] = staleness_result

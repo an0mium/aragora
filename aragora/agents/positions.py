@@ -163,7 +163,8 @@ class PositionLedger:
     def _init_tables(self) -> None:
         """Add positions table if not exists."""
         with self._get_connection() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS positions (
                     id TEXT PRIMARY KEY,
                     agent_name TEXT NOT NULL,
@@ -178,16 +179,11 @@ class PositionLedger:
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     resolved_at TEXT
                 )
-            """)
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_positions_agent ON positions(agent_name)"
+            """
             )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_positions_debate ON positions(debate_id)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_positions_outcome ON positions(outcome)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_positions_agent ON positions(agent_name)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_positions_debate ON positions(debate_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_positions_outcome ON positions(outcome)")
             conn.commit()
 
     def record_position(

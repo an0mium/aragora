@@ -15,6 +15,7 @@ from aragora.core import DebateResult, Message, Vote
 # Optional imports for trace support
 try:
     from aragora.debate.traces import DebateTrace, EventType
+
     HAS_TRACE_SUPPORT = True
 except ImportError:
     HAS_TRACE_SUPPORT = False
@@ -24,6 +25,7 @@ except ImportError:
 @dataclass
 class ReplayScene:
     """A single scene (round) in the debate replay."""
+
     round_number: int
     timestamp: datetime
     messages: List[Message] = field(default_factory=list)
@@ -36,11 +38,11 @@ class ReplayScene:
             "timestamp": self.timestamp.isoformat(),
             "messages": [
                 {
-                    "role": html_module.escape(str(getattr(msg, 'role', 'unknown'))),
-                    "agent": html_module.escape(str(getattr(msg, 'agent', 'unknown'))),
-                    "content": html_module.escape(str(getattr(msg, 'content', ''))),
-                    "timestamp": getattr(msg, 'timestamp', datetime.now()).isoformat(),
-                    "round": getattr(msg, 'round', 0),
+                    "role": html_module.escape(str(getattr(msg, "role", "unknown"))),
+                    "agent": html_module.escape(str(getattr(msg, "agent", "unknown"))),
+                    "content": html_module.escape(str(getattr(msg, "content", ""))),
+                    "timestamp": getattr(msg, "timestamp", datetime.now()).isoformat(),
+                    "round": getattr(msg, "round", 0),
                 }
                 for msg in self.messages
             ],
@@ -51,6 +53,7 @@ class ReplayScene:
 @dataclass
 class ReplayArtifact:
     """Complete debate data for HTML generation."""
+
     debate_id: str
     task: str
     scenes: List[ReplayScene] = field(default_factory=list)
@@ -87,7 +90,9 @@ class ReplayGenerator:
         artifact = self._create_artifact(debate_result, trace)
         return self._render_html(artifact)
 
-    def _create_artifact(self, debate_result: DebateResult, trace: Optional["DebateTrace"] = None) -> ReplayArtifact:
+    def _create_artifact(
+        self, debate_result: DebateResult, trace: Optional["DebateTrace"] = None
+    ) -> ReplayArtifact:
         """Transform DebateResult into ReplayArtifact."""
         # Group messages by round
         scenes = self._extract_scenes(debate_result.messages, trace)
@@ -114,7 +119,9 @@ class ReplayGenerator:
             metadata=metadata,
         )
 
-    def _extract_scenes(self, messages: List[Message], trace: Optional["DebateTrace"] = None) -> List[ReplayScene]:
+    def _extract_scenes(
+        self, messages: List[Message], trace: Optional["DebateTrace"] = None
+    ) -> List[ReplayScene]:
         """Extract scenes (rounds) from messages with consensus indicators."""
         scenes: List[ReplayScene] = []
         round_groups: Dict[int, List[Message]] = {}
@@ -129,8 +136,8 @@ class ReplayGenerator:
         consensus_events = {}
         if trace and HAS_TRACE_SUPPORT:
             for event in trace.events:
-                if getattr(event, 'type', None) == EventType.CONSENSUS_CHECK:
-                    consensus_events[getattr(event, 'round_num', 0)] = getattr(event, 'data', {})
+                if getattr(event, "type", None) == EventType.CONSENSUS_CHECK:
+                    consensus_events[getattr(event, "round_num", 0)] = getattr(event, "data", {})
 
         # Create scenes
         for round_num in sorted(round_groups.keys()):
@@ -149,7 +156,11 @@ class ReplayGenerator:
                     "source": "trace",
                     "description": event_data.get("description", "Consensus check"),
                 }
-            elif msgs and round_num == max(round_groups.keys()) and getattr(msgs[0], 'role', '') == 'synthesizer':
+            elif (
+                msgs
+                and round_num == max(round_groups.keys())
+                and getattr(msgs[0], "role", "") == "synthesizer"
+            ):
                 # Fallback: mark final round if consensus_reached in debate result
                 # This will be overridden by verdict logic, but provides basic indication
                 consensus_indicators = {
@@ -170,8 +181,8 @@ class ReplayGenerator:
 
     def _create_verdict_card(self, debate_result: DebateResult) -> Dict[str, Any]:
         """Create verdict card data from debate result with proper tie handling."""
-        votes = getattr(debate_result, 'votes', []) or []
-        consensus = getattr(debate_result, 'consensus_reached', False)
+        votes = getattr(debate_result, "votes", []) or []
+        consensus = getattr(debate_result, "consensus_reached", False)
 
         # Build vote breakdown
         vote_counts: Dict[str, List[Vote]] = {}
@@ -182,11 +193,13 @@ class ReplayGenerator:
         vote_breakdown = []
         for choice, choice_votes in vote_counts.items():
             avg_conf = sum(v.confidence for v in choice_votes) / len(choice_votes)
-            vote_breakdown.append({
-                "choice": choice,
-                "count": len(choice_votes),
-                "avg_confidence": round(avg_conf, 2),
-            })
+            vote_breakdown.append(
+                {
+                    "choice": choice,
+                    "count": len(choice_votes),
+                    "avg_confidence": round(avg_conf, 2),
+                }
+            )
 
         # Determine winner with tie handling
         winner_label = "No winner"
@@ -194,7 +207,9 @@ class ReplayGenerator:
 
         if consensus and vote_breakdown:
             # Sort by count descending
-            sorted_votes = sorted(vote_breakdown, key=lambda x: int(str(x.get("count", 0) or 0)), reverse=True)
+            sorted_votes = sorted(
+                vote_breakdown, key=lambda x: int(str(x.get("count", 0) or 0)), reverse=True
+            )
 
             if len(sorted_votes) >= 2 and sorted_votes[0]["count"] == sorted_votes[1]["count"]:
                 winner_label = "Tie"
@@ -209,20 +224,26 @@ class ReplayGenerator:
         if debate_result.critiques:
             # Add key critique insights (limited and escaped)
             for critique in debate_result.critiques[:3]:  # Top 3
-                evidence.append(html_module.escape(f"Critique from {critique.agent}: {critique.reasoning[:100]}..."))
+                evidence.append(
+                    html_module.escape(
+                        f"Critique from {critique.agent}: {critique.reasoning[:100]}..."
+                    )
+                )
 
         return {
-            "final_answer": html_module.escape(str(getattr(debate_result, 'final_answer', '') or '')),
-            "confidence": getattr(debate_result, 'confidence', 0),
+            "final_answer": html_module.escape(
+                str(getattr(debate_result, "final_answer", "") or "")
+            ),
+            "confidence": getattr(debate_result, "confidence", 0),
             "consensus_reached": consensus,
             "winner": winner,
             "winner_label": winner_label,
             "evidence": evidence[:5],  # Limit to 5 items
-            "rounds_used": getattr(debate_result, 'rounds_used', 0),
-            "duration_seconds": getattr(debate_result, 'duration_seconds', 0),
-            "dissenting_views": getattr(debate_result, 'dissenting_views', []),
+            "rounds_used": getattr(debate_result, "rounds_used", 0),
+            "duration_seconds": getattr(debate_result, "duration_seconds", 0),
+            "dissenting_views": getattr(debate_result, "dissenting_views", []),
             "vote_breakdown": vote_breakdown,
-            "convergence_status": getattr(debate_result, 'convergence_status', None),
+            "convergence_status": getattr(debate_result, "convergence_status", None),
         }
 
     def _render_html(self, artifact: ReplayArtifact) -> str:
@@ -232,7 +253,9 @@ class ReplayGenerator:
         safe_json = data_json.replace("</script>", "</\\script>")
 
         html = self.html_template.replace("{{DATA}}", safe_json)
-        debate_id_escaped = html_module.escape(str(artifact.debate_id)[:8]) if artifact.debate_id else "unknown"
+        debate_id_escaped = (
+            html_module.escape(str(artifact.debate_id)[:8]) if artifact.debate_id else "unknown"
+        )
         html = html.replace("{{DEBATE_ID}}", debate_id_escaped)
         return html
 
@@ -249,6 +272,7 @@ class ReplayGenerator:
         except (FileNotFoundError, IOError) as e:
             # Fallback: return minimal template if file not found
             import logging
+
             logging.getLogger(__name__).warning(f"Could not load replay template: {e}")
             return """<!DOCTYPE html>
 <html><head><title>Replay - {{DEBATE_ID}}</title></head>

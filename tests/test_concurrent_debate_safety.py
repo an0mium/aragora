@@ -71,10 +71,7 @@ class TestStateManagerThreadSafety:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=register_debates, args=(i,))
-            for i in range(num_threads)
-        ]
+        threads = [threading.Thread(target=register_debates, args=(i,)) for i in range(num_threads)]
 
         for t in threads:
             t.start()
@@ -108,10 +105,7 @@ class TestStateManagerThreadSafety:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=update_status, args=(i, i % 5 + 1))
-            for i in range(50)
-        ]
+        threads = [threading.Thread(target=update_status, args=(i, i % 5 + 1)) for i in range(50)]
 
         for t in threads:
             t.start()
@@ -262,10 +256,7 @@ class TestLockOrdering:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=mixed_operations, args=(i,))
-            for i in range(10)
-        ]
+        threads = [threading.Thread(target=mixed_operations, args=(i,)) for i in range(10)]
 
         start_time = time.time()
         for t in threads:
@@ -409,10 +400,7 @@ class TestActiveDebatesProxy:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=legacy_pattern, args=(i,))
-            for i in range(10)
-        ]
+        threads = [threading.Thread(target=legacy_pattern, args=(i,)) for i in range(10)]
 
         for t in threads:
             t.start()
@@ -739,10 +727,7 @@ class TestRaceConditionEdgeCases:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=rapid_cycle, args=(i,))
-            for i in range(10)
-        ]
+        threads = [threading.Thread(target=rapid_cycle, args=(i,)) for i in range(10)]
 
         for t in threads:
             t.start()
@@ -809,10 +794,7 @@ class TestRaceConditionEdgeCases:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=updater, args=(i,))
-            for i in range(1, 101)
-        ]
+        threads = [threading.Thread(target=updater, args=(i,)) for i in range(1, 101)]
 
         for t in threads:
             t.start()

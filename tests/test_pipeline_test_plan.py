@@ -155,28 +155,44 @@ class TestTestPlan:
         """Create sample test cases."""
         return [
             TestCase(
-                id="t1", title="Unit 1", description="D1",
-                test_type=TestType.UNIT, priority=TestPriority.P0,
-                implemented=True, automated=True
+                id="t1",
+                title="Unit 1",
+                description="D1",
+                test_type=TestType.UNIT,
+                priority=TestPriority.P0,
+                implemented=True,
+                automated=True,
             ),
             TestCase(
-                id="t2", title="Unit 2", description="D2",
-                test_type=TestType.UNIT, priority=TestPriority.P1,
-                implemented=True
+                id="t2",
+                title="Unit 2",
+                description="D2",
+                test_type=TestType.UNIT,
+                priority=TestPriority.P1,
+                implemented=True,
             ),
             TestCase(
-                id="t3", title="Integration", description="D3",
-                test_type=TestType.INTEGRATION, priority=TestPriority.P1,
-                implemented=False
+                id="t3",
+                title="Integration",
+                description="D3",
+                test_type=TestType.INTEGRATION,
+                priority=TestPriority.P1,
+                implemented=False,
             ),
             TestCase(
-                id="t4", title="E2E", description="D4",
-                test_type=TestType.E2E, priority=TestPriority.P2,
-                automated=True
+                id="t4",
+                title="E2E",
+                description="D4",
+                test_type=TestType.E2E,
+                priority=TestPriority.P2,
+                automated=True,
             ),
             TestCase(
-                id="t5", title="Security", description="D5",
-                test_type=TestType.SECURITY, priority=TestPriority.P0
+                id="t5",
+                title="Security",
+                description="D5",
+                test_type=TestType.SECURITY,
+                priority=TestPriority.P0,
             ),
         ]
 
@@ -343,7 +359,7 @@ class TestTestPlanGenerator:
                             "What about session timeout?",
                             "Consider brute force protection",
                         ]
-                    }
+                    },
                 },
                 {
                     "event_type": "agent_critique",
@@ -352,7 +368,7 @@ class TestTestPlanGenerator:
                         "issues": [
                             "Edge case: concurrent logins",
                         ]
-                    }
+                    },
                 },
             ]
         }
@@ -480,9 +496,7 @@ Implementation plan:
                 {
                     "event_type": "agent_critique",
                     "event_id": "c1",
-                    "content": {
-                        "issues": ["Memory limits?", "TTL configuration?"]
-                    }
+                    "content": {"issues": ["Memory limits?", "TTL configuration?"]},
                 }
             ]
         }

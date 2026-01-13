@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 class APIVersion(Enum):
     """Supported API versions."""
+
     V1 = "v1"
     V2 = "v2"  # Current version (V1 deprecated, sunset 2026-06-01)
 
@@ -61,10 +62,9 @@ class VersionConfig:
         sunset_dates: Map of version to sunset date (ISO format)
         default_for_legacy: Version to use for unversioned /api/* paths
     """
+
     current: APIVersion = APIVersion.V2
-    supported: list[APIVersion] = field(
-        default_factory=lambda: [APIVersion.V1, APIVersion.V2]
-    )
+    supported: list[APIVersion] = field(default_factory=lambda: [APIVersion.V1, APIVersion.V2])
     deprecated: list[APIVersion] = field(default_factory=lambda: [APIVersion.V1])
     sunset_dates: Dict[APIVersion, str] = field(
         default_factory=lambda: {APIVersion.V1: "2026-06-01"}
@@ -243,7 +243,7 @@ def strip_version_prefix(path: str) -> str:
     if match:
         # /api/v1/debates -> /api/debates
         version_prefix = match.group(0)  # "/api/v1/"
-        remainder = path[len(version_prefix) - 1:]  # "/debates"
+        remainder = path[len(version_prefix) - 1 :]  # "/debates"
         return f"/api{remainder}"
     return path
 

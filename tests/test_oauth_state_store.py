@@ -193,6 +193,7 @@ class TestRedisOAuthStateStore:
         # Import redis module to patch
         try:
             import redis as redis_module
+
             with patch.object(redis_module, "from_url", return_value=mock_redis):
                 store = RedisOAuthStateStore(redis_url="redis://localhost:6379")
                 state = store.generate(user_id="user123")

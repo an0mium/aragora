@@ -140,18 +140,42 @@ def create_gauntlet_result(debate_data: dict) -> GauntletResult:
 
     # Add key findings as vulnerabilities
     findings = [
-        ("CRITICAL", "strategic_consensus", "Position as 'Adversarial Validation Engine'",
-         "All 10 models converged: Don't sell 'debate' - sell 'stress-testing before failure'"),
-        ("HIGH", "market_positioning", "Target regulated tech decision-owners",
-         "Primary: CTOs at FinTech/HealthTech. Budget: $100K-$500K 'insurance' allocation"),
-        ("HIGH", "technical_wedge", "Multi-agent + formal verification is 10x",
-         "Human red teams: $50K, 2-4 weeks. Aragora: $5K, 2-4 hours, 12+ perspectives"),
-        ("MEDIUM", "product_roadmap", "Build Attack Vector Generator first",
-         "Input specs, output 50+ failure modes. Demo: 'Here's how hackers break your payment flow'"),
-        ("MEDIUM", "compliance_angle", "Regulatory Stress Test is high-value",
-         "EU AI Act, GDPR, SOX compliance scenarios. Demo: 'Here's the $35M fine you're walking into'"),
-        ("LOW", "minority_view", "Alternative: Broader AI Parliament positioning",
-         "[llama-meta] Democratize AI decision-making for all organizations, not just regulated enterprises"),
+        (
+            "CRITICAL",
+            "strategic_consensus",
+            "Position as 'Adversarial Validation Engine'",
+            "All 10 models converged: Don't sell 'debate' - sell 'stress-testing before failure'",
+        ),
+        (
+            "HIGH",
+            "market_positioning",
+            "Target regulated tech decision-owners",
+            "Primary: CTOs at FinTech/HealthTech. Budget: $100K-$500K 'insurance' allocation",
+        ),
+        (
+            "HIGH",
+            "technical_wedge",
+            "Multi-agent + formal verification is 10x",
+            "Human red teams: $50K, 2-4 weeks. Aragora: $5K, 2-4 hours, 12+ perspectives",
+        ),
+        (
+            "MEDIUM",
+            "product_roadmap",
+            "Build Attack Vector Generator first",
+            "Input specs, output 50+ failure modes. Demo: 'Here's how hackers break your payment flow'",
+        ),
+        (
+            "MEDIUM",
+            "compliance_angle",
+            "Regulatory Stress Test is high-value",
+            "EU AI Act, GDPR, SOX compliance scenarios. Demo: 'Here's the $35M fine you're walking into'",
+        ),
+        (
+            "LOW",
+            "minority_view",
+            "Alternative: Broader AI Parliament positioning",
+            "[llama-meta] Democratize AI decision-making for all organizations, not just regulated enterprises",
+        ),
     ]
 
     for i, (severity, category, title, description) in enumerate(findings):
@@ -176,19 +200,23 @@ def create_receipt_manually(result: GauntletResult, debate_data: dict) -> Decisi
     # Build provenance chain from debate phases
     provenance = []
     for phase in debate_data["phases"]:
-        provenance.append(ProvenanceRecord(
-            timestamp=datetime.now().isoformat(),
-            event_type="debate_phase",
-            agent="multi-agent",
-            description=f"Completed: {phase}",
-        ))
+        provenance.append(
+            ProvenanceRecord(
+                timestamp=datetime.now().isoformat(),
+                event_type="debate_phase",
+                agent="multi-agent",
+                description=f"Completed: {phase}",
+            )
+        )
 
     # Add verdict event
-    provenance.append(ProvenanceRecord(
-        timestamp=datetime.now().isoformat(),
-        event_type="verdict",
-        description=f"Verdict: {result.verdict.value.upper()} ({result.confidence:.1%} confidence)",
-    ))
+    provenance.append(
+        ProvenanceRecord(
+            timestamp=datetime.now().isoformat(),
+            event_type="verdict",
+            description=f"Verdict: {result.verdict.value.upper()} ({result.confidence:.1%} confidence)",
+        )
+    )
 
     # Build consensus proof
     consensus = ConsensusProof(

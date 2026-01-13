@@ -16,6 +16,7 @@ from unittest.mock import Mock, patch, MagicMock
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_tracker():
     """Create mock analytics tracker."""
@@ -82,6 +83,7 @@ def handler_without_tracker():
 # ============================================================================
 # Route Recognition Tests
 # ============================================================================
+
 
 class TestMemoryAnalyticsRoutes:
     """Tests for route recognition."""
@@ -151,6 +153,7 @@ class TestMemoryAnalyticsRoutes:
 # GET Analytics Tests
 # ============================================================================
 
+
 class TestGetAnalytics:
     """Tests for GET /api/memory/analytics endpoint."""
 
@@ -201,6 +204,7 @@ class TestGetAnalytics:
 # GET Tier Stats Tests
 # ============================================================================
 
+
 class TestGetTierStats:
     """Tests for GET /api/memory/analytics/tier/{tier} endpoint."""
 
@@ -226,6 +230,7 @@ class TestGetTierStats:
 # ============================================================================
 # POST Snapshot Tests
 # ============================================================================
+
 
 class TestTakeSnapshot:
     """Tests for POST /api/memory/analytics/snapshot endpoint."""
@@ -271,6 +276,7 @@ class TestTakeSnapshot:
 # Tracker Lazy Loading Tests
 # ============================================================================
 
+
 class TestTrackerLazyLoading:
     """Tests for lazy loading of analytics tracker."""
 
@@ -294,6 +300,7 @@ class TestTrackerLazyLoading:
 # ============================================================================
 # Parameter Handling Tests
 # ============================================================================
+
 
 class TestParameterHandling:
     """Tests for query parameter handling."""
@@ -342,6 +349,7 @@ class TestParameterHandling:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestMemoryAnalyticsIntegration:
     """Integration tests for memory analytics handler."""

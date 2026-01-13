@@ -65,11 +65,13 @@ class TestPhaseImports:
     def test_import_context_phase(self):
         """ContextPhase can be imported."""
         from scripts.nomic.phases import ContextPhase
+
         assert ContextPhase is not None
 
     def test_import_debate_phase(self):
         """DebatePhase can be imported."""
         from scripts.nomic.phases import DebatePhase, DebateConfig, PostDebateHooks
+
         assert DebatePhase is not None
         assert DebateConfig is not None
         assert PostDebateHooks is not None
@@ -77,6 +79,7 @@ class TestPhaseImports:
     def test_import_design_phase(self):
         """DesignPhase can be imported."""
         from scripts.nomic.phases import DesignPhase, DesignConfig, BeliefContext
+
         assert DesignPhase is not None
         assert DesignConfig is not None
         assert BeliefContext is not None
@@ -84,16 +87,19 @@ class TestPhaseImports:
     def test_import_implement_phase(self):
         """ImplementPhase can be imported."""
         from scripts.nomic.phases import ImplementPhase
+
         assert ImplementPhase is not None
 
     def test_import_verify_phase(self):
         """VerifyPhase can be imported."""
         from scripts.nomic.phases import VerifyPhase
+
         assert VerifyPhase is not None
 
     def test_import_commit_phase(self):
         """CommitPhase can be imported."""
         from scripts.nomic.phases import CommitPhase
+
         assert CommitPhase is not None
 
 

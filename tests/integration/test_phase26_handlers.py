@@ -63,6 +63,7 @@ class TestPaginatedHandlerMixin:
         assert result.status_code == 200
 
         import json
+
         data = json.loads(result.body)
 
         assert data["items"] == items

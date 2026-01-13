@@ -103,7 +103,13 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
         print("\nFailed agents:")
         for agent_type, error in failed_agents:
             # Provide specific guidance based on agent type
-            if "api" in agent_type.lower() or agent_type in ["anthropic-api", "openai-api", "gemini", "grok", "mistral"]:
+            if "api" in agent_type.lower() or agent_type in [
+                "anthropic-api",
+                "openai-api",
+                "gemini",
+                "grok",
+                "mistral",
+            ]:
                 env_var_map = {
                     "anthropic-api": "ANTHROPIC_API_KEY",
                     "openai-api": "OPENAI_API_KEY",
@@ -113,7 +119,9 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
                     "deepseek": "DEEPSEEK_API_KEY",
                     "openrouter": "OPENROUTER_API_KEY",
                 }
-                env_var = env_var_map.get(agent_type, f"{agent_type.upper().replace('-', '_')}_API_KEY")
+                env_var = env_var_map.get(
+                    agent_type, f"{agent_type.upper().replace('-', '_')}_API_KEY"
+                )
                 print(f"  - {agent_type}: {env_var} not set or invalid")
             else:
                 print(f"  - {agent_type}: {error}")
@@ -128,7 +136,7 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
 
     # Select config profile
     persona = None
-    if hasattr(args, 'persona') and args.persona:
+    if hasattr(args, "persona") and args.persona:
         # Use persona-based compliance profile
         persona = args.persona
         print(f"Persona: {persona}")
@@ -292,24 +300,39 @@ Examples:
         help="Path to input file (spec, architecture, policy, code)",
     )
     gauntlet_parser.add_argument(
-        "--input-type", "-t",
+        "--input-type",
+        "-t",
         choices=["spec", "architecture", "policy", "code", "strategy", "contract"],
         default="spec",
         help="Type of input document (default: spec)",
     )
     gauntlet_parser.add_argument(
-        "--agents", "-a",
+        "--agents",
+        "-a",
         default="anthropic-api,openai-api",
         help="Comma-separated agents for stress-testing",
     )
     gauntlet_parser.add_argument(
-        "--profile", "-p",
-        choices=["default", "quick", "thorough", "code", "policy", "gdpr", "hipaa", "ai_act", "security", "sox"],
+        "--profile",
+        "-p",
+        choices=[
+            "default",
+            "quick",
+            "thorough",
+            "code",
+            "policy",
+            "gdpr",
+            "hipaa",
+            "ai_act",
+            "security",
+            "sox",
+        ],
         default="default",
         help="Pre-configured test profile (default: default)",
     )
     try:
         from aragora.gauntlet.personas import list_personas
+
         persona_choices = sorted(list_personas())
     except ImportError:
         # Gauntlet personas module not available - use defaults
@@ -323,7 +346,8 @@ Examples:
         help="Regulatory persona for compliance-focused stress testing",
     )
     gauntlet_parser.add_argument(
-        "--rounds", "-r",
+        "--rounds",
+        "-r",
         type=int,
         help="Number of deep audit rounds (overrides profile)",
     )
@@ -333,11 +357,13 @@ Examples:
         help="Maximum duration in seconds (overrides profile)",
     )
     gauntlet_parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output path for Decision Receipt",
     )
     gauntlet_parser.add_argument(
-        "--format", "-f",
+        "--format",
+        "-f",
         choices=["json", "md", "html"],
         help="Output format (default: inferred from extension or html)",
     )

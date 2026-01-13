@@ -225,28 +225,47 @@ MAX_CONCURRENT_REVISIONS = _env_int("ARAGORA_MAX_CONCURRENT_REVISIONS", 5)
 # === Agents ===
 DEFAULT_AGENTS = _env_str(
     "ARAGORA_DEFAULT_AGENTS",
-    "grok,anthropic-api,openai-api,deepseek,mistral-api,gemini,qwen-max,kimi"
+    "grok,anthropic-api,openai-api,deepseek,mistral-api,gemini,qwen-max,kimi",
 )
 STREAMING_CAPABLE_AGENTS = _env_str(
-    "ARAGORA_STREAMING_AGENTS",
-    "grok,anthropic-api,openai-api,mistral-api"
+    "ARAGORA_STREAMING_AGENTS", "grok,anthropic-api,openai-api,mistral-api"
 )
 
 # Valid agent types (allowlist for security)
 # Single source of truth - import this instead of duplicating
-ALLOWED_AGENT_TYPES = frozenset({
-    # Built-in
-    "demo",
-    # CLI-based
-    "codex", "claude", "openai", "gemini-cli", "grok-cli",
-    "qwen-cli", "deepseek-cli", "kilocode",
-    # API-based (direct)
-    "gemini", "ollama", "anthropic-api", "openai-api", "grok",
-    "mistral-api", "codestral", "kimi",
-    # API-based (via OpenRouter)
-    "deepseek", "deepseek-r1", "llama", "mistral", "openrouter",
-    "qwen", "qwen-max", "yi",
-})
+ALLOWED_AGENT_TYPES = frozenset(
+    {
+        # Built-in
+        "demo",
+        # CLI-based
+        "codex",
+        "claude",
+        "openai",
+        "gemini-cli",
+        "grok-cli",
+        "qwen-cli",
+        "deepseek-cli",
+        "kilocode",
+        # API-based (direct)
+        "gemini",
+        "ollama",
+        "anthropic-api",
+        "openai-api",
+        "grok",
+        "mistral-api",
+        "codestral",
+        "kimi",
+        # API-based (via OpenRouter)
+        "deepseek",
+        "deepseek-r1",
+        "llama",
+        "mistral",
+        "openrouter",
+        "qwen",
+        "qwen-max",
+        "yi",
+    }
+)
 
 # === Caching TTLs (seconds) ===
 # Standard tiers - use these for most cases:
@@ -338,7 +357,7 @@ DB_TIMEOUT_SECONDS = _env_float("ARAGORA_DB_TIMEOUT", 30.0)
 DB_MODE = _env_str("ARAGORA_DB_MODE", "legacy")
 
 # Nomic directory for databases (relative to working directory)
-NOMIC_DIR = _env_str("ARAGORA_NOMIC_DIR", ".nomic")
+NOMIC_DIR = _env_str("ARAGORA_DATA_DIR", _env_str("ARAGORA_NOMIC_DIR", ".nomic"))
 
 # Consolidated data directory (all runtime data under one location)
 # Default: .nomic (existing convention)
@@ -424,6 +443,7 @@ def resolve_db_path(path_str: Union[str, Path]) -> str:
         resolved = get_db_path(path.name)
         if resolved != path:
             import logging
+
             logging.getLogger(__name__).debug(
                 "Redirecting SQLite DB path %s -> %s (ARAGORA_DATA_DIR)",
                 path,
@@ -503,8 +523,10 @@ SSL_KEY_PATH = _env_str("ARAGORA_SSL_KEY", "")
 # Configuration Validation
 # ============================================================================
 
+
 class ConfigurationError(Exception):
     """Raised when configuration is invalid."""
+
     pass
 
 
@@ -533,6 +555,7 @@ def validate_configuration(strict: bool = False) -> dict:
         ConfigurationError: If strict=True and critical errors found
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     errors = []
@@ -558,7 +581,9 @@ def validate_configuration(strict: bool = False) -> dict:
         warnings.append(f"ARAGORA_WS_MAX_MESSAGE_SIZE is very low ({WS_MAX_MESSAGE_SIZE} bytes)")
 
     if MAX_AGENTS_PER_DEBATE > 20:
-        warnings.append(f"ARAGORA_MAX_AGENTS_PER_DEBATE is high ({MAX_AGENTS_PER_DEBATE}), may cause performance issues")
+        warnings.append(
+            f"ARAGORA_MAX_AGENTS_PER_DEBATE is high ({MAX_AGENTS_PER_DEBATE}), may cause performance issues"
+        )
 
     # Validate DATA_DIR
     if DATA_DIR.exists():
@@ -613,8 +638,10 @@ def validate_configuration(strict: bool = False) -> dict:
             api_keys_found.append(provider)
 
     if strict and not api_keys_found:
-        errors.append("No API keys configured. Set at least one of: " +
-                     ", ".join(var for var, _ in api_keys_checked))
+        errors.append(
+            "No API keys configured. Set at least one of: "
+            + ", ".join(var for var, _ in api_keys_checked)
+        )
     elif not api_keys_found:
         warnings.append("No API keys configured - agent functionality will be limited")
 

@@ -274,9 +274,11 @@ class TestCircuitBreakerSerialization:
     def test_from_dict_invalid_types(self):
         """from_dict with invalid types should handle gracefully."""
         # String instead of int
-        breaker = CircuitBreaker.from_dict({
-            "failure_threshold": "five",  # Invalid
-        })
+        breaker = CircuitBreaker.from_dict(
+            {
+                "failure_threshold": "five",  # Invalid
+            }
+        )
         # Should either use default or handle the error
         assert isinstance(breaker.failure_threshold, (int, str))
 
@@ -336,10 +338,7 @@ class TestDashboardEdgeCases:
 
         handler = DashboardHandler({})
         # Create 10000 mock debates
-        debates = [
-            {"confidence": 0.5, "consensus_reached": i % 2 == 0}
-            for i in range(10000)
-        ]
+        debates = [{"confidence": 0.5, "consensus_reached": i % 2 == 0} for i in range(10000)]
         summary = handler._get_summary_metrics(None, debates)
         assert summary["total_debates"] == 10000
         assert summary["consensus_reached"] == 5000
@@ -433,10 +432,12 @@ class TestRateLimiterEdgeCases:
 
         limiter = OpenRouterRateLimiter(tier="standard")
         # Non-numeric header values
-        limiter.update_from_headers({
-            "X-RateLimit-Remaining": "not_a_number",
-            "X-RateLimit-Reset": "invalid",
-        })
+        limiter.update_from_headers(
+            {
+                "X-RateLimit-Remaining": "not_a_number",
+                "X-RateLimit-Reset": "invalid",
+            }
+        )
         # Should not crash, should ignore invalid values
 
     def test_missing_headers(self):

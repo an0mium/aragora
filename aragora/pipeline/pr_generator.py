@@ -50,8 +50,14 @@ class DecisionMemo:
             f"- [{e.get('source', 'Unknown')}] {e.get('summary', '')[:100]}"
             for e in self.supporting_evidence[:5]
         )
-        dissenting_md = "\n".join(f"- {v}" for v in self.dissenting_views) if self.dissenting_views else "*None recorded*"
-        questions_md = "\n".join(f"- {q}" for q in self.open_questions) if self.open_questions else "*None*"
+        dissenting_md = (
+            "\n".join(f"- {v}" for v in self.dissenting_views)
+            if self.dissenting_views
+            else "*None recorded*"
+        )
+        questions_md = (
+            "\n".join(f"- {q}" for q in self.open_questions) if self.open_questions else "*None*"
+        )
 
         return f"""# Decision Memo: {self.title}
 
@@ -229,10 +235,12 @@ class PRGenerator:
         if self.artifact.provenance_data:
             chain = self.artifact.provenance_data.get("chain", {})
             for record in chain.get("records", [])[:5]:
-                evidence.append({
-                    "source": record.get("source_type", "unknown"),
-                    "summary": record.get("content", "")[:200],
-                })
+                evidence.append(
+                    {
+                        "source": record.get("source_type", "unknown"),
+                        "summary": record.get("content", "")[:200],
+                    }
+                )
 
         # Build rationale from trace events
         rationale = self._build_rationale()
@@ -285,7 +293,7 @@ class PRGenerator:
         """Extract a short title from the task description."""
         # Take first sentence or first 60 chars
         if "." in task[:80]:
-            return task[:task.index(".") + 1]
+            return task[: task.index(".") + 1]
         return task[:60] + "..." if len(task) > 60 else task
 
     def _extract_decisions(self, text: str) -> list[str]:
@@ -322,13 +330,15 @@ class PRGenerator:
             if line and (line[0].isdigit() or line.lower().startswith("step")):
                 clean = line.lstrip("0123456789.)-: ").strip()
                 if len(clean) > 10:
-                    steps.append({
-                        "step_num": step_num,
-                        "action": clean[:50],
-                        "target": "TBD",
-                        "details": clean,
-                        "verification": "Manual review",
-                    })
+                    steps.append(
+                        {
+                            "step_num": step_num,
+                            "action": clean[:50],
+                            "target": "TBD",
+                            "details": clean,
+                            "verification": "Manual review",
+                        }
+                    )
                     step_num += 1
 
         # If no steps found, create generic steps
@@ -365,14 +375,17 @@ class PRGenerator:
 
         # Look for file path patterns
         import re
-        file_patterns = re.findall(r'`([a-zA-Z0-9_/\-\.]+\.[a-z]+)`', text)
+
+        file_patterns = re.findall(r"`([a-zA-Z0-9_/\-\.]+\.[a-z]+)`", text)
 
         for path in file_patterns[:10]:
-            changes.append({
-                "path": path,
-                "action": "modify",
-                "description": "Changes discussed in debate",
-            })
+            changes.append(
+                {
+                    "path": path,
+                    "action": "modify",
+                    "description": "Changes discussed in debate",
+                }
+            )
 
         return changes
 
@@ -383,10 +396,7 @@ class PRGenerator:
 
         # Extract synthesis events
         events = self.artifact.trace_data.get("events", [])
-        synthesis_events = [
-            e for e in events
-            if e.get("event_type") == "agent_synthesis"
-        ]
+        synthesis_events = [e for e in events if e.get("event_type") == "agent_synthesis"]
 
         if synthesis_events:
             last_synthesis = synthesis_events[-1]
@@ -400,11 +410,11 @@ class PRGenerator:
         dissenting = []
 
         # Get explicit dissenting views from consensus proof
-        if consensus and hasattr(consensus, 'dissenting_views'):
+        if consensus and hasattr(consensus, "dissenting_views"):
             dissenting.extend(consensus.dissenting_views)
 
         # Extract high-severity critique issues as potential dissent
-        if consensus and hasattr(consensus, 'critiques'):
+        if consensus and hasattr(consensus, "critiques"):
             for critique in consensus.critiques:
                 if critique.severity >= 0.7:  # High severity = significant disagreement
                     for issue in critique.issues[:2]:  # Top 2 issues per critique
@@ -418,7 +428,7 @@ class PRGenerator:
         """Extract open questions from unresolved or recurring critique issues."""
         questions: list[str] = []
 
-        if not consensus or not hasattr(consensus, 'critiques'):
+        if not consensus or not hasattr(consensus, "critiques"):
             return questions
 
         # Track issue frequency across critiques

@@ -25,13 +25,10 @@ class SecurityBarrier:
         r"(?i)bearer\s+[\w\-\.]+",
         r"sk-[a-zA-Z0-9\-_]{10,}",  # OpenAI-style keys (sk-proj-, sk-ant-, etc.)
         r"AIza[a-zA-Z0-9_\-]{35}",  # Google API keys
-
         # Environment variables
         r"(?i)(ANTHROPIC|OPENAI|GEMINI|GROK|XAI)[_\s]*[A-Z_]*\s*=\s*[\w\-]+",
-
         # URLs with credentials
         r"https?://[^:]+:[^@]+@",
-
         # Private keys
         r"-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----",
     ]
@@ -110,9 +107,11 @@ class SecurityBarrier:
                 result[key] = self.redact_dict(value)
             elif isinstance(value, list):
                 result[key] = [
-                    self.redact(v) if isinstance(v, str)
-                    else self.redact_dict(v) if isinstance(v, dict)
-                    else v
+                    (
+                        self.redact(v)
+                        if isinstance(v, str)
+                        else self.redact_dict(v) if isinstance(v, dict) else v
+                    )
                     for v in value
                 ]
             else:
@@ -149,7 +148,9 @@ class TelemetryVerifier:
         self._capability_cache: dict[str, set[str]] = {}
         self._verification_results: list[dict] = []
 
-    def verify_agent(self, agent, required_capabilities: list[str] = None) -> tuple[bool, list[str]]:
+    def verify_agent(
+        self, agent, required_capabilities: list[str] = None
+    ) -> tuple[bool, list[str]]:
         """
         Verify an agent has required capabilities.
 
@@ -174,12 +175,14 @@ class TelemetryVerifier:
         self._capability_cache[agent_name] = set(required_capabilities) - set(missing)
 
         # Record verification
-        self._verification_results.append({
-            "agent": agent_name,
-            "required": required_capabilities,
-            "missing": missing,
-            "passed": len(missing) == 0,
-        })
+        self._verification_results.append(
+            {
+                "agent": agent_name,
+                "required": required_capabilities,
+                "missing": missing,
+                "passed": len(missing) == 0,
+            }
+        )
 
         return len(missing) == 0, missing
 

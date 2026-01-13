@@ -57,6 +57,7 @@ def mock_handler():
 @pytest.fixture
 def mock_handler_with_body():
     """Create a mock handler with JSON body."""
+
     def create(body: dict):
         handler = MagicMock()
         body_bytes = json.dumps(body).encode()
@@ -66,6 +67,7 @@ def mock_handler_with_body():
         }
         handler.rfile = io.BytesIO(body_bytes)
         return handler
+
     return create
 
 
@@ -104,6 +106,7 @@ def mock_admin_user():
 @pytest.fixture
 def auth_bypass():
     """Fixture to bypass authentication for testing protected endpoints."""
+
     @dataclass
     class MockUserContext:
         user_id: str = "admin-user"
@@ -118,15 +121,13 @@ def auth_bypass():
         return MockUserContext()
 
     # Patch at the location where it's imported
-    return patch(
-        "aragora.billing.jwt_auth.extract_user_from_request",
-        bypass_extractor
-    )
+    return patch("aragora.billing.jwt_auth.extract_user_from_request", bypass_extractor)
 
 
 @dataclass
 class MockProbeReport:
     """Mock probe report for testing."""
+
     report_id: str = "probe-report-abc123"
     probes_run: int = 10
     vulnerabilities_found: int = 2
@@ -157,6 +158,7 @@ class MockProbeReport:
 @dataclass
 class MockFinding:
     """Mock audit finding."""
+
     category: str = "security"
     summary: str = "Test finding"
     details: str = "Detailed description"
@@ -178,6 +180,7 @@ class MockFinding:
 @dataclass
 class MockVerdict:
     """Mock audit verdict."""
+
     recommendation: str = "Proceed with caution"
     confidence: float = 0.75
     unanimous_issues: list = None
@@ -203,6 +206,7 @@ class MockVerdict:
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str = "test-agent"
     role: str = "proposer"
 
@@ -213,6 +217,7 @@ class MockAgent:
 @dataclass
 class MockUserContext:
     """Mock user authentication context."""
+
     is_authenticated: bool = True
     user_id: str = "user_123"
     org_id: str = "org_456"
@@ -230,6 +235,7 @@ class TestAuditRequestParser:
 
     def test_read_json_success(self):
         """Test successful JSON reading."""
+
         def read_json_fn(h):
             return {"key": "value"}
 
@@ -239,6 +245,7 @@ class TestAuditRequestParser:
 
     def test_read_json_failure(self):
         """Test JSON reading failure."""
+
         def read_json_fn(h):
             return None
 
@@ -270,6 +277,7 @@ class TestAuditRequestParser:
 
     def test_require_field_with_validator(self):
         """Test required field with validation."""
+
         def validator(val):
             if len(val) < 3:
                 return False, "Too short"
@@ -310,6 +318,7 @@ class TestAuditRequestParser:
 
     def test_parse_capability_probe_valid(self):
         """Test parsing valid capability probe request."""
+
         def read_json_fn(h):
             return {
                 "agent_name": "claude-test",
@@ -326,6 +335,7 @@ class TestAuditRequestParser:
 
     def test_parse_capability_probe_missing_agent(self):
         """Test parsing probe request without agent name."""
+
         def read_json_fn(h):
             return {"probe_types": ["contradiction"]}
 
@@ -335,6 +345,7 @@ class TestAuditRequestParser:
 
     def test_parse_capability_probe_defaults(self):
         """Test parsing probe request with defaults."""
+
         def read_json_fn(h):
             return {"agent_name": "test-agent"}
 
@@ -345,6 +356,7 @@ class TestAuditRequestParser:
 
     def test_parse_deep_audit_valid(self):
         """Test parsing valid deep audit request."""
+
         def read_json_fn(h):
             return {
                 "task": "Review this code for security issues",
@@ -352,7 +364,7 @@ class TestAuditRequestParser:
                 "config": {
                     "rounds": 4,
                     "risk_threshold": 0.8,
-                }
+                },
             }
 
         result, err = AuditRequestParser.parse_deep_audit(None, read_json_fn)
@@ -363,6 +375,7 @@ class TestAuditRequestParser:
 
     def test_parse_deep_audit_missing_task(self):
         """Test parsing audit request without task."""
+
         def read_json_fn(h):
             return {"context": "some context"}
 
@@ -372,11 +385,9 @@ class TestAuditRequestParser:
 
     def test_parse_deep_audit_invalid_risk_threshold(self):
         """Test parsing audit with invalid risk threshold."""
+
         def read_json_fn(h):
-            return {
-                "task": "Test task",
-                "config": {"risk_threshold": "invalid"}
-            }
+            return {"task": "Test task", "config": {"risk_threshold": "invalid"}}
 
         result, err = AuditRequestParser.parse_deep_audit(None, read_json_fn)
         assert result is None
@@ -395,9 +406,7 @@ class TestAuditAgentFactory:
     def test_create_single_agent_not_available(self):
         """Test agent creation when debate module unavailable."""
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", False):
-            agent, err = AuditAgentFactory.create_single_agent(
-                "anthropic-api", "test-agent"
-            )
+            agent, err = AuditAgentFactory.create_single_agent("anthropic-api", "test-agent")
         assert agent is None
         assert err.status_code == 503
 
@@ -407,24 +416,18 @@ class TestAuditAgentFactory:
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
             with patch("aragora.server.handlers.auditing.create_agent") as mock_create:
                 mock_create.return_value = mock_agent
-                agent, err = AuditAgentFactory.create_single_agent(
-                    "anthropic-api", "test-agent"
-                )
+                agent, err = AuditAgentFactory.create_single_agent("anthropic-api", "test-agent")
 
         assert err is None
         assert agent == mock_agent
-        mock_create.assert_called_once_with(
-            "anthropic-api", name="test-agent", role="proposer"
-        )
+        mock_create.assert_called_once_with("anthropic-api", name="test-agent", role="proposer")
 
     def test_create_single_agent_failure(self):
         """Test agent creation failure."""
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
             with patch("aragora.server.handlers.auditing.create_agent") as mock_create:
                 mock_create.side_effect = ValueError("Invalid agent")
-                agent, err = AuditAgentFactory.create_single_agent(
-                    "anthropic-api", "test-agent"
-                )
+                agent, err = AuditAgentFactory.create_single_agent("anthropic-api", "test-agent")
 
         assert agent is None
         assert err.status_code == 400
@@ -486,14 +489,9 @@ class TestAuditAgentFactory:
         """Test agents limited to max count."""
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
             with patch("aragora.server.handlers.auditing.create_agent") as mock_create:
-                mock_create.side_effect = [
-                    MockAgent(name=f"agent{i}") for i in range(10)
-                ]
+                mock_create.side_effect = [MockAgent(name=f"agent{i}") for i in range(10)]
                 agents, err = AuditAgentFactory.create_multiple_agents(
-                    "anthropic-api",
-                    [f"agent{i}" for i in range(10)],
-                    [],
-                    max_agents=5
+                    "anthropic-api", [f"agent{i}" for i in range(10)], [], max_agents=5
                 )
 
         assert err is None
@@ -513,9 +511,7 @@ class TestAuditResultRecorder:
         elo_system = MagicMock()
         report = MockProbeReport()
 
-        AuditResultRecorder.record_probe_elo(
-            elo_system, "test-agent", report, "report-123"
-        )
+        AuditResultRecorder.record_probe_elo(elo_system, "test-agent", report, "report-123")
 
         elo_system.record_redteam_result.assert_called_once()
         call_args = elo_system.record_redteam_result.call_args
@@ -533,9 +529,7 @@ class TestAuditResultRecorder:
         elo_system = MagicMock()
         report = MockProbeReport(probes_run=0)
 
-        AuditResultRecorder.record_probe_elo(
-            elo_system, "test-agent", report, "report-123"
-        )
+        AuditResultRecorder.record_probe_elo(elo_system, "test-agent", report, "report-123")
 
         elo_system.record_redteam_result.assert_not_called()
 
@@ -593,8 +587,15 @@ class TestAuditResultRecorder:
             agents = [MockAgent(name="agent1"), MockAgent(name="agent2")]
 
             AuditResultRecorder.save_audit_report(
-                nomic_dir, "audit-123", "Test task", "Test context",
-                agents, verdict, config, 1500.0, {"agent1": 2}
+                nomic_dir,
+                "audit-123",
+                "Test task",
+                "Test context",
+                agents,
+                verdict,
+                config,
+                1500.0,
+                {"agent1": 2},
             )
 
             audits_dir = nomic_dir / "audits"
@@ -638,9 +639,7 @@ class TestAuditingHandler:
         """Test handle routes to capability probe."""
         with patch.object(auditing_handler, "_run_capability_probe") as mock_method:
             mock_method.return_value = json_response({"success": True})
-            result = auditing_handler.handle(
-                "/api/debates/capability-probe", {}, mock_handler
-            )
+            result = auditing_handler.handle("/api/debates/capability-probe", {}, mock_handler)
 
         mock_method.assert_called_once_with(mock_handler)
 
@@ -648,9 +647,7 @@ class TestAuditingHandler:
         """Test handle routes to deep audit."""
         with patch.object(auditing_handler, "_run_deep_audit") as mock_method:
             mock_method.return_value = json_response({"success": True})
-            result = auditing_handler.handle(
-                "/api/debates/deep-audit", {}, mock_handler
-            )
+            result = auditing_handler.handle("/api/debates/deep-audit", {}, mock_handler)
 
         mock_method.assert_called_once_with(mock_handler)
 
@@ -658,9 +655,7 @@ class TestAuditingHandler:
         """Test handle routes to attack types."""
         with patch.object(auditing_handler, "_get_attack_types") as mock_method:
             mock_method.return_value = json_response({"attack_types": []})
-            result = auditing_handler.handle(
-                "/api/redteam/attack-types", {}, mock_handler
-            )
+            result = auditing_handler.handle("/api/redteam/attack-types", {}, mock_handler)
 
         mock_method.assert_called_once()
 
@@ -668,17 +663,13 @@ class TestAuditingHandler:
         """Test handle routes to red team analysis."""
         with patch.object(auditing_handler, "_run_red_team_analysis") as mock_method:
             mock_method.return_value = json_response({"success": True})
-            result = auditing_handler.handle(
-                "/api/debates/debate123/red-team", {}, mock_handler
-            )
+            result = auditing_handler.handle("/api/debates/debate123/red-team", {}, mock_handler)
 
         mock_method.assert_called_once_with("debate123", mock_handler)
 
     def test_handle_invalid_debate_id_red_team(self, auditing_handler, mock_handler):
         """Test handle rejects invalid debate ID for red team."""
-        result = auditing_handler.handle(
-            "/api/debates/../etc/passwd/red-team", {}, mock_handler
-        )
+        result = auditing_handler.handle("/api/debates/../etc/passwd/red-team", {}, mock_handler)
         assert result.status_code == 400
 
     def test_handle_unhandled_path(self, auditing_handler, mock_handler):
@@ -748,6 +739,7 @@ class TestAuditingHandler:
     def test_run_deep_audit_module_not_available(self, auditing_handler, mock_handler, auth_bypass):
         """Test deep audit when module unavailable."""
         import builtins
+
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -768,9 +760,7 @@ class TestAuditingHandler:
         """Test red team when module unavailable."""
         with auth_bypass:
             with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", False):
-                result = auditing_handler._run_red_team_analysis(
-                    "debate123", mock_handler
-                )
+                result = auditing_handler._run_red_team_analysis("debate123", mock_handler)
 
         assert result.status_code == 503
 
@@ -792,20 +782,21 @@ class TestAuditingHandler:
 
         with auth_bypass:
             with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
-                result = auditing_handler._run_red_team_analysis(
-                    "nonexistent", mock_handler
-                )
+                result = auditing_handler._run_red_team_analysis("nonexistent", mock_handler)
 
         assert result.status_code == 404
 
     def test_run_red_team_success(self, auditing_handler, mock_handler_with_body, auth_bypass):
         """Test successful red team analysis."""
-        mock_handler = mock_handler_with_body({
-            "attack_types": ["logical_fallacy"],
-            "max_rounds": 2,
-        })
+        mock_handler = mock_handler_with_body(
+            {
+                "attack_types": ["logical_fallacy"],
+                "max_rounds": 2,
+            }
+        )
 
         from enum import Enum
+
         class MockAttackType(Enum):
             LOGICAL_FALLACY = "logical_fallacy"
 
@@ -821,9 +812,7 @@ class TestAuditingHandler:
         with auth_bypass:
             with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
                 with patch.dict("sys.modules", {"aragora.modes.redteam": mock_redteam_module}):
-                    result = auditing_handler._run_red_team_analysis(
-                        "debate123", mock_handler
-                    )
+                    result = auditing_handler._run_red_team_analysis("debate123", mock_handler)
 
         assert result.status_code == 200
         parsed = json.loads(result.body)
@@ -836,6 +825,7 @@ class TestAuditingHandler:
     def test_analyze_proposal_for_redteam(self, auditing_handler):
         """Test proposal vulnerability analysis."""
         from enum import Enum
+
         class MockAttackType(Enum):
             LOGICAL_FALLACY = "logical_fallacy"
             SECURITY = "security"
@@ -850,15 +840,14 @@ class TestAuditingHandler:
         assert len(findings) == 2
         # Should find matches for "always" and "best" (logical_fallacy)
         # and "secure" (security)
-        fallacy_finding = next(
-            (f for f in findings if f["attack_type"] == "logical_fallacy"), None
-        )
+        fallacy_finding = next((f for f in findings if f["attack_type"] == "logical_fallacy"), None)
         assert fallacy_finding is not None
         assert fallacy_finding["keyword_matches"] > 0
 
     def test_analyze_proposal_no_matches(self, auditing_handler):
         """Test analysis with no keyword matches."""
         from enum import Enum
+
         class MockAttackType(Enum):
             LOGICAL_FALLACY = "logical_fallacy"
 
@@ -876,13 +865,12 @@ class TestAuditingHandler:
     def test_analyze_proposal_invalid_attack_type(self, auditing_handler):
         """Test analysis skips invalid attack types."""
         from enum import Enum
+
         class MockAttackType(Enum):
             LOGICAL_FALLACY = "logical_fallacy"
 
         with patch("aragora.modes.redteam.AttackType", MockAttackType, create=True):
-            findings = auditing_handler._analyze_proposal_for_redteam(
-                "test", ["invalid_type"], {}
-            )
+            findings = auditing_handler._analyze_proposal_for_redteam("test", ["invalid_type"], {})
 
         assert len(findings) == 0
 
@@ -986,14 +974,17 @@ class TestAuditingHandlerIntegration:
     def test_full_red_team_flow(self, server_context, mock_handler_with_body, auth_bypass):
         """Test complete red team analysis flow."""
         from enum import Enum
+
         class MockAttackType(Enum):
             EDGE_CASE = "edge_case"
             SECURITY = "security"
 
         handler = AuditingHandler(server_context)
-        mock_http = mock_handler_with_body({
-            "attack_types": ["edge_case", "security"],
-        })
+        mock_http = mock_handler_with_body(
+            {
+                "attack_types": ["edge_case", "security"],
+            }
+        )
 
         server_context["storage"].get_by_slug.return_value = {
             "id": "test-debate",
@@ -1007,11 +998,7 @@ class TestAuditingHandlerIntegration:
         with auth_bypass:
             with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
                 with patch.dict("sys.modules", {"aragora.modes.redteam": mock_redteam_module}):
-                    result = handler.handle(
-                        "/api/debates/test-debate/red-team",
-                        {},
-                        mock_http
-                    )
+                    result = handler.handle("/api/debates/test-debate/red-team", {}, mock_http)
 
         assert result.status_code == 200
         parsed = json.loads(result.body)
@@ -1025,8 +1012,7 @@ class TestAuditingHandlerIntegration:
 
         # Should find security-related keywords
         security_finding = next(
-            (f for f in parsed["findings"] if f["attack_type"] == "security"),
-            None
+            (f for f in parsed["findings"] if f["attack_type"] == "security"), None
         )
         assert security_finding is not None
         # "secure" and "encrypt" should be matched

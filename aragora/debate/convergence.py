@@ -82,6 +82,7 @@ class ArgumentDiversityMetric:
     High diversity = agents covering different points (good for exploration)
     Low diversity = agents focusing on same points (may indicate convergence)
     """
+
     unique_arguments: int
     total_arguments: int
     diversity_score: float  # 0-1, higher = more diverse
@@ -100,6 +101,7 @@ class EvidenceConvergenceMetric:
     High overlap = agents citing same sources (strong agreement)
     Low overlap = agents using different evidence (disagreement or complementary)
     """
+
     shared_citations: int
     total_citations: int
     overlap_score: float  # 0-1, higher = more overlap
@@ -118,6 +120,7 @@ class StanceVolatilityMetric:
     High volatility = agents frequently changing stances (unstable)
     Low volatility = agents maintaining consistent positions (stable)
     """
+
     stance_changes: int
     total_responses: int
     volatility_score: float  # 0-1, higher = more volatile
@@ -136,6 +139,7 @@ class AdvancedConvergenceMetrics:
     Combines multiple signals to provide a nuanced view of
     debate convergence beyond simple text similarity.
     """
+
     # Core similarity (from ConvergenceDetector)
     semantic_similarity: float
 
@@ -248,7 +252,7 @@ class AdvancedConvergenceAnalyzer:
         import re
 
         # Split into sentences
-        sentences = re.split(r'[.!?]+', text)
+        sentences = re.split(r"[.!?]+", text)
 
         # Filter to substantive sentences (> 5 words)
         arguments = []
@@ -274,15 +278,17 @@ class AdvancedConvergenceAnalyzer:
         citations.update(urls)
 
         # Academic citations like (Author, 2024) or [1]
-        academic = re.findall(r'\([A-Z][a-z]+(?:\s+et\s+al\.?)?,?\s*\d{4}\)', text)
+        academic = re.findall(r"\([A-Z][a-z]+(?:\s+et\s+al\.?)?,?\s*\d{4}\)", text)
         citations.update(academic)
 
         # Numbered citations [1], [2], etc.
-        numbered = re.findall(r'\[\d+\]', text)
+        numbered = re.findall(r"\[\d+\]", text)
         citations.update(numbered)
 
         # Quoted sources "According to X"
-        quoted = re.findall(r'(?:according to|per|from)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', text, re.I)
+        quoted = re.findall(
+            r"(?:according to|per|from)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)", text, re.I
+        )
         citations.update(quoted)
 
         return citations
@@ -298,15 +304,19 @@ class AdvancedConvergenceAnalyzer:
         text_lower = text.lower()
 
         # Strong support indicators
-        support_patterns = r'\b(agree|support|favor|endorse|recommend|should|must|definitely|certainly)\b'
+        support_patterns = (
+            r"\b(agree|support|favor|endorse|recommend|should|must|definitely|certainly)\b"
+        )
         support_count = len(re.findall(support_patterns, text_lower))
 
         # Strong oppose indicators
-        oppose_patterns = r'\b(disagree|oppose|against|reject|shouldn\'t|must not|definitely not|certainly not)\b'
+        oppose_patterns = (
+            r"\b(disagree|oppose|against|reject|shouldn\'t|must not|definitely not|certainly not)\b"
+        )
         oppose_count = len(re.findall(oppose_patterns, text_lower))
 
         # Neutral indicators
-        neutral_patterns = r'\b(depends|unclear|both|however|on the other hand|alternatively)\b'
+        neutral_patterns = r"\b(depends|unclear|both|however|on the other hand|alternatively)\b"
         neutral_count = len(re.findall(neutral_patterns, text_lower))
 
         # Determine stance
@@ -434,7 +444,7 @@ class AdvancedConvergenceAnalyzer:
         for agent, stances in agent_stances.items():
             total_responses += len(stances)
             for i in range(1, len(stances)):
-                if stances[i] != stances[i-1]:
+                if stances[i] != stances[i - 1]:
                     total_changes += 1
 
         volatility_score = total_changes / max(1, total_responses - len(agent_stances))
@@ -545,9 +555,7 @@ class ConvergenceDetector:
         self.consecutive_stable_count = 0
         self.backend = self._select_backend()
 
-        logger.info(
-            f"ConvergenceDetector initialized with {self.backend.__class__.__name__}"
-        )
+        logger.info(f"ConvergenceDetector initialized with {self.backend.__class__.__name__}")
 
     def _select_backend(self) -> SimilarityBackend:
         """
@@ -555,9 +563,7 @@ class ConvergenceDetector:
 
         Tries: SentenceTransformer -> TF-IDF -> Jaccard
         """
-        env_override = _normalize_backend_name(
-            os.getenv(_ENV_CONVERGENCE_BACKEND, "")
-        )
+        env_override = _normalize_backend_name(os.getenv(_ENV_CONVERGENCE_BACKEND, ""))
         if env_override:
             try:
                 backend = get_similarity_backend(env_override)
@@ -627,12 +633,10 @@ class ConvergenceDetector:
         agent_list = list(common_agents)
 
         # Use batch method if available (SentenceTransformerBackend)
-        if hasattr(self.backend, 'compute_pairwise_similarities'):
+        if hasattr(self.backend, "compute_pairwise_similarities"):
             texts_current = [current_responses[a] for a in agent_list]
             texts_previous = [previous_responses[a] for a in agent_list]
-            similarities = self.backend.compute_pairwise_similarities(
-                texts_current, texts_previous
-            )
+            similarities = self.backend.compute_pairwise_similarities(texts_current, texts_previous)
             per_agent = dict(zip(agent_list, similarities))
         else:
             # Fallback to individual comparisons

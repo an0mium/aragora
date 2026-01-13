@@ -32,7 +32,7 @@ class ConfidenceScore:
             "agent": self.agent_name,
             "confidence": self.value,
             "reasoning": self.reasoning,
-            "timestamp": self.timestamp.isoformat()
+            "timestamp": self.timestamp.isoformat(),
         }
 
 
@@ -57,7 +57,7 @@ class DisagreementCrux:
             "description": self.description,
             "agents": self.divergent_agents,
             "evidence_needed": self.evidence_needed,
-            "severity": self.severity
+            "severity": self.severity,
         }
 
 
@@ -89,7 +89,9 @@ class UncertaintyMetrics:
 
     collective_confidence: float = 0.5
     confidence_interval: Tuple[float, float] = (0.4, 0.6)
-    disagreement_type: str = "none"  # "factual", "value-based", "definitional", "information-asymmetry"
+    disagreement_type: str = (
+        "none"  # "factual", "value-based", "definitional", "information-asymmetry"
+    )
     cruxes: List[DisagreementCrux] = field(default_factory=list)
     calibration_quality: float = 0.5  # How well agents are calibrated
 
@@ -99,7 +101,7 @@ class UncertaintyMetrics:
             "confidence_interval": self.confidence_interval,
             "disagreement_type": self.disagreement_type,
             "cruxes": [crux.to_dict() for crux in self.cruxes],
-            "calibration_quality": self.calibration_quality
+            "calibration_quality": self.calibration_quality,
         }
 
 
@@ -108,15 +110,14 @@ class ConfidenceEstimator:
 
     def __init__(self):
         self.agent_confidences: Dict[str, List[ConfidenceScore]] = {}
-        self.calibration_history: Dict[str, List[Tuple[float, bool]]] = {}  # (confidence, was_correct)
+        self.calibration_history: Dict[str, List[Tuple[float, bool]]] = (
+            {}
+        )  # (confidence, was_correct)
         self.brier_scores: Dict[str, float] = {}  # Calibration quality metric
         self.disagreement_analyzer = DisagreementAnalyzer()
 
     async def collect_confidences(
-        self,
-        agents: List[Agent],
-        proposals: Dict[str, str],
-        task: str
+        self, agents: List[Agent], proposals: Dict[str, str], task: str
     ) -> Dict[str, ConfidenceScore]:
         """Collect confidence scores from all agents."""
         confidence_tasks = []
@@ -131,7 +132,9 @@ class ConfidenceEstimator:
             if isinstance(result, Exception):
                 logger.warning(f"Error getting confidence from {agent.name}: {result}")
                 # Default confidence
-                confidences[agent.name] = ConfidenceScore(agent.name, 0.5, "Error estimating confidence")
+                confidences[agent.name] = ConfidenceScore(
+                    agent.name, 0.5, "Error estimating confidence"
+                )
             else:
                 score: ConfidenceScore = result  # type: ignore[assignment]
                 confidences[agent.name] = score
@@ -141,10 +144,7 @@ class ConfidenceEstimator:
         return confidences
 
     async def _get_agent_confidence(
-        self,
-        agent: Agent,
-        proposals: Dict[str, str],
-        task: str
+        self, agent: Agent, proposals: Dict[str, str], task: str
     ) -> ConfidenceScore:
         """Get calibrated confidence from an agent."""
         # This would ideally be a new method on Agent, but we'll simulate with existing methods
@@ -156,7 +156,7 @@ class ConfidenceEstimator:
             return ConfidenceScore(
                 agent_name=agent.name,
                 value=vote.confidence,
-                reasoning=f"Based on voting confidence: {vote.reasoning}"
+                reasoning=f"Based on voting confidence: {vote.reasoning}",
             )
         except Exception as e:
             # Fallback to default confidence
@@ -222,14 +222,11 @@ class DisagreementAnalyzer:
             "factual": ["fact", "evidence", "data", "proven", "false", "true", "accurate"],
             "value": ["should", "better", "prefer", "ethical", "moral", "worth"],
             "definitional": ["means", "definition", "term", "concept", "understand"],
-            "asymmetry": ["don't know", "unclear", "need more", "insufficient"]
+            "asymmetry": ["don't know", "unclear", "need more", "insufficient"],
         }
 
     def analyze_disagreement(
-        self,
-        messages: List[Message],
-        votes: List[Vote],
-        proposals: Dict[str, str]
+        self, messages: List[Message], votes: List[Vote], proposals: Dict[str, str]
     ) -> UncertaintyMetrics:
         """Analyze disagreement patterns in debate messages."""
         metrics = UncertaintyMetrics()
@@ -254,7 +251,9 @@ class DisagreementAnalyzer:
             if confidences:
                 avg_confidence = sum(confidences) / len(confidences)
                 # Reduce confidence when there's disagreement
-                disagreement_penalty = len(vote_counts) / len(votes)  # More options = more disagreement
+                disagreement_penalty = len(vote_counts) / len(
+                    votes
+                )  # More options = more disagreement
                 metrics.collective_confidence = avg_confidence * (1 - disagreement_penalty * 0.3)
 
                 # Calculate confidence interval
@@ -263,7 +262,7 @@ class DisagreementAnalyzer:
                 margin = 1.96 * std_dev / math.sqrt(len(confidences))  # 95% CI
                 metrics.confidence_interval = (
                     max(0, metrics.collective_confidence - margin),
-                    min(1, metrics.collective_confidence + margin)
+                    min(1, metrics.collective_confidence + margin),
                 )
         else:
             # Unanimous agreement
@@ -271,16 +270,23 @@ class DisagreementAnalyzer:
                 metrics.collective_confidence = sum(v.confidence for v in votes) / len(votes)
             else:
                 metrics.collective_confidence = 0.5  # Default when no votes
-            metrics.confidence_interval = (metrics.collective_confidence - 0.1, metrics.collective_confidence + 0.1)
+            metrics.confidence_interval = (
+                metrics.collective_confidence - 0.1,
+                metrics.collective_confidence + 0.1,
+            )
             metrics.disagreement_type = "none"
 
         return metrics
 
-    def _classify_disagreement_type(self, messages: List[Message], minority_votes: List[Vote]) -> str:
+    def _classify_disagreement_type(
+        self, messages: List[Message], minority_votes: List[Vote]
+    ) -> str:
         """Classify the type of disagreement."""
         # Analyze messages from dissenting agents
         dissenting_agents = {v.agent for v in minority_votes}
-        dissenting_messages = [m for m in messages if m.agent in dissenting_agents and m.role == "critic"]
+        dissenting_messages = [
+            m for m in messages if m.agent in dissenting_agents and m.role == "critic"
+        ]
 
         keyword_counts: Counter[str] = Counter()
         for message in dissenting_messages:
@@ -300,7 +306,7 @@ class DisagreementAnalyzer:
         messages: List[Message],
         proposals: Dict[str, str],
         majority_choice: str,
-        minority_votes: List[Vote]
+        minority_votes: List[Vote],
     ) -> List[DisagreementCrux]:
         """Find key points of disagreement (cruxes)."""
         cruxes = []
@@ -323,7 +329,7 @@ class DisagreementAnalyzer:
                             description=crux_desc,
                             divergent_agents=[message.agent],
                             evidence_needed="Additional data or clarification needed",
-                            severity=0.6
+                            severity=0.6,
                         )
                         cruxes.append(crux)
 
@@ -335,10 +341,12 @@ class DisagreementAnalyzer:
     def _extract_crux_description(self, content: str) -> Optional[str]:
         """Extract a concise description of a crux from message content."""
         # Simple extraction - look for sentences with disagreement markers
-        sentences = content.split('.')
+        sentences = content.split(".")
         for sentence in sentences:
             sentence = sentence.strip()
-            if len(sentence) > 10 and any(word in sentence.lower() for word in ["but", "however", "disagree", "concern"]):
+            if len(sentence) > 10 and any(
+                word in sentence.lower() for word in ["but", "however", "disagree", "concern"]
+            ):
                 return sentence[:100] + "..." if len(sentence) > 100 else sentence
 
         return None
@@ -452,7 +460,9 @@ class DisagreementAnalyzer:
 class UncertaintyAggregator:
     """Aggregates uncertainty from multiple sources."""
 
-    def __init__(self, confidence_estimator: ConfidenceEstimator, disagreement_analyzer: DisagreementAnalyzer):
+    def __init__(
+        self, confidence_estimator: ConfidenceEstimator, disagreement_analyzer: DisagreementAnalyzer
+    ):
         self.confidence_estimator = confidence_estimator
         self.disagreement_analyzer = disagreement_analyzer
 
@@ -461,7 +471,7 @@ class UncertaintyAggregator:
         agents: List[Agent],
         messages: List[Message],
         votes: List[Vote],
-        proposals: Dict[str, str]
+        proposals: Dict[str, str],
     ) -> UncertaintyMetrics:
         """Compute comprehensive uncertainty metrics for a debate."""
 
@@ -473,13 +483,17 @@ class UncertaintyAggregator:
 
         # Incorporate calibration quality
         agent_names = [a.name for a in agents]
-        calibration_scores = [self.confidence_estimator.get_agent_calibration_quality(name) for name in agent_names]
+        calibration_scores = [
+            self.confidence_estimator.get_agent_calibration_quality(name) for name in agent_names
+        ]
 
         if calibration_scores:
             avg_calibration = sum(calibration_scores) / len(calibration_scores)
             metrics.calibration_quality = avg_calibration
 
             # Adjust collective confidence based on calibration
-            metrics.collective_confidence *= (0.5 + avg_calibration * 0.5)  # Scale toward calibrated agents
+            metrics.collective_confidence *= (
+                0.5 + avg_calibration * 0.5
+            )  # Scale toward calibrated agents
 
         return metrics

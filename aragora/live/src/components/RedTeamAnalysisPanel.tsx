@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 
 interface RedTeamFinding {
   attack_type: string;
@@ -22,7 +23,7 @@ interface RedTeamAnalysisPanelProps {
   onComplete?: (result: RedTeamResult) => void;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 const ATTACK_TYPES = [
   { value: 'logical_fallacy', label: 'Logical Fallacy', description: 'Test for flawed reasoning' },

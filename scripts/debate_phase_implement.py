@@ -137,6 +137,7 @@ Your recommendation should be specific and actionable."""
 
     # Save result
     import json
+
     output = {
         "task": "phase_implement improvement",
         "consensus_reached": result.consensus_reached,

@@ -39,6 +39,7 @@ def _run_async(coro):
     finally:
         loop.close()
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,9 +62,7 @@ class InsightsHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path.startswith("/api/insights/") or path == "/api/flips/recent"
 
-    def handle_get(
-        self, path: str, query: dict, handler, ctx: dict
-    ) -> Optional[HandlerResult]:
+    def handle_get(self, path: str, query: dict, handler, ctx: dict) -> Optional[HandlerResult]:
         """Handle GET requests for insights endpoints."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -79,9 +78,7 @@ class InsightsHandler(BaseHandler):
 
         return None
 
-    def handle_post(
-        self, path: str, query_params: dict, handler
-    ) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests for insights endpoints."""
         # Rate limit check (shared with GET)
         client_ip = get_client_ip(handler)
@@ -99,9 +96,7 @@ class InsightsHandler(BaseHandler):
         return None
 
     @handle_errors("recent insights retrieval")
-    def _get_recent_insights(
-        self, query: dict, ctx: dict
-    ) -> HandlerResult:
+    def _get_recent_insights(self, query: dict, ctx: dict) -> HandlerResult:
         """Get recent insights from InsightStore.
 
         Query params:
@@ -118,26 +113,26 @@ class InsightsHandler(BaseHandler):
         limit = max(1, min(get_int_param(query, "limit", 20), 100))
 
         insights = _run_async(insight_store.get_recent_insights(limit=limit))
-        return json_response({
-            "insights": [
-                {
-                    "id": i.id,
-                    "type": i.type.value,
-                    "title": i.title,
-                    "description": i.description,
-                    "confidence": i.confidence,
-                    "agents_involved": i.agents_involved,
-                    "evidence": i.evidence[:3] if i.evidence else [],
-                }
-                for i in insights
-            ],
-            "count": len(insights),
-        })
+        return json_response(
+            {
+                "insights": [
+                    {
+                        "id": i.id,
+                        "type": i.type.value,
+                        "title": i.title,
+                        "description": i.description,
+                        "confidence": i.confidence,
+                        "agents_involved": i.agents_involved,
+                        "evidence": i.evidence[:3] if i.evidence else [],
+                    }
+                    for i in insights
+                ],
+                "count": len(insights),
+            }
+        )
 
     @handle_errors("recent flips retrieval")
-    def _get_recent_flips(
-        self, query: dict, ctx: dict
-    ) -> HandlerResult:
+    def _get_recent_flips(self, query: dict, ctx: dict) -> HandlerResult:
         """Get recent position flips/reversals.
 
         Query params:
@@ -149,11 +144,13 @@ class InsightsHandler(BaseHandler):
         """
         insight_store = ctx.get("insight_store")
         if not insight_store:
-            return json_response({
-                "flips": [],
-                "count": 0,
-                "message": "Position flip tracking not configured",
-            })
+            return json_response(
+                {
+                    "flips": [],
+                    "count": 0,
+                    "message": "Position flip tracking not configured",
+                }
+            )
 
         limit = max(1, min(get_int_param(query, "limit", 20), 100))
 
@@ -163,28 +160,30 @@ class InsightsHandler(BaseHandler):
             insights = _run_async(insight_store.get_recent_insights(limit=limit * 2))
             for i in insights:
                 if i.type.value == "position_reversal":
-                    flips.append({
-                        "id": i.id,
-                        "agent": i.agents_involved[0] if i.agents_involved else "unknown",
-                        "previous_position": i.description[:200] if i.description else "",
-                        "new_position": i.title,
-                        "confidence": i.confidence,
-                        "detected_at": str(getattr(i, 'created_at', None)),
-                    })
+                    flips.append(
+                        {
+                            "id": i.id,
+                            "agent": i.agents_involved[0] if i.agents_involved else "unknown",
+                            "previous_position": i.description[:200] if i.description else "",
+                            "new_position": i.title,
+                            "confidence": i.confidence,
+                            "detected_at": str(getattr(i, "created_at", None)),
+                        }
+                    )
                 if len(flips) >= limit:
                     break
         except Exception as e:
             logger.warning(f"Error fetching position flips: {e}")
 
-        return json_response({
-            "flips": flips,
-            "count": len(flips),
-        })
+        return json_response(
+            {
+                "flips": flips,
+                "count": len(flips),
+            }
+        )
 
     @handle_errors("insight extraction")
-    def _extract_detailed_insights(
-        self, data: dict, ctx: dict
-    ) -> HandlerResult:
+    def _extract_detailed_insights(self, data: dict, ctx: dict) -> HandlerResult:
         """Extract detailed insights from debate content.
 
         POST body:
@@ -203,7 +202,7 @@ class InsightsHandler(BaseHandler):
         if len(content) > MAX_CONTENT_SIZE:
             return error_response(
                 f"Content too large. Maximum size is {MAX_CONTENT_SIZE // 1024}KB",
-                413  # Payload Too Large
+                413,  # Payload Too Large
             )
 
         debate_id = data.get("debate_id", "")
@@ -253,11 +252,13 @@ class InsightsHandler(BaseHandler):
 
             for pattern in claim_patterns:
                 if re.search(pattern, sentence, re.IGNORECASE):
-                    claims.append({
-                        "text": sentence[:500],
-                        "position": i,
-                        "type": "argument" if "should" in sentence.lower() else "assertion",
-                    })
+                    claims.append(
+                        {
+                            "text": sentence[:500],
+                            "position": i,
+                            "type": "argument" if "should" in sentence.lower() else "assertion",
+                        }
+                    )
                     break
 
         return claims[:20]  # Limit to 20 claims
@@ -278,11 +279,13 @@ class InsightsHandler(BaseHandler):
         for pattern, etype in evidence_patterns:
             matches = re.finditer(pattern, content, re.IGNORECASE)
             for match in matches:
-                evidence.append({
-                    "text": match.group(0)[:300],
-                    "type": etype,
-                    "source": match.group(1)[:100] if match.groups() else None,
-                })
+                evidence.append(
+                    {
+                        "text": match.group(0)[:300],
+                        "type": etype,
+                        "source": match.group(1)[:100] if match.groups() else None,
+                    }
+                )
 
         return evidence[:15]  # Limit to 15 evidence items
 
@@ -307,10 +310,12 @@ class InsightsHandler(BaseHandler):
 
         if "because" in content_lower:
             count = content_lower.count("because")
-            patterns.append({
-                "type": "causal_reasoning",
-                "strength": "strong" if count > 2 else "medium",
-                "instances": count,
-            })
+            patterns.append(
+                {
+                    "type": "causal_reasoning",
+                    "strength": "strong" if count > 2 else "medium",
+                    "instances": count,
+                }
+            )
 
         return patterns

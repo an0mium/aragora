@@ -166,7 +166,7 @@ class ForkDetector:
 
         agents = list(latest_by_agent.keys())
         for i, agent_a in enumerate(agents):
-            for agent_b in agents[i + 1:]:
+            for agent_b in agents[i + 1 :]:
                 msg_a = latest_by_agent[agent_a]
                 msg_b = latest_by_agent[agent_b]
 
@@ -174,11 +174,13 @@ class ForkDetector:
                 score, reason = self._calculate_disagreement(msg_a, msg_b)
 
                 if score > 0.3:
-                    disagreements.append({
-                        "agents": [agent_a, agent_b],
-                        "score": score,
-                        "reason": reason,
-                    })
+                    disagreements.append(
+                        {
+                            "agents": [agent_a, agent_b],
+                            "score": score,
+                            "reason": reason,
+                        }
+                    )
 
         return disagreements
 
@@ -192,9 +194,16 @@ class ForkDetector:
 
         # Check for explicit disagreement phrases
         disagreement_phrases = [
-            "disagree", "don't agree", "incorrect", "wrong approach",
-            "better alternative", "instead", "rather than", "however",
-            "on the contrary", "fundamentally different",
+            "disagree",
+            "don't agree",
+            "incorrect",
+            "wrong approach",
+            "better alternative",
+            "instead",
+            "rather than",
+            "however",
+            "on the contrary",
+            "fundamentally different",
         ]
 
         for phrase in disagreement_phrases:
@@ -204,14 +213,27 @@ class ForkDetector:
 
         # Check for contradictory recommendations
         # (Simplified - would use NLP in production)
-        if ("should" in content_a and "should not" in content_b) or \
-           ("should not" in content_a and "should" in content_b):
+        if ("should" in content_a and "should not" in content_b) or (
+            "should not" in content_a and "should" in content_b
+        ):
             score += 0.3
             reasons.append("Contradictory should/should not")
 
         # Check for different technology choices
-        tech_terms = ["microservice", "monolith", "sql", "nosql", "sync", "async",
-                      "rest", "graphql", "cache", "database", "queue", "polling"]
+        tech_terms = [
+            "microservice",
+            "monolith",
+            "sql",
+            "nosql",
+            "sync",
+            "async",
+            "rest",
+            "graphql",
+            "cache",
+            "database",
+            "queue",
+            "polling",
+        ]
         tech_a = set(t for t in tech_terms if t in content_a)
         tech_b = set(t for t in tech_terms if t in content_b)
 
@@ -229,7 +251,7 @@ class ForkDetector:
         for marker in ["I propose", "My approach", "I suggest", "The solution is"]:
             if marker.lower() in content.lower():
                 idx = content.lower().find(marker.lower())
-                extract = content[idx:idx + 100]
+                extract = content[idx : idx + 100]
                 return extract.split(".")[0] + "..."
 
         # Fall back to first sentence
@@ -320,6 +342,7 @@ class DebateForker:
         Returns:
             Branches with results populated
         """
+
         async def run_branch(branch: Branch) -> Branch:
             # Create branch-specific environment
             branch_env = Environment(

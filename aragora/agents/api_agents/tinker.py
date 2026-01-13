@@ -286,16 +286,14 @@ class TinkerAgent(APIAgent):
         if loop.is_running():
             # We're in an async context, run in thread with new loop
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
-                    _run_async_in_thread,
-                    self._async_critique(target_agent, proposal, context)
+                    _run_async_in_thread, self._async_critique(target_agent, proposal, context)
                 )
                 return future.result()
         else:
-            return loop.run_until_complete(
-                self._async_critique(target_agent, proposal, context)
-            )
+            return loop.run_until_complete(self._async_critique(target_agent, proposal, context))
 
     async def _async_critique(
         self,

@@ -187,8 +187,8 @@ class TestFileReferenceExtractionEdgeCases:
         files = integration._extract_file_references(claim)
         # Should find all three file types
         assert len(files) >= 2
-        assert any('config.json' in f for f in files)
-        assert any('styles.tsx' in f for f in files)
+        assert any("config.json" in f for f in files)
+        assert any("styles.tsx" in f for f in files)
 
     def test_extract_no_files(self):
         """Test claim with no file references."""

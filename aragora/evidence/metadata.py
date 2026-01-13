@@ -23,16 +23,16 @@ logger = logging.getLogger(__name__)
 class SourceType(str, Enum):
     """Classification of evidence source types."""
 
-    WEB = "web"                    # General web content
-    ACADEMIC = "academic"          # Academic papers, journals
+    WEB = "web"  # General web content
+    ACADEMIC = "academic"  # Academic papers, journals
     DOCUMENTATION = "documentation"  # Technical documentation
-    NEWS = "news"                  # News articles
-    SOCIAL = "social"              # Social media, forums
-    CODE = "code"                  # Code repositories
-    API = "api"                    # API responses
-    DATABASE = "database"          # Database records
-    LOCAL = "local"                # Local files
-    UNKNOWN = "unknown"            # Unclassified
+    NEWS = "news"  # News articles
+    SOCIAL = "social"  # Social media, forums
+    CODE = "code"  # Code repositories
+    API = "api"  # API responses
+    DATABASE = "database"  # Database records
+    LOCAL = "local"  # Local files
+    UNKNOWN = "unknown"  # Unclassified
 
 
 @dataclass
@@ -56,7 +56,9 @@ class Provenance:
         return {
             "author": self.author,
             "organization": self.organization,
-            "publication_date": self.publication_date.isoformat() if self.publication_date else None,
+            "publication_date": (
+                self.publication_date.isoformat() if self.publication_date else None
+            ),
             "last_modified": self.last_modified.isoformat() if self.last_modified else None,
             "url": self.url,
             "doi": self.doi,
@@ -129,7 +131,11 @@ class EnrichedMetadata:
             source_type=SourceType(data.get("source_type", "unknown")),
             provenance=Provenance.from_dict(data.get("provenance", {})),
             confidence=data.get("confidence", 0.5),
-            timestamp=datetime.fromisoformat(data["timestamp"]) if data.get("timestamp") else datetime.now(),
+            timestamp=(
+                datetime.fromisoformat(data["timestamp"])
+                if data.get("timestamp")
+                else datetime.now()
+            ),
             language=data.get("language", "en"),
             word_count=data.get("word_count", 0),
             has_citations=data.get("has_citations", False),
@@ -146,60 +152,98 @@ class MetadataEnricher:
 
     # Domain patterns for source type classification
     ACADEMIC_DOMAINS = {
-        "arxiv.org", "scholar.google.com", "pubmed.ncbi.nlm.nih.gov",
-        "doi.org", "researchgate.net", "academia.edu", "jstor.org",
-        "ieee.org", "acm.org", "springer.com", "nature.com", "science.org",
+        "arxiv.org",
+        "scholar.google.com",
+        "pubmed.ncbi.nlm.nih.gov",
+        "doi.org",
+        "researchgate.net",
+        "academia.edu",
+        "jstor.org",
+        "ieee.org",
+        "acm.org",
+        "springer.com",
+        "nature.com",
+        "science.org",
     }
 
     DOCUMENTATION_DOMAINS = {
-        "docs.python.org", "developer.mozilla.org", "docs.microsoft.com",
-        "readthedocs.io", "readthedocs.org", "devdocs.io", "man7.org",
-        "cppreference.com", "docs.oracle.com", "docs.aws.amazon.com",
+        "docs.python.org",
+        "developer.mozilla.org",
+        "docs.microsoft.com",
+        "readthedocs.io",
+        "readthedocs.org",
+        "devdocs.io",
+        "man7.org",
+        "cppreference.com",
+        "docs.oracle.com",
+        "docs.aws.amazon.com",
     }
 
     NEWS_DOMAINS = {
-        "reuters.com", "bbc.com", "bbc.co.uk", "nytimes.com", "wsj.com",
-        "theguardian.com", "washingtonpost.com", "cnn.com", "apnews.com",
-        "news.ycombinator.com", "techcrunch.com", "arstechnica.com",
+        "reuters.com",
+        "bbc.com",
+        "bbc.co.uk",
+        "nytimes.com",
+        "wsj.com",
+        "theguardian.com",
+        "washingtonpost.com",
+        "cnn.com",
+        "apnews.com",
+        "news.ycombinator.com",
+        "techcrunch.com",
+        "arstechnica.com",
     }
 
     SOCIAL_DOMAINS = {
-        "twitter.com", "x.com", "reddit.com", "stackoverflow.com",
-        "medium.com", "dev.to", "linkedin.com", "quora.com",
-        "news.ycombinator.com", "lobste.rs",
+        "twitter.com",
+        "x.com",
+        "reddit.com",
+        "stackoverflow.com",
+        "medium.com",
+        "dev.to",
+        "linkedin.com",
+        "quora.com",
+        "news.ycombinator.com",
+        "lobste.rs",
     }
 
     CODE_DOMAINS = {
-        "github.com", "gitlab.com", "bitbucket.org", "gist.github.com",
-        "codepen.io", "jsfiddle.net", "replit.com", "codesandbox.io",
+        "github.com",
+        "gitlab.com",
+        "bitbucket.org",
+        "gist.github.com",
+        "codepen.io",
+        "jsfiddle.net",
+        "replit.com",
+        "codesandbox.io",
     }
 
     # Patterns for content analysis
     CITATION_PATTERNS = [
-        r'\[\d+\]',  # [1], [2], etc.
-        r'\(\w+,?\s*\d{4}\)',  # (Author, 2024) or (Author 2024)
-        r'et\s+al\.',  # et al.
-        r'doi:\s*[\d.\/\-]+',  # DOI references
-        r'arXiv:\d+\.\d+',  # arXiv references
+        r"\[\d+\]",  # [1], [2], etc.
+        r"\(\w+,?\s*\d{4}\)",  # (Author, 2024) or (Author 2024)
+        r"et\s+al\.",  # et al.
+        r"doi:\s*[\d.\/\-]+",  # DOI references
+        r"arXiv:\d+\.\d+",  # arXiv references
     ]
 
     CODE_PATTERNS = [
-        r'```[\w]*\n',  # Markdown code blocks
-        r'def\s+\w+\s*\(',  # Python function definitions
-        r'function\s+\w+\s*\(',  # JavaScript functions
-        r'class\s+\w+',  # Class definitions
-        r'import\s+\w+',  # Import statements
-        r'const\s+\w+\s*=',  # Const declarations
-        r'let\s+\w+\s*=',  # Let declarations
+        r"```[\w]*\n",  # Markdown code blocks
+        r"def\s+\w+\s*\(",  # Python function definitions
+        r"function\s+\w+\s*\(",  # JavaScript functions
+        r"class\s+\w+",  # Class definitions
+        r"import\s+\w+",  # Import statements
+        r"const\s+\w+\s*=",  # Const declarations
+        r"let\s+\w+\s*=",  # Let declarations
     ]
 
     DATA_PATTERNS = [
-        r'\d+%',  # Percentages
-        r'\$[\d,]+',  # Dollar amounts
-        r'\d+\s*(million|billion|trillion)',  # Large numbers
-        r'table\s+\d+',  # Table references
-        r'figure\s+\d+',  # Figure references
-        r'\d+\.\d+\s*(ms|s|kb|mb|gb)',  # Measurements
+        r"\d+%",  # Percentages
+        r"\$[\d,]+",  # Dollar amounts
+        r"\d+\s*(million|billion|trillion)",  # Large numbers
+        r"table\s+\d+",  # Table references
+        r"figure\s+\d+",  # Figure references
+        r"\d+\.\d+\s*(ms|s|kb|mb|gb)",  # Measurements
     ]
 
     def __init__(self):
@@ -207,12 +251,8 @@ class MetadataEnricher:
         self._compiled_citation_patterns = [
             re.compile(p, re.IGNORECASE) for p in self.CITATION_PATTERNS
         ]
-        self._compiled_code_patterns = [
-            re.compile(p, re.IGNORECASE) for p in self.CODE_PATTERNS
-        ]
-        self._compiled_data_patterns = [
-            re.compile(p, re.IGNORECASE) for p in self.DATA_PATTERNS
-        ]
+        self._compiled_code_patterns = [re.compile(p, re.IGNORECASE) for p in self.CODE_PATTERNS]
+        self._compiled_data_patterns = [re.compile(p, re.IGNORECASE) for p in self.DATA_PATTERNS]
 
     def enrich(
         self,
@@ -446,14 +486,14 @@ class MetadataEnricher:
         topics = []
 
         # Find capitalized multi-word phrases
-        capitalized = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b', content)
+        capitalized = re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b", content)
         topics.extend(capitalized[:5])
 
         # Find technical terms (camelCase, snake_case, etc.)
-        technical = re.findall(r'\b[a-z]+(?:[A-Z][a-z]+)+\b', content)  # camelCase
+        technical = re.findall(r"\b[a-z]+(?:[A-Z][a-z]+)+\b", content)  # camelCase
         topics.extend(technical[:3])
 
-        technical_snake = re.findall(r'\b[a-z]+_[a-z_]+\b', content)  # snake_case
+        technical_snake = re.findall(r"\b[a-z]+_[a-z_]+\b", content)  # snake_case
         topics.extend(technical_snake[:3])
 
         # Deduplicate
@@ -465,7 +505,9 @@ class MetadataEnricher:
 
         # Find capitalized words that might be names/organizations
         # Skip common words at sentence starts
-        potential_entities = re.findall(r'(?<=[.!?]\s)[A-Z][a-z]+|(?<=\s)[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*', content)
+        potential_entities = re.findall(
+            r"(?<=[.!?]\s)[A-Z][a-z]+|(?<=\s)[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*", content
+        )
 
         # Filter out common words
         common_words = {"The", "This", "That", "These", "Those", "It", "They", "We", "You", "I"}

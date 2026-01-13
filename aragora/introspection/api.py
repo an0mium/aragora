@@ -66,9 +66,7 @@ def get_agent_introspection(
             if persona is not None:
                 # Get top expertise domains
                 if hasattr(persona, "top_expertise"):
-                    snapshot.top_expertise = [
-                        domain for domain, _ in persona.top_expertise[:3]
-                    ]
+                    snapshot.top_expertise = [domain for domain, _ in persona.top_expertise[:3]]
                 elif hasattr(persona, "expertise") and persona.expertise:
                     # Fallback: sort expertise dict by score
                     sorted_expertise = sorted(
@@ -76,9 +74,7 @@ def get_agent_introspection(
                         key=lambda x: x[1],
                         reverse=True,
                     )
-                    snapshot.top_expertise = [
-                        domain for domain, _ in sorted_expertise[:3]
-                    ]
+                    snapshot.top_expertise = [domain for domain, _ in sorted_expertise[:3]]
 
                 # Get personality traits
                 if hasattr(persona, "traits") and persona.traits:

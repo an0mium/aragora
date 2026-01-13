@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ErrorWithRetry } from './RetryButton';
+import { withErrorBoundary } from './PanelErrorBoundary';
 import { fetchWithRetry } from '@/utils/retry';
 import type { StreamEvent } from '@/types/events';
+import { API_BASE_URL } from '@/config';
 
 interface EmergentTrait {
   agent: string;
@@ -45,9 +47,9 @@ interface LaboratoryPanelProps {
   events?: StreamEvent[];
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
-export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE, events = [] }: LaboratoryPanelProps) {
+function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: LaboratoryPanelProps) {
   const [apiTraits, setApiTraits] = useState<EmergentTrait[]>([]);
   const [pollinations, setPollinations] = useState<CrossPollination[]>([]);
   const [genesisStats, setGenesisStats] = useState<GenesisStats | null>(null);
@@ -527,3 +529,6 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Lab
     </div>
   );
 }
+
+// Wrap with error boundary for graceful error handling
+export const LaboratoryPanel = withErrorBoundary(LaboratoryPanelComponent, 'Laboratory');

@@ -37,6 +37,8 @@ class EvolutionRepository:
     Tracks rollbacks, cycle outcomes, and file changes to provide
     visibility into what changed and why over time.
 
+    Uses SQLiteStore internally for standardized schema management.
+
     Usage:
         repo = EvolutionRepository()
 
@@ -56,6 +58,58 @@ class EvolutionRepository:
         rollbacks = repo.get_rollbacks_for_loop("loop-123")
     """
 
+    SCHEMA_NAME = "evolution_repository"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS nomic_rollbacks (
+            id TEXT PRIMARY KEY,
+            loop_id TEXT NOT NULL,
+            cycle_number INTEGER NOT NULL,
+            phase TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            rolled_back_commit TEXT,
+            preserved_branch TEXT,
+            files_affected TEXT,
+            diff_summary TEXT,
+            error_message TEXT,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_rollbacks_loop
+        ON nomic_rollbacks(loop_id, cycle_number);
+
+        CREATE INDEX IF NOT EXISTS idx_rollbacks_severity
+        ON nomic_rollbacks(severity);
+
+        CREATE TABLE IF NOT EXISTS cycle_evolutions (
+            id TEXT PRIMARY KEY,
+            loop_id TEXT NOT NULL,
+            cycle_number INTEGER NOT NULL,
+            debate_artifact_id TEXT,
+            winning_proposal_summary TEXT,
+            files_changed TEXT,
+            git_commit TEXT,
+            rollback_id TEXT REFERENCES nomic_rollbacks(id),
+            created_at TEXT NOT NULL,
+            UNIQUE(loop_id, cycle_number)
+        );
+
+        CREATE TABLE IF NOT EXISTS cycle_file_changes (
+            loop_id TEXT NOT NULL,
+            cycle_number INTEGER NOT NULL,
+            file_path TEXT NOT NULL,
+            change_type TEXT NOT NULL,
+            insertions INTEGER DEFAULT 0,
+            deletions INTEGER DEFAULT 0,
+            PRIMARY KEY (loop_id, cycle_number, file_path)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_file_changes_path
+        ON cycle_file_changes(file_path);
+    """
+
     def __init__(self, db_path: Optional[Path] = None):
         """
         Initialize the evolution repository.
@@ -63,94 +117,27 @@ class EvolutionRepository:
         Args:
             db_path: Path to database file (defaults to evolution.db)
         """
+        from aragora.storage.base_store import SQLiteStore
+
         if db_path is None:
             db_path = get_db_path(DatabaseType.EVOLUTION)
 
         self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._init_db()
+
+        # Create SQLiteStore-based database wrapper
+        class _EvolutionDB(SQLiteStore):
+            SCHEMA_NAME = EvolutionRepository.SCHEMA_NAME
+            SCHEMA_VERSION = EvolutionRepository.SCHEMA_VERSION
+            INITIAL_SCHEMA = EvolutionRepository.INITIAL_SCHEMA
+
+        self._db = _EvolutionDB(str(db_path), timeout=30.0)
 
     @contextmanager
     def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
         """Get a database connection with guaranteed cleanup."""
-        conn = sqlite3.connect(str(self.db_path), timeout=30.0)
-        conn.row_factory = sqlite3.Row
-        try:
+        with self._db.connection() as conn:
+            conn.row_factory = sqlite3.Row
             yield conn
-        finally:
-            conn.close()
-
-    def _init_db(self) -> None:
-        """Initialize database schema."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            # Rollbacks table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS nomic_rollbacks (
-                    id TEXT PRIMARY KEY,
-                    loop_id TEXT NOT NULL,
-                    cycle_number INTEGER NOT NULL,
-                    phase TEXT NOT NULL,
-                    reason TEXT NOT NULL,
-                    severity TEXT NOT NULL,
-                    rolled_back_commit TEXT,
-                    preserved_branch TEXT,
-                    files_affected TEXT,
-                    diff_summary TEXT,
-                    error_message TEXT,
-                    created_at TEXT NOT NULL
-                )
-            """)
-
-            # Index for querying by loop
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_rollbacks_loop
-                ON nomic_rollbacks(loop_id, cycle_number)
-            """)
-
-            # Index for severity filtering
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_rollbacks_severity
-                ON nomic_rollbacks(severity)
-            """)
-
-            # Cycle evolution table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS cycle_evolutions (
-                    id TEXT PRIMARY KEY,
-                    loop_id TEXT NOT NULL,
-                    cycle_number INTEGER NOT NULL,
-                    debate_artifact_id TEXT,
-                    winning_proposal_summary TEXT,
-                    files_changed TEXT,
-                    git_commit TEXT,
-                    rollback_id TEXT REFERENCES nomic_rollbacks(id),
-                    created_at TEXT NOT NULL,
-                    UNIQUE(loop_id, cycle_number)
-                )
-            """)
-
-            # File changes table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS cycle_file_changes (
-                    loop_id TEXT NOT NULL,
-                    cycle_number INTEGER NOT NULL,
-                    file_path TEXT NOT NULL,
-                    change_type TEXT NOT NULL,
-                    insertions INTEGER DEFAULT 0,
-                    deletions INTEGER DEFAULT 0,
-                    PRIMARY KEY (loop_id, cycle_number, file_path)
-                )
-            """)
-
-            # Index for querying by file path
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_file_changes_path
-                ON cycle_file_changes(file_path)
-            """)
-
-            conn.commit()
 
     # =========================================================================
     # Rollback Operations
@@ -161,26 +148,29 @@ class EvolutionRepository:
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO nomic_rollbacks
                 (id, loop_id, cycle_number, phase, reason, severity,
                  rolled_back_commit, preserved_branch, files_affected,
                  diff_summary, error_message, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                rollback.id,
-                rollback.loop_id,
-                rollback.cycle_number,
-                rollback.phase,
-                rollback.reason,
-                rollback.severity,
-                rollback.rolled_back_commit,
-                rollback.preserved_branch,
-                json.dumps(rollback.files_affected),
-                rollback.diff_summary,
-                rollback.error_message,
-                rollback.created_at.isoformat(),
-            ))
+            """,
+                (
+                    rollback.id,
+                    rollback.loop_id,
+                    rollback.cycle_number,
+                    rollback.phase,
+                    rollback.reason,
+                    rollback.severity,
+                    rollback.rolled_back_commit,
+                    rollback.preserved_branch,
+                    json.dumps(rollback.files_affected),
+                    rollback.diff_summary,
+                    rollback.error_message,
+                    rollback.created_at.isoformat(),
+                ),
+            )
 
             conn.commit()
             logger.info(
@@ -195,10 +185,7 @@ class EvolutionRepository:
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute(
-                "SELECT * FROM nomic_rollbacks WHERE id = ?",
-                (rollback_id,)
-            )
+            cursor.execute("SELECT * FROM nomic_rollbacks WHERE id = ?", (rollback_id,))
             row = cursor.fetchone()
 
             if not row:
@@ -219,13 +206,12 @@ class EvolutionRepository:
                 cursor.execute(
                     "SELECT * FROM nomic_rollbacks WHERE loop_id = ? AND severity = ? "
                     "ORDER BY cycle_number DESC",
-                    (loop_id, severity)
+                    (loop_id, severity),
                 )
             else:
                 cursor.execute(
-                    "SELECT * FROM nomic_rollbacks WHERE loop_id = ? "
-                    "ORDER BY cycle_number DESC",
-                    (loop_id,)
+                    "SELECT * FROM nomic_rollbacks WHERE loop_id = ? " "ORDER BY cycle_number DESC",
+                    (loop_id,),
                 )
 
             return [self._row_to_rollback(row) for row in cursor.fetchall()]
@@ -243,12 +229,11 @@ class EvolutionRepository:
                 cursor.execute(
                     "SELECT * FROM nomic_rollbacks WHERE severity = ? "
                     "ORDER BY created_at DESC LIMIT ?",
-                    (severity, limit)
+                    (severity, limit),
                 )
             else:
                 cursor.execute(
-                    "SELECT * FROM nomic_rollbacks ORDER BY created_at DESC LIMIT ?",
-                    (limit,)
+                    "SELECT * FROM nomic_rollbacks ORDER BY created_at DESC LIMIT ?", (limit,)
                 )
 
             return [self._row_to_rollback(row) for row in cursor.fetchall()]
@@ -279,23 +264,26 @@ class EvolutionRepository:
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO cycle_evolutions
                 (id, loop_id, cycle_number, debate_artifact_id,
                  winning_proposal_summary, files_changed, git_commit,
                  rollback_id, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                evolution.id,
-                evolution.loop_id,
-                evolution.cycle_number,
-                evolution.debate_artifact_id,
-                evolution.winning_proposal_summary,
-                json.dumps(evolution.files_changed),
-                evolution.git_commit,
-                evolution.rollback_id,
-                evolution.created_at.isoformat(),
-            ))
+            """,
+                (
+                    evolution.id,
+                    evolution.loop_id,
+                    evolution.cycle_number,
+                    evolution.debate_artifact_id,
+                    evolution.winning_proposal_summary,
+                    json.dumps(evolution.files_changed),
+                    evolution.git_commit,
+                    evolution.rollback_id,
+                    evolution.created_at.isoformat(),
+                ),
+            )
 
             conn.commit()
             logger.debug(
@@ -312,7 +300,7 @@ class EvolutionRepository:
 
             cursor.execute(
                 "SELECT * FROM cycle_evolutions WHERE loop_id = ? AND cycle_number = ?",
-                (loop_id, cycle_number)
+                (loop_id, cycle_number),
             )
             row = cursor.fetchone()
 
@@ -333,7 +321,7 @@ class EvolutionRepository:
             cursor.execute(
                 "SELECT * FROM cycle_evolutions WHERE loop_id = ? "
                 "ORDER BY cycle_number DESC LIMIT ?",
-                (loop_id, limit)
+                (loop_id, limit),
             )
 
             return [self._row_to_evolution(row) for row in cursor.fetchall()]
@@ -367,18 +355,21 @@ class EvolutionRepository:
             cursor = conn.cursor()
 
             for change in changes:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR REPLACE INTO cycle_file_changes
                     (loop_id, cycle_number, file_path, change_type, insertions, deletions)
                     VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    loop_id,
-                    cycle_number,
-                    change.file_path,
-                    change.change_type,
-                    change.insertions,
-                    change.deletions,
-                ))
+                """,
+                    (
+                        loop_id,
+                        cycle_number,
+                        change.file_path,
+                        change.change_type,
+                        change.insertions,
+                        change.deletions,
+                    ),
+                )
 
             conn.commit()
             logger.debug(
@@ -395,7 +386,8 @@ class EvolutionRepository:
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT fc.*, ce.winning_proposal_summary, ce.git_commit
                 FROM cycle_file_changes fc
                 LEFT JOIN cycle_evolutions ce
@@ -403,19 +395,23 @@ class EvolutionRepository:
                 WHERE fc.file_path = ?
                 ORDER BY fc.loop_id DESC, fc.cycle_number DESC
                 LIMIT ?
-            """, (file_path, limit))
+            """,
+                (file_path, limit),
+            )
 
             results = []
             for row in cursor.fetchall():
-                results.append({
-                    "loop_id": row["loop_id"],
-                    "cycle_number": row["cycle_number"],
-                    "change_type": row["change_type"],
-                    "insertions": row["insertions"],
-                    "deletions": row["deletions"],
-                    "summary": row["winning_proposal_summary"],
-                    "commit": row["git_commit"],
-                })
+                results.append(
+                    {
+                        "loop_id": row["loop_id"],
+                        "cycle_number": row["cycle_number"],
+                        "change_type": row["change_type"],
+                        "insertions": row["insertions"],
+                        "deletions": row["deletions"],
+                        "summary": row["winning_proposal_summary"],
+                        "commit": row["git_commit"],
+                    }
+                )
 
             return results
 
@@ -432,7 +428,7 @@ class EvolutionRepository:
                 "SELECT * FROM cycle_file_changes "
                 "WHERE loop_id = ? AND cycle_number = ? "
                 "ORDER BY file_path",
-                (loop_id, cycle_number)
+                (loop_id, cycle_number),
             )
 
             return [
@@ -457,30 +453,39 @@ class EvolutionRepository:
             cursor = conn.cursor()
 
             # Count rollbacks by severity
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT severity, COUNT(*) as count
                 FROM nomic_rollbacks
                 WHERE loop_id = ?
                 GROUP BY severity
-            """, (loop_id,))
+            """,
+                (loop_id,),
+            )
             rollback_counts = {row["severity"]: row["count"] for row in cursor.fetchall()}
 
             # Count cycles
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT COUNT(*) as total, MAX(cycle_number) as latest
                 FROM cycle_evolutions
                 WHERE loop_id = ?
-            """, (loop_id,))
+            """,
+                (loop_id,),
+            )
             row = cursor.fetchone()
             total_cycles = row["total"] if row else 0
             latest_cycle = row["latest"] if row else 0
 
             # Count successful commits
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT COUNT(*) as count
                 FROM cycle_evolutions
                 WHERE loop_id = ? AND git_commit IS NOT NULL AND rollback_id IS NULL
-            """, (loop_id,))
+            """,
+                (loop_id,),
+            )
             row = cursor.fetchone()
             successful_commits = row["count"] if row else 0
 

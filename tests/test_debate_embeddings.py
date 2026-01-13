@@ -19,7 +19,7 @@ def is_ollama_running() -> bool:
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(1)
-        result = sock.connect_ex(('localhost', 11434))
+        result = sock.connect_ex(("localhost", 11434))
         sock.close()
         return result == 0
     except Exception:
@@ -28,8 +28,7 @@ def is_ollama_running() -> bool:
 
 # Skip tests that require Ollama if it's not running
 requires_ollama = pytest.mark.skipif(
-    not is_ollama_running(),
-    reason="Ollama not running on localhost:11434"
+    not is_ollama_running(), reason="Ollama not running on localhost:11434"
 )
 
 
@@ -53,13 +52,13 @@ async def test_index_and_search_debate():
             transcript=[
                 {"agent": "Claude", "content": "We should add more features", "type": "proposal"},
                 {"agent": "Gemini", "content": "But keep it simple", "type": "critique"},
-                {"agent": "Claude", "content": "Agreed, balance complexity", "type": "revision"}
+                {"agent": "Claude", "content": "Agreed, balance complexity", "type": "revision"},
             ],
             consensus_reached=True,
             confidence=0.8,
             winning_proposal="Balanced approach",
             vote_tally={"Claude": 1, "Gemini": 1},
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
 
         # Index the debate
@@ -104,7 +103,7 @@ async def test_multiple_debates():
             consensus_reached=True,
             confidence=0.9,
             winning_proposal="Implement safety checks",
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
 
         # Debate 2: About AI features
@@ -120,7 +119,7 @@ async def test_multiple_debates():
             consensus_reached=True,
             confidence=0.7,
             winning_proposal="Add embeddings database",
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
 
         await db.index_debate(debate1)

@@ -102,12 +102,12 @@ class TestQualityScores:
         """Test weights sum to 1.0."""
         scores = QualityScores()
         total = (
-            scores.relevance_weight +
-            scores.semantic_weight +
-            scores.freshness_weight +
-            scores.authority_weight +
-            scores.completeness_weight +
-            scores.consistency_weight
+            scores.relevance_weight
+            + scores.semantic_weight
+            + scores.freshness_weight
+            + scores.authority_weight
+            + scores.completeness_weight
+            + scores.consistency_weight
         )
         assert abs(total - 1.0) < 0.001
 
@@ -147,12 +147,12 @@ class TestQualityScores:
         )
         # Verify calculation
         expected = (
-            0.8 * 0.25 +   # relevance
-            0.75 * 0.15 +  # semantic
-            0.6 * 0.12 +   # freshness
-            0.9 * 0.28 +   # authority
-            0.7 * 0.10 +   # completeness
-            0.5 * 0.10     # consistency
+            0.8 * 0.25  # relevance
+            + 0.75 * 0.15  # semantic
+            + 0.6 * 0.12  # freshness
+            + 0.9 * 0.28  # authority
+            + 0.7 * 0.10  # completeness
+            + 0.5 * 0.10  # consistency
         )
         assert abs(scores.overall_score - expected) < 0.001
 
@@ -590,7 +590,7 @@ class MockEmbeddingProvider:
         embedding = []
         for seed in range(self.dimension):
             h = hashlib.sha256(f"{seed}:{text}".encode()).digest()
-            val = struct.unpack('<i', h[:4])[0] / (2**31)
+            val = struct.unpack("<i", h[:4])[0] / (2**31)
             embedding.append(val)
         return embedding
 
@@ -702,6 +702,7 @@ class TestSemanticScoring:
     @pytest.mark.asyncio
     async def test_score_semantic_handles_errors(self, mock_provider):
         """Test semantic scoring handles provider errors gracefully."""
+
         # Create a failing provider
         class FailingProvider:
             async def embed(self, text: str):
@@ -720,6 +721,7 @@ class TestSemanticScoring:
     @pytest.mark.asyncio
     async def test_score_batch_with_semantic(self, scorer_with_provider):
         """Test batch scoring with semantic similarity."""
+
         class MockEvidence:
             def __init__(self, snippet):
                 self.snippet = snippet
@@ -731,9 +733,7 @@ class TestSemanticScoring:
         ]
         ctx = QualityContext(query="machine learning")
 
-        results = await scorer_with_provider.score_batch_with_semantic(
-            evidence_list, context=ctx
-        )
+        results = await scorer_with_provider.score_batch_with_semantic(evidence_list, context=ctx)
 
         assert len(results) == 3
         assert all(isinstance(r, QualityScores) for r in results)
@@ -763,6 +763,7 @@ class TestSemanticScoring:
     @pytest.mark.asyncio
     async def test_score_batch_without_query(self, scorer_with_provider):
         """Test batch scoring defaults to 0.5 without query."""
+
         class MockEvidence:
             def __init__(self, snippet):
                 self.snippet = snippet
@@ -773,9 +774,7 @@ class TestSemanticScoring:
         evidence_list = [MockEvidence("Content")]
         ctx = QualityContext()  # No query
 
-        results = await scorer_with_provider.score_batch_with_semantic(
-            evidence_list, context=ctx
-        )
+        results = await scorer_with_provider.score_batch_with_semantic(evidence_list, context=ctx)
 
         assert results[0].semantic_score == 0.5
 
@@ -800,6 +799,7 @@ class TestQualityFilter:
     @pytest.fixture
     def mock_evidence_list(self):
         """Create mock evidence snippets."""
+
         class MockEvidence:
             def __init__(self, snippet, url="", source="web", reliability=0.5):
                 self.snippet = snippet
@@ -902,6 +902,7 @@ class TestScoreEvidenceSnippet:
 
     def test_score_evidence_snippet_basic(self):
         """Test scoring a mock evidence snippet."""
+
         class MockSnippet:
             snippet = "Test content about machine learning."
             url = "https://docs.python.org/test"
@@ -914,6 +915,7 @@ class TestScoreEvidenceSnippet:
 
     def test_score_evidence_snippet_with_query(self):
         """Test scoring with query."""
+
         class MockSnippet:
             snippet = "Machine learning algorithms for data analysis."
             url = ""
@@ -928,6 +930,7 @@ class TestScoreEvidenceSnippet:
 
     def test_score_evidence_snippet_with_keywords(self):
         """Test scoring with keywords."""
+
         class MockSnippet:
             snippet = "Python testing with pytest and unittest."
             url = ""
@@ -942,6 +945,7 @@ class TestScoreEvidenceSnippet:
 
     def test_score_evidence_snippet_with_scorer(self):
         """Test scoring with custom scorer."""
+
         class MockSnippet:
             snippet = "Custom scorer test content."
             url = ""

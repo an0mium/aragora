@@ -65,7 +65,7 @@ def _extract_task(prompt: str) -> str:
         idx = prompt.find(label)
         if idx == -1:
             continue
-        line = prompt[idx + len(label):].strip()
+        line = prompt[idx + len(label) :].strip()
         line = line.splitlines()[0].strip() if line else ""
         if line:
             return _truncate(line, _MAX_TASK_LEN)

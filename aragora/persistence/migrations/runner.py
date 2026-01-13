@@ -39,7 +39,7 @@ from aragora.storage.schema import SchemaManager, get_wal_connection
 
 logger = logging.getLogger(__name__)
 
-# Default database paths (relative to NOMIC_DIR or absolute)
+# Default database paths (relative to ARAGORA_DATA_DIR or absolute)
 DEFAULT_DB_PATHS = {
     "elo": "aragora_elo.db",
     "memory": "aragora_memory.db",
@@ -105,13 +105,17 @@ class MigrationRunner:
 
     @staticmethod
     def _get_nomic_dir() -> Path:
-        """Get the nomic directory from environment or default."""
-        env_dir = os.environ.get("NOMIC_DIR")
+        """Get the data directory from environment or default."""
+        env_dir = (
+            os.environ.get("ARAGORA_DATA_DIR")
+            or os.environ.get("ARAGORA_NOMIC_DIR")
+            or os.environ.get("NOMIC_DIR")
+        )
         if env_dir:
             return Path(env_dir)
 
-        # Default to ~/.aragora
-        return Path.home() / ".aragora"
+        # Default to .nomic (relative to current working directory)
+        return Path(".nomic")
 
     def discover_migrations(self, db_name: str) -> list[MigrationFile]:
         """
@@ -277,10 +281,7 @@ class MigrationRunner:
             manager = SchemaManager(conn, db_name, current_version=target_version)
             current = manager.get_version()
 
-            pending = [
-                m for m in migrations
-                if m.version > current and m.version <= target_version
-            ]
+            pending = [m for m in migrations if m.version > current and m.version <= target_version]
 
             return {
                 "db_name": db_name,
@@ -312,10 +313,7 @@ class MigrationRunner:
             manager = SchemaManager(conn, db_name, current_version=target_version)
             current = manager.get_version()
 
-            pending = [
-                m for m in migrations
-                if m.version > current and m.version <= target_version
-            ]
+            pending = [m for m in migrations if m.version > current and m.version <= target_version]
 
             if not pending:
                 return {
@@ -335,30 +333,32 @@ class MigrationRunner:
                     # Load and execute migration module
                     module = self._load_migration_module(migration)
                     if hasattr(module, "upgrade"):
+                        # Check if migration is empty (only has pass)
+                        if self._is_empty_migration(module.upgrade):
+                            logger.warning(
+                                f"[{db_name}] Migration {migration.version} has empty "
+                                f"upgrade() function. Consider implementing it."
+                            )
                         module.upgrade(conn)
                         conn.commit()
                     else:
-                        raise ValueError(
-                            f"Migration {migration.path} missing upgrade() function"
-                        )
+                        raise ValueError(f"Migration {migration.path} missing upgrade() function")
 
                     # Update version
                     manager.set_version(migration.version)
                     applied.append(migration.version)
 
-                    logger.info(
-                        f"[{db_name}] Applied migration {migration.version} successfully"
-                    )
+                    logger.info(f"[{db_name}] Applied migration {migration.version} successfully")
 
                 except Exception as e:
                     conn.rollback()
-                    errors.append({
-                        "version": migration.version,
-                        "error": str(e),
-                    })
-                    logger.error(
-                        f"[{db_name}] Migration {migration.version} failed: {e}"
+                    errors.append(
+                        {
+                            "version": migration.version,
+                            "error": str(e),
+                        }
                     )
+                    logger.error(f"[{db_name}] Migration {migration.version} failed: {e}")
                     break  # Stop on first error
 
             final_version = manager.get_version()
@@ -383,6 +383,30 @@ class MigrationRunner:
 
         # Import the module
         return importlib.import_module(module_path)
+
+    def _is_empty_migration(self, func: Callable) -> bool:
+        """Check if a migration function is effectively empty (only pass/pass-like)."""
+        import dis
+        import inspect
+
+        try:
+            source = inspect.getsource(func)
+            # Check if body is just 'pass' or comments + pass
+            lines = [
+                line.strip()
+                for line in source.split("\n")
+                if line.strip()
+                and not line.strip().startswith("#")
+                and not line.strip().startswith('"""')
+                and not line.strip().startswith("'''")
+                and not line.strip().startswith("def ")
+            ]
+            # Filter out docstrings
+            non_doc_lines = [l for l in lines if not l.startswith('"') and not l.startswith("'")]
+            return len(non_doc_lines) == 0 or all(l == "pass" for l in non_doc_lines)
+        except Exception:
+            # If we can't inspect, assume it's not empty
+            return False
 
     def migrate_all(self, dry_run: bool = False) -> dict[str, dict]:
         """Run migrations for all databases."""
@@ -423,25 +447,67 @@ class MigrationRunner:
 Migration {next_version}: {description}
 
 Created: {datetime.utcnow().isoformat()}
+
+IMPORTANT: Replace the 'pass' statements below with actual SQL.
+Empty migrations will generate warnings when applied.
 """
 
 import sqlite3
 
 
 def upgrade(conn: sqlite3.Connection) -> None:
-    """Apply this migration."""
-    # TODO: Add migration SQL here
-    # Example:
+    """
+    Apply this migration.
+
+    Common patterns:
+    - Add column: ALTER TABLE tablename ADD COLUMN colname TYPE
+    - Create table: CREATE TABLE IF NOT EXISTS ...
+    - Create index: CREATE INDEX IF NOT EXISTS ...
+    - Insert data: INSERT INTO tablename VALUES ...
+
+    SQLite limitations (use workarounds):
+    - Cannot DROP COLUMN directly (recreate table)
+    - Cannot RENAME COLUMN in older SQLite (recreate table)
+    - Cannot add constraints to existing table (recreate table)
+    """
+    # Example: Add a new column
     # conn.execute("""
     #     ALTER TABLE users ADD COLUMN locked_until TIMESTAMP
     # """)
+
+    # Example: Create a new table
+    # conn.execute("""
+    #     CREATE TABLE IF NOT EXISTS audit_log (
+    #         id INTEGER PRIMARY KEY AUTOINCREMENT,
+    #         action TEXT NOT NULL,
+    #         user_id TEXT,
+    #         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    #         details TEXT
+    #     )
+    # """)
+
+    # Example: Create an index
+    # conn.execute("""
+    #     CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp
+    #     ON audit_log(timestamp)
+    # """)
+
+    # TODO: Replace this pass with your migration SQL
     pass
 
 
 def downgrade(conn: sqlite3.Connection) -> None:
-    """Reverse this migration (optional, for development only)."""
-    # WARNING: Downgrade is not recommended in production
-    # SQLite has limited ALTER TABLE support
+    """
+    Reverse this migration (optional, for development only).
+
+    WARNING: Downgrade is not recommended in production.
+    SQLite has limited ALTER TABLE support - you may need to
+    recreate tables to reverse changes.
+    """
+    # Example: Drop a table (if you created one in upgrade)
+    # conn.execute("DROP TABLE IF EXISTS audit_log")
+
+    # TODO: Replace this pass if you need rollback support
     pass
 '''
 
@@ -514,10 +580,11 @@ def main() -> int:
     parser.add_argument(
         "--nomic-dir",
         metavar="PATH",
-        help="Override NOMIC_DIR environment variable",
+        help="Override ARAGORA_DATA_DIR/ARAGORA_NOMIC_DIR (legacy: NOMIC_DIR)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose logging",
     )

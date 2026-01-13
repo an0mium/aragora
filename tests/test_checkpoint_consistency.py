@@ -684,7 +684,9 @@ class TestConcurrentAccess:
         assert loaded.current_round == 3
 
     @pytest.mark.asyncio
-    async def test_concurrent_different_checkpoints(self, file_store, sample_agent_states, sample_messages):
+    async def test_concurrent_different_checkpoints(
+        self, file_store, sample_agent_states, sample_messages
+    ):
         """Concurrent saves of different checkpoints don't interfere."""
         checkpoints = [
             DebateCheckpoint(
@@ -754,7 +756,9 @@ class TestConcurrentAccess:
         manager = CheckpointManager(store=file_store)
 
         await file_store.save(sample_checkpoint)
-        await manager.resume_from_checkpoint(sample_checkpoint.checkpoint_id, resumed_by="test-user")
+        await manager.resume_from_checkpoint(
+            sample_checkpoint.checkpoint_id, resumed_by="test-user"
+        )
 
         loaded = await file_store.load(sample_checkpoint.checkpoint_id)
         assert loaded.resumed_by == "test-user"
@@ -862,8 +866,7 @@ class TestResumeFlow:
 
         await file_store.save(sample_checkpoint)
         resumed = await manager.resume_from_checkpoint(
-            sample_checkpoint.checkpoint_id,
-            resumed_by="human-reviewer"
+            sample_checkpoint.checkpoint_id, resumed_by="human-reviewer"
         )
 
         assert resumed is not None
@@ -887,9 +890,7 @@ class TestInterventions:
 
         await file_store.save(sample_checkpoint)
         result = await manager.add_intervention(
-            sample_checkpoint.checkpoint_id,
-            note="Please review this proposal",
-            by="reviewer"
+            sample_checkpoint.checkpoint_id, note="Please review this proposal", by="reviewer"
         )
 
         assert result is True
@@ -913,8 +914,12 @@ class TestInterventions:
 
         await file_store.save(sample_checkpoint)
 
-        await manager.add_intervention(sample_checkpoint.checkpoint_id, "First note", by="reviewer1")
-        await manager.add_intervention(sample_checkpoint.checkpoint_id, "Second note", by="reviewer2")
+        await manager.add_intervention(
+            sample_checkpoint.checkpoint_id, "First note", by="reviewer1"
+        )
+        await manager.add_intervention(
+            sample_checkpoint.checkpoint_id, "Second note", by="reviewer2"
+        )
 
         loaded = await file_store.load(sample_checkpoint.checkpoint_id)
         assert len(loaded.intervention_notes) == 2

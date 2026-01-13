@@ -38,6 +38,7 @@ from aragora.server.stream import SyncEventEmitter, StreamEvent, StreamEventType
 # Storage Adapter - Provides expected handler API on top of DebateStorage
 # ============================================================================
 
+
 class StorageAdapter:
     """
     Wraps DebateStorage to provide the API expected by handlers.
@@ -93,6 +94,7 @@ class StorageAdapter:
 # ============================================================================
 # Integration Test Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def integration_db() -> Generator[str, None, None]:
@@ -150,20 +152,28 @@ def integration_nomic_dir() -> Generator[Path, None, None]:
 
         # Create nomic state file
         state_file = nomic_dir / "nomic_state.json"
-        state_file.write_text(json.dumps({
-            "phase": "implement",
-            "stage": "executing",
-            "cycle": 1,
-            "total_tasks": 5,
-            "completed_tasks": 2,
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "phase": "implement",
+                    "stage": "executing",
+                    "cycle": 1,
+                    "total_tasks": 5,
+                    "completed_tasks": 2,
+                }
+            )
+        )
 
         # Create nomic log file
         log_file = nomic_dir / "nomic_loop.log"
-        log_file.write_text("\n".join([
-            "2026-01-05 00:00:01 Starting cycle 1",
-            "2026-01-05 00:00:02 Phase: context",
-        ]))
+        log_file.write_text(
+            "\n".join(
+                [
+                    "2026-01-05 00:00:01 Starting cycle 1",
+                    "2026-01-05 00:00:02 Phase: context",
+                ]
+            )
+        )
 
         yield nomic_dir
 
@@ -197,6 +207,7 @@ def handler_ensemble(integrated_storage, integrated_elo, integration_nomic_dir):
 @pytest.fixture
 def debate_factory(integrated_storage):
     """Factory for creating test debates with full data."""
+
     def create(
         slug: str,
         agents: list[str],
@@ -210,9 +221,15 @@ def debate_factory(integrated_storage):
             "task": task or f"Test debate: {slug}",
             "topic": task or f"Test debate: {slug}",
             "agents": agents,
-            "messages": messages or [
+            "messages": messages
+            or [
                 {"agent": agents[0], "content": "First message", "round": 1, "role": "speaker"},
-                {"agent": agents[1] if len(agents) > 1 else agents[0], "content": "Response", "round": 1, "role": "speaker"},
+                {
+                    "agent": agents[1] if len(agents) > 1 else agents[0],
+                    "content": "Response",
+                    "round": 1,
+                    "role": "speaker",
+                },
             ],
             "critiques": [],
             "votes": [],
@@ -251,6 +268,7 @@ def clear_caches_between_tests():
 # Test Classes
 # ============================================================================
 
+
 class TestDebateAgentCoordination:
     """Tests for data flow between Debates and Agents handlers."""
 
@@ -261,9 +279,7 @@ class TestDebateAgentCoordination:
         # Record a match to establish agent ratings
         # Signature: record_match(debate_id, participants, scores)
         integrated_elo.record_match(
-            "test-debate-1",
-            ["claude", "gemini"],
-            {"claude": 1.0, "gemini": 0.0}  # claude wins
+            "test-debate-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0}  # claude wins
         )
 
         # Get leaderboard
@@ -283,9 +299,7 @@ class TestDebateAgentCoordination:
         integrated_elo.record_match(
             "debate-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0}
         )
-        integrated_elo.record_match(
-            "debate-2", ["claude", "gpt4"], {"claude": 0.0, "gpt4": 1.0}
-        )
+        integrated_elo.record_match("debate-2", ["claude", "gpt4"], {"claude": 0.0, "gpt4": 1.0})
 
         # Verify matches were recorded in ELO system directly
         rating = integrated_elo.get_rating("claude")
@@ -295,12 +309,8 @@ class TestDebateAgentCoordination:
     def test_agent_profile_reflects_elo_rating(self, handler_ensemble, integrated_elo):
         """Agent profile should show correct ELO rating."""
         # Establish a rating through matches (claude wins both)
-        integrated_elo.record_match(
-            "test-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0}
-        )
-        integrated_elo.record_match(
-            "test-2", ["claude", "gpt4"], {"claude": 1.0, "gpt4": 0.0}
-        )
+        integrated_elo.record_match("test-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0})
+        integrated_elo.record_match("test-2", ["claude", "gpt4"], {"claude": 1.0, "gpt4": 0.0})
 
         # Verify ELO directly from system (handler may return different format)
         rating = integrated_elo.get_rating("claude")
@@ -311,15 +321,9 @@ class TestDebateAgentCoordination:
     def test_head_to_head_reflects_match_history(self, handler_ensemble, integrated_elo):
         """Head-to-head stats should reflect recorded matches."""
         # Record several matches between claude and gemini
-        integrated_elo.record_match(
-            "match-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0}
-        )
-        integrated_elo.record_match(
-            "match-2", ["claude", "gemini"], {"claude": 0.0, "gemini": 1.0}
-        )
-        integrated_elo.record_match(
-            "match-3", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0}
-        )
+        integrated_elo.record_match("match-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0})
+        integrated_elo.record_match("match-2", ["claude", "gemini"], {"claude": 0.0, "gemini": 1.0})
+        integrated_elo.record_match("match-3", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0})
 
         # Get head-to-head
         result = handler_ensemble["agents"].handle(
@@ -331,21 +335,15 @@ class TestDebateAgentCoordination:
         # Claude won 2, gemini won 1
         assert data.get("claude_wins", 0) + data.get("wins", 0) >= 2
 
-    def test_recent_matches_includes_recorded_matches(
-        self, handler_ensemble, integrated_elo
-    ):
+    def test_recent_matches_includes_recorded_matches(self, handler_ensemble, integrated_elo):
         """Recent matches endpoint should include recorded matches."""
         # Record matches
         integrated_elo.record_match(
             "recent-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0}
         )
-        integrated_elo.record_match(
-            "recent-2", ["gpt4", "gemini"], {"gpt4": 1.0, "gemini": 0.0}
-        )
+        integrated_elo.record_match("recent-2", ["gpt4", "gemini"], {"gpt4": 1.0, "gemini": 0.0})
 
-        result = handler_ensemble["agents"].handle(
-            "/api/matches/recent", {"limit": "10"}, None
-        )
+        result = handler_ensemble["agents"].handle("/api/matches/recent", {"limit": "10"}, None)
         assert result.status_code == 200
 
         data = json.loads(result.body)
@@ -357,9 +355,7 @@ class TestDebateAgentCoordination:
         # Create a clear winner (top_agent wins 5 times)
         for i in range(5):
             integrated_elo.record_match(
-                f"match-{i}",
-                ["top_agent", "bottom_agent"],
-                {"top_agent": 1.0, "bottom_agent": 0.0}
+                f"match-{i}", ["top_agent", "bottom_agent"], {"top_agent": 1.0, "bottom_agent": 0.0}
             )
 
         result = handler_ensemble["agents"].handle("/api/leaderboard", {}, None)
@@ -395,9 +391,7 @@ class TestDataConsistency:
         created = debate_factory("retrieval-test", ["claude", "gemini"], task="Test task")
 
         # Retrieve via debates handler
-        result = handler_ensemble["debates"].handle(
-            "/api/debates/slug/retrieval-test", {}, None
-        )
+        result = handler_ensemble["debates"].handle("/api/debates/slug/retrieval-test", {}, None)
 
         if result.status_code == 200:
             data = json.loads(result.body)
@@ -406,15 +400,17 @@ class TestDataConsistency:
     def test_storage_write_visible_to_handlers(self, handler_ensemble, integrated_storage):
         """Writes to storage should be immediately visible to handlers."""
         # Save a debate directly
-        integrated_storage.save_debate({
-            "id": "direct-write",
-            "task": "Direct write test",
-            "agents": ["agent1", "agent2"],
-            "messages": [],
-            "critiques": [],
-            "votes": [],
-            "consensus_reached": True,
-        })
+        integrated_storage.save_debate(
+            {
+                "id": "direct-write",
+                "task": "Direct write test",
+                "agents": ["agent1", "agent2"],
+                "messages": [],
+                "critiques": [],
+                "votes": [],
+                "consensus_reached": True,
+            }
+        )
 
         # Should be visible in list
         result = handler_ensemble["debates"].handle("/api/debates", {}, None)
@@ -431,9 +427,7 @@ class TestDataConsistency:
         """ELO changes should be immediately visible."""
         # Record a win
         integrated_elo.record_match(
-            "elo-test",
-            ["test-agent", "opponent"],
-            {"test-agent": 1.0, "opponent": 0.0}
+            "elo-test", ["test-agent", "opponent"], {"test-agent": 1.0, "opponent": 0.0}
         )
 
         # Verify directly from ELO system
@@ -453,10 +447,7 @@ class TestEventFlow:
 
         # Emit a sequence
         for i in range(10):
-            emitter.emit(StreamEvent(
-                type=StreamEventType.AGENT_MESSAGE,
-                data={"index": i}
-            ))
+            emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={"index": i}))
 
         # Drain events
         emitter.drain()
@@ -596,14 +587,16 @@ class TestConcurrentAccess:
         initial_count = json.loads(result1.body).get("count", 0)
 
         # Write new debate
-        integrated_storage.save_debate({
-            "id": "write-read-test",
-            "task": "Write-read consistency test",
-            "agents": ["agent1", "agent2"],
-            "messages": [],
-            "critiques": [],
-            "votes": [],
-        })
+        integrated_storage.save_debate(
+            {
+                "id": "write-read-test",
+                "task": "Write-read consistency test",
+                "agents": ["agent1", "agent2"],
+                "messages": [],
+                "critiques": [],
+                "votes": [],
+            }
+        )
 
         # Clear cache
         clear_cache()
@@ -624,7 +617,7 @@ class TestConcurrentAccess:
                 integrated_elo.record_match(
                     f"concurrent-match-{idx}",
                     [f"agent-{idx % 3}", f"agent-{(idx + 1) % 3}"],
-                    {f"agent-{idx % 3}": 1.0, f"agent-{(idx + 1) % 3}": 0.0}
+                    {f"agent-{idx % 3}": 1.0, f"agent-{(idx + 1) % 3}": 0.0},
                 )
             except Exception as e:
                 with lock:

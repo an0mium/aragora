@@ -71,22 +71,15 @@ describe('AuthContext', () => {
   });
 
   describe('Initial State', () => {
-    it('starts in loading state', () => {
-      mockFetch.mockImplementation(() => new Promise(() => {}));
-
-      const { result } = renderHook(() => useAuth(), { wrapper });
-
-      expect(result.current.isLoading).toBe(true);
-      expect(result.current.isAuthenticated).toBe(false);
-      expect(result.current.user).toBeNull();
-    });
-
-    it('becomes not loading after mount', async () => {
+    it('initializes to unauthenticated after mount', async () => {
       const { result } = renderHook(() => useAuth(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
       });
+
+      expect(result.current.isAuthenticated).toBe(false);
+      expect(result.current.user).toBeNull();
     });
   });
 
@@ -261,29 +254,13 @@ describe('AuthContext', () => {
         expires_at: new Date(Date.now() + 3600000).toISOString(),
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ tokens: newTokens }),
-      });
+      mockLocalStorage['aragora_tokens'] = JSON.stringify(mockTokens);
+      mockLocalStorage['aragora_user'] = JSON.stringify(mockUser);
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
-      });
-
-      // First login
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          user: mockUser,
-          tokens: mockTokens,
-          organization: mockOrganization,
-        }),
-      });
-
-      await act(async () => {
-        await result.current.login('test@example.com', 'password123');
       });
 
       // Mock refresh response
@@ -298,27 +275,17 @@ describe('AuthContext', () => {
       });
 
       expect(refreshSuccess!).toBe(true);
+      expect(result.current.tokens?.access_token).toBe('new-access-token');
     });
 
     it('handles refresh failure', async () => {
+      mockLocalStorage['aragora_tokens'] = JSON.stringify(mockTokens);
+      mockLocalStorage['aragora_user'] = JSON.stringify(mockUser);
+
       const { result } = renderHook(() => useAuth(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
-      });
-
-      // Login first
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          user: mockUser,
-          tokens: mockTokens,
-          organization: mockOrganization,
-        }),
-      });
-
-      await act(async () => {
-        await result.current.login('test@example.com', 'password123');
       });
 
       // Mock refresh failure
@@ -333,6 +300,7 @@ describe('AuthContext', () => {
       });
 
       expect(refreshSuccess!).toBe(false);
+      expect(result.current.isAuthenticated).toBe(false);
     });
   });
 

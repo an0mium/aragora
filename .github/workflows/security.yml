@@ -82,13 +82,18 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install safety
-        run: pip install safety
+      - name: Install security tools
+        run: pip install safety pip-audit uv
 
       - name: Check Python dependencies
         run: |
-          pip install -r requirements.txt 2>/dev/null || pip install -e . 2>/dev/null || true
+          pip install -e . 2>/dev/null || true
           safety check --full-report || true
+          if uv pip export --format requirements-txt --output-file /tmp/aragora-requirements.txt; then
+            pip-audit -r /tmp/aragora-requirements.txt || true
+          else
+            pip-audit || true
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -97,6 +102,12 @@ jobs:
 
       - name: Check npm dependencies
         working-directory: aragora/live
+        run: |
+          npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
+          npm audit --audit-level=high || true
+
+      - name: Check aragora-js dependencies
+        working-directory: aragora-js
         run: |
           npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
           npm audit --audit-level=high || true

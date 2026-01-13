@@ -27,7 +27,7 @@ def parse_handler_result(result: HandlerResult) -> tuple:
     """Parse a HandlerResult into (data, status_code) tuple."""
     if result is None:
         return None, 404
-    data = json.loads(result.body.decode('utf-8')) if result.body else None
+    data = json.loads(result.body.decode("utf-8")) if result.body else None
     return data, result.status_code
 
 
@@ -43,6 +43,7 @@ class MockAgent(Agent):
 
     async def critique(self, proposal: str, task: str, context: list = None):
         from aragora.core import Critique
+
         return Critique(
             agent=self.name,
             target_agent="proposer",
@@ -50,18 +51,19 @@ class MockAgent(Agent):
             issues=["Minor issue"],
             suggestions=["Consider edge cases"],
             severity=0.3,
-            reasoning="Good overall approach"
+            reasoning="Good overall approach",
         )
 
     async def vote(self, proposals: dict, task: str):
         from aragora.core import Vote
+
         choice = list(proposals.keys())[0] if proposals else "none"
         return Vote(
             agent=self.name,
             choice=choice,
             reasoning="Best solution",
             confidence=0.9,
-            continue_debate=False
+            continue_debate=False,
         )
 
 
@@ -189,11 +191,13 @@ class TestHealthEndpointWorkflow:
 
     def test_health_handles_missing_components(self, temp_dir):
         """Test health endpoint handles missing components gracefully."""
-        handler = SystemHandler({
-            "storage": None,
-            "elo_system": None,
-            "nomic_dir": temp_dir,
-        })
+        handler = SystemHandler(
+            {
+                "storage": None,
+                "elo_system": None,
+                "nomic_dir": temp_dir,
+            }
+        )
 
         result = handler.handle("/api/health", {}, None)
         data, status = parse_handler_result(result)
@@ -229,7 +233,9 @@ class TestLeaderboardWorkflow:
         """Test leaderboard limit parameter."""
         elo = handler_context["elo_system"]
         for i in range(10):
-            elo.record_match(f"agent-{i}", f"agent-{i+10}", {f"agent-{i}": 0.5, f"agent-{i+10}": 0.5}, "test")
+            elo.record_match(
+                f"agent-{i}", f"agent-{i+10}", {f"agent-{i}": 0.5, f"agent-{i+10}": 0.5}, "test"
+            )
 
         handler = AgentsHandler(handler_context)
 
@@ -294,11 +300,9 @@ class TestNomicStateWorkflow:
         """Test nomic state endpoint."""
         # Create nomic state file
         state_file = temp_dir / "nomic_state.json"
-        state_file.write_text(json.dumps({
-            "cycle": 1,
-            "phase": "idle",
-            "last_update": datetime.now().isoformat()
-        }))
+        state_file.write_text(
+            json.dumps({"cycle": 1, "phase": "idle", "last_update": datetime.now().isoformat()})
+        )
 
         handler = SystemHandler(handler_context)
 
@@ -321,7 +325,9 @@ class TestCritiquesWorkflow:
         """Test critique store has expected interface."""
         critique_store = handler_context["critique_store"]
         # Check it has expected methods
-        assert hasattr(critique_store, 'store_debate') or hasattr(critique_store, 'retrieve_patterns')
+        assert hasattr(critique_store, "store_debate") or hasattr(
+            critique_store, "retrieve_patterns"
+        )
 
 
 class TestConcurrentRequests:

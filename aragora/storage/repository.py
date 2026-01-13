@@ -23,7 +23,7 @@ from aragora.storage.schema import get_wal_connection
 logger = logging.getLogger(__name__)
 
 # SQL identifier validation pattern (alphanumeric + underscore, starts with letter/underscore)
-_SQL_IDENTIFIER_PATTERN = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+_SQL_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
 def _validate_column_name(name: str) -> str:
@@ -43,6 +43,7 @@ def _validate_column_name(name: str) -> str:
     if not _SQL_IDENTIFIER_PATTERN.match(name):
         raise ValueError(f"Invalid column name: {name!r}")
     return name
+
 
 T = TypeVar("T")
 
@@ -144,8 +145,7 @@ class DatabaseRepository:
         with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                f"SELECT 1 FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1",
-                (id_value,)
+                f"SELECT 1 FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1", (id_value,)
             )
             return cursor.fetchone() is not None
 
@@ -186,8 +186,7 @@ class DatabaseRepository:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute(
-                f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1",
-                (id_value,)
+                f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1", (id_value,)
             )
             row = cursor.fetchone()
             return dict(row) if row else None
@@ -198,7 +197,7 @@ class DatabaseRepository:
         offset: int = 0,
         order_by: str = "",
         where: str = "",
-        params: tuple = ()
+        params: tuple = (),
     ) -> list[dict]:
         """
         Get multiple records with pagination.
@@ -224,7 +223,7 @@ class DatabaseRepository:
             # Validate order_by to prevent SQL injection
             # Format: "column [ASC|DESC][, column [ASC|DESC]]..."
             order_parts = []
-            for part in order_by.split(','):
+            for part in order_by.split(","):
                 part = part.strip()
                 if not part:
                     continue
@@ -246,11 +245,7 @@ class DatabaseRepository:
             cursor.execute(query, params)
             return [dict(row) for row in cursor.fetchall()]
 
-    def batch_get(
-        self,
-        id_values: list[Any],
-        id_column: str = "id"
-    ) -> list[dict]:
+    def batch_get(self, id_values: list[Any], id_column: str = "id") -> list[dict]:
         """
         Get multiple records by IDs in a single query.
 
@@ -290,10 +285,7 @@ class DatabaseRepository:
         safe_col = _validate_column_name(id_column)
         with self.connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                f"DELETE FROM {self.TABLE_NAME} WHERE {safe_col} = ?",
-                (id_value,)
-            )
+            cursor.execute(f"DELETE FROM {self.TABLE_NAME} WHERE {safe_col} = ?", (id_value,))
             conn.commit()
             deleted = cursor.rowcount > 0
 
@@ -369,7 +361,6 @@ class DatabaseRepository:
         with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                (self.TABLE_NAME,)
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.TABLE_NAME,)
             )
             return cursor.fetchone() is not None

@@ -148,12 +148,14 @@ class JudgeScoringMixin:
                 cal_score = rating.calibration_score
 
             composite = (elo_score * 0.7) + (cal_score * 0.3)
-            scores.append(JudgeScore(
-                agent_name=agent.name,
-                elo_score=elo_score,
-                calibration_score=cal_score,
-                composite_score=composite,
-            ))
+            scores.append(
+                JudgeScore(
+                    agent_name=agent.name,
+                    elo_score=elo_score,
+                    calibration_score=cal_score,
+                    composite_score=composite,
+                )
+            )
 
         scores.sort(key=lambda x: x.composite_score, reverse=True)
         return scores
@@ -232,10 +234,10 @@ class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
         try:
             leaderboard = self._elo_system.get_leaderboard(limit=len(agent_names))
             for entry in leaderboard:
-                agent_name = getattr(entry, 'agent', None) or entry.get("agent") if hasattr(entry, 'get') else None  # type: ignore[union-attr]
+                agent_name = getattr(entry, "agent", None) or entry.get("agent") if hasattr(entry, "get") else None  # type: ignore[union-attr]
                 if agent_name in agent_names:
                     top_name = agent_name
-                    top_elo = getattr(entry, 'elo', None) or (entry.get("elo", 1500) if hasattr(entry, 'get') else 1500)  # type: ignore[union-attr]
+                    top_elo = getattr(entry, "elo", None) or (entry.get("elo", 1500) if hasattr(entry, "get") else 1500)  # type: ignore[union-attr]
                     judge = next((a for a in agents if a.name == top_name), None)
                     if judge:
                         logger.debug(f"Selected {top_name} (ELO: {top_elo}) as judge")
@@ -267,7 +269,9 @@ class CalibratedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
             best = scores[0]
             judge = next((a for a in agents if a.name == best.agent_name), None)
             if judge:
-                logger.debug(f"Selected {best.agent_name} (composite: {best.composite_score:.3f}) as judge")
+                logger.debug(
+                    f"Selected {best.agent_name} (composite: {best.composite_score:.3f}) as judge"
+                )
                 return judge
 
         return random.choice(list(agents)) if agents else None
@@ -340,6 +344,7 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
 
         # Ultimate fallback: random
         import random
+
         return random.choice(list(agents))
 
     def _find_historical_dissenters(
@@ -368,14 +373,14 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
                 claim = crux.get("claim", "") or str(crux)
 
                 # Query for similar debates
-                similar = self._consensus_memory.find_similar_debates(
-                    claim, limit=5
-                )
+                similar = self._consensus_memory.find_similar_debates(claim, limit=5)
 
                 for debate in similar:
                     # Check if this agent dissented in similar debate
-                    dissenting = getattr(debate, 'dissenting_agents', [])
-                    if hasattr(debate, 'consensus') and hasattr(debate.consensus, 'dissenting_agents'):
+                    dissenting = getattr(debate, "dissenting_agents", [])
+                    if hasattr(debate, "consensus") and hasattr(
+                        debate.consensus, "dissenting_agents"
+                    ):
                         dissenting = debate.consensus.dissenting_agents
 
                     for agent_name in dissenting:
@@ -406,7 +411,7 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
 
             ranked = sorted(
                 agents,
-                key=lambda a: ratings.get(a.name, type('', (), {'elo': 1000})()).elo,
+                key=lambda a: ratings.get(a.name, type("", (), {"elo": 1000})()).elo,
                 reverse=True,
             )
             return ranked
@@ -579,14 +584,10 @@ class JudgeSelector(JudgeScoringMixin):
 
         if not available:
             # All agents unavailable - fall back to all agents with warning
-            logger.warning(
-                f"judge_selection_all_unavailable count={len(agents)}, using all"
-            )
+            logger.warning(f"judge_selection_all_unavailable count={len(agents)}, using all")
             return list(agents)
 
-        logger.debug(
-            f"judge_filter_result available={len(available)}/{len(agents)}"
-        )
+        logger.debug(f"judge_filter_result available={len(available)}/{len(agents)}")
         return available
 
     async def select_judge(
@@ -654,9 +655,7 @@ class JudgeSelector(JudgeScoringMixin):
         # Return agents in score order
         candidates = []
         for score in scores[:max_candidates]:
-            agent = next(
-                (a for a in available_agents if a.name == score.agent_name), None
-            )
+            agent = next((a for a in available_agents if a.name == score.agent_name), None)
             if agent:
                 candidates.append(agent)
 
@@ -666,8 +665,7 @@ class JudgeSelector(JudgeScoringMixin):
             random.shuffle(candidates)
 
         logger.debug(
-            f"judge_candidates count={len(candidates)} "
-            f"agents={[a.name for a in candidates]}"
+            f"judge_candidates count={len(candidates)} " f"agents={[a.name for a in candidates]}"
         )
         return candidates
 

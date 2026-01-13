@@ -10,9 +10,7 @@ from pathlib import Path
 from typing import Callable, List, Optional
 
 
-def git_stash_create(
-    repo_path: Path, log_func: Callable = print
-) -> Optional[str]:
+def git_stash_create(repo_path: Path, log_func: Callable = print) -> Optional[str]:
     """
     Create a git stash for transactional safety.
 
@@ -52,9 +50,7 @@ def git_stash_create(
     return None
 
 
-def git_stash_pop(
-    repo_path: Path, stash_ref: Optional[str], log_func: Callable = print
-) -> None:
+def git_stash_pop(repo_path: Path, stash_ref: Optional[str], log_func: Callable = print) -> None:
     """
     Pop a stash to restore previous state.
 
@@ -201,9 +197,7 @@ def git_add_all(repo_path: Path, log_func: Callable = print) -> bool:
         return False
 
 
-def git_commit(
-    repo_path: Path, message: str, log_func: Callable = print
-) -> Optional[str]:
+def git_commit(repo_path: Path, message: str, log_func: Callable = print) -> Optional[str]:
     """
     Create a git commit.
 
@@ -260,9 +254,7 @@ def git_reset_hard(repo_path: Path, log_func: Callable = print) -> bool:
         return False
 
 
-def selective_rollback(
-    repo_path: Path, files: List[str], log_func: Callable = print
-) -> bool:
+def selective_rollback(repo_path: Path, files: List[str], log_func: Callable = print) -> bool:
     """
     Rollback specific files to their last committed state.
 

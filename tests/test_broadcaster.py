@@ -122,7 +122,7 @@ class TestClientManager:
 
         assert limiter is not None
         # TokenBucket should have consume method
-        assert hasattr(limiter, 'consume')
+        assert hasattr(limiter, "consume")
 
     def test_lru_eviction_for_client_ids(self):
         """Should evict oldest client IDs when at capacity."""
@@ -205,7 +205,9 @@ class TestDebateStateCache:
         assert state["task"] == "Test Task"
         assert "agent1" in state["agents"]
 
-    def test_update_from_agent_message(self, cache, mock_debate_start_event, mock_agent_message_event):
+    def test_update_from_agent_message(
+        self, cache, mock_debate_start_event, mock_agent_message_event
+    ):
         """Should update state from agent_message event."""
         cache.update_from_event(mock_debate_start_event)
         cache.update_from_event(mock_agent_message_event)
@@ -424,7 +426,7 @@ class TestBroadcasterIntegration:
         # Rate limiter should exist and be usable
         assert limiter is not None
         # TokenBucket has consume() method
-        assert hasattr(limiter, 'consume')
+        assert hasattr(limiter, "consume")
 
     def test_state_cache_lifecycle(self):
         """DebateStateCache should handle full debate lifecycle."""

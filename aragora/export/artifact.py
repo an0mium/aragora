@@ -26,6 +26,7 @@ import uuid
 @dataclass
 class ConsensusProof:
     """Proof of consensus with vote details."""
+
     reached: bool
     confidence: float
     vote_breakdown: dict[str, bool]  # agent_id -> agreed
@@ -47,6 +48,7 @@ class ConsensusProof:
 @dataclass
 class VerificationResult:
     """Result of a formal verification attempt."""
+
     claim_id: str
     claim_text: str
     status: str  # "verified", "refuted", "timeout", "undecidable"
@@ -105,14 +107,17 @@ class DebateArtifact:
     @property
     def content_hash(self) -> str:
         """Compute hash of all artifact content for integrity."""
-        data = json.dumps({
-            "task": self.task,
-            "graph": self.graph_data,
-            "trace": self.trace_data,
-            "provenance": self.provenance_data,
-            "consensus": self.consensus_proof.to_dict() if self.consensus_proof else None,
-            "verifications": [v.to_dict() for v in self.verification_results],
-        }, sort_keys=True)
+        data = json.dumps(
+            {
+                "task": self.task,
+                "graph": self.graph_data,
+                "trace": self.trace_data,
+                "provenance": self.provenance_data,
+                "consensus": self.consensus_proof.to_dict() if self.consensus_proof else None,
+                "verifications": [v.to_dict() for v in self.verification_results],
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(data.encode()).hexdigest()[:16]
 
     def to_dict(self) -> dict:
@@ -162,16 +167,18 @@ class DebateArtifact:
 
         verifications = []
         for v in data.get("verification_results", []):
-            verifications.append(VerificationResult(
-                claim_id=v["claim_id"],
-                claim_text=v["claim_text"],
-                status=v["status"],
-                method=v["method"],
-                proof_trace=v.get("proof_trace"),
-                counterexample=v.get("counterexample"),
-                duration_ms=v.get("duration_ms", 0),
-                metadata=v.get("metadata", {}),
-            ))
+            verifications.append(
+                VerificationResult(
+                    claim_id=v["claim_id"],
+                    claim_text=v["claim_text"],
+                    status=v["status"],
+                    method=v["method"],
+                    proof_trace=v.get("proof_trace"),
+                    counterexample=v.get("counterexample"),
+                    duration_ms=v.get("duration_ms", 0),
+                    metadata=v.get("metadata", {}),
+                )
+            )
 
         return cls(
             artifact_id=data.get("artifact_id", ""),
@@ -217,6 +224,7 @@ class DebateArtifact:
         # Check provenance chain if present
         if self.provenance_data:
             from aragora.reasoning.provenance import ProvenanceChain
+
             try:
                 chain = ProvenanceChain.from_dict(self.provenance_data)
                 valid, chain_errors = chain.verify_chain()
@@ -278,7 +286,7 @@ class ArtifactBuilder:
 
     def with_graph(self, graph) -> "ArtifactBuilder":
         """Add debate graph."""
-        if hasattr(graph, 'to_dict'):
+        if hasattr(graph, "to_dict"):
             self._artifact.graph_data = graph.to_dict()
         elif isinstance(graph, dict):
             self._artifact.graph_data = graph
@@ -286,7 +294,7 @@ class ArtifactBuilder:
 
     def with_trace(self, trace) -> "ArtifactBuilder":
         """Add debate trace."""
-        if hasattr(trace, 'to_json'):
+        if hasattr(trace, "to_json"):
             self._artifact.trace_data = json.loads(trace.to_json())
         elif isinstance(trace, dict):
             self._artifact.trace_data = trace
@@ -294,22 +302,25 @@ class ArtifactBuilder:
 
     def with_provenance(self, provenance) -> "ArtifactBuilder":
         """Add provenance data."""
-        if hasattr(provenance, 'export'):
+        if hasattr(provenance, "export"):
             self._artifact.provenance_data = provenance.export()
         elif isinstance(provenance, dict):
             self._artifact.provenance_data = provenance
         return self
 
-    def with_verification(self, claim_id: str, claim_text: str, status: str,
-                          method: str = "z3", **kwargs) -> "ArtifactBuilder":
+    def with_verification(
+        self, claim_id: str, claim_text: str, status: str, method: str = "z3", **kwargs
+    ) -> "ArtifactBuilder":
         """Add a verification result."""
-        self._artifact.verification_results.append(VerificationResult(
-            claim_id=claim_id,
-            claim_text=claim_text,
-            status=status,
-            method=method,
-            **kwargs,
-        ))
+        self._artifact.verification_results.append(
+            VerificationResult(
+                claim_id=claim_id,
+                claim_text=claim_text,
+                status=status,
+                method=method,
+                **kwargs,
+            )
+        )
         return self
 
     def build(self) -> DebateArtifact:

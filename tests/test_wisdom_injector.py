@@ -637,7 +637,10 @@ class TestFindRelevantWisdom:
         result = injector.find_relevant_wisdom({})
 
         # Should be filtered out due to low relevance
-        assert old_wisdom not in result or old_wisdom.relevance_score >= WisdomInjector.RELEVANCE_THRESHOLD
+        assert (
+            old_wisdom not in result
+            or old_wisdom.relevance_score >= WisdomInjector.RELEVANCE_THRESHOLD
+        )
 
     @pytest.mark.asyncio
     async def test_find_sorts_by_relevance(self, injector):
@@ -941,8 +944,7 @@ class TestEdgeCases:
     async def test_unicode_in_wisdom(self, injector):
         """Should handle unicode characters."""
         wisdom = await injector.submit_wisdom(
-            "Consider the emoji factor 🤔 and special chars: é, ñ, 中文",
-            "user"
+            "Consider the emoji factor 🤔 and special chars: é, ñ, 中文", "user"
         )
 
         assert wisdom is not None
@@ -951,10 +953,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_special_characters_in_submitter_id(self, injector):
         """Should handle special characters in submitter ID."""
-        wisdom = await injector.submit_wisdom(
-            "Test",
-            "user@domain.com/path#hash"
-        )
+        wisdom = await injector.submit_wisdom("Test", "user@domain.com/path#hash")
 
         assert wisdom is not None
         assert wisdom.submitter_id == "user@domain.com/path#hash"
@@ -996,6 +995,7 @@ class TestConcurrency:
     @pytest.mark.asyncio
     async def test_concurrent_submissions(self, injector):
         """Should handle concurrent submissions."""
+
         async def submit(i):
             return await injector.submit_wisdom(f"Concurrent wisdom {i}", f"user-{i}")
 

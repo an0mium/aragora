@@ -26,25 +26,27 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Common keywords indicating quota/rate limit errors across providers
-QUOTA_ERROR_KEYWORDS = frozenset([
-    # Rate limiting
-    "rate limit",
-    "rate_limit",
-    "ratelimit",
-    "too many requests",
-    # Quota exceeded
-    "quota",
-    "exceeded",
-    "limit exceeded",
-    "resource exhausted",
-    "resource_exhausted",
-    # Billing/credits
-    "billing",
-    "credit balance",
-    "insufficient",
-    "insufficient_quota",
-    "purchase credits",
-])
+QUOTA_ERROR_KEYWORDS = frozenset(
+    [
+        # Rate limiting
+        "rate limit",
+        "rate_limit",
+        "ratelimit",
+        "too many requests",
+        # Quota exceeded
+        "quota",
+        "exceeded",
+        "limit exceeded",
+        "resource exhausted",
+        "resource_exhausted",
+        # Billing/credits
+        "billing",
+        "credit balance",
+        "insufficient",
+        "insufficient_quota",
+        "purchase credits",
+    ]
+)
 
 
 class QuotaFallbackMixin:
@@ -97,8 +99,10 @@ class QuotaFallbackMixin:
         if self._fallback_agent is None:
             self._fallback_agent = self._get_openrouter_fallback()
             if self._fallback_agent:
-                name = getattr(self, 'name', 'unknown')
-                logger.info(f"[{name}] Created OpenRouter fallback agent with model {self._fallback_agent.model}")
+                name = getattr(self, "name", "unknown")
+                logger.info(
+                    f"[{name}] Created OpenRouter fallback agent with model {self._fallback_agent.model}"
+                )
         return self._fallback_agent
 
     def get_fallback_model(self) -> str:
@@ -107,7 +111,7 @@ class QuotaFallbackMixin:
         Uses the class's OPENROUTER_MODEL_MAP to find a matching model,
         falling back to DEFAULT_FALLBACK_MODEL if no match is found.
         """
-        model = getattr(self, 'model', '')
+        model = getattr(self, "model", "")
         return self.OPENROUTER_MODEL_MAP.get(model, self.DEFAULT_FALLBACK_MODEL)
 
     def is_quota_error(self, status_code: int, error_text: str) -> bool:
@@ -156,10 +160,10 @@ class QuotaFallbackMixin:
         fallback_model = self.get_fallback_model()
 
         # Get agent attributes with sensible defaults
-        name = getattr(self, 'name', 'fallback')
-        role = getattr(self, 'role', 'proposer')
-        timeout = getattr(self, 'timeout', 120)
-        system_prompt = getattr(self, 'system_prompt', None)
+        name = getattr(self, "name", "fallback")
+        role = getattr(self, "role", "proposer")
+        timeout = getattr(self, "timeout", 120)
+        system_prompt = getattr(self, "system_prompt", None)
 
         agent = OpenRouterAgent(
             name=f"{name}_fallback",
@@ -188,18 +192,18 @@ class QuotaFallbackMixin:
         Returns:
             Generated response string if fallback succeeded, None otherwise
         """
-        if not getattr(self, 'enable_fallback', True):
+        if not getattr(self, "enable_fallback", True):
             return None
 
         fallback = self._get_cached_fallback_agent()
         if not fallback:
-            name = getattr(self, 'name', 'unknown')
+            name = getattr(self, "name", "unknown")
             logger.warning(
                 f"{name} quota exceeded but OPENROUTER_API_KEY not set - cannot fallback"
             )
             return None
 
-        name = getattr(self, 'name', 'unknown')
+        name = getattr(self, "name", "unknown")
         status_info = f" (status {status_code})" if status_code else ""
         logger.warning(
             f"API quota/rate limit error{status_info} for {name}, falling back to OpenRouter"
@@ -222,18 +226,18 @@ class QuotaFallbackMixin:
         Yields:
             Content tokens from fallback stream, or nothing if fallback unavailable
         """
-        if not getattr(self, 'enable_fallback', True):
+        if not getattr(self, "enable_fallback", True):
             return
 
         fallback = self._get_cached_fallback_agent()
         if not fallback:
-            name = getattr(self, 'name', 'unknown')
+            name = getattr(self, "name", "unknown")
             logger.warning(
                 f"{name} quota exceeded but OPENROUTER_API_KEY not set - cannot fallback"
             )
             return
 
-        name = getattr(self, 'name', 'unknown')
+        name = getattr(self, "name", "unknown")
         status_info = f" (status {status_code})" if status_code else ""
         logger.warning(
             f"API quota/rate limit error{status_info} for {name}, falling back to OpenRouter streaming"
@@ -265,9 +269,7 @@ class FallbackMetrics:
     def record_fallback_attempt(self, provider: str, success: bool) -> None:
         """Record a fallback provider attempt."""
         self.fallback_attempts += 1
-        self.fallback_providers_used[provider] = (
-            self.fallback_providers_used.get(provider, 0) + 1
-        )
+        self.fallback_providers_used[provider] = self.fallback_providers_used.get(provider, 0) + 1
         self.last_fallback_time = time.time()
         if success:
             self.fallback_successes += 1
@@ -299,8 +301,7 @@ class AllProvidersExhaustedError(Exception):
         self.providers = providers
         self.last_error = last_error
         super().__init__(
-            f"All providers exhausted: {', '.join(providers)}. "
-            f"Last error: {last_error}"
+            f"All providers exhausted: {', '.join(providers)}. " f"Last error: {last_error}"
         )
 
 
@@ -387,9 +388,7 @@ class AgentFallbackChain:
             factory: Callable that returns an agent instance
         """
         if name not in self.providers:
-            logger.warning(
-                f"Registering provider '{name}' not in chain: {self.providers}"
-            )
+            logger.warning(f"Registering provider '{name}' not in chain: {self.providers}")
         self._provider_factories[name] = factory
 
     def _get_agent(self, provider: str) -> Optional[Any]:
@@ -459,9 +458,7 @@ class AgentFallbackChain:
         for i, provider in enumerate(self.providers):
             # Check retry limit
             if retry_count >= self.max_retries:
-                logger.warning(
-                    f"Max retries ({self.max_retries}) reached, stopping fallback chain"
-                )
+                logger.warning(f"Max retries ({self.max_retries}) reached, stopping fallback chain")
                 break
 
             # Check time limit
@@ -504,9 +501,7 @@ class AgentFallbackChain:
 
                 if is_primary:
                     self.metrics.record_primary_attempt(success=False)
-                    logger.warning(
-                        f"Primary provider '{provider}' failed: {e}, trying fallback"
-                    )
+                    logger.warning(f"Primary provider '{provider}' failed: {e}, trying fallback")
                 else:
                     self.metrics.record_fallback_attempt(provider, success=False)
                     logger.warning(f"Fallback provider '{provider}' failed: {e}")
@@ -548,9 +543,7 @@ class AgentFallbackChain:
         for i, provider in enumerate(self.providers):
             # Check retry limit
             if retry_count >= self.max_retries:
-                logger.warning(
-                    f"Max retries ({self.max_retries}) reached for stream, stopping"
-                )
+                logger.warning(f"Max retries ({self.max_retries}) reached for stream, stopping")
                 break
 
             # Check time limit
@@ -599,9 +592,7 @@ class AgentFallbackChain:
 
                 if is_primary:
                     self.metrics.record_primary_attempt(success=False)
-                    logger.warning(
-                        f"Primary provider '{provider}' stream failed: {e}"
-                    )
+                    logger.warning(f"Primary provider '{provider}' stream failed: {e}")
                 else:
                     self.metrics.record_fallback_attempt(provider, success=False)
                     logger.warning(f"Fallback provider '{provider}' stream failed: {e}")
@@ -653,10 +644,7 @@ def get_local_fallback_providers() -> list[str]:
         return []
     try:
         local_agents = AgentRegistry.detect_local_agents()
-        return [
-            agent["name"] for agent in local_agents
-            if agent.get("available", False)
-        ]
+        return [agent["name"] for agent in local_agents if agent.get("available", False)]
     except Exception as e:
         logger.debug(f"Could not detect local LLMs: {e}")
         return []

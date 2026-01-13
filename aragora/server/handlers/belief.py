@@ -41,16 +41,13 @@ _belief_imports, BELIEF_NETWORK_AVAILABLE = try_import(
 BeliefNetwork = _belief_imports["BeliefNetwork"]
 BeliefPropagationAnalyzer = _belief_imports["BeliefPropagationAnalyzer"]
 
-_lab_imports, LABORATORY_AVAILABLE = try_import(
-    "aragora.agents.laboratory", "PersonaLaboratory"
-)
+_lab_imports, LABORATORY_AVAILABLE = try_import("aragora.agents.laboratory", "PersonaLaboratory")
 PersonaLaboratory = _lab_imports["PersonaLaboratory"]
 
 _prov_imports, PROVENANCE_AVAILABLE = try_import(
     "aragora.reasoning.provenance", "ProvenanceTracker"
 )
 ProvenanceTracker = _prov_imports["ProvenanceTracker"]
-
 
 
 class BeliefHandler(BaseHandler):
@@ -93,19 +90,19 @@ class BeliefHandler(BaseHandler):
             debate_id = self._extract_debate_id(path, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
-            top_k = get_clamped_int_param(query_params, 'top_k', 3, min_val=1, max_val=10)
+            top_k = get_clamped_int_param(query_params, "top_k", 3, min_val=1, max_val=10)
             return self._get_debate_cruxes(nomic_dir, debate_id, top_k)
 
         if path.startswith("/api/belief-network/") and path.endswith("/load-bearing-claims"):
             debate_id = self._extract_debate_id(path, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
-            limit = get_clamped_int_param(query_params, 'limit', 5, min_val=1, max_val=20)
+            limit = get_clamped_int_param(query_params, "limit", 5, min_val=1, max_val=20)
             return self._get_load_bearing_claims(nomic_dir, debate_id, limit)
 
         if "/claims/" in path and path.endswith("/support"):
             # Pattern: /api/provenance/:debate_id/claims/:claim_id/support
-            parts = path.split('/')
+            parts = path.split("/")
             if len(parts) >= 6:
                 debate_id = parts[3]
                 claim_id = parts[5]
@@ -126,7 +123,7 @@ class BeliefHandler(BaseHandler):
 
     def _extract_debate_id(self, path: str, segment_index: int) -> Optional[str]:
         """Extract and validate debate ID from path."""
-        parts = path.split('/')
+        parts = path.split("/")
         if len(parts) > segment_index:
             debate_id = parts[segment_index]
             is_valid, _ = validate_debate_id(debate_id)
@@ -148,21 +145,23 @@ class BeliefHandler(BaseHandler):
         )
         traits = lab.detect_emergent_traits()
         filtered = [t for t in traits if t.confidence >= min_confidence][:limit]
-        return json_response({
-            "emergent_traits": [
-                {
-                    "agent": t.agent_name,
-                    "trait": t.trait_name,
-                    "domain": t.domain,
-                    "confidence": t.confidence,
-                    "evidence": t.evidence,
-                    "detected_at": t.detected_at,
-                }
-                for t in filtered
-            ],
-            "count": len(filtered),
-            "min_confidence": min_confidence,
-        })
+        return json_response(
+            {
+                "emergent_traits": [
+                    {
+                        "agent": t.agent_name,
+                        "trait": t.trait_name,
+                        "domain": t.domain,
+                        "confidence": t.confidence,
+                        "evidence": t.evidence,
+                        "detected_at": t.detected_at,
+                    }
+                    for t in filtered
+                ],
+                "count": len(filtered),
+                "min_confidence": min_confidence,
+            }
+        )
 
     @handle_errors("debate cruxes retrieval")
     def _get_debate_cruxes(
@@ -192,11 +191,13 @@ class BeliefHandler(BaseHandler):
         analyzer = BeliefPropagationAnalyzer(network)
         cruxes = analyzer.identify_debate_cruxes(top_k=top_k)
 
-        return json_response({
-            "debate_id": debate_id,
-            "cruxes": cruxes,
-            "count": len(cruxes),
-        })
+        return json_response(
+            {
+                "debate_id": debate_id,
+                "cruxes": cruxes,
+                "count": len(cruxes),
+            }
+        )
 
     @handle_errors("load bearing claims retrieval")
     def _get_load_bearing_claims(
@@ -225,19 +226,21 @@ class BeliefHandler(BaseHandler):
 
         load_bearing = network.get_load_bearing_claims(limit=limit)
 
-        return json_response({
-            "debate_id": debate_id,
-            "load_bearing_claims": [
-                {
-                    "claim_id": node.claim_id,
-                    "statement": node.claim_statement,
-                    "author": node.author,
-                    "centrality": centrality,
-                }
-                for node, centrality in load_bearing
-            ],
-            "count": len(load_bearing),
-        })
+        return json_response(
+            {
+                "debate_id": debate_id,
+                "load_bearing_claims": [
+                    {
+                        "claim_id": node.claim_id,
+                        "statement": node.claim_statement,
+                        "author": node.author,
+                        "centrality": centrality,
+                    }
+                    for node, centrality in load_bearing
+                ],
+                "count": len(load_bearing),
+            }
+        )
 
     @handle_errors("claim support retrieval")
     def _get_claim_support(
@@ -252,26 +255,28 @@ class BeliefHandler(BaseHandler):
 
         provenance_path = nomic_dir / "provenance" / f"{debate_id}.json"
         if not provenance_path.exists():
-            return json_response({
-                "debate_id": debate_id,
-                "claim_id": claim_id,
-                "support": None,
-                "message": "No provenance data for this debate"
-            })
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "claim_id": claim_id,
+                    "support": None,
+                    "message": "No provenance data for this debate",
+                }
+            )
 
         tracker = ProvenanceTracker.load(provenance_path)
         support = tracker.get_claim_support(claim_id)
 
-        return json_response({
-            "debate_id": debate_id,
-            "claim_id": claim_id,
-            "support": support,
-        })
+        return json_response(
+            {
+                "debate_id": debate_id,
+                "claim_id": claim_id,
+                "support": support,
+            }
+        )
 
     @handle_errors("debate graph stats retrieval")
-    def _get_debate_graph_stats(
-        self, nomic_dir: Optional[Path], debate_id: str
-    ) -> HandlerResult:
+    def _get_debate_graph_stats(self, nomic_dir: Optional[Path], debate_id: str) -> HandlerResult:
         """Get argument graph statistics for a debate."""
         from aragora.visualization.mapper import ArgumentCartographer
         from aragora.debate.traces import DebateTrace
@@ -289,7 +294,10 @@ class BeliefHandler(BaseHandler):
                 with replay_path.open() as f:
                     for line in f:
                         if line.strip():
-                            event = json.loads(line)
+                            try:
+                                event = json.loads(line)
+                            except json.JSONDecodeError:
+                                continue  # Skip malformed event lines
                             if event.get("type") == "agent_message":
                                 cartographer.update_from_message(
                                     agent=event.get("agent", "unknown"),
@@ -331,7 +339,7 @@ class BeliefHandler(BaseHandler):
                 critic_agent=critique.agent,
                 target_agent=critique.target or "",
                 severity=critique.severity,
-                round_num=getattr(critique, 'round', 1),
+                round_num=getattr(critique, "round", 1),
                 critique_text=critique.reasoning,
             )
 

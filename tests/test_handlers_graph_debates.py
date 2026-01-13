@@ -22,6 +22,7 @@ from aragora.server.handlers.graph_debates import GraphDebatesHandler, _graph_li
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def handler():
     """Create GraphDebatesHandler instance."""
@@ -32,19 +33,25 @@ def handler():
 def mock_storage():
     """Create mock storage with async methods."""
     storage = Mock()
-    storage.get_graph_debate = AsyncMock(return_value={
-        "debate_id": "graph-123",
-        "task": "Test task",
-        "nodes": [],
-        "branches": [],
-    })
-    storage.get_debate_branches = AsyncMock(return_value=[
-        {"id": "main", "parent_id": None},
-        {"id": "branch-1", "parent_id": "main"},
-    ])
-    storage.get_debate_nodes = AsyncMock(return_value=[
-        {"id": "node-1", "content": "Test", "branch_id": "main"},
-    ])
+    storage.get_graph_debate = AsyncMock(
+        return_value={
+            "debate_id": "graph-123",
+            "task": "Test task",
+            "nodes": [],
+            "branches": [],
+        }
+    )
+    storage.get_debate_branches = AsyncMock(
+        return_value=[
+            {"id": "main", "parent_id": None},
+            {"id": "branch-1", "parent_id": "main"},
+        ]
+    )
+    storage.get_debate_nodes = AsyncMock(
+        return_value=[
+            {"id": "node-1", "content": "Test", "branch_id": "main"},
+        ]
+    )
     return storage
 
 
@@ -68,6 +75,7 @@ def reset_rate_limiter():
 # Route Recognition Tests
 # ============================================================================
 
+
 class TestGraphDebatesRouting:
     """Tests for graph debates route recognition."""
 
@@ -83,6 +91,7 @@ class TestGraphDebatesRouting:
 # ============================================================================
 # GET /api/debates/graph/{id} Tests
 # ============================================================================
+
 
 class TestGetGraphDebate:
     """Tests for getting specific graph debate."""
@@ -132,6 +141,7 @@ class TestGetGraphDebate:
 # GET /api/debates/graph/{id}/branches Tests
 # ============================================================================
 
+
 class TestGetBranches:
     """Tests for getting debate branches."""
 
@@ -166,6 +176,7 @@ class TestGetBranches:
 # GET /api/debates/graph/{id}/nodes Tests
 # ============================================================================
 
+
 class TestGetNodes:
     """Tests for getting debate nodes."""
 
@@ -198,6 +209,7 @@ class TestGetNodes:
 # ============================================================================
 # POST /api/debates/graph Tests
 # ============================================================================
+
 
 class TestRunGraphDebate:
     """Tests for running graph debates."""
@@ -247,6 +259,7 @@ class TestRunGraphDebate:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestGraphDebatesErrorHandling:
     """Tests for error handling in graph debates handler."""
 
@@ -293,6 +306,7 @@ class TestGraphDebatesErrorHandling:
 # ============================================================================
 # Task Validation Tests
 # ============================================================================
+
 
 class TestTaskValidation:
     """Tests for task input validation."""
@@ -393,6 +407,7 @@ class TestTaskValidation:
 # Agent Validation Tests
 # ============================================================================
 
+
 class TestAgentValidation:
     """Tests for agent input validation."""
 
@@ -480,7 +495,10 @@ class TestAgentValidation:
             result = await handler.handle_post(
                 mock_handler_obj,
                 "/api/debates/graph",
-                {"task": "This is a valid debate topic", "agents": ["claude-3", "gpt_4", "agent123"]},
+                {
+                    "task": "This is a valid debate topic",
+                    "agents": ["claude-3", "gpt_4", "agent123"],
+                },
             )
             # Will fail at agent loading or import, not validation
             assert result.status_code in [400, 500]
@@ -493,6 +511,7 @@ class TestAgentValidation:
 # Max Rounds Validation Tests
 # ============================================================================
 
+
 class TestMaxRoundsValidation:
     """Tests for max_rounds parameter validation."""
 
@@ -502,7 +521,11 @@ class TestMaxRoundsValidation:
         result = await handler.handle_post(
             mock_handler_obj,
             "/api/debates/graph",
-            {"task": "This is a valid debate topic", "agents": ["claude", "gpt4"], "max_rounds": "five"},
+            {
+                "task": "This is a valid debate topic",
+                "agents": ["claude", "gpt4"],
+                "max_rounds": "five",
+            },
         )
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -526,7 +549,11 @@ class TestMaxRoundsValidation:
         result = await handler.handle_post(
             mock_handler_obj,
             "/api/debates/graph",
-            {"task": "This is a valid debate topic", "agents": ["claude", "gpt4"], "max_rounds": -5},
+            {
+                "task": "This is a valid debate topic",
+                "agents": ["claude", "gpt4"],
+                "max_rounds": -5,
+            },
         )
         assert result.status_code == 400
 
@@ -536,7 +563,11 @@ class TestMaxRoundsValidation:
         result = await handler.handle_post(
             mock_handler_obj,
             "/api/debates/graph",
-            {"task": "This is a valid debate topic", "agents": ["claude", "gpt4"], "max_rounds": 21},
+            {
+                "task": "This is a valid debate topic",
+                "agents": ["claude", "gpt4"],
+                "max_rounds": 21,
+            },
         )
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -551,7 +582,11 @@ class TestMaxRoundsValidation:
             result = await handler.handle_post(
                 mock_handler_obj,
                 "/api/debates/graph",
-                {"task": "This is a valid debate topic", "agents": ["claude", "gpt4"], "max_rounds": "10"},
+                {
+                    "task": "This is a valid debate topic",
+                    "agents": ["claude", "gpt4"],
+                    "max_rounds": "10",
+                },
             )
             # Should fail at agent loading or import, not max_rounds validation
             assert result.status_code in [400, 500]
@@ -564,6 +599,7 @@ class TestMaxRoundsValidation:
 # Branch Policy Validation Tests
 # ============================================================================
 
+
 class TestBranchPolicyValidation:
     """Tests for branch_policy parameter validation."""
 
@@ -573,7 +609,11 @@ class TestBranchPolicyValidation:
         result = await handler.handle_post(
             mock_handler_obj,
             "/api/debates/graph",
-            {"task": "This is a valid debate topic", "agents": ["claude", "gpt4"], "branch_policy": "auto"},
+            {
+                "task": "This is a valid debate topic",
+                "agents": ["claude", "gpt4"],
+                "branch_policy": "auto",
+            },
         )
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -684,6 +724,7 @@ class TestBranchPolicyValidation:
 # Rate Limiting Tests
 # ============================================================================
 
+
 class TestRateLimiting:
     """Tests for rate limiting functionality."""
 
@@ -724,6 +765,7 @@ class TestRateLimiting:
 # ============================================================================
 # Path Parsing Tests
 # ============================================================================
+
 
 class TestPathParsing:
     """Tests for path parsing edge cases."""
@@ -787,6 +829,7 @@ class TestPathParsing:
 # ============================================================================
 # Storage Configuration Tests
 # ============================================================================
+
 
 class TestStorageConfiguration:
     """Tests for storage configuration handling."""

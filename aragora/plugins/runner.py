@@ -115,14 +115,63 @@ class PluginRunner:
     # Restricted builtins - remove dangerous functions
     RESTRICTED_BUILTINS = {
         # Safe builtins
-        "abs", "all", "any", "ascii", "bin", "bool", "bytearray", "bytes",
-        "callable", "chr", "classmethod", "complex", "dict", "dir",
-        "divmod", "enumerate", "filter", "float", "format", "frozenset",
-        "getattr", "hasattr", "hash", "hex", "id", "int", "isinstance",
-        "issubclass", "iter", "len", "list", "map", "max", "min", "next",
-        "object", "oct", "ord", "pow", "print", "property", "range",
-        "repr", "reversed", "round", "set", "setattr", "slice", "sorted",
-        "staticmethod", "str", "sum", "super", "tuple", "type", "vars", "zip",
+        "abs",
+        "all",
+        "any",
+        "ascii",
+        "bin",
+        "bool",
+        "bytearray",
+        "bytes",
+        "callable",
+        "chr",
+        "classmethod",
+        "complex",
+        "dict",
+        "dir",
+        "divmod",
+        "enumerate",
+        "filter",
+        "float",
+        "format",
+        "frozenset",
+        "getattr",
+        "hasattr",
+        "hash",
+        "hex",
+        "id",
+        "int",
+        "isinstance",
+        "issubclass",
+        "iter",
+        "len",
+        "list",
+        "map",
+        "max",
+        "min",
+        "next",
+        "object",
+        "oct",
+        "ord",
+        "pow",
+        "print",
+        "property",
+        "range",
+        "repr",
+        "reversed",
+        "round",
+        "set",
+        "setattr",
+        "slice",
+        "sorted",
+        "staticmethod",
+        "str",
+        "sum",
+        "super",
+        "tuple",
+        "type",
+        "vars",
+        "zip",
         # Restricted - no file/exec operations
         # "open", "eval", "exec", "compile", "__import__"
     }
@@ -149,6 +198,7 @@ class PluginRunner:
 
         # Check system tools
         import shutil
+
         for tool in self.manifest.system_tools:
             if not shutil.which(tool):
                 missing.append(f"System tool: {tool}")
@@ -259,7 +309,11 @@ class PluginRunner:
         context.allowed_operations = {
             "read_files" if PluginRequirement.READ_FILES in self.manifest.requirements else None,
             "write_files" if PluginRequirement.WRITE_FILES in self.manifest.requirements else None,
-            "run_commands" if PluginRequirement.RUN_COMMANDS in self.manifest.requirements else None,
+            (
+                "run_commands"
+                if PluginRequirement.RUN_COMMANDS in self.manifest.requirements
+                else None
+            ),
             "network" if PluginRequirement.NETWORK in self.manifest.requirements else None,
         }
         context.allowed_operations.discard(None)
@@ -332,6 +386,7 @@ class PluginRegistry:
     def _load_builtins(self):
         """Load built-in plugin manifests."""
         from aragora.plugins.manifest import BUILTIN_MANIFESTS
+
         self.manifests.update(BUILTIN_MANIFESTS)
 
     def discover(self) -> None:
@@ -360,10 +415,7 @@ class PluginRegistry:
 
     def list_by_capability(self, capability: PluginCapability) -> list[PluginManifest]:
         """List plugins with a specific capability."""
-        return [
-            m for m in self.manifests.values()
-            if m.has_capability(capability)
-        ]
+        return [m for m in self.manifests.values() if m.has_capability(capability)]
 
     def get_runner(self, name: str) -> Optional[PluginRunner]:
         """Get or create a runner for a plugin."""

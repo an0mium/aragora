@@ -197,10 +197,7 @@ class TestStateManagerThreadSafety:
             except Exception as e:
                 errors.append(str(e))
 
-        threads = [
-            threading.Thread(target=register_debate, args=(i,))
-            for i in range(num_threads)
-        ]
+        threads = [threading.Thread(target=register_debate, args=(i,)) for i in range(num_threads)]
 
         for t in threads:
             t.start()

@@ -154,7 +154,9 @@ class TestEdgeTTS:
         """Handle exceptions during edge-tts generation."""
         output_path = tmp_path / "test.mp3"
 
-        with patch("asyncio.create_subprocess_exec", side_effect=FileNotFoundError("edge-tts not found")):
+        with patch(
+            "asyncio.create_subprocess_exec", side_effect=FileNotFoundError("edge-tts not found")
+        ):
             result = await _generate_edge_tts(
                 text="Hello world",
                 voice="en-US-GuyNeural",
@@ -300,7 +302,9 @@ class TestGenerateAudioSegment:
 
         with patch("aragora.broadcast.audio_engine.get_audio_backend", return_value=mock_backend):
             with patch("aragora.broadcast.audio_engine._generate_edge_tts", return_value=False):
-                with patch("aragora.broadcast.audio_engine._generate_fallback_tts") as mock_fallback:
+                with patch(
+                    "aragora.broadcast.audio_engine._generate_fallback_tts"
+                ) as mock_fallback:
                     # _generate_fallback_tts is now async
                     async def mock_generate(text, output_path):
                         output_path.write_bytes(b"fake audio")
@@ -322,7 +326,10 @@ class TestGenerateAudioSegment:
 
         with patch("aragora.broadcast.audio_engine.get_audio_backend", return_value=mock_backend):
             with patch("aragora.broadcast.audio_engine._generate_edge_tts", return_value=False):
-                with patch("aragora.broadcast.audio_engine._generate_fallback_tts", new=AsyncMock(return_value=False)):
+                with patch(
+                    "aragora.broadcast.audio_engine._generate_fallback_tts",
+                    new=AsyncMock(return_value=False),
+                ):
                     result = await generate_audio_segment(sample_segment, tmp_path)
 
         assert result is None
@@ -343,7 +350,10 @@ class TestGenerateAudioSegment:
         with patch("aragora.broadcast.audio_engine.get_audio_backend", return_value=mock_backend):
             with patch("aragora.broadcast.audio_engine._generate_edge_tts") as mock_edge:
                 mock_edge.return_value = False  # Will fail, just check the voice
-                with patch("aragora.broadcast.audio_engine._generate_fallback_tts", new=AsyncMock(return_value=False)):
+                with patch(
+                    "aragora.broadcast.audio_engine._generate_fallback_tts",
+                    new=AsyncMock(return_value=False),
+                ):
                     await generate_audio_segment(segment, tmp_path)
 
             # Check that edge-tts was called with codex voice
@@ -354,6 +364,7 @@ class TestGenerateAudioSegment:
     async def test_generate_audio_segment_deterministic_filename(self, tmp_path, sample_segment):
         """Filename is deterministic based on text hash."""
         with patch("aragora.broadcast.audio_engine._generate_edge_tts") as mock_edge:
+
             async def mock_generate(text, voice, output_path):
                 output_path.write_bytes(b"fake audio")
                 return True
@@ -395,6 +406,7 @@ class TestGenerateAudio:
     async def test_generate_audio_all_success(self, tmp_path, sample_segments):
         """Successfully generate audio for all segments."""
         with patch("aragora.broadcast.audio_engine.generate_audio_segment") as mock_gen:
+
             async def mock_generate(segment, output_dir):
                 path = output_dir / f"{segment.speaker}.mp3"
                 path.write_bytes(b"fake audio")
@@ -413,6 +425,7 @@ class TestGenerateAudio:
         call_count = 0
 
         with patch("aragora.broadcast.audio_engine.generate_audio_segment") as mock_gen:
+
             async def mock_generate(segment, output_dir):
                 nonlocal call_count
                 call_count += 1
@@ -449,6 +462,7 @@ class TestGenerateAudio:
         segment = ScriptSegment(speaker="narrator", text="Hello.")
 
         with patch("aragora.broadcast.audio_engine.generate_audio_segment") as mock_gen:
+
             async def mock_generate(seg, output_dir):
                 path = output_dir / "narrator.mp3"
                 path.write_bytes(b"fake audio")
@@ -464,6 +478,7 @@ class TestGenerateAudio:
     async def test_generate_audio_creates_temp_dir(self, sample_segments):
         """Create temp directory when output_dir is None."""
         with patch("aragora.broadcast.audio_engine.generate_audio_segment") as mock_gen:
+
             async def mock_generate(segment, output_dir):
                 path = output_dir / f"{segment.speaker}.mp3"
                 path.write_bytes(b"fake audio")
@@ -480,6 +495,7 @@ class TestGenerateAudio:
 
         # Clean up
         import shutil
+
         shutil.rmtree(list(dirs)[0])
 
     @pytest.mark.asyncio
@@ -488,6 +504,7 @@ class TestGenerateAudio:
         call_count = 0
 
         with patch("aragora.broadcast.audio_engine.generate_audio_segment") as mock_gen:
+
             async def mock_generate(segment, output_dir):
                 nonlocal call_count
                 call_count += 1
@@ -531,6 +548,7 @@ class TestAudioEngineIntegration:
                 with patch("pathlib.Path.write_bytes"):
                     # Manually create the expected file
                     import hashlib
+
                     text_hash = hashlib.sha256(segment.text.encode()).hexdigest()[:12]
                     expected_file = tmp_path / f"narrator_{text_hash}.mp3"
                     expected_file.write_bytes(b"fake audio")
@@ -542,16 +560,15 @@ class TestAudioEngineIntegration:
     @pytest.mark.asyncio
     async def test_concurrent_segment_generation(self, tmp_path):
         """Test that segments are generated concurrently."""
-        segments = [
-            ScriptSegment(speaker=f"agent_{i}", text=f"Text {i}")
-            for i in range(5)
-        ]
+        segments = [ScriptSegment(speaker=f"agent_{i}", text=f"Text {i}") for i in range(5)]
 
         generation_times = []
 
         with patch("aragora.broadcast.audio_engine.generate_audio_segment") as mock_gen:
+
             async def mock_generate(segment, output_dir):
                 import time
+
                 generation_times.append(time.time())
                 await asyncio.sleep(0.1)  # Simulate work
                 path = output_dir / f"{segment.speaker}.mp3"

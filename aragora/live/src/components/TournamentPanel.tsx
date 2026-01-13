@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { logger } from '@/utils/logger';
 import type { StreamEvent } from '@/types/events';
+import { API_BASE_URL } from '@/config';
 
 interface TournamentSummary {
   tournament_id: string;
@@ -26,7 +27,7 @@ interface TournamentPanelProps {
   events?: StreamEvent[];
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 export function TournamentPanel({ apiBase = DEFAULT_API_BASE, events = [] }: TournamentPanelProps) {
   const [tournaments, setTournaments] = useState<TournamentSummary[]>([]);

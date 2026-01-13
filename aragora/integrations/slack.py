@@ -125,9 +125,7 @@ class SlackIntegration:
             payload = message.to_payload(self.config)
 
             async with session.post(
-                self.config.webhook_url,
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=10)
+                self.config.webhook_url, json=payload, timeout=aiohttp.ClientTimeout(total=10)
             ) as response:
                 if response.status == 200:
                     logger.debug("Slack message sent successfully")
@@ -172,23 +170,21 @@ class SlackIntegration:
 
         # Header
         status_emoji = ":white_check_mark:" if result.consensus_reached else ":x:"
-        blocks.append({
-            "type": "header",
-            "text": {
-                "type": "plain_text",
-                "text": f"{status_emoji} Debate Completed",
-                "emoji": True
+        blocks.append(
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": f"{status_emoji} Debate Completed",
+                    "emoji": True,
+                },
             }
-        })
+        )
 
         # Task description
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"*Task:* {result.task}"
-            }
-        })
+        blocks.append(
+            {"type": "section", "text": {"type": "mrkdwn", "text": f"*Task:* {result.task}"}}
+        )
 
         # Divider
         blocks.append({"type": "divider"})
@@ -196,29 +192,19 @@ class SlackIntegration:
         # Results section
         consensus_status = "Reached" if result.consensus_reached else "Not Reached"
         winner_text = result.winner or "No clear winner"
-        confidence = getattr(result, 'confidence', 0.0)
+        confidence = getattr(result, "confidence", 0.0)
 
-        blocks.append({
-            "type": "section",
-            "fields": [
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Consensus:*\n{consensus_status}"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Winner:*\n{winner_text}"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Confidence:*\n{confidence:.0%}"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Rounds:*\n{result.rounds_used}"
-                }
-            ]
-        })
+        blocks.append(
+            {
+                "type": "section",
+                "fields": [
+                    {"type": "mrkdwn", "text": f"*Consensus:*\n{consensus_status}"},
+                    {"type": "mrkdwn", "text": f"*Winner:*\n{winner_text}"},
+                    {"type": "mrkdwn", "text": f"*Confidence:*\n{confidence:.0%}"},
+                    {"type": "mrkdwn", "text": f"*Rounds:*\n{result.rounds_used}"},
+                ],
+            }
+        )
 
         # Final answer preview if consensus reached
         if result.consensus_reached and result.final_answer:
@@ -226,24 +212,25 @@ class SlackIntegration:
             if len(result.final_answer) > 500:
                 preview += "..."
 
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*Final Proposal:*\n```{preview}```"
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"*Final Proposal:*\n```{preview}```"},
                 }
-            })
+            )
 
         # Context footer
-        blocks.append({
-            "type": "context",
-            "elements": [
-                {
-                    "type": "mrkdwn",
-                    "text": f":robot_face: Aragora AI Debate System | {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"
-                }
-            ]
-        })
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f":robot_face: Aragora AI Debate System | {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}",
+                    }
+                ],
+            }
+        )
 
         return blocks
 
@@ -269,52 +256,45 @@ class SlackIntegration:
             return True
 
         if confidence < self.config.min_consensus_confidence:
-            logger.debug(f"Skipping consensus alert: confidence {confidence} < {self.config.min_consensus_confidence}")
+            logger.debug(
+                f"Skipping consensus alert: confidence {confidence} < {self.config.min_consensus_confidence}"
+            )
             return True
 
         blocks: list[dict[str, Any]] = [
             {
                 "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": ":tada: Consensus Reached!",
-                    "emoji": True
-                }
+                "text": {"type": "plain_text", "text": ":tada: Consensus Reached!", "emoji": True},
             },
             {
                 "type": "section",
                 "fields": [
-                    {
-                        "type": "mrkdwn",
-                        "text": f"*Debate:*\n{debate_id[:8]}..."
-                    },
-                    {
-                        "type": "mrkdwn",
-                        "text": f"*Confidence:*\n{confidence:.0%}"
-                    }
-                ]
-            }
+                    {"type": "mrkdwn", "text": f"*Debate:*\n{debate_id[:8]}..."},
+                    {"type": "mrkdwn", "text": f"*Confidence:*\n{confidence:.0%}"},
+                ],
+            },
         ]
 
         if winner:
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*Winning Position:* {winner}"
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"*Winning Position:* {winner}"},
                 }
-            })
+            )
 
         if task:
-            blocks.append({
-                "type": "context",
-                "elements": [
-                    {
-                        "type": "mrkdwn",
-                        "text": f"Task: _{task[:100]}{'...' if len(task) > 100 else ''}_"
-                    }
-                ]
-            })
+            blocks.append(
+                {
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"Task: _{task[:100]}{'...' if len(task) > 100 else ''}_",
+                        }
+                    ],
+                }
+            )
 
         text = f"Consensus reached in debate {debate_id[:8]}... with {confidence:.0%} confidence"
         message = SlackMessage(text=text, blocks=blocks)
@@ -345,38 +325,28 @@ class SlackIntegration:
             "info": ":information_source:",
             "warning": ":warning:",
             "error": ":x:",
-            "critical": ":rotating_light:"
+            "critical": ":rotating_light:",
         }
         emoji = severity_emojis.get(severity, ":warning:")
 
         blocks: list[dict[str, Any]] = [
             {
                 "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": f"{emoji} {error_type}",
-                    "emoji": True
-                }
+                "text": {"type": "plain_text", "text": f"{emoji} {error_type}", "emoji": True},
             },
             {
                 "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"```{error_message[:1000]}```"
-                }
-            }
+                "text": {"type": "mrkdwn", "text": f"```{error_message[:1000]}```"},
+            },
         ]
 
         if debate_id:
-            blocks.append({
-                "type": "context",
-                "elements": [
-                    {
-                        "type": "mrkdwn",
-                        "text": f"Debate: `{debate_id}`"
-                    }
-                ]
-            })
+            blocks.append(
+                {
+                    "type": "context",
+                    "elements": [{"type": "mrkdwn", "text": f"Debate: `{debate_id}`"}],
+                }
+            )
 
         text = f"{error_type}: {error_message[:100]}"
         message = SlackMessage(text=text, blocks=blocks)
@@ -404,8 +374,8 @@ class SlackIntegration:
                 "text": {
                     "type": "plain_text",
                     "text": ":trophy: Agent Leaderboard Update",
-                    "emoji": True
-                }
+                    "emoji": True,
+                },
             }
         ]
 
@@ -415,13 +385,15 @@ class SlackIntegration:
             elo = agent.get("elo", 1500)
             wins = agent.get("wins", 0)
 
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{medal} *{name}* - ELO: {elo:.0f} | Wins: {wins}"
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"{medal} *{name}* - ELO: {elo:.0f} | Wins: {wins}",
+                    },
                 }
-            })
+            )
 
         text = f"Leaderboard update: {top_agents[0].get('name', 'Unknown') if top_agents else 'No agents'} leads"
         message = SlackMessage(text=text, blocks=blocks)

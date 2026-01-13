@@ -20,6 +20,7 @@ from typing import Any, Dict
 # Check if MCP is available
 try:
     from mcp.types import Tool, TextContent, Resource, ResourceTemplate
+
     MCP_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
@@ -29,10 +30,7 @@ except ImportError:
     ResourceTemplate = None
 
 
-pytestmark = pytest.mark.skipif(
-    not MCP_AVAILABLE,
-    reason="MCP package not installed"
-)
+pytestmark = pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP package not installed")
 
 
 class TestAragoraMCPServerInitialization:
@@ -40,7 +38,7 @@ class TestAragoraMCPServerInitialization:
 
     def test_server_creation_without_mcp_raises(self):
         """Test that server raises ImportError without MCP package."""
-        with patch.dict('sys.modules', {'mcp': None, 'mcp.server': None}):
+        with patch.dict("sys.modules", {"mcp": None, "mcp.server": None}):
             # Force reimport with mocked modules
             import importlib
             from aragora.mcp import server as mcp_server
@@ -83,6 +81,7 @@ class TestMCPToolListing:
     def server(self):
         """Create an MCP server instance."""
         from aragora.mcp.server import AragoraMCPServer
+
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
@@ -155,6 +154,7 @@ class TestMCPResourceListing:
     def server(self):
         """Create an MCP server instance."""
         from aragora.mcp.server import AragoraMCPServer
+
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
@@ -200,6 +200,7 @@ class TestMCPResourceReading:
     def server(self):
         """Create an MCP server instance."""
         from aragora.mcp.server import AragoraMCPServer
+
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
@@ -247,6 +248,7 @@ class TestMCPToolExecution:
     def server(self):
         """Create an MCP server instance."""
         from aragora.mcp.server import AragoraMCPServer
+
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
@@ -325,10 +327,12 @@ class TestMCPToolExecution:
         with patch("aragora.agents.base.create_agent") as mock_create:
             mock_create.side_effect = Exception("No API key")
 
-            result = await server._run_debate({
-                "question": "Test question",
-                "agents": "fake-agent",
-            })
+            result = await server._run_debate(
+                {
+                    "question": "Test question",
+                    "agents": "fake-agent",
+                }
+            )
 
             assert "error" in result
             assert "No valid agents" in result["error"]
@@ -350,6 +354,7 @@ class TestMCPToolCallHandler:
     def server(self):
         """Create an MCP server instance."""
         from aragora.mcp.server import AragoraMCPServer
+
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
@@ -429,6 +434,7 @@ class TestMCPDebateCaching:
     def server(self):
         """Create an MCP server instance."""
         from aragora.mcp.server import AragoraMCPServer
+
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
@@ -446,20 +452,24 @@ class TestMCPDebateCaching:
         mock_agent = MagicMock()
         mock_agent.name = "test_agent"
 
-        with patch("aragora.agents.base.create_agent") as mock_create, \
-             patch("aragora.debate.orchestrator.Arena") as mock_arena, \
-             patch("aragora.core.Environment"):
+        with (
+            patch("aragora.agents.base.create_agent") as mock_create,
+            patch("aragora.debate.orchestrator.Arena") as mock_arena,
+            patch("aragora.core.Environment"),
+        ):
 
             mock_create.return_value = mock_agent
             mock_arena_instance = MagicMock()
             mock_arena_instance.run = AsyncMock(return_value=mock_result)
             mock_arena.return_value = mock_arena_instance
 
-            result = await server._run_debate({
-                "question": "Test question?",
-                "agents": "test-agent",
-                "rounds": 3,
-            })
+            result = await server._run_debate(
+                {
+                    "question": "Test question?",
+                    "agents": "test-agent",
+                    "rounds": 3,
+                }
+            )
 
             # Verify result structure
             assert "debate_id" in result
@@ -484,9 +494,11 @@ class TestMCPDebateCaching:
         mock_agent = MagicMock()
         mock_agent.name = "agent"
 
-        with patch("aragora.agents.base.create_agent") as mock_create, \
-             patch("aragora.debate.orchestrator.Arena") as mock_arena, \
-             patch("aragora.core.Environment"):
+        with (
+            patch("aragora.agents.base.create_agent") as mock_create,
+            patch("aragora.debate.orchestrator.Arena") as mock_arena,
+            patch("aragora.core.Environment"),
+        ):
 
             mock_create.return_value = mock_agent
             mock_arena_instance = MagicMock()
@@ -506,6 +518,7 @@ class TestMCPRoundsValidation:
     def server(self):
         """Create an MCP server instance."""
         from aragora.mcp.server import AragoraMCPServer
+
         return AragoraMCPServer()
 
     @pytest.mark.asyncio
@@ -521,10 +534,12 @@ class TestMCPRoundsValidation:
         mock_agent = MagicMock()
         mock_agent.name = "a"
 
-        with patch("aragora.agents.base.create_agent") as mock_create, \
-             patch("aragora.debate.orchestrator.Arena") as mock_arena, \
-             patch("aragora.debate.orchestrator.DebateProtocol") as mock_protocol, \
-             patch("aragora.core.Environment") as mock_env:
+        with (
+            patch("aragora.agents.base.create_agent") as mock_create,
+            patch("aragora.debate.orchestrator.Arena") as mock_arena,
+            patch("aragora.debate.orchestrator.DebateProtocol") as mock_protocol,
+            patch("aragora.core.Environment") as mock_env,
+        ):
 
             mock_create.return_value = mock_agent
             mock_arena_instance = MagicMock()
@@ -551,10 +566,12 @@ class TestMCPRoundsValidation:
         mock_agent = MagicMock()
         mock_agent.name = "a"
 
-        with patch("aragora.agents.base.create_agent") as mock_create, \
-             patch("aragora.debate.orchestrator.Arena") as mock_arena, \
-             patch("aragora.debate.orchestrator.DebateProtocol") as mock_protocol, \
-             patch("aragora.core.Environment") as mock_env:
+        with (
+            patch("aragora.agents.base.create_agent") as mock_create,
+            patch("aragora.debate.orchestrator.Arena") as mock_arena,
+            patch("aragora.debate.orchestrator.DebateProtocol") as mock_protocol,
+            patch("aragora.core.Environment") as mock_env,
+        ):
 
             mock_create.return_value = mock_agent
             mock_arena_instance = MagicMock()

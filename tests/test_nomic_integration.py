@@ -43,6 +43,7 @@ class MockAgent:
 
     async def critique(self, proposal: str, task: str, context=None):
         from aragora.core import Critique
+
         return Critique(
             agent=self.name,
             target_agent="other",
@@ -197,13 +198,15 @@ class TestStalenessDetection:
             enable_checkpointing=False,
         )
 
-        claims = [TypedClaim(
-            claim_id="c1",
-            statement="test claim",
-            claim_type=ClaimType.ASSERTION,
-            author="test",
-            confidence=0.8,
-        )]
+        claims = [
+            TypedClaim(
+                claim_id="c1",
+                statement="test claim",
+                claim_type=ClaimType.ASSERTION,
+                author="test",
+                confidence=0.8,
+            )
+        ]
         changed_files = ["file1.py", "file2.py"]
 
         report = await integration.check_staleness(claims, changed_files)

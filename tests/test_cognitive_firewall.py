@@ -20,12 +20,14 @@ class TestTelemetryConfig:
     def setup_method(self):
         """Reset singleton before each test."""
         from aragora.debate.telemetry_config import TelemetryConfig
+
         TelemetryConfig.reset_instance()
 
     def teardown_method(self):
         """Clean up environment after each test."""
         os.environ.pop("ARAGORA_TELEMETRY_LEVEL", None)
         from aragora.debate.telemetry_config import TelemetryConfig
+
         TelemetryConfig.reset_instance()
 
     def test_default_level_is_controlled(self):
@@ -113,7 +115,9 @@ class TestTelemetryConfig:
             (TelemetryLevel.SPECTACLE, True),
         ]:
             config = TelemetryConfig(level=level)
-            assert config.should_broadcast() == expected, f"Level {level} should_broadcast={expected}"
+            assert (
+                config.should_broadcast() == expected
+            ), f"Level {level} should_broadcast={expected}"
 
     def test_should_redact(self):
         """should_redact() should return True only for CONTROLLED."""
@@ -403,12 +407,14 @@ class TestBroadcastEvent:
         """Reset telemetry config before each test."""
         os.environ.pop("ARAGORA_TELEMETRY_LEVEL", None)
         from aragora.debate.telemetry_config import TelemetryConfig
+
         TelemetryConfig.reset_instance()
 
     def teardown_method(self):
         """Clean up after each test."""
         os.environ.pop("ARAGORA_TELEMETRY_LEVEL", None)
         from aragora.debate.telemetry_config import TelemetryConfig
+
         TelemetryConfig.reset_instance()
 
     def test_broadcast_event_silent_suppresses(self):
@@ -431,6 +437,7 @@ class TestBroadcastEvent:
         os.environ["ARAGORA_TELEMETRY_LEVEL"] = "controlled"
         from aragora.server.stream import SyncEventEmitter, StreamEventType
         from aragora.debate.telemetry_config import TelemetryConfig
+
         TelemetryConfig.reset_instance()
 
         emitter = SyncEventEmitter()
@@ -455,6 +462,7 @@ class TestBroadcastEvent:
         os.environ["ARAGORA_TELEMETRY_LEVEL"] = "spectacle"
         from aragora.server.stream import SyncEventEmitter, StreamEventType
         from aragora.debate.telemetry_config import TelemetryConfig
+
         TelemetryConfig.reset_instance()
 
         emitter = SyncEventEmitter()
@@ -482,6 +490,7 @@ class TestBroadcastEvent:
         os.environ["ARAGORA_TELEMETRY_LEVEL"] = "diagnostic"
         from aragora.server.stream import SyncEventEmitter, StreamEventType
         from aragora.debate.telemetry_config import TelemetryConfig
+
         TelemetryConfig.reset_instance()
 
         emitter = SyncEventEmitter()
@@ -501,6 +510,7 @@ class TestBroadcastEvent:
         os.environ["ARAGORA_TELEMETRY_LEVEL"] = "controlled"
         from aragora.server.stream import SyncEventEmitter, StreamEventType
         from aragora.debate.telemetry_config import TelemetryConfig
+
         TelemetryConfig.reset_instance()
 
         emitter = SyncEventEmitter()
@@ -530,12 +540,14 @@ class TestCognitiveFirewallIntegration:
         """Reset state before each test."""
         os.environ.pop("ARAGORA_TELEMETRY_LEVEL", None)
         from aragora.debate.telemetry_config import TelemetryConfig
+
         TelemetryConfig.reset_instance()
 
     def teardown_method(self):
         """Clean up after each test."""
         os.environ.pop("ARAGORA_TELEMETRY_LEVEL", None)
         from aragora.debate.telemetry_config import TelemetryConfig
+
         TelemetryConfig.reset_instance()
 
     def test_full_pipeline_controlled_mode(self):
@@ -544,6 +556,7 @@ class TestCognitiveFirewallIntegration:
         from aragora.debate.security_barrier import SecurityBarrier, TelemetryVerifier
         from aragora.server.stream import SyncEventEmitter, StreamEventType
         from aragora.debate.telemetry_config import TelemetryConfig
+
         TelemetryConfig.reset_instance()
 
         # Setup components
@@ -591,6 +604,7 @@ class TestCognitiveFirewallIntegration:
         from aragora.debate.security_barrier import SecurityBarrier, TelemetryVerifier
         from aragora.server.stream import SyncEventEmitter, StreamEventType
         from aragora.debate.telemetry_config import TelemetryConfig
+
         TelemetryConfig.reset_instance()
 
         # Setup components

@@ -17,9 +17,11 @@ from aragora.debate.phases.context_init import ContextInitializer
 # Mock Classes
 # ============================================================================
 
+
 @dataclass
 class MockEnvironment:
     """Mock environment for testing."""
+
     task: str = "Test task"
     context: str = ""
     domain: str = "general"
@@ -28,6 +30,7 @@ class MockEnvironment:
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str = "test_agent"
     role: str = "proposer"
 
@@ -35,6 +38,7 @@ class MockAgent:
 @dataclass
 class MockMessage:
     """Mock message for testing."""
+
     role: str = "proposer"
     agent: str = "test_agent"
     content: str = "Test content"
@@ -44,6 +48,7 @@ class MockMessage:
 @dataclass
 class MockTrendingTopic:
     """Mock trending topic for testing."""
+
     topic: str = "AI Ethics"
     platform: str = "twitter"
     category: str = "technology"
@@ -56,6 +61,7 @@ class MockTrendingTopic:
 @dataclass
 class MockProtocol:
     """Mock protocol for testing."""
+
     enable_research: bool = False
     rounds: int = 3
 
@@ -63,6 +69,7 @@ class MockProtocol:
 # ============================================================================
 # ContextInitializer Construction Tests
 # ============================================================================
+
 
 class TestContextInitializerConstruction:
     """Tests for ContextInitializer construction."""
@@ -96,6 +103,7 @@ class TestContextInitializerConstruction:
 # ============================================================================
 # Fork History Injection Tests
 # ============================================================================
+
 
 class TestForkHistoryInjection:
     """Tests for fork history injection."""
@@ -145,6 +153,7 @@ class TestForkHistoryInjection:
 # ============================================================================
 # Trending Topic Injection Tests
 # ============================================================================
+
 
 class TestTrendingTopicInjection:
     """Tests for trending topic injection."""
@@ -213,6 +222,7 @@ class TestTrendingTopicInjection:
 # Recorder Tests
 # ============================================================================
 
+
 class TestRecorderStart:
     """Tests for recorder initialization."""
 
@@ -246,6 +256,7 @@ class TestRecorderStart:
 # Historical Context Tests
 # ============================================================================
 
+
 class TestHistoricalContext:
     """Tests for historical context fetching."""
 
@@ -267,8 +278,10 @@ class TestHistoricalContext:
     @pytest.mark.asyncio
     async def test_historical_context_timeout(self):
         """Should handle timeout gracefully."""
+
         async def slow_fetch(*args, **kwargs):
             import asyncio
+
             await asyncio.sleep(20)
             return "Too slow"
 
@@ -317,6 +330,7 @@ class TestHistoricalContext:
 # Pattern Injection Tests
 # ============================================================================
 
+
 class TestPatternInjection:
     """Tests for insight pattern injection."""
 
@@ -357,9 +371,7 @@ class TestPatternInjection:
     async def test_inject_patterns_error(self):
         """Should handle pattern fetch error."""
         insight_store = MagicMock()
-        insight_store.get_common_patterns = AsyncMock(
-            side_effect=Exception("Store error")
-        )
+        insight_store.get_common_patterns = AsyncMock(side_effect=Exception("Store error"))
 
         init = ContextInitializer(insight_store=insight_store)
         ctx = DebateContext(env=MockEnvironment())
@@ -371,6 +383,7 @@ class TestPatternInjection:
 # ============================================================================
 # Memory Pattern Tests
 # ============================================================================
+
 
 class TestMemoryPatternInjection:
     """Tests for memory pattern injection."""
@@ -411,6 +424,7 @@ class TestMemoryPatternInjection:
 # ============================================================================
 # Research Tests
 # ============================================================================
+
 
 class TestPreDebateResearch:
     """Tests for pre-debate research."""
@@ -484,6 +498,7 @@ class TestPreDebateResearch:
 # Result Initialization Tests
 # ============================================================================
 
+
 class TestResultInitialization:
     """Tests for DebateResult initialization."""
 
@@ -506,6 +521,7 @@ class TestResultInitialization:
 # ============================================================================
 # Context Messages Tests
 # ============================================================================
+
 
 class TestContextMessagesInit:
     """Tests for context message initialization."""
@@ -540,6 +556,7 @@ class TestContextMessagesInit:
 # ============================================================================
 # Proposer Selection Tests
 # ============================================================================
+
 
 class TestProposerSelection:
     """Tests for proposer selection."""
@@ -591,6 +608,7 @@ class TestProposerSelection:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestContextInitializerIntegration:
     """Integration tests for full initialization flow."""

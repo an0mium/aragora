@@ -27,6 +27,7 @@ from aragora.server.handlers.debates import DebatesHandler
 # Mock Handler for Testing
 # =============================================================================
 
+
 class MockHandler:
     """Mock HTTP handler for testing."""
 
@@ -45,6 +46,7 @@ class MockHandler:
 # =============================================================================
 # Probes Handler Edge Tests
 # =============================================================================
+
 
 class TestProbesHandlerEdge:
     """Edge case tests for ProbesHandler."""
@@ -106,6 +108,7 @@ class TestProbesHandlerEdge:
 # Verification Handler Edge Tests
 # =============================================================================
 
+
 class TestVerificationHandlerEdge:
     """Edge case tests for VerificationHandler."""
 
@@ -160,6 +163,7 @@ class TestVerificationHandlerEdge:
 # =============================================================================
 # Debates Handler Edge Tests
 # =============================================================================
+
 
 class TestDebatesHandlerEdge:
     """Edge case tests for DebatesHandler."""
@@ -232,6 +236,7 @@ class TestDebatesHandlerEdge:
 # =============================================================================
 # Generic Handler Edge Tests
 # =============================================================================
+
 
 class TestGenericHandlerEdge:
     """Generic edge case tests applicable to all handlers."""
@@ -321,6 +326,7 @@ class TestGenericHandlerEdge:
 # Rate Limit Edge Tests
 # =============================================================================
 
+
 class TestRateLimitEdge:
     """Edge case tests for rate limiting."""
 
@@ -354,6 +360,7 @@ class TestRateLimitEdge:
 # =============================================================================
 # Validation Edge Tests
 # =============================================================================
+
 
 class TestValidationEdge:
     """Edge case tests for input validation."""

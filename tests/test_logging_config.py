@@ -156,6 +156,7 @@ class TestJSONFormatter:
             raise ValueError("Test error")
         except ValueError:
             import sys
+
             exc_info = sys.exc_info()
 
         log_record = logging.LogRecord(
@@ -337,19 +338,13 @@ class TestConfigureLogging:
         """Test configuring JSON output."""
         configure_logging(level="DEBUG", json_output=True)
         root = logging.getLogger()
-        assert any(
-            isinstance(h.formatter, JSONFormatter)
-            for h in root.handlers
-        )
+        assert any(isinstance(h.formatter, JSONFormatter) for h in root.handlers)
 
     def test_configure_text(self):
         """Test configuring text output."""
         configure_logging(level="INFO", json_output=False)
         root = logging.getLogger()
-        assert any(
-            isinstance(h.formatter, TextFormatter)
-            for h in root.handlers
-        )
+        assert any(isinstance(h.formatter, TextFormatter) for h in root.handlers)
 
     def test_configure_level(self):
         """Test configuring log level."""
@@ -363,6 +358,7 @@ class TestLogFunctionDecorator:
 
     def test_logs_function_completion(self):
         """Test that decorator logs function completion."""
+
         @log_function(level="DEBUG")
         def sample_function():
             return 42
@@ -372,6 +368,7 @@ class TestLogFunctionDecorator:
 
     def test_logs_function_error(self):
         """Test that decorator logs function errors."""
+
         @log_function(level="DEBUG")
         def failing_function():
             raise ValueError("Test error")
@@ -381,9 +378,11 @@ class TestLogFunctionDecorator:
 
     def test_logs_duration(self):
         """Test that decorator logs duration."""
+
         @log_function(level="DEBUG", log_duration=True)
         def slow_function():
             import time
+
             time.sleep(0.01)
             return "done"
 
@@ -393,6 +392,7 @@ class TestLogFunctionDecorator:
     @pytest.mark.asyncio
     async def test_async_function(self):
         """Test decorator with async function."""
+
         @log_function(level="DEBUG")
         async def async_operation():
             return "async result"
@@ -403,6 +403,7 @@ class TestLogFunctionDecorator:
     @pytest.mark.asyncio
     async def test_async_function_error(self):
         """Test decorator logs async function errors."""
+
         @log_function(level="DEBUG")
         async def failing_async():
             raise RuntimeError("Async error")
@@ -486,6 +487,7 @@ class TestLogRequestDecorator:
 
     def test_logs_request_lifecycle(self):
         """Test that decorator logs request start and completion."""
+
         class MockHandler:
             method = "GET"
 
@@ -499,6 +501,7 @@ class TestLogRequestDecorator:
 
     def test_logs_request_error(self):
         """Test that decorator logs request failures."""
+
         class MockHandler:
             method = "POST"
 
@@ -512,6 +515,7 @@ class TestLogRequestDecorator:
 
     def test_passes_through_return_value(self):
         """Test that decorator passes through return values."""
+
         class MockHandler:
             @log_request()
             def handle(self, path, query_params):

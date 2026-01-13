@@ -145,9 +145,7 @@ class TestCalculatePairwiseEloChanges:
         }
         scores = {"alice": 1.0, "bob": 0.0}
 
-        changes = calculate_pairwise_elo_changes(
-            ["alice", "bob"], scores, ratings
-        )
+        changes = calculate_pairwise_elo_changes(["alice", "bob"], scores, ratings)
 
         assert "alice" in changes
         assert "bob" in changes
@@ -162,9 +160,7 @@ class TestCalculatePairwiseEloChanges:
         }
         scores = {"alice": 0.5, "bob": 0.5}
 
-        changes = calculate_pairwise_elo_changes(
-            ["alice", "bob"], scores, ratings
-        )
+        changes = calculate_pairwise_elo_changes(["alice", "bob"], scores, ratings)
 
         # With equal ratings and equal scores, changes should be minimal
         assert abs(changes["alice"]) < 0.01
@@ -179,9 +175,7 @@ class TestCalculatePairwiseEloChanges:
         }
         scores = {"alice": 3.0, "bob": 2.0, "carol": 1.0}
 
-        changes = calculate_pairwise_elo_changes(
-            ["alice", "bob", "carol"], scores, ratings
-        )
+        changes = calculate_pairwise_elo_changes(["alice", "bob", "carol"], scores, ratings)
 
         # All three should have changes
         assert len(changes) == 3
@@ -215,12 +209,9 @@ class TestCalculatePairwiseEloChanges:
 
         # Alice with 1.5x multiplier, Bob with 1.0x
         changes_with_mult = calculate_pairwise_elo_changes(
-            ["alice", "bob"], scores, ratings,
-            k_multipliers={"alice": 1.5, "bob": 1.0}
+            ["alice", "bob"], scores, ratings, k_multipliers={"alice": 1.5, "bob": 1.0}
         )
-        changes_no_mult = calculate_pairwise_elo_changes(
-            ["alice", "bob"], scores, ratings
-        )
+        changes_no_mult = calculate_pairwise_elo_changes(["alice", "bob"], scores, ratings)
 
         # Alice's gain should be 1.5x base
         assert changes_with_mult["alice"] == pytest.approx(changes_no_mult["alice"] * 1.5)
@@ -248,9 +239,7 @@ class TestCalculatePairwiseEloChanges:
         }
         scores = {"alice": 0, "bob": 0}
 
-        changes = calculate_pairwise_elo_changes(
-            ["alice", "bob"], scores, ratings
-        )
+        changes = calculate_pairwise_elo_changes(["alice", "bob"], scores, ratings)
 
         # Should behave like a draw
         assert abs(changes["alice"]) < 0.01

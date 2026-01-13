@@ -26,6 +26,7 @@ from aragora.server.handlers.gallery import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def temp_nomic_dir():
     """Create a temporary nomic directory with replay files."""
@@ -39,18 +40,22 @@ def temp_nomic_dir():
         # Create sample debate replay 1
         debate1_dir = replays_dir / "debate-001"
         debate1_dir.mkdir()
-        (debate1_dir / "meta.json").write_text(json.dumps({
-            "debate_id": "debate-001",
-            "loop_id": "loop-abc",
-            "title": "AI Ethics Discussion",
-            "topic": "Should AI systems be regulated?",
-            "agents": ["claude", "gpt4"],
-            "rounds": 3,
-            "consensus_reached": True,
-            "winner": "claude",
-            "final_answer": "AI systems should have reasonable regulations...",
-            "created_at": "2026-01-10T10:00:00",
-        }))
+        (debate1_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "debate_id": "debate-001",
+                    "loop_id": "loop-abc",
+                    "title": "AI Ethics Discussion",
+                    "topic": "Should AI systems be regulated?",
+                    "agents": ["claude", "gpt4"],
+                    "rounds": 3,
+                    "consensus_reached": True,
+                    "winner": "claude",
+                    "final_answer": "AI systems should have reasonable regulations...",
+                    "created_at": "2026-01-10T10:00:00",
+                }
+            )
+        )
         (debate1_dir / "events.jsonl").write_text(
             '{"type": "round_start", "round": 1}\n'
             '{"type": "agent_message", "agent": "claude", "content": "I argue..."}\n'
@@ -59,18 +64,22 @@ def temp_nomic_dir():
         # Create sample debate replay 2
         debate2_dir = replays_dir / "debate-002"
         debate2_dir.mkdir()
-        (debate2_dir / "meta.json").write_text(json.dumps({
-            "debate_id": "debate-002",
-            "loop_id": "loop-def",
-            "title": "Open Source Benefits",
-            "topic": "Should AI be open-sourced?",
-            "agents": ["claude", "gemini"],
-            "rounds": 2,
-            "consensus_reached": False,
-            "winner": None,
-            "final_answer": "",
-            "created_at": "2026-01-09T10:00:00",
-        }))
+        (debate2_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "debate_id": "debate-002",
+                    "loop_id": "loop-def",
+                    "title": "Open Source Benefits",
+                    "topic": "Should AI be open-sourced?",
+                    "agents": ["claude", "gemini"],
+                    "rounds": 2,
+                    "consensus_reached": False,
+                    "winner": None,
+                    "final_answer": "",
+                    "created_at": "2026-01-09T10:00:00",
+                }
+            )
+        )
 
         yield nomic_dir
 
@@ -91,6 +100,7 @@ def empty_gallery_handler():
 # ============================================================================
 # PublicDebate Tests
 # ============================================================================
+
 
 class TestPublicDebate:
     """Tests for PublicDebate dataclass."""
@@ -140,6 +150,7 @@ class TestPublicDebate:
 # Stable ID Generation Tests
 # ============================================================================
 
+
 class TestStableIdGeneration:
     """Tests for stable ID generation."""
 
@@ -180,6 +191,7 @@ class TestStableIdGeneration:
 # GalleryHandler Route Tests
 # ============================================================================
 
+
 class TestGalleryHandlerRoutes:
     """Tests for GalleryHandler routing."""
 
@@ -205,6 +217,7 @@ class TestGalleryHandlerRoutes:
 # ============================================================================
 # List Debates Tests
 # ============================================================================
+
 
 class TestListDebates:
     """Tests for listing public debates."""
@@ -278,6 +291,7 @@ class TestListDebates:
 # Get Specific Debate Tests
 # ============================================================================
 
+
 class TestGetDebate:
     """Tests for getting specific debate details."""
 
@@ -324,6 +338,7 @@ class TestGetDebate:
 # ============================================================================
 # Get Embed Tests
 # ============================================================================
+
 
 class TestGetEmbed:
     """Tests for getting embeddable debate summary."""
@@ -376,6 +391,7 @@ class TestGetEmbed:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestGalleryErrorHandling:
     """Tests for error handling in gallery handler."""
 
@@ -399,10 +415,14 @@ class TestGalleryErrorHandling:
         # Create minimal replay
         minimal_dir = temp_nomic_dir / "replays" / "minimal-debate"
         minimal_dir.mkdir()
-        (minimal_dir / "meta.json").write_text(json.dumps({
-            "debate_id": "minimal",
-            # Missing most fields
-        }))
+        (minimal_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "debate_id": "minimal",
+                    # Missing most fields
+                }
+            )
+        )
 
         result = gallery_handler.handle("/api/gallery", {}, None)
 
@@ -415,6 +435,7 @@ class TestGalleryErrorHandling:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestGalleryIntegration:
     """Integration tests for gallery handler."""

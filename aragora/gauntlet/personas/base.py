@@ -9,6 +9,7 @@ from enum import Enum
 
 class AttackSeverity(Enum):
     """Severity of compliance attack findings."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"

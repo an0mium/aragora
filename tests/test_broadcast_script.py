@@ -25,11 +25,7 @@ class TestScriptSegment:
 
     def test_create_segment_with_voice(self):
         """Creates segment with voice ID."""
-        segment = ScriptSegment(
-            speaker="narrator",
-            text="Welcome",
-            voice_id="en-US-ZiraNeural"
-        )
+        segment = ScriptSegment(speaker="narrator", text="Welcome", voice_id="en-US-ZiraNeural")
         assert segment.voice_id == "en-US-ZiraNeural"
 
 
@@ -104,7 +100,7 @@ class TestExtractSpeakerTurns:
             task="Should we use tabs or spaces?",
             agents=["agent-1", "agent-2"],
             random_seed=42,
-            events=[]
+            events=[],
         )
 
     def test_opening_and_closing(self, basic_trace):
@@ -132,7 +128,7 @@ class TestExtractSpeakerTurns:
                 timestamp="2024-01-01T00:00:00",
                 round_num=1,
                 agent="agent-1",
-                content={"text": "I prefer tabs."}
+                content={"text": "I prefer tabs."},
             ),
             TraceEvent(
                 event_id="e2",
@@ -140,7 +136,7 @@ class TestExtractSpeakerTurns:
                 timestamp="2024-01-01T00:00:01",
                 round_num=1,
                 agent="agent-2",
-                content={"text": "Spaces are better."}
+                content={"text": "Spaces are better."},
             ),
         ]
 
@@ -163,7 +159,7 @@ class TestExtractSpeakerTurns:
                 timestamp="2024-01-01T00:00:00",
                 round_num=1,
                 agent="agent-1",
-                content={"text": "First point"}
+                content={"text": "First point"},
             ),
             TraceEvent(
                 event_id="e2",
@@ -171,7 +167,7 @@ class TestExtractSpeakerTurns:
                 timestamp="2024-01-01T00:00:01",
                 round_num=1,
                 agent="agent-2",
-                content={"text": "Response"}
+                content={"text": "Response"},
             ),
         ]
 
@@ -191,7 +187,7 @@ class TestExtractSpeakerTurns:
                 timestamp="2024-01-01T00:00:00",
                 round_num=1,
                 agent="agent-1",
-                content={"text": "First part"}
+                content={"text": "First part"},
             ),
             TraceEvent(
                 event_id="e2",
@@ -199,7 +195,7 @@ class TestExtractSpeakerTurns:
                 timestamp="2024-01-01T00:00:01",
                 round_num=1,
                 agent="agent-1",  # Same speaker
-                content={"text": "Second part"}
+                content={"text": "Second part"},
             ),
         ]
 
@@ -219,7 +215,7 @@ class TestExtractSpeakerTurns:
                 timestamp="2024-01-01T00:00:00",
                 round_num=1,
                 agent=None,
-                content={"round": 1}
+                content={"round": 1},
             ),
             TraceEvent(
                 event_id="e2",
@@ -227,7 +223,7 @@ class TestExtractSpeakerTurns:
                 timestamp="2024-01-01T00:00:01",
                 round_num=1,
                 agent="agent-1",
-                content={"text": "Actual message"}
+                content={"text": "Actual message"},
             ),
         ]
 
@@ -255,7 +251,7 @@ class TestGenerateScript:
             task="Test task",
             agents=["agent-1"],
             random_seed=42,
-            events=[]
+            events=[],
         )
 
         segments = generate_script(trace)
@@ -278,9 +274,9 @@ class TestGenerateScript:
                     timestamp="2024-01-01T00:00:00",
                     round_num=1,
                     agent="agent-1",
-                    content={"text": "Test message"}
+                    content={"text": "Test message"},
                 )
-            ]
+            ],
         )
 
         segments = generate_script(trace)

@@ -198,7 +198,7 @@ export function useDebateWebSocket({
 
     // Exponential backoff: 1s, 2s, 4s, 8s, 16s (capped at 30s)
     const delay = Math.min(1000 * Math.pow(2, reconnectAttempt), MAX_RECONNECT_DELAY_MS);
-    console.log(`[WebSocket] Scheduling reconnect attempt ${reconnectAttempt + 1} in ${delay}ms`);
+    logger.debug(`[WebSocket] Scheduling reconnect attempt ${reconnectAttempt + 1} in ${delay}ms`);
 
     clearReconnectTimeout();
     reconnectTimeoutRef.current = setTimeout(() => {
@@ -627,7 +627,7 @@ export function useDebateWebSocket({
       }
 
       // Abnormal closure - attempt reconnection
-      console.log(`[WebSocket] Connection closed (code: ${event.code}, reason: ${event.reason || 'none'})`);
+      logger.warn(`[WebSocket] Connection closed (code: ${event.code}, reason: ${event.reason || 'none'})`);
 
       if (!isUnmountedRef.current) {
         setStatus('connecting');

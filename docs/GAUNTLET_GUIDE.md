@@ -1,5 +1,7 @@
 # Gauntlet User Guide
 
+> **Note**: For a quick overview, see [GAUNTLET.md](./GAUNTLET.md). This guide provides detailed usage examples and advanced patterns.
+
 Gauntlet is Aragora's adversarial stress-testing system. It throws 12+ AI "attackers" at your specifications to find flaws before they become production failures.
 
 ## What is Gauntlet?

@@ -242,14 +242,14 @@ Webhook error events include:
   "event": "debate.failed",
   "timestamp": "2024-01-15T10:30:00.000Z",
   "data": {
-    "debate_id": "dbt_abc123",
-    "error": {
-      "code": "AGENT_TIMEOUT",
-      "message": "Agent claude timed out",
-      "trace_id": "xyz789"
+      "debate_id": "dbt_abc123",
+      "error": {
+        "code": "AGENT_TIMEOUT",
+        "message": "Agent anthropic-api timed out",
+        "trace_id": "xyz789"
+      }
     }
   }
-}
 ```
 
 ## Related Documentation

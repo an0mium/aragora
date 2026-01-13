@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { API_BASE_URL } from '../config';
 
 interface AgentProfile {
   name: string;
@@ -37,7 +38,8 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
   const [error, setError] = useState<string | null>(null);
   const [agents, setAgents] = useState<string[]>(availableAgents);
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  // Use centralized config
+  const apiBase = API_BASE_URL;
 
   // Fetch available agents if not provided
   useEffect(() => {

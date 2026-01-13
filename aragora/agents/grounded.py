@@ -231,13 +231,9 @@ class PersonaSynthesizer:
         lines.append(f"- Win Rate: {persona.win_rate:.0%} ({persona.games_played} debates)")
 
         if persona.domain_elos:
-            top_domains = sorted(
-                persona.domain_elos.items(), key=lambda x: x[1], reverse=True
-            )[:3]
+            top_domains = sorted(persona.domain_elos.items(), key=lambda x: x[1], reverse=True)[:3]
             if top_domains:
-                domain_str = ", ".join(
-                    [f"{d} ({elo:.0f})" for d, elo in top_domains]
-                )
+                domain_str = ", ".join([f"{d} ({elo:.0f})" for d, elo in top_domains])
                 lines.append(f"- Strong domains: {domain_str}")
 
         return "\n".join(lines)
@@ -247,7 +243,9 @@ class PersonaSynthesizer:
         lines = ["### Your Calibration"]
 
         if persona.overall_calibration > 0.5:
-            quality = "well-calibrated" if persona.overall_calibration > 0.7 else "reasonably calibrated"
+            quality = (
+                "well-calibrated" if persona.overall_calibration > 0.7 else "reasonably calibrated"
+            )
             lines.append(f"- You are {quality} (score: {persona.overall_calibration:.2f})")
         else:
             lines.append("- Calibration data still accumulating")
@@ -303,10 +301,14 @@ class PersonaSynthesizer:
         """Format position history for prompt."""
         lines = ["### Your Position History"]
         lines.append(f"- Positions taken: {persona.positions_taken}")
-        lines.append(f"- Correct: {persona.positions_correct}, Incorrect: {persona.positions_incorrect}")
+        lines.append(
+            f"- Correct: {persona.positions_correct}, Incorrect: {persona.positions_incorrect}"
+        )
 
         if persona.reversals > 0:
-            lines.append(f"- Reversals: {persona.reversals} ({persona.reversal_rate:.0%} reversal rate)")
+            lines.append(
+                f"- Reversals: {persona.reversals} ({persona.reversal_rate:.0%} reversal rate)"
+            )
             lines.append("  (Reversals indicate intellectual flexibility when evidence warrants)")
 
         return "\n".join(lines)
@@ -343,13 +345,13 @@ class SignificantMoment:
 
     id: str
     moment_type: Literal[
-        "upset_victory",       # Low-rated agent beats high-rated
-        "position_reversal",   # Agent publicly changes stance
+        "upset_victory",  # Low-rated agent beats high-rated
+        "position_reversal",  # Agent publicly changes stance
         "calibration_vindication",  # Prediction proven correct
-        "alliance_shift",      # Relationship dynamic changes
+        "alliance_shift",  # Relationship dynamic changes
         "consensus_breakthrough",  # Agreement on contentious issue
         "streak_achievement",  # Win/loss streak milestone
-        "domain_mastery",      # Agent becomes top in a domain
+        "domain_mastery",  # Agent becomes top in a domain
     ]
     agent_name: str
     description: str
@@ -625,7 +627,7 @@ class MomentDetector:
         if len(moments) > self._max_moments_per_agent:
             # Sort by significance (desc), then by recency (desc)
             moments.sort(key=lambda m: (m.significance_score, m.created_at), reverse=True)
-            self._moment_cache[agent_name] = moments[:self._max_moments_per_agent]
+            self._moment_cache[agent_name] = moments[: self._max_moments_per_agent]
 
     def record_moment(self, moment: SignificantMoment) -> None:
         """Record a detected moment."""

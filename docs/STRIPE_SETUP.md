@@ -178,7 +178,7 @@ sudo journalctl -u aragora -f | grep -i stripe
 ```
 
 ### 9.2 Test Real Transaction
-1. Go to https://live.aragora.ai
+1. Go to https://aragora.ai
 2. Register a new account
 3. Subscribe to Starter plan ($29)
 4. Use a real card (your own)

@@ -36,6 +36,7 @@ def _get_evidence_linker_module():
     if _evidence_linker_module is None:
         try:
             from aragora.debate import evidence_linker as _module
+
             _evidence_linker_module = _module
         except ImportError as e:
             logger.debug(f"evidence_linker module not available: {e}")
@@ -221,9 +222,7 @@ class CrossProposalAnalyzer:
         corroboration = self._calculate_corroboration(shared, len(proposals))
 
         # Coverage scores
-        coverage_scores = {
-            agent: cov.coverage for agent, cov in agent_coverage.items()
-        }
+        coverage_scores = {agent: cov.coverage for agent, cov in agent_coverage.items()}
 
         # Find weakest agent
         weakest = min(coverage_scores, key=coverage_scores.get) if coverage_scores else None
@@ -284,12 +283,14 @@ class CrossProposalAnalyzer:
         shared = []
         for data in evidence_map.values():
             if len(data["agents"]) >= 2:
-                shared.append(SharedEvidence(
-                    evidence_text=data["text"],
-                    evidence_type=data["type"],
-                    agents=list(data["agents"]),
-                    claims_supported=list(set(data["claims"])),  # Dedupe claims
-                ))
+                shared.append(
+                    SharedEvidence(
+                        evidence_text=data["text"],
+                        evidence_type=data["type"],
+                        agents=list(data["agents"]),
+                        claims_supported=list(set(data["claims"])),  # Dedupe claims
+                    )
+                )
 
         return shared
 
@@ -313,19 +314,21 @@ class CrossProposalAnalyzer:
         agents = list(proposals.keys())
 
         for i, agent1 in enumerate(agents):
-            for agent2 in agents[i + 1:]:
+            for agent2 in agents[i + 1 :]:
                 # Find claims that appear to contradict
                 for link1 in agent_coverage[agent1].links:
                     for link2 in agent_coverage[agent2].links:
                         if self._are_contradictory(link1, link2):
-                            contradictions.append(Contradiction(
-                                agent1=agent1,
-                                agent2=agent2,
-                                topic=self._extract_topic(link1.claim, link2.claim),
-                                evidence1=link1.evidence,
-                                evidence2=link2.evidence,
-                                description=f"{agent1} and {agent2} cite different evidence for similar claims",
-                            ))
+                            contradictions.append(
+                                Contradiction(
+                                    agent1=agent1,
+                                    agent2=agent2,
+                                    topic=self._extract_topic(link1.claim, link2.claim),
+                                    evidence1=link1.evidence,
+                                    evidence2=link2.evidence,
+                                    description=f"{agent1} and {agent2} cite different evidence for similar claims",
+                                )
+                            )
 
         return contradictions[:3]  # Limit to top 3
 
@@ -393,11 +396,13 @@ class CrossProposalAnalyzer:
             if len(agents) >= 2 and not claim_to_linked.get(claim, False):
                 # Severity based on how many agents make this claim
                 severity = len(agents) / len(agent_coverage)
-                gaps.append(EvidenceGap(
-                    claim=claim[:200],  # Truncate long claims
-                    agents_making_claim=agents,
-                    gap_severity=severity,
-                ))
+                gaps.append(
+                    EvidenceGap(
+                        claim=claim[:200],  # Truncate long claims
+                        agents_making_claim=agents,
+                        gap_severity=severity,
+                    )
+                )
 
         # Sort by severity and return top gaps
         gaps.sort(key=lambda g: g.gap_severity, reverse=True)

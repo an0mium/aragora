@@ -12,9 +12,28 @@ export const supabase = supabaseUrl && supabaseAnonKey
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
+// Whether Supabase is properly configured
+export const SUPABASE_CONFIGURED = supabase !== null;
+
 export const isSupabaseConfigured = (): boolean => {
   return supabase !== null;
 };
+
+/**
+ * Get a user-friendly warning message if Supabase is not configured.
+ * Returns null if Supabase is properly configured.
+ */
+export function getSupabaseWarning(): string | null {
+  if (SUPABASE_CONFIGURED) {
+    return null;
+  }
+
+  const missing: string[] = [];
+  if (!supabaseUrl) missing.push('NEXT_PUBLIC_SUPABASE_URL');
+  if (!supabaseAnonKey) missing.push('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+
+  return `Supabase not configured (missing: ${missing.join(', ')}). History and persistence features are disabled.`;
+}
 
 // Types matching the database schema
 export interface NomicCycle {

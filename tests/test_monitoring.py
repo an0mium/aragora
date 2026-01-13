@@ -118,7 +118,7 @@ class TestRecordAgentAttempt:
 
     def test_logs_attempt(self, observer):
         """Should log the agent attempt."""
-        with patch.object(observer.logger, 'info') as mock_log:
+        with patch.object(observer.logger, "info") as mock_log:
             observer.record_agent_attempt("test-agent", 30.0)
             mock_log.assert_called_once()
             assert "test-agent" in mock_log.call_args[0][0]
@@ -207,7 +207,7 @@ class TestRecordAgentCompletion:
     def test_logs_error_on_failure(self, observer):
         """Should log error message on failure."""
         attempt_id = observer.record_agent_attempt("agent", 30.0)
-        with patch.object(observer.logger, 'error') as mock_log:
+        with patch.object(observer.logger, "error") as mock_log:
             observer.record_agent_completion(attempt_id, "output", ValueError("test error"))
             mock_log.assert_called_once()
             log_msg = mock_log.call_args[0][0].lower()
@@ -216,7 +216,7 @@ class TestRecordAgentCompletion:
     def test_logs_warning_on_null_bytes(self, observer):
         """Should log warning when null bytes detected."""
         attempt_id = observer.record_agent_attempt("agent", 30.0)
-        with patch.object(observer.logger, 'warning') as mock_log:
+        with patch.object(observer.logger, "warning") as mock_log:
             observer.record_agent_completion(attempt_id, "output\x00")
             mock_log.assert_called_once()
             assert "null" in mock_log.call_args[0][0].lower()
@@ -232,7 +232,7 @@ class TestRecordLoopIdIssue:
 
     def test_logs_present_loop_id(self, observer):
         """Should log when loop_id is present."""
-        with patch.object(observer.logger, 'info') as mock_log:
+        with patch.object(observer.logger, "info") as mock_log:
             observer.record_loop_id_issue("ws-123", True, "client")
             mock_log.assert_called_once()
             log_msg = mock_log.call_args[0][0]
@@ -241,7 +241,7 @@ class TestRecordLoopIdIssue:
 
     def test_logs_missing_loop_id(self, observer):
         """Should log when loop_id is missing."""
-        with patch.object(observer.logger, 'info') as mock_log:
+        with patch.object(observer.logger, "info") as mock_log:
             observer.record_loop_id_issue("ws-456", False, "server")
             mock_log.assert_called_once()
             log_msg = mock_log.call_args[0][0]
@@ -250,7 +250,7 @@ class TestRecordLoopIdIssue:
 
     def test_logs_source(self, observer):
         """Should log the source of the issue."""
-        with patch.object(observer.logger, 'info') as mock_log:
+        with patch.object(observer.logger, "info") as mock_log:
             observer.record_loop_id_issue("ws-789", True, "middleware")
             mock_log.assert_called_once()
             assert "middleware" in mock_log.call_args[0][0]
@@ -432,10 +432,7 @@ class TestSimpleObserverIntegration:
     def test_concurrent_attempts(self, observer):
         """Test tracking multiple concurrent attempts."""
         # Start 10 concurrent attempts
-        attempts = [
-            observer.record_agent_attempt(f"agent-{i}", 30.0)
-            for i in range(10)
-        ]
+        attempts = [observer.record_agent_attempt(f"agent-{i}", 30.0) for i in range(10)]
 
         # All should be in_progress
         for attempt_id in attempts:

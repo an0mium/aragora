@@ -392,9 +392,7 @@ class TestGauntletConfigCustomization:
 
     def test_custom_agents(self):
         """Config accepts custom agent list."""
-        config = GauntletConfig(
-            agents=["custom-agent-1", "custom-agent-2", "custom-agent-3"]
-        )
+        config = GauntletConfig(agents=["custom-agent-1", "custom-agent-2", "custom-agent-3"])
         assert len(config.agents) == 3
         assert "custom-agent-1" in config.agents
 

@@ -85,9 +85,7 @@ class TestVoteWeightCalculator:
         """Reliability weights multiply weight."""
         from aragora.debate.phases.voting import VoteWeightCalculator
 
-        calc = VoteWeightCalculator(
-            reliability_weights={"agent-1": 0.8, "agent-2": 1.2}
-        )
+        calc = VoteWeightCalculator(reliability_weights={"agent-1": 0.8, "agent-2": 1.2})
 
         assert calc.compute_weight("agent-1") == 0.8
         assert calc.compute_weight("agent-2") == 1.2
@@ -181,9 +179,7 @@ class TestVoteWeightCalculator:
         """compute_weights_batch returns dict of weights."""
         from aragora.debate.phases.voting import VoteWeightCalculator
 
-        calc = VoteWeightCalculator(
-            reliability_weights={"agent-1": 0.8, "agent-2": 1.2}
-        )
+        calc = VoteWeightCalculator(reliability_weights={"agent-1": 0.8, "agent-2": 1.2})
 
         weights = calc.compute_weights_batch(["agent-1", "agent-2", "agent-3"])
 
@@ -280,6 +276,7 @@ class TestVoteGrouping:
     @pytest.fixture
     def mock_vote(self):
         """Factory for mock votes."""
+
         def _make_vote(agent: str, choice: str, confidence: float = None):
             vote = Mock(spec=["agent", "choice", "reasoning", "confidence"])
             vote.agent = agent
@@ -287,6 +284,7 @@ class TestVoteGrouping:
             vote.reasoning = "Test reasoning"
             vote.confidence = confidence
             return vote
+
         return _make_vote
 
     def test_grouping_disabled(self, mock_vote):
@@ -384,6 +382,7 @@ class TestApplyVoteGrouping:
             vote.reasoning = "Test"
             vote.confidence = confidence
             return vote
+
         return _make_vote
 
     def test_no_groups(self, mock_protocol, mock_vote):
@@ -438,6 +437,7 @@ class TestComputeVoteDistribution:
             vote.reasoning = "Test"
             vote.confidence = confidence
             return vote
+
         return _make_vote
 
     def test_empty_votes(self, mock_protocol):
@@ -526,6 +526,7 @@ class TestDetermineWinner:
             vote.reasoning = "Test"
             vote.confidence = confidence
             return vote
+
         return _make_vote
 
     def test_no_votes(self, mock_protocol):
@@ -640,6 +641,7 @@ class TestCountWeightedVotes:
             vote.reasoning = "Test"
             vote.confidence = confidence
             return vote
+
         return _make_vote
 
     def test_no_votes(self, mock_protocol):
@@ -670,16 +672,14 @@ class TestCountWeightedVotes:
         assert result.vote_counts["Option A"] == 2.0
         assert result.vote_counts["Option B"] == 1.0
         assert result.total_weighted_votes == 3.0
-        assert abs(result.confidence - 2/3) < 0.001
+        assert abs(result.confidence - 2 / 3) < 0.001
 
     def test_weighted_votes(self, mock_protocol, mock_vote):
         """Counts votes with weights."""
         from aragora.debate.phases.voting import VotingPhase, VoteWeightCalculator
 
         phase = VotingPhase(protocol=mock_protocol)
-        calculator = VoteWeightCalculator(
-            reliability_weights={"a1": 2.0, "a2": 0.5, "a3": 1.0}
-        )
+        calculator = VoteWeightCalculator(reliability_weights={"a1": 2.0, "a2": 0.5, "a3": 1.0})
 
         votes = [
             mock_vote("a1", "Option A"),  # 2.0 weight
@@ -843,6 +843,7 @@ class TestCheckUnanimous:
             vote.reasoning = "Test"
             vote.confidence = confidence
             return vote
+
         return _make_vote
 
     def test_no_votes(self, mock_protocol):
@@ -946,6 +947,7 @@ class TestVotingIntegration:
             vote.reasoning = "Test reasoning"
             vote.confidence = confidence
             return vote
+
         return _make_vote
 
     def test_full_voting_workflow(self, mock_protocol, mock_vote):

@@ -97,9 +97,7 @@ class DebateConfig:
         agent_list = [s.strip() for s in self.agents_str.split(",") if s.strip()]
 
         if len(agent_list) > MAX_AGENTS_PER_DEBATE:
-            raise ValueError(
-                f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
-            )
+            raise ValueError(f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}")
         if len(agent_list) < 2:
             raise ValueError("At least 2 agents required for a debate")
 
@@ -193,7 +191,7 @@ class DebateFactory:
         if create_agent is None:
             raise ConfigurationError(
                 component="DebateFactory",
-                reason="create_agent not available - agents module failed to import"
+                reason="create_agent not available - agents module failed to import",
             )
 
         result = AgentCreationResult()
@@ -208,7 +206,7 @@ class DebateFactory:
                 )
 
                 # Validate API key for API-based agents
-                if hasattr(agent, 'api_key') and not agent.api_key:
+                if hasattr(agent, "api_key") and not agent.api_key:
                     raise ValueError(f"Missing API key for {spec.agent_type}")
 
                 # Apply streaming wrapper if provided
@@ -229,22 +227,22 @@ class DebateFactory:
 
         return result
 
-    def _emit_agent_error(
-        self, agent_type: str, error: str, debate_id: str
-    ) -> None:
+    def _emit_agent_error(self, agent_type: str, error: str, debate_id: str) -> None:
         """Emit an error event for agent creation failure."""
         try:
             from aragora.server.stream.events import StreamEvent, StreamEventType
 
-            self.stream_emitter.emit(StreamEvent(
-                type=StreamEventType.ERROR,
-                data={
-                    "agent": agent_type,
-                    "error": error,
-                    "phase": "initialization",
-                },
-                loop_id=debate_id,
-            ))
+            self.stream_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.ERROR,
+                    data={
+                        "agent": agent_type,
+                        "error": error,
+                        "phase": "initialization",
+                    },
+                    loop_id=debate_id,
+                )
+            )
         except Exception as e:
             logger.warning(f"Failed to emit agent error event: {e}")
 
@@ -344,8 +342,7 @@ class DebateFactory:
         if cb_status:
             logger.debug(f"Agent status before debate: {cb_status}")
             open_circuits = [
-                name for name, status in cb_status.items()
-                if status["status"] == "open"
+                name for name, status in cb_status.items() if status["status"] == "open"
             ]
             if open_circuits:
                 logger.debug(f"Resetting open circuits for: {open_circuits}")

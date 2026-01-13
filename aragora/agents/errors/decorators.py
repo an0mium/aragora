@@ -60,7 +60,7 @@ def calculate_retry_delay_with_jitter(
         Delay in seconds with jitter applied
     """
     # Calculate base exponential delay
-    delay = min(base_delay * (2 ** attempt), max_delay)
+    delay = min(base_delay * (2**attempt), max_delay)
 
     # Apply random jitter: delay ± (jitter_factor * delay)
     jitter = delay * jitter_factor * random.uniform(-1, 1)
@@ -107,9 +107,7 @@ def _build_error_action(
     elif override_delay is not None:
         delay = override_delay
     else:
-        delay = calculate_retry_delay_with_jitter(
-            ctx.attempt - 1, ctx.retry_delay, ctx.max_delay
-        )
+        delay = calculate_retry_delay_with_jitter(ctx.attempt - 1, ctx.retry_delay, ctx.max_delay)
 
     return ErrorAction(error=error, should_retry=should_retry, delay_seconds=delay)
 
@@ -210,9 +208,7 @@ def _handle_response_error(
             status_code=e.status,
             cause=e,
         )
-        return ErrorAction(
-            error=error, should_retry=False, delay_seconds=0.0, log_level="error"
-        )
+        return ErrorAction(error=error, should_retry=False, delay_seconds=0.0, log_level="error")
 
 
 def _handle_agent_error(
@@ -224,9 +220,7 @@ def _handle_agent_error(
     e.agent_name = e.agent_name or ctx.agent_name
 
     if not e.recoverable:
-        return ErrorAction(
-            error=e, should_retry=False, delay_seconds=0.0, log_level="error"
-        )
+        return ErrorAction(error=e, should_retry=False, delay_seconds=0.0, log_level="error")
 
     return _build_error_action(e, ctx, retryable_exceptions)
 
@@ -238,9 +232,7 @@ def _handle_json_error(e: ValueError, ctx: ErrorContext) -> ErrorAction:
         agent_name=ctx.agent_name,
         cause=e,
     )
-    return ErrorAction(
-        error=error, should_retry=False, delay_seconds=0.0, log_level="error"
-    )
+    return ErrorAction(error=error, should_retry=False, delay_seconds=0.0, log_level="error")
 
 
 def _handle_unexpected_error(e: Exception, ctx: ErrorContext) -> ErrorAction:
@@ -251,9 +243,7 @@ def _handle_unexpected_error(e: Exception, ctx: ErrorContext) -> ErrorAction:
         cause=e,
         recoverable=False,
     )
-    return ErrorAction(
-        error=error, should_retry=False, delay_seconds=0.0, log_level="error"
-    )
+    return ErrorAction(error=error, should_retry=False, delay_seconds=0.0, log_level="error")
 
 
 # =============================================================================
@@ -301,6 +291,7 @@ def handle_agent_errors(
         Preserves the wrapped function's signature and metadata while adding
         retry logic, circuit breaker integration, and error transformation.
         """
+
         @functools.wraps(func)
         async def wrapper(self, *args, **kwargs) -> T:
             """Execute the wrapped function with retry and error handling.
@@ -379,7 +370,9 @@ def handle_agent_errors(
 
                 # Log the error at appropriate level
                 log_method = getattr(logger, action.log_level, logger.warning)
-                log_method(f"[{agent_name}] {type(action.error).__name__} (attempt {attempt}): {action.error}")
+                log_method(
+                    f"[{agent_name}] {type(action.error).__name__} (attempt {attempt}): {action.error}"
+                )
 
                 # Record failure to circuit breaker
                 if circuit_breaker is not None:
@@ -495,7 +488,9 @@ def _log_error(
     log_method(message)
 
 
-def handle_stream_errors(agent_name_attr: str = "name") -> Callable[[Callable[..., T]], Callable[..., T]]:
+def handle_stream_errors(
+    agent_name_attr: str = "name",
+) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """
     Decorator specifically for streaming methods.
 

@@ -33,8 +33,10 @@ logger = logging.getLogger(__name__)
 try:
     from aragora.auth import get_sso_provider as _get_sso_provider
 except ImportError:  # pragma: no cover - optional dependency
+
     def _get_sso_provider():
         raise ImportError("SSO auth module not available")
+
 
 get_sso_provider = _get_sso_provider
 
@@ -106,7 +108,11 @@ class SSOHandler(BaseHandler):
             legacy = dict(result)
             body = legacy.get("body", {})
             content_type = legacy.get("content_type") or legacy.get("Content-Type")
-            if isinstance(body, (bytes, str)) and content_type and str(content_type).startswith("application/json"):
+            if (
+                isinstance(body, (bytes, str))
+                and content_type
+                and str(content_type).startswith("application/json")
+            ):
                 try:
                     if isinstance(body, bytes):
                         body = body.decode("utf-8")
@@ -136,7 +142,9 @@ class SSOHandler(BaseHandler):
             "body": self._flatten_error_body(body),
         }
 
-    def _format_response(self, handler: Any, result: Union[HandlerResult, dict]) -> Union[HandlerResult, dict]:
+    def _format_response(
+        self, handler: Any, result: Union[HandlerResult, dict]
+    ) -> Union[HandlerResult, dict]:
         """Return handler result or legacy dict depending on context."""
         if self._should_return_handler_result(handler):
             return result
@@ -170,17 +178,28 @@ class SSOHandler(BaseHandler):
         """
         provider = self._get_provider()
         if not provider:
-            return self._format_response(handler, error_response(
-                "SSO not configured",
-                501,
-                code="SSO_NOT_CONFIGURED",
-                suggestion="Configure SSO in environment variables (ARAGORA_SSO_*)"
-            ))
+            return self._format_response(
+                handler,
+                error_response(
+                    "SSO not configured",
+                    501,
+                    code="SSO_NOT_CONFIGURED",
+                    suggestion="Configure SSO in environment variables (ARAGORA_SSO_*)",
+                ),
+            )
 
         try:
             # Get parameters
-            redirect_uri = params.get("redirect_uri", [""])[0] if isinstance(params.get("redirect_uri"), list) else params.get("redirect_uri", "")
-            state = params.get("state", [""])[0] if isinstance(params.get("state"), list) else params.get("state", "")
+            redirect_uri = (
+                params.get("redirect_uri", [""])[0]
+                if isinstance(params.get("redirect_uri"), list)
+                else params.get("redirect_uri", "")
+            )
+            state = (
+                params.get("state", [""])[0]
+                if isinstance(params.get("state"), list)
+                else params.get("state", "")
+            )
 
             # Generate state if not provided
             if not state:
@@ -195,30 +214,36 @@ class SSOHandler(BaseHandler):
             # Check if client wants JSON or redirect
             accept = handler.headers.get("Accept", "") if hasattr(handler, "headers") else ""
             if "application/json" in accept:
-                return self._format_response(handler, json_response({
-                    "auth_url": auth_url,
-                    "state": state,
-                    "provider": provider.provider_type.value,
-                }))
+                return self._format_response(
+                    handler,
+                    json_response(
+                        {
+                            "auth_url": auth_url,
+                            "state": state,
+                            "provider": provider.provider_type.value,
+                        }
+                    ),
+                )
             else:
                 # Return redirect response
-                return self._format_response(handler, HandlerResult(
-                    status_code=302,
-                    content_type="text/plain",
-                    body=b"",
-                    headers={
-                        "Location": auth_url,
-                        "Cache-Control": "no-cache, no-store",
-                    },
-                ))
+                return self._format_response(
+                    handler,
+                    HandlerResult(
+                        status_code=302,
+                        content_type="text/plain",
+                        body=b"",
+                        headers={
+                            "Location": auth_url,
+                            "Cache-Control": "no-cache, no-store",
+                        },
+                    ),
+                )
 
         except Exception as e:
             logger.error(f"SSO login error: {e}")
-            return self._format_response(handler, error_response(
-                f"SSO login failed: {e}",
-                500,
-                code="SSO_LOGIN_ERROR"
-            ))
+            return self._format_response(
+                handler, error_response(f"SSO login failed: {e}", 500, code="SSO_LOGIN_ERROR")
+            )
 
     async def handle_callback(self, handler, params: Dict[str, Any]) -> HandlerResult:
         """
@@ -239,23 +264,24 @@ class SSOHandler(BaseHandler):
         """
         provider = self._get_provider()
         if not provider:
-            return self._format_response(handler, error_response(
-                "SSO not configured",
-                501,
-                code="SSO_NOT_CONFIGURED"
-            ))
+            return self._format_response(
+                handler, error_response("SSO not configured", 501, code="SSO_NOT_CONFIGURED")
+            )
 
         # SECURITY: Enforce HTTPS for callbacks in production
         if os.getenv("ARAGORA_ENV") == "production":
             callback_url = provider.config.callback_url
             if callback_url and not callback_url.startswith("https://"):
                 logger.error(f"SSO callback URL must use HTTPS in production: {callback_url}")
-                return self._format_response(handler, error_response(
-                    "SSO callback URL must use HTTPS in production",
-                    400,
-                    code="INSECURE_CALLBACK_URL",
-                    suggestion="Configure ARAGORA_SSO_CALLBACK_URL with https://"
-                ))
+                return self._format_response(
+                    handler,
+                    error_response(
+                        "SSO callback URL must use HTTPS in production",
+                        400,
+                        code="INSECURE_CALLBACK_URL",
+                        suggestion="Configure ARAGORA_SSO_CALLBACK_URL with https://",
+                    ),
+                )
 
         try:
             # Extract callback parameters
@@ -268,11 +294,9 @@ class SSOHandler(BaseHandler):
             error = self._get_param(params, "error")
             if error:
                 error_desc = self._get_param(params, "error_description") or error
-                return self._format_response(handler, error_response(
-                    f"IdP error: {error_desc}",
-                    401,
-                    code="SSO_IDP_ERROR"
-                ))
+                return self._format_response(
+                    handler, error_response(f"IdP error: {error_desc}", 401, code="SSO_IDP_ERROR")
+                )
 
             # Authenticate
             user = await provider.authenticate(
@@ -302,25 +326,31 @@ class SSOHandler(BaseHandler):
                 # SECURITY: Validate redirect URL before redirecting
                 if not self._validate_redirect_url(relay_state):
                     logger.warning(f"SSO callback: blocked unsafe redirect to {relay_state}")
-                    return self._format_response(handler, error_response(
-                        "Invalid redirect URL",
-                        400,
-                        code="SSO_INVALID_REDIRECT",
-                        suggestion="Redirect URL must be on the allowed hosts list"
-                    ))
+                    return self._format_response(
+                        handler,
+                        error_response(
+                            "Invalid redirect URL",
+                            400,
+                            code="SSO_INVALID_REDIRECT",
+                            suggestion="Redirect URL must be on the allowed hosts list",
+                        ),
+                    )
 
                 # Redirect with token
                 separator = "&" if "?" in relay_state else "?"
                 redirect_url = f"{relay_state}{separator}token={session_token}"
-                return self._format_response(handler, HandlerResult(
-                    status_code=302,
-                    content_type="text/plain",
-                    body=b"",
-                    headers={
-                        "Location": redirect_url,
-                        "Cache-Control": "no-cache, no-store",
-                    },
-                ))
+                return self._format_response(
+                    handler,
+                    HandlerResult(
+                        status_code=302,
+                        content_type="text/plain",
+                        body=b"",
+                        headers={
+                            "Location": redirect_url,
+                            "Cache-Control": "no-cache, no-store",
+                        },
+                    ),
+                )
 
             return self._format_response(handler, json_response(response_data))
 
@@ -330,25 +360,29 @@ class SSOHandler(BaseHandler):
             # Handle specific errors
             error_msg = str(e)
             if "DOMAIN_NOT_ALLOWED" in error_msg:
-                return self._format_response(handler, error_response(
-                    error_msg,
-                    403,
-                    code="SSO_DOMAIN_NOT_ALLOWED",
-                    suggestion="Contact your administrator to add your domain"
-                ))
+                return self._format_response(
+                    handler,
+                    error_response(
+                        error_msg,
+                        403,
+                        code="SSO_DOMAIN_NOT_ALLOWED",
+                        suggestion="Contact your administrator to add your domain",
+                    ),
+                )
             elif "INVALID_STATE" in error_msg:
-                return self._format_response(handler, error_response(
-                    "Session expired. Please try logging in again.",
-                    401,
-                    code="SSO_SESSION_EXPIRED",
-                    suggestion="Click the login button to start a new session"
-                ))
+                return self._format_response(
+                    handler,
+                    error_response(
+                        "Session expired. Please try logging in again.",
+                        401,
+                        code="SSO_SESSION_EXPIRED",
+                        suggestion="Click the login button to start a new session",
+                    ),
+                )
 
-            return self._format_response(handler, error_response(
-                f"Authentication failed: {e}",
-                401,
-                code="SSO_AUTH_FAILED"
-            ))
+            return self._format_response(
+                handler, error_response(f"Authentication failed: {e}", 401, code="SSO_AUTH_FAILED")
+            )
 
     async def handle_logout(self, handler, params: Dict[str, Any]) -> HandlerResult:
         """
@@ -361,7 +395,9 @@ class SSOHandler(BaseHandler):
         """
         provider = self._get_provider()
         if not provider:
-            return self._format_response(handler, json_response({"success": True, "message": "Logged out"}))
+            return self._format_response(
+                handler, json_response({"success": True, "message": "Logged out"})
+            )
 
         try:
             # Get current user token
@@ -384,27 +420,40 @@ class SSOHandler(BaseHandler):
             logout_url = await provider.logout(SSOUser(id="", email=""))
 
             if logout_url:
-                return self._format_response(handler, HandlerResult(
-                    status_code=302,
-                    content_type="text/plain",
-                    body=b"",
-                    headers={
-                        "Location": logout_url,
-                        "Cache-Control": "no-cache, no-store",
-                    },
-                ))
+                return self._format_response(
+                    handler,
+                    HandlerResult(
+                        status_code=302,
+                        content_type="text/plain",
+                        body=b"",
+                        headers={
+                            "Location": logout_url,
+                            "Cache-Control": "no-cache, no-store",
+                        },
+                    ),
+                )
 
-            return self._format_response(handler, json_response({
-                "success": True,
-                "message": "Logged out successfully",
-            }))
+            return self._format_response(
+                handler,
+                json_response(
+                    {
+                        "success": True,
+                        "message": "Logged out successfully",
+                    }
+                ),
+            )
 
         except Exception as e:
             logger.error(f"SSO logout error: {e}")
-            return self._format_response(handler, json_response({
-                "success": True,
-                "message": "Logged out (with errors)",
-            }))
+            return self._format_response(
+                handler,
+                json_response(
+                    {
+                        "success": True,
+                        "message": "Logged out (with errors)",
+                    }
+                ),
+            )
 
     async def handle_metadata(self, handler, params: Dict[str, Any]) -> HandlerResult:
         """
@@ -417,42 +466,45 @@ class SSOHandler(BaseHandler):
         """
         provider = self._get_provider()
         if not provider:
-            return self._format_response(handler, error_response(
-                "SSO not configured",
-                501,
-                code="SSO_NOT_CONFIGURED"
-            ))
+            return self._format_response(
+                handler, error_response("SSO not configured", 501, code="SSO_NOT_CONFIGURED")
+            )
 
         # Check if SAML provider
         if not SSOProviderType:
-            return self._format_response(handler, error_response("SSO provider types unavailable", 503))
+            return self._format_response(
+                handler, error_response("SSO provider types unavailable", 503)
+            )
         if provider.provider_type != SSOProviderType.SAML:
-            return self._format_response(handler, error_response(
-                "Metadata only available for SAML providers",
-                400,
-                code="NOT_SAML_PROVIDER"
-            ))
+            return self._format_response(
+                handler,
+                error_response(
+                    "Metadata only available for SAML providers", 400, code="NOT_SAML_PROVIDER"
+                ),
+            )
 
         try:
             if hasattr(provider, "get_metadata"):
                 metadata = await provider.get_metadata()
-                return self._format_response(handler, HandlerResult(
-                    status_code=200,
-                    content_type="application/xml",
-                    body=str(metadata).encode("utf-8"),
-                    headers={
-                        "Content-Type": "application/xml",
-                        "Cache-Control": "max-age=3600",
-                    },
-                ))
+                return self._format_response(
+                    handler,
+                    HandlerResult(
+                        status_code=200,
+                        content_type="application/xml",
+                        body=str(metadata).encode("utf-8"),
+                        headers={
+                            "Content-Type": "application/xml",
+                            "Cache-Control": "max-age=3600",
+                        },
+                    ),
+                )
 
         except Exception as e:
             logger.error(f"Metadata generation error: {e}")
-            return self._format_response(handler, error_response(
-                f"Failed to generate metadata: {e}",
-                500,
-                code="METADATA_ERROR"
-            ))
+            return self._format_response(
+                handler,
+                error_response(f"Failed to generate metadata: {e}", 500, code="METADATA_ERROR"),
+            )
 
         return self._format_response(handler, error_response("Metadata not available", 400))
 
@@ -468,22 +520,36 @@ class SSOHandler(BaseHandler):
         provider = self._get_provider()
 
         if not provider:
-            return self._format_response(handler, json_response({
-                "enabled": False,
-                "configured": False,
-                "provider": None,
-                "message": "SSO not configured",
-            }))
+            return self._format_response(
+                handler,
+                json_response(
+                    {
+                        "enabled": False,
+                        "configured": False,
+                        "provider": None,
+                        "message": "SSO not configured",
+                    }
+                ),
+            )
 
-        return self._format_response(handler, json_response({
-            "enabled": True,
-            "configured": True,
-            "provider": provider.provider_type.value,
-            "entity_id": provider.config.entity_id,
-            "callback_url": provider.config.callback_url,
-            "auto_provision": provider.config.auto_provision,
-            "allowed_domains": provider.config.allowed_domains if hasattr(provider.config, "allowed_domains") else [],
-        }))
+        return self._format_response(
+            handler,
+            json_response(
+                {
+                    "enabled": True,
+                    "configured": True,
+                    "provider": provider.provider_type.value,
+                    "entity_id": provider.config.entity_id,
+                    "callback_url": provider.config.callback_url,
+                    "auto_provision": provider.config.auto_provision,
+                    "allowed_domains": (
+                        provider.config.allowed_domains
+                        if hasattr(provider.config, "allowed_domains")
+                        else []
+                    ),
+                }
+            ),
+        )
 
     def _get_param(self, params: Dict[str, Any], key: str) -> Optional[str]:
         """Extract parameter value, handling list format."""

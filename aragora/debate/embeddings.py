@@ -53,10 +53,7 @@ Transcript:
         await self.retriever.embed_and_store(debate_id, full_text)
 
     async def find_similar_debates(
-        self,
-        query: str,
-        limit: int = 5,
-        min_similarity: float = 0.7
+        self, query: str, limit: int = 5, min_similarity: float = 0.7
     ) -> List[Tuple[str, str, float]]:
         """
         Find debates similar to the query.
@@ -75,9 +72,9 @@ Transcript:
         """Convert transcript list to readable text."""
         lines = []
         for msg in transcript:
-            agent = msg.get('agent', 'Unknown')
-            content = msg.get('content', '')
-            msg_type = msg.get('type', 'message')
+            agent = msg.get("agent", "Unknown")
+            content = msg.get("content", "")
+            msg_type = msg.get("type", "message")
             lines.append(f"{agent} ({msg_type}): {content}")
 
         return "\n".join(lines)

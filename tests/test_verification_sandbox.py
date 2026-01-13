@@ -316,7 +316,7 @@ class TestErrorHandling:
                 mock_run.return_value = SandboxResult(
                     status=SandboxStatus.SUCCESS,
                     exit_code=1,
-                    stderr="(error \"line 1 column 1: unknown command\")",
+                    stderr='(error "line 1 column 1: unknown command")',
                 )
 
                 result = await sandbox.execute_z3("invalid smt code")

@@ -237,6 +237,7 @@ class TestGetOpenAPIYaml:
         """Uses YAML format if PyYAML available."""
         try:
             import yaml
+
             result = get_openapi_yaml()
             # YAML format uses colons without quotes
             assert "openapi:" in result
@@ -304,16 +305,16 @@ class TestSchemaValidation:
         for path, methods in schema["paths"].items():
             # Extract path params from URL
             import re
+
             url_params = set(re.findall(r"\{(\w+)\}", path))
 
             for method, spec in methods.items():
                 if url_params:
                     params = spec.get("parameters", [])
-                    defined_path_params = {
-                        p["name"] for p in params if p.get("in") == "path"
-                    }
-                    assert url_params == defined_path_params, \
-                        f"{path} {method}: URL params {url_params} != defined {defined_path_params}"
+                    defined_path_params = {p["name"] for p in params if p.get("in") == "path"}
+                    assert (
+                        url_params == defined_path_params
+                    ), f"{path} {method}: URL params {url_params} != defined {defined_path_params}"
 
     def test_response_codes_valid(self):
         """Response codes are valid HTTP codes."""

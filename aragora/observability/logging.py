@@ -86,21 +86,23 @@ def correlation_context(correlation_id: Optional[str] = None) -> Generator[str, 
 
 
 # Fields to redact in logs
-SENSITIVE_FIELDS = frozenset({
-    "password",
-    "secret",
-    "token",
-    "api_key",
-    "apikey",
-    "api-key",
-    "authorization",
-    "auth",
-    "credential",
-    "private_key",
-    "privatekey",
-    "access_token",
-    "refresh_token",
-})
+SENSITIVE_FIELDS = frozenset(
+    {
+        "password",
+        "secret",
+        "token",
+        "api_key",
+        "apikey",
+        "api-key",
+        "authorization",
+        "auth",
+        "credential",
+        "private_key",
+        "privatekey",
+        "access_token",
+        "refresh_token",
+    }
+)
 
 # Pattern to detect potential secrets in values
 SECRET_PATTERNS = [
@@ -230,10 +232,10 @@ class HumanFormatter(logging.Formatter):
     """Human-readable log formatter for development."""
 
     COLORS = {
-        "DEBUG": "\033[36m",     # Cyan
-        "INFO": "\033[32m",      # Green
-        "WARNING": "\033[33m",   # Yellow
-        "ERROR": "\033[31m",     # Red
+        "DEBUG": "\033[36m",  # Cyan
+        "INFO": "\033[32m",  # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
         "CRITICAL": "\033[35m",  # Magenta
     }
     RESET = "\033[0m"

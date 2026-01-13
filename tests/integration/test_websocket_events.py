@@ -27,10 +27,7 @@ class TestSyncEventEmitter:
         """Events emitted should be queued for later draining."""
         emitter = SyncEventEmitter()
 
-        event = StreamEvent(
-            type=StreamEventType.DEBATE_START,
-            data={"task": "Test debate"}
-        )
+        event = StreamEvent(type=StreamEventType.DEBATE_START, data={"task": "Test debate"})
         emitter.emit(event)
 
         events = emitter.drain()
@@ -55,9 +52,15 @@ class TestSyncEventEmitter:
         """Token events should get per-agent sequence numbers."""
         emitter = SyncEventEmitter()
 
-        emitter.emit(StreamEvent(type=StreamEventType.TOKEN_DELTA, data={"token": "a"}, agent="claude"))
-        emitter.emit(StreamEvent(type=StreamEventType.TOKEN_DELTA, data={"token": "b"}, agent="gpt"))
-        emitter.emit(StreamEvent(type=StreamEventType.TOKEN_DELTA, data={"token": "c"}, agent="claude"))
+        emitter.emit(
+            StreamEvent(type=StreamEventType.TOKEN_DELTA, data={"token": "a"}, agent="claude")
+        )
+        emitter.emit(
+            StreamEvent(type=StreamEventType.TOKEN_DELTA, data={"token": "b"}, agent="gpt")
+        )
+        emitter.emit(
+            StreamEvent(type=StreamEventType.TOKEN_DELTA, data={"token": "c"}, agent="claude")
+        )
 
         events = emitter.drain()
         # claude gets agent_seq 1, 2
@@ -225,7 +228,9 @@ class TestAudienceInbox:
 
         inbox.put(AudienceMessage(type="vote", loop_id="test", payload={"choice": "A"}))
         inbox.put(AudienceMessage(type="suggestion", loop_id="test", payload={"text": "try X"}))
-        inbox.put(AudienceMessage(type="suggestion", loop_id="test", payload={"text": "consider Y"}))
+        inbox.put(
+            AudienceMessage(type="suggestion", loop_id="test", payload={"text": "consider Y"})
+        )
 
         suggestions = inbox.drain_suggestions()
         assert len(suggestions) == 2
@@ -244,14 +249,33 @@ class TestEventLifecycle:
         emitter = SyncEventEmitter()
 
         # Simulate debate lifecycle
-        emitter.emit(StreamEvent(type=StreamEventType.DEBATE_START, data={"task": "Test task", "agents": ["a1", "a2"]}))
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.DEBATE_START,
+                data={"task": "Test task", "agents": ["a1", "a2"]},
+            )
+        )
         emitter.emit(StreamEvent(type=StreamEventType.ROUND_START, data={"round": 1}))
-        emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={"agent": "a1", "content": "proposal"}))
-        emitter.emit(StreamEvent(type=StreamEventType.CRITIQUE, data={"agent": "a2", "target": "a1"}))
-        emitter.emit(StreamEvent(type=StreamEventType.VOTE, data={"agent": "a1", "choice": "consensus"}))
-        emitter.emit(StreamEvent(type=StreamEventType.VOTE, data={"agent": "a2", "choice": "consensus"}))
-        emitter.emit(StreamEvent(type=StreamEventType.CONSENSUS, data={"reached": True, "confidence": 0.9}))
-        emitter.emit(StreamEvent(type=StreamEventType.DEBATE_END, data={"duration": 10.5, "rounds": 1}))
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.AGENT_MESSAGE, data={"agent": "a1", "content": "proposal"}
+            )
+        )
+        emitter.emit(
+            StreamEvent(type=StreamEventType.CRITIQUE, data={"agent": "a2", "target": "a1"})
+        )
+        emitter.emit(
+            StreamEvent(type=StreamEventType.VOTE, data={"agent": "a1", "choice": "consensus"})
+        )
+        emitter.emit(
+            StreamEvent(type=StreamEventType.VOTE, data={"agent": "a2", "choice": "consensus"})
+        )
+        emitter.emit(
+            StreamEvent(type=StreamEventType.CONSENSUS, data={"reached": True, "confidence": 0.9})
+        )
+        emitter.emit(
+            StreamEvent(type=StreamEventType.DEBATE_END, data={"duration": 10.5, "rounds": 1})
+        )
 
         events = emitter.drain()
 
@@ -276,8 +300,14 @@ class TestEventLifecycle:
 
         for round_num in range(1, 4):
             emitter.emit(StreamEvent(type=StreamEventType.ROUND_START, data={"round": round_num}))
-            emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={"agent": "a1", "round": round_num}))
-            emitter.emit(StreamEvent(type=StreamEventType.CRITIQUE, data={"agent": "a2", "round": round_num}))
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.AGENT_MESSAGE, data={"agent": "a1", "round": round_num}
+                )
+            )
+            emitter.emit(
+                StreamEvent(type=StreamEventType.CRITIQUE, data={"agent": "a2", "round": round_num})
+            )
 
         emitter.emit(StreamEvent(type=StreamEventType.CONSENSUS, data={"reached": True}))
         emitter.emit(StreamEvent(type=StreamEventType.DEBATE_END, data={"rounds": 3}))
@@ -295,12 +325,18 @@ class TestEventLifecycle:
         """Should emit token streaming events for real-time display."""
         emitter = SyncEventEmitter()
 
-        emitter.emit(StreamEvent(type=StreamEventType.TOKEN_START, data={"agent": "claude"}, agent="claude"))
+        emitter.emit(
+            StreamEvent(type=StreamEventType.TOKEN_START, data={"agent": "claude"}, agent="claude")
+        )
 
         for token in ["Hello", " ", "world", "!"]:
-            emitter.emit(StreamEvent(type=StreamEventType.TOKEN_DELTA, data={"token": token}, agent="claude"))
+            emitter.emit(
+                StreamEvent(type=StreamEventType.TOKEN_DELTA, data={"token": token}, agent="claude")
+            )
 
-        emitter.emit(StreamEvent(type=StreamEventType.TOKEN_END, data={"agent": "claude"}, agent="claude"))
+        emitter.emit(
+            StreamEvent(type=StreamEventType.TOKEN_END, data={"agent": "claude"}, agent="claude")
+        )
 
         events = emitter.drain()
 
@@ -332,10 +368,22 @@ class TestLoopTracking:
         emitter = SyncEventEmitter()
 
         # Events from two different loops
-        emitter.emit(StreamEvent(type=StreamEventType.DEBATE_START, data={"task": "Task A"}, loop_id="loop-A"))
-        emitter.emit(StreamEvent(type=StreamEventType.DEBATE_START, data={"task": "Task B"}, loop_id="loop-B"))
-        emitter.emit(StreamEvent(type=StreamEventType.ROUND_START, data={"round": 1}, loop_id="loop-A"))
-        emitter.emit(StreamEvent(type=StreamEventType.ROUND_START, data={"round": 1}, loop_id="loop-B"))
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.DEBATE_START, data={"task": "Task A"}, loop_id="loop-A"
+            )
+        )
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.DEBATE_START, data={"task": "Task B"}, loop_id="loop-B"
+            )
+        )
+        emitter.emit(
+            StreamEvent(type=StreamEventType.ROUND_START, data={"round": 1}, loop_id="loop-A")
+        )
+        emitter.emit(
+            StreamEvent(type=StreamEventType.ROUND_START, data={"round": 1}, loop_id="loop-B")
+        )
 
         events = emitter.drain()
 
@@ -394,15 +442,13 @@ class TestConcurrentAccess:
 
         def emit_events(thread_id):
             for i in range(events_per_thread):
-                emitter.emit(StreamEvent(
-                    type=StreamEventType.AGENT_MESSAGE,
-                    data={"thread": thread_id, "idx": i}
-                ))
+                emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.AGENT_MESSAGE, data={"thread": thread_id, "idx": i}
+                    )
+                )
 
-        threads = [
-            threading.Thread(target=emit_events, args=(i,))
-            for i in range(num_threads)
-        ]
+        threads = [threading.Thread(target=emit_events, args=(i,)) for i in range(num_threads)]
 
         for t in threads:
             t.start()

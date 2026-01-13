@@ -87,8 +87,7 @@ class IntrospectionSnapshot:
         if self.critiques_given > 0:
             crit_pct = int(self.critique_effectiveness * 100)
             lines.append(
-                f"Critiques: {crit_pct}% valuable | "
-                f"Calibration: {self.calibration_label}"
+                f"Critiques: {crit_pct}% valuable | " f"Calibration: {self.calibration_label}"
             )
 
         # Line 4: Expertise (only if available)

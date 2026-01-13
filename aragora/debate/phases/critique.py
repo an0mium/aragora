@@ -73,9 +73,7 @@ class CritiquePhase:
             # Default to all-to-all
             return [c for c in all_critics if c.name != proposal_agent]
 
-    def _select_round_robin(
-        self, proposal_agent: str, all_critics: list["Agent"]
-    ) -> list["Agent"]:
+    def _select_round_robin(self, proposal_agent: str, all_critics: list["Agent"]) -> list["Agent"]:
         """Round-robin: each critic critiques the next one in alphabetical order."""
         eligible_critics = [c for c in all_critics if c.name != proposal_agent]
         if not eligible_critics:
@@ -89,9 +87,7 @@ class CritiquePhase:
         proposal_index = proposal_hash % len(eligible_critics_sorted)
         return [eligible_critics_sorted[proposal_index]]
 
-    def _select_ring(
-        self, proposal_agent: str, all_critics: list["Agent"]
-    ) -> list["Agent"]:
+    def _select_ring(self, proposal_agent: str, all_critics: list["Agent"]) -> list["Agent"]:
         """Ring topology: each agent critiques its neighbors."""
         agent_names = sorted([a.name for a in all_critics] + [proposal_agent])
         if proposal_agent in agent_names:
@@ -110,9 +106,7 @@ class CritiquePhase:
         right = all_names[(idx + 1) % len(all_names)]
         return [c for c in all_critics if c.name in (left, right)]
 
-    def _select_star(
-        self, proposal_agent: str, all_critics: list["Agent"]
-    ) -> list["Agent"]:
+    def _select_star(self, proposal_agent: str, all_critics: list["Agent"]) -> list["Agent"]:
         """Star topology: hub critiques everyone, or everyone critiques hub."""
         hub = self.protocol.topology_hub_agent
         if not hub and self.agents:
@@ -125,9 +119,7 @@ class CritiquePhase:
             # Others' proposals get critiqued only by hub
             return [c for c in all_critics if c.name == hub]
 
-    def _select_sparse(
-        self, proposal_agent: str, all_critics: list["Agent"]
-    ) -> list["Agent"]:
+    def _select_sparse(self, proposal_agent: str, all_critics: list["Agent"]) -> list["Agent"]:
         """Sparse/random-graph: random subset based on sparsity parameter."""
         available_critics = [c for c in all_critics if c.name != proposal_agent]
         if not available_critics:
@@ -137,13 +129,9 @@ class CritiquePhase:
         num_to_select = max(1, int(len(available_critics) * sparsity))
 
         # Deterministic random based on proposal_agent for reproducibility
-        stable_seed = int(hashlib.sha256(proposal_agent.encode()).hexdigest(), 16) % (
-            2**32
-        )
+        stable_seed = int(hashlib.sha256(proposal_agent.encode()).hexdigest(), 16) % (2**32)
         random.seed(stable_seed)
-        selected = random.sample(
-            available_critics, min(num_to_select, len(available_critics))
-        )
+        selected = random.sample(available_critics, min(num_to_select, len(available_critics)))
         random.seed()  # Reset seed
         return selected
 

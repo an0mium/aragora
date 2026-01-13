@@ -542,12 +542,13 @@ class StaticHTMLExporter:
 
     def _escape(self, text: str) -> str:
         """Escape HTML special characters."""
-        return (text
-            .replace("&", "&amp;")
+        return (
+            text.replace("&", "&amp;")
             .replace("<", "&lt;")
             .replace(">", "&gt;")
             .replace('"', "&quot;")
-            .replace("'", "&#39;"))
+            .replace("'", "&#39;")
+        )
 
     def _generate_styles(self) -> str:
         """Generate embedded CSS from module-level constant."""
@@ -623,7 +624,13 @@ class StaticHTMLExporter:
 
         # Simple layout algorithm - arrange by type and position
         x_offset = 50
-        y_positions = {"root": 50, "proposal": 150, "critique": 250, "synthesis": 350, "conclusion": 450}
+        y_positions = {
+            "root": 50,
+            "proposal": 150,
+            "critique": 250,
+            "synthesis": 350,
+            "conclusion": 450,
+        }
 
         node_x: dict[str, tuple[int, int]] = {}
         type_counts: dict[str, int] = {}
@@ -640,7 +647,8 @@ class StaticHTMLExporter:
             agent = node.get("agent_id", "unknown")
             content = node.get("content", "")[:50]
 
-            html_parts.append(f"""
+            html_parts.append(
+                f"""
 <div class="graph-node {node_type}"
      style="left: {x}px; top: {y}px;"
      data-node-id="{node_id}"
@@ -648,7 +656,8 @@ class StaticHTMLExporter:
      title="{self._escape(content)}...">
     <div class="agent">{self._escape(agent)}</div>
     <div class="type">{node_type}</div>
-</div>""")
+</div>"""
+            )
 
         return "".join(html_parts)
 
@@ -685,14 +694,16 @@ class StaticHTMLExporter:
                 text = content.get("content", "")[:300]
                 item_class = "synthesis"
 
-            timeline_items.append(f"""
+            timeline_items.append(
+                f"""
 <div class="timeline-item {item_class}">
     <div class="header">
         <span class="agent">{self._escape(agent)}</span>
         <span class="round">Round {round_num}</span>
     </div>
     <div class="content">{self._escape(text)}...</div>
-</div>""")
+</div>"""
+            )
 
         return f"""
 <div class="tab-panel" id="panel-timeline">
@@ -723,7 +734,8 @@ class StaticHTMLExporter:
 
         provenance_items = []
         for record in records[-10:]:  # Show last 10 records
-            provenance_items.append(f"""
+            provenance_items.append(
+                f"""
 <div class="provenance-item">
     <div class="evidence-id">{record.get('id', 'unknown')}</div>
     <div class="source">
@@ -736,7 +748,8 @@ class StaticHTMLExporter:
         <span class="chain-link">{record.get('content_hash', '')[:12]}...</span>
         {f'<span>&larr;</span><span class="chain-link">{record.get("previous_hash", "")[:12]}...</span>' if record.get('previous_hash') else ''}
     </div>
-</div>""")
+</div>"""
+            )
 
         return f"""
 <div class="tab-panel" id="panel-provenance">
@@ -760,8 +773,13 @@ class StaticHTMLExporter:
 
         verification_items = []
         for v in verifications:
-            status_class = v.status.lower() if v.status.lower() in ["verified", "refuted", "timeout"] else "timeout"
-            verification_items.append(f"""
+            status_class = (
+                v.status.lower()
+                if v.status.lower() in ["verified", "refuted", "timeout"]
+                else "timeout"
+            )
+            verification_items.append(
+                f"""
 <div class="verification-item {status_class}">
     <div>
         <span class="status {status_class}">{v.status.upper()}</span>
@@ -769,7 +787,8 @@ class StaticHTMLExporter:
     </div>
     <p style="margin-top: 0.5rem;">{self._escape(v.claim_text[:200])}</p>
     {f'<pre style="margin-top: 0.5rem;">{self._escape(v.proof_trace[:200] if v.proof_trace else "")}</pre>' if v.proof_trace else ''}
-</div>""")
+</div>"""
+            )
 
         return f"""
 <div class="tab-panel" id="panel-verification">

@@ -26,9 +26,11 @@ from aragora.debate.evidence_quality import EvidenceType
 # Mock Classes
 # ============================================================================
 
+
 @dataclass
 class MockEvidenceLink:
     """Mock evidence link for testing."""
+
     claim: str
     evidence: str
     evidence_type: EvidenceType = EvidenceType.CITATION
@@ -38,6 +40,7 @@ class MockEvidenceLink:
 @dataclass
 class MockEvidenceCoverageResult:
     """Mock evidence coverage result for testing."""
+
     coverage: float = 0.5
     links: list = field(default_factory=list)
     unlinked_claims: list = field(default_factory=list)
@@ -50,17 +53,21 @@ class MockEvidenceClaimLinker:
         # Simple mock: detect some patterns
         links = []
         if "according to" in text.lower():
-            links.append(MockEvidenceLink(
-                claim="We should use caching",
-                evidence="According to best practices...",
-                evidence_type=EvidenceType.CITATION,
-            ))
+            links.append(
+                MockEvidenceLink(
+                    claim="We should use caching",
+                    evidence="According to best practices...",
+                    evidence_type=EvidenceType.CITATION,
+                )
+            )
         if "studies show" in text.lower():
-            links.append(MockEvidenceLink(
-                claim="Caching improves performance",
-                evidence="Studies show 50% improvement...",
-                evidence_type=EvidenceType.DATA,
-            ))
+            links.append(
+                MockEvidenceLink(
+                    claim="Caching improves performance",
+                    evidence="Studies show 50% improvement...",
+                    evidence_type=EvidenceType.DATA,
+                )
+            )
 
         coverage = len(links) / 3 if links else 0.0
         return MockEvidenceCoverageResult(coverage=coverage, links=links)
@@ -70,10 +77,12 @@ class MockEvidenceClaimLinker:
 # Import with mocking
 # ============================================================================
 
+
 @pytest.fixture
 def analyzer_module():
     """Import the module with mocked dependencies."""
     from aragora.debate import cross_proposal_analyzer
+
     return cross_proposal_analyzer
 
 
@@ -105,6 +114,7 @@ def CrossProposalAnalyzer(analyzer_module):
 # ============================================================================
 # SharedEvidence Tests
 # ============================================================================
+
 
 class TestSharedEvidence:
     """Tests for SharedEvidence dataclass."""
@@ -149,6 +159,7 @@ class TestSharedEvidence:
 # Contradiction Tests
 # ============================================================================
 
+
 class TestContradiction:
     """Tests for Contradiction dataclass."""
 
@@ -184,6 +195,7 @@ class TestContradiction:
 # ============================================================================
 # EvidenceGap Tests
 # ============================================================================
+
 
 class TestEvidenceGap:
     """Tests for EvidenceGap dataclass."""
@@ -221,10 +233,13 @@ class TestEvidenceGap:
 # CrossProposalAnalysis Tests
 # ============================================================================
 
+
 class TestCrossProposalAnalysis:
     """Tests for CrossProposalAnalysis dataclass."""
 
-    def test_basic_creation(self, CrossProposalAnalysis, SharedEvidence, Contradiction, EvidenceGap):
+    def test_basic_creation(
+        self, CrossProposalAnalysis, SharedEvidence, Contradiction, EvidenceGap
+    ):
         """Test basic analysis creation."""
         analysis = CrossProposalAnalysis(
             shared_evidence=[],
@@ -248,11 +263,13 @@ class TestCrossProposalAnalysis:
             shared_evidence=[],
             evidence_corroboration_score=0.0,
             contradictory_evidence=[],
-            evidence_gaps=[EvidenceGap(
-                claim="Test claim",
-                agents_making_claim=["a", "b"],
-                gap_severity=0.5,
-            )],
+            evidence_gaps=[
+                EvidenceGap(
+                    claim="Test claim",
+                    agents_making_claim=["a", "b"],
+                    gap_severity=0.5,
+                )
+            ],
             redundancy_score=0.0,
             unique_evidence_sources=0,
             total_evidence_sources=0,
@@ -267,14 +284,16 @@ class TestCrossProposalAnalysis:
         analysis = CrossProposalAnalysis(
             shared_evidence=[],
             evidence_corroboration_score=0.0,
-            contradictory_evidence=[Contradiction(
-                agent1="a",
-                agent2="b",
-                topic="test",
-                evidence1="e1",
-                evidence2="e2",
-                description="desc",
-            )],
+            contradictory_evidence=[
+                Contradiction(
+                    agent1="a",
+                    agent2="b",
+                    topic="test",
+                    evidence1="e1",
+                    evidence2="e2",
+                    description="desc",
+                )
+            ],
             evidence_gaps=[],
             redundancy_score=0.0,
             unique_evidence_sources=0,
@@ -344,14 +363,16 @@ class TestCrossProposalAnalysis:
         analysis = CrossProposalAnalysis(
             shared_evidence=[],
             evidence_corroboration_score=0.0,
-            contradictory_evidence=[Contradiction(
-                agent1="claude",
-                agent2="gpt",
-                topic="performance",
-                evidence1="e1",
-                evidence2="e2",
-                description="desc",
-            )],
+            contradictory_evidence=[
+                Contradiction(
+                    agent1="claude",
+                    agent2="gpt",
+                    topic="performance",
+                    evidence1="e1",
+                    evidence2="e2",
+                    description="desc",
+                )
+            ],
             evidence_gaps=[],
             redundancy_score=0.3,
             unique_evidence_sources=0,
@@ -402,6 +423,7 @@ class TestCrossProposalAnalysis:
 # CrossProposalAnalyzer Init Tests
 # ============================================================================
 
+
 class TestAnalyzerInit:
     """Tests for CrossProposalAnalyzer initialization."""
 
@@ -428,6 +450,7 @@ class TestAnalyzerInit:
 # Empty Analysis Tests
 # ============================================================================
 
+
 class TestEmptyAnalysis:
     """Tests for empty analysis scenarios."""
 
@@ -451,10 +474,12 @@ class TestEmptyAnalysis:
     def test_none_linker(self, CrossProposalAnalyzer):
         """Test analysis when linker is None."""
         analyzer = CrossProposalAnalyzer(linker=None)
-        analysis = analyzer.analyze({
-            "claude": "Test 1",
-            "gpt": "Test 2",
-        })
+        analysis = analyzer.analyze(
+            {
+                "claude": "Test 1",
+                "gpt": "Test 2",
+            }
+        )
 
         # Should return empty analysis
         assert analysis.shared_evidence == []
@@ -464,6 +489,7 @@ class TestEmptyAnalysis:
 # ============================================================================
 # Evidence Normalization Tests
 # ============================================================================
+
 
 class TestEvidenceNormalization:
     """Tests for evidence normalization."""
@@ -502,6 +528,7 @@ class TestEvidenceNormalization:
 # ============================================================================
 # Text Similarity Tests
 # ============================================================================
+
 
 class TestTextSimilarity:
     """Tests for text similarity calculation."""
@@ -551,6 +578,7 @@ class TestTextSimilarity:
 # Topic Extraction Tests
 # ============================================================================
 
+
 class TestTopicExtraction:
     """Tests for topic extraction from claims."""
 
@@ -594,6 +622,7 @@ class TestTopicExtraction:
 # Corroboration Calculation Tests
 # ============================================================================
 
+
 class TestCorroboration:
     """Tests for corroboration score calculation."""
 
@@ -616,6 +645,7 @@ class TestCorroboration:
 # Redundancy Calculation Tests
 # ============================================================================
 
+
 class TestRedundancy:
     """Tests for redundancy calculation."""
 
@@ -633,6 +663,7 @@ class TestRedundancy:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestIntegration:
     """Integration tests for CrossProposalAnalyzer."""

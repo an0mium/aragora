@@ -38,6 +38,7 @@ from .base import (
 from .debates_batch import BatchOperationsMixin
 from .debates_fork import ForkOperationsMixin
 from .utils.rate_limit import rate_limit
+from aragora.server.middleware.tier_enforcement import require_quota
 from aragora.server.validation import validate_debate_id
 from aragora.server.validation.schema import (
     validate_against_schema,
@@ -56,6 +57,131 @@ from aragora.server.handlers.exceptions import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Status normalization map: converts internal status values to canonical SDK-compatible values
+# Server uses: active, paused, concluded, archived
+# SDKs expect: pending, running, completed, failed, cancelled, paused
+STATUS_MAP = {
+    "active": "running",
+    "concluded": "completed",
+    "archived": "completed",
+    "starting": "created",
+    "in_progress": "running",
+}
+
+# Reverse map for accepting SDK status values in updates
+STATUS_REVERSE_MAP = {
+    "running": "active",
+    "completed": "concluded",
+    "pending": "active",
+    "created": "active",
+    "in_progress": "active",
+}
+
+
+def normalize_status(status: str) -> str:
+    """Normalize internal status to SDK-compatible canonical status.
+
+    Args:
+        status: Internal status value (active, paused, concluded, archived)
+
+    Returns:
+        Canonical status (pending, running, completed, failed, cancelled, paused)
+    """
+    return STATUS_MAP.get(status, status)
+
+
+def denormalize_status(status: str) -> str:
+    """Convert SDK status to internal status for storage.
+
+    Args:
+        status: SDK canonical status (running, completed, etc.)
+
+    Returns:
+        Internal status (active, concluded, etc.)
+    """
+    return STATUS_REVERSE_MAP.get(status, status)
+
+
+def normalize_debate_response(debate: dict) -> dict:
+    """Normalize debate dict for API response, ensuring SDK compatibility.
+
+    Normalizes status values and ensures both field name variants are present
+    for consensus fields (agreement/confidence, conclusion/final_answer).
+
+    Args:
+        debate: Raw debate dict from storage
+
+    Returns:
+        Normalized debate dict with SDK-compatible fields
+    """
+    if not debate:
+        return debate
+
+    # Normalize status
+    if "status" in debate:
+        debate["status"] = normalize_status(debate["status"])
+    else:
+        debate["status"] = "completed"
+
+    # Ensure debate_id/id aliases exist for SDK/front-end parity
+    if "debate_id" in debate and "id" not in debate:
+        debate["id"] = debate["debate_id"]
+    if "id" in debate and "debate_id" not in debate:
+        debate["debate_id"] = debate["id"]
+
+    # Promote consensus_proof into consensus if needed
+    if "consensus" not in debate and "consensus_proof" in debate:
+        consensus_proof = debate.get("consensus_proof") or {}
+        vote_breakdown = consensus_proof.get("vote_breakdown") or {}
+        supporting_agents = [agent for agent, agreed in vote_breakdown.items() if agreed]
+        dissenting_agents = [agent for agent, agreed in vote_breakdown.items() if not agreed]
+        debate["consensus"] = {
+            "reached": consensus_proof.get("reached", False),
+            "agreement": consensus_proof.get("confidence"),
+            "confidence": consensus_proof.get("confidence"),
+            "final_answer": consensus_proof.get("final_answer"),
+            "conclusion": consensus_proof.get("final_answer"),
+            "supporting_agents": supporting_agents,
+            "dissenting_agents": dissenting_agents,
+        }
+
+    # consensus_reached/concordance helpers for UI
+    if "consensus_reached" not in debate:
+        consensus = debate.get("consensus") or {}
+        debate["consensus_reached"] = bool(consensus.get("reached", False))
+    if "confidence" not in debate:
+        consensus = debate.get("consensus") or {}
+        confidence = consensus.get("confidence", consensus.get("agreement"))
+        if confidence is not None:
+            debate["confidence"] = confidence
+
+    # rounds_used defaults for list views
+    if "rounds_used" not in debate:
+        rounds_value = debate.get("rounds")
+        if isinstance(rounds_value, int):
+            debate["rounds_used"] = rounds_value
+        elif isinstance(rounds_value, list):
+            debate["rounds_used"] = len(rounds_value)
+        else:
+            debate["rounds_used"] = 0
+    debate.setdefault("duration_seconds", 0)
+
+    # Ensure consensus field aliases (for SDK compatibility)
+    # confidence <-> agreement
+    if "confidence" in debate and "agreement" not in debate:
+        debate["agreement"] = debate["confidence"]
+    elif "agreement" in debate and "confidence" not in debate:
+        debate["confidence"] = debate["agreement"]
+
+    # conclusion <-> final_answer
+    if "conclusion" in debate and "final_answer" not in debate:
+        debate["final_answer"] = debate["conclusion"]
+    elif "final_answer" in debate and "conclusion" not in debate:
+        debate["conclusion"] = debate["final_answer"]
+
+    return debate
+
 
 # Cache TTLs for debates endpoints (in seconds)
 CACHE_TTL_DEBATES_LIST = 30  # Short TTL for list (may change frequently)
@@ -85,6 +211,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         "/api/debates/*/fork",  # POST - counterfactual fork
         "/api/debates/*/followup",  # POST - crux-driven follow-up debate
         "/api/debates/*/followups",  # GET - list follow-up suggestions
+        "/api/debates/*/forks",  # GET - list all forks for a debate
         "/api/debates/*/verification-report",  # Verification feedback
         "/api/debates/*/summary",  # GET - human-readable summary
         "/api/search",  # Cross-debate search
@@ -114,14 +241,20 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         ("/convergence", "_get_convergence", True, None),
         ("/citations", "_get_citations", True, None),
         ("/evidence", "_get_evidence", True, None),
-        ("/messages", "_get_debate_messages", True, lambda p, q: {
-            "limit": get_int_param(q, 'limit', 50),
-            "offset": get_int_param(q, 'offset', 0),
-        }),
+        (
+            "/messages",
+            "_get_debate_messages",
+            True,
+            lambda p, q: {
+                "limit": get_int_param(q, "limit", 50),
+                "offset": get_int_param(q, "offset", 0),
+            },
+        ),
         ("/meta-critique", "_get_meta_critique", True, None),
         ("/graph/stats", "_get_graph_stats", True, None),
         ("/verification-report", "_get_verification_report", True, None),
         ("/followups", "_get_followup_suggestions", True, None),
+        ("/forks", "_list_debate_forks", True, None),
         ("/summary", "_get_summary", True, None),
     ]
 
@@ -143,11 +276,11 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
         # Extract auth token from Authorization header
         auth_header = None
-        if hasattr(handler, 'headers'):
-            auth_header = handler.headers.get('Authorization', '')
+        if hasattr(handler, "headers"):
+            auth_header = handler.headers.get("Authorization", "")
 
         token = None
-        if auth_header and auth_header.startswith('Bearer '):
+        if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:]
 
         # Check if API token is configured
@@ -233,7 +366,11 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                     return method(handler, debate_id, **extra)
                 else:
                     # Methods like _get_meta_critique only take debate_id
-                    if method_name in ("_get_meta_critique", "_get_graph_stats", "_get_followup_suggestions"):
+                    if method_name in (
+                        "_get_meta_critique",
+                        "_get_graph_stats",
+                        "_get_followup_suggestions",
+                    ):
                         return method(debate_id)
                     return method(handler, debate_id)
 
@@ -266,11 +403,11 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
         # Search endpoint
         if path == "/api/search":
-            query = query_params.get('q', query_params.get('query', ''))
+            query = query_params.get("q", query_params.get("query", ""))
             if isinstance(query, list):
-                query = query[0] if query else ''
-            limit = min(get_int_param(query_params, 'limit', 20), 100)
-            offset = get_int_param(query_params, 'offset', 0)
+                query = query[0] if query else ""
+            limit = min(get_int_param(query_params, "limit", 20), 100)
+            offset = get_int_param(query_params, "offset", 0)
             # Get authenticated user for org-scoped search
             user = self.get_current_user(handler)
             org_id = user.org_id if user else None
@@ -289,13 +426,13 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
         # List batches (GET /api/debates/batch)
         if path in ("/api/debates/batch", "/api/debates/batch/"):
-            limit = min(get_int_param(query_params, 'limit', 50), 100)
-            status_filter = query_params.get('status')
+            limit = min(get_int_param(query_params, "limit", 50), 100)
+            status_filter = query_params.get("status")
             return self._list_batches(limit, status_filter)
 
         # Exact path matches
         if path == "/api/debates":
-            limit = min(get_int_param(query_params, 'limit', 20), 100)
+            limit = min(get_int_param(query_params, "limit", 20), 100)
             # Get authenticated user for org-scoped results
             user = self.get_current_user(handler)
             org_id = user.org_id if user else None
@@ -323,13 +460,15 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 # Validate export format
                 if export_format not in self.ALLOWED_EXPORT_FORMATS:
                     return error_response(
-                        f"Invalid format '{export_format}'. Allowed: {sorted(self.ALLOWED_EXPORT_FORMATS)}", 400
+                        f"Invalid format '{export_format}'. Allowed: {sorted(self.ALLOWED_EXPORT_FORMATS)}",
+                        400,
                     )
-                table = query_params.get('table', 'summary')
+                table = query_params.get("table", "summary")
                 # Validate table parameter
                 if table not in self.ALLOWED_EXPORT_TABLES:
                     return error_response(
-                        f"Invalid table '{table}'. Allowed: {sorted(self.ALLOWED_EXPORT_TABLES)}", 400
+                        f"Invalid table '{table}'. Allowed: {sorted(self.ALLOWED_EXPORT_TABLES)}",
+                        400,
                     )
                 return self._export_debate(handler, debate_id, export_format, table)
 
@@ -374,8 +513,10 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         """
         storage = self.get_storage()
         debates = storage.list_recent(limit=limit, org_id=org_id)
-        # Convert DebateMetadata objects to dicts
-        debates_list = [d.__dict__ if hasattr(d, '__dict__') else d for d in debates]
+        # Convert DebateMetadata objects to dicts and normalize for SDK compatibility
+        debates_list = [
+            normalize_debate_response(d.__dict__ if hasattr(d, "__dict__") else d) for d in debates
+        ]
         return json_response({"debates": debates_list, "count": len(debates_list)})
 
     @rate_limit(rpm=30, limiter_name="debates_search")
@@ -413,26 +554,30 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 matching = storage.list_recent(limit=limit, org_id=org_id)
                 total = len(matching)  # Approximate for no-query case
 
-            # Convert to dicts
+            # Convert to dicts and normalize for SDK compatibility
             results = []
             for d in matching:
-                if hasattr(d, '__dict__'):
-                    results.append(d.__dict__)
+                if hasattr(d, "__dict__"):
+                    results.append(normalize_debate_response(d.__dict__))
                 elif isinstance(d, dict):
-                    results.append(d)
+                    results.append(normalize_debate_response(d))
                 else:
                     results.append({"data": str(d)})
 
-            return json_response({
-                "results": results,
-                "query": query,
-                "total": total,
-                "offset": offset,
-                "limit": limit,
-                "has_more": offset + len(results) < total,
-            })
+            return json_response(
+                {
+                    "results": results,
+                    "query": query,
+                    "total": total,
+                    "offset": offset,
+                    "limit": limit,
+                    "has_more": offset + len(results) < total,
+                }
+            )
         except (StorageError, DatabaseError) as e:
-            logger.error("Search failed for query '%s': %s: %s", query, type(e).__name__, e, exc_info=True)
+            logger.error(
+                "Search failed for query '%s': %s: %s", query, type(e).__name__, e, exc_info=True
+            )
             return error_response("Database error during search", 500)
         except ValueError as e:
             logger.warning("Invalid search query '%s': %s", query, e)
@@ -445,7 +590,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         storage = self.get_storage()
         debate = storage.get_debate(slug)
         if debate:
-            return json_response(debate)
+            return json_response(normalize_debate_response(debate))
         return error_response(f"Debate not found: {slug}", 404)
 
     @require_storage
@@ -470,11 +615,13 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
         is_impasse = sum(impasse_indicators.values()) >= 2
 
-        return json_response({
-            "debate_id": debate_id,
-            "is_impasse": is_impasse,
-            "indicators": impasse_indicators,
-        })
+        return json_response(
+            {
+                "debate_id": debate_id,
+                "is_impasse": is_impasse,
+                "indicators": impasse_indicators,
+            }
+        )
 
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_convergence", skip_first=True)
@@ -486,16 +633,20 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         if not debate:
             return error_response(f"Debate not found: {debate_id}", 404)
 
-        return json_response({
-            "debate_id": debate_id,
-            "convergence_status": debate.get("convergence_status", "unknown"),
-            "convergence_similarity": debate.get("convergence_similarity", 0.0),
-            "consensus_reached": debate.get("consensus_reached", False),
-            "rounds_used": debate.get("rounds_used", 0),
-        })
+        return json_response(
+            {
+                "debate_id": debate_id,
+                "convergence_status": debate.get("convergence_status", "unknown"),
+                "convergence_similarity": debate.get("convergence_similarity", 0.0),
+                "consensus_reached": debate.get("consensus_reached", False),
+                "rounds_used": debate.get("rounds_used", 0),
+            }
+        )
 
     @require_storage
-    @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_verification", skip_first=True)
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_verification", skip_first=True
+    )
     @handle_errors("verification report")
     def _get_verification_report(self, handler, debate_id: str) -> HandlerResult:
         """Get verification report for a debate.
@@ -516,19 +667,21 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         agents_verified = sum(1 for v in verification_results.values() if v > 0)
         total_bonus = sum(verification_bonuses.values())
 
-        return json_response({
-            "debate_id": debate_id,
-            "verification_enabled": bool(verification_results),
-            "verification_results": verification_results,
-            "verification_bonuses": verification_bonuses,
-            "summary": {
-                "total_verified_claims": total_verified,
-                "agents_with_verified_claims": agents_verified,
-                "total_bonus_applied": round(total_bonus, 3),
-            },
-            "winner": debate.get("winner"),
-            "consensus_reached": debate.get("consensus_reached", False),
-        })
+        return json_response(
+            {
+                "debate_id": debate_id,
+                "verification_enabled": bool(verification_results),
+                "verification_results": verification_results,
+                "verification_bonuses": verification_bonuses,
+                "summary": {
+                    "total_verified_claims": total_verified,
+                    "agents_with_verified_claims": agents_verified,
+                    "total_bonus_applied": round(total_bonus, 3),
+                },
+                "winner": debate.get("winner"),
+                "consensus_reached": debate.get("consensus_reached", False),
+            }
+        )
 
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_summary", skip_first=True)
@@ -553,13 +706,15 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         # Generate summary
         summary = summarize_debate(debate)
 
-        return json_response({
-            "debate_id": debate_id,
-            "summary": summary.to_dict(),
-            "task": debate.get("task", ""),
-            "consensus_reached": debate.get("consensus_reached", False),
-            "confidence": debate.get("confidence", 0.0),
-        })
+        return json_response(
+            {
+                "debate_id": debate_id,
+                "summary": summary.to_dict(),
+                "task": debate.get("task", ""),
+                "consensus_reached": debate.get("consensus_reached", False),
+                "confidence": debate.get("confidence", 0.0),
+            }
+        )
 
     @require_storage
     def _export_debate(self, handler, debate_id: str, format: str, table: str) -> HandlerResult:
@@ -585,7 +740,14 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             logger.info("Export failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
-            logger.error("Export failed for %s (format=%s): %s: %s", debate_id, format, type(e).__name__, e, exc_info=True)
+            logger.error(
+                "Export failed for %s (format=%s): %s: %s",
+                debate_id,
+                format,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
             return error_response("Database error during export", 500)
         except ValueError as e:
             logger.warning("Export failed for %s - invalid format: %s", debate_id, e)
@@ -637,39 +799,51 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             grounded_verdict_raw = debate.get("grounded_verdict")
 
             if not grounded_verdict_raw:
-                return json_response({
-                    "debate_id": debate_id,
-                    "has_citations": False,
-                    "message": "No evidence citations available for this debate",
-                    "grounded_verdict": None,
-                })
+                return json_response(
+                    {
+                        "debate_id": debate_id,
+                        "has_citations": False,
+                        "message": "No evidence citations available for this debate",
+                        "grounded_verdict": None,
+                    }
+                )
 
             # Parse grounded_verdict JSON if it's a string
             grounded_verdict = safe_json_parse(grounded_verdict_raw)
 
             if not grounded_verdict:
-                return json_response({
-                    "debate_id": debate_id,
-                    "has_citations": False,
-                    "message": "Evidence citations could not be parsed",
-                    "grounded_verdict": None,
-                })
+                return json_response(
+                    {
+                        "debate_id": debate_id,
+                        "has_citations": False,
+                        "message": "Evidence citations could not be parsed",
+                        "grounded_verdict": None,
+                    }
+                )
 
-            return json_response({
-                "debate_id": debate_id,
-                "has_citations": True,
-                "grounding_score": grounded_verdict.get("grounding_score", 0),
-                "confidence": grounded_verdict.get("confidence", 0),
-                "claims": grounded_verdict.get("claims", []),
-                "all_citations": grounded_verdict.get("all_citations", []),
-                "verdict": grounded_verdict.get("verdict", ""),
-            })
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "has_citations": True,
+                    "grounding_score": grounded_verdict.get("grounding_score", 0),
+                    "confidence": grounded_verdict.get("confidence", 0),
+                    "claims": grounded_verdict.get("claims", []),
+                    "all_citations": grounded_verdict.get("all_citations", []),
+                    "verdict": grounded_verdict.get("verdict", ""),
+                }
+            )
 
         except RecordNotFoundError as e:
             logger.info("Citations failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
-            logger.error("Failed to get citations for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            logger.error(
+                "Failed to get citations for %s: %s: %s",
+                debate_id,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
             return error_response("Database error retrieving citations", 500)
 
     @require_storage
@@ -715,13 +889,15 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                     for memory in memories:
                         metadata = getattr(memory, "metadata", {}) or {}
                         if metadata.get("type") == "evidence":
-                            related_evidence.append({
-                                "id": getattr(memory, "id", ""),
-                                "content": getattr(memory, "content", ""),
-                                "source": metadata.get("source", "unknown"),
-                                "importance": getattr(memory, "importance", 0.5),
-                                "tier": str(getattr(memory, "tier", "medium")),
-                            })
+                            related_evidence.append(
+                                {
+                                    "id": getattr(memory, "id", ""),
+                                    "content": getattr(memory, "content", ""),
+                                    "source": metadata.get("source", "unknown"),
+                                    "importance": getattr(memory, "importance", 0.5),
+                                    "tier": str(getattr(memory, "tier", "medium")),
+                                }
+                            )
             except Exception as e:
                 logger.debug(f"Could not fetch ContinuumMemory evidence: {e}")
 
@@ -756,11 +932,19 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             logger.info("Evidence failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
-            logger.error("Failed to get evidence for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            logger.error(
+                "Failed to get evidence for %s: %s: %s",
+                debate_id,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
             return error_response("Database error retrieving evidence", 500)
 
     @require_storage
-    def _get_debate_messages(self, debate_id: str, limit: int = 50, offset: int = 0) -> HandlerResult:
+    def _get_debate_messages(
+        self, debate_id: str, limit: int = 50, offset: int = 0
+    ) -> HandlerResult:
         """Get paginated message history for a debate.
 
         Args:
@@ -785,7 +969,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             total = len(messages)
 
             # Apply pagination
-            paginated_messages = messages[offset:offset + limit]
+            paginated_messages = messages[offset : offset + limit]
 
             # Format messages for API response
             formatted_messages = []
@@ -804,20 +988,28 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                     formatted_msg["metadata"] = msg["metadata"]
                 formatted_messages.append(formatted_msg)
 
-            return json_response({
-                "debate_id": debate_id,
-                "messages": formatted_messages,
-                "total": total,
-                "offset": offset,
-                "limit": limit,
-                "has_more": offset + len(paginated_messages) < total,
-            })
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "messages": formatted_messages,
+                    "total": total,
+                    "offset": offset,
+                    "limit": limit,
+                    "has_more": offset + len(paginated_messages) < total,
+                }
+            )
 
         except RecordNotFoundError as e:
             logger.info("Messages failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
-            logger.error("Failed to get messages for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            logger.error(
+                "Failed to get messages for %s: %s: %s",
+                debate_id,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
             return error_response("Database error retrieving messages", 500)
 
     def _get_meta_critique(self, debate_id: str) -> HandlerResult:
@@ -843,28 +1035,36 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             analyzer = MetaCritiqueAnalyzer()
             critique = analyzer.analyze(result)
 
-            return json_response({
-                "debate_id": debate_id,
-                "overall_quality": critique.overall_quality,
-                "productive_rounds": critique.productive_rounds,
-                "unproductive_rounds": critique.unproductive_rounds,
-                "observations": [
-                    {
-                        "type": o.observation_type,
-                        "severity": o.severity,
-                        "agent": getattr(o, 'agent', None),
-                        "round": getattr(o, 'round_num', None),
-                        "description": o.description,
-                    }
-                    for o in critique.observations
-                ],
-                "recommendations": critique.recommendations,
-            })
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "overall_quality": critique.overall_quality,
+                    "productive_rounds": critique.productive_rounds,
+                    "unproductive_rounds": critique.unproductive_rounds,
+                    "observations": [
+                        {
+                            "type": o.observation_type,
+                            "severity": o.severity,
+                            "agent": getattr(o, "agent", None),
+                            "round": getattr(o, "round_num", None),
+                            "description": o.description,
+                        }
+                        for o in critique.observations
+                    ],
+                    "recommendations": critique.recommendations,
+                }
+            )
         except RecordNotFoundError as e:
             logger.info("Meta critique failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
-            logger.error("Failed to get meta critique for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            logger.error(
+                "Failed to get meta critique for %s: %s: %s",
+                debate_id,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
             return error_response("Database error retrieving meta critique", 500)
         except ValueError as e:
             logger.warning("Invalid meta critique request for %s: %s", debate_id, e)
@@ -918,7 +1118,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                     critic_agent=critique.agent,
                     target_agent=critique.target or "",
                     severity=critique.severity,
-                    round_num=getattr(critique, 'round', 1),
+                    round_num=getattr(critique, "round", 1),
                     critique_text=critique.reasoning,
                 )
 
@@ -929,7 +1129,13 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             logger.info("Graph stats failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
-            logger.error("Failed to get graph stats for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            logger.error(
+                "Failed to get graph stats for %s: %s: %s",
+                debate_id,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
             return error_response("Database error retrieving graph stats", 500)
         except ValueError as e:
             logger.warning("Invalid graph stats request for %s: %s", debate_id, e)
@@ -979,7 +1185,13 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             logger.info("Build graph failed - replay file not found: %s", replay_path)
             return error_response(f"Replay file not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
-            logger.error("Failed to build graph from replay %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            logger.error(
+                "Failed to build graph from replay %s: %s: %s",
+                debate_id,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
             return error_response("Database error building graph", 500)
         except ValueError as e:
             logger.warning("Invalid replay data for %s: %s", debate_id, e)
@@ -987,9 +1199,20 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        # Create debate endpoint (POST /api/debate)
-        if path == "/api/debate":
-            return self._create_debate(handler)
+        # Create debate endpoint - both legacy and RESTful
+        # POST /api/debates (canonical) or POST /api/debate (legacy, deprecated)
+        if path in ("/api/debate", "/api/debates"):
+            result = self._create_debate(handler)
+
+            # Add deprecation headers for legacy endpoint
+            if path == "/api/debate" and result:
+                # RFC 8594 Sunset header - 6 months from now
+                result.headers = result.headers or {}
+                result.headers["Deprecation"] = "true"
+                result.headers["Sunset"] = "Sat, 01 Aug 2026 00:00:00 GMT"
+                result.headers["Link"] = '</api/debates>; rel="successor-version"'
+                logger.warning("Legacy endpoint /api/debate used. Use /api/debates instead.")
+            return result
 
         # Batch submission endpoint
         if path in ("/api/debates/batch", "/api/debates/batch/"):
@@ -1018,6 +1241,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
         return None
 
+    @require_quota("debate")
     def _create_debate(self, handler) -> HandlerResult:
         """Start an ad-hoc debate with specified question.
 
@@ -1029,13 +1253,14 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             auto_select: Whether to auto-select agents (optional, default: False)
             use_trending: Whether to use trending topic (optional, default: False)
 
-        Rate limited: requires auth when enabled.
+        Rate limited and quota enforced via decorators.
+        Returns 402 Payment Required if monthly debate quota exceeded.
         """
         logger.info("[_create_debate] Called via DebatesHandler")
 
         # Rate limit expensive debate creation
         try:
-            if hasattr(handler, '_check_rate_limit') and not handler._check_rate_limit():
+            if hasattr(handler, "_check_rate_limit") and not handler._check_rate_limit():
                 logger.info("[_create_debate] Rate limit check failed")
                 return error_response("Rate limit exceeded", 429)
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
@@ -1046,37 +1271,16 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
         # Tier-aware rate limiting based on subscription
         try:
-            if hasattr(handler, '_check_tier_rate_limit') and not handler._check_tier_rate_limit():
+            if hasattr(handler, "_check_tier_rate_limit") and not handler._check_tier_rate_limit():
                 return error_response("Tier rate limit exceeded", 429)
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning(f"Tier rate limit check failed, proceeding: {e}")
-
-        # Quota enforcement - check org usage limits
-        user_store = getattr(handler.__class__, 'user_store', None)
-        if user_store:
-            try:
-                from aragora.billing.jwt_auth import extract_user_from_request
-                auth_ctx = extract_user_from_request(handler, user_store)
-                if auth_ctx.is_authenticated and auth_ctx.org_id:
-                    org = user_store.get_organization_by_id(auth_ctx.org_id)
-                    if org and org.is_at_limit:
-                        return error_response({
-                            "error": "Monthly debate quota exceeded",
-                            "code": "quota_exceeded",
-                            "limit": org.limits.debates_per_month,
-                            "used": org.debates_used_this_month,
-                            "remaining": 0,
-                            "tier": org.tier.value,
-                            "upgrade_url": "/pricing",
-                            "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Upgrade to increase your limit.",
-                        }, 429)
-            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, ImportError) as e:
-                logger.warning(f"Quota check failed, proceeding without enforcement: {e}")
 
         # Check if debate orchestrator is available
         debate_available = False
         try:
             from aragora.debate.orchestrator import Arena
+
             debate_available = True
         except ImportError:
             pass
@@ -1084,7 +1288,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         if not debate_available:
             return error_response("Debate orchestrator not available", 500)
 
-        stream_emitter = getattr(handler, 'stream_emitter', None)
+        stream_emitter = getattr(handler, "stream_emitter", None)
         if not stream_emitter:
             return error_response("Event streaming not configured", 500)
 
@@ -1103,7 +1307,8 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
         # Parse and validate request using DebateRequest
         try:
-            from aragora.server.debate_queue import DebateRequest
+            from aragora.server.debate_controller import DebateRequest
+
             request = DebateRequest.from_dict(body)
         except ValueError as e:
             return error_response(str(e), 400)
@@ -1116,18 +1321,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             logger.exception(f"Failed to start debate: {e}")
             return error_response(f"Failed to start debate: {str(e)}", 500)
 
-        # Increment usage on successful debate creation
-        if response.status_code < 400 and user_store:
-            try:
-                from aragora.billing.jwt_auth import extract_user_from_request
-                auth_ctx = extract_user_from_request(handler, user_store)
-                if auth_ctx.is_authenticated and auth_ctx.org_id:
-                    user_store.increment_usage(auth_ctx.org_id)
-                    logger.info(f"Incremented debate usage for org {auth_ctx.org_id}")
-            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, ImportError) as e:
-                logger.warning(f"Usage increment failed: {e}")
-
-        # Return response as HandlerResult
+        # Note: Usage increment is handled by @require_quota decorator on success
         return json_response(response.to_dict(), status=response.status_code)
 
     def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
@@ -1182,17 +1376,23 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
             if not updates:
                 return error_response(
-                    f"No valid fields to update. Allowed: {', '.join(allowed_fields)}",
-                    400
+                    f"No valid fields to update. Allowed: {', '.join(allowed_fields)}", 400
                 )
 
-            # Validate status if provided
+            # Validate and normalize status if provided
             if "status" in updates:
-                valid_statuses = {"active", "paused", "concluded", "archived"}
-                if updates["status"] not in valid_statuses:
+                # Accept both internal and SDK status values
+                valid_internal = {"active", "paused", "concluded", "archived"}
+                valid_sdk = {"pending", "running", "completed", "failed", "cancelled"}
+                input_status = updates["status"]
+
+                if input_status in valid_sdk:
+                    # Convert SDK status to internal status for storage
+                    updates["status"] = denormalize_status(input_status)
+                elif input_status not in valid_internal:
+                    all_valid = valid_internal | valid_sdk
                     return error_response(
-                        f"Invalid status. Must be one of: {', '.join(valid_statuses)}",
-                        400
+                        f"Invalid status. Must be one of: {', '.join(sorted(all_valid))}", 400
                     )
 
             # Apply updates to debate
@@ -1204,25 +1404,28 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
             logger.info(f"Debate {debate_id} updated: {list(updates.keys())}")
 
-            return json_response({
-                "success": True,
-                "debate_id": debate_id,
-                "updated_fields": list(updates.keys()),
-                "debate": {
-                    "id": debate_id,
-                    "title": debate.get("title", debate.get("task", "")),
-                    "status": debate.get("status", "active"),
-                    "tags": debate.get("tags", []),
+            # Return normalized status for SDK compatibility
+            return json_response(
+                {
+                    "success": True,
+                    "debate_id": debate_id,
+                    "updated_fields": list(updates.keys()),
+                    "debate": {
+                        "id": debate_id,
+                        "title": debate.get("title", debate.get("task", "")),
+                        "status": normalize_status(debate.get("status", "active")),
+                        "tags": debate.get("tags", []),
+                    },
                 }
-            })
+            )
         except RecordNotFoundError as e:
             logger.info("Update failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
-            logger.error("Failed to update debate %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            logger.error(
+                "Failed to update debate %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True
+            )
             return error_response("Database error updating debate", 500)
         except ValueError as e:
             logger.warning("Invalid update request for %s: %s", debate_id, e)
             return error_response(f"Invalid update data: {e}", 400)
-
-

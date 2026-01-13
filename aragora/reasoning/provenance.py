@@ -26,6 +26,7 @@ import uuid
 
 class SourceType(Enum):
     """Type of evidence source."""
+
     AGENT_GENERATED = "agent_generated"
     USER_PROVIDED = "user_provided"
     EXTERNAL_API = "external_api"
@@ -40,6 +41,7 @@ class SourceType(Enum):
 
 class TransformationType(Enum):
     """How evidence was transformed."""
+
     ORIGINAL = "original"  # First entry
     QUOTED = "quoted"
     PARAPHRASED = "paraphrased"
@@ -142,6 +144,7 @@ class ProvenanceRecord:
 @dataclass
 class Citation:
     """A citation linking a claim to evidence."""
+
     claim_id: str
     evidence_id: str  # ProvenanceRecord id
     relevance: float = 1.0  # How relevant this evidence is to the claim
@@ -272,9 +275,7 @@ class ProvenanceChain:
         chain = cls(chain_id=data["chain_id"])
         chain.genesis_hash = data.get("genesis_hash")
         chain.created_at = datetime.fromisoformat(data["created_at"])
-        chain.records = [
-            ProvenanceRecord.from_dict(r) for r in data.get("records", [])
-        ]
+        chain.records = [ProvenanceRecord.from_dict(r) for r in data.get("records", [])]
         return chain
 
 
@@ -499,7 +500,9 @@ class ProvenanceVerifier:
         # Verify content hash
         computed = record._compute_hash()
         if computed != record.content_hash:
-            errors.append(f"Content hash mismatch: expected {computed[:16]}, got {record.content_hash[:16]}")
+            errors.append(
+                f"Content hash mismatch: expected {computed[:16]}, got {record.content_hash[:16]}"
+            )
 
         # Verify chain link
         if record.previous_hash:

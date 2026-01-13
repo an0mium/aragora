@@ -352,9 +352,7 @@ class DebatesAPI:
         """
         import asyncio
 
-        return await asyncio.gather(
-            *[self.get_async(debate_id) for debate_id in debate_ids]
-        )
+        return await asyncio.gather(*[self.get_async(debate_id) for debate_id in debate_ids])
 
 
 class AgentsAPI:
@@ -844,16 +842,14 @@ class MemoryAPI:
             Dict with tier-specific statistics.
         """
         response = self._client._get(
-            f"/api/memory/analytics/tier/{tier_name}",
-            params={"days": days}
+            f"/api/memory/analytics/tier/{tier_name}", params={"days": days}
         )
         return response
 
     async def tier_stats_async(self, tier_name: str, days: int = 30) -> dict:
         """Async version of tier_stats()."""
         response = await self._client._get_async(
-            f"/api/memory/analytics/tier/{tier_name}",
-            params={"days": days}
+            f"/api/memory/analytics/tier/{tier_name}", params={"days": days}
         )
         return response
 
@@ -963,17 +959,13 @@ class ReplayAPI:
         Returns:
             Exported data as string.
         """
-        response = self._client._get(
-            f"/api/replays/{replay_id}/export",
-            params={"format": format}
-        )
+        response = self._client._get(f"/api/replays/{replay_id}/export", params={"format": format})
         return response.get("data", "") if isinstance(response, dict) else str(response)
 
     async def export_async(self, replay_id: str, format: str = "json") -> str:
         """Async version of export()."""
         response = await self._client._get_async(
-            f"/api/replays/{replay_id}/export",
-            params={"format": format}
+            f"/api/replays/{replay_id}/export", params={"format": format}
         )
         return response.get("data", "") if isinstance(response, dict) else str(response)
 
@@ -1213,6 +1205,14 @@ class AragoraClient:
         response = await self._get_async("/api/health")
         return HealthCheck(**response)
 
+    def __enter__(self) -> "AragoraClient":
+        """Sync context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Sync context manager exit."""
+        self.close()
+
     async def __aenter__(self) -> "AragoraClient":
         """Async context manager entry."""
         return self
@@ -1230,4 +1230,4 @@ class AragoraClient:
     def close(self) -> None:
         """Close any open resources."""
         # Sync client cleanup if needed
-        pass
+        self._sync_client = None

@@ -23,6 +23,7 @@ from aragora.debate.roles import (
 # CognitiveRole Tests
 # =============================================================================
 
+
 class TestCognitiveRole:
     """Tests for CognitiveRole enum."""
 
@@ -54,6 +55,7 @@ class TestCognitiveRole:
 # =============================================================================
 # ROLE_PROMPTS Tests
 # =============================================================================
+
 
 class TestRolePrompts:
     """Tests for role prompt definitions."""
@@ -99,6 +101,7 @@ class TestRolePrompts:
 # RoleAssignment Tests
 # =============================================================================
 
+
 class TestRoleAssignment:
     """Tests for RoleAssignment dataclass."""
 
@@ -142,6 +145,7 @@ class TestRoleAssignment:
 # RoleRotationConfig Tests
 # =============================================================================
 
+
 class TestRoleRotationConfig:
     """Tests for RoleRotationConfig dataclass."""
 
@@ -164,9 +168,7 @@ class TestRoleRotationConfig:
 
     def test_custom_roles(self):
         """Should accept custom role list."""
-        config = RoleRotationConfig(
-            roles=[CognitiveRole.ANALYST, CognitiveRole.SKEPTIC]
-        )
+        config = RoleRotationConfig(roles=[CognitiveRole.ANALYST, CognitiveRole.SKEPTIC])
 
         assert len(config.roles) == 2
         assert CognitiveRole.ANALYST in config.roles
@@ -176,6 +178,7 @@ class TestRoleRotationConfig:
 # =============================================================================
 # RoleRotator Tests
 # =============================================================================
+
 
 class TestRoleRotator:
     """Tests for RoleRotator class."""
@@ -228,10 +231,7 @@ class TestRoleRotator:
         assignments = rotator.get_assignments(agent_names, 4, 5)
 
         # At least one agent should be synthesizer
-        synthesizer_found = any(
-            a.role == CognitiveRole.SYNTHESIZER
-            for a in assignments.values()
-        )
+        synthesizer_found = any(a.role == CognitiveRole.SYNTHESIZER for a in assignments.values())
         assert synthesizer_found
 
     def test_format_role_context(self, rotator):
@@ -252,11 +252,13 @@ class TestRoleRotator:
 # create_role_rotation Tests
 # =============================================================================
 
+
 class TestCreateRoleRotation:
     """Tests for create_role_rotation utility function."""
 
     class MockAgent:
         """Mock agent with name attribute."""
+
         def __init__(self, name):
             self.name = name
 
@@ -296,6 +298,7 @@ class TestCreateRoleRotation:
 # =============================================================================
 # inject_role_into_prompt Tests
 # =============================================================================
+
 
 class TestInjectRoleIntoPrompt:
     """Tests for inject_role_into_prompt utility function."""

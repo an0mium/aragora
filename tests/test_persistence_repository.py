@@ -153,13 +153,15 @@ class SampleRepository(BaseRepository[SampleEntity]):
 
     def _ensure_schema(self) -> None:
         with self._connection() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS test_entities (
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     value INTEGER DEFAULT 0
                 )
-            """)
+            """
+            )
             conn.commit()
 
     def _to_entity(self, row: sqlite3.Row) -> SampleEntity:
@@ -335,9 +337,7 @@ class TestBaseRepositoryConnectionModes:
         repo.save(SampleEntity(id="read-test", name="Read Only Test"))
 
         with repo._connection(readonly=True) as conn:
-            cursor = conn.execute(
-                "SELECT * FROM test_entities WHERE id = ?", ("read-test",)
-            )
+            cursor = conn.execute("SELECT * FROM test_entities WHERE id = ?", ("read-test",))
             row = cursor.fetchone()
 
         assert row["name"] == "Read Only Test"
@@ -387,10 +387,7 @@ class TestBaseRepositoryHelpers:
 
     def test_execute_many_returns_rowcount(self, repo):
         """Should return rowcount from executemany."""
-        params = [
-            (f"batch-{i}", f"Batch {i}", i * 10)
-            for i in range(5)
-        ]
+        params = [(f"batch-{i}", f"Batch {i}", i * 10) for i in range(5)]
 
         rowcount = repo._execute_many(
             "INSERT INTO test_entities (id, name, value) VALUES (?, ?, ?)",

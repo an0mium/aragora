@@ -30,9 +30,11 @@ from aragora.server.handlers.auth import (
 # Test Fixtures
 # ============================================================================
 
+
 @dataclass
 class MockUser:
     """Mock user for testing."""
+
     id: str
     email: str
     name: str = "Test User"
@@ -68,6 +70,7 @@ class MockUser:
 @dataclass
 class MockOrganization:
     """Mock organization for testing."""
+
     id: str
     name: str
     owner_id: str
@@ -92,6 +95,7 @@ def auth_handler(user_store):
 # ============================================================================
 # Email Validation Tests
 # ============================================================================
+
 
 class TestEmailValidation:
     """Tests for email validation."""
@@ -193,6 +197,7 @@ class TestEmailValidation:
 # Password Validation Tests
 # ============================================================================
 
+
 class TestPasswordValidation:
     """Tests for password validation."""
 
@@ -255,6 +260,7 @@ class TestPasswordValidation:
 # ============================================================================
 # Route Handling Tests
 # ============================================================================
+
 
 class TestRouteHandling:
     """Tests for route handling and method dispatch."""
@@ -339,6 +345,7 @@ class TestRouteHandling:
 # ============================================================================
 # InMemoryUserStore Tests
 # ============================================================================
+
 
 class TestInMemoryUserStore:
     """Tests for InMemoryUserStore."""
@@ -455,6 +462,7 @@ class TestInMemoryUserStore:
 # ============================================================================
 # Security Edge Cases
 # ============================================================================
+
 
 class TestSecurityEdgeCases:
     """Tests for security edge cases."""

@@ -29,10 +29,7 @@ logger = logging.getLogger(__name__)
 _laboratory_limiter = RateLimiter(requests_per_minute=20)
 
 # Optional PersonaLaboratory import
-_lab_imports, LABORATORY_AVAILABLE = try_import(
-    "aragora.agents.laboratory",
-    "PersonaLaboratory"
-)
+_lab_imports, LABORATORY_AVAILABLE = try_import("aragora.agents.laboratory", "PersonaLaboratory")
 PersonaLaboratory = _lab_imports.get("PersonaLaboratory")
 
 
@@ -57,8 +54,10 @@ class LaboratoryHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/laboratory/emergent-traits":
-            min_confidence = get_bounded_float_param(query_params, 'min_confidence', 0.5, min_val=0.0, max_val=1.0)
-            limit = get_clamped_int_param(query_params, 'limit', 20, min_val=1, max_val=100)
+            min_confidence = get_bounded_float_param(
+                query_params, "min_confidence", 0.5, min_val=0.0, max_val=1.0
+            )
+            limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
             return self._get_emergent_traits(min_confidence, limit)
         return None
 
@@ -109,21 +108,23 @@ class LaboratoryHandler(BaseHandler):
         # Filter by confidence and limit
         filtered = [t for t in traits if t.confidence >= min_confidence][:limit]
 
-        return json_response({
-            "emergent_traits": [
-                {
-                    "agent": t.agent_name,
-                    "trait": t.trait_name,
-                    "domain": t.domain,
-                    "confidence": t.confidence,
-                    "evidence": t.evidence,
-                    "detected_at": t.detected_at,
-                }
-                for t in filtered
-            ],
-            "count": len(filtered),
-            "min_confidence": min_confidence,
-        })
+        return json_response(
+            {
+                "emergent_traits": [
+                    {
+                        "agent": t.agent_name,
+                        "trait": t.trait_name,
+                        "domain": t.domain,
+                        "confidence": t.confidence,
+                        "evidence": t.evidence,
+                        "detected_at": t.detected_at,
+                    }
+                    for t in filtered
+                ],
+                "count": len(filtered),
+                "min_confidence": min_confidence,
+            }
+        )
 
     @handle_errors("cross pollinations")
     def _suggest_cross_pollinations(self, handler) -> HandlerResult:
@@ -143,7 +144,7 @@ class LaboratoryHandler(BaseHandler):
         if body is None:
             return error_response("Invalid JSON body or body too large", 400)
 
-        target_agent = body.get('target_agent')
+        target_agent = body.get("target_agent")
         if not target_agent:
             return error_response("target_agent required", 400)
 
@@ -156,15 +157,17 @@ class LaboratoryHandler(BaseHandler):
         )
         suggestions = lab.suggest_cross_pollinations(target_agent)
 
-        return json_response({
-            "target_agent": target_agent,
-            "suggestions": [
-                {
-                    "source_agent": s[0],
-                    "trait_or_domain": s[1],
-                    "reason": s[2],
-                }
-                for s in suggestions
-            ],
-            "count": len(suggestions),
-        })
+        return json_response(
+            {
+                "target_agent": target_agent,
+                "suggestions": [
+                    {
+                        "source_agent": s[0],
+                        "trait_or_domain": s[1],
+                        "reason": s[2],
+                    }
+                    for s in suggestions
+                ],
+                "count": len(suggestions),
+            }
+        )

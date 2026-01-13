@@ -99,9 +99,7 @@ def try_import_class(
             "aragora.ranking.elo", "EloSystem"
         )
     """
-    imported, available = try_import(
-        module_path, class_name, log_on_failure=log_on_failure
-    )
+    imported, available = try_import(module_path, class_name, log_on_failure=log_on_failure)
     return imported[class_name], available
 
 

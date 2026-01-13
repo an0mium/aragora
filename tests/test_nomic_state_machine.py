@@ -61,14 +61,24 @@ from aragora.nomic.recovery import (
 # State Tests
 # =============================================================================
 
+
 class TestNomicState:
     """Tests for NomicState enum and transitions."""
 
     def test_all_states_defined(self):
         """Verify all expected states are defined."""
         expected = {
-            "IDLE", "CONTEXT", "DEBATE", "DESIGN", "IMPLEMENT",
-            "VERIFY", "COMMIT", "RECOVERY", "COMPLETED", "FAILED", "PAUSED"
+            "IDLE",
+            "CONTEXT",
+            "DEBATE",
+            "DESIGN",
+            "IMPLEMENT",
+            "VERIFY",
+            "COMMIT",
+            "RECOVERY",
+            "COMPLETED",
+            "FAILED",
+            "PAUSED",
         }
         actual = {s.name for s in NomicState}
         assert actual == expected
@@ -97,8 +107,9 @@ class TestNomicState:
             NomicState.COMMIT,
         ]
         for state in active_states:
-            assert is_valid_transition(state, NomicState.RECOVERY), \
-                f"{state} should be able to transition to RECOVERY"
+            assert is_valid_transition(
+                state, NomicState.RECOVERY
+            ), f"{state} should be able to transition to RECOVERY"
 
     def test_recovery_can_go_anywhere(self):
         """Test RECOVERY can transition to most states."""
@@ -145,6 +156,7 @@ class TestStateContext:
 # =============================================================================
 # Event Tests
 # =============================================================================
+
 
 class TestEvents:
     """Tests for events."""
@@ -217,6 +229,7 @@ class TestEventLog:
 # =============================================================================
 # State Machine Tests
 # =============================================================================
+
 
 class TestStateMachine:
     """Tests for NomicStateMachine."""
@@ -295,6 +308,7 @@ class TestStateMachine:
 # =============================================================================
 # Checkpoint Tests
 # =============================================================================
+
 
 class TestCheckpoints:
     """Tests for checkpoint persistence."""
@@ -387,6 +401,7 @@ class TestCheckpointManager:
 # =============================================================================
 # Recovery Tests
 # =============================================================================
+
 
 class TestCircuitBreaker:
     """Tests for CircuitBreaker."""
@@ -497,6 +512,7 @@ class TestBackoff:
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestStateMachineIntegration:
     """Integration tests for the full state machine."""

@@ -17,9 +17,11 @@ from aragora.debate.phases.debate_rounds import DebateRoundsPhase
 # Mock Classes
 # ============================================================================
 
+
 @dataclass
 class MockEnvironment:
     """Mock environment for testing."""
+
     task: str = "Test task"
     context: str = ""
 
@@ -27,6 +29,7 @@ class MockEnvironment:
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str = "test_agent"
     role: str = "proposer"
     stance: Optional[str] = None
@@ -35,6 +38,7 @@ class MockAgent:
 @dataclass
 class MockCritique:
     """Mock critique for testing."""
+
     target_agent: str = "proposal"
     issues: list = field(default_factory=list)
     severity: float = 0.5
@@ -46,6 +50,7 @@ class MockCritique:
 @dataclass
 class MockDebateResult:
     """Mock debate result for testing."""
+
     id: str = "debate_001"
     critiques: list = field(default_factory=list)
     messages: list = field(default_factory=list)
@@ -58,6 +63,7 @@ class MockDebateResult:
 @dataclass
 class MockProtocol:
     """Mock protocol for testing."""
+
     rounds: int = 2
     asymmetric_stances: bool = False
     rotate_stances: bool = False
@@ -66,6 +72,7 @@ class MockProtocol:
 @dataclass
 class MockConvergence:
     """Mock convergence result."""
+
     status: str = "converging"
     avg_similarity: float = 0.8
     per_agent_similarity: dict = field(default_factory=dict)
@@ -75,6 +82,7 @@ class MockConvergence:
 # ============================================================================
 # DebateRoundsPhase Construction Tests
 # ============================================================================
+
 
 class TestDebateRoundsPhaseConstruction:
     """Tests for DebateRoundsPhase construction."""
@@ -106,6 +114,7 @@ class TestDebateRoundsPhaseConstruction:
 # ============================================================================
 # Round Execution Tests
 # ============================================================================
+
 
 class TestRoundExecution:
     """Tests for round execution."""
@@ -186,6 +195,7 @@ class TestRoundExecution:
 # ============================================================================
 # Critique Phase Tests
 # ============================================================================
+
 
 class TestCritiquePhase:
     """Tests for critique generation."""
@@ -303,6 +313,7 @@ class TestCritiquePhase:
 # Revision Phase Tests
 # ============================================================================
 
+
 class TestRevisionPhase:
     """Tests for revision generation."""
 
@@ -418,6 +429,7 @@ class TestRevisionPhase:
 # Convergence Detection Tests
 # ============================================================================
 
+
 class TestConvergenceDetection:
     """Tests for convergence detection."""
 
@@ -513,6 +525,7 @@ class TestConvergenceDetection:
 # Termination Tests
 # ============================================================================
 
+
 class TestTermination:
     """Tests for early termination."""
 
@@ -575,6 +588,7 @@ class TestTermination:
 # Stance Rotation Tests
 # ============================================================================
 
+
 class TestStanceRotation:
     """Tests for asymmetric stance rotation."""
 
@@ -607,6 +621,7 @@ class TestStanceRotation:
 # ============================================================================
 # Recorder Tests
 # ============================================================================
+
 
 class TestRecorder:
     """Tests for replay recorder."""
@@ -665,6 +680,7 @@ class TestRecorder:
 # Partial State Recovery Tests
 # ============================================================================
 
+
 class TestPartialStateRecovery:
     """Tests for partial state recovery."""
 
@@ -719,6 +735,7 @@ class TestPartialStateRecovery:
 # Edge Case Tests
 # ============================================================================
 
+
 class TestEdgeCases:
     """Tests for edge cases."""
 
@@ -761,7 +778,10 @@ class TestEdgeCases:
         )
 
         # All proposers, no dedicated critics
-        agents = [MockAgent(name="claude", role="proposer"), MockAgent(name="gpt4", role="proposer")]
+        agents = [
+            MockAgent(name="claude", role="proposer"),
+            MockAgent(name="gpt4", role="proposer"),
+        ]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
         ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
         ctx.result = MockDebateResult()

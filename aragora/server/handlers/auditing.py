@@ -36,15 +36,9 @@ from aragora.utils.optional_imports import try_import_class
 logger = logging.getLogger(__name__)
 
 # Lazy imports for optional dependencies using centralized utility
-CapabilityProber, PROBER_AVAILABLE = try_import_class(
-    "aragora.modes.prober", "CapabilityProber"
-)
-RedTeamMode, REDTEAM_AVAILABLE = try_import_class(
-    "aragora.modes.redteam", "RedTeamMode"
-)
-create_agent, DEBATE_AVAILABLE = try_import_class(
-    "aragora.debate", "create_agent"
-)
+CapabilityProber, PROBER_AVAILABLE = try_import_class("aragora.modes.prober", "CapabilityProber")
+RedTeamMode, REDTEAM_AVAILABLE = try_import_class("aragora.modes.redteam", "RedTeamMode")
+create_agent, DEBATE_AVAILABLE = try_import_class("aragora.debate", "create_agent")
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.debate.sanitization import OutputSanitizer
@@ -67,9 +61,11 @@ class AuditRequestParser:
         return data, None
 
     @staticmethod
-    def _require_field(data: dict, field: str, validator=None) -> tuple[Optional[str], Optional[HandlerResult]]:
+    def _require_field(
+        data: dict, field: str, validator=None
+    ) -> tuple[Optional[str], Optional[HandlerResult]]:
         """Extract and validate a required string field."""
-        value = data.get(field, '').strip()
+        value = data.get(field, "").strip()
         if not value:
             return None, error_response(f"Missing required field: {field}", 400)
         if validator:
@@ -79,7 +75,9 @@ class AuditRequestParser:
         return value, None
 
     @staticmethod
-    def _parse_int(data: dict, field: str, default: int, max_val: int) -> tuple[int, Optional[HandlerResult]]:
+    def _parse_int(
+        data: dict, field: str, default: int, max_val: int
+    ) -> tuple[int, Optional[HandlerResult]]:
         """Parse and clamp an integer field."""
         try:
             return min(int(data.get(field, default)), max_val), None
@@ -87,27 +85,29 @@ class AuditRequestParser:
             return 0, error_response(f"{field} must be an integer", 400)
 
     @staticmethod
-    def parse_capability_probe(handler, read_json_fn) -> tuple[Optional[dict], Optional[HandlerResult]]:
+    def parse_capability_probe(
+        handler, read_json_fn
+    ) -> tuple[Optional[dict], Optional[HandlerResult]]:
         """Parse capability probe request."""
         data, err = AuditRequestParser._read_json(handler, read_json_fn)
         if err:
             return None, err
 
-        agent_name, err = AuditRequestParser._require_field(data, 'agent_name', validate_agent_name)
+        agent_name, err = AuditRequestParser._require_field(data, "agent_name", validate_agent_name)
         if err:
             return None, err
 
-        probes_per_type, err = AuditRequestParser._parse_int(data, 'probes_per_type', 3, 10)
+        probes_per_type, err = AuditRequestParser._parse_int(data, "probes_per_type", 3, 10)
         if err:
             return None, err
 
         return {
-            'agent_name': agent_name,
-            'probe_types': data.get('probe_types', [
-                'contradiction', 'hallucination', 'sycophancy', 'persistence'
-            ]),
-            'probes_per_type': probes_per_type,
-            'model_type': data.get('model_type', 'anthropic-api'),
+            "agent_name": agent_name,
+            "probe_types": data.get(
+                "probe_types", ["contradiction", "hallucination", "sycophancy", "persistence"]
+            ),
+            "probes_per_type": probes_per_type,
+            "model_type": data.get("model_type", "anthropic-api"),
         }, None
 
     @staticmethod
@@ -117,33 +117,35 @@ class AuditRequestParser:
         if err:
             return None, err
 
-        task, err = AuditRequestParser._require_field(data, 'task')
+        task, err = AuditRequestParser._require_field(data, "task")
         if err:
             return None, err
 
-        config_data = data.get('config', {})
-        rounds, err = AuditRequestParser._parse_int(config_data, 'rounds', 6, 10)
+        config_data = data.get("config", {})
+        rounds, err = AuditRequestParser._parse_int(config_data, "rounds", 6, 10)
         if err:
             return None, err
-        cross_exam, err = AuditRequestParser._parse_int(config_data, 'cross_examination_depth', 3, 10)
+        cross_exam, err = AuditRequestParser._parse_int(
+            config_data, "cross_examination_depth", 3, 10
+        )
         if err:
             return None, err
 
         try:
-            risk_threshold = float(config_data.get('risk_threshold', 0.7))
+            risk_threshold = float(config_data.get("risk_threshold", 0.7))
         except (ValueError, TypeError):
             return None, error_response("risk_threshold must be a number", 400)
 
         return {
-            'task': task,
-            'context': data.get('context', ''),
-            'agent_names': data.get('agent_names', []),
-            'model_type': data.get('model_type', 'anthropic-api'),
-            'audit_type': config_data.get('audit_type', ''),
-            'rounds': rounds,
-            'cross_examination_depth': cross_exam,
-            'risk_threshold': risk_threshold,
-            'enable_research': config_data.get('enable_research', True),
+            "task": task,
+            "context": data.get("context", ""),
+            "agent_names": data.get("agent_names", []),
+            "model_type": data.get("model_type", "anthropic-api"),
+            "audit_type": config_data.get("audit_type", ""),
+            "rounds": rounds,
+            "cross_examination_depth": cross_exam,
+            "risk_threshold": risk_threshold,
+            "enable_research": config_data.get("enable_research", True),
         }, None
 
 
@@ -169,10 +171,7 @@ class AuditAgentFactory:
 
     @staticmethod
     def create_multiple_agents(
-        model_type: str,
-        agent_names: list[str],
-        default_names: list[str],
-        max_agents: int = 5
+        model_type: str, agent_names: list[str], default_names: list[str], max_agents: int = 5
     ) -> tuple[list, Optional[HandlerResult]]:
         """Create multiple agents for auditing.
 
@@ -206,12 +205,7 @@ class AuditResultRecorder:
     """Record audit results to ELO system and storage."""
 
     @staticmethod
-    def record_probe_elo(
-        elo_system,
-        agent_name: str,
-        report,
-        report_id: str
-    ) -> None:
+    def record_probe_elo(elo_system, agent_name: str, report, report_id: str) -> None:
         """Record capability probe results to ELO system."""
         if not elo_system or report.probes_run <= 0:
             return
@@ -224,7 +218,7 @@ class AuditResultRecorder:
                 successful_attacks=report.vulnerabilities_found,
                 total_attacks=report.probes_run,
                 critical_vulnerabilities=report.critical_count,
-                session_id=report_id
+                session_id=report_id,
             )
             # Invalidate leaderboard cache after ELO update
             invalidate_leaderboard_cache()
@@ -271,7 +265,7 @@ class AuditResultRecorder:
         verdict,
         config,
         duration_ms: float,
-        elo_adjustments: dict
+        elo_adjustments: dict,
     ) -> None:
         """Save deep audit report to storage."""
         if not nomic_dir:
@@ -282,39 +276,45 @@ class AuditResultRecorder:
             audits_dir.mkdir(parents=True, exist_ok=True)
             date_str = datetime.now().strftime("%Y-%m-%d")
             audit_file = audits_dir / f"{date_str}_{audit_id}.json"
-            audit_file.write_text(json.dumps({
-                "audit_id": audit_id,
-                "task": task,
-                "context": context[:1000],
-                "agents": [a.name for a in agents],
-                "recommendation": verdict.recommendation,
-                "confidence": verdict.confidence,
-                "unanimous_issues": verdict.unanimous_issues,
-                "split_opinions": verdict.split_opinions,
-                "risk_areas": verdict.risk_areas,
-                "findings": [
+            audit_file.write_text(
+                json.dumps(
                     {
-                        "category": f.category,
-                        "summary": f.summary,
-                        "details": f.details,
-                        "agents_agree": f.agents_agree,
-                        "agents_disagree": f.agents_disagree,
-                        "confidence": f.confidence,
-                        "severity": f.severity,
-                        "citations": f.citations,
-                    }
-                    for f in verdict.findings
-                ],
-                "config": {
-                    "rounds": config.rounds,
-                    "enable_research": config.enable_research,
-                    "cross_examination_depth": config.cross_examination_depth,
-                    "risk_threshold": config.risk_threshold,
-                },
-                "duration_ms": duration_ms,
-                "elo_adjustments": elo_adjustments,
-                "created_at": datetime.now().isoformat(),
-            }, indent=2, default=str))
+                        "audit_id": audit_id,
+                        "task": task,
+                        "context": context[:1000],
+                        "agents": [a.name for a in agents],
+                        "recommendation": verdict.recommendation,
+                        "confidence": verdict.confidence,
+                        "unanimous_issues": verdict.unanimous_issues,
+                        "split_opinions": verdict.split_opinions,
+                        "risk_areas": verdict.risk_areas,
+                        "findings": [
+                            {
+                                "category": f.category,
+                                "summary": f.summary,
+                                "details": f.details,
+                                "agents_agree": f.agents_agree,
+                                "agents_disagree": f.agents_disagree,
+                                "confidence": f.confidence,
+                                "severity": f.severity,
+                                "citations": f.citations,
+                            }
+                            for f in verdict.findings
+                        ],
+                        "config": {
+                            "rounds": config.rounds,
+                            "enable_research": config.enable_research,
+                            "cross_examination_depth": config.cross_examination_depth,
+                            "risk_threshold": config.risk_threshold,
+                        },
+                        "duration_ms": duration_ms,
+                        "elo_adjustments": elo_adjustments,
+                        "created_at": datetime.now().isoformat(),
+                    },
+                    indent=2,
+                    default=str,
+                )
+            )
         except Exception as e:
             logger.error(f"Failed to save deep audit report to {nomic_dir}: {e}")
 
@@ -374,16 +374,20 @@ class AuditingHandler(BaseHandler):
 
             attack_types = []
             for attack_type in AttackType:
-                attack_types.append({
-                    "type": attack_type.value,
-                    "name": attack_type.name.replace("_", " ").title(),
-                    "category": self._get_attack_category(attack_type),
-                })
+                attack_types.append(
+                    {
+                        "type": attack_type.value,
+                        "name": attack_type.name.replace("_", " ").title(),
+                        "category": self._get_attack_category(attack_type),
+                    }
+                )
 
-            return json_response({
-                "attack_types": attack_types,
-                "count": len(attack_types),
-            })
+            return json_response(
+                {
+                    "attack_types": attack_types,
+                    "count": len(attack_types),
+                }
+            )
 
         except Exception as e:
             return error_response(safe_error_message(e, "get attack types"), 500)
@@ -434,18 +438,21 @@ class AuditingHandler(BaseHandler):
                 logger.info("Capability probe request validation failed")
                 return err
 
-            agent_name = parsed['agent_name']
-            model_type = parsed['model_type']
+            agent_name = parsed["agent_name"]
+            model_type = parsed["model_type"]
             logger.info(
                 "Starting capability probe: agent=%s, model=%s, probe_types=%s, probes_per_type=%d",
-                agent_name, model_type, parsed['probe_types'], parsed['probes_per_type']
+                agent_name,
+                model_type,
+                parsed["probe_types"],
+                parsed["probes_per_type"],
             )
 
             from aragora.modes.prober import ProbeType, CapabilityProber
 
             # Convert string probe types to enum
             probe_types = []
-            for pt_str in parsed['probe_types']:
+            for pt_str in parsed["probe_types"]:
                 try:
                     probe_types.append(ProbeType(pt_str))
                 except ValueError as e:
@@ -475,16 +482,20 @@ class AuditingHandler(BaseHandler):
                     return "[Agent Error: Generation failed]"
 
             try:
-                report = run_async(prober.probe_agent(
-                    target_agent=agent,
-                    run_agent_fn=run_agent_fn,
-                    probe_types=probe_types,
-                    probes_per_type=parsed['probes_per_type'],
-                ))
+                report = run_async(
+                    prober.probe_agent(
+                        target_agent=agent,
+                        run_agent_fn=run_agent_fn,
+                        probe_types=probe_types,
+                        probes_per_type=parsed["probes_per_type"],
+                    )
+                )
             except Exception as e:
                 logger.error(
                     "Capability probe execution failed: agent=%s, error=%s",
-                    agent_name, str(e), exc_info=True
+                    agent_name,
+                    str(e),
+                    exc_info=True,
                 )
                 return error_response("Probe execution failed", 500)
 
@@ -503,31 +514,36 @@ class AuditingHandler(BaseHandler):
             logger.info(
                 "Capability probe completed: agent=%s, probes=%d, vulnerabilities=%d, "
                 "pass_rate=%.2f, duration_ms=%.1f",
-                agent_name, report.probes_run, report.vulnerabilities_found,
-                pass_rate, duration_ms
+                agent_name,
+                report.probes_run,
+                report.vulnerabilities_found,
+                pass_rate,
+                duration_ms,
             )
 
-            return json_response({
-                "report_id": report.report_id,
-                "target_agent": agent_name,
-                "probes_run": report.probes_run,
-                "vulnerabilities_found": report.vulnerabilities_found,
-                "vulnerability_rate": round(report.vulnerability_rate, 3),
-                "elo_penalty": round(report.elo_penalty, 1),
-                "by_type": by_type_transformed,
-                "summary": {
-                    "total": report.probes_run,
-                    "passed": passed_count,
-                    "failed": report.vulnerabilities_found,
-                    "pass_rate": round(pass_rate, 3),
-                    "critical": report.critical_count,
-                    "high": report.high_count,
-                    "medium": report.medium_count,
-                    "low": report.low_count,
-                },
-                "recommendations": report.recommendations,
-                "created_at": report.created_at,
-            })
+            return json_response(
+                {
+                    "report_id": report.report_id,
+                    "target_agent": agent_name,
+                    "probes_run": report.probes_run,
+                    "vulnerabilities_found": report.vulnerabilities_found,
+                    "vulnerability_rate": round(report.vulnerability_rate, 3),
+                    "elo_penalty": round(report.elo_penalty, 1),
+                    "by_type": by_type_transformed,
+                    "summary": {
+                        "total": report.probes_run,
+                        "passed": passed_count,
+                        "failed": report.vulnerabilities_found,
+                        "pass_rate": round(pass_rate, 3),
+                        "critical": report.critical_count,
+                        "high": report.high_count,
+                        "medium": report.medium_count,
+                        "low": report.low_count,
+                    },
+                    "recommendations": report.recommendations,
+                    "created_at": report.created_at,
+                }
+            )
 
         except Exception as e:
             logger.error("Capability probe failed unexpectedly: %s", str(e), exc_info=True)
@@ -539,17 +555,23 @@ class AuditingHandler(BaseHandler):
         for probe_type_key, results in by_type.items():
             transformed_results = []
             for r in results:
-                result_dict = r.to_dict() if hasattr(r, 'to_dict') else r
-                passed = not result_dict.get('vulnerability_found', False)
-                transformed_results.append({
-                    "probe_id": result_dict.get('probe_id', ''),
-                    "type": result_dict.get('probe_type', probe_type_key),
-                    "passed": passed,
-                    "severity": str(result_dict.get('severity', '')).lower() if result_dict.get('severity') else None,
-                    "description": result_dict.get('vulnerability_description', ''),
-                    "details": result_dict.get('evidence', ''),
-                    "response_time_ms": result_dict.get('response_time_ms', 0),
-                })
+                result_dict = r.to_dict() if hasattr(r, "to_dict") else r
+                passed = not result_dict.get("vulnerability_found", False)
+                transformed_results.append(
+                    {
+                        "probe_id": result_dict.get("probe_id", ""),
+                        "type": result_dict.get("probe_type", probe_type_key),
+                        "passed": passed,
+                        "severity": (
+                            str(result_dict.get("severity", "")).lower()
+                            if result_dict.get("severity")
+                            else None
+                        ),
+                        "description": result_dict.get("vulnerability_description", ""),
+                        "details": result_dict.get("evidence", ""),
+                        "response_time_ms": result_dict.get("response_time_ms", 0),
+                    }
+                )
             by_type_transformed[probe_type_key] = transformed_results
         return by_type_transformed
 
@@ -587,16 +609,19 @@ class AuditingHandler(BaseHandler):
                 logger.info("Deep audit request validation failed")
                 return err
 
-            task = parsed['task']
-            context = parsed['context']
+            task = parsed["task"]
+            context = parsed["context"]
             logger.info(
                 "Starting deep audit: task_len=%d, context_len=%d, audit_type=%s, rounds=%d",
-                len(task), len(context), parsed['audit_type'] or 'default', parsed['rounds']
+                len(task),
+                len(context),
+                parsed["audit_type"] or "default",
+                parsed["rounds"],
             )
 
             # Select config based on audit type or use parsed values
             config = self._get_audit_config(
-                parsed['audit_type'],
+                parsed["audit_type"],
                 parsed,
                 DeepAuditConfig,
                 STRATEGY_AUDIT,
@@ -605,9 +630,9 @@ class AuditingHandler(BaseHandler):
             )
 
             # Create agents
-            default_names = ['Claude-Analyst', 'Claude-Skeptic', 'Claude-Synthesizer']
+            default_names = ["Claude-Analyst", "Claude-Skeptic", "Claude-Synthesizer"]
             agents, err = AuditAgentFactory.create_multiple_agents(
-                parsed['model_type'], parsed['agent_names'], default_names
+                parsed["model_type"], parsed["agent_names"], default_names
             )
             if err:
                 logger.warning("Deep audit agent creation failed")
@@ -623,7 +648,9 @@ class AuditingHandler(BaseHandler):
             except Exception as e:
                 logger.error(
                     "Deep audit execution failed: audit_id=%s, error=%s",
-                    audit_id, str(e), exc_info=True
+                    audit_id,
+                    str(e),
+                    exc_info=True,
                 )
                 return error_response(f"Deep audit execution failed: {str(e)}", 500)
 
@@ -631,76 +658,98 @@ class AuditingHandler(BaseHandler):
 
             # Calculate ELO and save report
             elo_system = self.ctx.get("elo_system")
-            elo_adjustments = AuditResultRecorder.calculate_audit_elo_adjustments(verdict, elo_system)
+            elo_adjustments = AuditResultRecorder.calculate_audit_elo_adjustments(
+                verdict, elo_system
+            )
             AuditResultRecorder.save_audit_report(
-                self.ctx.get("nomic_dir"), audit_id, task, context,
-                agents, verdict, config, duration_ms, elo_adjustments
+                self.ctx.get("nomic_dir"),
+                audit_id,
+                task,
+                context,
+                agents,
+                verdict,
+                config,
+                duration_ms,
+                elo_adjustments,
             )
 
             logger.info(
                 "Deep audit completed: audit_id=%s, findings=%d, confidence=%.2f, "
                 "unanimous=%d, split=%d, duration_ms=%.1f",
-                audit_id, len(verdict.findings), verdict.confidence,
-                len(verdict.unanimous_issues), len(verdict.split_opinions), duration_ms
+                audit_id,
+                len(verdict.findings),
+                verdict.confidence,
+                len(verdict.unanimous_issues),
+                len(verdict.split_opinions),
+                duration_ms,
             )
 
             # Build response
-            return json_response({
-                "audit_id": audit_id,
-                "task": task,
-                "recommendation": verdict.recommendation,
-                "confidence": verdict.confidence,
-                "unanimous_issues": verdict.unanimous_issues,
-                "split_opinions": verdict.split_opinions,
-                "risk_areas": verdict.risk_areas,
-                "findings": [
-                    {
-                        "category": f.category,
-                        "summary": f.summary,
-                        "details": f.details[:500],
-                        "agents_agree": f.agents_agree,
-                        "agents_disagree": f.agents_disagree,
-                        "confidence": f.confidence,
-                        "severity": f.severity,
-                    }
-                    for f in verdict.findings
-                ],
-                "cross_examination_notes": verdict.cross_examination_notes[:2000],
-                "citations": verdict.citations[:20],
-                "rounds_completed": config.rounds,
-                "duration_ms": round(duration_ms, 1),
-                "agents": [a.name for a in agents],
-                "elo_adjustments": elo_adjustments,
-                "summary": {
-                    "unanimous_count": len(verdict.unanimous_issues),
-                    "split_count": len(verdict.split_opinions),
-                    "risk_count": len(verdict.risk_areas),
-                    "findings_count": len(verdict.findings),
-                    "high_severity_count": sum(1 for f in verdict.findings if f.severity >= 0.7),
+            return json_response(
+                {
+                    "audit_id": audit_id,
+                    "task": task,
+                    "recommendation": verdict.recommendation,
+                    "confidence": verdict.confidence,
+                    "unanimous_issues": verdict.unanimous_issues,
+                    "split_opinions": verdict.split_opinions,
+                    "risk_areas": verdict.risk_areas,
+                    "findings": [
+                        {
+                            "category": f.category,
+                            "summary": f.summary,
+                            "details": f.details[:500],
+                            "agents_agree": f.agents_agree,
+                            "agents_disagree": f.agents_disagree,
+                            "confidence": f.confidence,
+                            "severity": f.severity,
+                        }
+                        for f in verdict.findings
+                    ],
+                    "cross_examination_notes": verdict.cross_examination_notes[:2000],
+                    "citations": verdict.citations[:20],
+                    "rounds_completed": config.rounds,
+                    "duration_ms": round(duration_ms, 1),
+                    "agents": [a.name for a in agents],
+                    "elo_adjustments": elo_adjustments,
+                    "summary": {
+                        "unanimous_count": len(verdict.unanimous_issues),
+                        "split_count": len(verdict.split_opinions),
+                        "risk_count": len(verdict.risk_areas),
+                        "findings_count": len(verdict.findings),
+                        "high_severity_count": sum(
+                            1 for f in verdict.findings if f.severity >= 0.7
+                        ),
+                    },
                 }
-            })
+            )
 
         except Exception as e:
             logger.error("Deep audit failed unexpectedly: %s", str(e), exc_info=True)
             return error_response(_safe_error_message(e, "deep_audit"), 500)
 
     def _get_audit_config(
-        self, audit_type: str, parsed: dict, config_class,
-        strategy_preset, contract_preset, code_preset
+        self,
+        audit_type: str,
+        parsed: dict,
+        config_class,
+        strategy_preset,
+        contract_preset,
+        code_preset,
     ):
         """Get audit config from preset or parsed values."""
-        if audit_type == 'strategy':
+        if audit_type == "strategy":
             return strategy_preset
-        elif audit_type == 'contract':
+        elif audit_type == "contract":
             return contract_preset
-        elif audit_type == 'code_architecture':
+        elif audit_type == "code_architecture":
             return code_preset
         else:
             return config_class(
-                rounds=parsed['rounds'],
-                enable_research=parsed['enable_research'],
-                cross_examination_depth=parsed['cross_examination_depth'],
-                risk_threshold=parsed['risk_threshold'],
+                rounds=parsed["rounds"],
+                enable_research=parsed["enable_research"],
+                cross_examination_depth=parsed["cross_examination_depth"],
+                risk_threshold=parsed["risk_threshold"],
             )
 
     def _analyze_proposal_for_redteam(
@@ -716,35 +765,35 @@ class AuditingHandler(BaseHandler):
         proposal_lower = proposal.lower() if proposal else ""
 
         vulnerability_patterns = {
-            'logical_fallacy': {
-                'keywords': ['always', 'never', 'all', 'none', 'obviously', 'clearly'],
-                'description': 'Absolute language suggests potential logical fallacy',
-                'base_severity': 0.4,
+            "logical_fallacy": {
+                "keywords": ["always", "never", "all", "none", "obviously", "clearly"],
+                "description": "Absolute language suggests potential logical fallacy",
+                "base_severity": 0.4,
             },
-            'edge_case': {
-                'keywords': ['usually', 'most', 'typical', 'normal', 'standard'],
-                'description': 'Generalization may miss edge cases',
-                'base_severity': 0.5,
+            "edge_case": {
+                "keywords": ["usually", "most", "typical", "normal", "standard"],
+                "description": "Generalization may miss edge cases",
+                "base_severity": 0.5,
             },
-            'unstated_assumption': {
-                'keywords': ['should', 'must', 'need', 'require'],
-                'description': 'Prescriptive language may hide unstated assumptions',
-                'base_severity': 0.45,
+            "unstated_assumption": {
+                "keywords": ["should", "must", "need", "require"],
+                "description": "Prescriptive language may hide unstated assumptions",
+                "base_severity": 0.45,
             },
-            'counterexample': {
-                'keywords': ['best', 'optimal', 'superior', 'only'],
-                'description': 'Strong claims may be vulnerable to counterexamples',
-                'base_severity': 0.55,
+            "counterexample": {
+                "keywords": ["best", "optimal", "superior", "only"],
+                "description": "Strong claims may be vulnerable to counterexamples",
+                "base_severity": 0.55,
             },
-            'scalability': {
-                'keywords': ['scale', 'growth', 'expand', 'distributed'],
-                'description': 'Scalability claims require validation',
-                'base_severity': 0.5,
+            "scalability": {
+                "keywords": ["scale", "growth", "expand", "distributed"],
+                "description": "Scalability claims require validation",
+                "base_severity": 0.5,
             },
-            'security': {
-                'keywords': ['secure', 'safe', 'protected', 'auth', 'encrypt'],
-                'description': 'Security claims need rigorous testing',
-                'base_severity': 0.6,
+            "security": {
+                "keywords": ["secure", "safe", "protected", "auth", "encrypt"],
+                "description": "Security claims need rigorous testing",
+                "base_severity": 0.6,
             },
         }
 
@@ -755,30 +804,34 @@ class AuditingHandler(BaseHandler):
                 continue
 
             pattern: dict = vulnerability_patterns.get(attack_type, {})  # type: ignore[assignment]
-            keywords: list = pattern.get('keywords', [])
-            base_severity: float = pattern.get('base_severity', 0.5) or 0.5  # type: ignore[assignment]
+            keywords: list = pattern.get("keywords", [])
+            base_severity: float = pattern.get("base_severity", 0.5) or 0.5  # type: ignore[assignment]
 
             matches = sum(1 for kw in keywords if kw in proposal_lower)
             severity = min(0.9, base_severity + (matches * 0.1))
 
             if matches > 0:
-                findings.append({
-                    "attack_type": attack_type,
-                    "description": pattern.get('description', f"Potential {attack_type} issue"),
-                    "severity": round(severity, 2),
-                    "exploitability": round(severity * 0.8, 2),
-                    "keyword_matches": matches,
-                    "requires_manual_review": severity > 0.6,
-                })
+                findings.append(
+                    {
+                        "attack_type": attack_type,
+                        "description": pattern.get("description", f"Potential {attack_type} issue"),
+                        "severity": round(severity, 2),
+                        "exploitability": round(severity * 0.8, 2),
+                        "keyword_matches": matches,
+                        "requires_manual_review": severity > 0.6,
+                    }
+                )
             else:
-                findings.append({
-                    "attack_type": attack_type,
-                    "description": f"No obvious {attack_type.replace('_', ' ')} patterns detected",
-                    "severity": round(base_severity * 0.5, 2),
-                    "exploitability": round(base_severity * 0.3, 2),
-                    "keyword_matches": 0,
-                    "requires_manual_review": False,
-                })
+                findings.append(
+                    {
+                        "attack_type": attack_type,
+                        "description": f"No obvious {attack_type.replace('_', ' ')} patterns detected",
+                        "severity": round(base_severity * 0.5, 2),
+                        "exploitability": round(base_severity * 0.3, 2),
+                        "keyword_matches": 0,
+                        "requires_manual_review": False,
+                    }
+                )
 
         return findings
 
@@ -818,16 +871,23 @@ class AuditingHandler(BaseHandler):
 
             from aragora.modes.redteam import AttackType
 
-            attack_type_names = data.get('attack_types', [
-                'logical_fallacy', 'edge_case', 'unstated_assumption',
-                'counterexample', 'scalability', 'security'
-            ])
-            max_rounds = min(int(data.get('max_rounds', 3)), 5)
+            attack_type_names = data.get(
+                "attack_types",
+                [
+                    "logical_fallacy",
+                    "edge_case",
+                    "unstated_assumption",
+                    "counterexample",
+                    "scalability",
+                    "security",
+                ],
+            )
+            max_rounds = min(int(data.get("max_rounds", 3)), 5)
 
-            focus_proposal = data.get('focus_proposal') or (
-                debate_data.get('consensus_answer') or
-                debate_data.get('final_answer') or
-                debate_data.get('task', '')
+            focus_proposal = data.get("focus_proposal") or (
+                debate_data.get("consensus_answer")
+                or debate_data.get("final_answer")
+                or debate_data.get("task", "")
             )
 
             session_id = f"redteam-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6]}"
@@ -838,32 +898,37 @@ class AuditingHandler(BaseHandler):
             )
 
             # Calculate robustness based on finding severity
-            avg_severity = sum(f.get('severity', 0.5) for f in findings) / max(len(findings), 1)
+            avg_severity = sum(f.get("severity", 0.5) for f in findings) / max(len(findings), 1)
             robustness_score = max(0.0, 1.0 - avg_severity)
             duration_ms = (time.time() - start_time) * 1000
 
             logger.info(
                 "Red team analysis completed: debate_id=%s, session_id=%s, findings=%d, "
                 "robustness=%.2f, duration_ms=%.1f",
-                debate_id, session_id, len(findings), robustness_score, duration_ms
+                debate_id,
+                session_id,
+                len(findings),
+                robustness_score,
+                duration_ms,
             )
 
-            return json_response({
-                "session_id": session_id,
-                "debate_id": debate_id,
-                "target_proposal": focus_proposal[:500] if focus_proposal else "",
-                "attack_types": attack_type_names,
-                "max_rounds": max_rounds,
-                "findings": findings,
-                "robustness_score": round(robustness_score, 2),
-                "status": "analysis_complete",
-                "created_at": datetime.now().isoformat(),
-            })
+            return json_response(
+                {
+                    "session_id": session_id,
+                    "debate_id": debate_id,
+                    "target_proposal": focus_proposal[:500] if focus_proposal else "",
+                    "attack_types": attack_type_names,
+                    "max_rounds": max_rounds,
+                    "findings": findings,
+                    "robustness_score": round(robustness_score, 2),
+                    "status": "analysis_complete",
+                    "created_at": datetime.now().isoformat(),
+                }
+            )
 
         except Exception as e:
             logger.error(
-                "Red team analysis failed: debate_id=%s, error=%s",
-                debate_id, str(e), exc_info=True
+                "Red team analysis failed: debate_id=%s, error=%s", debate_id, str(e), exc_info=True
             )
             return error_response(_safe_error_message(e, "red_team_analysis"), 500)
 

@@ -84,7 +84,9 @@ class Mode(ABC):
         if ToolGroup.DEBATE in self.tool_groups:
             allowed_tools.append("Debate")
 
-        lines.append("**Allowed:** " + ", ".join(allowed_tools) if allowed_tools else "**Allowed:** None")
+        lines.append(
+            "**Allowed:** " + ", ".join(allowed_tools) if allowed_tools else "**Allowed:** None"
+        )
 
         # File patterns
         if self.file_patterns:

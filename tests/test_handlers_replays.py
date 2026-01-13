@@ -21,6 +21,7 @@ from aragora.server.handlers.base import clear_cache
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_nomic_dir(tmp_path):
     """Create a mock nomic directory structure."""
@@ -54,6 +55,7 @@ def replays_handler_no_nomic():
 @pytest.fixture
 def mock_replay_dir(mock_nomic_dir):
     """Factory to create replay directories with meta.json and events.jsonl."""
+
     def create_replay(replay_id, topic="Test Topic", agents=None, events=None):
         replays_dir = mock_nomic_dir / "replays"
         replays_dir.mkdir(exist_ok=True)
@@ -74,6 +76,7 @@ def mock_replay_dir(mock_nomic_dir):
             (replay_dir / "events.jsonl").write_text("\n".join(lines))
 
         return replay_dir
+
     return create_replay
 
 
@@ -82,13 +85,15 @@ def mock_learning_db(mock_nomic_dir):
     """Create meta_learning.db with test patterns."""
     db_path = mock_nomic_dir / "meta_learning.db"
     conn = sqlite3.connect(str(db_path))
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE meta_patterns (
             id INTEGER PRIMARY KEY,
             pattern_name TEXT,
             created_at TEXT
         )
-    """)
+    """
+    )
     conn.execute("INSERT INTO meta_patterns VALUES (1, 'pattern_a', '2026-01-01')")
     conn.execute("INSERT INTO meta_patterns VALUES (2, 'pattern_b', '2026-01-02')")
     conn.execute("INSERT INTO meta_patterns VALUES (3, 'pattern_c', '2026-01-03')")
@@ -108,6 +113,7 @@ def clear_caches():
 # ============================================================================
 # Route Matching Tests
 # ============================================================================
+
 
 class TestReplaysRouting:
     """Tests for route matching."""
@@ -141,6 +147,7 @@ class TestReplaysRouting:
 # ============================================================================
 # GET /api/replays Tests
 # ============================================================================
+
 
 class TestListReplays:
     """Tests for GET /api/replays endpoint."""
@@ -208,7 +215,7 @@ class TestListReplays:
         # Malformed replay (invalid JSON)
         broken_dir = replays_dir / "broken-replay"
         broken_dir.mkdir()
-        (broken_dir / "meta.json").write_text('not valid json')
+        (broken_dir / "meta.json").write_text("not valid json")
 
         # Directory without meta.json
         no_meta_dir = replays_dir / "no-meta-replay"
@@ -228,7 +235,7 @@ class TestListReplays:
         replays_dir = mock_nomic_dir / "replays"
         replays_dir.mkdir()
 
-        with patch.object(Path, 'iterdir', side_effect=PermissionError("Access denied")):
+        with patch.object(Path, "iterdir", side_effect=PermissionError("Access denied")):
             result = replays_handler.handle("/api/replays", {}, None)
 
             assert result is not None
@@ -241,6 +248,7 @@ class TestListReplays:
 # ============================================================================
 # GET /api/replays/:id Tests
 # ============================================================================
+
 
 class TestGetReplay:
     """Tests for GET /api/replays/:id endpoint."""
@@ -338,7 +346,7 @@ class TestGetReplay:
         """Returns error on unexpected exceptions."""
         (mock_nomic_dir / "replays").mkdir()
 
-        with patch.object(Path, 'exists', side_effect=PermissionError("Access denied")):
+        with patch.object(Path, "exists", side_effect=PermissionError("Access denied")):
             result = replays_handler.handle("/api/replays/test-id", {}, None)
 
             assert result is not None
@@ -351,6 +359,7 @@ class TestGetReplay:
 # ============================================================================
 # GET /api/learning/evolution Tests
 # ============================================================================
+
 
 class TestLearningEvolution:
     """Tests for GET /api/learning/evolution endpoint."""
@@ -441,6 +450,7 @@ class TestLearningEvolution:
 # Security Tests
 # ============================================================================
 
+
 class TestReplaysSecurity:
     """Security tests for replays endpoints."""
 
@@ -496,6 +506,7 @@ class TestReplaysSecurity:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestReplaysErrorHandling:
     """Tests for error handling."""
 
@@ -506,13 +517,16 @@ class TestReplaysErrorHandling:
 
     def test_handles_post_not_implemented(self, replays_handler):
         """ReplaysHandler doesn't implement handle_post."""
-        assert not hasattr(replays_handler, 'handle_post') or \
-               replays_handler.handle_post("/api/replays", {}, None) is None
+        assert (
+            not hasattr(replays_handler, "handle_post")
+            or replays_handler.handle_post("/api/replays", {}, None) is None
+        )
 
 
 # ============================================================================
 # Handler Import Tests
 # ============================================================================
+
 
 class TestReplaysHandlerImport:
     """Test ReplaysHandler import and export."""
@@ -520,9 +534,11 @@ class TestReplaysHandlerImport:
     def test_handler_importable(self):
         """ReplaysHandler can be imported from handlers package."""
         from aragora.server.handlers import ReplaysHandler
+
         assert ReplaysHandler is not None
 
     def test_handler_in_all_exports(self):
         """ReplaysHandler is in __all__ exports."""
         from aragora.server.handlers import __all__
+
         assert "ReplaysHandler" in __all__

@@ -35,6 +35,7 @@ def get_uncertainty_estimator():
     if _uncertainty_estimator is None:
         try:
             from aragora.uncertainty.estimator import ConfidenceEstimator
+
             _uncertainty_estimator = ConfidenceEstimator()
         except ImportError:
             logger.debug("Uncertainty estimator not available")
@@ -175,13 +176,13 @@ class AnalyticsPhase:
             if critique.severity >= 0.5:
                 try:
                     # Get content from critique
-                    content = getattr(critique, 'content', '')
+                    content = getattr(critique, "content", "")
                     if not content:
-                        content = critique.reasoning[:200] if hasattr(critique, 'reasoning') else ''
+                        content = critique.reasoning[:200] if hasattr(critique, "reasoning") else ""
 
                     self.memory.fail_pattern(
                         issue_text=content[:200],
-                        issue_type=getattr(critique, 'category', 'general'),
+                        issue_type=getattr(critique, "category", "general"),
                     )
                 except Exception as e:
                     logger.debug(f"Failed to record pattern failure: {e}")
@@ -244,6 +245,7 @@ class AnalyticsPhase:
             # Import insight extractor
             try:
                 from aragora.insights.extractor import InsightExtractor
+
                 extractor = InsightExtractor()
             except ImportError:
                 logger.debug("InsightExtractor not available")
@@ -283,7 +285,7 @@ class AnalyticsPhase:
             return
 
         result = ctx.result
-        debate_id = getattr(result, 'id', None) or ctx.env.task[:50]
+        debate_id = getattr(result, "id", None) or ctx.env.task[:50]
 
         self._update_agent_relationships(
             debate_id=debate_id,
@@ -397,13 +399,9 @@ class AnalyticsPhase:
         result.grounded_verdict = self._create_grounded_verdict(result)
 
         if result.grounded_verdict:
-            logger.info(
-                f"grounding_score score={result.grounded_verdict.grounding_score:.0%}"
-            )
+            logger.info(f"grounding_score score={result.grounded_verdict.grounding_score:.0%}")
             if result.grounded_verdict.claims:
-                logger.debug(
-                    f"grounding_claims count={len(result.grounded_verdict.claims)}"
-                )
+                logger.debug(f"grounding_claims count={len(result.grounded_verdict.claims)}")
 
             self._emit_grounded_verdict_event(result)
 
@@ -415,11 +413,13 @@ class AnalyticsPhase:
         try:
             from aragora.server.stream import StreamEvent, StreamEventType
 
-            self.event_emitter.emit(StreamEvent(  # type: ignore[call-arg]
-                type=StreamEventType.GROUNDED_VERDICT,
-                data=result.grounded_verdict.to_dict(),
-                debate_id=self.loop_id or "unknown",
-            ))
+            self.event_emitter.emit(
+                StreamEvent(  # type: ignore[call-arg]
+                    type=StreamEventType.GROUNDED_VERDICT,
+                    data=result.grounded_verdict.to_dict(),
+                    debate_id=self.loop_id or "unknown",
+                )
+            )
         except Exception as e:
             logger.debug(f"Failed to emit grounded verdict event: {e}")
 
@@ -442,17 +442,18 @@ class AnalyticsPhase:
             # Try to import belief analyzer
             try:
                 from aragora.reasoning.belief import BeliefPropagationAnalyzer
+
                 analyzer = BeliefPropagationAnalyzer()  # type: ignore[call-arg]
             except ImportError:
                 return
 
             # Add claims from grounded verdict
             for claim in result.grounded_verdict.claims[:20]:
-                claim_id = getattr(claim, 'claim_id', str(hash(claim.statement[:50])))
+                claim_id = getattr(claim, "claim_id", str(hash(claim.statement[:50])))
                 analyzer.add_claim(  # type: ignore[attr-defined]
                     claim_id=claim_id,
                     statement=claim.statement,
-                    prior=getattr(claim, 'confidence', 0.5),
+                    prior=getattr(claim, "confidence", 0.5),
                 )
 
             # Identify cruxes

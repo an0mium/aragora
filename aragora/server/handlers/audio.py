@@ -35,6 +35,7 @@ MAX_PODCAST_EPISODES = 200  # Prevent unbounded feed generation
 # Optional imports for broadcast functionality
 try:
     from aragora.broadcast.rss_gen import PodcastFeedGenerator, PodcastConfig, PodcastEpisode
+
     PODCAST_AVAILABLE = True
 except ImportError:
     PODCAST_AVAILABLE = False
@@ -54,9 +55,9 @@ class AudioHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the request."""
-        if path.startswith('/audio/') and path.endswith('.mp3'):
+        if path.startswith("/audio/") and path.endswith(".mp3"):
             return True
-        if path in ('/api/podcast/feed.xml', '/api/podcast/episodes'):
+        if path in ("/api/podcast/feed.xml", "/api/podcast/episodes"):
             return True
         return False
 
@@ -69,15 +70,15 @@ class AudioHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Audio file serving
-        if path.startswith('/audio/') and path.endswith('.mp3'):
+        if path.startswith("/audio/") and path.endswith(".mp3"):
             debate_id = path[7:-4]  # Extract ID from /audio/{id}.mp3
             return self._serve_audio(debate_id)
 
         # Podcast endpoints
-        if path == '/api/podcast/feed.xml':
+        if path == "/api/podcast/feed.xml":
             return self._get_podcast_feed(handler)
-        if path == '/api/podcast/episodes':
-            limit = get_int_param(query_params, 'limit', 50)
+        if path == "/api/podcast/episodes":
+            limit = get_int_param(query_params, "limit", 50)
             return self._get_podcast_episodes(limit, handler)
 
         return None
@@ -156,15 +157,17 @@ class AudioHandler(BaseHandler):
                 if not audio_path or not audio_path.exists():
                     continue
 
-                debates_with_audio.append({
-                    "debate_id": debate_id,
-                    "task": debate.get("task", "Untitled Debate"),
-                    "agents": debate.get("agents", []),
-                    "verdict": debate.get("verdict"),
-                    "created_at": debate.get("created_at", audio_meta.get("generated_at")),
-                    "duration_seconds": audio_meta.get("duration_seconds", 0),
-                    "file_size_bytes": audio_meta.get("file_size_bytes", 0),
-                })
+                debates_with_audio.append(
+                    {
+                        "debate_id": debate_id,
+                        "task": debate.get("task", "Untitled Debate"),
+                        "agents": debate.get("agents", []),
+                        "verdict": debate.get("verdict"),
+                        "created_at": debate.get("created_at", audio_meta.get("generated_at")),
+                        "duration_seconds": audio_meta.get("duration_seconds", 0),
+                        "file_size_bytes": audio_meta.get("file_size_bytes", 0),
+                    }
+                )
                 episode_count += 1
 
             # Generate RSS feed
@@ -173,7 +176,11 @@ class AudioHandler(BaseHandler):
 
             # Get host for URLs
             host = get_host_header(handler)
-            scheme = 'https' if handler and handler.headers.get('X-Forwarded-Proto') == 'https' else 'http'
+            scheme = (
+                "https"
+                if handler and handler.headers.get("X-Forwarded-Proto") == "https"
+                else "http"
+            )
 
             episodes = []
             for i, debate in enumerate(debates_with_audio):
@@ -197,7 +204,7 @@ class AudioHandler(BaseHandler):
             return HandlerResult(
                 status_code=200,
                 content_type="application/rss+xml; charset=utf-8",
-                body=feed_xml.encode('utf-8'),
+                body=feed_xml.encode("utf-8"),
                 headers={
                     "Cache-Control": "public, max-age=300",
                 },
@@ -218,7 +225,11 @@ class AudioHandler(BaseHandler):
             episodes = []
 
             host = get_host_header(handler)
-            scheme = 'https' if handler and handler.headers.get('X-Forwarded-Proto') == 'https' else 'http'
+            scheme = (
+                "https"
+                if handler and handler.headers.get("X-Forwarded-Proto") == "https"
+                else "http"
+            )
 
             for audio_meta in audio_store.list_all()[:limit]:
                 debate_id = audio_meta.get("debate_id")
@@ -227,21 +238,25 @@ class AudioHandler(BaseHandler):
 
                 debate = storage.get_debate(debate_id) if storage else None
 
-                episodes.append({
-                    "debate_id": debate_id,
-                    "task": debate.get("task", "Untitled") if debate else "Unknown",
-                    "agents": debate.get("agents", []) if debate else [],
-                    "audio_url": f"{scheme}://{host}/audio/{debate_id}.mp3",
-                    "duration_seconds": audio_meta.get("duration_seconds"),
-                    "file_size_bytes": audio_meta.get("file_size_bytes"),
-                    "generated_at": audio_meta.get("generated_at"),
-                })
+                episodes.append(
+                    {
+                        "debate_id": debate_id,
+                        "task": debate.get("task", "Untitled") if debate else "Unknown",
+                        "agents": debate.get("agents", []) if debate else [],
+                        "audio_url": f"{scheme}://{host}/audio/{debate_id}.mp3",
+                        "duration_seconds": audio_meta.get("duration_seconds"),
+                        "file_size_bytes": audio_meta.get("file_size_bytes"),
+                        "generated_at": audio_meta.get("generated_at"),
+                    }
+                )
 
-            return json_response({
-                "episodes": episodes,
-                "count": len(episodes),
-                "feed_url": "/api/podcast/feed.xml",
-            })
+            return json_response(
+                {
+                    "episodes": episodes,
+                    "count": len(episodes),
+                    "feed_url": "/api/podcast/feed.xml",
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to get podcast episodes: {e}")

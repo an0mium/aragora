@@ -122,9 +122,7 @@ class TeamSelector:
         if self.circuit_breaker:
             try:
                 available_names = set(
-                    self.circuit_breaker.filter_available_agents(
-                        [a.name for a in agents]
-                    )
+                    self.circuit_breaker.filter_available_agents([a.name for a in agents])
                 )
             except (AttributeError, TypeError) as e:
                 logger.debug(f"circuit_breaker filter error: {e}")

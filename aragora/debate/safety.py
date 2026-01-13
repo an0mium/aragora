@@ -26,5 +26,7 @@ def resolve_prompt_evolution(requested: bool) -> bool:
         return False
     if os.environ.get("ARAGORA_ALLOW_PROMPT_EVOLVE", "0") == "1":
         return True
-    logger.warning("[safety] prompt evolution disabled; set ARAGORA_ALLOW_PROMPT_EVOLVE=1 to enable")
+    logger.warning(
+        "[safety] prompt evolution disabled; set ARAGORA_ALLOW_PROMPT_EVOLVE=1 to enable"
+    )
     return False

@@ -28,6 +28,7 @@ from aragora.server.handlers.persona import PersonaHandler
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def persona_handler(handler_context):
     """Create a PersonaHandler with mock context."""
@@ -39,7 +40,7 @@ def mock_http_handler():
     """Create a mock HTTP handler object."""
     handler = Mock()
     handler.headers = {}
-    handler.command = 'GET'
+    handler.command = "GET"
     return handler
 
 
@@ -58,11 +59,7 @@ def mock_persona_manager():
 
     manager.get_all_personas.return_value = [mock_persona]
     manager.get_persona.return_value = mock_persona
-    manager.get_performance_summary.return_value = {
-        "wins": 10,
-        "losses": 5,
-        "win_rate": 0.67
-    }
+    manager.get_performance_summary.return_value = {"wins": 10, "losses": 5, "win_rate": 0.67}
 
     return manager
 
@@ -77,6 +74,7 @@ def handler_context_with_persona(handler_context, mock_persona_manager):
 # =============================================================================
 # can_handle Tests
 # =============================================================================
+
 
 class TestCanHandle:
     """Test route matching for PersonaHandler."""
@@ -120,6 +118,7 @@ class TestCanHandle:
 # All Personas Endpoint Tests
 # =============================================================================
 
+
 class TestAllPersonasEndpoint:
     """Test /api/personas endpoint."""
 
@@ -154,6 +153,7 @@ class TestAllPersonasEndpoint:
 # Agent Persona Endpoint Tests
 # =============================================================================
 
+
 class TestAgentPersonaEndpoint:
     """Test /api/agent/:name/persona endpoint."""
 
@@ -167,7 +167,9 @@ class TestAgentPersonaEndpoint:
         assert result is not None
         assert result.status_code == 503
 
-    def test_persona_invalid_name_returns_error(self, handler_context_with_persona, mock_http_handler):
+    def test_persona_invalid_name_returns_error(
+        self, handler_context_with_persona, mock_http_handler
+    ):
         """Test error on invalid agent name."""
         handler = PersonaHandler(handler_context_with_persona)
 
@@ -206,6 +208,7 @@ class TestAgentPersonaEndpoint:
 # Performance Endpoint Tests
 # =============================================================================
 
+
 class TestPerformanceEndpoint:
     """Test /api/agent/:name/performance endpoint."""
 
@@ -237,6 +240,7 @@ class TestPerformanceEndpoint:
 # Domains Endpoint Tests
 # =============================================================================
 
+
 class TestDomainsEndpoint:
     """Test /api/agent/:name/domains endpoint."""
 
@@ -260,11 +264,7 @@ class TestDomainsEndpoint:
         handler_context["elo_system"] = mock_elo
         handler = PersonaHandler(handler_context)
 
-        result = handler.handle(
-            "/api/agent/claude/domains",
-            {"limit": ["5"]},
-            mock_http_handler
-        )
+        result = handler.handle("/api/agent/claude/domains", {"limit": ["5"]}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -277,16 +277,17 @@ class TestDomainsEndpoint:
 # Grounded Persona Endpoint Tests
 # =============================================================================
 
+
 class TestGroundedPersonaEndpoint:
     """Test /api/agent/:name/grounded-persona endpoint."""
 
-    def test_grounded_persona_module_unavailable_returns_503(self, persona_handler, mock_http_handler):
+    def test_grounded_persona_module_unavailable_returns_503(
+        self, persona_handler, mock_http_handler
+    ):
         """Test error when grounded module unavailable."""
         with patch("aragora.server.handlers.persona.GROUNDED_AVAILABLE", False):
             result = persona_handler.handle(
-                "/api/agent/claude/grounded-persona",
-                {},
-                mock_http_handler
+                "/api/agent/claude/grounded-persona", {}, mock_http_handler
             )
 
         assert result is not None
@@ -309,13 +310,13 @@ class TestGroundedPersonaEndpoint:
         mock_synthesizer = MagicMock()
         mock_synthesizer.get_grounded_persona.return_value = mock_grounded
 
-        with patch("aragora.server.handlers.persona.GROUNDED_AVAILABLE", True), \
-             patch("aragora.server.handlers.persona.PersonaSynthesizer", return_value=mock_synthesizer):
-            result = handler.handle(
-                "/api/agent/claude/grounded-persona",
-                {},
-                mock_http_handler
-            )
+        with (
+            patch("aragora.server.handlers.persona.GROUNDED_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.persona.PersonaSynthesizer", return_value=mock_synthesizer
+            ),
+        ):
+            result = handler.handle("/api/agent/claude/grounded-persona", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -328,16 +329,17 @@ class TestGroundedPersonaEndpoint:
 # Identity Prompt Endpoint Tests
 # =============================================================================
 
+
 class TestIdentityPromptEndpoint:
     """Test /api/agent/:name/identity-prompt endpoint."""
 
-    def test_identity_prompt_module_unavailable_returns_503(self, persona_handler, mock_http_handler):
+    def test_identity_prompt_module_unavailable_returns_503(
+        self, persona_handler, mock_http_handler
+    ):
         """Test error when grounded module unavailable."""
         with patch("aragora.server.handlers.persona.GROUNDED_AVAILABLE", False):
             result = persona_handler.handle(
-                "/api/agent/claude/identity-prompt",
-                {},
-                mock_http_handler
+                "/api/agent/claude/identity-prompt", {}, mock_http_handler
             )
 
         assert result is not None
@@ -350,12 +352,16 @@ class TestIdentityPromptEndpoint:
         mock_synthesizer = MagicMock()
         mock_synthesizer.synthesize_identity_prompt.return_value = "You are Claude..."
 
-        with patch("aragora.server.handlers.persona.GROUNDED_AVAILABLE", True), \
-             patch("aragora.server.handlers.persona.PersonaSynthesizer", return_value=mock_synthesizer):
+        with (
+            patch("aragora.server.handlers.persona.GROUNDED_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.persona.PersonaSynthesizer", return_value=mock_synthesizer
+            ),
+        ):
             result = handler.handle(
                 "/api/agent/claude/identity-prompt",
                 {"sections": ["performance,expertise"]},
-                mock_http_handler
+                mock_http_handler,
             )
 
         assert result is not None
@@ -370,17 +376,14 @@ class TestIdentityPromptEndpoint:
 # Accuracy Endpoint Tests
 # =============================================================================
 
+
 class TestAccuracyEndpoint:
     """Test /api/agent/:name/accuracy endpoint."""
 
     def test_accuracy_module_unavailable_returns_503(self, persona_handler, mock_http_handler):
         """Test error when position tracker module unavailable."""
         with patch("aragora.server.handlers.persona.POSITION_TRACKER_AVAILABLE", False):
-            result = persona_handler.handle(
-                "/api/agent/claude/accuracy",
-                {},
-                mock_http_handler
-            )
+            result = persona_handler.handle("/api/agent/claude/accuracy", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -391,11 +394,7 @@ class TestAccuracyEndpoint:
         handler = PersonaHandler(handler_context)
 
         with patch("aragora.server.handlers.persona.POSITION_TRACKER_AVAILABLE", True):
-            result = handler.handle(
-                "/api/agent/claude/accuracy",
-                {},
-                mock_http_handler
-            )
+            result = handler.handle("/api/agent/claude/accuracy", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -407,11 +406,7 @@ class TestAccuracyEndpoint:
             handler = PersonaHandler(handler_context)
 
             with patch("aragora.server.handlers.persona.POSITION_TRACKER_AVAILABLE", True):
-                result = handler.handle(
-                    "/api/agent/claude/accuracy",
-                    {},
-                    mock_http_handler
-                )
+                result = handler.handle("/api/agent/claude/accuracy", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200

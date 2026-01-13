@@ -23,6 +23,7 @@ class TestCSRFTokenGeneration:
 
     def test_token_has_sufficient_entropy(self):
         """CSRF tokens should have at least 128 bits of entropy."""
+
         def generate_csrf_token() -> str:
             return secrets.token_urlsafe(32)  # 256 bits
 
@@ -37,6 +38,7 @@ class TestCSRFTokenGeneration:
 
     def test_tokens_are_unpredictable(self):
         """CSRF tokens should not be predictable."""
+
         def generate_csrf_token() -> str:
             return secrets.token_urlsafe(32)
 
@@ -50,6 +52,7 @@ class TestCSRFTokenGeneration:
 
     def test_token_bound_to_session(self):
         """CSRF tokens should be bound to session."""
+
         def generate_session_csrf(session_id: str, secret: bytes) -> str:
             data = f"{session_id}:{secrets.token_urlsafe(16)}"
             sig = hmac.new(secret, data.encode(), hashlib.sha256).hexdigest()
@@ -79,6 +82,7 @@ class TestCSRFTokenGeneration:
 
     def test_token_has_expiry(self):
         """CSRF tokens should expire after reasonable time."""
+
         def generate_csrf_with_expiry(secret: bytes, ttl: int = 3600) -> str:
             expiry = int(time.time()) + ttl
             data = f"{expiry}:{secrets.token_urlsafe(16)}"
@@ -128,6 +132,7 @@ class TestCSRFTokenValidation:
 
     def test_rejects_missing_token(self):
         """Requests without CSRF token should be rejected."""
+
         def validate_request(headers: dict) -> bool:
             csrf_token = headers.get("X-CSRF-Token")
             if not csrf_token:
@@ -194,6 +199,7 @@ class TestStateChangingOperations:
 
     def test_post_requests_require_csrf(self):
         """POST requests should require CSRF token."""
+
         def check_csrf_required(method: str, path: str) -> bool:
             # Safe methods don't need CSRF
             if method.upper() in ["GET", "HEAD", "OPTIONS"]:
@@ -258,6 +264,7 @@ class TestDoubleSubmitCookie:
 
     def test_cookie_matches_header(self):
         """CSRF cookie value should match header value."""
+
         def validate_double_submit(cookie_value: str, header_value: str) -> bool:
             if not cookie_value or not header_value:
                 return False
@@ -275,6 +282,7 @@ class TestDoubleSubmitCookie:
 
     def test_cookie_attributes_secure(self):
         """CSRF cookie should have secure attributes."""
+
         class MockCookie:
             def __init__(
                 self,
@@ -351,6 +359,7 @@ class TestOriginRefererValidation:
 
     def test_null_origin_rejected(self):
         """Null origin (privacy proxies) should be handled carefully."""
+
         def validate_origin_strict(origin: str) -> bool:
             if origin == "null" or not origin:
                 return False  # Reject null origin
@@ -372,6 +381,7 @@ class TestCSRFInSPA:
 
     def test_ajax_requests_include_csrf(self):
         """AJAX requests should include CSRF token in header."""
+
         def make_request_headers(csrf_token: str) -> dict:
             return {
                 "Content-Type": "application/json",
@@ -397,9 +407,8 @@ class TestCSRFInSPA:
 
     def test_api_rejects_cross_origin_without_cors(self):
         """API should reject cross-origin requests without proper CORS."""
-        def check_cors_preflight(
-            origin: str, method: str, allowed_origins: set
-        ) -> dict:
+
+        def check_cors_preflight(origin: str, method: str, allowed_origins: set) -> dict:
             if origin not in allowed_origins:
                 return {"status": 403, "headers": {}}
 
@@ -435,14 +444,13 @@ class TestPerFormCSRFToken:
 
     def test_token_tied_to_action(self):
         """CSRF token can be tied to specific action."""
+
         def generate_action_token(action: str, secret: bytes) -> str:
             data = f"{action}:{secrets.token_urlsafe(16)}"
             sig = hmac.new(secret, data.encode(), hashlib.sha256).hexdigest()
             return f"{data}.{sig}"
 
-        def verify_action_token(
-            token: str, expected_action: str, secret: bytes
-        ) -> bool:
+        def verify_action_token(token: str, expected_action: str, secret: bytes) -> bool:
             parts = token.rsplit(".", 1)
             if len(parts) != 2:
                 return False
@@ -469,9 +477,8 @@ class TestPerFormCSRFToken:
 
     def test_token_tied_to_resource(self):
         """CSRF token can be tied to specific resource."""
-        def generate_resource_token(
-            resource_type: str, resource_id: str, secret: bytes
-        ) -> str:
+
+        def generate_resource_token(resource_type: str, resource_id: str, secret: bytes) -> str:
             data = f"{resource_type}:{resource_id}:{secrets.token_urlsafe(16)}"
             sig = hmac.new(secret, data.encode(), hashlib.sha256).hexdigest()
             return f"{data}.{sig}"

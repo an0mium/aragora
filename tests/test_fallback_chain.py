@@ -81,7 +81,7 @@ class TestFallbackMetrics:
         metrics.record_primary_attempt(success=True)
         metrics.record_primary_attempt(success=True)
         metrics.record_fallback_attempt("openrouter", success=True)
-        assert metrics.fallback_rate == pytest.approx(1/3)
+        assert metrics.fallback_rate == pytest.approx(1 / 3)
 
     def test_success_rate_calculation(self):
         """Success rate should include both primary and fallback."""
@@ -90,7 +90,7 @@ class TestFallbackMetrics:
         metrics.record_primary_attempt(success=False)
         metrics.record_fallback_attempt("openrouter", success=True)
         # 2 successes out of 3 attempts
-        assert metrics.success_rate == pytest.approx(2/3)
+        assert metrics.success_rate == pytest.approx(2 / 3)
 
 
 class TestAgentFallbackChain:
@@ -325,11 +325,7 @@ class TestFallbackTimeoutError:
         """Should store timeout details."""
         from aragora.agents.fallback import FallbackTimeoutError
 
-        error = FallbackTimeoutError(
-            elapsed=45.5,
-            limit=30.0,
-            tried=["openai", "openrouter"]
-        )
+        error = FallbackTimeoutError(elapsed=45.5, limit=30.0, tried=["openai", "openrouter"])
 
         assert error.elapsed == 45.5
         assert error.limit == 30.0
@@ -343,9 +339,7 @@ class TestFallbackTimeoutError:
         from aragora.agents.fallback import FallbackTimeoutError
 
         error = FallbackTimeoutError(
-            elapsed=120.0,
-            limit=60.0,
-            tried=["provider1", "provider2", "provider3"]
+            elapsed=120.0, limit=60.0, tried=["provider1", "provider2", "provider3"]
         )
 
         message = str(error)
@@ -406,6 +400,7 @@ class TestMaxFallbackTime:
         class SlowFailingAgent:
             def __init__(self, name):
                 self.name = name
+
             async def generate(self, prompt, context=None):
                 # Fail after some delay
                 await asyncio.sleep(0.03)
@@ -513,8 +508,10 @@ class TestQuotaFallbackMixin:
         mock_class = MagicMock(return_value=mock_instance)
 
         # Patch at the module level where it's imported from
-        with patch.dict('os.environ', {'OPENROUTER_API_KEY': 'test-key'}):
-            with patch.dict('sys.modules', {'aragora.agents.api_agents': MagicMock(OpenRouterAgent=mock_class)}):
+        with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
+            with patch.dict(
+                "sys.modules", {"aragora.agents.api_agents": MagicMock(OpenRouterAgent=mock_class)}
+            ):
                 # First call should create agent
                 result1 = agent._get_cached_fallback_agent()
 
@@ -546,7 +543,7 @@ class TestBuildFallbackChainWithLocal:
         from aragora.agents.fallback import build_fallback_chain_with_local
         from unittest.mock import patch
 
-        with patch('aragora.agents.fallback.get_local_fallback_providers', return_value=[]):
+        with patch("aragora.agents.fallback.get_local_fallback_providers", return_value=[]):
             result = build_fallback_chain_with_local(
                 primary_providers=["openai", "anthropic"],
                 include_local=True,
@@ -558,7 +555,7 @@ class TestBuildFallbackChainWithLocal:
         from aragora.agents.fallback import build_fallback_chain_with_local
         from unittest.mock import patch
 
-        with patch('aragora.agents.fallback.get_local_fallback_providers', return_value=["ollama"]):
+        with patch("aragora.agents.fallback.get_local_fallback_providers", return_value=["ollama"]):
             result = build_fallback_chain_with_local(
                 primary_providers=["openai", "openrouter", "anthropic"],
                 include_local=True,
@@ -572,7 +569,10 @@ class TestBuildFallbackChainWithLocal:
         from aragora.agents.fallback import build_fallback_chain_with_local
         from unittest.mock import patch
 
-        with patch('aragora.agents.fallback.get_local_fallback_providers', return_value=["ollama", "lm-studio"]):
+        with patch(
+            "aragora.agents.fallback.get_local_fallback_providers",
+            return_value=["ollama", "lm-studio"],
+        ):
             result = build_fallback_chain_with_local(
                 primary_providers=["openai", "openrouter", "anthropic"],
                 include_local=True,
@@ -586,7 +586,7 @@ class TestBuildFallbackChainWithLocal:
         from aragora.agents.fallback import build_fallback_chain_with_local
         from unittest.mock import patch
 
-        with patch('aragora.agents.fallback.get_local_fallback_providers', return_value=["ollama"]):
+        with patch("aragora.agents.fallback.get_local_fallback_providers", return_value=["ollama"]):
             result = build_fallback_chain_with_local(
                 primary_providers=["openai", "anthropic"],
                 include_local=True,
@@ -599,7 +599,7 @@ class TestBuildFallbackChainWithLocal:
         from unittest.mock import patch
 
         # If local provider is already in primary, should dedupe
-        with patch('aragora.agents.fallback.get_local_fallback_providers', return_value=["ollama"]):
+        with patch("aragora.agents.fallback.get_local_fallback_providers", return_value=["ollama"]):
             result = build_fallback_chain_with_local(
                 primary_providers=["openai", "ollama", "openrouter"],
                 include_local=True,
@@ -623,8 +623,9 @@ class TestGetLocalFallbackProviders:
         ]
 
         # Patch in aragora.agents.registry since it's imported from there
-        with patch('aragora.agents.registry.AgentRegistry', mock_registry):
+        with patch("aragora.agents.registry.AgentRegistry", mock_registry):
             from aragora.agents.fallback import get_local_fallback_providers
+
             result = get_local_fallback_providers()
             assert result == ["ollama", "local-ai"]
 
@@ -635,7 +636,7 @@ class TestGetLocalFallbackProviders:
 
         # The function catches exceptions and returns []
         # Force an import error to trigger the exception path
-        with patch.dict('sys.modules', {'aragora.agents.registry': None}):
+        with patch.dict("sys.modules", {"aragora.agents.registry": None}):
             # This will cause an import error which is caught
             result = get_local_fallback_providers()
             assert result == []
@@ -651,8 +652,9 @@ class TestIsLocalLLMAvailable:
         mock_registry = MagicMock()
         mock_registry.get_local_status.return_value = {"any_available": True}
 
-        with patch('aragora.agents.registry.AgentRegistry', mock_registry):
+        with patch("aragora.agents.registry.AgentRegistry", mock_registry):
             from aragora.agents.fallback import is_local_llm_available
+
             assert is_local_llm_available() is True
 
     def test_returns_false_when_unavailable(self):
@@ -662,8 +664,9 @@ class TestIsLocalLLMAvailable:
         mock_registry = MagicMock()
         mock_registry.get_local_status.return_value = {"any_available": False}
 
-        with patch('aragora.agents.registry.AgentRegistry', mock_registry):
+        with patch("aragora.agents.registry.AgentRegistry", mock_registry):
             from aragora.agents.fallback import is_local_llm_available
+
             assert is_local_llm_available() is False
 
     def test_returns_false_on_error(self):
@@ -673,7 +676,7 @@ class TestIsLocalLLMAvailable:
 
         # The function catches all exceptions and returns False
         # Force an import error
-        with patch.dict('sys.modules', {'aragora.agents.registry': None}):
+        with patch.dict("sys.modules", {"aragora.agents.registry": None}):
             result = is_local_llm_available()
             assert result is False
 
@@ -732,11 +735,13 @@ class TestStreamSkipsNonStreamingProviders:
         class NoStreamAgent:
             async def generate(self, prompt, context=None):
                 return "result"
+
             # No generate_stream method
 
         class StreamAgent:
             async def generate(self, prompt, context=None):
                 return "result"
+
             async def generate_stream(self, prompt, context=None):
                 yield "streaming"
 

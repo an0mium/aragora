@@ -178,7 +178,7 @@ class TestDebateFactoryCreateAgents:
         mock_agent1 = Mock()
         mock_agent2 = Mock()
 
-        with patch.object(factory_module, 'create_agent', side_effect=[mock_agent1, mock_agent2]):
+        with patch.object(factory_module, "create_agent", side_effect=[mock_agent1, mock_agent2]):
             factory = DebateFactory()
             specs = [
                 AgentSpec(agent_type="anthropic-api"),
@@ -199,7 +199,9 @@ class TestDebateFactoryCreateAgents:
 
         mock_agent = Mock()
 
-        with patch.object(factory_module, 'create_agent', side_effect=[mock_agent, ValueError("API key missing")]):
+        with patch.object(
+            factory_module, "create_agent", side_effect=[mock_agent, ValueError("API key missing")]
+        ):
             factory = DebateFactory()
             specs = [
                 AgentSpec(agent_type="anthropic-api"),
@@ -220,7 +222,7 @@ class TestDebateFactoryCreateAgents:
         mock_agent = Mock()
         mock_agent.api_key = None  # Missing API key
 
-        with patch.object(factory_module, 'create_agent', return_value=mock_agent):
+        with patch.object(factory_module, "create_agent", return_value=mock_agent):
             factory = DebateFactory()
             specs = [AgentSpec(agent_type="anthropic-api")]
 
@@ -239,13 +241,11 @@ class TestDebateFactoryCreateAgents:
         wrapper = Mock(return_value=mock_wrapped)
         emitter = Mock()
 
-        with patch.object(factory_module, 'create_agent', return_value=mock_agent):
+        with patch.object(factory_module, "create_agent", return_value=mock_agent):
             factory = DebateFactory(stream_emitter=emitter)
             specs = [AgentSpec(agent_type="anthropic-api")]
 
-            result = factory.create_agents(
-                specs, stream_wrapper=wrapper, debate_id="test-123"
-            )
+            result = factory.create_agents(specs, stream_wrapper=wrapper, debate_id="test-123")
 
             wrapper.assert_called_once_with(mock_agent, emitter, "test-123")
             assert mock_wrapped in result.agents
@@ -256,7 +256,9 @@ class TestDebateFactoryCreateAgents:
 
         emitter = Mock()
 
-        with patch.object(factory_module, 'create_agent', side_effect=ValueError("Creation failed")):
+        with patch.object(
+            factory_module, "create_agent", side_effect=ValueError("Creation failed")
+        ):
             factory = DebateFactory(stream_emitter=emitter)
             specs = [AgentSpec(agent_type="anthropic-api")]
 
@@ -279,10 +281,14 @@ class TestDebateFactoryCreateArena:
         mock_protocol = Mock()
         mock_arena = Mock()
 
-        with patch.object(factory_module, 'create_agent', side_effect=[mock_agent1, mock_agent2]), \
-             patch('aragora.core.Environment', return_value=mock_env) as env_cls, \
-             patch('aragora.debate.protocol.DebateProtocol', return_value=mock_protocol) as proto_cls, \
-             patch('aragora.debate.orchestrator.Arena', return_value=mock_arena) as arena_cls:
+        with (
+            patch.object(factory_module, "create_agent", side_effect=[mock_agent1, mock_agent2]),
+            patch("aragora.core.Environment", return_value=mock_env) as env_cls,
+            patch(
+                "aragora.debate.protocol.DebateProtocol", return_value=mock_protocol
+            ) as proto_cls,
+            patch("aragora.debate.orchestrator.Arena", return_value=mock_arena) as arena_cls,
+        ):
 
             factory = DebateFactory()
             config = DebateConfig(
@@ -304,7 +310,9 @@ class TestDebateFactoryCreateArena:
         """Raises ValueError when not enough agents created."""
         import aragora.server.debate_factory as factory_module
 
-        with patch.object(factory_module, 'create_agent', side_effect=ValueError("Creation failed")):
+        with patch.object(
+            factory_module, "create_agent", side_effect=ValueError("Creation failed")
+        ):
             factory = DebateFactory()
             config = DebateConfig(
                 question="Test question",
@@ -326,10 +334,12 @@ class TestDebateFactoryCreateArena:
         embeddings = Mock()
         emitter = Mock()
 
-        with patch.object(factory_module, 'create_agent', return_value=mock_agent), \
-             patch('aragora.core.Environment'), \
-             patch('aragora.debate.protocol.DebateProtocol'), \
-             patch('aragora.debate.orchestrator.Arena', return_value=mock_arena) as arena_cls:
+        with (
+            patch.object(factory_module, "create_agent", return_value=mock_agent),
+            patch("aragora.core.Environment"),
+            patch("aragora.debate.protocol.DebateProtocol"),
+            patch("aragora.debate.orchestrator.Arena", return_value=mock_arena) as arena_cls,
+        ):
 
             factory = DebateFactory(
                 elo_system=elo,

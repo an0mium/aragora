@@ -377,10 +377,22 @@ class TestConvergenceScorer:
         branch_a = Branch(id="a", name="A", reason=BranchReason.UNCERTAINTY, start_node_id="n1")
         branch_b = Branch(id="b", name="B", reason=BranchReason.UNCERTAINTY, start_node_id="n2")
 
-        node_a = DebateNode(id="na", node_type=NodeType.SYNTHESIS, agent_id="c", content="test",
-                           claims=["claim1", "claim2"], confidence=0.8)
-        node_b = DebateNode(id="nb", node_type=NodeType.SYNTHESIS, agent_id="g", content="test",
-                           claims=["claim1", "claim2"], confidence=0.8)
+        node_a = DebateNode(
+            id="na",
+            node_type=NodeType.SYNTHESIS,
+            agent_id="c",
+            content="test",
+            claims=["claim1", "claim2"],
+            confidence=0.8,
+        )
+        node_b = DebateNode(
+            id="nb",
+            node_type=NodeType.SYNTHESIS,
+            agent_id="g",
+            content="test",
+            claims=["claim1", "claim2"],
+            confidence=0.8,
+        )
 
         score = scorer.score_convergence(branch_a, branch_b, [node_a], [node_b])
         assert score >= 0.7  # High convergence
@@ -391,10 +403,22 @@ class TestConvergenceScorer:
         branch_a = Branch(id="a", name="A", reason=BranchReason.UNCERTAINTY, start_node_id="n1")
         branch_b = Branch(id="b", name="B", reason=BranchReason.UNCERTAINTY, start_node_id="n2")
 
-        node_a = DebateNode(id="na", node_type=NodeType.SYNTHESIS, agent_id="c", content="x",
-                           claims=["claim1", "claim2"], confidence=0.8)
-        node_b = DebateNode(id="nb", node_type=NodeType.SYNTHESIS, agent_id="g", content="y",
-                           claims=["claim3", "claim4"], confidence=0.2)
+        node_a = DebateNode(
+            id="na",
+            node_type=NodeType.SYNTHESIS,
+            agent_id="c",
+            content="x",
+            claims=["claim1", "claim2"],
+            confidence=0.8,
+        )
+        node_b = DebateNode(
+            id="nb",
+            node_type=NodeType.SYNTHESIS,
+            agent_id="g",
+            content="y",
+            claims=["claim3", "claim4"],
+            confidence=0.2,
+        )
 
         score = scorer.score_convergence(branch_a, branch_b, [node_a], [node_b])
         assert score < 0.5  # Low convergence
@@ -405,10 +429,12 @@ class TestConvergenceScorer:
         branch_a = Branch(id="a", name="A", reason=BranchReason.UNCERTAINTY, start_node_id="n1")
         branch_b = Branch(id="b", name="B", reason=BranchReason.UNCERTAINTY, start_node_id="n2")
 
-        node_a = DebateNode(id="na", node_type=NodeType.SYNTHESIS, agent_id="c",
-                           content="The quick brown fox jumps")
-        node_b = DebateNode(id="nb", node_type=NodeType.SYNTHESIS, agent_id="g",
-                           content="The quick brown dog jumps")
+        node_a = DebateNode(
+            id="na", node_type=NodeType.SYNTHESIS, agent_id="c", content="The quick brown fox jumps"
+        )
+        node_b = DebateNode(
+            id="nb", node_type=NodeType.SYNTHESIS, agent_id="g", content="The quick brown dog jumps"
+        )
 
         score = scorer.score_convergence(branch_a, branch_b, [node_a], [node_b])
         assert 0 < score < 1  # Some similarity
@@ -419,10 +445,22 @@ class TestConvergenceScorer:
         branch_a = Branch(id="a", name="A", reason=BranchReason.UNCERTAINTY, start_node_id="n1")
         branch_b = Branch(id="b", name="B", reason=BranchReason.UNCERTAINTY, start_node_id="n2")
 
-        node_a = DebateNode(id="na", node_type=NodeType.SYNTHESIS, agent_id="c", content="test",
-                           claims=["same"], confidence=0.8)
-        node_b = DebateNode(id="nb", node_type=NodeType.SYNTHESIS, agent_id="g", content="test",
-                           claims=["same"], confidence=0.8)
+        node_a = DebateNode(
+            id="na",
+            node_type=NodeType.SYNTHESIS,
+            agent_id="c",
+            content="test",
+            claims=["same"],
+            confidence=0.8,
+        )
+        node_b = DebateNode(
+            id="nb",
+            node_type=NodeType.SYNTHESIS,
+            agent_id="g",
+            content="test",
+            claims=["same"],
+            confidence=0.8,
+        )
 
         should = scorer.should_merge(branch_a, branch_b, [node_a], [node_b])
         assert should is True
@@ -552,10 +590,8 @@ class TestDebateGraph:
         branch2 = graph.create_branch(root.id, BranchReason.ALTERNATIVE_APPROACH, "B2")
 
         # Add nodes to each branch
-        n1 = graph.add_node(NodeType.PROPOSAL, "a1", "Content1", root.id, branch1.id,
-                          claims=["c1"])
-        n2 = graph.add_node(NodeType.PROPOSAL, "a2", "Content2", root.id, branch2.id,
-                          claims=["c2"])
+        n1 = graph.add_node(NodeType.PROPOSAL, "a1", "Content1", root.id, branch1.id, claims=["c1"])
+        n2 = graph.add_node(NodeType.PROPOSAL, "a2", "Content2", root.id, branch2.id, claims=["c2"])
 
         # Merge
         result = graph.merge_branches(
@@ -615,8 +651,12 @@ class TestDebateGraph:
         b1 = graph.create_branch(root.id, BranchReason.UNCERTAINTY, "B1")
         b2 = graph.create_branch(root.id, BranchReason.UNCERTAINTY, "B2")
 
-        graph.add_node(NodeType.SYNTHESIS, "a", "X", root.id, b1.id, claims=["same"], confidence=0.8)
-        graph.add_node(NodeType.SYNTHESIS, "b", "Y", root.id, b2.id, claims=["same"], confidence=0.8)
+        graph.add_node(
+            NodeType.SYNTHESIS, "a", "X", root.id, b1.id, claims=["same"], confidence=0.8
+        )
+        graph.add_node(
+            NodeType.SYNTHESIS, "b", "Y", root.id, b2.id, claims=["same"], confidence=0.8
+        )
 
         candidates = graph.check_convergence()
         # Should find convergent pair
@@ -758,12 +798,14 @@ class TestGraphDebateOrchestrator:
 
         orchestrator = GraphDebateOrchestrator([agent1, agent2])
 
-        responses = iter([
-            "I think the answer is 42. Confidence: 80%",
-            "I agree, the answer is 42. Confidence: 75%",
-            "Building on that, I'd add... Confidence: 70%",
-            "Yes, good point. Confidence: 85%",
-        ])
+        responses = iter(
+            [
+                "I think the answer is 42. Confidence: 80%",
+                "I agree, the answer is 42. Confidence: 75%",
+                "Building on that, I'd add... Confidence: 70%",
+                "Yes, good point. Confidence: 85%",
+            ]
+        )
 
         async def run_agent(agent, prompt, context):
             return next(responses, "No more responses")
@@ -879,12 +921,22 @@ class TestGraphDebateOrchestrator:
         orchestrator = GraphDebateOrchestrator([])
 
         nodes_a = [
-            DebateNode(id="a1", node_type=NodeType.SYNTHESIS, agent_id="x",
-                      content="Conclusion A", claims=["claim_a", "common"]),
+            DebateNode(
+                id="a1",
+                node_type=NodeType.SYNTHESIS,
+                agent_id="x",
+                content="Conclusion A",
+                claims=["claim_a", "common"],
+            ),
         ]
         nodes_b = [
-            DebateNode(id="b1", node_type=NodeType.SYNTHESIS, agent_id="y",
-                      content="Conclusion B", claims=["claim_b", "common"]),
+            DebateNode(
+                id="b1",
+                node_type=NodeType.SYNTHESIS,
+                agent_id="y",
+                content="Conclusion B",
+                claims=["claim_b", "common"],
+            ),
         ]
 
         synthesis = orchestrator._synthesize_branches(nodes_a, nodes_b)
@@ -897,18 +949,29 @@ class TestGraphDebateOrchestrator:
 
         # Single leaf
         leaves = [
-            DebateNode(id="1", node_type=NodeType.CONCLUSION, agent_id="a",
-                      content="Final answer"),
+            DebateNode(id="1", node_type=NodeType.CONCLUSION, agent_id="a", content="Final answer"),
         ]
         result = orchestrator._create_final_synthesis(leaves)
         assert "Final answer" in result
 
         # Multiple leaves
         leaves = [
-            DebateNode(id="1", node_type=NodeType.SYNTHESIS, agent_id="a",
-                      content="Path 1 result", confidence=0.8, claims=["c1"]),
-            DebateNode(id="2", node_type=NodeType.SYNTHESIS, agent_id="b",
-                      content="Path 2 result", confidence=0.7, claims=["c2"]),
+            DebateNode(
+                id="1",
+                node_type=NodeType.SYNTHESIS,
+                agent_id="a",
+                content="Path 1 result",
+                confidence=0.8,
+                claims=["c1"],
+            ),
+            DebateNode(
+                id="2",
+                node_type=NodeType.SYNTHESIS,
+                agent_id="b",
+                content="Path 2 result",
+                confidence=0.7,
+                claims=["c2"],
+            ),
         ]
         result = orchestrator._create_final_synthesis(leaves)
         assert "Path 1" in result or "Path 2" in result

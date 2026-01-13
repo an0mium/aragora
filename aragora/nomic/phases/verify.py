@@ -97,20 +97,26 @@ class VerifyPhase:
                 all_passed = all(c.get("passed", False) for c in checks)
 
         # Save state
-        self._save_state({
-            "phase": "verify",
-            "stage": "complete",
-            "all_passed": all_passed,
-            "checks": checks,
-        })
+        self._save_state(
+            {
+                "phase": "verify",
+                "stage": "complete",
+                "all_passed": all_passed,
+                "checks": checks,
+            }
+        )
 
         # Check evidence staleness
         stale_claims = await self._check_staleness() if self.nomic_integration else []
 
         phase_duration = (datetime.now() - phase_start).total_seconds()
         self._stream_emit(
-            "on_phase_end", "verify", self.cycle_count, all_passed,
-            phase_duration, {"checks_passed": sum(1 for c in checks if c.get("passed"))}
+            "on_phase_end",
+            "verify",
+            self.cycle_count,
+            all_passed,
+            phase_duration,
+            {"checks_passed": sum(1 for c in checks if c.get("passed"))},
         )
 
         return VerifyResult(
@@ -127,7 +133,10 @@ class VerifyPhase:
         self._log("  Checking syntax...")
         try:
             proc = await asyncio.create_subprocess_exec(
-                "python", "-m", "py_compile", "aragora/__init__.py",
+                "python",
+                "-m",
+                "py_compile",
+                "aragora/__init__.py",
                 cwd=self.aragora_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -153,7 +162,9 @@ class VerifyPhase:
         self._log("  Checking imports...")
         try:
             proc = await asyncio.create_subprocess_exec(
-                "python", "-c", "import aragora; print('OK')",
+                "python",
+                "-c",
+                "import aragora; print('OK')",
                 cwd=self.aragora_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -184,7 +195,13 @@ class VerifyPhase:
         self._log("  Running tests...")
         try:
             proc = await asyncio.create_subprocess_exec(
-                "python", "-m", "pytest", "tests/", "-x", "--tb=short", "-q",
+                "python",
+                "-m",
+                "pytest",
+                "tests/",
+                "-x",
+                "--tb=short",
+                "-q",
                 cwd=self.aragora_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -200,17 +217,32 @@ class VerifyPhase:
                 "output": stdout_text[-500:] if stdout_text else "",
                 "note": "no tests collected" if no_tests_collected else "",
             }
-            self._log(f"    {'passed' if passed else 'FAILED'} tests" + (" (no tests collected)" if no_tests_collected else ""))
-            self._stream_emit("on_verification_result", "tests", passed, stdout_text[-200:] if stdout_text else "")
+            self._log(
+                f"    {'passed' if passed else 'FAILED'} tests"
+                + (" (no tests collected)" if no_tests_collected else "")
+            )
+            self._stream_emit(
+                "on_verification_result", "tests", passed, stdout_text[-200:] if stdout_text else ""
+            )
             return check
         except asyncio.TimeoutError:
             self._log("    FAILED tests (timeout)")
             self._stream_emit("on_verification_result", "tests", False, "Test execution timed out")
-            return {"check": "tests", "passed": False, "error": "timeout", "note": "Test execution timed out"}
+            return {
+                "check": "tests",
+                "passed": False,
+                "error": "timeout",
+                "note": "Test execution timed out",
+            }
         except Exception as e:
             self._log(f"    FAILED tests (exception): {e}")
             self._stream_emit("on_verification_result", "tests", False, f"Exception: {e}")
-            return {"check": "tests", "passed": False, "error": str(e), "note": "Test execution failed"}
+            return {
+                "check": "tests",
+                "passed": False,
+                "error": str(e),
+                "note": "Test execution failed",
+            }
 
     async def _codex_audit(self) -> Optional[dict]:
         """Run Codex verification audit on changed files."""
@@ -221,7 +253,9 @@ class VerifyPhase:
 
             if changed_files:
                 proc = await asyncio.create_subprocess_exec(
-                    "git", "diff", "--unified=3",
+                    "git",
+                    "diff",
+                    "--unified=3",
                     cwd=self.aragora_path,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
@@ -277,14 +311,16 @@ Be concise - this is a quality gate, not a full review."""
         """Get list of files changed in this cycle."""
         try:
             proc = await asyncio.create_subprocess_exec(
-                "git", "diff", "--name-only",
+                "git",
+                "diff",
+                "--name-only",
                 cwd=self.aragora_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, _ = await proc.communicate()
             if proc.returncode == 0 and stdout:
-                return [f.strip() for f in stdout.decode().strip().split('\n') if f.strip()]
+                return [f.strip() for f in stdout.decode().strip().split("\n") if f.strip()]
         except Exception:
             pass
         return []
@@ -294,7 +330,9 @@ Be concise - this is a quality gate, not a full review."""
         try:
             changed_files = await self._get_changed_files()
             if changed_files:
-                self._log(f"  [integration] Checking staleness for {len(changed_files)} changed files...")
+                self._log(
+                    f"  [integration] Checking staleness for {len(changed_files)} changed files..."
+                )
                 self._log(f"  [integration] Changed files: {changed_files[:5]}...")
 
             # Checkpoint the verify phase

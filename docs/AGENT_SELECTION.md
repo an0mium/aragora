@@ -10,23 +10,61 @@ Perspective coverage note: Mistral adds an EU lens, and Chinese models like Deep
 
 | Agent ID | Provider | Model | Best For | Cost |
 |----------|----------|-------|----------|------|
-| `anthropic-api` | Anthropic | Claude 3.5 Sonnet | Code review, reasoning | $$ |
-| `openai-api` | OpenAI | GPT-4 Turbo | General tasks, creativity | $$ |
-| `gemini` | Google | Gemini Pro | Long context, analysis | $ |
-| `mistral-api` | Mistral | Mistral Large | European compliance, multilingual | $$ |
-| `grok-api` | xAI | Grok | Real-time knowledge | $$ |
+| `anthropic-api` | Anthropic | claude-opus-4-5-20251101 | Code review, reasoning | $$ |
+| `openai-api` | OpenAI | gpt-5.2 | General tasks, creativity | $$ |
+| `gemini` | Google | gemini-3-pro-preview | Long context, analysis | $ |
+| `mistral-api` | Mistral | mistral-large-2512 | European compliance, multilingual | $$ |
+| `grok` | xAI | grok-3 | Real-time knowledge | $$ |
 
 ### OpenRouter Providers (Fallback/Alternative)
 
 | Agent ID | Model | Best For | Cost |
 |----------|-------|----------|------|
-| `openrouter` | Auto-routes | Fallback when primary fails | Varies |
-| `deepseek` | DeepSeek V3 | Code, math, reasoning | $ |
-| `qwen` | Qwen 2.5 | Multilingual, code | $ |
-| `llama-api` | Llama 3.3 70B | General, open weights | $ |
-| `yi-api` | Yi 34B | Chinese/English | $ |
+| `openrouter` | model parameter (default: deepseek/deepseek-chat-v3-0324) | Fallback when primary fails | Varies |
+| `deepseek` | deepseek/deepseek-chat-v3-0324 | Code, math, reasoning | $ |
+| `deepseek-r1` | deepseek/deepseek-r1 | Chain-of-thought reasoning | $ |
+| `mistral` | mistralai/mistral-large-2411 | Fast, high-quality reasoning | $$ |
+| `qwen` | qwen/qwen-2.5-coder-32b-instruct | Multilingual, code | $ |
+| `qwen-max` | qwen/qwen-max | Flagship reasoning | $$ |
+| `llama` | meta-llama/llama-3.3-70b-instruct | General, open weights | $ |
+| `yi` | 01-ai/yi-large | Chinese/English | $ |
 
 **Cost Legend:** $ = Low ($0.001-0.01/1K tokens), $$ = Medium ($0.01-0.05/1K), $$$ = High ($0.05+/1K)
+
+### Local Providers (No API Key)
+
+| Agent ID | Model | Best For | Cost |
+|----------|-------|----------|------|
+| `ollama` | Local Ollama model | Air-gapped/private deployments | $ |
+| `lm-studio` | Local LM Studio model | Desktop/local inference | $ |
+
+**Environment variables:**
+```bash
+export OLLAMA_HOST=http://localhost:11434
+export OLLAMA_MODEL=llama2
+export LM_STUDIO_HOST=http://localhost:1234
+```
+
+**CLI usage:**
+```bash
+aragora ask "Review this policy" --agents ollama
+aragora ask "Summarize this spec" --agents lm-studio
+```
+
+**Python autodetection:**
+```python
+from aragora.agents import LocalLLMDetector
+
+status = await LocalLLMDetector().detect_all()
+if status.any_available:
+    print(status.recommended_server, status.recommended_model)
+```
+
+**API endpoints:**
+```bash
+curl -s http://localhost:8080/api/agents/local
+curl -s http://localhost:8080/api/agents/local/status
+```
 
 ## Task-Based Recommendations
 
@@ -39,8 +77,8 @@ git diff main | aragora review --agents anthropic-api,openai-api
 ```
 
 Why:
-- Claude excels at code understanding and security analysis
-- GPT-4 provides creative edge case detection
+- Anthropic excels at code understanding and security analysis
+- OpenAI provides creative edge case detection
 - Consensus between them = high confidence findings
 
 **Budget alternative:** `anthropic-api,deepseek`
@@ -71,7 +109,7 @@ aragora gauntlet policy.md --agents anthropic-api,mistral-api --persona gdpr
 
 Why:
 - Mistral is trained with European data/compliance focus
-- Claude provides strong reasoning for legal interpretation
+- Anthropic provides strong reasoning for legal interpretation
 - Both have strong safety training
 
 ### Quick Validation
@@ -85,7 +123,7 @@ aragora review --agents anthropic-api
 
 Why:
 - Fastest response time
-- Claude alone catches most critical issues
+- Anthropic alone catches most critical issues
 - Use for early-stage development feedback
 
 ### High-Stakes Decisions
@@ -112,11 +150,13 @@ If you only have one API key:
 ```bash
 # Anthropic only
 export ANTHROPIC_API_KEY=your_key
-aragora review  # Auto-detects and uses available agent
+export ARAGORA_DEFAULT_AGENTS=anthropic-api
+aragora review
 
 # OpenAI only
 export OPENAI_API_KEY=your_key
-aragora review  # Auto-detects and uses available agent
+export ARAGORA_DEFAULT_AGENTS=openai-api
+aragora review
 ```
 
 ### Budget-Conscious Setup
@@ -148,7 +188,7 @@ aragora review --agents anthropic-api,openai-api
 
 ## Capability Matrix
 
-| Capability | Claude | GPT-4 | Gemini | Mistral | DeepSeek |
+| Capability | Anthropic | OpenAI | Gemini | Mistral | DeepSeek |
 |------------|--------|-------|--------|---------|----------|
 | Code Understanding | ★★★★★ | ★★★★☆ | ★★★★☆ | ★★★★☆ | ★★★★★ |
 | Security Analysis | ★★★★★ | ★★★★☆ | ★★★☆☆ | ★★★★☆ | ★★★☆☆ |
@@ -169,9 +209,9 @@ aragora ask "Design auth system" --agents anthropic-api,openai-api,gemini
 
 | Position | Role | Best Agent Type |
 |----------|------|-----------------|
-| 1st | **Proposer** | Strong reasoning (Claude, GPT-4) |
-| 2nd | **Critic** | Detail-oriented (Claude, Mistral) |
-| 3rd | **Synthesizer** | Balanced (GPT-4, Gemini) |
+| 1st | **Proposer** | Strong reasoning (Anthropic, OpenAI) |
+| 2nd | **Critic** | Detail-oriented (Anthropic, Mistral) |
+| 3rd | **Synthesizer** | Balanced (OpenAI, Gemini) |
 
 You can also specify roles explicitly:
 ```bash
@@ -226,7 +266,7 @@ export OPENROUTER_API_KEY=fallback_key
 ### Inconsistent results
 - Add more agents for consensus
 - Use `--rounds 3` or more
-- Prefer Claude for consistent reasoning
+- Prefer Anthropic for consistent reasoning
 
 ## Related Documentation
 

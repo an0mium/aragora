@@ -36,12 +36,8 @@ class AgentCircuitBreaker:
 
         # Task-scoped tracking (new)
         self.task_failures: dict[str, dict[str, int]] = {}  # agent -> task_type -> count
-        self.task_success_rate: dict[str, dict[str, float]] = (
-            {}
-        )  # agent -> task_type -> rate
-        self.task_cooldowns: dict[str, dict[str, int]] = (
-            {}
-        )  # agent -> task_type -> cooldown
+        self.task_success_rate: dict[str, dict[str, float]] = {}  # agent -> task_type -> rate
+        self.task_cooldowns: dict[str, dict[str, int]] = {}  # agent -> task_type -> cooldown
 
     def record_success(self, agent_name: str) -> None:
         """Reset failure count and reduce cooldown on success."""

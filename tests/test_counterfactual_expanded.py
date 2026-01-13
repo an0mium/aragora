@@ -24,6 +24,7 @@ from aragora.debate.counterfactual import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def sample_pivot_claim():
     """Create a sample pivot claim."""
@@ -41,18 +42,43 @@ def sample_pivot_claim():
 def sample_messages():
     """Create sample debate messages with disagreement patterns."""
     return [
-        Message(role="proposer", agent="claude", content="I believe transparency is essential.", round=1),
-        Message(role="critic", agent="gpt4", content="I fundamentally disagree with that premise.", round=1),
-        Message(role="critic", agent="gemini", content="The core assumption here is flawed.", round=2),
-        Message(role="proposer", agent="claude", content="If that were true, we would see more failures.", round=2),
-        Message(role="critic", agent="gpt4", content="On the other hand, some systems work fine without it.", round=3),
-        Message(role="critic", agent="gemini", content="I cannot accept that reasoning without evidence.", round=3),
+        Message(
+            role="proposer", agent="claude", content="I believe transparency is essential.", round=1
+        ),
+        Message(
+            role="critic",
+            agent="gpt4",
+            content="I fundamentally disagree with that premise.",
+            round=1,
+        ),
+        Message(
+            role="critic", agent="gemini", content="The core assumption here is flawed.", round=2
+        ),
+        Message(
+            role="proposer",
+            agent="claude",
+            content="If that were true, we would see more failures.",
+            round=2,
+        ),
+        Message(
+            role="critic",
+            agent="gpt4",
+            content="On the other hand, some systems work fine without it.",
+            round=3,
+        ),
+        Message(
+            role="critic",
+            agent="gemini",
+            content="I cannot accept that reasoning without evidence.",
+            round=3,
+        ),
     ]
 
 
 # =============================================================================
 # PivotClaim Tests
 # =============================================================================
+
 
 class TestPivotClaim:
     """Tests for PivotClaim dataclass."""
@@ -103,6 +129,7 @@ class TestPivotClaim:
 # =============================================================================
 # ImpactDetector Tests
 # =============================================================================
+
 
 class TestImpactDetector:
     """Tests for ImpactDetector impasse detection."""
@@ -155,7 +182,10 @@ class TestImpactDetector:
         high_result = high_detector.detect_impasse(messages, [])
 
         # High threshold should be harder to meet
-        assert high_result is None or (low_result is not None and low_result.disagreement_score >= high_detector.disagreement_threshold)
+        assert high_result is None or (
+            low_result is not None
+            and low_result.disagreement_score >= high_detector.disagreement_threshold
+        )
 
     def test_importance_estimation(self, detector, sample_messages):
         """Should estimate importance based on mention frequency."""
@@ -183,6 +213,7 @@ class TestImpactDetector:
 # =============================================================================
 # CounterfactualBranch Tests
 # =============================================================================
+
 
 class TestCounterfactualBranch:
     """Tests for CounterfactualBranch dataclass."""
@@ -275,6 +306,7 @@ class TestCounterfactualBranch:
 # =============================================================================
 # ConditionalConsensus Tests
 # =============================================================================
+
 
 class TestConditionalConsensus:
     """Tests for ConditionalConsensus synthesis."""

@@ -31,6 +31,7 @@ from aragora.reasoning.evidence_grounding import EvidenceGrounder
 # Optional genesis import for evolution
 try:
     from aragora.genesis.breeding import PopulationManager
+
     GENESIS_AVAILABLE = True
 except ImportError:
     PopulationManager = None
@@ -63,6 +64,7 @@ def _create_verify_claims_callback(arena: "Arena"):
         """Track verification metrics (lazy import to avoid circular imports)."""
         try:
             from aragora.server.handlers.metrics import track_verification
+
             track_verification(status, time_ms)
         except ImportError:
             pass  # Metrics not available
@@ -75,6 +77,7 @@ def _create_verify_claims_callback(arena: "Arena"):
                     get_formal_verification_manager,
                     FormalProofStatus,
                 )
+
                 _formal_manager = get_formal_verification_manager()
             except ImportError:
                 _formal_manager = False  # Mark as unavailable
@@ -122,6 +125,7 @@ def _create_verify_claims_callback(arena: "Arena"):
             if z3_available and claim_type in ("LOGICAL", "ARITHMETIC", "logical", "arithmetic"):
                 try:
                     from aragora.verification.formal import FormalProofStatus
+
                     result = await formal_manager.attempt_formal_verification(
                         claim_text,
                         claim_type=claim_type,
@@ -160,10 +164,7 @@ def _create_verify_claims_callback(arena: "Arena"):
             if confidence >= 0.5:
                 verified_count += 1
                 _track_verification("confidence_fallback", 0.0)
-                logger.debug(
-                    f"claim_verified type={claim_type} "
-                    f"confidence={confidence:.2f}"
-                )
+                logger.debug(f"claim_verified type={claim_type} " f"confidence={confidence:.2f}")
 
         return {"verified": verified_count, "disproven": disproven_count}
 
@@ -212,7 +213,7 @@ def init_phases(arena: "Arena") -> None:
         event_emitter=arena.event_emitter,
         spectator=arena.spectator,
         loop_id=arena.loop_id,
-        tier_analytics_tracker=getattr(arena, 'tier_analytics_tracker', None),
+        tier_analytics_tracker=getattr(arena, "tier_analytics_tracker", None),
     )
 
     # Initialize ContextGatherer for research and evidence collection
@@ -270,20 +271,22 @@ def init_phases(arena: "Arena") -> None:
     trickster = None
 
     # Rhetorical Observer for debate pattern detection (concession, rebuttal, synthesis)
-    if getattr(arena.protocol, 'enable_rhetorical_observer', False):
+    if getattr(arena.protocol, "enable_rhetorical_observer", False):
         try:
             from aragora.debate.rhetorical_observer import get_rhetorical_observer
+
             rhetorical_observer = get_rhetorical_observer()
             logger.info("rhetorical_observer enabled for debate pattern detection")
         except ImportError as e:
             logger.debug(f"Rhetorical observer unavailable: {e}")
 
     # Trickster for hollow consensus detection and echo chamber prevention
-    if getattr(arena.protocol, 'enable_trickster', False):
+    if getattr(arena.protocol, "enable_trickster", False):
         try:
             from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
+
             trickster_config = TricksterConfig(
-                sensitivity=getattr(arena.protocol, 'trickster_sensitivity', 0.7)
+                sensitivity=getattr(arena.protocol, "trickster_sensitivity", 0.7)
             )
             trickster = EvidencePoweredTrickster(config=trickster_config)
             logger.info("trickster enabled for hollow consensus detection")
@@ -293,11 +296,12 @@ def init_phases(arena: "Arena") -> None:
     # NoveltyTracker for semantic novelty detection (triggers trickster on staleness)
     # Enabled when trickster is enabled since they work together
     novelty_tracker = None
-    if getattr(arena.protocol, 'enable_trickster', False):
+    if getattr(arena.protocol, "enable_trickster", False):
         try:
             from aragora.debate.novelty import NoveltyTracker
+
             novelty_tracker = NoveltyTracker(
-                low_novelty_threshold=getattr(arena.protocol, 'novelty_threshold', 0.15)
+                low_novelty_threshold=getattr(arena.protocol, "novelty_threshold", 0.15)
             )
             logger.info("novelty_tracker enabled for proposal staleness detection")
         except ImportError as e:
@@ -369,7 +373,9 @@ def init_phases(arena: "Arena") -> None:
         loop_id=arena.loop_id,
         notify_spectator=arena._notify_spectator,
         update_agent_relationships=arena._update_agent_relationships,
-        generate_disagreement_report=lambda votes, critiques, winner=None: DisagreementReporter().generate_report(votes, critiques, winner),
+        generate_disagreement_report=lambda votes, critiques, winner=None: DisagreementReporter().generate_report(
+            votes, critiques, winner
+        ),
         create_grounded_verdict=arena._create_grounded_verdict,
         verify_claims_formally=arena._verify_claims_formally,
         format_conclusion=arena._format_conclusion,
@@ -397,4 +403,7 @@ def init_phases(arena: "Arena") -> None:
         auto_evolve=arena.auto_evolve,
         breeding_threshold=arena.breeding_threshold,
         prompt_evolver=arena.prompt_evolver,
+        broadcast_pipeline=arena.broadcast_pipeline,
+        auto_broadcast=arena.auto_broadcast,
+        broadcast_min_confidence=arena.broadcast_min_confidence,
     )

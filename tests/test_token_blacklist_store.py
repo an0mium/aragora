@@ -35,6 +35,7 @@ from aragora.storage.token_blacklist_store import (
 # InMemoryBlacklist Tests
 # =============================================================================
 
+
 class TestInMemoryBlacklist:
     """Tests for the in-memory token blacklist."""
 
@@ -127,9 +128,7 @@ class TestInMemoryBlacklist:
             # Should have evicted some expired tokens
             assert blacklist.contains("new_token") is True
             # Some expired tokens should be gone
-            total_expired = sum(
-                1 for i in range(5) if blacklist.contains(f"expired_{i}")
-            )
+            total_expired = sum(1 for i in range(5) if blacklist.contains(f"expired_{i}"))
             assert total_expired < 5
 
     def test_thread_safety(self, blacklist):
@@ -169,6 +168,7 @@ class TestInMemoryBlacklist:
 # =============================================================================
 # SQLiteBlacklist Tests
 # =============================================================================
+
 
 class TestSQLiteBlacklist:
     """Tests for the SQLite token blacklist."""
@@ -285,6 +285,7 @@ class TestSQLiteBlacklist:
 # Backend Selection Tests
 # =============================================================================
 
+
 class TestBackendSelection:
     """Tests for backend selection logic."""
 
@@ -292,6 +293,7 @@ class TestBackendSelection:
     def reset_backend(self):
         """Reset global backend before each test."""
         import aragora.storage.token_blacklist_store as module
+
         module._blacklist_backend = None
         yield
         module._blacklist_backend = None
@@ -342,11 +344,13 @@ class TestBackendSelection:
 # Abstract Base Class Tests
 # =============================================================================
 
+
 class TestBlacklistBackendInterface:
     """Tests for the abstract backend interface."""
 
     def test_default_size_returns_negative(self):
         """Test that default size() implementation returns -1."""
+
         class MinimalBackend(BlacklistBackend):
             def add(self, token_jti: str, expires_at: float) -> None:
                 pass
@@ -364,6 +368,7 @@ class TestBlacklistBackendInterface:
 # =============================================================================
 # Edge Cases and Stress Tests
 # =============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
@@ -388,7 +393,7 @@ class TestEdgeCases:
 
     def test_unicode_token_id(self, memory_blacklist):
         """Test handling Unicode token ID."""
-        unicode_token = "token_\u4e2d\u6587_\U0001F600"
+        unicode_token = "token_\u4e2d\u6587_\U0001f600"
         memory_blacklist.add(unicode_token, time.time() + 3600)
         assert memory_blacklist.contains(unicode_token) is True
 

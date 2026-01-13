@@ -170,7 +170,7 @@ Start an ad-hoc debate. **Rate limited**.
 ```json
 {
   "question": "Should we use token bucket or sliding window for rate limiting?",
-  "agents": "claude,gemini",
+  "agents": "anthropic-api,openai-api",
   "rounds": 3,
   "consensus": "majority"
 }
@@ -184,20 +184,45 @@ Start an ad-hoc debate. **Rate limited**.
 
 **Available Agent Types:**
 
-| Type | Model | Notes |
-|------|-------|-------|
-| `grok` | Grok 4 | xAI API, streaming |
-| `anthropic-api` | Claude Opus 4.5 | Anthropic API, streaming |
-| `openai-api` | GPT 5.2 | OpenAI API, streaming |
-| `deepseek` | DeepSeek V3 | OpenRouter, streaming |
-| `deepseek-r1` | DeepSeek V3.2 | OpenRouter, reasoning model |
-| `llama` | Llama 3.3 70B | OpenRouter |
-| `mistral` | Mistral Large | OpenRouter |
-| `gemini` | Gemini 3 Pro | Google API |
-| `ollama` | Local models | Requires local Ollama |
-| `claude` | Claude Sonnet 4 | CLI-based |
-| `codex` | GPT 5.2 Codex | CLI-based |
-| `kilocode` | Custom | Codebase exploration agent |
+API (direct):
+
+| Type | Default Model | Notes |
+|------|---------------|-------|
+| `anthropic-api` | claude-opus-4-5-20251101 | Anthropic API, streaming |
+| `openai-api` | gpt-5.2 | OpenAI API, streaming |
+| `gemini` | gemini-3-pro-preview | Google API, streaming |
+| `grok` | grok-3 | xAI API, streaming |
+| `mistral-api` | mistral-large-2512 | Mistral API |
+| `codestral` | codestral-latest | Mistral code model |
+| `ollama` | llama3.2 | Local Ollama |
+| `lm-studio` | local-model | Local LM Studio |
+| `kimi` | moonshot-v1-8k | Moonshot API |
+
+OpenRouter:
+
+| Type | Default Model | Notes |
+|------|---------------|-------|
+| `openrouter` | deepseek/deepseek-chat-v3-0324 | Model via `model` parameter |
+| `deepseek` | deepseek/deepseek-chat-v3-0324 | DeepSeek V3 (chat) |
+| `deepseek-r1` | deepseek/deepseek-r1 | DeepSeek reasoning |
+| `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
+| `mistral` | mistralai/mistral-large-2411 | Mistral Large |
+| `qwen` | qwen/qwen-2.5-coder-32b-instruct | Qwen 2.5 Coder |
+| `qwen-max` | qwen/qwen-max | Qwen Max |
+| `yi` | 01-ai/yi-large | Yi Large |
+
+CLI:
+
+| Type | Default Model | Notes |
+|------|---------------|-------|
+| `claude` | claude-sonnet-4 | Claude CLI |
+| `codex` | gpt-5.2-codex | Codex CLI |
+| `openai` | gpt-4o | OpenAI CLI |
+| `gemini-cli` | gemini-3-pro-preview | Gemini CLI |
+| `grok-cli` | grok-4 | Grok CLI |
+| `qwen-cli` | qwen3-coder | Qwen CLI |
+| `deepseek-cli` | deepseek-v3 | DeepSeek CLI |
+| `kilocode` | gemini-explorer | Codebase explorer |
 
 **Response:**
 ```json
@@ -227,9 +252,9 @@ Export a debate in various formats.
   "consensus_proof": {
     "reached": true,
     "confidence": 0.85,
-    "vote_breakdown": {"claude": true, "gemini": true}
+    "vote_breakdown": {"anthropic-api": true, "gemini": true}
   },
-  "agents": ["claude", "gemini"],
+  "agents": ["anthropic-api", "gemini"],
   "rounds": 3,
   "content_hash": "sha256:abcd1234"
 }
@@ -246,7 +271,7 @@ Run a graph-structured debate with automatic branching.
 ```json
 {
   "task": "Design a distributed caching system",
-  "agents": ["claude", "gpt4"],
+  "agents": ["anthropic-api", "openai-api"],
   "max_rounds": 5,
   "branch_policy": {
     "min_disagreement": 0.7,
@@ -296,7 +321,7 @@ Run parallel scenario debates with comparative analysis.
 ```json
 {
   "task": "Design a rate limiter",
-  "agents": ["claude", "gpt4"],
+  "agents": ["anthropic-api", "openai-api"],
   "scenarios": [
     {
       "name": "High throughput",
@@ -327,7 +352,7 @@ Run parallel scenario debates with comparative analysis.
     {
       "scenario_name": "High throughput",
       "parameters": {"rps": 10000},
-      "winner": "claude",
+      "winner": "anthropic-api",
       "final_answer": "...",
       "confidence": 0.85,
       "consensus_reached": true
@@ -406,7 +431,7 @@ Get agent rankings by ELO.
 {
   "rankings": [
     {
-      "agent": "claude",
+      "agent": "anthropic-api",
       "elo": 1523,
       "wins": 45,
       "losses": 12,
@@ -498,7 +523,7 @@ Get aggregate flip statistics.
   },
   "by_agent": {
     "gemini": 15,
-    "claude": 12,
+    "anthropic-api": 12,
     "codex": 10,
     "grok": 5
   },
@@ -512,7 +537,7 @@ Get consistency score for an agent.
 **Response:**
 ```json
 {
-  "agent_name": "claude",
+  "agent_name": "anthropic-api",
   "total_positions": 150,
   "total_flips": 12,
   "consistency_score": 0.92,
@@ -553,7 +578,7 @@ Find debates similar to a topic.
       "strength": "strong",
       "confidence": 0.85,
       "similarity": 0.92,
-      "agents": ["claude", "gemini"],
+      "agents": ["anthropic-api", "gemini"],
       "dissent_count": 1,
       "timestamp": "2026-01-03T10:00:00Z"
     }
@@ -851,7 +876,7 @@ Get a combined profile with ELO, persona, consistency, and calibration data.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "ranking": {
     "rating": 1523,
     "recent_matches": 10
@@ -885,7 +910,7 @@ Get complete influence/relationship network for an agent.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "influences": [["gemini", 0.75], ["openai", 0.62]],
   "influenced_by": [["codex", 0.58]],
   "rivals": [["grok", 0.81]],
@@ -902,7 +927,7 @@ Get top rivals for an agent.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "rivals": [["grok", 0.81], ["openai", 0.65]],
   "count": 2
 }
@@ -917,7 +942,7 @@ Get top allies for an agent.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "allies": [["gemini", 0.72], ["codex", 0.55]],
   "count": 2
 }
@@ -1061,7 +1086,7 @@ Get debates with significant disagreements or failed consensus.
     {
       "debate_id": "debate-123",
       "topic": "Rate limiter design",
-      "agents": ["claude", "gemini"],
+      "agents": ["anthropic-api", "gemini"],
       "dissent_count": 2,
       "consensus_reached": false,
       "confidence": 0.45,
@@ -1084,13 +1109,13 @@ Get agent role assignments across debates.
   "rotations": [
     {
       "debate_id": "debate-123",
-      "agent": "claude",
+      "agent": "anthropic-api",
       "role": "proposer",
       "timestamp": "2026-01-04T12:00:00Z"
     }
   ],
   "summary": {
-    "claude": {"proposer": 10, "critic": 8, "judge": 5},
+    "anthropic-api": {"proposer": 10, "critic": 8, "judge": 5},
     "gemini": {"proposer": 8, "critic": 12, "judge": 3}
   },
   "count": 50
@@ -1172,7 +1197,7 @@ Get position history for an agent.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "total_positions": 45,
   "avg_confidence": 0.82,
   "reversal_count": 3,
@@ -1327,7 +1352,7 @@ Get all agent reputations ranked by score.
 {
   "reputations": [
     {
-      "agent": "claude",
+      "agent": "anthropic-api",
       "score": 0.85,
       "vote_weight": 1.35,
       "proposal_acceptance_rate": 0.78,
@@ -1345,7 +1370,7 @@ Get reputation for a specific agent.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "score": 0.85,
   "vote_weight": 1.35,
   "proposal_acceptance_rate": 0.78,
@@ -1370,7 +1395,7 @@ Get head-to-head comparison between two agents.
 **Response:**
 ```json
 {
-  "agent_a": "claude",
+  "agent_a": "anthropic-api",
   "agent_b": "gemini",
   "matches": 15,
   "agent_a_wins": 9,
@@ -1398,7 +1423,7 @@ Get agent's best expertise domains by calibration score.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "domains": [
     {"domain": "security", "calibration_score": 0.89},
     {"domain": "api_design", "calibration_score": 0.85}
@@ -1413,7 +1438,7 @@ Get truth-grounded persona synthesized from performance data.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "elo": 1523,
   "domain_elos": {"security": 1580, "architecture": 1490},
   "games_played": 45,
@@ -1434,8 +1459,8 @@ Get evidence-grounded identity prompt for agent initialization.
 **Response:**
 ```json
 {
-  "agent": "claude",
-  "identity_prompt": "## Your Identity: claude\nYour approach: analytical, thorough...",
+  "agent": "anthropic-api",
+  "identity_prompt": "## Your Identity: anthropic-api\nYour approach: analytical, thorough...",
   "sections": ["performance", "calibration"]
 }
 ```
@@ -1487,7 +1512,7 @@ Get risk warnings and edge case concerns from past debates.
   "domain": "infrastructure",
   "risk_warnings": [
     {
-      "agent": "claude",
+      "agent": "anthropic-api",
       "warning": "Consider rollback strategy for schema changes",
       "severity": "high",
       "timestamp": "2026-01-02T15:00:00Z"
@@ -1509,7 +1534,7 @@ Get detailed head-to-head statistics between two agents.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "opponent": "gemini",
   "matches": 12,
   "agent_wins": 5,
@@ -1526,7 +1551,7 @@ Get strategic briefing about an opponent for an agent.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "opponent": "gemini",
   "briefing": {
     "relationship": "rival",
@@ -1555,7 +1580,7 @@ Get calibration curve showing expected vs actual accuracy per confidence bucket.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "domain": null,
   "buckets": [
     {
@@ -1627,7 +1652,7 @@ Get all agent personas.
 {
   "personas": [
     {
-      "agent_name": "claude",
+      "agent_name": "anthropic-api",
       "description": "Analytical reasoner focused on logical consistency",
       "traits": ["analytical", "precise", "evidence-focused"],
       "expertise": ["security", "architecture"],
@@ -1663,7 +1688,7 @@ Get emergent traits detected from agent performance patterns.
 {
   "emergent_traits": [
     {
-      "agent": "claude",
+      "agent": "anthropic-api",
       "trait": "adversarial_robustness",
       "domain": "security",
       "confidence": 0.85,
@@ -1692,7 +1717,7 @@ Suggest beneficial trait transfers for a target agent.
   "target_agent": "gemini",
   "suggestions": [
     {
-      "source_agent": "claude",
+      "source_agent": "anthropic-api",
       "trait_or_domain": "logical_rigor",
       "reason": "Target agent underperforms in formal reasoning domains"
     }
@@ -1787,7 +1812,7 @@ Get agent recommendations for a task.
   "primary_domain": "architecture",
   "recommendations": [
     {
-      "name": "claude",
+      "name": "anthropic-api",
       "type": "anthropic-api",
       "match_score": 0.92,
       "domain_expertise": 0.85
@@ -1812,7 +1837,7 @@ Get current tournament standings.
   "tournament_id": "round-robin-2026",
   "standings": [
     {
-      "agent": "claude",
+      "agent": "anthropic-api",
       "wins": 8,
       "losses": 2,
       "draws": 1,
@@ -1844,7 +1869,7 @@ Get best-performing team combinations from history.
   "min_debates": 3,
   "combinations": [
     {
-      "agents": ["claude", "gemini"],
+      "agents": ["anthropic-api", "gemini"],
       "success_rate": 0.85,
       "total_debates": 12,
       "wins": 10
@@ -1869,7 +1894,7 @@ Get prompt evolution history for an agent.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "history": [
     {
       "from_version": 1,
@@ -1903,7 +1928,7 @@ List all A/B tests with optional filters.
   "tests": [
     {
       "id": "test-123",
-      "agent": "claude",
+      "agent": "anthropic-api",
       "baseline_prompt_version": 1,
       "evolved_prompt_version": 2,
       "status": "active",
@@ -1923,7 +1948,7 @@ Get a specific A/B test by ID.
 ```json
 {
   "id": "test-123",
-  "agent": "claude",
+  "agent": "anthropic-api",
   "baseline_prompt_version": 1,
   "evolved_prompt_version": 2,
   "status": "active",
@@ -1944,7 +1969,7 @@ Get the active A/B test for a specific agent.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "has_active_test": true,
   "test": {
     "id": "test-123",
@@ -1961,7 +1986,7 @@ Create a new A/B test.
 **Request Body:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "baseline_version": 1,
   "evolved_version": 2,
   "metadata": {"description": "Test new reasoning patterns"}
@@ -1974,7 +1999,7 @@ Create a new A/B test.
   "message": "A/B test created",
   "test": {
     "id": "test-456",
-    "agent": "claude",
+    "agent": "anthropic-api",
     "status": "active"
   }
 }
@@ -2065,7 +2090,7 @@ Get claims with highest centrality (most load-bearing).
     {
       "claim_id": "claim-456",
       "statement": "The architecture must support horizontal scaling",
-      "author": "claude",
+      "author": "anthropic-api",
       "centrality": 0.92
     }
   ],
@@ -2088,7 +2113,7 @@ Get comprehensive calibration summary for an agent.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "domain": null,
   "total_predictions": 250,
   "total_correct": 215,
@@ -2112,7 +2137,7 @@ Get agents ranked by calibration quality (accuracy vs confidence).
 {
   "agents": [
     {
-      "name": "claude",
+      "name": "anthropic-api",
       "elo": 1542,
       "calibration_score": 0.92,
       "brier_score": 0.08,
@@ -2294,7 +2319,7 @@ Run capability probes against an agent to detect vulnerabilities.
 **Request Body:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "strategies": ["contradiction", "hallucination"],
   "probe_count": 3
 }
@@ -2303,7 +2328,7 @@ Run capability probes against an agent to detect vulnerabilities.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "probe_count": 3,
   "available_strategies": ["contradiction", "hallucination", "sycophancy", "persistence"],
   "status": "ready"
@@ -2358,7 +2383,7 @@ curl -X POST http://localhost:8080/api/debates/start \
   -H "Content-Type: application/json" \
   -d '{
     "question": "Is microservices architecture better than monolith?",
-    "agents": ["claude", "gpt4", "gemini"],
+    "agents": ["anthropic-api", "openai-api", "gemini"],
     "rounds": 3
   }'
 ```
@@ -2398,13 +2423,13 @@ curl http://localhost:8080/api/debates/debate-abc123/export?format=html \
 curl http://localhost:8080/api/agent/leaderboard
 
 # Get agent profile
-curl http://localhost:8080/api/agent/claude/profile
+curl http://localhost:8080/api/agent/anthropic-api/profile
 
 # Compare two agents
-curl "http://localhost:8080/api/agent/compare?a=claude&b=gpt4"
+curl "http://localhost:8080/api/agent/compare?a=anthropic-api&b=openai-api"
 
 # Get head-to-head record
-curl http://localhost:8080/api/agent/claude/head-to-head/gpt4
+curl http://localhost:8080/api/agent/anthropic-api/head-to-head/openai-api
 ```
 
 ### Nomic Loop Status
@@ -2448,10 +2473,10 @@ curl "http://localhost:8080/api/debates?token=your-token-here"
 
 ```bash
 # Connect to WebSocket for real-time events
-wscat -c ws://localhost:8080/ws
+wscat -c ws://localhost:8765/ws
 
 # With authentication token
-wscat -c "ws://localhost:8080/ws?token=your-token-here"
+wscat -c "ws://localhost:8765/ws?token=your-token-here"
 ```
 
 ---
@@ -2461,7 +2486,7 @@ wscat -c "ws://localhost:8080/ws?token=your-token-here"
 Connect to the WebSocket server for real-time streaming:
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8080/ws');
+const ws = new WebSocket('ws://localhost:8765/ws');
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
@@ -2543,7 +2568,7 @@ ws.onmessage = (event) => {
   "timestamp": "2026-01-04T12:00:00Z",
   "loop_id": "loop-abc123",
   "payload": {
-    "agent": "claude",
+    "agent": "anthropic-api",
     "role": "critic",
     "content": "I disagree with this approach because..."
   }
@@ -2672,7 +2697,7 @@ Get analysis of agent disagreement patterns.
   "patterns": [
     {
       "topic": "Error handling strategies",
-      "agents": ["claude", "gemini"],
+      "agents": ["anthropic-api", "gemini"],
       "disagreement_rate": 0.73,
       "debates_count": 8
     }
@@ -2704,7 +2729,7 @@ Get agent's relationship network with other agents.
 **Response:**
 ```json
 {
-  "agent": "claude",
+  "agent": "anthropic-api",
   "connections": [
     {"agent": "gemini", "relationship": "rival", "strength": 0.8},
     {"agent": "deepseek", "relationship": "ally", "strength": 0.65}
@@ -2781,7 +2806,7 @@ Get debate cruxes (key disagreement points).
       "claim": "Performance matters more than readability",
       "centrality": 0.85,
       "agents_for": ["gemini"],
-      "agents_against": ["claude"]
+      "agents_against": ["anthropic-api"]
     }
   ]
 }
@@ -2857,7 +2882,7 @@ Get best performing agent team combinations.
 {
   "teams": [
     {
-      "agents": ["claude", "gemini", "deepseek"],
+      "agents": ["anthropic-api", "gemini", "deepseek"],
       "win_rate": 0.85,
       "debates": 12,
       "avg_confidence": 0.82
@@ -3050,7 +3075,7 @@ genome = AgentGenome(
     name="security-specialist-v1",
     traits={"analytical": 0.8, "creative": 0.6},
     expertise={"security": 0.9, "backend": 0.7},
-    model_preference="claude",
+    model_preference="anthropic-api",
     generation=0,
     fitness_score=0.5,
 )
@@ -3228,7 +3253,7 @@ evolver.apply_evolution(agent, patterns)
 
 # Track performance
 evolver.update_performance(
-    agent_name="claude",
+    agent_name="anthropic-api",
     version=3,
     debate_result=result,
 )
@@ -3254,19 +3279,19 @@ Track prompt versions and their performance:
 ```python
 # Save a new version
 version = evolver.save_prompt_version(
-    agent_name="claude",
+    agent_name="anthropic-api",
     prompt="You are a helpful assistant...",
     metadata={"source": "manual", "note": "Added security focus"},
 )
 
 # Get specific version
-v1 = evolver.get_prompt_version("claude", version=1)
+v1 = evolver.get_prompt_version("anthropic-api", version=1)
 
 # Get latest version
-latest = evolver.get_prompt_version("claude")
+latest = evolver.get_prompt_version("anthropic-api")
 
 # Get evolution history
-history = evolver.get_evolution_history("claude", limit=10)
+history = evolver.get_evolution_history("anthropic-api", limit=10)
 # Returns: [{"from_version": 2, "to_version": 3, "strategy": "append", ...}, ...]
 ```
 
@@ -3294,7 +3319,7 @@ Returns all breakpoints awaiting human resolution.
       "type": "consensus_uncertain",
       "created_at": "2026-01-09T10:00:00Z",
       "context": {
-        "agents_involved": ["claude", "gpt4"],
+        "agents_involved": ["anthropic-api", "openai-api"],
         "disagreement_score": 0.85
       }
     }
@@ -3354,7 +3379,7 @@ Returns agents ranked by reputation score.
 {
   "rankings": [
     {
-      "agent": "claude-api",
+      "agent": "anthropic-api",
       "reputation_score": 0.92,
       "consistency": 0.88,
       "win_rate": 0.67
@@ -3405,8 +3430,8 @@ GET /api/gallery
     {
       "id": "gallery_abc123",
       "title": "Should AI systems be open-sourced?",
-      "agents": ["claude", "gpt4"],
-      "winner": "claude",
+      "agents": ["anthropic-api", "openai-api"],
+      "winner": "anthropic-api",
       "created_at": "2026-01-09T10:00:00Z",
       "view_count": 1234
     }
@@ -3599,7 +3624,7 @@ curl -X POST http://localhost:8080/api/debate/new \
 # New (recommended)
 curl -X POST http://localhost:8080/api/debates/start \
   -H "Content-Type: application/json" \
-  -d '{"question": "...", "agents": ["claude", "gpt4"]}'
+  -d '{"question": "...", "agents": ["anthropic-api", "openai-api"]}'
 ```
 
 #### Agent Rankings
@@ -3607,11 +3632,11 @@ curl -X POST http://localhost:8080/api/debates/start \
 ```bash
 # Old (deprecated)
 curl http://localhost:8080/api/elo/rankings
-curl http://localhost:8080/api/agent/elo?name=claude
+curl http://localhost:8080/api/agent/elo?name=anthropic-api
 
 # New (recommended)
 curl http://localhost:8080/api/agent/leaderboard
-curl http://localhost:8080/api/agent/claude/profile
+curl http://localhost:8080/api/agent/anthropic-api/profile
 ```
 
 ### Deprecation Timeline

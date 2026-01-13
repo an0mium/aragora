@@ -161,7 +161,9 @@ class EmailIntegration:
                 msg["Subject"] = subject
                 msg["From"] = f"{self.config.from_name} <{self.config.from_email}>"
                 msg["To"] = recipient.formatted
-                msg["List-Unsubscribe"] = f"<mailto:unsubscribe@aragora.ai?subject=unsubscribe-{recipient.email}>"
+                msg["List-Unsubscribe"] = (
+                    f"<mailto:unsubscribe@aragora.ai?subject=unsubscribe-{recipient.email}>"
+                )
 
                 # Add plain text part
                 if text_body:
@@ -184,7 +186,7 @@ class EmailIntegration:
             except smtplib.SMTPException as e:
                 logger.error(f"SMTP error sending to {recipient.email}: {e}")
                 if attempt < self.config.max_retries - 1:
-                    await asyncio.sleep(self.config.retry_delay * (2 ** attempt))
+                    await asyncio.sleep(self.config.retry_delay * (2**attempt))
                     continue
                 return False
             except Exception as e:
@@ -198,9 +200,7 @@ class EmailIntegration:
         if self.config.use_ssl:
             context = ssl.create_default_context()
             with smtplib.SMTP_SSL(
-                self.config.smtp_host,
-                self.config.smtp_port,
-                context=context
+                self.config.smtp_host, self.config.smtp_port, context=context
             ) as server:
                 if self.config.smtp_username:
                     server.login(self.config.smtp_username, self.config.smtp_password)
@@ -260,11 +260,13 @@ class EmailIntegration:
 
         # Add to pending digest
         if self.config.enable_digest:
-            self._add_to_digest({
-                "type": "debate_summary",
-                "result": result,
-                "timestamp": datetime.now(),
-            })
+            self._add_to_digest(
+                {
+                    "type": "debate_summary",
+                    "result": result,
+                    "timestamp": datetime.now(),
+                }
+            )
 
         sent = 0
         for recipient in recipients:
@@ -277,7 +279,7 @@ class EmailIntegration:
         """Build HTML email for debate summary."""
         status_class = "status-success" if result.consensus_reached else "status-fail"
         status_text = "Consensus Reached" if result.consensus_reached else "No Consensus"
-        confidence = getattr(result, 'confidence', 0.0)
+        confidence = getattr(result, "confidence", 0.0)
 
         final_answer_html = ""
         if result.consensus_reached and result.final_answer:
@@ -290,7 +292,7 @@ class EmailIntegration:
             <div class="code">{preview}</div>
             """
 
-        debate_id = getattr(result, 'debate_id', 'unknown')
+        debate_id = getattr(result, "debate_id", "unknown")
 
         return f"""
         <!DOCTYPE html>
@@ -341,7 +343,7 @@ class EmailIntegration:
     def _build_debate_summary_text(self, result: DebateResult) -> str:
         """Build plain text email for debate summary."""
         status = "REACHED" if result.consensus_reached else "NOT REACHED"
-        confidence = getattr(result, 'confidence', 0.0)
+        confidence = getattr(result, "confidence", 0.0)
 
         lines = [
             "DEBATE COMPLETED",
@@ -361,12 +363,14 @@ class EmailIntegration:
                 preview += "..."
             lines.extend(["", "Final Proposal:", preview])
 
-        lines.extend([
-            "",
-            "-" * 40,
-            "Aragora AI Debate System",
-            "To unsubscribe, reply with UNSUBSCRIBE",
-        ])
+        lines.extend(
+            [
+                "",
+                "-" * 40,
+                "Aragora AI Debate System",
+                "To unsubscribe, reply with UNSUBSCRIBE",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -471,10 +475,12 @@ class EmailIntegration:
             lines.append(f"Winner: {winner}")
         if task:
             lines.extend(["", f"Task: {task}"])
-        lines.extend([
-            "",
-            f"View: https://aragora.ai/debate/{debate_id}",
-        ])
+        lines.extend(
+            [
+                "",
+                f"View: https://aragora.ai/debate/{debate_id}",
+            ]
+        )
         return "\n".join(lines)
 
     def _add_to_digest(self, item: dict[str, Any]) -> None:
@@ -579,17 +585,21 @@ class EmailIntegration:
             if item["type"] == "debate_summary":
                 result = item["result"]
                 status = "Consensus" if result.consensus_reached else "No Consensus"
-                lines.extend([
-                    f"- {result.task[:60]}{'...' if len(result.task) > 60 else ''}",
-                    f"  Status: {status} | Winner: {result.winner or 'None'}",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        f"- {result.task[:60]}{'...' if len(result.task) > 60 else ''}",
+                        f"  Status: {status} | Winner: {result.winner or 'None'}",
+                        "",
+                    ]
+                )
 
-        lines.extend([
-            "View all: https://aragora.ai/debates",
-            "",
-            "To unsubscribe, reply with UNSUBSCRIBE",
-        ])
+        lines.extend(
+            [
+                "View all: https://aragora.ai/debates",
+                "",
+                "To unsubscribe, reply with UNSUBSCRIBE",
+            ]
+        )
 
         return "\n".join(lines)
 

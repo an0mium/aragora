@@ -25,6 +25,7 @@ from aragora.verification.formal import (
 # Z3Backend Tests
 # ============================================================================
 
+
 class TestZ3BackendCanVerify:
     """Tests for Z3Backend.can_verify() method."""
 
@@ -100,7 +101,9 @@ class TestZ3BackendCanVerify:
         # to test behavior when Z3 is unavailable
         backend = Z3Backend()
         # Patch the property on the class, not the instance
-        with patch.object(type(backend), 'is_available', new_callable=PropertyMock, return_value=False):
+        with patch.object(
+            type(backend), "is_available", new_callable=PropertyMock, return_value=False
+        ):
             assert backend.can_verify("x > y") is False
 
 
@@ -211,7 +214,7 @@ class TestZ3BackendProve:
     @pytest.mark.asyncio
     async def test_prove_when_unavailable(self, backend):
         """Should return BACKEND_UNAVAILABLE when Z3 not installed."""
-        with patch.object(Z3Backend, 'is_available', new_callable=PropertyMock, return_value=False):
+        with patch.object(Z3Backend, "is_available", new_callable=PropertyMock, return_value=False):
             result = await backend.prove("(check-sat)")
             assert result.status == FormalProofStatus.BACKEND_UNAVAILABLE
             assert result.language == FormalLanguage.Z3_SMT
@@ -331,6 +334,7 @@ class TestZ3BackendHelpers:
 # LeanBackend Tests
 # ============================================================================
 
+
 class TestLeanBackendBasics:
     """Basic tests for LeanBackend."""
 
@@ -345,7 +349,7 @@ class TestLeanBackendBasics:
 
     def test_is_available_checks_lean(self, backend):
         """Should check for lean and lake in PATH."""
-        with patch('shutil.which') as mock_which:
+        with patch("shutil.which") as mock_which:
             mock_which.return_value = None
             assert backend.is_available is False
 
@@ -379,27 +383,29 @@ class TestLeanBackendTranslate:
     @pytest.mark.asyncio
     async def test_translate_no_api_key(self, backend):
         """Should return None when no API key available."""
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True):
             # Remove API keys
             import os
-            old_anthropic = os.environ.pop('ANTHROPIC_API_KEY', None)
-            old_openai = os.environ.pop('OPENAI_API_KEY', None)
+
+            old_anthropic = os.environ.pop("ANTHROPIC_API_KEY", None)
+            old_openai = os.environ.pop("OPENAI_API_KEY", None)
             try:
                 result = await backend.translate("claim")
                 assert result is None
             finally:
                 if old_anthropic:
-                    os.environ['ANTHROPIC_API_KEY'] = old_anthropic
+                    os.environ["ANTHROPIC_API_KEY"] = old_anthropic
                 if old_openai:
-                    os.environ['OPENAI_API_KEY'] = old_openai
+                    os.environ["OPENAI_API_KEY"] = old_openai
 
     @pytest.mark.asyncio
     async def test_translate_handles_network_error(self, backend):
         """Should handle network errors gracefully."""
         import os
+
         # Set a fake API key
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'fake-key'}):
-            with patch('aiohttp.ClientSession') as mock_session:
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "fake-key"}):
+            with patch("aiohttp.ClientSession") as mock_session:
                 mock_session.return_value.__aenter__ = AsyncMock(
                     side_effect=Exception("Network error")
                 )
@@ -410,11 +416,10 @@ class TestLeanBackendTranslate:
     async def test_translate_handles_timeout(self, backend):
         """Should handle timeout errors gracefully."""
         import os
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'fake-key'}):
-            with patch('aiohttp.ClientSession') as mock_session:
-                mock_session.return_value.__aenter__ = AsyncMock(
-                    side_effect=asyncio.TimeoutError()
-                )
+
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "fake-key"}):
+            with patch("aiohttp.ClientSession") as mock_session:
+                mock_session.return_value.__aenter__ = AsyncMock(side_effect=asyncio.TimeoutError())
                 result = await backend.translate("some claim")
                 assert result is None
 
@@ -422,14 +427,15 @@ class TestLeanBackendTranslate:
     async def test_translate_handles_untranslatable(self, backend):
         """Should return None for UNTRANSLATABLE response."""
         import os
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'fake-key'}):
+
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "fake-key"}):
             mock_response = AsyncMock()
             mock_response.status = 200
-            mock_response.json = AsyncMock(return_value={
-                "content": [{"text": "UNTRANSLATABLE - claim is too vague"}]
-            })
+            mock_response.json = AsyncMock(
+                return_value={"content": [{"text": "UNTRANSLATABLE - claim is too vague"}]}
+            )
 
-            with patch('aiohttp.ClientSession') as mock_session:
+            with patch("aiohttp.ClientSession") as mock_session:
                 mock_cm = AsyncMock()
                 mock_cm.__aenter__.return_value = mock_response
                 mock_session.return_value.__aenter__.return_value.post.return_value = mock_cm
@@ -442,6 +448,7 @@ class TestLeanBackendTranslate:
 # ============================================================================
 # FormalProofResult Tests
 # ============================================================================
+
 
 class TestFormalProofResult:
     """Tests for FormalProofResult dataclass."""
@@ -500,6 +507,7 @@ class TestFormalProofResult:
 # Edge Cases and Integration Tests
 # ============================================================================
 
+
 class TestFormalVerificationEdgeCases:
     """Edge case tests for formal verification system."""
 
@@ -547,9 +555,7 @@ class TestFormalVerificationEdgeCases:
         smtlib = "(declare-const x Int)\n(assert (= x 1))\n(check-sat)"
 
         # Run multiple prove calls concurrently
-        results = await asyncio.gather(*[
-            z3_backend.prove(smtlib) for _ in range(5)
-        ])
+        results = await asyncio.gather(*[z3_backend.prove(smtlib) for _ in range(5)])
 
         assert len(results) == 5
         for result in results:
@@ -559,6 +565,7 @@ class TestFormalVerificationEdgeCases:
 # ============================================================================
 # Z3Backend Cache Tests
 # ============================================================================
+
 
 class TestZ3BackendCache:
     """Tests for Z3Backend proof caching."""
@@ -601,14 +608,20 @@ class TestZ3BackendCache:
     def test_clear_cache(self, z3_backend):
         """clear_cache should remove all entries."""
         # Add some cache entries manually
-        z3_backend._proof_cache["key1"] = (0, FormalProofResult(
-            status=FormalProofStatus.PROOF_FOUND,
-            language=FormalLanguage.Z3_SMT,
-        ))
-        z3_backend._proof_cache["key2"] = (0, FormalProofResult(
-            status=FormalProofStatus.PROOF_FOUND,
-            language=FormalLanguage.Z3_SMT,
-        ))
+        z3_backend._proof_cache["key1"] = (
+            0,
+            FormalProofResult(
+                status=FormalProofStatus.PROOF_FOUND,
+                language=FormalLanguage.Z3_SMT,
+            ),
+        )
+        z3_backend._proof_cache["key2"] = (
+            0,
+            FormalProofResult(
+                status=FormalProofStatus.PROOF_FOUND,
+                language=FormalLanguage.Z3_SMT,
+            ),
+        )
 
         count = z3_backend.clear_cache()
         assert count == 2
@@ -620,10 +633,13 @@ class TestZ3BackendCache:
 
         # Fill cache to capacity
         for i in range(z3_backend._cache_size):
-            z3_backend._proof_cache[f"key{i}"] = (time.time() + i, FormalProofResult(
-                status=FormalProofStatus.PROOF_FOUND,
-                language=FormalLanguage.Z3_SMT,
-            ))
+            z3_backend._proof_cache[f"key{i}"] = (
+                time.time() + i,
+                FormalProofResult(
+                    status=FormalProofStatus.PROOF_FOUND,
+                    language=FormalLanguage.Z3_SMT,
+                ),
+            )
 
         assert len(z3_backend._proof_cache) == z3_backend._cache_size
 
@@ -633,7 +649,7 @@ class TestZ3BackendCache:
             FormalProofResult(
                 status=FormalProofStatus.PROOF_FOUND,
                 language=FormalLanguage.Z3_SMT,
-            )
+            ),
         )
 
         # Should still be at capacity
@@ -671,10 +687,13 @@ class TestZ3BackendCache:
 
         # Add an expired entry
         expired_time = time.time() - z3_backend._cache_ttl - 10  # 10 seconds past TTL
-        z3_backend._proof_cache["expired_key"] = (expired_time, FormalProofResult(
-            status=FormalProofStatus.PROOF_FOUND,
-            language=FormalLanguage.Z3_SMT,
-        ))
+        z3_backend._proof_cache["expired_key"] = (
+            expired_time,
+            FormalProofResult(
+                status=FormalProofStatus.PROOF_FOUND,
+                language=FormalLanguage.Z3_SMT,
+            ),
+        )
 
         # Try to get the cached result
         result = z3_backend._get_cached("test_statement_for_key")
@@ -683,18 +702,24 @@ class TestZ3BackendCache:
         assert result is None
 
         # The expired entry should be cleaned up when accessed
-        z3_backend._proof_cache["test_key"] = (expired_time, FormalProofResult(
-            status=FormalProofStatus.PROOF_FOUND,
-            language=FormalLanguage.Z3_SMT,
-        ))
+        z3_backend._proof_cache["test_key"] = (
+            expired_time,
+            FormalProofResult(
+                status=FormalProofStatus.PROOF_FOUND,
+                language=FormalLanguage.Z3_SMT,
+            ),
+        )
 
         # Access the expired entry directly by computing its key
         statement = "test_statement"
         key = z3_backend._cache_key(statement)
-        z3_backend._proof_cache[key] = (expired_time, FormalProofResult(
-            status=FormalProofStatus.PROOF_FOUND,
-            language=FormalLanguage.Z3_SMT,
-        ))
+        z3_backend._proof_cache[key] = (
+            expired_time,
+            FormalProofResult(
+                status=FormalProofStatus.PROOF_FOUND,
+                language=FormalLanguage.Z3_SMT,
+            ),
+        )
 
         result = z3_backend._get_cached(statement)
         assert result is None  # Expired

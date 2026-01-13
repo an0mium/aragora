@@ -18,16 +18,19 @@ from aragora.server.handlers.base import clear_cache
 
 # Import rate limiting module for clearing between tests
 import importlib
-_rate_limit_mod = importlib.import_module('aragora.server.handlers.utils.rate_limit')
+
+_rate_limit_mod = importlib.import_module("aragora.server.handlers.utils.rate_limit")
 
 
 # ============================================================================
 # Mock Classes for Counterfactual Types
 # ============================================================================
 
+
 @dataclass
 class MockPivotClaim:
     """Mock PivotClaim for tests."""
+
     claim_id: str = "pivot-abc123"
     statement: str = "Test assumption"
     author: str = "user"
@@ -40,6 +43,7 @@ class MockPivotClaim:
 @dataclass
 class MockCounterfactualBranch:
     """Mock CounterfactualBranch for tests."""
+
     branch_id: str = "fork-test-001"
     parent_debate_id: str = "debate-001"
     pivot_claim: MockPivotClaim = field(default_factory=MockPivotClaim)
@@ -50,6 +54,7 @@ class MockCounterfactualBranch:
 @dataclass
 class MockDisagreementCrux:
     """Mock DisagreementCrux for tests."""
+
     description: str = "Test crux description"
     divergent_agents: list = field(default_factory=lambda: ["agent1", "agent2"])
     evidence_needed: str = "More evidence needed"
@@ -69,6 +74,7 @@ class MockDisagreementCrux:
 @dataclass
 class MockFollowUpSuggestion:
     """Mock FollowUpSuggestion for tests."""
+
     crux: MockDisagreementCrux = field(default_factory=MockDisagreementCrux)
     suggested_task: str = "Investigate the crux"
     priority: float = 0.8
@@ -89,6 +95,7 @@ class MockFollowUpSuggestion:
 @dataclass
 class MockDisagreementMetrics:
     """Mock DisagreementMetrics for tests."""
+
     cruxes: list = field(default_factory=list)
     overall_disagreement: float = 0.5
 
@@ -96,6 +103,7 @@ class MockDisagreementMetrics:
 # ============================================================================
 # Test Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_storage():
@@ -111,7 +119,12 @@ def mock_storage():
             {"round": 3, "agent": "claude", "content": "Message 3", "role": "critic"},
         ],
         "votes": [
-            {"agent": "judge", "choice": "claude", "confidence": 0.8, "reasoning": "Good arguments"},
+            {
+                "agent": "judge",
+                "choice": "claude",
+                "confidence": 0.8,
+                "reasoning": "Good arguments",
+            },
         ],
         "proposals": {"claude": "Proposal A", "gpt4": "Proposal B"},
         "agents": ["claude", "gpt4", "gemini"],
@@ -153,6 +166,7 @@ def debates_handler(mock_storage, mock_nomic_dir):
 @pytest.fixture
 def mock_handler_with_body():
     """Factory for creating mock handlers with JSON body."""
+
     def _create(body: dict):
         mock_handler = Mock()
         body_bytes = json.dumps(body).encode()
@@ -165,6 +179,7 @@ def mock_handler_with_body():
         mock_handler.rfile = Mock()
         mock_handler.rfile.read = Mock(return_value=body_bytes)
         return mock_handler
+
     return _create
 
 
@@ -201,6 +216,7 @@ def clear_caches():
 # Route Matching Tests
 # ============================================================================
 
+
 class TestForkHandlerRouting:
     """Tests for fork-related route matching."""
 
@@ -224,6 +240,7 @@ class TestForkHandlerRouting:
 # ============================================================================
 # Fork Debate Validation Tests
 # ============================================================================
+
 
 class TestForkDebateValidation:
     """Tests for fork debate input validation."""
@@ -273,10 +290,13 @@ class TestForkDebateValidation:
 # Fork Debate Logic Tests
 # ============================================================================
 
+
 class TestForkDebateLogic:
     """Tests for fork debate business logic."""
 
-    def test_fork_returns_404_for_missing_debate(self, debates_handler, mock_storage, mock_handler_with_body):
+    def test_fork_returns_404_for_missing_debate(
+        self, debates_handler, mock_storage, mock_handler_with_body
+    ):
         """Should return 404 when debate doesn't exist."""
         mock_storage.get_debate.return_value = None
         handler = mock_handler_with_body({"branch_point": 1})
@@ -311,7 +331,7 @@ class TestForkDebateLogic:
         mock_counterfactual.CounterfactualBranch = MockCounterfactualBranch
         mock_counterfactual.CounterfactualOrchestrator = MagicMock()
 
-        with patch.dict('sys.modules', {'aragora.debate.counterfactual': mock_counterfactual}):
+        with patch.dict("sys.modules", {"aragora.debate.counterfactual": mock_counterfactual}):
             result = debates_handler.handle_post("/api/debates/debate-001/fork", {}, handler)
 
         assert result.status_code == 200
@@ -321,9 +341,7 @@ class TestForkDebateLogic:
         assert data["branch_point"] == 2
         assert data["messages_inherited"] == 2
 
-    def test_fork_stores_branch_file(
-        self, debates_handler, mock_handler_with_body, mock_nomic_dir
-    ):
+    def test_fork_stores_branch_file(self, debates_handler, mock_handler_with_body, mock_nomic_dir):
         """Should store branch metadata in nomic directory."""
         handler = mock_handler_with_body({"branch_point": 1})
 
@@ -332,7 +350,7 @@ class TestForkDebateLogic:
         mock_counterfactual.CounterfactualBranch = MockCounterfactualBranch
         mock_counterfactual.CounterfactualOrchestrator = MagicMock()
 
-        with patch.dict('sys.modules', {'aragora.debate.counterfactual': mock_counterfactual}):
+        with patch.dict("sys.modules", {"aragora.debate.counterfactual": mock_counterfactual}):
             result = debates_handler.handle_post("/api/debates/debate-001/fork", {}, handler)
 
         assert result.status_code == 200
@@ -350,16 +368,17 @@ class TestForkDebateLogic:
         handler = mock_handler_with_body({"branch_point": 1})
 
         # Force ImportError by removing the module from sys.modules
-        with patch.dict('sys.modules', {'aragora.debate.counterfactual': None}):
+        with patch.dict("sys.modules", {"aragora.debate.counterfactual": None}):
             import builtins
+
             original_import = builtins.__import__
 
             def mock_import(name, *args, **kwargs):
-                if 'counterfactual' in name:
+                if "counterfactual" in name:
                     raise ImportError(f"No module named '{name}'")
                 return original_import(name, *args, **kwargs)
 
-            with patch.object(builtins, '__import__', mock_import):
+            with patch.object(builtins, "__import__", mock_import):
                 result = debates_handler.handle_post("/api/debates/debate-001/fork", {}, handler)
 
         assert result.status_code == 503
@@ -375,7 +394,7 @@ class TestForkDebateLogic:
         mock_counterfactual.CounterfactualBranch = MockCounterfactualBranch
         mock_counterfactual.CounterfactualOrchestrator = MagicMock()
 
-        with patch.dict('sys.modules', {'aragora.debate.counterfactual': mock_counterfactual}):
+        with patch.dict("sys.modules", {"aragora.debate.counterfactual": mock_counterfactual}):
             result = debates_handler.handle_post("/api/debates/debate-001/fork", {}, handler)
 
         assert result.status_code == 200
@@ -386,6 +405,7 @@ class TestForkDebateLogic:
 # ============================================================================
 # Verify Outcome Tests
 # ============================================================================
+
 
 class TestVerifyOutcome:
     """Tests for POST /api/debates/{id}/verify endpoint."""
@@ -437,6 +457,7 @@ class TestVerifyOutcome:
 # Get Followup Suggestions Tests
 # ============================================================================
 
+
 class TestGetFollowupSuggestions:
     """Tests for GET /api/debates/{id}/followups endpoint."""
 
@@ -464,7 +485,9 @@ class TestGetFollowupSuggestions:
         mock_analyzer.analyze_disagreement.return_value = mock_metrics
         mock_analyzer.suggest_followups.return_value = []
 
-        with patch('aragora.uncertainty.estimator.DisagreementAnalyzer', return_value=mock_analyzer):
+        with patch(
+            "aragora.uncertainty.estimator.DisagreementAnalyzer", return_value=mock_analyzer
+        ):
             result = debates_handler.handle("/api/debates/debate-001/followups", {}, None)
 
         assert result.status_code == 200
@@ -477,8 +500,10 @@ class TestGetFollowupSuggestions:
         mock_analyzer = MagicMock()
         mock_analyzer.suggest_followups.return_value = [mock_suggestion]
 
-        with patch('aragora.uncertainty.estimator.DisagreementAnalyzer', return_value=mock_analyzer):
-            with patch('aragora.uncertainty.estimator.DisagreementCrux', MockDisagreementCrux):
+        with patch(
+            "aragora.uncertainty.estimator.DisagreementAnalyzer", return_value=mock_analyzer
+        ):
+            with patch("aragora.uncertainty.estimator.DisagreementCrux", MockDisagreementCrux):
                 result = debates_handler.handle("/api/debates/debate-001/followups", {}, None)
 
         assert result.status_code == 200
@@ -489,6 +514,7 @@ class TestGetFollowupSuggestions:
 # ============================================================================
 # Create Followup Debate Tests
 # ============================================================================
+
 
 class TestCreateFollowupDebate:
     """Tests for POST /api/debates/{id}/followup endpoint."""
@@ -549,9 +575,13 @@ class TestCreateFollowupDebate:
         mock_analyzer = MagicMock()
         mock_analyzer._generate_followup_task.return_value = "Generated task from crux"
 
-        with patch('aragora.uncertainty.estimator.DisagreementAnalyzer', return_value=mock_analyzer):
-            with patch('aragora.uncertainty.estimator.DisagreementCrux', MockDisagreementCrux):
-                result = debates_handler.handle_post("/api/debates/debate-001/followup", {}, handler)
+        with patch(
+            "aragora.uncertainty.estimator.DisagreementAnalyzer", return_value=mock_analyzer
+        ):
+            with patch("aragora.uncertainty.estimator.DisagreementCrux", MockDisagreementCrux):
+                result = debates_handler.handle_post(
+                    "/api/debates/debate-001/followup", {}, handler
+                )
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -578,10 +608,13 @@ class TestCreateFollowupDebate:
 # Security Tests
 # ============================================================================
 
+
 class TestForkSecurity:
     """Security tests for fork operations."""
 
-    def test_fork_path_traversal_blocked(self, debates_handler, mock_handler_with_body, mock_storage):
+    def test_fork_path_traversal_blocked(
+        self, debates_handler, mock_handler_with_body, mock_storage
+    ):
         """Should block path traversal attempts in debate_id."""
         handler = mock_handler_with_body({"branch_point": 1})
         mock_storage.get_debate.return_value = None  # Not found is fine
@@ -598,7 +631,9 @@ class TestForkSecurity:
         handler = mock_handler_with_body({"task": "Test"})
         mock_storage.get_debate.return_value = None
 
-        result = debates_handler.handle_post("/api/debates/../../../etc/passwd/followup", {}, handler)
+        result = debates_handler.handle_post(
+            "/api/debates/../../../etc/passwd/followup", {}, handler
+        )
 
         assert result.status_code in (400, 404)
 
@@ -616,10 +651,13 @@ class TestForkSecurity:
 # Edge Cases
 # ============================================================================
 
+
 class TestForkEdgeCases:
     """Edge case tests for fork operations."""
 
-    def test_fork_empty_debate(self, debates_handler, mock_storage, mock_handler_with_body, mock_nomic_dir):
+    def test_fork_empty_debate(
+        self, debates_handler, mock_storage, mock_handler_with_body, mock_nomic_dir
+    ):
         """Should handle forking a debate with no messages."""
         mock_storage.get_debate.return_value = {
             "id": "empty-debate",
@@ -634,7 +672,7 @@ class TestForkEdgeCases:
         mock_counterfactual.CounterfactualBranch = MockCounterfactualBranch
         mock_counterfactual.CounterfactualOrchestrator = MagicMock()
 
-        with patch.dict('sys.modules', {'aragora.debate.counterfactual': mock_counterfactual}):
+        with patch.dict("sys.modules", {"aragora.debate.counterfactual": mock_counterfactual}):
             result = debates_handler.handle_post("/api/debates/empty-debate/fork", {}, handler)
 
         assert result.status_code == 200
@@ -652,9 +690,7 @@ class TestForkEdgeCases:
         # Should have agents from parent (claude, gpt4, gemini -> take first 3)
         assert len(data["agents"]) > 0
 
-    def test_fork_without_nomic_dir(
-        self, debates_handler, mock_storage, mock_handler_with_body
-    ):
+    def test_fork_without_nomic_dir(self, debates_handler, mock_storage, mock_handler_with_body):
         """Should handle fork when nomic_dir is not configured."""
         debates_handler.ctx["nomic_dir"] = None
         handler = mock_handler_with_body({"branch_point": 1})
@@ -664,7 +700,7 @@ class TestForkEdgeCases:
         mock_counterfactual.CounterfactualBranch = MockCounterfactualBranch
         mock_counterfactual.CounterfactualOrchestrator = MagicMock()
 
-        with patch.dict('sys.modules', {'aragora.debate.counterfactual': mock_counterfactual}):
+        with patch.dict("sys.modules", {"aragora.debate.counterfactual": mock_counterfactual}):
             result = debates_handler.handle_post("/api/debates/debate-001/fork", {}, handler)
 
         # Should still succeed, just not persist to disk
@@ -674,10 +710,7 @@ class TestForkEdgeCases:
         self, debates_handler, mock_storage, mock_handler_with_body, mock_nomic_dir
     ):
         """Should use custom agents when provided."""
-        handler = mock_handler_with_body({
-            "task": "Custom task",
-            "agents": ["mistral", "llama"]
-        })
+        handler = mock_handler_with_body({"task": "Custom task", "agents": ["mistral", "llama"]})
 
         result = debates_handler.handle_post("/api/debates/debate-001/followup", {}, handler)
 

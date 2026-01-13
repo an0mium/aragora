@@ -49,6 +49,7 @@ def premium_limiter():
 def reset_global_limiter():
     """Reset global limiter state between tests."""
     import aragora.agents.api_agents.rate_limiter as module
+
     with module._openrouter_limiter_lock:
         module._openrouter_limiter = None
     yield
@@ -284,21 +285,25 @@ class TestHeaderParsing:
     def test_parses_all_headers_together(self, limiter):
         """Should parse all rate limit headers."""
         reset_time = time.time() + 120
-        limiter.update_from_headers({
-            "X-RateLimit-Limit": "200",
-            "X-RateLimit-Remaining": "150",
-            "X-RateLimit-Reset": str(reset_time),
-        })
+        limiter.update_from_headers(
+            {
+                "X-RateLimit-Limit": "200",
+                "X-RateLimit-Remaining": "150",
+                "X-RateLimit-Reset": str(reset_time),
+            }
+        )
         assert limiter._api_limit == 200
         assert limiter._api_remaining == 150
         assert limiter._api_reset == pytest.approx(reset_time, rel=0.01)
 
     def test_ignores_unrelated_headers(self, limiter):
         """Should ignore non-rate-limit headers."""
-        limiter.update_from_headers({
-            "Content-Type": "application/json",
-            "X-Custom-Header": "value",
-        })
+        limiter.update_from_headers(
+            {
+                "Content-Type": "application/json",
+                "X-Custom-Header": "value",
+            }
+        )
         assert limiter._api_limit is None
         assert limiter._api_remaining is None
 
@@ -378,10 +383,12 @@ class TestStats:
 
     def test_stats_includes_api_limits(self, limiter):
         """Should include API-reported limits."""
-        limiter.update_from_headers({
-            "X-RateLimit-Limit": "100",
-            "X-RateLimit-Remaining": "75",
-        })
+        limiter.update_from_headers(
+            {
+                "X-RateLimit-Limit": "100",
+                "X-RateLimit-Remaining": "75",
+            }
+        )
         stats = limiter.stats
         assert stats["api_limit"] == 100
         assert stats["api_remaining"] == 75
@@ -406,20 +413,22 @@ class TestThreadSafety:
     @pytest.mark.asyncio
     async def test_concurrent_acquires(self, limiter):
         """Should handle concurrent acquire calls safely."""
-        results = await asyncio.gather(*[
-            limiter.acquire(timeout=1.0)
-            for _ in range(limiter.tier.burst_size)
-        ])
+        results = await asyncio.gather(
+            *[limiter.acquire(timeout=1.0) for _ in range(limiter.tier.burst_size)]
+        )
         assert all(r is True for r in results)
 
     def test_concurrent_header_updates(self, limiter):
         """Should handle concurrent header updates safely."""
+
         def update_headers():
             for i in range(100):
-                limiter.update_from_headers({
-                    "X-RateLimit-Limit": str(100 + i),
-                    "X-RateLimit-Remaining": str(50 + i),
-                })
+                limiter.update_from_headers(
+                    {
+                        "X-RateLimit-Limit": str(100 + i),
+                        "X-RateLimit-Remaining": str(50 + i),
+                    }
+                )
 
         threads = [threading.Thread(target=update_headers) for _ in range(5)]
         for t in threads:
@@ -484,10 +493,12 @@ class TestApiLimitBehavior:
     async def test_respects_zero_remaining(self, limiter):
         """Should wait when API reports zero remaining."""
         # Simulate API saying no remaining requests
-        limiter.update_from_headers({
-            "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": str(time.time() + 0.1),  # Reset in 0.1s
-        })
+        limiter.update_from_headers(
+            {
+                "X-RateLimit-Remaining": "0",
+                "X-RateLimit-Reset": str(time.time() + 0.1),  # Reset in 0.1s
+            }
+        )
 
         # Should still work (token bucket has tokens)
         start = time.monotonic()
@@ -530,10 +541,12 @@ class TestRateLimiterIntegration:
             assert acquired is True
 
             # Simulate API response headers
-            limiter.update_from_headers({
-                "X-RateLimit-Limit": "200",
-                "X-RateLimit-Remaining": str(195 - i),
-            })
+            limiter.update_from_headers(
+                {
+                    "X-RateLimit-Limit": "200",
+                    "X-RateLimit-Remaining": str(195 - i),
+                }
+            )
 
         # Check final state
         stats = limiter.stats
@@ -1004,6 +1017,7 @@ class TestGlobalProviderFunctions:
     def reset_global_registry(self):
         """Reset global registry between tests."""
         import aragora.agents.api_agents.rate_limiter as module
+
         with module._provider_registry_lock:
             module._provider_registry = None
         yield

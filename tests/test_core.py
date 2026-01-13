@@ -264,9 +264,7 @@ class TestDisagreementReportDataclass:
 
     def test_unanimous_critiques_list(self):
         """unanimous_critiques should store list of strings."""
-        report = DisagreementReport(
-            unanimous_critiques=["All agree issue 1", "All agree issue 2"]
-        )
+        report = DisagreementReport(unanimous_critiques=["All agree issue 1", "All agree issue 2"])
         assert len(report.unanimous_critiques) == 2
         assert "All agree issue 1" in report.unanimous_critiques
 
@@ -303,9 +301,7 @@ class TestDisagreementReportDataclass:
 
     def test_summary_includes_split_opinions(self):
         """summary should include split opinions section."""
-        report = DisagreementReport(
-            split_opinions=[("Disputed topic", ["claude"], ["codex"])]
-        )
+        report = DisagreementReport(split_opinions=[("Disputed topic", ["claude"], ["codex"])])
         summary = report.summary()
         assert "SPLIT" in summary
         assert "Disputed topic" in summary
@@ -325,9 +321,7 @@ class TestDisagreementReportDataclass:
 
     def test_summary_limits_items(self):
         """summary should limit to 5 items per section."""
-        report = DisagreementReport(
-            unanimous_critiques=[f"Issue {i}" for i in range(10)]
-        )
+        report = DisagreementReport(unanimous_critiques=[f"Issue {i}" for i in range(10)])
         summary = report.summary()
         # Should show first 5, not all 10
         assert "Issue 0" in summary

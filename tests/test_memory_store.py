@@ -29,6 +29,7 @@ def store(temp_db):
     """Create a CritiqueStore with temporary database."""
     # Clear the global cache to prevent cross-test contamination
     from aragora.server.handlers.base import clear_cache
+
     clear_cache()
     return CritiqueStore(db_path=temp_db)
 
@@ -325,18 +326,26 @@ class TestCritiqueStore:
         """Test retrieving patterns by issue type."""
         # Store performance issue
         perf_critique = Critique(
-            agent="c", target_agent="g", target_content="slow code",
+            agent="c",
+            target_agent="g",
+            target_content="slow code",
             issues=["slow performance"],
-            suggestions=["optimize"], severity=0.5, reasoning=""
+            suggestions=["optimize"],
+            severity=0.5,
+            reasoning="",
         )
         store.store_pattern(perf_critique, "fix")
         store.store_pattern(perf_critique, "fix2")
 
         # Store security issue
         sec_critique = Critique(
-            agent="c", target_agent="g", target_content="vulnerable code",
+            agent="c",
+            target_agent="g",
+            target_content="vulnerable code",
             issues=["security vulnerability"],
-            suggestions=["patch"], severity=0.8, reasoning=""
+            suggestions=["patch"],
+            severity=0.8,
+            reasoning="",
         )
         store.store_pattern(sec_critique, "fix")
         store.store_pattern(sec_critique, "fix2")
@@ -450,9 +459,13 @@ class TestTitansMIRASFeatures:
         """Test pruning stale patterns."""
         # Add some patterns
         critique = Critique(
-            agent="c", target_agent="g", target_content="old code",
+            agent="c",
+            target_agent="g",
+            target_content="old code",
             issues=["old issue"],
-            suggestions=["old fix"], severity=0.5, reasoning=""
+            suggestions=["old fix"],
+            severity=0.5,
+            reasoning="",
         )
         store.store_pattern(critique, "fix")
 
@@ -475,9 +488,13 @@ class TestDecayScoringRanking:
         """Test: score = (success * (1 + surprise)) / (1 + age/halflife)."""
         # Create a pattern with known values
         critique = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=["test decay issue"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
         # Store multiple times to get success_count > 1
         store.store_pattern(critique, "fix1")
@@ -493,14 +510,22 @@ class TestDecayScoringRanking:
         """Patterns should be ordered by decay_score descending."""
         # Create two patterns with different success counts
         high_success = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=["high success issue"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
         low_success = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=["low success issue"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
 
         # High success: 5 times
@@ -521,9 +546,13 @@ class TestDecayScoringRanking:
     def test_decay_halflife_parameter(self, store):
         """Different halflife values affect pattern relevance."""
         critique = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=["halflife test issue"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
         store.store_pattern(critique, "fix1")
         store.store_pattern(critique, "fix2")
@@ -540,14 +569,22 @@ class TestDecayScoringRanking:
         """Patterns with higher surprise scores should rank higher."""
         # Create two patterns
         normal = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=["normal pattern issue"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
         surprising = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=["surprising pattern issue"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
 
         # Store both patterns
@@ -563,9 +600,13 @@ class TestDecayScoringRanking:
     def test_min_success_threshold(self, store):
         """Patterns below min_success should not be retrieved."""
         critique = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=["min success test"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
         store.store_pattern(critique, "fix")  # Only 1 success
 
@@ -582,9 +623,13 @@ class TestDecayScoringRanking:
         # Create multiple distinct patterns
         for i in range(5):
             critique = Critique(
-                agent="c", target_agent="g", target_content="code",
+                agent="c",
+                target_agent="g",
+                target_content="code",
                 issues=[f"limit test issue {i}"],
-                suggestions=["fix"], severity=0.5, reasoning=""
+                suggestions=["fix"],
+                severity=0.5,
+                reasoning="",
             )
             store.store_pattern(critique, "fix")
             store.store_pattern(critique, "fix")  # 2 successes each
@@ -600,9 +645,13 @@ class TestSurpriseCalculation:
         """Surprise = |actual - base_rate| * 2, capped at 1.0."""
         # First, create some patterns to establish a base rate
         critique = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=["surprise base rate test"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
         store.store_pattern(critique, "fix")
 
@@ -620,9 +669,13 @@ class TestSurpriseCalculation:
         """Failures and successes produce different surprise scores."""
         # Create some patterns with high success rate
         critique = Critique(
-            agent="c", target_agent="g", target_content="slow code",
+            agent="c",
+            target_agent="g",
+            target_content="slow code",
             issues=["slow performance issue"],
-            suggestions=["optimize"], severity=0.5, reasoning=""
+            suggestions=["optimize"],
+            severity=0.5,
+            reasoning="",
         )
         # Create many successes
         for _ in range(5):
@@ -642,9 +695,13 @@ class TestSurpriseCalculation:
     def test_surprise_score_exponential_moving_average(self, store):
         """Surprise score updates use EMA: new = old * 0.7 + surprise * 0.3."""
         critique = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=["ema test issue"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
 
         # Store pattern multiple times
@@ -656,8 +713,7 @@ class TestSurpriseCalculation:
         with store._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT surprise_score FROM patterns WHERE issue_text = ?",
-                ("ema test issue",)
+                "SELECT surprise_score FROM patterns WHERE issue_text = ?", ("ema test issue",)
             )
             result = cursor.fetchone()
             assert result is not None
@@ -764,14 +820,22 @@ class TestPatternEdgeCases:
         """Same issue creates same pattern ID (MD5 hash)."""
         issue = "This is a specific test issue"
         critique1 = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=[issue],
-            suggestions=["fix1"], severity=0.5, reasoning=""
+            suggestions=["fix1"],
+            severity=0.5,
+            reasoning="",
         )
         critique2 = Critique(
-            agent="d", target_agent="h", target_content="different code",
+            agent="d",
+            target_agent="h",
+            target_content="different code",
             issues=[issue],  # Same issue text
-            suggestions=["fix2"], severity=0.8, reasoning="different reasoning"
+            suggestions=["fix2"],
+            severity=0.8,
+            reasoning="different reasoning",
         )
 
         store.store_pattern(critique1, "fix1")
@@ -786,14 +850,22 @@ class TestPatternEdgeCases:
     def test_pattern_id_case_insensitivity(self, store):
         """Pattern IDs should be case-insensitive (lowercase hash)."""
         critique_upper = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=["UPPERCASE ISSUE"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
         critique_lower = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=["uppercase issue"],  # Same issue, different case
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
 
         store.store_pattern(critique_upper, "fix1")
@@ -808,14 +880,22 @@ class TestPatternEdgeCases:
     def test_severity_averaging_incremental(self, store):
         """Average severity updates correctly with multiple stores."""
         critique1 = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=["severity test issue"],
-            suggestions=["fix"], severity=0.2, reasoning=""
+            suggestions=["fix"],
+            severity=0.2,
+            reasoning="",
         )
         critique2 = Critique(
-            agent="c", target_agent="g", target_content="code",
+            agent="c",
+            target_agent="g",
+            target_content="code",
             issues=["severity test issue"],
-            suggestions=["fix"], severity=0.8, reasoning=""
+            suggestions=["fix"],
+            severity=0.8,
+            reasoning="",
         )
 
         store.store_pattern(critique1, "fix1")  # severity 0.2
@@ -832,9 +912,13 @@ class TestPatternEdgeCases:
         severities = [0.1, 0.2, 0.3, 0.4, 0.5]
         for severity in severities:
             critique = Critique(
-                agent="c", target_agent="g", target_content="code",
+                agent="c",
+                target_agent="g",
+                target_content="code",
                 issues=["multi severity test"],
-                suggestions=["fix"], severity=severity, reasoning=""
+                suggestions=["fix"],
+                severity=severity,
+                reasoning="",
             )
             store.store_pattern(critique, "fix")
 

@@ -88,13 +88,13 @@ def validate_security_config() -> None:
             raise ConfigurationError(
                 component="JWT Authentication",
                 reason="ARAGORA_JWT_SECRET must be set in production. "
-                       "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                'Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"',
             )
         if len(JWT_SECRET) < MIN_SECRET_LENGTH:
             raise ConfigurationError(
                 component="JWT Authentication",
                 reason=f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters in production. "
-                       f"Current length: {len(JWT_SECRET)}"
+                f"Current length: {len(JWT_SECRET)}",
             )
 
 
@@ -127,7 +127,7 @@ def get_secret() -> bytes:
             raise ConfigurationError(
                 component="JWT Authentication",
                 reason="ARAGORA_JWT_SECRET must be set. "
-                       "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                'Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"',
             )
 
     if not validate_secret_strength(JWT_SECRET):
@@ -137,7 +137,7 @@ def get_secret() -> bytes:
             raise ConfigurationError(
                 component="JWT Authentication",
                 reason=f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters. "
-                       f"Current length: {len(JWT_SECRET)}"
+                f"Current length: {len(JWT_SECRET)}",
             )
 
     return JWT_SECRET.encode("utf-8")

@@ -14,6 +14,7 @@ from typing import Optional
 @dataclass
 class PRCommentConfig:
     """Configuration for PR comment formatting."""
+
     max_unanimous_issues: int = 5
     max_critical_high_issues: int = 5
     max_split_opinions: int = 3
@@ -64,12 +65,14 @@ def format_pr_comment(
     # Unanimous issues (highest confidence - address first)
     unanimous = findings.get("unanimous_critiques", [])
     if unanimous:
-        lines.extend([
-            "### Unanimous Issues",
-            "> All AI models agree - address these first",
-            "",
-        ])
-        for issue in unanimous[:config.max_unanimous_issues]:
+        lines.extend(
+            [
+                "### Unanimous Issues",
+                "> All AI models agree - address these first",
+                "",
+            ]
+        )
+        for issue in unanimous[: config.max_unanimous_issues]:
             lines.append(f"- {issue}")
         if len(unanimous) > config.max_unanimous_issues:
             lines.append(f"- *...and {len(unanimous) - config.max_unanimous_issues} more*")
@@ -79,17 +82,19 @@ def format_pr_comment(
     critical = findings.get("critical_issues", [])
     high = findings.get("high_issues", [])
     if critical or high:
-        lines.extend([
-            "### Critical & High Severity Issues",
-            "",
-        ])
+        lines.extend(
+            [
+                "### Critical & High Severity Issues",
+                "",
+            ]
+        )
         combined = []
         for issue in critical:
             combined.append(("CRITICAL", issue))
         for issue in high:
             combined.append(("HIGH", issue))
 
-        for severity, issue in combined[:config.max_critical_high_issues]:
+        for severity, issue in combined[: config.max_critical_high_issues]:
             issue_text = issue.get("issue", str(issue)) if isinstance(issue, dict) else str(issue)
             # Truncate long issues
             if len(issue_text) > 200:
@@ -103,14 +108,16 @@ def format_pr_comment(
     # Split opinions (agents disagree - user decides)
     split = findings.get("split_opinions", [])
     if split:
-        lines.extend([
-            "### Split Opinions",
-            "> Agents disagree - your call on the tradeoff",
-            "",
-            "| Topic | For | Against |",
-            "|-------|-----|---------|",
-        ])
-        for item in split[:config.max_split_opinions]:
+        lines.extend(
+            [
+                "### Split Opinions",
+                "> Agents disagree - your call on the tradeoff",
+                "",
+                "| Topic | For | Against |",
+                "|-------|-----|---------|",
+            ]
+        )
+        for item in split[: config.max_split_opinions]:
             if isinstance(item, (list, tuple)) and len(item) >= 3:
                 desc, majority, minority = item[0], item[1], item[2]
             else:
@@ -128,12 +135,14 @@ def format_pr_comment(
     # Risk areas (low confidence - manual review needed)
     risks = findings.get("risk_areas", [])
     if risks:
-        lines.extend([
-            "### Risk Areas",
-            "> Low confidence - manual review recommended",
-            "",
-        ])
-        for risk in risks[:config.max_risk_areas]:
+        lines.extend(
+            [
+                "### Risk Areas",
+                "> Low confidence - manual review recommended",
+                "",
+            ]
+        )
+        for risk in risks[: config.max_risk_areas]:
             lines.append(f"- {risk}")
         if len(risks) > config.max_risk_areas:
             lines.append(f"- *...and {len(risks) - config.max_risk_areas} more*")
@@ -142,12 +151,14 @@ def format_pr_comment(
     # Summary
     summary = findings.get("final_summary", "")
     if summary and len(summary) > 50:
-        lines.extend([
-            "### Summary",
-            "",
-        ])
+        lines.extend(
+            [
+                "### Summary",
+                "",
+            ]
+        )
         if len(summary) > config.max_summary_length:
-            lines.append(summary[:config.max_summary_length] + "...")
+            lines.append(summary[: config.max_summary_length] + "...")
         else:
             lines.append(summary)
         lines.append("")
@@ -155,10 +166,12 @@ def format_pr_comment(
     # Footer
     if config.include_footer:
         agreement = findings.get("agreement_score", 0)
-        lines.extend([
-            "---",
-            f"*Agreement score: {agreement:.0%} | Powered by [Aragora](https://github.com/an0mium/aragora) - AI Red Team*",
-        ])
+        lines.extend(
+            [
+                "---",
+                f"*Agreement score: {agreement:.0%} | Powered by [Aragora](https://github.com/an0mium/aragora) - AI Red Team*",
+            ]
+        )
 
     return "\n".join(lines)
 
@@ -209,13 +222,15 @@ def format_slack_message(findings: dict) -> dict:
     blocks = []
 
     # Header
-    blocks.append({
-        "type": "header",
-        "text": {
-            "type": "plain_text",
-            "text": "AI Red Team Code Review",
+    blocks.append(
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "AI Red Team Code Review",
+            },
         }
-    })
+    )
 
     # Summary section
     summary_text = f"*Agreement:* {agreement:.0%}"
@@ -224,30 +239,36 @@ def format_slack_message(findings: dict) -> dict:
     if high:
         summary_text += f" | *High:* {high}"
 
-    blocks.append({
-        "type": "section",
-        "text": {
-            "type": "mrkdwn",
-            "text": summary_text,
+    blocks.append(
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": summary_text,
+            },
         }
-    })
+    )
 
     # Unanimous issues
     if unanimous:
         issues_text = "\n".join(f"• {issue}" for issue in unanimous[:3])
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"*Unanimous Issues:*\n{issues_text}",
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Unanimous Issues:*\n{issues_text}",
+                },
             }
-        })
+        )
 
     return {
-        "attachments": [{
-            "color": color,
-            "blocks": blocks,
-        }]
+        "attachments": [
+            {
+                "color": color,
+                "blocks": blocks,
+            }
+        ]
     }
 
 

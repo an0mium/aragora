@@ -26,6 +26,7 @@ import pytest
 # Module-level patches for environment variables
 # ============================================================================
 
+
 @pytest.fixture(autouse=True)
 def mock_env_vars():
     """Mock environment variables for OAuth."""
@@ -40,6 +41,7 @@ def mock_env_vars():
         # Need to reload the module to pick up env vars
         import importlib
         import aragora.server.handlers.oauth as oauth_module
+
         importlib.reload(oauth_module)
         yield oauth_module
 
@@ -62,6 +64,7 @@ def clear_oauth_states(oauth_module):
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def server_context():
     """Create mock server context for handler initialization."""
@@ -82,9 +85,11 @@ def oauth_handler(oauth_module, server_context):
 # Mock Classes
 # ============================================================================
 
+
 @dataclass
 class MockUser:
     """Mock user for testing."""
+
     id: str
     email: str
     name: str = "Test User"
@@ -100,7 +105,9 @@ class MockUserStore:
         self.users: dict[str, MockUser] = {}
         self.oauth_links: dict[tuple[str, str], str] = {}  # (provider, provider_id) -> user_id
 
-    def create_user(self, email: str, password_hash: str, password_salt: str, name: str = "") -> MockUser:
+    def create_user(
+        self, email: str, password_hash: str, password_salt: str, name: str = ""
+    ) -> MockUser:
         user_id = f"user_{len(self.users) + 1}"
         user = MockUser(id=user_id, email=email, name=name or email.split("@")[0])
         self.users[user_id] = user
@@ -121,12 +128,16 @@ class MockUserStore:
             return self.users.get(user_id)
         return None
 
-    def link_oauth_provider(self, user_id: str, provider: str, provider_user_id: str, email: str) -> bool:
+    def link_oauth_provider(
+        self, user_id: str, provider: str, provider_user_id: str, email: str
+    ) -> bool:
         self.oauth_links[(provider, provider_user_id)] = user_id
         return True
 
     def unlink_oauth_provider(self, user_id: str, provider: str) -> bool:
-        keys_to_remove = [k for k in self.oauth_links if k[0] == provider and self.oauth_links[k] == user_id]
+        keys_to_remove = [
+            k for k in self.oauth_links if k[0] == provider and self.oauth_links[k] == user_id
+        ]
         for k in keys_to_remove:
             del self.oauth_links[k]
         return len(keys_to_remove) > 0
@@ -158,6 +169,7 @@ class MockHandler:
 @dataclass
 class MockAuthContext:
     """Mock authentication context."""
+
     is_authenticated: bool = False
     user_id: Optional[str] = None
 
@@ -165,6 +177,7 @@ class MockAuthContext:
 @dataclass
 class MockTokenPair:
     """Mock token pair."""
+
     access_token: str = "test_access_token"
     refresh_token: str = "test_refresh_token"
     expires_in: int = 3600
@@ -173,6 +186,7 @@ class MockTokenPair:
 # ============================================================================
 # OAuthUserInfo Tests
 # ============================================================================
+
 
 class TestOAuthUserInfo:
     """Tests for OAuthUserInfo dataclass."""
@@ -218,6 +232,7 @@ class TestOAuthUserInfo:
 # ============================================================================
 # State Management Tests
 # ============================================================================
+
 
 class TestStateManagement:
     """Tests for OAuth state management functions."""
@@ -293,6 +308,7 @@ class TestStateManagement:
 # OAuthHandler Routing Tests
 # ============================================================================
 
+
 class TestOAuthHandlerRouting:
     """Tests for OAuthHandler routing."""
 
@@ -335,6 +351,7 @@ class TestOAuthHandlerRouting:
 # ============================================================================
 # Google OAuth Start Tests
 # ============================================================================
+
 
 class TestGoogleAuthStart:
     """Tests for Google OAuth start endpoint."""
@@ -396,8 +413,7 @@ class TestGoogleAuthStart:
         with patch.object(oauth_handler, "_get_user_store", return_value=user_store):
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth:
                 mock_auth.return_value = MockAuthContext(
-                    is_authenticated=True,
-                    user_id="existing_user"
+                    is_authenticated=True, user_id="existing_user"
                 )
                 oauth_handler._handle_google_auth_start(mock_handler, {})
 
@@ -410,6 +426,7 @@ class TestGoogleAuthStart:
 # ============================================================================
 # Google OAuth Callback Tests
 # ============================================================================
+
 
 class TestGoogleCallback:
     """Tests for Google OAuth callback endpoint."""
@@ -487,7 +504,9 @@ class TestGoogleCallback:
                         mock_tokens.return_value = MockTokenPair()
                         with patch("aragora.billing.models.hash_password") as mock_hash:
                             mock_hash.return_value = ("hash", "salt")
-                            result = oauth_handler._handle_google_callback(mock_handler, query_params)
+                            result = oauth_handler._handle_google_callback(
+                                mock_handler, query_params
+                            )
 
         assert result.status_code == 302
         # Should have created a user
@@ -528,6 +547,7 @@ class TestGoogleCallback:
 # Account Linking Tests
 # ============================================================================
 
+
 class TestAccountLinking:
     """Tests for OAuth account linking."""
 
@@ -540,7 +560,9 @@ class TestAccountLinking:
         with patch.object(oauth_handler, "_get_user_store", return_value=user_store):
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth:
                 mock_auth.return_value = MockAuthContext(is_authenticated=False)
-                with patch.object(oauth_handler, "read_json_body", return_value={"provider": "google"}):
+                with patch.object(
+                    oauth_handler, "read_json_body", return_value={"provider": "google"}
+                ):
                     result = oauth_handler._handle_link_account(mock_handler)
 
         assert result.status_code == 401
@@ -554,7 +576,9 @@ class TestAccountLinking:
         with patch.object(oauth_handler, "_get_user_store", return_value=user_store):
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth:
                 mock_auth.return_value = MockAuthContext(is_authenticated=True, user_id="user_1")
-                with patch.object(oauth_handler, "read_json_body", return_value={"provider": "facebook"}):
+                with patch.object(
+                    oauth_handler, "read_json_body", return_value={"provider": "facebook"}
+                ):
                     result = oauth_handler._handle_link_account(mock_handler)
 
         assert result.status_code == 400
@@ -568,7 +592,9 @@ class TestAccountLinking:
         with patch.object(oauth_handler, "_get_user_store", return_value=user_store):
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth:
                 mock_auth.return_value = MockAuthContext(is_authenticated=True, user_id=user.id)
-                with patch.object(oauth_handler, "read_json_body", return_value={"provider": "google"}):
+                with patch.object(
+                    oauth_handler, "read_json_body", return_value={"provider": "google"}
+                ):
                     result = oauth_handler._handle_link_account(mock_handler)
 
         assert result.status_code == 200
@@ -581,6 +607,7 @@ class TestAccountLinking:
 # Account Unlinking Tests
 # ============================================================================
 
+
 class TestAccountUnlinking:
     """Tests for OAuth account unlinking."""
 
@@ -592,7 +619,9 @@ class TestAccountUnlinking:
         with patch.object(oauth_handler, "_get_user_store", return_value=user_store):
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth:
                 mock_auth.return_value = MockAuthContext(is_authenticated=False)
-                with patch.object(oauth_handler, "read_json_body", return_value={"provider": "google"}):
+                with patch.object(
+                    oauth_handler, "read_json_body", return_value={"provider": "google"}
+                ):
                     result = oauth_handler._handle_unlink_account(mock_handler)
 
         assert result.status_code == 401
@@ -607,7 +636,9 @@ class TestAccountUnlinking:
         with patch.object(oauth_handler, "_get_user_store", return_value=user_store):
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth:
                 mock_auth.return_value = MockAuthContext(is_authenticated=True, user_id=user.id)
-                with patch.object(oauth_handler, "read_json_body", return_value={"provider": "google"}):
+                with patch.object(
+                    oauth_handler, "read_json_body", return_value={"provider": "google"}
+                ):
                     result = oauth_handler._handle_unlink_account(mock_handler)
 
         assert result.status_code == 400
@@ -623,7 +654,9 @@ class TestAccountUnlinking:
         with patch.object(oauth_handler, "_get_user_store", return_value=user_store):
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth:
                 mock_auth.return_value = MockAuthContext(is_authenticated=True, user_id=user.id)
-                with patch.object(oauth_handler, "read_json_body", return_value={"provider": "google"}):
+                with patch.object(
+                    oauth_handler, "read_json_body", return_value={"provider": "google"}
+                ):
                     result = oauth_handler._handle_unlink_account(mock_handler)
 
         assert result.status_code == 200
@@ -634,6 +667,7 @@ class TestAccountUnlinking:
 # ============================================================================
 # Provider Listing Tests
 # ============================================================================
+
 
 class TestProviderListing:
     """Tests for OAuth provider listing."""
@@ -667,6 +701,7 @@ class TestProviderListing:
 # Redirect Helper Tests
 # ============================================================================
 
+
 class TestRedirectHelpers:
     """Tests for redirect helper methods."""
 
@@ -695,6 +730,7 @@ class TestRedirectHelpers:
 # Token Exchange Tests
 # ============================================================================
 
+
 class TestTokenExchange:
     """Tests for token exchange functionality."""
 
@@ -702,10 +738,12 @@ class TestTokenExchange:
         """Test token exchange makes HTTP request."""
         with patch("urllib.request.urlopen") as mock_urlopen:
             mock_response = MagicMock()
-            mock_response.read.return_value = json.dumps({
-                "access_token": "test_token",
-                "token_type": "Bearer",
-            }).encode()
+            mock_response.read.return_value = json.dumps(
+                {
+                    "access_token": "test_token",
+                    "token_type": "Bearer",
+                }
+            ).encode()
             mock_response.__enter__ = MagicMock(return_value=mock_response)
             mock_response.__exit__ = MagicMock(return_value=False)
             mock_urlopen.return_value = mock_response
@@ -719,6 +757,7 @@ class TestTokenExchange:
 # ============================================================================
 # User Info Retrieval Tests
 # ============================================================================
+
 
 class TestUserInfoRetrieval:
     """Tests for Google user info retrieval."""
@@ -753,6 +792,7 @@ class TestUserInfoRetrieval:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestOAuthIntegration:
     """Integration tests for OAuth flow."""
@@ -822,8 +862,7 @@ class TestOAuthIntegration:
         with patch.object(oauth_handler, "_get_user_store", return_value=user_store):
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth:
                 mock_auth.return_value = MockAuthContext(
-                    is_authenticated=True,
-                    user_id=existing_user.id
+                    is_authenticated=True, user_id=existing_user.id
                 )
                 start_result = oauth_handler._handle_google_auth_start(mock_handler, {})
 
@@ -870,6 +909,7 @@ class TestOAuthIntegration:
 # ============================================================================
 # Edge Cases
 # ============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases and error conditions."""
@@ -944,17 +984,13 @@ class TestEdgeCases:
         assert "error=" in result.headers["Location"]
         # Check for URL-encoded "already linked" message
         from urllib.parse import unquote
+
         assert "already linked" in unquote(result.headers["Location"])
 
     def test_method_not_allowed(self, oauth_handler):
         """Test method not allowed for wrong HTTP method."""
         mock_handler = MockHandler(method="PUT")
 
-        result = oauth_handler.handle(
-            "/api/auth/oauth/google",
-            {},
-            mock_handler,
-            method="PUT"
-        )
+        result = oauth_handler.handle("/api/auth/oauth/google", {}, mock_handler, method="PUT")
 
         assert result.status_code == 405

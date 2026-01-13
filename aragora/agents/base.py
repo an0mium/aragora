@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 # Context window limits (in characters, ~4 chars per token)
 # Use 60% of available window to leave room for response
 MAX_CONTEXT_CHARS = 120_000  # ~30k tokens, safe for most models
-MAX_MESSAGE_CHARS = 20_000   # Individual message truncation limit
+MAX_MESSAGE_CHARS = 20_000  # Individual message truncation limit
 
 
 class CritiqueMixin:
@@ -54,10 +54,9 @@ class CritiqueMixin:
 
         if not truncate:
             # Simple mode (API agents) - no truncation
-            context_str = "\n\n".join([
-                f"[Round {m.round}] {m.role} ({m.agent}):\n{m.content}"
-                for m in context[-10:]
-            ])
+            context_str = "\n\n".join(
+                [f"[Round {m.round}] {m.role} ({m.agent}):\n{m.content}" for m in context[-10:]]
+            )
             return f"\n\nPrevious discussion:\n{context_str}\n\n"
 
         # Truncation mode (CLI agents) - handle large contexts
@@ -73,9 +72,9 @@ class CritiqueMixin:
             if len(content) > MAX_MESSAGE_CHARS:
                 half = MAX_MESSAGE_CHARS // 2 - 50
                 content = (
-                    content[:half] +
-                    f"\n\n[... {len(m.content) - MAX_MESSAGE_CHARS} chars truncated ...]\n\n" +
-                    content[-half:]
+                    content[:half]
+                    + f"\n\n[... {len(m.content) - MAX_MESSAGE_CHARS} chars truncated ...]\n\n"
+                    + content[-half:]
                 )
 
             msg_str = f"[Round {m.round}] {m.role} ({m.agent}):\n{content}"
@@ -104,7 +103,7 @@ class CritiqueMixin:
         severity = 0.5
         reasoning = ""
 
-        lines = response.split('\n')
+        lines = response.split("\n")
         current_section = None
 
         for line in lines:
@@ -113,12 +112,12 @@ class CritiqueMixin:
                 continue
 
             lower = line.lower()
-            if 'issue' in lower or 'problem' in lower or 'concern' in lower:
-                current_section = 'issues'
-            elif 'suggest' in lower or 'recommend' in lower or 'improvement' in lower:
-                current_section = 'suggestions'
-            elif 'severity' in lower:
-                match = re.search(r'(\d+\.?\d*)', line)
+            if "issue" in lower or "problem" in lower or "concern" in lower:
+                current_section = "issues"
+            elif "suggest" in lower or "recommend" in lower or "improvement" in lower:
+                current_section = "suggestions"
+            elif "severity" in lower:
+                match = re.search(r"(\d+\.?\d*)", line)
                 if match:
                     try:
                         severity = min(1.0, max(0.0, float(match.group(1))))
@@ -126,11 +125,11 @@ class CritiqueMixin:
                             severity = severity / 10  # Handle 0-10 scale
                     except (ValueError, TypeError):
                         pass
-            elif line.startswith(('-', '*', '•')):
-                item = line.lstrip('-*• ').strip()
-                if current_section == 'issues':
+            elif line.startswith(("-", "*", "•")):
+                item = line.lstrip("-*• ").strip()
+                if current_section == "issues":
                     issues.append(item)
-                elif current_section == 'suggestions':
+                elif current_section == "suggestions":
                     suggestions.append(item)
                 else:
                     # Default to issues
@@ -138,7 +137,7 @@ class CritiqueMixin:
 
         # If no structured extraction, use the whole response
         if not issues and not suggestions:
-            sentences = [s.strip() for s in response.replace('\n', ' ').split('.') if s.strip()]
+            sentences = [s.strip() for s in response.replace("\n", " ").split(".") if s.strip()]
             mid = len(sentences) // 2
             issues = sentences[:mid] if sentences else ["See full response"]
             suggestions = sentences[mid:] if len(sentences) > mid else []
@@ -161,11 +160,26 @@ AgentType = Literal[
     # Built-in
     "demo",
     # CLI-based
-    "codex", "claude", "openai", "gemini-cli", "grok-cli", "qwen-cli", "deepseek-cli", "kilocode",
+    "codex",
+    "claude",
+    "openai",
+    "gemini-cli",
+    "grok-cli",
+    "qwen-cli",
+    "deepseek-cli",
+    "kilocode",
     # API-based (direct)
-    "gemini", "ollama", "anthropic-api", "openai-api", "grok",
+    "gemini",
+    "ollama",
+    "anthropic-api",
+    "openai-api",
+    "grok",
     # API-based (via OpenRouter)
-    "deepseek", "deepseek-r1", "llama", "mistral", "openrouter",
+    "deepseek",
+    "deepseek-r1",
+    "llama",
+    "mistral",
+    "openrouter",
 ]
 
 

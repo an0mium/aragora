@@ -347,7 +347,9 @@ class TestDomainBreakdown:
     def test_domain_breakdown(self, tracker):
         """Test getting breakdown by domain."""
         tracker.record_prediction(agent="agent_1", confidence=0.8, correct=True, domain="security")
-        tracker.record_prediction(agent="agent_1", confidence=0.8, correct=True, domain="performance")
+        tracker.record_prediction(
+            agent="agent_1", confidence=0.8, correct=True, domain="performance"
+        )
         tracker.record_prediction(agent="agent_1", confidence=0.8, correct=False, domain="security")
 
         breakdown = tracker.get_domain_breakdown("agent_1")

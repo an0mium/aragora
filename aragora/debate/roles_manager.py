@@ -14,7 +14,13 @@ if TYPE_CHECKING:
     from aragora.core import Agent
     from aragora.debate.protocol import DebateProtocol
     from aragora.debate.prompt_builder import PromptBuilder
-    from aragora.debate.roles import RoleRotator, RoleMatcher, RoleMatchingConfig, RoleRotationConfig, RoleAssignment
+    from aragora.debate.roles import (
+        RoleRotator,
+        RoleMatcher,
+        RoleMatchingConfig,
+        RoleRotationConfig,
+        RoleAssignment,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +156,7 @@ class RolesManager:
         - Medium (4-6): Balanced - judge arguments on merit
         - High (7-10): Collaborative - seek common ground and synthesis
         """
-        intensity = getattr(self.protocol, 'agreement_intensity', None)
+        intensity = getattr(self.protocol, "agreement_intensity", None)
 
         if intensity is None:
             return ""  # No agreement intensity guidance when not set
@@ -188,7 +194,7 @@ and building on others' ideas."""
             return self.prompt_builder.get_stance_guidance(agent)
 
         # Fallback if no prompt builder
-        stance = getattr(agent, 'stance', 'neutral')
+        stance = getattr(agent, "stance", "neutral")
         if stance == "affirmative":
             return "You are arguing IN FAVOR of the proposition. Defend and support it."
         elif stance == "negative":
@@ -203,9 +209,7 @@ and building on others' ideas."""
             round_num: Current round number
         """
         if self.role_rotator:
-            self.current_role_assignments = self.role_rotator.rotate(
-                self.agents, round_num
-            )
+            self.current_role_assignments = self.role_rotator.rotate(self.agents, round_num)
         elif self.role_matcher:
             # Role matcher uses task-based matching, not round rotation
             pass
@@ -220,9 +224,7 @@ and building on others' ideas."""
             Dict mapping agent name to role assignment
         """
         if self.role_matcher:
-            self.current_role_assignments = self.role_matcher.match(
-                self.agents, task
-            )
+            self.current_role_assignments = self.role_matcher.match(self.agents, task)
         return self.current_role_assignments
 
 

@@ -36,9 +36,9 @@ class TestForkDebate:
 
         mixin = ForkOperationsMixin()
         mixin.read_json_body = MagicMock(return_value={"branch_point": 1})
-        mixin.get_storage = MagicMock(return_value=MagicMock(
-            get_debate=MagicMock(return_value=None)
-        ))
+        mixin.get_storage = MagicMock(
+            return_value=MagicMock(get_debate=MagicMock(return_value=None))
+        )
 
         with patch("aragora.server.validation.schema.validate_against_schema") as mock_validate:
             mock_validate.return_value = MagicMock(is_valid=True)
@@ -53,11 +53,13 @@ class TestForkDebate:
 
         mixin = ForkOperationsMixin()
         mixin.read_json_body = MagicMock(return_value={"branch_point": 100})
-        mixin.get_storage = MagicMock(return_value=MagicMock(
-            get_debate=MagicMock(return_value={
-                "messages": [{"content": "msg1"}, {"content": "msg2"}]
-            })
-        ))
+        mixin.get_storage = MagicMock(
+            return_value=MagicMock(
+                get_debate=MagicMock(
+                    return_value={"messages": [{"content": "msg1"}, {"content": "msg2"}]}
+                )
+            )
+        )
 
         with patch("aragora.server.validation.schema.validate_against_schema") as mock_validate:
             mock_validate.return_value = MagicMock(is_valid=True)
@@ -74,18 +76,24 @@ class TestForkDebate:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             mixin = ForkOperationsMixin()
-            mixin.read_json_body = MagicMock(return_value={
-                "branch_point": 1,
-                "modified_context": "What if assumption X was true?"
-            })
-            mixin.get_storage = MagicMock(return_value=MagicMock(
-                get_debate=MagicMock(return_value={
-                    "messages": [
-                        {"content": "msg1", "agent": "claude"},
-                        {"content": "msg2", "agent": "gpt4"},
-                    ]
-                })
-            ))
+            mixin.read_json_body = MagicMock(
+                return_value={
+                    "branch_point": 1,
+                    "modified_context": "What if assumption X was true?",
+                }
+            )
+            mixin.get_storage = MagicMock(
+                return_value=MagicMock(
+                    get_debate=MagicMock(
+                        return_value={
+                            "messages": [
+                                {"content": "msg1", "agent": "claude"},
+                                {"content": "msg2", "agent": "gpt4"},
+                            ]
+                        }
+                    )
+                )
+            )
             mixin.get_nomic_dir = MagicMock(return_value=Path(tmpdir))
 
             with patch("aragora.server.validation.schema.validate_against_schema") as mock_validate:
@@ -121,10 +129,9 @@ class TestVerifyOutcome:
         from aragora.server.handlers.debates_fork import ForkOperationsMixin
 
         mixin = ForkOperationsMixin()
-        mixin.read_json_body = MagicMock(return_value={
-            "correct": True,
-            "source": "manual_verification"
-        })
+        mixin.read_json_body = MagicMock(
+            return_value={"correct": True, "source": "manual_verification"}
+        )
 
         mock_tracker = MagicMock()
         mixin.ctx = {"position_tracker": mock_tracker}
@@ -161,9 +168,9 @@ class TestFollowupSuggestions:
         from aragora.server.handlers.debates_fork import ForkOperationsMixin
 
         mixin = ForkOperationsMixin()
-        mixin.get_storage = MagicMock(return_value=MagicMock(
-            get_debate=MagicMock(return_value=None)
-        ))
+        mixin.get_storage = MagicMock(
+            return_value=MagicMock(get_debate=MagicMock(return_value=None))
+        )
 
         result = mixin._get_followup_suggestions("nonexistent")
 
@@ -174,14 +181,18 @@ class TestFollowupSuggestions:
         from aragora.server.handlers.debates_fork import ForkOperationsMixin
 
         mixin = ForkOperationsMixin()
-        mixin.get_storage = MagicMock(return_value=MagicMock(
-            get_debate=MagicMock(return_value={
-                "messages": [],
-                "votes": [],
-                "proposals": {},
-                "uncertainty_metrics": {},
-            })
-        ))
+        mixin.get_storage = MagicMock(
+            return_value=MagicMock(
+                get_debate=MagicMock(
+                    return_value={
+                        "messages": [],
+                        "votes": [],
+                        "proposals": {},
+                        "uncertainty_metrics": {},
+                    }
+                )
+            )
+        )
 
         with patch("aragora.uncertainty.estimator.DisagreementAnalyzer") as MockAnalyzer:
             mock_analyzer = MagicMock()
@@ -233,9 +244,9 @@ class TestCreateFollowupDebate:
 
         mixin = ForkOperationsMixin()
         mixin.read_json_body = MagicMock(return_value={"task": "Explore X"})
-        mixin.get_storage = MagicMock(return_value=MagicMock(
-            get_debate=MagicMock(return_value=None)
-        ))
+        mixin.get_storage = MagicMock(
+            return_value=MagicMock(get_debate=MagicMock(return_value=None))
+        )
 
         result = mixin._create_followup_debate(MagicMock(), "nonexistent")
 
@@ -247,15 +258,17 @@ class TestCreateFollowupDebate:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             mixin = ForkOperationsMixin()
-            mixin.read_json_body = MagicMock(return_value={
-                "task": "Custom follow-up task"
-            })
-            mixin.get_storage = MagicMock(return_value=MagicMock(
-                get_debate=MagicMock(return_value={
-                    "agents": ["claude", "gpt4", "gemini"],
-                    "uncertainty_metrics": {},
-                })
-            ))
+            mixin.read_json_body = MagicMock(return_value={"task": "Custom follow-up task"})
+            mixin.get_storage = MagicMock(
+                return_value=MagicMock(
+                    get_debate=MagicMock(
+                        return_value={
+                            "agents": ["claude", "gpt4", "gemini"],
+                            "uncertainty_metrics": {},
+                        }
+                    )
+                )
+            )
             mixin.get_nomic_dir = MagicMock(return_value=Path(tmpdir))
 
             result = mixin._create_followup_debate(MagicMock(), "debate_123")
@@ -273,12 +286,16 @@ class TestCreateFollowupDebate:
 
         mixin = ForkOperationsMixin()
         mixin.read_json_body = MagicMock(return_value={"crux_id": "nonexistent"})
-        mixin.get_storage = MagicMock(return_value=MagicMock(
-            get_debate=MagicMock(return_value={
-                "agents": ["claude"],
-                "uncertainty_metrics": {"cruxes": []},
-            })
-        ))
+        mixin.get_storage = MagicMock(
+            return_value=MagicMock(
+                get_debate=MagicMock(
+                    return_value={
+                        "agents": ["claude"],
+                        "uncertainty_metrics": {"cruxes": []},
+                    }
+                )
+            )
+        )
 
         result = mixin._create_followup_debate(MagicMock(), "debate_123")
 

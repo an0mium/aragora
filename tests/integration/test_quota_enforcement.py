@@ -155,6 +155,7 @@ class TestRequireQuotaDecorator:
     def test_decorator_import(self):
         """Decorator should be importable from base."""
         from aragora.server.handlers.base import require_quota
+
         assert callable(require_quota)
 
     def test_quota_check_blocks_at_limit(self, user_store, free_org, free_user):
@@ -180,7 +181,9 @@ class TestRequireQuotaDecorator:
         def test_handler(handler, user=None):
             return json_response({"success": True})
 
-        with patch('aragora.billing.jwt_auth.extract_user_from_request', return_value=mock_user_ctx):
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_user_ctx
+        ):
             result = test_handler(mock_handler)
 
         # Should return 429 quota exceeded
@@ -210,7 +213,9 @@ class TestRequireQuotaDecorator:
         def test_handler(handler, user=None):
             return json_response({"success": True})
 
-        with patch('aragora.billing.jwt_auth.extract_user_from_request', return_value=mock_user_ctx):
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_user_ctx
+        ):
             result = test_handler(mock_handler)
 
         # Should succeed
@@ -237,7 +242,9 @@ class TestRequireQuotaDecorator:
         def test_batch_handler(handler, user=None):
             return json_response({"success": True})
 
-        with patch('aragora.billing.jwt_auth.extract_user_from_request', return_value=mock_user_ctx):
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_user_ctx
+        ):
             result = test_batch_handler(mock_handler)
 
         # Should return 429 with insufficient quota
@@ -296,7 +303,9 @@ class TestQuotaEnforcementEndToEnd:
         def test_handler(handler, user=None):
             return json_response({"success": True})
 
-        with patch('aragora.billing.jwt_auth.extract_user_from_request', return_value=mock_user_ctx):
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_user_ctx
+        ):
             result = test_handler(mock_handler)
 
         body = json.loads(result.body)
@@ -330,7 +339,9 @@ class TestUsageIncrement:
         def test_handler(handler, user=None):
             return json_response({"success": True})
 
-        with patch('aragora.billing.jwt_auth.extract_user_from_request', return_value=mock_user_ctx):
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_user_ctx
+        ):
             result = test_handler(mock_handler)
 
         assert result.status_code == 200
@@ -357,7 +368,9 @@ class TestUsageIncrement:
             # Simulate error response
             return error_response("Something went wrong", 500)
 
-        with patch('aragora.billing.jwt_auth.extract_user_from_request', return_value=mock_user_ctx):
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_user_ctx
+        ):
             result = test_handler(mock_handler)
 
         assert result.status_code == 500

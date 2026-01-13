@@ -151,7 +151,9 @@ class TestFullDebateLifecycle:
         assert result.final_answer is not None
         # Majority should have voted for alice
         if result.votes:
-            alice_votes = sum(1 for v in result.votes if not isinstance(v, Exception) and v.choice == "alice")
+            alice_votes = sum(
+                1 for v in result.votes if not isinstance(v, Exception) and v.choice == "alice"
+            )
             assert alice_votes >= 2, "Majority should vote for alice"
 
     @pytest.mark.asyncio
@@ -490,7 +492,7 @@ class TestEvidenceCollection:
         assert result is not None
         if result.messages:
             has_citation = any(
-                "[Source" in (msg.content if hasattr(msg, 'content') else str(msg))
+                "[Source" in (msg.content if hasattr(msg, "content") else str(msg))
                 for msg in result.messages
             )
             assert has_citation or len(result.messages) > 0
@@ -555,8 +557,8 @@ class TestELOTracking:
 
         # Each vote should have required attributes
         for vote in valid_votes:
-            assert hasattr(vote, 'choice')
-            assert hasattr(vote, 'confidence')
+            assert hasattr(vote, "choice")
+            assert hasattr(vote, "confidence")
 
     @pytest.mark.asyncio
     async def test_consensus_provides_winner_for_elo(self, env):
@@ -575,8 +577,9 @@ class TestELOTracking:
         assert result is not None
         # Either consensus_reached or we have votes showing a winner
         has_winner = result.consensus_reached or (
-            result.votes and
-            any(not isinstance(v, Exception) and v.choice == "clear_winner"
-                for v in result.votes)
+            result.votes
+            and any(
+                not isinstance(v, Exception) and v.choice == "clear_winner" for v in result.votes
+            )
         )
         assert has_winner

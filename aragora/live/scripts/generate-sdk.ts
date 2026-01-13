@@ -168,7 +168,7 @@ function generateOperationId(method: string, path: string): string {
 
 // Main generation function
 async function generate() {
-  const specPath = path.resolve(__dirname, '../../aragora/server/openapi.yaml');
+  const specPath = path.resolve(__dirname, '../../server/openapi.yaml');
   const outputDir = path.resolve(__dirname, '../src/api/generated');
 
   console.log('Reading OpenAPI spec from:', specPath);

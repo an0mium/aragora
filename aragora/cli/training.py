@@ -23,9 +23,13 @@ app = typer.Typer(
 
 @app.command("export-sft")
 def export_sft(
-    output: str = typer.Option("sft_training_data.jsonl", "-o", "--output", help="Output file path"),
+    output: str = typer.Option(
+        "sft_training_data.jsonl", "-o", "--output", help="Output file path"
+    ),
     min_confidence: float = typer.Option(0.7, "--min-confidence", help="Minimum debate confidence"),
-    min_success_rate: float = typer.Option(0.6, "--min-success-rate", help="Minimum pattern success rate"),
+    min_success_rate: float = typer.Option(
+        0.6, "--min-success-rate", help="Minimum pattern success rate"
+    ),
     limit: int = typer.Option(1000, "--limit", help="Maximum records to export"),
     db_path: str = typer.Option("agora_memory.db", "--db-path", help="Database path"),
 ):
@@ -46,7 +50,9 @@ def export_sft(
 
 @app.command("export-dpo")
 def export_dpo(
-    output: str = typer.Option("dpo_training_data.jsonl", "-o", "--output", help="Output file path"),
+    output: str = typer.Option(
+        "dpo_training_data.jsonl", "-o", "--output", help="Output file path"
+    ),
     min_elo_difference: float = typer.Option(50.0, "--min-elo-diff", help="Minimum ELO difference"),
     min_debates: int = typer.Option(3, "--min-debates", help="Minimum debates between agents"),
     limit: int = typer.Option(500, "--limit", help="Maximum records to export"),
@@ -68,7 +74,9 @@ def export_dpo(
 
 @app.command("export-gauntlet")
 def export_gauntlet(
-    output: str = typer.Option("gauntlet_training_data.jsonl", "-o", "--output", help="Output file path"),
+    output: str = typer.Option(
+        "gauntlet_training_data.jsonl", "-o", "--output", help="Output file path"
+    ),
     min_robustness: float = typer.Option(0.3, "--min-robustness", help="Minimum robustness score"),
     limit: int = typer.Option(200, "--limit", help="Maximum records to export"),
 ):
@@ -362,7 +370,7 @@ def show_stats():
     typer.echo(f"  Total matches: {elo_stats.get('total_matches', 0)}")
     typer.echo(f"  Average ELO: {elo_stats.get('average_elo', 1000):.0f}")
 
-    patterns_by_type = critique_stats.get('patterns_by_type', {})
+    patterns_by_type = critique_stats.get("patterns_by_type", {})
     if patterns_by_type:
         typer.echo("\nPatterns by Type:")
         for ptype, count in sorted(patterns_by_type.items(), key=lambda x: -x[1]):

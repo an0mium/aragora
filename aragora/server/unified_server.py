@@ -34,13 +34,24 @@ if TYPE_CHECKING:
     from aragora.server.middleware.rate_limit import RateLimitResult
 from urllib.parse import urlparse, parse_qs
 
-from .stream import DebateStreamServer, SyncEventEmitter, StreamEvent, StreamEventType, create_arena_hooks
+from .stream import (
+    DebateStreamServer,
+    SyncEventEmitter,
+    StreamEvent,
+    StreamEventType,
+    create_arena_hooks,
+)
 from .storage import DebateStorage
+from .prometheus import record_http_request
 from .documents import DocumentStore, parse_document, get_supported_formats, SUPPORTED_EXTENSIONS
 from ..broadcast.storage import AudioFileStore
 from ..broadcast.rss_gen import PodcastFeedGenerator, PodcastConfig, PodcastEpisode
 from ..connectors.twitter_poster import TwitterPosterConnector, DebateContentFormatter
-from ..connectors.youtube_uploader import YouTubeUploaderConnector, YouTubeVideoMetadata, create_video_metadata_from_debate
+from ..connectors.youtube_uploader import (
+    YouTubeUploaderConnector,
+    YouTubeVideoMetadata,
+    create_video_metadata_from_debate,
+)
 from ..broadcast.video_gen import VideoGenerator
 from .auth import auth_config, check_auth
 from .cors_config import cors_config
@@ -112,8 +123,9 @@ MAX_JSON_CONTENT_LENGTH = 10 * 1024 * 1024
 # Trusted proxies for X-Forwarded-For header validation
 # Only trust X-Forwarded-For if request comes from these IPs
 import os
+
 TRUSTED_PROXIES = frozenset(
-    p.strip() for p in os.getenv('ARAGORA_TRUSTED_PROXIES', '127.0.0.1,::1,localhost').split(',')
+    p.strip() for p in os.getenv("ARAGORA_TRUSTED_PROXIES", "127.0.0.1,::1,localhost").split(",")
 )
 
 
@@ -257,7 +269,9 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     flip_detector: Optional["FlipDetector"] = None  # FlipDetector for position reversals
     persona_manager: Optional["PersonaManager"] = None  # PersonaManager for agent specialization
     debate_embeddings: Optional["DebateEmbeddingsDatabase"] = None  # Historical memory
-    position_tracker: Optional["PositionTracker"] = None  # PositionTracker for truth-grounded personas
+    position_tracker: Optional["PositionTracker"] = (
+        None  # PositionTracker for truth-grounded personas
+    )
     position_ledger: Optional["PositionLedger"] = None  # PositionLedger for grounded positions
     consensus_memory: Optional["ConsensusMemory"] = None  # ConsensusMemory for historical positions
     dissent_retriever: Optional["DissentRetriever"] = None  # DissentRetriever for minority views
@@ -290,7 +304,9 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     # Used to include X-RateLimit-* headers in all responses
     _rate_limit_result: Optional["RateLimitResult"] = None
 
-    def _log_request(self, method: str, path: str, status: int, duration_ms: float, extra: dict = None) -> None:
+    def _log_request(
+        self, method: str, path: str, status: int, duration_ms: float, extra: dict = None
+    ) -> None:
         """Log request details for observability.
 
         Args:
@@ -331,14 +347,44 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         log_fn(f"[request] {' '.join(msg_parts)}")
 
+    def _normalize_endpoint(self, path: str) -> str:
+        """Normalize API endpoint path for metrics by replacing dynamic IDs.
+
+        Replaces UUIDs, numeric IDs, and other dynamic segments with placeholders
+        to avoid high cardinality in Prometheus metrics.
+
+        Args:
+            path: Raw request path (e.g., "/api/debates/abc123/messages")
+
+        Returns:
+            Normalized path (e.g., "/api/debates/{id}/messages")
+        """
+        # UUID pattern (e.g., 550e8400-e29b-41d4-a716-446655440000)
+        uuid_pattern = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+        # Short ID pattern (alphanumeric, 8-32 chars, likely an ID)
+        short_id_pattern = r"/[a-zA-Z0-9]{8,32}(?=/|$)"
+        # Numeric ID pattern
+        numeric_pattern = r"/\d+(?=/|$)"
+
+        normalized = path
+        # Replace UUIDs first (most specific)
+        normalized = re.sub(uuid_pattern, "{id}", normalized)
+        # Replace numeric IDs
+        normalized = re.sub(numeric_pattern, "/{id}", normalized)
+        # Replace remaining short alphanumeric IDs in path segments
+        # Only if they're surrounded by slashes or at end
+        normalized = re.sub(short_id_pattern, "/{id}", normalized)
+
+        return normalized
+
     def _get_client_ip(self) -> str:
         """Get client IP address, respecting trusted proxy headers."""
-        remote_ip = self.client_address[0] if hasattr(self, 'client_address') else 'unknown'
+        remote_ip = self.client_address[0] if hasattr(self, "client_address") else "unknown"
         client_ip = remote_ip
         if remote_ip in TRUSTED_PROXIES:
-            forwarded = self.headers.get('X-Forwarded-For', '')
+            forwarded = self.headers.get("X-Forwarded-For", "")
             if forwarded:
-                first_ip = forwarded.split(',')[0].strip()
+                first_ip = forwarded.split(",")[0].strip()
                 if first_ip:
                     client_ip = first_ip
         return client_ip
@@ -350,14 +396,18 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         """
         return safe_query_int(query, key, default, min_val=1, max_val=max_val)
 
-    def _safe_float(self, query: dict, key: str, default: float, min_val: float = 0.0, max_val: float = 1.0) -> float:
+    def _safe_float(
+        self, query: dict, key: str, default: float, min_val: float = 0.0, max_val: float = 1.0
+    ) -> float:
         """Safely parse float query param with bounds checking.
 
         Delegates to shared safe_query_float from validation module.
         """
         return safe_query_float(query, key, default, min_val=min_val, max_val=max_val)
 
-    def _safe_string(self, value: str, max_len: int = 500, pattern: Optional[str] = None) -> Optional[str]:
+    def _safe_string(
+        self, value: str, max_len: int = 500, pattern: Optional[str] = None
+    ) -> Optional[str]:
         """Safely validate string parameter with length and pattern checks.
 
         Args:
@@ -369,6 +419,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             Validated string or None if invalid
         """
         import re
+
         if not value or not isinstance(value, str):
             return None
         # Truncate to max length
@@ -378,12 +429,14 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             return None
         return value
 
-    def _extract_path_segment(self, path: str, index: int, segment_name: str = "id") -> Optional[str]:
+    def _extract_path_segment(
+        self, path: str, index: int, segment_name: str = "id"
+    ) -> Optional[str]:
         """Safely extract path segment with bounds checking.
 
         Returns None and sends 400 error if segment is missing.
         """
-        parts = path.split('/')
+        parts = path.split("/")
         if len(parts) <= index or not parts[index]:
             self._send_json({"error": f"Missing {segment_name} in path"}, status=400)
             return None
@@ -400,7 +453,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         max_size = max_size or MAX_JSON_CONTENT_LENGTH
 
         try:
-            content_length = int(self.headers.get('Content-Length', '0'))
+            content_length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             self._send_json({"error": "Invalid Content-Length header"}, status=400)
             return None
@@ -433,16 +486,10 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         if not authenticated:
             if remaining == 0:
                 # Rate limited
-                self._send_json(
-                    {"error": "Rate limit exceeded. Try again later."},
-                    status=429
-                )
+                self._send_json({"error": "Rate limit exceeded. Try again later."}, status=429)
             else:
                 # Auth failed
-                self._send_json(
-                    {"error": "Authentication required"},
-                    status=401
-                )
+                self._send_json({"error": "Authentication required"}, status=401)
             return False
 
         # Note: Rate limit headers are now added by individual handlers
@@ -488,13 +535,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         import time
 
         # Get client IP (validate proxy headers for security)
-        remote_ip = self.client_address[0] if hasattr(self, 'client_address') else 'unknown'
+        remote_ip = self.client_address[0] if hasattr(self, "client_address") else "unknown"
         client_ip = remote_ip  # Default to direct connection IP
         if remote_ip in TRUSTED_PROXIES:
             # Only trust X-Forwarded-For from trusted proxies
-            forwarded = self.headers.get('X-Forwarded-For', '')
+            forwarded = self.headers.get("X-Forwarded-For", "")
             if forwarded:
-                first_ip = forwarded.split(',')[0].strip()
+                first_ip = forwarded.split(",")[0].strip()
                 if first_ip:
                     client_ip = first_ip
 
@@ -520,7 +567,8 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             # Do this occasionally to avoid overhead on every request
             if len(UnifiedHandler._upload_counts) > 100:
                 stale_ips = [
-                    ip for ip, ts_deque in UnifiedHandler._upload_counts.items()
+                    ip
+                    for ip, ts_deque in UnifiedHandler._upload_counts.items()
                     if not ts_deque or max(ts_deque) < one_hour_ago
                 ]
                 for ip in stale_ips:
@@ -529,18 +577,24 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             # Check per-minute limit
             recent_minute = sum(1 for ts in timestamps if ts > one_minute_ago)
             if recent_minute >= UnifiedHandler.MAX_UPLOADS_PER_MINUTE:
-                self._send_json({
-                    "error": f"Upload rate limit exceeded. Max {UnifiedHandler.MAX_UPLOADS_PER_MINUTE} uploads per minute.",
-                    "retry_after": 60
-                }, status=429)
+                self._send_json(
+                    {
+                        "error": f"Upload rate limit exceeded. Max {UnifiedHandler.MAX_UPLOADS_PER_MINUTE} uploads per minute.",
+                        "retry_after": 60,
+                    },
+                    status=429,
+                )
                 return False
 
             # Check per-hour limit
             if len(timestamps) >= UnifiedHandler.MAX_UPLOADS_PER_HOUR:
-                self._send_json({
-                    "error": f"Upload rate limit exceeded. Max {UnifiedHandler.MAX_UPLOADS_PER_HOUR} uploads per hour.",
-                    "retry_after": 3600
-                }, status=429)
+                self._send_json(
+                    {
+                        "error": f"Upload rate limit exceeded. Max {UnifiedHandler.MAX_UPLOADS_PER_HOUR} uploads per hour.",
+                        "retry_after": 3600,
+                    },
+                    status=429,
+                )
                 return False
 
             # Record this upload
@@ -566,7 +620,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         try:
             if content_length > 0:
-                body = self.rfile.read(content_length).decode('utf-8')
+                body = self.rfile.read(content_length).decode("utf-8")
                 data = json.loads(body)
             else:
                 data = {}
@@ -574,8 +628,8 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             self._send_json({"error": "Invalid JSON body"}, status=400)
             return
 
-        token_to_revoke = data.get('token')
-        reason = data.get('reason', '')
+        token_to_revoke = data.get("token")
+        reason = data.get("reason", "")
 
         if not token_to_revoke:
             self._send_json({"error": "Missing 'token' field"}, status=400)
@@ -585,11 +639,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         revoked = auth_config.revoke_token(token_to_revoke, reason)
 
         if revoked:
-            self._send_json({
-                "status": "revoked",
-                "message": "Token has been revoked and can no longer be used",
-                "revoked_tokens_count": auth_config.get_revocation_count(),
-            })
+            self._send_json(
+                {
+                    "status": "revoked",
+                    "message": "Token has been revoked and can no longer be used",
+                    "revoked_tokens_count": auth_config.get_revocation_count(),
+                }
+            )
         else:
             self._send_json({"error": "Failed to revoke token"}, status=500)
 
@@ -640,20 +696,20 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             Comma-separated string of agent types with optional roles
         """
         if not ROUTING_AVAILABLE:
-            return 'gemini,anthropic-api'  # Fallback
+            return "gemini,anthropic-api"  # Fallback
 
         try:
             # Build task requirements from question and config
             requirements = TaskRequirements(
                 task_id=f"debate-{uuid.uuid4().hex[:8]}",
                 description=question[:500],  # Truncate for safety
-                primary_domain=config.get('primary_domain', 'general'),
-                secondary_domains=config.get('secondary_domains', []),
-                required_traits=config.get('required_traits', []),
-                min_agents=min(max(config.get('min_agents', 2), 2), 5),
-                max_agents=min(max(config.get('max_agents', 4), 2), 8),
-                quality_priority=min(max(config.get('quality_priority', 0.7), 0), 1),
-                diversity_preference=min(max(config.get('diversity_preference', 0.5), 0), 1),
+                primary_domain=config.get("primary_domain", "general"),
+                secondary_domains=config.get("secondary_domains", []),
+                required_traits=config.get("required_traits", []),
+                min_agents=min(max(config.get("min_agents", 2), 2), 5),
+                max_agents=min(max(config.get("max_agents", 4), 2), 8),
+                quality_priority=min(max(config.get("quality_priority", 0.7), 0), 1),
+                diversity_preference=min(max(config.get("diversity_preference", 0.5), 0), 1),
             )
 
             # Create selector with ELO system and persona manager
@@ -664,10 +720,12 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
             # Populate agent pool from allowed types
             for agent_type in ALLOWED_AGENT_TYPES:
-                selector.register_agent(AgentProfile(
-                    name=agent_type,
-                    agent_type=agent_type,
-                ))
+                selector.register_agent(
+                    AgentProfile(
+                        name=agent_type,
+                        agent_type=agent_type,
+                    )
+                )
 
             # Select optimal team
             team = selector.select_team(requirements)
@@ -675,38 +733,40 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             # Build agent string with roles if available
             agent_specs = []
             for agent in team.agents:
-                role = team.roles.get(agent.name, '')
+                role = team.roles.get(agent.name, "")
                 if role:
                     agent_specs.append(f"{agent.agent_type}:{role}")
                 else:
                     agent_specs.append(agent.agent_type)
 
-            logger.info(f"[auto_select] Selected team: {agent_specs} (rationale: {team.rationale[:100]})")
-            return ','.join(agent_specs)
+            logger.info(
+                f"[auto_select] Selected team: {agent_specs} (rationale: {team.rationale[:100]})"
+            )
+            return ",".join(agent_specs)
 
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning(f"[auto_select] Failed: {e}, using fallback")
-            return 'gemini,anthropic-api'  # Fallback on error
+            return "gemini,anthropic-api"  # Fallback on error
 
     def do_GET(self) -> None:
         """Handle GET requests."""
         self._rate_limit_result = None  # Reset per-request state
+        self._response_status = 200  # Track response status for metrics
         start_time = time.time()
-        status_code = 200  # Default, updated by handlers
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
 
         # Start tracing span for API requests
         span = None
-        if path.startswith('/api/'):
+        if path.startswith("/api/"):
             span = self.tracing.start_request_span("GET", path, dict(self.headers))
 
         try:
             self._do_GET_internal(path, query)
         except Exception as e:
             # Top-level safety net for GET handlers
-            status_code = 500
+            self._response_status = 500
             logger.exception(f"[request] Unhandled exception in GET {path}: {e}")
             if span:
                 span.set_error(e)
@@ -715,29 +775,33 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             except Exception as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
+            status_code = getattr(self, "_response_status", 200)
             if span:
                 self.tracing.finish_request_span(span, status_code)
-            duration_ms = (time.time() - start_time) * 1000
-            # Log API requests (skip static file logging for noise reduction)
-            if path.startswith('/api/'):
-                self._log_request("GET", path, status_code, duration_ms)
+            duration_seconds = time.time() - start_time
+            # Record Prometheus metrics for API requests
+            if path.startswith("/api/"):
+                # Normalize endpoint path for metrics (strip IDs)
+                endpoint = self._normalize_endpoint(path)
+                record_http_request("GET", endpoint, status_code, duration_seconds)
+                self._log_request("GET", path, status_code, duration_seconds * 1000)
 
     def _do_GET_internal(self, path: str, query: dict) -> None:
         """Internal GET handler with actual routing logic."""
         # Validate query parameters against whitelist (security)
-        if query and path.startswith('/api/'):
+        if query and path.startswith("/api/"):
             is_valid, error_msg = _validate_query_params(query)
             if not is_valid:
                 self._send_json({"error": error_msg}, status=400)
                 return
 
         # Rate limit all API GET requests (DoS protection)
-        if path.startswith('/api/'):
+        if path.startswith("/api/"):
             if not self._check_rate_limit():
                 return
 
         # Try modular handlers first (gradual migration)
-        if path.startswith('/api/'):
+        if path.startswith("/api/"):
             if self._try_modular_handler(path, query):
                 return
 
@@ -790,13 +854,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         # NOTE: Audio, podcast, and YouTube routes are NOW HANDLED BY BroadcastHandler
 
         # Static file serving
-        elif path in ('/', '/index.html'):
-            self._serve_file('index.html')
-        elif path.endswith(('.html', '.css', '.js', '.json', '.ico', '.svg', '.png')):
-            self._serve_file(path.lstrip('/'))
+        elif path in ("/", "/index.html"):
+            self._serve_file("index.html")
+        elif path.endswith((".html", ".css", ".js", ".json", ".ico", ".svg", ".png")):
+            self._serve_file(path.lstrip("/"))
         else:
             # Try serving as a static file
-            self._serve_file(path.lstrip('/'))
+            self._serve_file(path.lstrip("/"))
 
     def do_OPTIONS(self) -> None:
         """Handle CORS preflight."""
@@ -807,21 +871,21 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     def do_POST(self) -> None:
         """Handle POST requests."""
         self._rate_limit_result = None  # Reset per-request state
+        self._response_status = 200  # Track response status for metrics
         start_time = time.time()
-        status_code = 200  # Default, updated by handlers
         parsed = urlparse(self.path)
         path = parsed.path
 
         # Start tracing span for API requests
         span = None
-        if path.startswith('/api/'):
+        if path.startswith("/api/"):
             span = self.tracing.start_request_span("POST", path, dict(self.headers))
 
         try:
             self._do_POST_internal(path)
         except Exception as e:
             # Top-level safety net for POST handlers
-            status_code = 500
+            self._response_status = 500
             logger.exception(f"[request] Unhandled exception in POST {path}: {e}")
             if span:
                 span.set_error(e)
@@ -830,15 +894,20 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             except Exception as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
+            status_code = getattr(self, "_response_status", 200)
             if span:
                 self.tracing.finish_request_span(span, status_code)
-            duration_ms = (time.time() - start_time) * 1000
-            self._log_request("POST", path, status_code, duration_ms)
+            duration_seconds = time.time() - start_time
+            # Record Prometheus metrics for API requests
+            if path.startswith("/api/"):
+                endpoint = self._normalize_endpoint(path)
+                record_http_request("POST", endpoint, status_code, duration_seconds)
+            self._log_request("POST", path, status_code, duration_seconds * 1000)
 
     def _do_POST_internal(self, path: str) -> None:
         """Internal POST handler with actual routing logic."""
         # Try modular handlers first (gradual migration)
-        if path.startswith('/api/'):
+        if path.startswith("/api/"):
             try:
                 if self._try_modular_handler(path, {}):
                     return
@@ -848,7 +917,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         # NOTE: /api/documents/upload is now handled by DocumentHandler
         # NOTE: /api/debate is now handled by DebatesHandler
-        if path == '/api/debug/post-test':
+        if path == "/api/debug/post-test":
             # Simple diagnostic endpoint
             self._send_json({"status": "ok", "message": "POST handling works"})
         # NOTE: Broadcast, publishing, laboratory, routing, verification, probes,
@@ -856,7 +925,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         # LaboratoryHandler, RoutingHandler, VerificationHandler, ProbesHandler,
         # PluginsHandler, AuditingHandler, InsightsHandler)
         # NOTE: /api/debates/{id}/verify is now handled by DebatesHandler
-        elif path == '/api/auth/revoke':
+        elif path == "/api/auth/revoke":
             self._revoke_token()
         else:
             self.send_error(404, f"Unknown POST endpoint: {path}")
@@ -886,7 +955,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     def _do_DELETE_internal(self, path: str) -> None:
         """Internal DELETE handler with actual routing logic."""
         # Try modular handlers first
-        if path.startswith('/api/'):
+        if path.startswith("/api/"):
             if self._try_modular_handler(path, {}):
                 return
 
@@ -916,7 +985,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     def _do_PATCH_internal(self, path: str) -> None:
         """Internal PATCH handler with actual routing logic."""
         # Try modular handlers first
-        if path.startswith('/api/'):
+        if path.startswith("/api/"):
             if self._try_modular_handler(path, {}):
                 return
 
@@ -946,7 +1015,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     def _do_PUT_internal(self, path: str) -> None:
         """Internal PUT handler with actual routing logic."""
         # Try modular handlers first
-        if path.startswith('/api/'):
+        if path.startswith("/api/"):
             if self._try_modular_handler(path, {}):
                 return
 
@@ -1001,25 +1070,25 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
                 return
 
         # Determine content type
-        content_type = 'text/html'
-        if filename.endswith('.css'):
-            content_type = 'text/css'
-        elif filename.endswith('.js'):
-            content_type = 'application/javascript'
-        elif filename.endswith('.json'):
-            content_type = 'application/json'
-        elif filename.endswith('.ico'):
-            content_type = 'image/x-icon'
-        elif filename.endswith('.svg'):
-            content_type = 'image/svg+xml'
-        elif filename.endswith('.png'):
-            content_type = 'image/png'
+        content_type = "text/html"
+        if filename.endswith(".css"):
+            content_type = "text/css"
+        elif filename.endswith(".js"):
+            content_type = "application/javascript"
+        elif filename.endswith(".json"):
+            content_type = "application/json"
+        elif filename.endswith(".ico"):
+            content_type = "image/x-icon"
+        elif filename.endswith(".svg"):
+            content_type = "image/svg+xml"
+        elif filename.endswith(".png"):
+            content_type = "image/png"
 
         try:
             content = filepath.read_bytes()
             self.send_response(200)
-            self.send_header('Content-Type', content_type)
-            self.send_header('Content-Length', str(len(content)))
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(content)))
             self._add_cors_headers()
             self._add_security_headers()
             self.end_headers()
@@ -1037,10 +1106,11 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
     def _send_json(self, data, status: int = 200) -> None:
         """Send JSON response."""
+        self._response_status = status  # Track for metrics
         content = json.dumps(data).encode()
         self.send_response(status)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', str(len(content)))
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(content)))
         self._add_cors_headers()
         self._add_security_headers()
         self._add_rate_limit_headers()
@@ -1060,11 +1130,12 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         Includes X-RateLimit-Limit, X-RateLimit-Remaining, and X-RateLimit-Reset
         headers if a rate limit check was performed for this request.
         """
-        result = getattr(self, '_rate_limit_result', None)
+        result = getattr(self, "_rate_limit_result", None)
         if result is None:
             return
 
         from aragora.server.middleware.rate_limit import rate_limit_headers
+
         headers = rate_limit_headers(result)
         for name, value in headers.items():
             self.send_header(name, value)
@@ -1072,41 +1143,43 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     def _add_security_headers(self) -> None:
         """Add security headers to prevent common attacks."""
         # Prevent clickjacking
-        self.send_header('X-Frame-Options', 'DENY')
+        self.send_header("X-Frame-Options", "DENY")
         # Prevent MIME type sniffing
-        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header("X-Content-Type-Options", "nosniff")
         # Enable XSS filter
-        self.send_header('X-XSS-Protection', '1; mode=block')
+        self.send_header("X-XSS-Protection", "1; mode=block")
         # Referrer policy - don't leak internal URLs
-        self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
         # Content Security Policy - prevent XSS and data injection
         # Note: 'unsafe-inline' for styles needed by CSS-in-JS frameworks
         # 'unsafe-eval' removed for security - blocks eval()/new Function()
-        self.send_header('Content-Security-Policy',
+        self.send_header(
+            "Content-Security-Policy",
             "default-src 'self'; "
             "script-src 'self'; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data: https:; "
             "connect-src 'self' wss: https:; "
             "font-src 'self' data:; "
-            "frame-ancestors 'none'")
+            "frame-ancestors 'none'",
+        )
         # HTTP Strict Transport Security - enforce HTTPS
-        self.send_header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+        self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 
     def _add_cors_headers(self) -> None:
         """Add CORS headers with origin validation."""
         # Security: Validate origin against centralized allowlist
-        request_origin = self.headers.get('Origin', '')
+        request_origin = self.headers.get("Origin", "")
 
         if cors_config.is_origin_allowed(request_origin):
-            self.send_header('Access-Control-Allow-Origin', request_origin)
+            self.send_header("Access-Control-Allow-Origin", request_origin)
         elif not request_origin:
             # Same-origin requests don't have Origin header
             pass
         # else: no CORS header = browser blocks cross-origin request
 
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Filename, Authorization')
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Filename, Authorization")
 
     def log_message(self, format: str, *args) -> None:
         """Suppress default logging."""
@@ -1223,7 +1296,9 @@ class UnifiedServer:
             if UnifiedHandler.youtube_connector.is_configured:
                 logger.info("[server] YouTubeUploaderConnector initialized")
             else:
-                logger.info("[server] YouTubeUploaderConnector created (credentials not configured)")
+                logger.info(
+                    "[server] YouTubeUploaderConnector created (credentials not configured)"
+                )
 
             # Initialize video generator for YouTube
             video_dir = nomic_dir / "videos"
@@ -1240,7 +1315,9 @@ class UnifiedServer:
             UnifiedHandler.debate_embeddings = init_debate_embeddings(nomic_dir)
 
             # Initialize ConsensusMemory and DissentRetriever for historical minority views
-            UnifiedHandler.consensus_memory, UnifiedHandler.dissent_retriever = init_consensus_memory()
+            UnifiedHandler.consensus_memory, UnifiedHandler.dissent_retriever = (
+                init_consensus_memory()
+            )
 
             # Initialize MomentDetector for significant agent moments (narrative storytelling)
             UnifiedHandler.moment_detector = init_moment_detector(
@@ -1250,12 +1327,14 @@ class UnifiedServer:
 
             # Initialize UserStore for user/organization persistence
             from aragora.storage import UserStore
+
             user_db_path = nomic_dir / "users.db"
             UnifiedHandler.user_store = UserStore(user_db_path)
             logger.info(f"[server] UserStore initialized at {user_db_path}")
 
             # Initialize UsageTracker for billing/usage events
             from aragora.billing.usage import UsageTracker
+
             usage_db_path = nomic_dir / "usage.db"
             UnifiedHandler.usage_tracker = UsageTracker(db_path=usage_db_path)
             logger.info(f"[server] UsageTracker initialized at {usage_db_path}")
@@ -1285,7 +1364,7 @@ class UnifiedServer:
                     )
                     # Use secure defaults
                     ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
-                    ssl_context.set_ciphers('ECDHE+AESGCM:DHE+AESGCM:ECDHE+CHACHA20:DHE+CHACHA20')
+                    ssl_context.set_ciphers("ECDHE+AESGCM:DHE+AESGCM:ECDHE+CHACHA20:DHE+CHACHA20")
                     server.socket = ssl_context.wrap_socket(
                         server.socket,
                         server_side=True,
@@ -1326,6 +1405,7 @@ class UnifiedServer:
         # Initialize error monitoring (no-op if SENTRY_DSN not set)
         try:
             from aragora.server.error_monitoring import init_monitoring
+
             if init_monitoring():
                 logger.info("Error monitoring enabled (Sentry)")
         except ImportError:
@@ -1335,6 +1415,7 @@ class UnifiedServer:
         try:
             from aragora.observability.tracing import get_tracer
             from aragora.observability.config import is_tracing_enabled
+
             if is_tracing_enabled():
                 tracer = get_tracer()
                 logger.info("OpenTelemetry tracing enabled")
@@ -1349,6 +1430,7 @@ class UnifiedServer:
         try:
             from aragora.observability.metrics import start_metrics_server
             from aragora.observability.config import is_metrics_enabled
+
             if is_metrics_enabled():
                 # Note: start_metrics_server starts a separate HTTP server on METRICS_PORT (default 9090)
                 # The /metrics endpoint at /api path uses aragora.server.metrics instead
@@ -1365,6 +1447,7 @@ class UnifiedServer:
                 init_circuit_breaker_persistence,
                 load_circuit_breakers,
             )
+
             data_dir = self.nomic_dir or Path(".data")
             db_path = str(data_dir / "circuit_breaker.db")
             init_circuit_breaker_persistence(db_path)
@@ -1377,6 +1460,7 @@ class UnifiedServer:
         # Initialize background tasks for maintenance
         try:
             from aragora.server.background import get_background_manager, setup_default_tasks
+
             nomic_path = str(self.nomic_dir) if self.nomic_dir else None
             # Pass the shared continuum_memory instance for efficient cleanup
             # Note: continuum_memory is initialized lazily via get_continuum_memory()
@@ -1397,20 +1481,26 @@ class UnifiedServer:
                 PULSE_SCHEDULER_POLL_INTERVAL,
                 PULSE_SCHEDULER_MAX_PER_HOUR,
             )
+
             if PULSE_SCHEDULER_AUTOSTART:
                 from aragora.server.handlers.pulse import get_pulse_scheduler
+
                 scheduler = get_pulse_scheduler()
                 if scheduler:
                     # Update config from environment
-                    scheduler.update_config({
-                        "poll_interval_seconds": PULSE_SCHEDULER_POLL_INTERVAL,
-                        "max_debates_per_hour": PULSE_SCHEDULER_MAX_PER_HOUR,
-                    })
+                    scheduler.update_config(
+                        {
+                            "poll_interval_seconds": PULSE_SCHEDULER_POLL_INTERVAL,
+                            "max_debates_per_hour": PULSE_SCHEDULER_MAX_PER_HOUR,
+                        }
+                    )
+
                     # Set up debate creator callback
                     async def auto_create_debate(topic_text: str, rounds: int, threshold: float):
                         try:
                             from aragora import Arena, Environment, DebateProtocol
                             from aragora.agents import get_agents_by_names
+
                             env = Environment(task=topic_text)
                             agents = get_agents_by_names(["anthropic-api", "openai-api"])
                             protocol = DebateProtocol(rounds=rounds, consensus="majority")
@@ -1427,6 +1517,7 @@ class UnifiedServer:
                         except Exception as e:
                             logger.error(f"Auto-scheduled debate failed: {e}")
                             return None
+
                     scheduler.set_debate_creator(auto_create_debate)
                     asyncio.create_task(scheduler.start())
                     logger.info("Pulse scheduler auto-started (PULSE_SCHEDULER_AUTOSTART=true)")
@@ -1443,6 +1534,7 @@ class UnifiedServer:
                 get_state_manager,
                 start_cleanup_task,
             )
+
             state_manager = get_state_manager()
             start_cleanup_task(state_manager, interval_seconds=300)
             logger.debug("State cleanup task started (5 min interval)")
@@ -1515,8 +1607,7 @@ class UnifiedServer:
         active_debates = get_active_debates()
         if active_debates:
             in_progress = [
-                d_id for d_id, d in active_debates.items()
-                if d.get("status") == "in_progress"
+                d_id for d_id, d in active_debates.items() if d.get("status") == "in_progress"
             ]
             if in_progress:
                 logger.info(f"Waiting for {len(in_progress)} in-flight debate(s)")
@@ -1524,9 +1615,10 @@ class UnifiedServer:
                 while time.time() - wait_start < timeout:
                     # Check if debates are still running
                     still_running = sum(
-                        1 for d_id in in_progress
-                        if d_id in active_debates and
-                        active_debates.get(d_id, {}).get("status") == "in_progress"
+                        1
+                        for d_id in in_progress
+                        if d_id in active_debates
+                        and active_debates.get(d_id, {}).get("status") == "in_progress"
                     )
                     if still_running == 0:
                         logger.info("All in-flight debates completed")
@@ -1540,6 +1632,7 @@ class UnifiedServer:
         # 3. Persist circuit breaker states
         try:
             from aragora.resilience import persist_all_circuit_breakers
+
             count = persist_all_circuit_breakers()
             if count > 0:
                 logger.info(f"Persisted {count} circuit breaker state(s)")
@@ -1549,6 +1642,7 @@ class UnifiedServer:
         # 3.5 Shutdown OpenTelemetry tracer (flushes pending spans)
         try:
             from aragora.observability.tracing import shutdown as shutdown_tracing
+
             shutdown_tracing()
             logger.info("OpenTelemetry tracer shutdown complete")
         except (ImportError, RuntimeError) as e:
@@ -1557,6 +1651,7 @@ class UnifiedServer:
         # 4. Stop background tasks
         try:
             from aragora.server.background import get_background_manager
+
             background_mgr = get_background_manager()
             background_mgr.stop()
             logger.info("Background tasks stopped")
@@ -1566,6 +1661,7 @@ class UnifiedServer:
         # 4.5. Stop pulse scheduler if running
         try:
             from aragora.server.handlers.pulse import get_pulse_scheduler
+
             scheduler = get_pulse_scheduler()
             if scheduler and scheduler.state.value != "stopped":
                 await scheduler.stop(graceful=True)
@@ -1576,13 +1672,14 @@ class UnifiedServer:
         # 4.6. Stop state cleanup task
         try:
             from aragora.server.stream.state_manager import stop_cleanup_task
+
             stop_cleanup_task()
             logger.debug("State cleanup task stopped")
         except (ImportError, RuntimeError) as e:
             logger.debug(f"State cleanup shutdown: {e}")
 
         # 5. Close WebSocket connections
-        if hasattr(self, 'stream_server') and self.stream_server:
+        if hasattr(self, "stream_server") and self.stream_server:
             try:
                 await self.stream_server.graceful_shutdown()
                 logger.info("WebSocket connections closed")
@@ -1592,6 +1689,7 @@ class UnifiedServer:
         # 6. Close shared HTTP connector (prevents connection leaks)
         try:
             from aragora.agents.api_agents.common import close_shared_connector
+
             await close_shared_connector()
             logger.info("Shared HTTP connector closed")
         except (ImportError, OSError, RuntimeError) as e:
@@ -1600,6 +1698,7 @@ class UnifiedServer:
         # 6.5. Close Redis connection pool
         try:
             from aragora.server.redis_config import close_redis_pool
+
             close_redis_pool()
             logger.debug("Redis connection pool closed")
         except (ImportError, RuntimeError) as e:
@@ -1615,6 +1714,7 @@ class UnifiedServer:
         # 7. Close database connections (connection pool cleanup)
         try:
             from aragora.storage.schema import DatabaseManager
+
             DatabaseManager.clear_instances()
             logger.info("Database connections closed")
         except (ImportError, sqlite3.Error) as e:
@@ -1626,7 +1726,7 @@ class UnifiedServer:
     @property
     def is_shutting_down(self) -> bool:
         """Check if server is in shutdown mode."""
-        return getattr(self, '_shutting_down', False)
+        return getattr(self, "_shutting_down", False)
 
 
 async def run_unified_server(
@@ -1683,6 +1783,7 @@ async def run_unified_server(
     # Ensure demo data is loaded for search functionality
     try:
         from aragora.fixtures import ensure_demo_data
+
         logger.info("[server] Checking demo data initialization...")
         ensure_demo_data()
     except (ImportError, OSError, RuntimeError) as e:

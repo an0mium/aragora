@@ -294,7 +294,10 @@ class TestAutotuner:
         # Low variance, high verification density
         tuner.record_round(0, 1000, 5, [0.8, 0.8, 0.8])  # variance = 0
         tuner.record_round(
-            1, 1000, 5, [0.8, 0.8],
+            1,
+            1000,
+            5,
+            [0.8, 0.8],
             verified_claims=8,
             total_claims=10,  # 0.8 density
         )
@@ -518,4 +521,3 @@ class TestAutotuneIntegration:
         decision = tuner.should_continue()
         # Should recommend cheaper tier due to budget pressure
         assert decision.recommended_tier in [CostTier.CHEAP, CostTier.FREE]
-

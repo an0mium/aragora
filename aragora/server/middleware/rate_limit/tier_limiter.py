@@ -62,9 +62,7 @@ class TierRateLimiter:
 
     def get_tier_limits(self, tier: str) -> tuple[int, int]:
         """Get (rate, burst) for a tier, defaulting to free."""
-        return self.tier_limits.get(
-            tier.lower(), self.tier_limits.get("free", (10, 60))
-        )
+        return self.tier_limits.get(tier.lower(), self.tier_limits.get("free", (10, 60)))
 
     def allow(
         self,
@@ -177,9 +175,7 @@ def check_tier_rate_limit(
             "X-Real-IP": handler.headers.get("X-Real-IP", ""),
         }
 
-    client_key = sanitize_rate_limit_key_component(
-        _extract_client_ip(headers, remote_ip)
-    )
+    client_key = sanitize_rate_limit_key_component(_extract_client_ip(headers, remote_ip))
 
     # Try to look up user tier
     if user_store:

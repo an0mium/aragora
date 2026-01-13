@@ -29,11 +29,11 @@ logger = logging.getLogger(__name__)
 class HealthStatus(Enum):
     """System health status levels."""
 
-    HEALTHY = "healthy"          # All systems nominal
-    DEGRADED = "degraded"        # Some issues but functioning
-    STRESSED = "stressed"        # Performance impacted
-    CRITICAL = "critical"        # Major failures occurring
-    RECOVERING = "recovering"    # Coming back from failure
+    HEALTHY = "healthy"  # All systems nominal
+    DEGRADED = "degraded"  # Some issues but functioning
+    STRESSED = "stressed"  # Performance impacted
+    CRITICAL = "critical"  # Major failures occurring
+    RECOVERING = "recovering"  # Coming back from failure
 
 
 class AgentStatus(Enum):
@@ -180,7 +180,8 @@ class TransparentImmuneSystem:
             return
 
         failed_count = sum(
-            1 for s in self.agent_states.values()
+            1
+            for s in self.agent_states.values()
             if s.status in (AgentStatus.FAILED, AgentStatus.TIMEOUT, AgentStatus.CIRCUIT_OPEN)
         )
         total_agents = len(self.agent_states)
@@ -202,15 +203,17 @@ class TransparentImmuneSystem:
         state.status = AgentStatus.THINKING
         state.last_response_time = time.time()
 
-        self._broadcast(HealthEvent(
-            timestamp=time.time(),
-            event_type="agent_started",
-            status=AgentStatus.THINKING.value,
-            component=agent_name,
-            message=f"Agent {agent_name} started processing",
-            details={"task": task[:100] if task else ""},
-            audience_message=f"{agent_name} is thinking...",
-        ))
+        self._broadcast(
+            HealthEvent(
+                timestamp=time.time(),
+                event_type="agent_started",
+                status=AgentStatus.THINKING.value,
+                component=agent_name,
+                message=f"Agent {agent_name} started processing",
+                details={"task": task[:100] if task else ""},
+                audience_message=f"{agent_name} is thinking...",
+            )
+        )
 
     def agent_progress(self, agent_name: str, elapsed_seconds: float) -> None:
         """
@@ -230,15 +233,17 @@ class TransparentImmuneSystem:
         # Only broadcast at stage transitions (every 5-15 seconds)
         for threshold, _ in self.TIMEOUT_STAGES:
             if abs(elapsed_seconds - threshold) < 1.0:  # Within 1 second of threshold
-                self._broadcast(HealthEvent(
-                    timestamp=time.time(),
-                    event_type="agent_progress",
-                    status=AgentStatus.RESPONDING.value,
-                    component=agent_name,
-                    message=f"Agent {agent_name} still working ({elapsed_seconds:.0f}s)",
-                    details={"elapsed_seconds": elapsed_seconds},
-                    audience_message=audience_msg,
-                ))
+                self._broadcast(
+                    HealthEvent(
+                        timestamp=time.time(),
+                        event_type="agent_progress",
+                        status=AgentStatus.RESPONDING.value,
+                        component=agent_name,
+                        message=f"Agent {agent_name} still working ({elapsed_seconds:.0f}s)",
+                        details={"elapsed_seconds": elapsed_seconds},
+                        audience_message=audience_msg,
+                    )
+                )
                 break
 
     def agent_completed(
@@ -254,24 +259,24 @@ class TransparentImmuneSystem:
 
         # Update rolling average
         alpha = 0.3  # Smoothing factor
-        state.avg_response_ms = (
-            alpha * response_ms + (1 - alpha) * state.avg_response_ms
-        )
+        state.avg_response_ms = alpha * response_ms + (1 - alpha) * state.avg_response_ms
 
         self._update_system_status()
 
-        self._broadcast(HealthEvent(
-            timestamp=time.time(),
-            event_type="agent_completed",
-            status=AgentStatus.IDLE.value,
-            component=agent_name,
-            message=f"Agent {agent_name} completed in {response_ms:.0f}ms",
-            details={
-                "response_ms": response_ms,
-                "success": success,
-            },
-            audience_message=f"{agent_name} responded!",
-        ))
+        self._broadcast(
+            HealthEvent(
+                timestamp=time.time(),
+                event_type="agent_completed",
+                status=AgentStatus.IDLE.value,
+                component=agent_name,
+                message=f"Agent {agent_name} completed in {response_ms:.0f}ms",
+                details={
+                    "response_ms": response_ms,
+                    "success": success,
+                },
+                audience_message=f"{agent_name} responded!",
+            )
+        )
 
     def agent_timeout(
         self,
@@ -288,20 +293,22 @@ class TransparentImmuneSystem:
 
         self._update_system_status()
 
-        self._broadcast(HealthEvent(
-            timestamp=time.time(),
-            event_type="agent_timeout",
-            status=AgentStatus.TIMEOUT.value,
-            component=agent_name,
-            message=f"Agent {agent_name} timed out after {timeout_seconds}s",
-            details={
-                "timeout_seconds": timeout_seconds,
-                "consecutive_failures": state.consecutive_failures,
-                "total_timeouts": state.total_timeouts,
-                "context": context or {},
-            },
-            audience_message=f"{agent_name} is having trouble - we're finding alternatives!",
-        ))
+        self._broadcast(
+            HealthEvent(
+                timestamp=time.time(),
+                event_type="agent_timeout",
+                status=AgentStatus.TIMEOUT.value,
+                component=agent_name,
+                message=f"Agent {agent_name} timed out after {timeout_seconds}s",
+                details={
+                    "timeout_seconds": timeout_seconds,
+                    "consecutive_failures": state.consecutive_failures,
+                    "total_timeouts": state.total_timeouts,
+                    "context": context or {},
+                },
+                audience_message=f"{agent_name} is having trouble - we're finding alternatives!",
+            )
+        )
 
     def agent_failed(
         self,
@@ -317,19 +324,21 @@ class TransparentImmuneSystem:
 
         self._update_system_status()
 
-        self._broadcast(HealthEvent(
-            timestamp=time.time(),
-            event_type="agent_failed",
-            status=AgentStatus.FAILED.value,
-            component=agent_name,
-            message=f"Agent {agent_name} encountered an error",
-            details={
-                "error": error[:200],
-                "recoverable": recoverable,
-                "consecutive_failures": state.consecutive_failures,
-            },
-            audience_message=f"{agent_name} hit a snag - working on recovery!",
-        ))
+        self._broadcast(
+            HealthEvent(
+                timestamp=time.time(),
+                event_type="agent_failed",
+                status=AgentStatus.FAILED.value,
+                component=agent_name,
+                message=f"Agent {agent_name} encountered an error",
+                details={
+                    "error": error[:200],
+                    "recoverable": recoverable,
+                    "consecutive_failures": state.consecutive_failures,
+                },
+                audience_message=f"{agent_name} hit a snag - working on recovery!",
+            )
+        )
 
     def agent_recovered(
         self,
@@ -344,18 +353,20 @@ class TransparentImmuneSystem:
 
         self._update_system_status()
 
-        self._broadcast(HealthEvent(
-            timestamp=time.time(),
-            event_type="agent_recovered",
-            status=AgentStatus.RECOVERED.value,
-            component=agent_name,
-            message=f"Agent {agent_name} recovered via {recovery_method}",
-            details={
-                "recovery_method": recovery_method,
-                **(details or {}),
-            },
-            audience_message=f"{agent_name} is back in action!",
-        ))
+        self._broadcast(
+            HealthEvent(
+                timestamp=time.time(),
+                event_type="agent_recovered",
+                status=AgentStatus.RECOVERED.value,
+                component=agent_name,
+                message=f"Agent {agent_name} recovered via {recovery_method}",
+                details={
+                    "recovery_method": recovery_method,
+                    **(details or {}),
+                },
+                audience_message=f"{agent_name} is back in action!",
+            )
+        )
 
     def circuit_opened(self, agent_name: str, reason: str) -> None:
         """Called when circuit breaker opens for an agent."""
@@ -365,15 +376,17 @@ class TransparentImmuneSystem:
 
         self._update_system_status()
 
-        self._broadcast(HealthEvent(
-            timestamp=time.time(),
-            event_type="circuit_opened",
-            status=AgentStatus.CIRCUIT_OPEN.value,
-            component=agent_name,
-            message=f"Circuit breaker opened for {agent_name}",
-            details={"reason": reason},
-            audience_message=f"{agent_name} is taking a break to cool down",
-        ))
+        self._broadcast(
+            HealthEvent(
+                timestamp=time.time(),
+                event_type="circuit_opened",
+                status=AgentStatus.CIRCUIT_OPEN.value,
+                component=agent_name,
+                message=f"Circuit breaker opened for {agent_name}",
+                details={"reason": reason},
+                audience_message=f"{agent_name} is taking a break to cool down",
+            )
+        )
 
     def circuit_closed(self, agent_name: str) -> None:
         """Called when circuit breaker closes for an agent."""
@@ -384,15 +397,17 @@ class TransparentImmuneSystem:
 
         self._update_system_status()
 
-        self._broadcast(HealthEvent(
-            timestamp=time.time(),
-            event_type="circuit_closed",
-            status=AgentStatus.IDLE.value,
-            component=agent_name,
-            message=f"Circuit breaker closed for {agent_name}",
-            details={},
-            audience_message=f"{agent_name} is ready to rejoin!",
-        ))
+        self._broadcast(
+            HealthEvent(
+                timestamp=time.time(),
+                event_type="circuit_closed",
+                status=AgentStatus.IDLE.value,
+                component=agent_name,
+                message=f"Circuit breaker closed for {agent_name}",
+                details={},
+                audience_message=f"{agent_name} is ready to rejoin!",
+            )
+        )
 
     # System-level events
 
@@ -404,15 +419,17 @@ class TransparentImmuneSystem:
         audience_message: Optional[str] = None,
     ) -> None:
         """Broadcast a general system event."""
-        self._broadcast(HealthEvent(
-            timestamp=time.time(),
-            event_type=event_type,
-            status=self.system_status.value,
-            component="system",
-            message=message,
-            details=details or {},
-            audience_message=audience_message,
-        ))
+        self._broadcast(
+            HealthEvent(
+                timestamp=time.time(),
+                event_type=event_type,
+                status=self.system_status.value,
+                component="system",
+                message=message,
+                details=details or {},
+                audience_message=audience_message,
+            )
+        )
 
     def get_system_health(self) -> dict:
         """Get current system health summary."""
@@ -423,10 +440,7 @@ class TransparentImmuneSystem:
             "total_failures": self.total_failures,
             "total_recoveries": self.total_recoveries,
             "recovery_rate": self.total_recoveries / max(self.total_failures, 1),
-            "agents": {
-                name: state.to_dict()
-                for name, state in self.agent_states.items()
-            },
+            "agents": {name: state.to_dict() for name, state in self.agent_states.items()},
         }
 
     def get_recent_events(self, limit: int = 50) -> list[dict]:

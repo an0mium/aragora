@@ -55,7 +55,7 @@ def get_bool_param(params: dict, key: str, default: bool = False) -> bool:
             return value
     # Convert to string and check truthy values
     if isinstance(value, str):
-        return value.lower() in ('true', '1', 'yes', 'on')
+        return value.lower() in ("true", "1", "yes", "on")
     # Numbers (1/0) or other types
     return bool(value)
 

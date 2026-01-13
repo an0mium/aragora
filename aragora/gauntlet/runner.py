@@ -102,9 +102,7 @@ class GauntletRunner:
 
             # Phase 2: Capability Probes
             report_progress("probes", 0.0)
-            probe_summary = await self._run_probes(
-                input_content, context, result, report_progress
-            )
+            probe_summary = await self._run_probes(input_content, context, result, report_progress)
             result.probe_summary = probe_summary
             report_progress("probes", 1.0)
 
@@ -164,11 +162,17 @@ class GauntletRunner:
             AttackCategory.GDPR: [AttackType.UNSTATED_ASSUMPTION, AttackType.COUNTEREXAMPLE],
             AttackCategory.HIPAA: [AttackType.UNSTATED_ASSUMPTION, AttackType.COUNTEREXAMPLE],
             AttackCategory.AI_ACT: [AttackType.UNSTATED_ASSUMPTION, AttackType.COUNTEREXAMPLE],
-            AttackCategory.REGULATORY_VIOLATION: [AttackType.UNSTATED_ASSUMPTION, AttackType.COUNTEREXAMPLE],
+            AttackCategory.REGULATORY_VIOLATION: [
+                AttackType.UNSTATED_ASSUMPTION,
+                AttackType.COUNTEREXAMPLE,
+            ],
             AttackCategory.EDGE_CASES: [AttackType.EDGE_CASE],
             AttackCategory.EDGE_CASE: [AttackType.EDGE_CASE],
             AttackCategory.ASSUMPTIONS: [AttackType.UNSTATED_ASSUMPTION],
-            AttackCategory.STAKEHOLDER_CONFLICT: [AttackType.UNSTATED_ASSUMPTION, AttackType.COUNTEREXAMPLE],
+            AttackCategory.STAKEHOLDER_CONFLICT: [
+                AttackType.UNSTATED_ASSUMPTION,
+                AttackType.COUNTEREXAMPLE,
+            ],
             AttackCategory.ARCHITECTURE: [AttackType.SCALABILITY],
             AttackCategory.SCALABILITY: [AttackType.SCALABILITY, AttackType.RESOURCE_EXHAUSTION],
             AttackCategory.PERFORMANCE: [AttackType.SCALABILITY, AttackType.RESOURCE_EXHAUSTION],
@@ -305,9 +309,7 @@ class GauntletRunner:
                 for probe_type, results in report.by_type.items():
                     for probe_result in results:
                         if probe_result.vulnerability_found:
-                            self._add_probe_as_vulnerability(
-                                probe_result, agent_name, result
-                            )
+                            self._add_probe_as_vulnerability(probe_result, agent_name, result)
                             cat = probe_type
                             summary.by_category[cat] = summary.by_category.get(cat, 0) + 1
 
@@ -362,7 +364,7 @@ class GauntletRunner:
                 # Get agents - use agent_factory if provided, else use default agent names
                 agents = []
                 if self.agent_factory:
-                    for agent_name in self.config.agents[:self.config.max_agents]:
+                    for agent_name in self.config.agents[: self.config.max_agents]:
                         try:
                             agent = self.agent_factory(agent_name)
                             if agent:
@@ -373,21 +375,24 @@ class GauntletRunner:
                 # Fallback to creating agents from names
                 if not agents:
                     from aragora.agents import get_agents_by_names
-                    agents = get_agents_by_names(
-                        self.config.agents[:self.config.max_agents]
-                    )
+
+                    agents = get_agents_by_names(self.config.agents[: self.config.max_agents])
 
                 if not agents:
                     # Return mock result if no agents available
                     logger.warning("[gauntlet] No agents available for scenario debate")
-                    return type("Result", (), {
-                        "final_answer": f"Analysis of: {task[:50]}",
-                        "confidence": 0.5,
-                        "consensus_reached": False,
-                        "key_claims": [],
-                        "dissenting_views": [],
-                        "rounds_used": 0,
-                    })()
+                    return type(
+                        "Result",
+                        (),
+                        {
+                            "final_answer": f"Analysis of: {task[:50]}",
+                            "confidence": 0.5,
+                            "consensus_reached": False,
+                            "key_claims": [],
+                            "dissenting_views": [],
+                            "rounds_used": 0,
+                        },
+                    )()
 
                 # Configure protocol for short scenario debates
                 protocol = DebateProtocol(
@@ -413,24 +418,32 @@ class GauntletRunner:
 
             except ImportError as e:
                 logger.warning(f"[gauntlet] Arena not available: {e}")
-                return type("Result", (), {
-                    "final_answer": f"Analysis of: {task[:50]}",
-                    "confidence": 0.5,
-                    "consensus_reached": False,
-                    "key_claims": [],
-                    "dissenting_views": [],
-                    "rounds_used": 0,
-                })()
+                return type(
+                    "Result",
+                    (),
+                    {
+                        "final_answer": f"Analysis of: {task[:50]}",
+                        "confidence": 0.5,
+                        "consensus_reached": False,
+                        "key_claims": [],
+                        "dissenting_views": [],
+                        "rounds_used": 0,
+                    },
+                )()
             except Exception as e:
                 logger.error(f"[gauntlet] Arena debate error: {e}")
-                return type("Result", (), {
-                    "final_answer": f"Error during analysis: {str(e)[:100]}",
-                    "confidence": 0.3,
-                    "consensus_reached": False,
-                    "key_claims": [],
-                    "dissenting_views": [],
-                    "rounds_used": 0,
-                })()
+                return type(
+                    "Result",
+                    (),
+                    {
+                        "final_answer": f"Error during analysis: {str(e)[:100]}",
+                        "confidence": 0.3,
+                        "consensus_reached": False,
+                        "key_claims": [],
+                        "dissenting_views": [],
+                        "rounds_used": 0,
+                    },
+                )()
 
         runner = MatrixDebateRunner(
             debate_func=debate_func,
@@ -507,10 +520,7 @@ class GauntletRunner:
         }
         severity = SeverityLevel.MEDIUM
         if hasattr(probe_result, "severity") and probe_result.severity:
-            severity = severity_map.get(
-                probe_result.severity.value.lower(),
-                SeverityLevel.MEDIUM
-            )
+            severity = severity_map.get(probe_result.severity.value.lower(), SeverityLevel.MEDIUM)
 
         vuln = Vulnerability(
             id=f"vuln-{self._vulnerability_counter:04d}",

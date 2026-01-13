@@ -2,7 +2,7 @@
 # Run nomic loop with Cloudflare Tunnel for public access
 #
 # This exposes your local WebSocket server to the internet via Cloudflare Tunnel.
-# live.aragora.ai connects to wss://api.aragora.ai which routes through this tunnel.
+# aragora.ai connects to wss://api.aragora.ai which routes through this tunnel.
 #
 # Prerequisites:
 #   - cloudflared installed (brew install cloudflared)
@@ -58,7 +58,7 @@ fi
 echo ""
 echo "Tunnel: $TUNNEL_NAME"
 echo "Public URL: wss://api.aragora.ai"
-echo "Dashboard: https://live.aragora.ai"
+echo "Dashboard: https://aragora.ai"
 echo ""
 echo "========================================"
 echo ""

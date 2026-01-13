@@ -113,7 +113,9 @@ class TestBeliefNetworkBuildingExtended:
     """Extended tests for belief network building."""
 
     @pytest.mark.asyncio
-    async def test_network_from_votes_creates_nodes(self, integration_no_checkpoint, sample_debate_result):
+    async def test_network_from_votes_creates_nodes(
+        self, integration_no_checkpoint, sample_debate_result
+    ):
         """Test that network creates nodes from votes."""
         analysis = await integration_no_checkpoint.analyze_debate(sample_debate_result)
 
@@ -122,7 +124,9 @@ class TestBeliefNetworkBuildingExtended:
         assert len(analysis.network.nodes) >= 3
 
     @pytest.mark.asyncio
-    async def test_network_adds_factors_from_votes(self, integration_no_checkpoint, sample_debate_result):
+    async def test_network_adds_factors_from_votes(
+        self, integration_no_checkpoint, sample_debate_result
+    ):
         """Test that network adds factors based on vote choices."""
         analysis = await integration_no_checkpoint.analyze_debate(sample_debate_result)
 
@@ -130,7 +134,9 @@ class TestBeliefNetworkBuildingExtended:
         assert len(analysis.network.node_factors) >= 0
 
     @pytest.mark.asyncio
-    async def test_network_with_claims_kernel(self, integration_no_checkpoint, sample_debate_result):
+    async def test_network_with_claims_kernel(
+        self, integration_no_checkpoint, sample_debate_result
+    ):
         """Test network building with claims kernel."""
         # Create mock claims kernel
         mock_kernel = MagicMock()
@@ -418,7 +424,7 @@ class TestEvidenceStalenessExtended:
         assert any("core.py" in f for f in files)
 
         # Test that check_staleness returns a StalenessReport (mocking the buggy internals)
-        with patch.object(integration, 'check_staleness', new_callable=AsyncMock) as mock_check:
+        with patch.object(integration, "check_staleness", new_callable=AsyncMock) as mock_check:
             mock_check.return_value = StalenessReport(
                 stale_claims=[sample_claims[0]],
                 staleness_checks={},
@@ -485,10 +491,14 @@ class TestFullAnalysisFlow:
     """Tests for full_post_debate_analysis flow."""
 
     @pytest.mark.asyncio
-    async def test_full_analysis_runs_belief_first(self, integration_no_checkpoint, sample_debate_result):
+    async def test_full_analysis_runs_belief_first(
+        self, integration_no_checkpoint, sample_debate_result
+    ):
         """Test that belief analysis runs first."""
         # Mock resolve_deadlock to avoid bugs in the implementation
-        with patch.object(integration_no_checkpoint, 'resolve_deadlock', new_callable=AsyncMock) as mock_resolve:
+        with patch.object(
+            integration_no_checkpoint, "resolve_deadlock", new_callable=AsyncMock
+        ) as mock_resolve:
             mock_resolve.return_value = None
             result = await integration_no_checkpoint.full_post_debate_analysis(sample_debate_result)
 
@@ -496,10 +506,14 @@ class TestFullAnalysisFlow:
             assert isinstance(result["belief"], BeliefAnalysis)
 
     @pytest.mark.asyncio
-    async def test_full_analysis_summary_populated(self, integration_no_checkpoint, sample_debate_result):
+    async def test_full_analysis_summary_populated(
+        self, integration_no_checkpoint, sample_debate_result
+    ):
         """Test that summary fields are populated."""
         # Mock resolve_deadlock to avoid bugs in the implementation
-        with patch.object(integration_no_checkpoint, 'resolve_deadlock', new_callable=AsyncMock) as mock_resolve:
+        with patch.object(
+            integration_no_checkpoint, "resolve_deadlock", new_callable=AsyncMock
+        ) as mock_resolve:
             mock_resolve.return_value = None
             result = await integration_no_checkpoint.full_post_debate_analysis(sample_debate_result)
 
@@ -511,15 +525,21 @@ class TestFullAnalysisFlow:
             assert "stale_count" in summary
 
     @pytest.mark.asyncio
-    async def test_full_analysis_with_claims_kernel(self, integration_no_checkpoint, sample_debate_result, sample_claims):
+    async def test_full_analysis_with_claims_kernel(
+        self, integration_no_checkpoint, sample_debate_result, sample_claims
+    ):
         """Test full analysis with claims kernel."""
         mock_kernel = MagicMock()
         mock_kernel.claims = {c.claim_id: c for c in sample_claims}
         mock_kernel.relations = {}
 
         # Mock both resolve_deadlock and check_staleness to avoid bugs in the implementation
-        with patch.object(integration_no_checkpoint, 'resolve_deadlock', new_callable=AsyncMock) as mock_resolve:
-            with patch.object(integration_no_checkpoint, 'check_staleness', new_callable=AsyncMock) as mock_staleness:
+        with patch.object(
+            integration_no_checkpoint, "resolve_deadlock", new_callable=AsyncMock
+        ) as mock_resolve:
+            with patch.object(
+                integration_no_checkpoint, "check_staleness", new_callable=AsyncMock
+            ) as mock_staleness:
                 mock_resolve.return_value = None
                 mock_staleness.return_value = StalenessReport(
                     stale_claims=[],
@@ -537,10 +557,14 @@ class TestFullAnalysisFlow:
                 assert result["summary"]["stale_count"] == 0
 
     @pytest.mark.asyncio
-    async def test_full_analysis_no_changed_files_skips_staleness(self, integration_no_checkpoint, sample_debate_result):
+    async def test_full_analysis_no_changed_files_skips_staleness(
+        self, integration_no_checkpoint, sample_debate_result
+    ):
         """Test that staleness is skipped without changed_files."""
         # Mock resolve_deadlock to avoid bugs in the implementation
-        with patch.object(integration_no_checkpoint, 'resolve_deadlock', new_callable=AsyncMock) as mock_resolve:
+        with patch.object(
+            integration_no_checkpoint, "resolve_deadlock", new_callable=AsyncMock
+        ) as mock_resolve:
             mock_resolve.return_value = None
             result = await integration_no_checkpoint.full_post_debate_analysis(
                 sample_debate_result,

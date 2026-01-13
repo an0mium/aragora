@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
@@ -69,7 +69,7 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText(/RESET_COMPONENT/)).toBeInTheDocument();
   });
 
-  it('resets error state when reset button clicked', () => {
+  it('resets error state when reset button clicked', async () => {
     const { rerender } = render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
@@ -79,9 +79,6 @@ describe('ErrorBoundary', () => {
     // Error UI should be visible
     expect(screen.getByText('RUNTIME ERROR')).toBeInTheDocument();
 
-    // Click reset
-    fireEvent.click(screen.getByText(/RESET_COMPONENT/));
-
     // Re-render with non-throwing child
     rerender(
       <ErrorBoundary>
@@ -89,8 +86,13 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     );
 
+    // Click reset after swapping to non-throwing child
+    fireEvent.click(screen.getByText(/RESET_COMPONENT/));
+
     // Should show normal content
-    expect(screen.getByText('No error')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('No error')).toBeInTheDocument();
+    });
     expect(screen.queryByText('RUNTIME ERROR')).not.toBeInTheDocument();
   });
 

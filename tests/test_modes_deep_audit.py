@@ -69,8 +69,13 @@ class TestDeepAuditConfig:
         config_fields = {f.name for f in fields(config)}
 
         expected_fields = {
-            'rounds', 'enable_research', 'roles', 'synthesizer_final_round',
-            'cross_examination_depth', 'require_citations', 'risk_threshold'
+            "rounds",
+            "enable_research",
+            "roles",
+            "synthesizer_final_round",
+            "cross_examination_depth",
+            "require_citations",
+            "risk_threshold",
         }
         assert config_fields == expected_fields
 
@@ -145,12 +150,8 @@ class TestAuditFinding:
 
     def test_finding_severity_range(self):
         """Test severity values at boundaries."""
-        finding_low = AuditFinding(
-            category="risk", summary="Low", details="", severity=0.0
-        )
-        finding_high = AuditFinding(
-            category="risk", summary="High", details="", severity=1.0
-        )
+        finding_low = AuditFinding(category="risk", summary="Low", details="", severity=0.0)
+        finding_high = AuditFinding(category="risk", summary="High", details="", severity=1.0)
 
         assert finding_low.severity == 0.0
         assert finding_high.severity == 1.0
@@ -576,13 +577,8 @@ class TestRunDeepAudit:
         """Test that run_deep_audit creates proper orchestrator."""
         agents = [self.create_mock_agent("agent1")]
 
-        with patch.object(
-            DeepAuditOrchestrator, 'run',
-            new_callable=AsyncMock
-        ) as mock_run:
-            mock_run.return_value = DeepAuditVerdict(
-                recommendation="Test", confidence=0.8
-            )
+        with patch.object(DeepAuditOrchestrator, "run", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = DeepAuditVerdict(recommendation="Test", confidence=0.8)
 
             result = await run_deep_audit(
                 task="Test task",
@@ -599,13 +595,8 @@ class TestRunDeepAudit:
         agents = [self.create_mock_agent("agent1")]
         config = DeepAuditConfig(rounds=3)
 
-        with patch.object(
-            DeepAuditOrchestrator, 'run',
-            new_callable=AsyncMock
-        ) as mock_run:
-            mock_run.return_value = DeepAuditVerdict(
-                recommendation="Custom", confidence=0.9
-            )
+        with patch.object(DeepAuditOrchestrator, "run", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = DeepAuditVerdict(recommendation="Custom", confidence=0.9)
 
             await run_deep_audit(
                 task="Test",
@@ -688,12 +679,8 @@ class TestEdgeCases:
 
     def test_finding_confidence_boundary(self):
         """Test finding confidence at boundaries."""
-        finding_zero = AuditFinding(
-            category="insight", summary="Test", details="", confidence=0.0
-        )
-        finding_one = AuditFinding(
-            category="insight", summary="Test", details="", confidence=1.0
-        )
+        finding_zero = AuditFinding(category="insight", summary="Test", details="", confidence=0.0)
+        finding_one = AuditFinding(category="insight", summary="Test", details="", confidence=1.0)
 
         assert finding_zero.confidence == 0.0
         assert finding_one.confidence == 1.0

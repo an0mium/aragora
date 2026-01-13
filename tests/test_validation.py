@@ -33,6 +33,7 @@ from aragora.server.validation import (
 # ValidationResult Tests
 # ============================================================================
 
+
 class TestValidationResult:
     """Tests for ValidationResult dataclass."""
 
@@ -57,6 +58,7 @@ class TestValidationResult:
 # JSON Body Validation Tests
 # ============================================================================
 
+
 class TestValidateJsonBody:
     """Tests for validate_json_body function."""
 
@@ -70,7 +72,7 @@ class TestValidateJsonBody:
 
     def test_empty_body(self):
         """Test empty body fails."""
-        result = validate_json_body(b'')
+        result = validate_json_body(b"")
 
         assert result.is_valid is False
         assert "empty" in result.error.lower()
@@ -84,7 +86,7 @@ class TestValidateJsonBody:
 
     def test_body_too_large(self):
         """Test oversized body fails."""
-        large_body = b'{"x": "' + b'a' * (MAX_JSON_BODY_SIZE + 100) + b'"}'
+        large_body = b'{"x": "' + b"a" * (MAX_JSON_BODY_SIZE + 100) + b'"}'
         result = validate_json_body(large_body, max_size=MAX_JSON_BODY_SIZE)
 
         assert result.is_valid is False
@@ -110,15 +112,19 @@ class TestValidateJsonBody:
 # Content-Type Validation Tests
 # ============================================================================
 
+
 class TestValidateContentType:
     """Tests for validate_content_type function."""
 
-    @pytest.mark.parametrize("content_type,expected_valid", [
-        ("application/json", True),
-        ("application/json; charset=utf-8", True),
-        ("text/html", False),
-        ("", False),
-    ])
+    @pytest.mark.parametrize(
+        "content_type,expected_valid",
+        [
+            ("application/json", True),
+            ("application/json; charset=utf-8", True),
+            ("text/html", False),
+            ("", False),
+        ],
+    )
     def test_content_type_validation(self, content_type: str, expected_valid: bool):
         """Test content type validation for various inputs."""
         result = validate_content_type(content_type)
@@ -136,16 +142,14 @@ class TestValidateContentType:
 
     def test_custom_expected_type(self):
         """Test custom expected content type."""
-        result = validate_content_type(
-            "multipart/form-data",
-            expected="multipart/form-data"
-        )
+        result = validate_content_type("multipart/form-data", expected="multipart/form-data")
         assert result.is_valid is True
 
 
 # ============================================================================
 # Required Fields Validation Tests
 # ============================================================================
+
 
 class TestValidateRequiredFields:
     """Tests for validate_required_fields function."""
@@ -183,6 +187,7 @@ class TestValidateRequiredFields:
 # ============================================================================
 # String Field Validation Tests
 # ============================================================================
+
 
 class TestValidateStringField:
     """Tests for validate_string_field function."""
@@ -252,6 +257,7 @@ class TestValidateStringField:
 # Integer Field Validation Tests
 # ============================================================================
 
+
 class TestValidateIntField:
     """Tests for validate_int_field function."""
 
@@ -305,6 +311,7 @@ class TestValidateIntField:
 # Float Field Validation Tests
 # ============================================================================
 
+
 class TestValidateFloatField:
     """Tests for validate_float_field function."""
 
@@ -350,6 +357,7 @@ class TestValidateFloatField:
 # ============================================================================
 # List Field Validation Tests
 # ============================================================================
+
 
 class TestValidateListField:
     """Tests for validate_list_field function."""
@@ -405,6 +413,7 @@ class TestValidateListField:
 # Enum Field Validation Tests
 # ============================================================================
 
+
 class TestValidateEnumField:
     """Tests for validate_enum_field function."""
 
@@ -436,6 +445,7 @@ class TestValidateEnumField:
 # ============================================================================
 # Schema Validation Tests
 # ============================================================================
+
 
 class TestValidateAgainstSchema:
     """Tests for validate_against_schema function."""
@@ -517,13 +527,17 @@ class TestValidateAgainstSchema:
 # Sanitization Tests
 # ============================================================================
 
+
 class TestSanitizeString:
     """Tests for sanitize_string function."""
 
-    @pytest.mark.parametrize("input_str,expected", [
-        ("  hello world  ", "hello world"),
-        ("no_whitespace", "no_whitespace"),
-    ])
+    @pytest.mark.parametrize(
+        "input_str,expected",
+        [
+            ("  hello world  ", "hello world"),
+            ("no_whitespace", "no_whitespace"),
+        ],
+    )
     def test_strips_whitespace(self, input_str: str, expected: str):
         """Test whitespace is stripped."""
         result = sanitize_string(input_str)
@@ -545,20 +559,26 @@ class TestSanitizeString:
 class TestSanitizeId:
     """Tests for sanitize_id function."""
 
-    @pytest.mark.parametrize("input_id,expected", [
-        ("valid_id-123", "valid_id-123"),
-        ("  valid_id  ", "valid_id"),
-    ])
+    @pytest.mark.parametrize(
+        "input_id,expected",
+        [
+            ("valid_id-123", "valid_id-123"),
+            ("  valid_id  ", "valid_id"),
+        ],
+    )
     def test_valid_id(self, input_id: str, expected: str):
         """Test valid ID passes through (with whitespace stripping)."""
         result = sanitize_id(input_id)
         assert result == expected
 
-    @pytest.mark.parametrize("invalid_id", [
-        "invalid id with spaces!",
-        123,
-        "a" * 100,  # Pattern max is 64
-    ])
+    @pytest.mark.parametrize(
+        "invalid_id",
+        [
+            "invalid id with spaces!",
+            123,
+            "a" * 100,  # Pattern max is 64
+        ],
+    )
     def test_invalid_id_returns_none(self, invalid_id):
         """Test invalid IDs return None."""
         result = sanitize_id(invalid_id)
@@ -569,54 +589,70 @@ class TestSanitizeId:
 # Pattern Tests
 # ============================================================================
 
+
 class TestPatterns:
     """Tests for validation regex patterns."""
 
-    @pytest.mark.parametrize("id_str", [
-        "abc",
-        "test_123",
-        "my-id",
-        "ABC123",
-        "a" * 64,
-    ])
+    @pytest.mark.parametrize(
+        "id_str",
+        [
+            "abc",
+            "test_123",
+            "my-id",
+            "ABC123",
+            "a" * 64,
+        ],
+    )
     def test_safe_id_pattern_valid(self, id_str: str):
         """Test valid IDs match pattern."""
         assert SAFE_ID_PATTERN.match(id_str), f"{id_str} should match"
 
-    @pytest.mark.parametrize("id_str", [
-        "",
-        "a" * 65,
-        "has space",
-        "special@char",
-        "dot.id",
-    ])
+    @pytest.mark.parametrize(
+        "id_str",
+        [
+            "",
+            "a" * 65,
+            "has space",
+            "special@char",
+            "dot.id",
+        ],
+    )
     def test_safe_id_pattern_invalid(self, id_str: str):
         """Test invalid IDs don't match pattern."""
         assert not SAFE_ID_PATTERN.match(id_str), f"{id_str} should not match"
 
-    @pytest.mark.parametrize("slug", [
-        "my-article-slug",
-        "test_page_123",
-        "a" * 128,
-    ])
+    @pytest.mark.parametrize(
+        "slug",
+        [
+            "my-article-slug",
+            "test_page_123",
+            "a" * 128,
+        ],
+    )
     def test_safe_slug_pattern_valid(self, slug: str):
         """Test valid slugs match pattern."""
         assert SAFE_SLUG_PATTERN.match(slug), f"{slug} should match"
 
-    @pytest.mark.parametrize("agent", [
-        "claude",
-        "gemini-pro",
-        "gpt_4",
-        "agent123",
-    ])
+    @pytest.mark.parametrize(
+        "agent",
+        [
+            "claude",
+            "gemini-pro",
+            "gpt_4",
+            "agent123",
+        ],
+    )
     def test_safe_agent_pattern_valid(self, agent: str):
         """Test valid agent names match pattern."""
         assert SAFE_AGENT_PATTERN.match(agent), f"{agent} should match"
 
-    @pytest.mark.parametrize("agent,expected_match", [
-        ("a" * 32, True),
-        ("a" * 33, False),
-    ])
+    @pytest.mark.parametrize(
+        "agent,expected_match",
+        [
+            ("a" * 32, True),
+            ("a" * 33, False),
+        ],
+    )
     def test_safe_agent_pattern_max_length(self, agent: str, expected_match: bool):
         """Test agent name max length is 32."""
         assert bool(SAFE_AGENT_PATTERN.match(agent)) is expected_match

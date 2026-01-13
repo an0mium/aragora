@@ -261,21 +261,22 @@ class AuthHandler(BaseHandler):
             return error_response("Authentication service unavailable", 503)
 
         # Check if account is locked (before revealing if user exists)
-        if hasattr(user_store, 'is_account_locked'):
+        if hasattr(user_store, "is_account_locked"):
             is_locked, lockout_until, failed_attempts = user_store.is_account_locked(email)
             if is_locked and lockout_until:
-                remaining_minutes = max(1, int((lockout_until - datetime.utcnow()).total_seconds() / 60))
+                remaining_minutes = max(
+                    1, int((lockout_until - datetime.utcnow()).total_seconds() / 60)
+                )
                 logger.warning(f"Login attempt on locked account: {email}")
                 return error_response(
-                    f"Account temporarily locked. Try again in {remaining_minutes} minute(s).",
-                    429
+                    f"Account temporarily locked. Try again in {remaining_minutes} minute(s).", 429
                 )
 
         # Find user
         user = user_store.get_user_by_email(email)
         if not user:
             # Record failed attempt (even for non-existent users to prevent enumeration timing)
-            if hasattr(user_store, 'record_failed_login'):
+            if hasattr(user_store, "record_failed_login"):
                 # Create placeholder entry for rate limiting if needed
                 pass
             # Use same error to prevent email enumeration
@@ -288,18 +289,20 @@ class AuthHandler(BaseHandler):
         # Verify password
         if not user.verify_password(password):
             # Record failed login attempt
-            if hasattr(user_store, 'record_failed_login'):
+            if hasattr(user_store, "record_failed_login"):
                 attempts, lockout_until = user_store.record_failed_login(email)
                 if lockout_until:
-                    remaining_minutes = max(1, int((lockout_until - datetime.utcnow()).total_seconds() / 60))
+                    remaining_minutes = max(
+                        1, int((lockout_until - datetime.utcnow()).total_seconds() / 60)
+                    )
                     return error_response(
                         f"Too many failed attempts. Account locked for {remaining_minutes} minute(s).",
-                        429
+                        429,
                     )
             return error_response("Invalid email or password", 401)
 
         # Successful login - reset failed attempts
-        if hasattr(user_store, 'reset_failed_login_attempts'):
+        if hasattr(user_store, "reset_failed_login_attempts"):
             user_store.reset_failed_login_attempts(email)
 
         # Update last login
@@ -375,6 +378,7 @@ class AuthHandler(BaseHandler):
         # If persistent fails, in-memory stays valid (fail-safe)
         # If persistent succeeds but in-memory fails, persistent check catches it
         from aragora.billing.jwt_auth import revoke_token_persistent
+
         try:
             revoke_token_persistent(refresh_token)
         except Exception as e:
@@ -422,11 +426,17 @@ class AuthHandler(BaseHandler):
             in_memory_ok = blacklist.revoke_token(token)
 
             if persistent_ok and in_memory_ok:
-                logger.info(f"User logged out and token revoked (persistent + in-memory): {auth_ctx.user_id}")
+                logger.info(
+                    f"User logged out and token revoked (persistent + in-memory): {auth_ctx.user_id}"
+                )
             elif persistent_ok:
-                logger.warning(f"User logged out, persistent revoked but in-memory failed: {auth_ctx.user_id}")
+                logger.warning(
+                    f"User logged out, persistent revoked but in-memory failed: {auth_ctx.user_id}"
+                )
             else:
-                logger.warning(f"User logged out but persistent revocation failed: {auth_ctx.user_id}")
+                logger.warning(
+                    f"User logged out but persistent revocation failed: {auth_ctx.user_id}"
+                )
         else:
             logger.info(f"User logged out (no token to revoke): {auth_ctx.user_id}")
 
@@ -470,15 +480,15 @@ class AuthHandler(BaseHandler):
             blacklist.revoke_token(token)
             revoke_token_persistent(token)
 
-        logger.info(
-            f"logout_all user_id={auth_ctx.user_id} new_token_version={new_version}"
-        )
+        logger.info(f"logout_all user_id={auth_ctx.user_id} new_token_version={new_version}")
 
-        return json_response({
-            "message": "All sessions terminated",
-            "sessions_invalidated": True,
-            "token_version": new_version,
-        })
+        return json_response(
+            {
+                "message": "All sessions terminated",
+                "sessions_invalidated": True,
+                "token_version": new_version,
+            }
+        )
 
     @handle_errors("get user info")
     def _handle_get_me(self, handler) -> HandlerResult:
@@ -588,6 +598,7 @@ class AuthHandler(BaseHandler):
 
         # Set new password
         from aragora.billing.models import hash_password
+
         password_hash, password_salt = hash_password(new_password)
         user_store.update_user(
             user.id,
@@ -637,12 +648,16 @@ class AuthHandler(BaseHandler):
             if persistent_ok:
                 logger.info(f"Token revoked (in-memory + persistent) by user: {auth_ctx.user_id}")
             else:
-                logger.warning(f"Token revoked in-memory but persistent failed for user: {auth_ctx.user_id}")
-            return json_response({
-                "message": "Token revoked successfully",
-                "blacklist_size": blacklist.size(),
-                "persistent": persistent_ok,
-            })
+                logger.warning(
+                    f"Token revoked in-memory but persistent failed for user: {auth_ctx.user_id}"
+                )
+            return json_response(
+                {
+                    "message": "Token revoked successfully",
+                    "blacklist_size": blacklist.size(),
+                    "persistent": persistent_ok,
+                }
+            )
         else:
             return error_response("Invalid token - could not revoke", 400)
 
@@ -669,9 +684,7 @@ class AuthHandler(BaseHandler):
         if user.org_id:
             org = user_store.get_organization_by_id(user.org_id)
             if org and not org.limits.api_access:
-                return error_response(
-                    "API access requires Professional tier or higher", 403
-                )
+                return error_response("API access requires Professional tier or higher", 403)
 
         # Generate new API key using secure hash-based storage
         # The plaintext key is only returned once; we store the hash
@@ -694,7 +707,9 @@ class AuthHandler(BaseHandler):
             {
                 "api_key": api_key,
                 "prefix": user.api_key_prefix,
-                "expires_at": user.api_key_expires_at.isoformat() if user.api_key_expires_at else None,
+                "expires_at": (
+                    user.api_key_expires_at.isoformat() if user.api_key_expires_at else None
+                ),
                 "message": "Save this key - it will not be shown again",
             }
         )
@@ -765,16 +780,15 @@ class AuthHandler(BaseHandler):
 
         # Generate provisioning URI for authenticator apps
         totp = pyotp.TOTP(secret)
-        provisioning_uri = totp.provisioning_uri(
-            name=user.email,
-            issuer_name="Aragora"
-        )
+        provisioning_uri = totp.provisioning_uri(name=user.email, issuer_name="Aragora")
 
-        return json_response({
-            "secret": secret,
-            "provisioning_uri": provisioning_uri,
-            "message": "Scan QR code or enter secret in your authenticator app, then call /api/auth/mfa/enable with verification code",
-        })
+        return json_response(
+            {
+                "secret": secret,
+                "provisioning_uri": provisioning_uri,
+                "message": "Scan QR code or enter secret in your authenticator app, then call /api/auth/mfa/enable with verification code",
+            }
+        )
 
     @rate_limit(rpm=5, limiter_name="mfa_enable")
     @handle_errors("MFA enable")
@@ -822,6 +836,7 @@ class AuthHandler(BaseHandler):
         backup_hashes = [hashlib.sha256(c.encode()).hexdigest() for c in backup_codes]
 
         import json as json_module
+
         user_store.update_user(
             user.id,
             mfa_enabled=True,
@@ -830,11 +845,13 @@ class AuthHandler(BaseHandler):
 
         logger.info(f"MFA enabled for user: {user.email}")
 
-        return json_response({
-            "message": "MFA enabled successfully",
-            "backup_codes": backup_codes,
-            "warning": "Save these backup codes securely. They cannot be shown again.",
-        })
+        return json_response(
+            {
+                "message": "MFA enabled successfully",
+                "backup_codes": backup_codes,
+                "warning": "Save these backup codes securely. They cannot be shown again.",
+            }
+        )
 
     @rate_limit(rpm=5, limiter_name="mfa_disable")
     @handle_errors("MFA disable")
@@ -937,6 +954,7 @@ class AuthHandler(BaseHandler):
         if totp.verify(code, valid_window=1):
             # Blacklist pending token to prevent replay
             from aragora.billing.jwt_auth import get_token_blacklist
+
             blacklist = get_token_blacklist()
             blacklist.revoke_token(pending_token)
 
@@ -949,15 +967,18 @@ class AuthHandler(BaseHandler):
             )
             token_dict = tokens.to_dict()
             logger.info(f"MFA verified for user: {user.email}")
-            return json_response({
-                "message": "MFA verification successful",
-                "user": user.to_dict(),
-                "tokens": token_dict,
-            })
+            return json_response(
+                {
+                    "message": "MFA verification successful",
+                    "user": user.to_dict(),
+                    "tokens": token_dict,
+                }
+            )
 
         # Try backup code
         if user.mfa_backup_codes:
             import json as json_module
+
             code_hash = hashlib.sha256(code.encode()).hexdigest()
             backup_hashes = json_module.loads(user.mfa_backup_codes)
 
@@ -971,6 +992,7 @@ class AuthHandler(BaseHandler):
 
                 # Blacklist pending token to prevent replay
                 from aragora.billing.jwt_auth import get_token_blacklist
+
                 blacklist = get_token_blacklist()
                 blacklist.revoke_token(pending_token)
 
@@ -985,13 +1007,17 @@ class AuthHandler(BaseHandler):
 
                 logger.info(f"Backup code used for user: {user.email}, {remaining} remaining")
 
-                return json_response({
-                    "message": "MFA verification successful (backup code used)",
-                    "user": user.to_dict(),
-                    "tokens": token_dict,
-                    "backup_codes_remaining": remaining,
-                    "warning": f"Backup code used. {remaining} remaining." if remaining < 5 else None,
-                })
+                return json_response(
+                    {
+                        "message": "MFA verification successful (backup code used)",
+                        "user": user.to_dict(),
+                        "tokens": token_dict,
+                        "backup_codes_remaining": remaining,
+                        "warning": (
+                            f"Backup code used. {remaining} remaining." if remaining < 5 else None
+                        ),
+                    }
+                )
 
         return error_response("Invalid MFA code", 400)
 
@@ -1039,6 +1065,7 @@ class AuthHandler(BaseHandler):
         backup_hashes = [hashlib.sha256(c.encode()).hexdigest() for c in backup_codes]
 
         import json as json_module
+
         user_store.update_user(
             user.id,
             mfa_backup_codes=json_module.dumps(backup_hashes),
@@ -1046,10 +1073,12 @@ class AuthHandler(BaseHandler):
 
         logger.info(f"Backup codes regenerated for user: {user.email}")
 
-        return json_response({
-            "backup_codes": backup_codes,
-            "warning": "Save these backup codes securely. They cannot be shown again.",
-        })
+        return json_response(
+            {
+                "backup_codes": backup_codes,
+                "warning": "Save these backup codes securely. They cannot be shown again.",
+            }
+        )
 
 
 class InMemoryUserStore:
@@ -1098,7 +1127,7 @@ class InMemoryUserStore:
 
         # Fall back to hash-based verification for secure storage
         for user in self.users.values():
-            if hasattr(user, 'verify_api_key') and user.verify_api_key(api_key):
+            if hasattr(user, "verify_api_key") and user.verify_api_key(api_key):
                 return user
 
         return None

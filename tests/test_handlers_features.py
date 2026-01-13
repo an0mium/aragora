@@ -29,6 +29,7 @@ from aragora.server.handlers.features import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def features_handler():
     """Create FeaturesHandler instance."""
@@ -38,6 +39,7 @@ def features_handler():
 # ============================================================================
 # FeatureInfo Tests
 # ============================================================================
+
 
 class TestFeatureInfo:
     """Tests for FeatureInfo dataclass."""
@@ -80,6 +82,7 @@ class TestFeatureInfo:
 # Feature Registry Tests
 # ============================================================================
 
+
 class TestFeatureRegistry:
     """Tests for FEATURE_REGISTRY configuration."""
 
@@ -102,23 +105,31 @@ class TestFeatureRegistry:
         """Test that all features have valid status."""
         valid_statuses = {"optional", "coming_soon", "deprecated"}
         for feature_id, feature in FEATURE_REGISTRY.items():
-            assert feature.status in valid_statuses, \
-                f"{feature_id} has invalid status: {feature.status}"
+            assert (
+                feature.status in valid_statuses
+            ), f"{feature_id} has invalid status: {feature.status}"
 
     def test_categories_are_consistent(self):
         """Test that category names are consistent."""
         expected_categories = {
-            "discovery", "evolution", "analysis", "memory",
-            "competition", "security", "general"
+            "discovery",
+            "evolution",
+            "analysis",
+            "memory",
+            "competition",
+            "security",
+            "general",
         }
         for feature_id, feature in FEATURE_REGISTRY.items():
-            assert feature.category in expected_categories, \
-                f"{feature_id} has unexpected category: {feature.category}"
+            assert (
+                feature.category in expected_categories
+            ), f"{feature_id} has unexpected category: {feature.category}"
 
 
 # ============================================================================
 # Feature Detection Tests
 # ============================================================================
+
 
 class TestFeatureDetection:
     """Tests for feature availability detection."""
@@ -132,10 +143,7 @@ class TestFeatureDetection:
     def test_coming_soon_features_unavailable(self):
         """Test that coming_soon features are unavailable."""
         # Find a coming_soon feature
-        coming_soon = [
-            fid for fid, f in FEATURE_REGISTRY.items()
-            if f.status == "coming_soon"
-        ]
+        coming_soon = [fid for fid, f in FEATURE_REGISTRY.items() if f.status == "coming_soon"]
         if coming_soon:
             available, reason = _check_feature_available(coming_soon[0])
             assert not available
@@ -175,6 +183,7 @@ class TestFeatureDetection:
 # ============================================================================
 # Helper Function Tests
 # ============================================================================
+
 
 class TestHelperFunctions:
     """Tests for feature helper functions."""
@@ -219,6 +228,7 @@ class TestHelperFunctions:
 # ============================================================================
 # FeaturesHandler Tests
 # ============================================================================
+
 
 class TestFeaturesHandler:
     """Tests for FeaturesHandler endpoints."""
@@ -298,6 +308,7 @@ class TestFeaturesHandler:
 # Error Response Tests
 # ============================================================================
 
+
 class TestFeatureUnavailableResponse:
     """Tests for feature_unavailable_response helper."""
 
@@ -334,6 +345,7 @@ class TestFeatureUnavailableResponse:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestFeaturesIntegration:
     """Integration tests for feature system."""

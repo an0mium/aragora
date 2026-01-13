@@ -286,7 +286,10 @@ class ConstitutionVerifier:
             protected_funcs = self._constitution.protected_functions[normalized]
             for func_name in protected_funcs:
                 if self._diff_modifies_function(diff, func_name):
-                    return False, f"Function {func_name} in {normalized} is protected by Constitution"
+                    return (
+                        False,
+                        f"Function {func_name} in {normalized} is protected by Constitution",
+                    )
 
         return True, ""
 
@@ -454,7 +457,11 @@ def create_default_constitution() -> Constitution:
             ".nomic/constitution.json",
         ],
         protected_functions={
-            "scripts/nomic_loop.py": ["verify_constitution", "restore_backup", "_rollback_to_backup"],
+            "scripts/nomic_loop.py": [
+                "verify_constitution",
+                "restore_backup",
+                "_rollback_to_backup",
+            ],
             "scripts/nomic/safety/checksums.py": ["verify_protected_files_unchanged"],
             "scripts/nomic/safety/backups.py": ["restore_backup", "create_backup"],
         },

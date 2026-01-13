@@ -20,6 +20,7 @@ from pathlib import Path
 
 class MockHandler:
     """Mock HTTP request handler."""
+
     def __init__(self):
         self.headers = {"Content-Type": "application/json"}
         self.path = "/api/training/stats"
@@ -43,7 +44,7 @@ def training_handler(tmp_path):
     from aragora.server.handlers.training import TrainingHandler
 
     # Use temp path for exports
-    with patch.dict('os.environ', {'ARAGORA_TRAINING_EXPORT_DIR': str(tmp_path)}):
+    with patch.dict("os.environ", {"ARAGORA_TRAINING_EXPORT_DIR": str(tmp_path)}):
         ctx = {"storage": MagicMock()}
         handler = TrainingHandler(ctx)
         # Clear any cached exporters
@@ -54,6 +55,7 @@ def training_handler(tmp_path):
 # ============================================================================
 # Route Handling Tests
 # ============================================================================
+
 
 class TestTrainingRouteHandling:
     """Test route handling and can_handle."""
@@ -92,6 +94,7 @@ class TestTrainingRouteHandling:
 # ============================================================================
 # Formats Endpoint Tests
 # ============================================================================
+
 
 class TestFormatsEndpoint:
     """Test formats endpoint."""
@@ -168,6 +171,7 @@ class TestFormatsEndpoint:
 # Stats Endpoint Tests
 # ============================================================================
 
+
 class TestStatsEndpoint:
     """Test stats endpoint."""
 
@@ -222,7 +226,7 @@ class TestStatsEndpoint:
         mock_exporter = MagicMock()
         mock_exporter.export.return_value = [{"test": True}]
 
-        with patch.object(training_handler, '_get_sft_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_sft_exporter", return_value=mock_exporter):
             result = training_handler.handle_stats("/api/training/stats", {}, mock_handler)
             body, status = parse_result(result)
 
@@ -235,12 +239,13 @@ class TestStatsEndpoint:
 # SFT Export Tests
 # ============================================================================
 
+
 class TestSFTExport:
     """Test SFT export endpoint."""
 
     def test_sft_export_exporter_unavailable(self, training_handler, mock_handler):
         """Test SFT export returns 500 when exporter unavailable."""
-        with patch.object(training_handler, '_get_sft_exporter', return_value=None):
+        with patch.object(training_handler, "_get_sft_exporter", return_value=None):
             result = training_handler.handle_export_sft(
                 "/api/training/export/sft", {}, mock_handler
             )
@@ -252,11 +257,9 @@ class TestSFTExport:
     def test_sft_export_success(self, training_handler, mock_handler):
         """Test successful SFT export."""
         mock_exporter = MagicMock()
-        mock_exporter.export.return_value = [
-            {"instruction": "test", "response": "result"}
-        ]
+        mock_exporter.export.return_value = [{"instruction": "test", "response": "result"}]
 
-        with patch.object(training_handler, '_get_sft_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_sft_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_sft(
                 "/api/training/export/sft", {}, mock_handler
             )
@@ -283,7 +286,7 @@ class TestSFTExport:
             "include_debates": "false",
         }
 
-        with patch.object(training_handler, '_get_sft_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_sft_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_sft(
                 "/api/training/export/sft", params, mock_handler
             )
@@ -305,7 +308,7 @@ class TestSFTExport:
             {"instruction": "q2", "response": "a2"},
         ]
 
-        with patch.object(training_handler, '_get_sft_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_sft_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_sft(
                 "/api/training/export/sft", {"format": "jsonl"}, mock_handler
             )
@@ -330,7 +333,7 @@ class TestSFTExport:
             "offset": "-10",  # Should clamp to 0
         }
 
-        with patch.object(training_handler, '_get_sft_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_sft_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_sft(
                 "/api/training/export/sft", params, mock_handler
             )
@@ -347,7 +350,7 @@ class TestSFTExport:
         mock_exporter = MagicMock()
         mock_exporter.export.side_effect = Exception("Database error")
 
-        with patch.object(training_handler, '_get_sft_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_sft_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_sft(
                 "/api/training/export/sft", {}, mock_handler
             )
@@ -361,12 +364,13 @@ class TestSFTExport:
 # DPO Export Tests
 # ============================================================================
 
+
 class TestDPOExport:
     """Test DPO export endpoint."""
 
     def test_dpo_export_exporter_unavailable(self, training_handler, mock_handler):
         """Test DPO export returns 500 when exporter unavailable."""
-        with patch.object(training_handler, '_get_dpo_exporter', return_value=None):
+        with patch.object(training_handler, "_get_dpo_exporter", return_value=None):
             result = training_handler.handle_export_dpo(
                 "/api/training/export/dpo", {}, mock_handler
             )
@@ -378,11 +382,9 @@ class TestDPOExport:
     def test_dpo_export_success(self, training_handler, mock_handler):
         """Test successful DPO export."""
         mock_exporter = MagicMock()
-        mock_exporter.export.return_value = [
-            {"prompt": "q", "chosen": "good", "rejected": "bad"}
-        ]
+        mock_exporter.export.return_value = [{"prompt": "q", "chosen": "good", "rejected": "bad"}]
 
-        with patch.object(training_handler, '_get_dpo_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_dpo_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_dpo(
                 "/api/training/export/dpo", {}, mock_handler
             )
@@ -402,7 +404,7 @@ class TestDPOExport:
             "limit": "250",
         }
 
-        with patch.object(training_handler, '_get_dpo_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_dpo_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_dpo(
                 "/api/training/export/dpo", params, mock_handler
             )
@@ -419,7 +421,7 @@ class TestDPOExport:
             {"prompt": "q1", "chosen": "a1", "rejected": "b1"},
         ]
 
-        with patch.object(training_handler, '_get_dpo_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_dpo_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_dpo(
                 "/api/training/export/dpo", {"format": "jsonl"}, mock_handler
             )
@@ -439,7 +441,7 @@ class TestDPOExport:
             "limit": "10000",  # Should clamp to 5000
         }
 
-        with patch.object(training_handler, '_get_dpo_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_dpo_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_dpo(
                 "/api/training/export/dpo", params, mock_handler
             )
@@ -454,12 +456,13 @@ class TestDPOExport:
 # Gauntlet Export Tests
 # ============================================================================
 
+
 class TestGauntletExport:
     """Test Gauntlet export endpoint."""
 
     def test_gauntlet_export_exporter_unavailable(self, training_handler, mock_handler):
         """Test Gauntlet export returns 500 when exporter unavailable."""
-        with patch.object(training_handler, '_get_gauntlet_exporter', return_value=None):
+        with patch.object(training_handler, "_get_gauntlet_exporter", return_value=None):
             result = training_handler.handle_export_gauntlet(
                 "/api/training/export/gauntlet", {}, mock_handler
             )
@@ -471,11 +474,9 @@ class TestGauntletExport:
     def test_gauntlet_export_success(self, training_handler, mock_handler):
         """Test successful Gauntlet export."""
         mock_exporter = MagicMock()
-        mock_exporter.export.return_value = [
-            {"instruction": "adversarial", "response": "safe"}
-        ]
+        mock_exporter.export.return_value = [{"instruction": "adversarial", "response": "safe"}]
 
-        with patch.object(training_handler, '_get_gauntlet_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_gauntlet_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_gauntlet(
                 "/api/training/export/gauntlet", {}, mock_handler
             )
@@ -496,7 +497,7 @@ class TestGauntletExport:
             "limit": "100",
         }
 
-        with patch.object(training_handler, '_get_gauntlet_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_gauntlet_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_gauntlet(
                 "/api/training/export/gauntlet", params, mock_handler
             )
@@ -516,7 +517,7 @@ class TestGauntletExport:
         mock_exporter = MagicMock()
         mock_exporter.export.return_value = []
 
-        with patch.object(training_handler, '_get_gauntlet_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_gauntlet_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_gauntlet(
                 "/api/training/export/gauntlet", {}, mock_handler
             )
@@ -536,7 +537,7 @@ class TestGauntletExport:
             {"instruction": "test", "response": "safe"},
         ]
 
-        with patch.object(training_handler, '_get_gauntlet_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_gauntlet_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_gauntlet(
                 "/api/training/export/gauntlet", {"format": "jsonl"}, mock_handler
             )
@@ -550,6 +551,7 @@ class TestGauntletExport:
 # Exporter Caching Tests
 # ============================================================================
 
+
 class TestExporterCaching:
     """Test exporter lazy initialization and caching."""
 
@@ -557,7 +559,7 @@ class TestExporterCaching:
         """Test SFT exporter is cached after first creation."""
         mock_exporter = MagicMock()
 
-        with patch('aragora.training.SFTExporter', return_value=mock_exporter) as mock_class:
+        with patch("aragora.training.SFTExporter", return_value=mock_exporter) as mock_class:
             # First call creates exporter
             result1 = training_handler._get_sft_exporter()
             # Second call returns cached
@@ -571,7 +573,7 @@ class TestExporterCaching:
         """Test DPO exporter is cached after first creation."""
         mock_exporter = MagicMock()
 
-        with patch('aragora.training.DPOExporter', return_value=mock_exporter) as mock_class:
+        with patch("aragora.training.DPOExporter", return_value=mock_exporter) as mock_class:
             result1 = training_handler._get_dpo_exporter()
             result2 = training_handler._get_dpo_exporter()
 
@@ -582,7 +584,7 @@ class TestExporterCaching:
         """Test Gauntlet exporter is cached after first creation."""
         mock_exporter = MagicMock()
 
-        with patch('aragora.training.GauntletExporter', return_value=mock_exporter) as mock_class:
+        with patch("aragora.training.GauntletExporter", return_value=mock_exporter) as mock_class:
             result1 = training_handler._get_gauntlet_exporter()
             result2 = training_handler._get_gauntlet_exporter()
 
@@ -591,7 +593,7 @@ class TestExporterCaching:
 
     def test_exporter_returns_none_on_import_error(self, training_handler):
         """Test exporter returns None when import fails."""
-        with patch.dict('sys.modules', {'aragora.training': None}):
+        with patch.dict("sys.modules", {"aragora.training": None}):
             # Force re-check by clearing cache
             training_handler._exporters = {}
 
@@ -605,12 +607,15 @@ class TestExporterCaching:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestErrorHandling:
     """Test error handling in training handler."""
 
     def test_stats_handles_exception(self, training_handler, mock_handler):
         """Test stats endpoint handles exceptions gracefully."""
-        with patch.object(training_handler, '_get_sft_exporter', side_effect=Exception("Unexpected error")):
+        with patch.object(
+            training_handler, "_get_sft_exporter", side_effect=Exception("Unexpected error")
+        ):
             result = training_handler.handle_stats("/api/training/stats", {}, mock_handler)
             body, status = parse_result(result)
 
@@ -624,7 +629,7 @@ class TestErrorHandling:
 
         params = {"min_confidence": "not_a_number"}
 
-        with patch.object(training_handler, '_get_sft_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_sft_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_sft(
                 "/api/training/export/sft", params, mock_handler
             )
@@ -640,7 +645,7 @@ class TestErrorHandling:
 
         params = {"limit": "not_a_number"}
 
-        with patch.object(training_handler, '_get_sft_exporter', return_value=mock_exporter):
+        with patch.object(training_handler, "_get_sft_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_sft(
                 "/api/training/export/sft", params, mock_handler
             )
@@ -654,6 +659,7 @@ class TestErrorHandling:
 # Export Directory Tests
 # ============================================================================
 
+
 class TestExportDirectory:
     """Test export directory handling."""
 
@@ -664,7 +670,7 @@ class TestExportDirectory:
         export_dir = tmp_path / "new_export_dir"
         assert not export_dir.exists()
 
-        with patch.dict('os.environ', {'ARAGORA_TRAINING_EXPORT_DIR': str(export_dir)}):
+        with patch.dict("os.environ", {"ARAGORA_TRAINING_EXPORT_DIR": str(export_dir)}):
             ctx = {"storage": MagicMock()}
             handler = TrainingHandler(ctx)
 
@@ -675,7 +681,7 @@ class TestExportDirectory:
         from aragora.server.handlers.training import TrainingHandler
 
         # Clear environment variable
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True):
             ctx = {"storage": MagicMock()}
             handler = TrainingHandler(ctx)
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { PanelTemplate } from './shared/PanelTemplate';
+import { API_BASE_URL } from '@/config';
 
 interface ConfidencePoint {
   debate_id: string;
@@ -34,7 +35,7 @@ interface ConsensusQualityDashboardProps {
   apiBase?: string;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 const TREND_ICONS: Record<string, string> = {
   improving: '📈',

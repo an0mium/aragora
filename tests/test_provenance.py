@@ -22,6 +22,7 @@ from aragora.reasoning.provenance import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def sample_record():
     """Create sample ProvenanceRecord."""
@@ -101,6 +102,7 @@ def sample_manager():
 # SourceType Enum Tests
 # =============================================================================
 
+
 class TestSourceType:
     """Tests for SourceType enum."""
 
@@ -127,6 +129,7 @@ class TestSourceType:
 # TransformationType Enum Tests
 # =============================================================================
 
+
 class TestTransformationType:
     """Tests for TransformationType enum."""
 
@@ -152,6 +155,7 @@ class TestTransformationType:
 # =============================================================================
 # ProvenanceRecord Dataclass Tests
 # =============================================================================
+
 
 class TestProvenanceRecord:
     """Tests for ProvenanceRecord dataclass."""
@@ -275,6 +279,7 @@ class TestProvenanceRecord:
 # Citation Dataclass Tests
 # =============================================================================
 
+
 class TestCitation:
     """Tests for Citation dataclass."""
 
@@ -313,6 +318,7 @@ class TestCitation:
 # ProvenanceChain Initialization Tests
 # =============================================================================
 
+
 class TestProvenanceChainInit:
     """Tests for ProvenanceChain initialization."""
 
@@ -335,6 +341,7 @@ class TestProvenanceChainInit:
 # =============================================================================
 # ProvenanceChain.add_record Tests
 # =============================================================================
+
 
 class TestProvenanceChainAddRecord:
     """Tests for ProvenanceChain.add_record method."""
@@ -412,6 +419,7 @@ class TestProvenanceChainAddRecord:
 # ProvenanceChain.verify_chain Tests
 # =============================================================================
 
+
 class TestProvenanceChainVerifyChain:
     """Tests for ProvenanceChain.verify_chain method."""
 
@@ -460,6 +468,7 @@ class TestProvenanceChainVerifyChain:
 # =============================================================================
 # ProvenanceChain Methods Tests
 # =============================================================================
+
 
 class TestProvenanceChainMethods:
     """Tests for ProvenanceChain helper methods."""
@@ -511,6 +520,7 @@ class TestProvenanceChainMethods:
 # CitationGraph Initialization Tests
 # =============================================================================
 
+
 class TestCitationGraphInit:
     """Tests for CitationGraph initialization."""
 
@@ -527,6 +537,7 @@ class TestCitationGraphInit:
 # =============================================================================
 # CitationGraph.add_citation Tests
 # =============================================================================
+
 
 class TestCitationGraphAddCitation:
     """Tests for CitationGraph.add_citation method."""
@@ -563,6 +574,7 @@ class TestCitationGraphAddCitation:
 # =============================================================================
 # CitationGraph Query Methods Tests
 # =============================================================================
+
 
 class TestCitationGraphQueries:
     """Tests for CitationGraph query methods."""
@@ -614,6 +626,7 @@ class TestCitationGraphQueries:
 # CitationGraph.find_circular_dependencies Tests
 # =============================================================================
 
+
 class TestCitationGraphCircularDependencies:
     """Tests for CitationGraph.find_circular_dependencies method."""
 
@@ -650,6 +663,7 @@ class TestCitationGraphCircularDependencies:
 # MerkleTree Initialization Tests
 # =============================================================================
 
+
 class TestMerkleTreeInit:
     """Tests for MerkleTree initialization."""
 
@@ -669,6 +683,7 @@ class TestMerkleTreeInit:
 # =============================================================================
 # MerkleTree.build Tests
 # =============================================================================
+
 
 class TestMerkleTreeBuild:
     """Tests for MerkleTree.build method."""
@@ -721,6 +736,7 @@ class TestMerkleTreeBuild:
 # MerkleTree Proofs Tests
 # =============================================================================
 
+
 class TestMerkleTreeProofs:
     """Tests for MerkleTree proof methods."""
 
@@ -746,11 +762,7 @@ class TestMerkleTreeProofs:
         tree = MerkleTree(sample_records)
         proof = tree.get_proof(0)
 
-        is_valid = tree.verify_proof(
-            sample_records[0].content_hash,
-            proof,
-            tree.root
-        )
+        is_valid = tree.verify_proof(sample_records[0].content_hash, proof, tree.root)
 
         assert is_valid is True
 
@@ -760,11 +772,7 @@ class TestMerkleTreeProofs:
         proof = tree.get_proof(0)
 
         # Use wrong leaf hash
-        is_valid = tree.verify_proof(
-            "wrong_hash",
-            proof,
-            tree.root
-        )
+        is_valid = tree.verify_proof("wrong_hash", proof, tree.root)
 
         assert is_valid is False
 
@@ -772,6 +780,7 @@ class TestMerkleTreeProofs:
 # =============================================================================
 # ProvenanceVerifier Initialization Tests
 # =============================================================================
+
 
 class TestProvenanceVerifierInit:
     """Tests for ProvenanceVerifier initialization."""
@@ -793,6 +802,7 @@ class TestProvenanceVerifierInit:
 # =============================================================================
 # ProvenanceVerifier.verify_record Tests
 # =============================================================================
+
 
 class TestProvenanceVerifierVerifyRecord:
     """Tests for ProvenanceVerifier.verify_record method."""
@@ -855,6 +865,7 @@ class TestProvenanceVerifierVerifyRecord:
 # ProvenanceVerifier.verify_claim_evidence Tests
 # =============================================================================
 
+
 class TestProvenanceVerifierVerifyClaimEvidence:
     """Tests for ProvenanceVerifier.verify_claim_evidence method."""
 
@@ -900,6 +911,7 @@ class TestProvenanceVerifierVerifyClaimEvidence:
 # ProvenanceVerifier.generate_provenance_report Tests
 # =============================================================================
 
+
 class TestProvenanceVerifierGenerateReport:
     """Tests for ProvenanceVerifier.generate_provenance_report method."""
 
@@ -936,6 +948,7 @@ class TestProvenanceVerifierGenerateReport:
 # ProvenanceManager Initialization Tests
 # =============================================================================
 
+
 class TestProvenanceManagerInit:
     """Tests for ProvenanceManager initialization."""
 
@@ -955,6 +968,7 @@ class TestProvenanceManagerInit:
 # =============================================================================
 # ProvenanceManager Methods Tests
 # =============================================================================
+
 
 class TestProvenanceManagerMethods:
     """Tests for ProvenanceManager methods."""
@@ -1029,6 +1043,7 @@ class TestProvenanceManagerMethods:
 # =============================================================================
 # ProvenanceManager Persistence Tests
 # =============================================================================
+
 
 class TestProvenanceManagerPersistence:
     """Tests for ProvenanceManager persistence methods."""

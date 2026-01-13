@@ -29,6 +29,7 @@ from aragora.server.handlers.base import clear_cache
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_storage():
     """Create a mock storage instance."""
@@ -62,14 +63,39 @@ def mock_storage():
         "consensus_reached": True,
         "final_answer": "The consensus is that AI systems should be developed with safety as a core principle.",
         "messages": [
-            {"round": 1, "agent": "claude", "role": "speaker", "content": "Safety first!", "timestamp": "2024-01-01T10:05:00Z"},
-            {"round": 1, "agent": "gpt4", "role": "speaker", "content": "I agree.", "timestamp": "2024-01-01T10:10:00Z"},
+            {
+                "round": 1,
+                "agent": "claude",
+                "role": "speaker",
+                "content": "Safety first!",
+                "timestamp": "2024-01-01T10:05:00Z",
+            },
+            {
+                "round": 1,
+                "agent": "gpt4",
+                "role": "speaker",
+                "content": "I agree.",
+                "timestamp": "2024-01-01T10:10:00Z",
+            },
         ],
         "critiques": [
-            {"round": 1, "critic": "gemini", "target": "claude", "severity": 0.3, "summary": "Good point but needs more detail", "timestamp": "2024-01-01T10:15:00Z"},
+            {
+                "round": 1,
+                "critic": "gemini",
+                "target": "claude",
+                "severity": 0.3,
+                "summary": "Good point but needs more detail",
+                "timestamp": "2024-01-01T10:15:00Z",
+            },
         ],
         "votes": [
-            {"round": 1, "voter": "judge", "choice": "claude", "reason": "More comprehensive", "timestamp": "2024-01-01T10:20:00Z"},
+            {
+                "round": 1,
+                "voter": "judge",
+                "choice": "claude",
+                "reason": "More comprehensive",
+                "timestamp": "2024-01-01T10:20:00Z",
+            },
         ],
         "convergence_status": "converged",
         "convergence_similarity": 0.92,
@@ -95,6 +121,7 @@ def clear_caches():
 # ============================================================================
 # Route Matching Tests
 # ============================================================================
+
 
 class TestDebatesHandlerRouting:
     """Tests for route matching."""
@@ -139,6 +166,7 @@ class TestDebatesHandlerRouting:
 # List Debates Tests
 # ============================================================================
 
+
 class TestListDebatesEndpoint:
     """Tests for /api/debates endpoint."""
 
@@ -180,6 +208,7 @@ class TestListDebatesEndpoint:
 # ============================================================================
 # Get Debate by Slug Tests
 # ============================================================================
+
 
 class TestGetDebateEndpoint:
     """Tests for /api/debates/{slug} endpoint."""
@@ -223,6 +252,7 @@ class TestGetDebateEndpoint:
 # Export Debate Tests
 # ============================================================================
 
+
 class TestExportDebateEndpoint:
     """Tests for /api/debates/{id}/export/{format} endpoint."""
 
@@ -245,9 +275,7 @@ class TestExportDebateEndpoint:
     def test_export_csv_messages_table(self, debates_handler):
         """Should export messages table as CSV."""
         result = debates_handler.handle(
-            "/api/debates/debate-001/export/csv",
-            {"table": "messages"},
-            None
+            "/api/debates/debate-001/export/csv", {"table": "messages"}, None
         )
 
         assert result.status_code == 200
@@ -258,9 +286,7 @@ class TestExportDebateEndpoint:
     def test_export_csv_critiques_table(self, debates_handler):
         """Should export critiques table as CSV."""
         result = debates_handler.handle(
-            "/api/debates/debate-001/export/csv",
-            {"table": "critiques"},
-            None
+            "/api/debates/debate-001/export/csv", {"table": "critiques"}, None
         )
 
         assert result.status_code == 200
@@ -270,9 +296,7 @@ class TestExportDebateEndpoint:
     def test_export_csv_votes_table(self, debates_handler):
         """Should export votes table as CSV."""
         result = debates_handler.handle(
-            "/api/debates/debate-001/export/csv",
-            {"table": "votes"},
-            None
+            "/api/debates/debate-001/export/csv", {"table": "votes"}, None
         )
 
         assert result.status_code == 200
@@ -315,6 +339,7 @@ class TestExportDebateEndpoint:
 # ============================================================================
 # Impasse Detection Tests
 # ============================================================================
+
 
 class TestImpasseEndpoint:
     """Tests for /api/debates/{id}/impasse endpoint."""
@@ -376,6 +401,7 @@ class TestImpasseEndpoint:
 # Convergence Tests
 # ============================================================================
 
+
 class TestConvergenceEndpoint:
     """Tests for /api/debates/{id}/convergence endpoint."""
 
@@ -421,6 +447,7 @@ class TestConvergenceEndpoint:
 # Citations Tests
 # ============================================================================
 
+
 class TestCitationsEndpoint:
     """Tests for /api/debates/{id}/citations endpoint."""
 
@@ -459,13 +486,15 @@ class TestCitationsEndpoint:
         """Should parse JSON string grounded_verdict."""
         mock_storage.get_debate.return_value = {
             "slug": "json-grounded-debate",
-            "grounded_verdict": json.dumps({
-                "grounding_score": 0.75,
-                "confidence": 0.8,
-                "claims": [],
-                "all_citations": [],
-                "verdict": "Partially grounded",
-            }),
+            "grounded_verdict": json.dumps(
+                {
+                    "grounding_score": 0.75,
+                    "confidence": 0.8,
+                    "claims": [],
+                    "all_citations": [],
+                    "verdict": "Partially grounded",
+                }
+            ),
         }
 
         result = debates_handler.handle("/api/debates/json-grounded-debate/citations", {}, None)
@@ -494,6 +523,7 @@ class TestCitationsEndpoint:
 # ============================================================================
 # Security Tests
 # ============================================================================
+
 
 class TestDebatesSecurity:
     """Tests for security measures."""
@@ -548,6 +578,7 @@ class TestDebatesSecurity:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestDebatesErrorHandling:
     """Tests for error handling."""
 
@@ -564,6 +595,7 @@ class TestDebatesErrorHandling:
     def test_export_exception_returns_500(self, debates_handler, mock_storage):
         """Should return 500 on export exceptions."""
         from aragora.exceptions import StorageError
+
         mock_storage.get_debate.side_effect = StorageError("Export failed")
 
         result = debates_handler.handle("/api/debates/debate-001/export/json", {}, None)
@@ -582,6 +614,7 @@ class TestDebatesErrorHandling:
 # ============================================================================
 # Edge Cases
 # ============================================================================
+
 
 class TestDebatesEdgeCases:
     """Tests for edge cases."""
@@ -642,6 +675,7 @@ class TestDebatesEdgeCases:
 # Additional CSV Export Tests
 # ============================================================================
 
+
 class TestCSVExportDetails:
     """Detailed tests for CSV export functionality."""
 
@@ -662,9 +696,7 @@ class TestCSVExportDetails:
         }
 
         result = debates_handler.handle(
-            "/api/debates/summary-test/export/csv",
-            {"table": "summary"},
-            None
+            "/api/debates/summary-test/export/csv", {"table": "summary"}, None
         )
 
         assert result.status_code == 200
@@ -691,9 +723,7 @@ class TestCSVExportDetails:
         }
 
         result = debates_handler.handle(
-            "/api/debates/msg-test/export/csv",
-            {"table": "messages"},
-            None
+            "/api/debates/msg-test/export/csv", {"table": "messages"}, None
         )
 
         assert result.status_code == 200
@@ -707,16 +737,20 @@ class TestCSVExportDetails:
         mock_storage.get_debate.return_value = {
             "slug": "long-test",
             "messages": [
-                {"round": 1, "agent": "test", "role": "speaker", "content": long_content, "timestamp": ""},
+                {
+                    "round": 1,
+                    "agent": "test",
+                    "role": "speaker",
+                    "content": long_content,
+                    "timestamp": "",
+                },
             ],
             "critiques": [],
             "votes": [],
         }
 
         result = debates_handler.handle(
-            "/api/debates/long-test/export/csv",
-            {"table": "messages"},
-            None
+            "/api/debates/long-test/export/csv", {"table": "messages"}, None
         )
 
         assert result.status_code == 200
@@ -735,9 +769,7 @@ class TestCSVExportDetails:
         }
 
         result = debates_handler.handle(
-            "/api/debates/fallback-test/export/csv",
-            {"table": "invalid_table"},
-            None
+            "/api/debates/fallback-test/export/csv", {"table": "invalid_table"}, None
         )
 
         assert result.status_code == 400
@@ -753,15 +785,25 @@ class TestCSVExportDetails:
             "messages": [],
             "critiques": [],
             "votes": [
-                {"round": 1, "voter": "judge", "choice": "claude", "reason": "Better arguments", "timestamp": "2024-01-01T12:00:00Z"},
-                {"round": 2, "voter": "judge", "choice": "gemini", "reason": "More evidence", "timestamp": "2024-01-01T13:00:00Z"},
+                {
+                    "round": 1,
+                    "voter": "judge",
+                    "choice": "claude",
+                    "reason": "Better arguments",
+                    "timestamp": "2024-01-01T12:00:00Z",
+                },
+                {
+                    "round": 2,
+                    "voter": "judge",
+                    "choice": "gemini",
+                    "reason": "More evidence",
+                    "timestamp": "2024-01-01T13:00:00Z",
+                },
             ],
         }
 
         result = debates_handler.handle(
-            "/api/debates/votes-test/export/csv",
-            {"table": "votes"},
-            None
+            "/api/debates/votes-test/export/csv", {"table": "votes"}, None
         )
 
         assert result.status_code == 200
@@ -774,6 +816,7 @@ class TestCSVExportDetails:
 # ============================================================================
 # Additional HTML Export Tests
 # ============================================================================
+
 
 class TestHTMLExportDetails:
     """Detailed tests for HTML export functionality."""
@@ -839,6 +882,7 @@ class TestHTMLExportDetails:
 # Convergence Additional Tests
 # ============================================================================
 
+
 class TestConvergenceAdditional:
     """Additional convergence tests."""
 
@@ -876,6 +920,7 @@ class TestConvergenceAdditional:
 # ============================================================================
 # Impasse Detection Additional Tests
 # ============================================================================
+
 
 class TestImpasseAdditional:
     """Additional impasse detection tests."""
@@ -921,6 +966,7 @@ class TestImpasseAdditional:
 # Citations Additional Tests
 # ============================================================================
 
+
 class TestCitationsAdditional:
     """Additional citations tests."""
 
@@ -955,6 +1001,7 @@ class TestCitationsAdditional:
 # ============================================================================
 # Evidence Endpoint Tests
 # ============================================================================
+
 
 class TestEvidenceEndpoint:
     """Tests for /api/debates/{id}/evidence endpoint."""
@@ -1002,13 +1049,15 @@ class TestEvidenceEndpoint:
         mock_storage.get_debate.return_value = {
             "slug": "json-evidence",
             "task": "JSON task",
-            "grounded_verdict": json.dumps({
-                "grounding_score": 0.75,
-                "confidence": 0.8,
-                "claims": [],
-                "all_citations": [],
-                "verdict": "Partially grounded",
-            }),
+            "grounded_verdict": json.dumps(
+                {
+                    "grounding_score": 0.75,
+                    "confidence": 0.8,
+                    "claims": [],
+                    "all_citations": [],
+                    "verdict": "Partially grounded",
+                }
+            ),
         }
 
         result = debates_handler.handle("/api/debates/json-evidence/evidence", {}, None)
@@ -1047,6 +1096,7 @@ class TestEvidenceEndpoint:
 # Path Extraction Tests
 # ============================================================================
 
+
 class TestPathExtraction:
     """Tests for path extraction logic."""
 
@@ -1072,6 +1122,7 @@ class TestPathExtraction:
 # ============================================================================
 # Route Handler Edge Cases
 # ============================================================================
+
 
 class TestRouteHandlerEdgeCases:
     """Edge cases for route handling."""
@@ -1103,6 +1154,7 @@ class TestRouteHandlerEdgeCases:
     def test_handle_citations_exception(self, debates_handler, mock_storage):
         """Should handle exception in citations lookup."""
         from aragora.exceptions import StorageError
+
         mock_storage.get_debate.side_effect = StorageError("Citations lookup failed")
 
         result = debates_handler.handle("/api/debates/debate-001/citations", {}, None)
@@ -1125,11 +1177,7 @@ class TestForkDebateEndpoint:
         mock_storage.get_debate.return_value = original
         mock_storage.save_debate.return_value = True
 
-        result = debates_handler.handle(
-            "/api/debates/original-001/fork",
-            {"from_round": "1"},
-            None
-        )
+        result = debates_handler.handle("/api/debates/original-001/fork", {"from_round": "1"}, None)
 
         # Fork endpoint may not be implemented yet - check for valid response
         assert result is not None
@@ -1147,11 +1195,7 @@ class TestForkDebateEndpoint:
         }
         mock_storage.get_debate.return_value = original
 
-        result = debates_handler.handle(
-            "/api/debates/original-002/fork",
-            {"from_round": "2"},
-            None
-        )
+        result = debates_handler.handle("/api/debates/original-002/fork", {"from_round": "2"}, None)
 
         assert result is not None
 
@@ -1159,11 +1203,7 @@ class TestForkDebateEndpoint:
         """Fork with invalid round should return error."""
         mock_storage.get_debate.return_value = {"id": "test", "rounds": []}
 
-        result = debates_handler.handle(
-            "/api/debates/test/fork",
-            {"from_round": "999"},
-            None
-        )
+        result = debates_handler.handle("/api/debates/test/fork", {"from_round": "999"}, None)
 
         # Should handle gracefully
         assert result is not None
@@ -1172,11 +1212,7 @@ class TestForkDebateEndpoint:
         """Fork of nonexistent debate should return 404."""
         mock_storage.get_debate.return_value = None
 
-        result = debates_handler.handle(
-            "/api/debates/nonexistent/fork",
-            {},
-            None
-        )
+        result = debates_handler.handle("/api/debates/nonexistent/fork", {}, None)
 
         assert result is None or result.status_code == 404
 
@@ -1186,11 +1222,7 @@ class TestForkDebateEndpoint:
         mock_storage.get_debate.return_value = original
         mock_storage.save_debate.return_value = True
 
-        result = debates_handler.handle(
-            "/api/debates/original/fork",
-            {},
-            None
-        )
+        result = debates_handler.handle("/api/debates/original/fork", {}, None)
 
         assert result is not None
 
@@ -1199,11 +1231,7 @@ class TestForkDebateEndpoint:
         original = {"id": "parent-001", "rounds": []}
         mock_storage.get_debate.return_value = original
 
-        result = debates_handler.handle(
-            "/api/debates/parent-001/fork",
-            {},
-            None
-        )
+        result = debates_handler.handle("/api/debates/parent-001/fork", {}, None)
 
         assert result is not None
 
@@ -1221,11 +1249,7 @@ class TestMetaCritiqueEndpoint:
         }
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle(
-            "/api/debates/debate-001/meta-critique",
-            {},
-            None
-        )
+        result = debates_handler.handle("/api/debates/debate-001/meta-critique", {}, None)
 
         # Meta-critique may not be implemented - check valid response
         assert result is not None
@@ -1235,11 +1259,7 @@ class TestMetaCritiqueEndpoint:
         """Meta-critique of nonexistent debate should return 404 or 503."""
         mock_storage.get_debate.return_value = None
 
-        result = debates_handler.handle(
-            "/api/debates/nonexistent/meta-critique",
-            {},
-            None
-        )
+        result = debates_handler.handle("/api/debates/nonexistent/meta-critique", {}, None)
 
         assert result is None or result.status_code in (404, 503)
 
@@ -1248,11 +1268,7 @@ class TestMetaCritiqueEndpoint:
         debate = {"id": "empty", "rounds": []}
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle(
-            "/api/debates/empty/meta-critique",
-            {},
-            None
-        )
+        result = debates_handler.handle("/api/debates/empty/meta-critique", {}, None)
 
         assert result is not None
 
@@ -1268,11 +1284,7 @@ class TestGraphStatsEndpoint:
         }
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle(
-            "/api/debates/debate-001/graph/stats",
-            {},
-            None
-        )
+        result = debates_handler.handle("/api/debates/debate-001/graph/stats", {}, None)
 
         # May not be implemented - check valid response
         assert result is not None
@@ -1282,11 +1294,7 @@ class TestGraphStatsEndpoint:
         """Graph stats of nonexistent debate should return 404 or 503."""
         mock_storage.get_debate.return_value = None
 
-        result = debates_handler.handle(
-            "/api/debates/nonexistent/graph/stats",
-            {},
-            None
-        )
+        result = debates_handler.handle("/api/debates/nonexistent/graph/stats", {}, None)
 
         assert result is None or result.status_code in (404, 503)
 
@@ -1300,11 +1308,7 @@ class TestGraphStatsEndpoint:
         }
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle(
-            "/api/debates/debate-001/graph/stats",
-            {},
-            None
-        )
+        result = debates_handler.handle("/api/debates/debate-001/graph/stats", {}, None)
 
         assert result is not None
 
@@ -1316,11 +1320,7 @@ class TestGraphStatsEndpoint:
         }
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle(
-            "/api/debates/debate-001/graph/stats",
-            {},
-            None
-        )
+        result = debates_handler.handle("/api/debates/debate-001/graph/stats", {}, None)
 
         assert result is not None
 
@@ -1344,11 +1344,7 @@ class TestBuildGraphFromReplay:
         }
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle(
-            "/api/debates/debate-001/graph",
-            {},
-            None
-        )
+        result = debates_handler.handle("/api/debates/debate-001/graph", {}, None)
 
         # Graph endpoint may not be implemented
         assert result is not None
@@ -1370,11 +1366,7 @@ class TestBuildGraphFromReplay:
         }
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle(
-            "/api/debates/debate-002/graph",
-            {},
-            None
-        )
+        result = debates_handler.handle("/api/debates/debate-002/graph", {}, None)
 
         assert result is not None
 
@@ -1383,12 +1375,14 @@ class TestBuildGraphFromReplay:
 # Specific Exception Handling Tests
 # ============================================================================
 
+
 class TestSpecificExceptionHandling:
     """Tests for specific exception type handling (Round 22 refactoring)."""
 
     def test_search_storage_error_returns_500(self, debates_handler, mock_storage):
         """Search with StorageError should return 500."""
         from aragora.exceptions import StorageError
+
         # Search with query uses storage.search() method
         mock_storage.search.side_effect = StorageError("Storage unavailable")
 
@@ -1402,6 +1396,7 @@ class TestSpecificExceptionHandling:
     def test_search_database_error_returns_500(self, debates_handler, mock_storage):
         """Search with DatabaseError should return 500."""
         from aragora.exceptions import DatabaseError
+
         # Search with query uses storage.search() method
         mock_storage.search.side_effect = DatabaseError("DB connection lost")
 
@@ -1427,6 +1422,7 @@ class TestSpecificExceptionHandling:
     def test_export_record_not_found_returns_404(self, debates_handler, mock_storage):
         """Export with RecordNotFoundError should return 404."""
         from aragora.exceptions import RecordNotFoundError
+
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
         result = debates_handler.handle("/api/debates/test-id/export/json", {}, None)
@@ -1438,6 +1434,7 @@ class TestSpecificExceptionHandling:
     def test_export_storage_error_returns_500(self, debates_handler, mock_storage):
         """Export with StorageError should return 500."""
         from aragora.exceptions import StorageError
+
         mock_storage.get_debate.side_effect = StorageError("Storage failure")
 
         result = debates_handler.handle("/api/debates/test-id/export/json", {}, None)
@@ -1449,6 +1446,7 @@ class TestSpecificExceptionHandling:
     def test_export_database_error_returns_500(self, debates_handler, mock_storage):
         """Export with DatabaseError should return 500."""
         from aragora.exceptions import DatabaseError
+
         mock_storage.get_debate.side_effect = DatabaseError("Database error")
 
         result = debates_handler.handle("/api/debates/test-id/export/json", {}, None)
@@ -1460,6 +1458,7 @@ class TestSpecificExceptionHandling:
     def test_citations_record_not_found_returns_404(self, debates_handler, mock_storage):
         """Citations with RecordNotFoundError should return 404."""
         from aragora.exceptions import RecordNotFoundError
+
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
         result = debates_handler.handle("/api/debates/test-id/citations", {}, None)
@@ -1471,6 +1470,7 @@ class TestSpecificExceptionHandling:
     def test_citations_storage_error_returns_500(self, debates_handler, mock_storage):
         """Citations with StorageError should return 500."""
         from aragora.exceptions import StorageError
+
         mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
 
         result = debates_handler.handle("/api/debates/test-id/citations", {}, None)
@@ -1482,6 +1482,7 @@ class TestSpecificExceptionHandling:
     def test_evidence_record_not_found_returns_404(self, debates_handler, mock_storage):
         """Evidence with RecordNotFoundError should return 404."""
         from aragora.exceptions import RecordNotFoundError
+
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
         result = debates_handler.handle("/api/debates/test-id/evidence", {}, None)
@@ -1493,6 +1494,7 @@ class TestSpecificExceptionHandling:
     def test_evidence_storage_error_returns_500(self, debates_handler, mock_storage):
         """Evidence with StorageError should return 500."""
         from aragora.exceptions import StorageError
+
         mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
 
         result = debates_handler.handle("/api/debates/test-id/evidence", {}, None)
@@ -1504,6 +1506,7 @@ class TestSpecificExceptionHandling:
     def test_messages_record_not_found_returns_404(self, debates_handler, mock_storage):
         """Messages with RecordNotFoundError should return 404."""
         from aragora.exceptions import RecordNotFoundError
+
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
         result = debates_handler.handle("/api/debates/test-id/messages", {}, None)
@@ -1515,6 +1518,7 @@ class TestSpecificExceptionHandling:
     def test_messages_storage_error_returns_500(self, debates_handler, mock_storage):
         """Messages with StorageError should return 500."""
         from aragora.exceptions import StorageError
+
         mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
 
         result = debates_handler.handle("/api/debates/test-id/messages", {}, None)
@@ -1526,6 +1530,7 @@ class TestSpecificExceptionHandling:
     def test_meta_critique_record_not_found_returns_404(self, debates_handler, mock_storage):
         """Meta-critique with RecordNotFoundError should return 404."""
         from aragora.exceptions import RecordNotFoundError
+
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
         result = debates_handler.handle("/api/debates/test-id/meta-critique", {}, None)
@@ -1537,6 +1542,7 @@ class TestSpecificExceptionHandling:
     def test_meta_critique_storage_error_returns_500(self, debates_handler, mock_storage):
         """Meta-critique with StorageError should return 500 or 503."""
         from aragora.exceptions import StorageError
+
         mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
 
         result = debates_handler.handle("/api/debates/test-id/meta-critique", {}, None)
@@ -1548,6 +1554,7 @@ class TestSpecificExceptionHandling:
     def test_graph_stats_record_not_found_returns_404(self, debates_handler, mock_storage):
         """Graph stats with RecordNotFoundError should return 404."""
         from aragora.exceptions import RecordNotFoundError
+
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
         result = debates_handler.handle("/api/debates/test-id/graph/stats", {}, None)
@@ -1559,6 +1566,7 @@ class TestSpecificExceptionHandling:
     def test_graph_stats_storage_error_returns_500(self, debates_handler, mock_storage):
         """Graph stats with StorageError should return 500 or 503."""
         from aragora.exceptions import StorageError
+
         mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
 
         result = debates_handler.handle("/api/debates/test-id/graph/stats", {}, None)
@@ -1570,6 +1578,7 @@ class TestSpecificExceptionHandling:
     def test_build_graph_record_not_found_returns_404(self, debates_handler, mock_storage):
         """Build graph with RecordNotFoundError should return 404."""
         from aragora.exceptions import RecordNotFoundError
+
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
         result = debates_handler.handle("/api/debates/test-id/graph", {}, None)
@@ -1580,6 +1589,7 @@ class TestSpecificExceptionHandling:
     def test_build_graph_storage_error_returns_500(self, debates_handler, mock_storage):
         """Build graph with StorageError should return 500."""
         from aragora.exceptions import StorageError
+
         mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
 
         result = debates_handler.handle("/api/debates/test-id/graph", {}, None)

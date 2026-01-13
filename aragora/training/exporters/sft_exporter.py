@@ -161,16 +161,18 @@ class SFTExporter(BaseExporter):
                 response = answer.strip()
 
                 if len(response) > 50:  # Skip empty/trivial responses
-                    records.append({
-                        "instruction": instruction,
-                        "response": response,
-                        "metadata": {
-                            "source": "debate",
-                            "debate_id": debate_id,
-                            "confidence": confidence,
-                            "rounds_used": rounds,
-                        },
-                    })
+                    records.append(
+                        {
+                            "instruction": instruction,
+                            "response": response,
+                            "metadata": {
+                                "source": "debate",
+                                "debate_id": debate_id,
+                                "confidence": confidence,
+                                "rounds_used": rounds,
+                            },
+                        }
+                    )
 
         return records
 
@@ -199,17 +201,19 @@ class SFTExporter(BaseExporter):
             response = pattern.suggestion_text or f"Address the issue: {pattern.issue_text}"
 
             if len(response) > 20:
-                records.append({
-                    "instruction": instruction,
-                    "response": response,
-                    "metadata": {
-                        "source": "pattern",
-                        "pattern_id": pattern.id,
-                        "issue_type": pattern.issue_type,
-                        "success_rate": pattern.success_rate,
-                        "success_count": pattern.success_count,
-                    },
-                })
+                records.append(
+                    {
+                        "instruction": instruction,
+                        "response": response,
+                        "metadata": {
+                            "source": "pattern",
+                            "pattern_id": pattern.id,
+                            "issue_type": pattern.issue_type,
+                            "success_rate": pattern.success_rate,
+                            "success_count": pattern.success_count,
+                        },
+                    }
+                )
 
         return records
 
@@ -241,7 +245,16 @@ class SFTExporter(BaseExporter):
             )
 
             for row in cursor.fetchall():
-                agent, target, issues_json, suggestions_json, severity, reasoning, task, confidence = row
+                (
+                    agent,
+                    target,
+                    issues_json,
+                    suggestions_json,
+                    severity,
+                    reasoning,
+                    task,
+                    confidence,
+                ) = row
 
                 try:
                     issues = json.loads(issues_json) if issues_json else []
@@ -257,17 +270,19 @@ class SFTExporter(BaseExporter):
                 response = self._format_critique_response(suggestions, reasoning)
 
                 if len(response) > 50:
-                    records.append({
-                        "instruction": instruction,
-                        "response": response,
-                        "metadata": {
-                            "source": "critique",
-                            "agent": agent,
-                            "target_agent": target,
-                            "severity": severity,
-                            "confidence": confidence,
-                        },
-                    })
+                    records.append(
+                        {
+                            "instruction": instruction,
+                            "response": response,
+                            "metadata": {
+                                "source": "critique",
+                                "agent": agent,
+                                "target_agent": target,
+                                "severity": severity,
+                                "confidence": confidence,
+                            },
+                        }
+                    )
 
         return records
 

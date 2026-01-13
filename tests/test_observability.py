@@ -22,6 +22,7 @@ class TestMetricsInitialization:
             with patch("aragora.observability.metrics._initialized", False):
                 # Reset for test
                 import aragora.observability.metrics as metrics_module
+
                 metrics_module._initialized = False
 
                 _init_noop_metrics()
@@ -661,6 +662,7 @@ class TestTracingIntegration:
 
         with patch("aragora.observability.tracing.get_tracer") as mock_get_tracer:
             from aragora.observability.tracing import _NoOpTracer
+
             mock_get_tracer.return_value = _NoOpTracer()
 
             # Simulate nested spans

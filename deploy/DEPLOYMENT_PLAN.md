@@ -12,8 +12,8 @@ This document outlines the deployment architecture for aragora's production infr
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌─────────────────┐              ┌─────────────────┐           │
-│  │ live.aragora.ai │              │  api.aragora.ai │           │
-│  │   aragora.ai    │              │                 │           │
+│  │ aragora.ai      │              │  api.aragora.ai │           │
+│  │ www.aragora.ai  │              │                 │           │
 │  └────────┬────────┘              └────────┬────────┘           │
 │           │                                │                     │
 │           ▼                                ▼                     │
@@ -39,8 +39,8 @@ This document outlines the deployment architecture for aragora's production infr
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌─────────────────┐              ┌─────────────────┐           │
-│  │ live.aragora.ai │              │  api.aragora.ai │           │
-│  │   aragora.ai    │              │                 │           │
+│  │ aragora.ai      │              │  api.aragora.ai │           │
+│  │ www.aragora.ai  │              │                 │           │
 │  └────────┬────────┘              └────────┬────────┘           │
 │           │                                │                     │
 │           ▼                                ▼                     │
@@ -62,7 +62,7 @@ This document outlines the deployment architecture for aragora's production infr
 ## Components
 
 ### 1. Static Frontend (Cloudflare Pages)
-- **URL:** https://live.aragora.ai, https://aragora.ai
+- **URL:** https://aragora.ai, https://www.aragora.ai
 - **Source:** `aragora/live/out/` (Next.js static export)
 - **Deployment:** `npx wrangler pages deploy out --project-name=aragora-live`
 - **Cost:** Free tier (unlimited requests)

@@ -113,7 +113,7 @@ describe('LaboratoryPanel', () => {
 
   describe('Loading States', () => {
     it('shows panel title', async () => {
-      setupSuccessfulFetch();
+      mockFetch.mockImplementation(() => new Promise(() => {}));
       render(<LaboratoryPanel apiBase="http://localhost:8080" />);
       expect(screen.getByText('Persona Laboratory')).toBeInTheDocument();
     });
@@ -135,6 +135,10 @@ describe('LaboratoryPanel', () => {
         expect(calls.some((url: string) => url.includes('/api/laboratory/cross-pollinations'))).toBe(true);
         expect(calls.some((url: string) => url.includes('/api/genesis/stats'))).toBe(true);
         expect(calls.some((url: string) => url.includes('/api/critiques/patterns'))).toBe(true);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
       });
     });
   });

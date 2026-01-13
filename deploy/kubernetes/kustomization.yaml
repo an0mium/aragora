@@ -16,6 +16,11 @@ resources:
   - service.yaml
   - hpa.yaml
   - pdb.yaml
+  - ingress.yaml
+  - fluentbit-config.yaml
+  - backup-cronjob.yaml
+  # external-secret.yaml - uncomment when using External Secrets Operator
+  # - external-secret.yaml
 
 labels:
   - pairs:

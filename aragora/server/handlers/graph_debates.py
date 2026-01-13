@@ -26,10 +26,10 @@ from .base import (
 
 # Suspicious patterns for task sanitization
 _SUSPICIOUS_PATTERNS = [
-    re.compile(r'<script', re.IGNORECASE),
-    re.compile(r'javascript:', re.IGNORECASE),
-    re.compile(r'\x00'),  # Null byte injection
-    re.compile(r'\{\{.*\}\}'),  # Template injection
+    re.compile(r"<script", re.IGNORECASE),
+    re.compile(r"javascript:", re.IGNORECASE),
+    re.compile(r"\x00"),  # Null byte injection
+    re.compile(r"\{\{.*\}\}"),  # Template injection
 ]
 from .utils.rate_limit import RateLimiter, get_client_ip
 
@@ -136,7 +136,10 @@ class GraphDebatesHandler(BaseHandler):
             if len(name) > 50:
                 return error_response(f"agents[{i}] name too long (max 50 chars)", 400)
             if not SAFE_AGENT_PATTERN.match(name):
-                return error_response(f"agents[{i}]: invalid agent name (alphanumeric, hyphens, underscores only)", 400)
+                return error_response(
+                    f"agents[{i}]: invalid agent name (alphanumeric, hyphens, underscores only)",
+                    400,
+                )
 
         # Validate max_rounds
         max_rounds = data.get("max_rounds", 5)
@@ -167,7 +170,9 @@ class GraphDebatesHandler(BaseHandler):
         if "merge_strategy" in branch_policy_data:
             strategy = branch_policy_data["merge_strategy"]
             if strategy not in ["synthesis", "vote", "best"]:
-                return error_response("branch_policy.merge_strategy must be 'synthesis', 'vote', or 'best'", 400)
+                return error_response(
+                    "branch_policy.merge_strategy must be 'synthesis', 'vote', or 'best'", 400
+                )
 
         try:
             from aragora.debate.graph import (
@@ -189,9 +194,7 @@ class GraphDebatesHandler(BaseHandler):
                 min_disagreement=branch_policy_data.get("min_disagreement", 0.7),
                 max_branches=branch_policy_data.get("max_branches", 3),
                 auto_merge=branch_policy_data.get("auto_merge", True),
-                merge_strategy=MergeStrategy(
-                    branch_policy_data.get("merge_strategy", "synthesis")
-                ),
+                merge_strategy=MergeStrategy(branch_policy_data.get("merge_strategy", "synthesis")),
             )
 
             # Create orchestrator
@@ -217,15 +220,17 @@ class GraphDebatesHandler(BaseHandler):
             )
 
             # Convert to response format
-            return json_response({
-                "debate_id": debate_id,
-                "task": task,
-                "graph": graph.to_dict(),
-                "branches": [b.to_dict() for b in graph.branches.values()],
-                "merge_results": [m.to_dict() for m in graph.merge_results],
-                "node_count": len(graph.nodes),
-                "branch_count": len(graph.branches),
-            })
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "task": task,
+                    "graph": graph.to_dict(),
+                    "branches": [b.to_dict() for b in graph.branches.values()],
+                    "merge_results": [m.to_dict() for m in graph.merge_results],
+                    "node_count": len(graph.nodes),
+                    "branch_count": len(graph.branches),
+                }
+            )
 
         except ImportError as e:
             logger.error(f"Import error for graph debates: {e}")
@@ -238,6 +243,7 @@ class GraphDebatesHandler(BaseHandler):
         """Load agents by name."""
         try:
             from aragora.agents import load_agents
+
             return load_agents(agent_names or ["claude", "gpt4"])
         except Exception as e:
             logger.warning(f"Failed to load agents: {e}")

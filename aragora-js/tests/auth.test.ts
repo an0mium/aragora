@@ -859,6 +859,17 @@ describe('AuthAPI', () => {
   // ===========================================================================
 
   describe('error handling', () => {
+    // Use a client with retries disabled for error handling tests
+    let noRetryClient: AragoraClient;
+
+    beforeEach(() => {
+      noRetryClient = new AragoraClient({
+        baseUrl: 'http://localhost:8080',
+        apiKey: 'test-api-key',
+        retry: { maxRetries: 0 },
+      });
+    });
+
     it('should include error code in AragoraError', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -870,7 +881,7 @@ describe('AuthAPI', () => {
       });
 
       try {
-        await client.auth.login({
+        await noRetryClient.auth.login({
           email: 'test@example.com',
           password: 'password123',
         });
@@ -881,6 +892,7 @@ describe('AuthAPI', () => {
           expect(error.status).toBe(429);
           expect(error.code).toBe('RATE_LIMIT');
           expect(error.message).toBe('Too many login attempts');
+          expect(error.retryable).toBe(true); // 429 is retryable
         }
       }
     });
@@ -889,7 +901,7 @@ describe('AuthAPI', () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       await expect(
-        client.auth.login({
+        noRetryClient.auth.login({
           email: 'test@example.com',
           password: 'password123',
         })
@@ -904,7 +916,7 @@ describe('AuthAPI', () => {
       });
 
       await expect(
-        client.auth.login({
+        noRetryClient.auth.login({
           email: 'test@example.com',
           password: 'password123',
         })

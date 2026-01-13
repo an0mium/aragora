@@ -58,7 +58,7 @@ class ResultFormatter:
         self._add_verdict(lines, result)
 
         # Winner (if determined)
-        if hasattr(result, 'winner') and result.winner:
+        if hasattr(result, "winner") and result.winner:
             lines.append(f"Winner: {result.winner}")
 
         # Final answer section
@@ -81,7 +81,7 @@ class ResultFormatter:
         """Add verdict section to output."""
         if result.consensus_reached:
             lines.append(f"Consensus: YES ({result.confidence:.0%} agreement)")
-            if hasattr(result, 'consensus_strength') and result.consensus_strength:
+            if hasattr(result, "consensus_strength") and result.consensus_strength:
                 lines.append(f"Strength: {result.consensus_strength.upper()}")
         else:
             lines.append(f"Consensus: NO (only {result.confidence:.0%} agreement)")
@@ -91,7 +91,7 @@ class ResultFormatter:
         if result.final_answer:
             # Truncate if very long, but show substantial content
             if len(result.final_answer) > self.max_answer_length:
-                answer_display = result.final_answer[:self.max_answer_length] + "..."
+                answer_display = result.final_answer[: self.max_answer_length] + "..."
             else:
                 answer_display = result.final_answer
             lines.append(answer_display)
@@ -100,40 +100,40 @@ class ResultFormatter:
 
     def _add_vote_breakdown(self, lines: list[str], result: "DebateResult") -> None:
         """Add vote breakdown section if votes are available."""
-        if not (hasattr(result, 'votes') and result.votes):
+        if not (hasattr(result, "votes") and result.votes):
             return
 
         lines.append("\n## VOTE BREAKDOWN")
         vote_counts = {}
         for vote in result.votes:
-            voter = getattr(vote, 'voter', 'unknown')
-            choice = getattr(vote, 'choice', 'abstain')
+            voter = getattr(vote, "voter", "unknown")
+            choice = getattr(vote, "choice", "abstain")
             vote_counts[voter] = choice
         for voter, choice in vote_counts.items():
             lines.append(f"  - {voter}: {choice}")
 
     def _add_dissenting_views(self, lines: list[str], result: "DebateResult") -> None:
         """Add dissenting views section if present."""
-        if not (hasattr(result, 'dissenting_views') and result.dissenting_views):
+        if not (hasattr(result, "dissenting_views") and result.dissenting_views):
             return
 
         lines.append("\n## DISSENTING VIEWS")
         for i, view in enumerate(result.dissenting_views[:3]):
             if len(view) > self.max_view_length:
-                view_display = view[:self.max_view_length] + "..."
+                view_display = view[: self.max_view_length] + "..."
             else:
                 view_display = view
             lines.append(f"  {i+1}. {view_display}")
 
     def _add_cruxes(self, lines: list[str], result: "DebateResult") -> None:
         """Add key cruxes section if present."""
-        if not (hasattr(result, 'belief_cruxes') and result.belief_cruxes):
+        if not (hasattr(result, "belief_cruxes") and result.belief_cruxes):
             return
 
         lines.append("\n## KEY CRUXES")
         for crux in result.belief_cruxes[:3]:
-            claim = crux.get('claim', 'unknown')[:80]
-            uncertainty = crux.get('uncertainty', 0)
+            claim = crux.get("claim", "unknown")[:80]
+            uncertainty = crux.get("uncertainty", 0)
             lines.append(f"  - {claim}... (uncertainty: {uncertainty:.2f})")
 
 

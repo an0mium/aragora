@@ -11,13 +11,14 @@ Usage:
 
     python scripts/nomic_staged.py all         # Run all phases sequentially
 
-Each phase saves output to .nomic/ directory for the next phase.
+Each phase saves output to ARAGORA_DATA_DIR (default: .nomic/) for the next phase.
 """
 
 import asyncio
 import argparse
 import json
 import logging
+import os
 import subprocess
 
 logger = logging.getLogger(__name__)
@@ -32,24 +33,33 @@ from aragora.core import Environment
 from aragora.agents.cli_agents import ClaudeAgent, CodexAgent, GeminiCLIAgent
 
 
-NOMIC_DIR = Path(__file__).parent.parent / ".nomic"
 ARAGORA_PATH = Path(__file__).parent.parent
 
 
+def get_data_dir() -> Path:
+    env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
+    if env_dir:
+        return Path(env_dir)
+    return ARAGORA_PATH / ".nomic"
+
+
+DATA_DIR = get_data_dir()
+
+
 def ensure_nomic_dir():
-    NOMIC_DIR.mkdir(exist_ok=True)
+    DATA_DIR.mkdir(exist_ok=True)
 
 
 def save_phase(phase: str, data: dict):
     ensure_nomic_dir()
-    path = NOMIC_DIR / f"{phase}.json"
+    path = DATA_DIR / f"{phase}.json"
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
     print(f"Saved: {path}")
 
 
 def load_phase(phase: str) -> dict:
-    path = NOMIC_DIR / f"{phase}.json"
+    path = DATA_DIR / f"{phase}.json"
     if not path.exists():
         print(f"Error: {path} not found. Run '{phase}' phase first.")
         sys.exit(1)
@@ -328,7 +338,9 @@ async def phase_verify():
         )
         has_changes = bool(result.stdout.strip())
         checks.append({"check": "git_changes", "has_changes": has_changes, "diff": result.stdout})
-        print(f"  {'✓' if has_changes else '○'} Git changes: {'Yes' if has_changes else 'No changes detected'}")
+        print(
+            f"  {'✓' if has_changes else '○'} Git changes: {'Yes' if has_changes else 'No changes detected'}"
+        )
         if has_changes:
             print(result.stdout)
     except Exception as e:

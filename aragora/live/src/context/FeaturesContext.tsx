@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useFeatures, type FeaturesResponse, type FeatureInfo } from '@/hooks/useFeatures';
+import { API_BASE_URL } from '@/config';
 
 interface FeaturesContextType {
   features: FeaturesResponse | null;

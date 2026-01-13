@@ -17,6 +17,7 @@ from unittest.mock import Mock, MagicMock, AsyncMock, patch
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_agents():
     """Create mock agents for debates."""
@@ -55,6 +56,7 @@ def mock_handler(mock_storage):
 # ============================================================================
 # Graph Debate Structure Tests
 # ============================================================================
+
 
 class TestGraphDebateStructure:
     """Tests for graph debate data structures."""
@@ -105,6 +107,7 @@ class TestGraphDebateStructure:
 # Branch Creation Tests
 # ============================================================================
 
+
 class TestBranchCreation:
     """Tests for debate branch creation."""
 
@@ -121,7 +124,9 @@ class TestBranchCreation:
             orchestrator = GraphDebateOrchestrator(agents=mock_agents, policy=policy)
 
             # Simulate responses with disagreement
-            mock_agents[0].generate = AsyncMock(return_value="I strongly disagree. Option A is better.")
+            mock_agents[0].generate = AsyncMock(
+                return_value="I strongly disagree. Option A is better."
+            )
             mock_agents[1].generate = AsyncMock(return_value="No, Option B is clearly superior.")
 
             async def run_agent(agent, prompt, context):
@@ -169,6 +174,7 @@ class TestBranchCreation:
 # ============================================================================
 # Merge Operation Tests
 # ============================================================================
+
 
 class TestMergeOperations:
     """Tests for branch merge operations."""
@@ -237,6 +243,7 @@ class TestMergeOperations:
 # Handler Integration Tests
 # ============================================================================
 
+
 class TestGraphDebatesHandlerIntegration:
     """Integration tests for GraphDebatesHandler."""
 
@@ -287,6 +294,7 @@ class TestGraphDebatesHandlerIntegration:
 # Event Emission Tests
 # ============================================================================
 
+
 class TestGraphEventEmission:
     """Tests for graph debate event emission."""
 
@@ -326,6 +334,7 @@ class TestGraphEventEmission:
 # Serialization Tests
 # ============================================================================
 
+
 class TestGraphSerialization:
     """Tests for graph debate serialization."""
 
@@ -335,13 +344,15 @@ class TestGraphSerialization:
             from aragora.debate.graph_orchestrator import DebateGraph, GraphNode
 
             graph = DebateGraph()
-            graph.add_node(GraphNode(
-                id="node-1",
-                content="Test",
-                agent="claude",
-                round_num=1,
-                branch_id="main",
-            ))
+            graph.add_node(
+                GraphNode(
+                    id="node-1",
+                    content="Test",
+                    agent="claude",
+                    round_num=1,
+                    branch_id="main",
+                )
+            )
 
             result = graph.to_dict()
 

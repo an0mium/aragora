@@ -333,9 +333,7 @@ class TestConsensusMemoryDatabase:
 
         with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
             tables = [row[0] for row in cursor.fetchall()]
 
         assert "consensus" in tables
@@ -349,9 +347,7 @@ class TestConsensusMemoryDatabase:
 
         with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='index'"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='index'")
             indices = [row[0] for row in cursor.fetchall()]
 
         assert "idx_consensus_topic_hash" in indices
@@ -519,9 +515,7 @@ class TestConsensusMemorySearch:
             agreeing_agents=["a"],
         )
 
-        results = consensus_memory.find_similar_debates(
-            "Implement user authentication"
-        )
+        results = consensus_memory.find_similar_debates("Implement user authentication")
 
         assert len(results) >= 1
         assert results[0].similarity_score == 1.0
@@ -537,9 +531,7 @@ class TestConsensusMemorySearch:
             agreeing_agents=["a"],
         )
 
-        results = consensus_memory.find_similar_debates(
-            "Python framework for web API"
-        )
+        results = consensus_memory.find_similar_debates("Python framework for web API")
 
         assert len(results) >= 1
         assert results[0].similarity_score > 0.1
@@ -913,9 +905,7 @@ class TestDissentRetriever:
 
         assert len(result["unacknowledged_dissents"]) >= 1
 
-    def test_find_contrarian_views_filters_types(
-        self, consensus_memory, dissent_retriever
-    ):
+    def test_find_contrarian_views_filters_types(self, consensus_memory, dissent_retriever):
         """Should find FUNDAMENTAL_DISAGREEMENT and ALTERNATIVE_APPROACH."""
         consensus = consensus_memory.store_consensus(
             topic="Contrarian topic",
@@ -948,9 +938,7 @@ class TestDissentRetriever:
                 DissentType.ALTERNATIVE_APPROACH,
             ]
 
-    def test_find_risk_warnings_filters_types(
-        self, consensus_memory, dissent_retriever
-    ):
+    def test_find_risk_warnings_filters_types(self, consensus_memory, dissent_retriever):
         """Should find RISK_WARNING and EDGE_CASE_CONCERN."""
         consensus = consensus_memory.store_consensus(
             topic="Risk topic",
@@ -1096,9 +1084,7 @@ class TestGetDissentsBatch:
         result = consensus_memory._get_dissents_batch(["fake-id-1", "fake-id-2"])
         assert result == {"fake-id-1": [], "fake-id-2": []}
 
-    def test_batch_mixed_existing_nonexistent(
-        self, consensus_memory, consensus_with_dissents
-    ):
+    def test_batch_mixed_existing_nonexistent(self, consensus_memory, consensus_with_dissents):
         """Should handle mix of existing and nonexistent IDs."""
         mixed_ids = [consensus_with_dissents[0], "fake-id", consensus_with_dissents[1]]
         result = consensus_memory._get_dissents_batch(mixed_ids)
@@ -1140,9 +1126,7 @@ class TestGetDissentsBatch:
             )
 
         # Find similar debates - should use batch fetching internally
-        results = consensus_memory.find_similar_debates(
-            "Python async programming", limit=3
-        )
+        results = consensus_memory.find_similar_debates("Python async programming", limit=3)
 
         assert len(results) <= 3
         for result in results:

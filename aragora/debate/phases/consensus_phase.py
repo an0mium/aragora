@@ -232,13 +232,10 @@ class ConsensusPhase:
         logger.info(f"consensus_phase_start mode={consensus_mode}")
 
         # Get timeout from protocol or use default
-        timeout = getattr(self.protocol, 'consensus_timeout', self.DEFAULT_CONSENSUS_TIMEOUT)
+        timeout = getattr(self.protocol, "consensus_timeout", self.DEFAULT_CONSENSUS_TIMEOUT)
 
         try:
-            await asyncio.wait_for(
-                self._execute_consensus(ctx, consensus_mode),
-                timeout=timeout
-            )
+            await asyncio.wait_for(self._execute_consensus(ctx, consensus_mode), timeout=timeout)
 
             # Attempt formal verification if enabled and consensus reached
             if ctx.result.consensus_reached:
@@ -253,7 +250,7 @@ class ConsensusPhase:
             category, msg, _ = _build_error_action(e, "consensus")
             logger.error(
                 f"consensus_error mode={consensus_mode} category={category} error={msg}",
-                exc_info=True
+                exc_info=True,
             )
             await self._handle_fallback_consensus(ctx, reason=f"error: {type(e).__name__}")
 
@@ -309,20 +306,28 @@ class ConsensusPhase:
         if result.votes:
             vote_counts: dict[str, int] = {}
             for vote in result.votes:
-                if hasattr(vote, 'choice') and vote.choice:
+                if hasattr(vote, "choice") and vote.choice:
                     vote_counts[vote.choice] = vote_counts.get(vote.choice, 0) + 1
             if vote_counts:
                 winner_agent = max(vote_counts.items(), key=lambda x: x[1])[0]
                 total_votes = sum(vote_counts.values())
-                winner_confidence = vote_counts[winner_agent] / total_votes if total_votes > 0 else 0.0
-                logger.info(f"consensus_fallback_winner_from_votes winner={winner_agent} confidence={winner_confidence:.2f}")
+                winner_confidence = (
+                    vote_counts[winner_agent] / total_votes if total_votes > 0 else 0.0
+                )
+                logger.info(
+                    f"consensus_fallback_winner_from_votes winner={winner_agent} confidence={winner_confidence:.2f}"
+                )
 
         # Fallback to vote_tally if available
         if not winner_agent and ctx.vote_tally:
             winner_agent = max(ctx.vote_tally.items(), key=lambda x: x[1])[0]
             total_votes = sum(ctx.vote_tally.values())
-            winner_confidence = ctx.vote_tally[winner_agent] / total_votes if total_votes > 0 else 0.5
-            logger.info(f"consensus_fallback_winner_from_tally winner={winner_agent} confidence={winner_confidence:.2f}")
+            winner_confidence = (
+                ctx.vote_tally[winner_agent] / total_votes if total_votes > 0 else 0.5
+            )
+            logger.info(
+                f"consensus_fallback_winner_from_tally winner={winner_agent} confidence={winner_confidence:.2f}"
+            )
 
         # Set winner if determined
         if winner_agent:
@@ -335,20 +340,15 @@ class ConsensusPhase:
             else:
                 result.final_answer = (
                     f"[Consensus fallback ({reason}) - Winner: {winner_agent}]\n\n"
-                    + "\n\n---\n\n".join(
-                        f"[{agent}]:\n{prop}" for agent, prop in proposals.items()
-                    )
+                    + "\n\n---\n\n".join(f"[{agent}]:\n{prop}" for agent, prop in proposals.items())
                 )
             result.consensus_reached = True  # Partial consensus achieved via votes
             result.consensus_strength = "fallback"
         else:
             # No votes available - just combine proposals
             if proposals:
-                result.final_answer = (
-                    f"[Consensus fallback ({reason})]\n\n"
-                    + "\n\n---\n\n".join(
-                        f"[{agent}]:\n{prop}" for agent, prop in proposals.items()
-                    )
+                result.final_answer = f"[Consensus fallback ({reason})]\n\n" + "\n\n---\n\n".join(
+                    f"[{agent}]:\n{prop}" for agent, prop in proposals.items()
                 )
             else:
                 result.final_answer = f"[No proposals available - consensus fallback ({reason})]"
@@ -444,7 +444,7 @@ class ConsensusPhase:
         if self._drain_user_events:
             self._drain_user_events()
 
-        user_vote_weight = getattr(self.protocol, 'user_vote_weight', 0.0)
+        user_vote_weight = getattr(self.protocol, "user_vote_weight", 0.0)
         user_vote_count = 0
         if user_vote_weight > 0:
             for user_vote in self.user_votes:
@@ -476,7 +476,9 @@ class ConsensusPhase:
             if unanimity_ratio >= 1.0:
                 self._set_unanimous_winner(ctx, winner, unanimity_ratio, total_voters, count)
             else:
-                self._set_no_unanimity(ctx, winner, unanimity_ratio, total_voters, count, choice_mapping)
+                self._set_no_unanimity(
+                    ctx, winner, unanimity_ratio, total_voters, count, choice_mapping
+                )
         else:
             result.final_answer = list(proposals.values())[0] if proposals else ""
             result.consensus_reached = False
@@ -510,7 +512,9 @@ class ConsensusPhase:
 
         # Get judge candidates for fallback (if selector supports it)
         judge_candidates = []
-        if hasattr(self._select_judge, '__self__') and hasattr(self._select_judge.__self__, 'get_judge_candidates'):
+        if hasattr(self._select_judge, "__self__") and hasattr(
+            self._select_judge.__self__, "get_judge_candidates"
+        ):
             # Using JudgeSelector instance - get ordered candidates
             try:
                 judge_candidates = await self._select_judge.__self__.get_judge_candidates(
@@ -531,15 +535,17 @@ class ConsensusPhase:
                 continue
 
             tried_judges.append(judge.name)
-            logger.info(f"judge_attempt judge={judge.name} method={judge_method} attempt={len(tried_judges)}")
+            logger.info(
+                f"judge_attempt judge={judge.name} method={judge_method} attempt={len(tried_judges)}"
+            )
 
             # Notify spectator
             if self._notify_spectator:
                 self._notify_spectator(
                     "judge",
                     agent=judge.name,
-                    details=f"Selected as judge via {judge_method}" +
-                            (f" (attempt {len(tried_judges)})" if len(tried_judges) > 1 else ""),
+                    details=f"Selected as judge via {judge_method}"
+                    + (f" (attempt {len(tried_judges)})" if len(tried_judges) > 1 else ""),
                 )
 
             # Emit judge selection hook
@@ -550,7 +556,7 @@ class ConsensusPhase:
                 # Use per-attempt timeout with overall timeout managed by execute()
                 synthesis = await asyncio.wait_for(
                     self._generate_with_agent(judge, judge_prompt, ctx.context_messages),
-                    timeout=self.JUDGE_TIMEOUT_PER_ATTEMPT
+                    timeout=self.JUDGE_TIMEOUT_PER_ATTEMPT,
                 )
 
                 result.final_answer = synthesis
@@ -598,9 +604,7 @@ class ConsensusPhase:
                 # Continue to next candidate
 
         # All judges failed - fall back to majority voting
-        logger.warning(
-            f"judge_all_failed tried={tried_judges} falling back to majority voting"
-        )
+        logger.warning(f"judge_all_failed tried={tried_judges} falling back to majority voting")
 
         # Try majority consensus as fallback
         try:
@@ -647,9 +651,7 @@ class ConsensusPhase:
             logger.debug(f"agent_voting agent={agent.name}")
             try:
                 # Use complexity-scaled timeout from governor
-                timeout = get_complexity_governor().get_scaled_timeout(
-                    float(AGENT_TIMEOUT_SECONDS)
-                )
+                timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
                 if self._with_timeout:
                     vote_result = await self._with_timeout(
                         self._vote_with_agent(agent, ctx.proposals, task),
@@ -699,10 +701,7 @@ class ConsensusPhase:
 
         # Apply outer timeout to prevent N*agent_timeout runaway
         try:
-            await asyncio.wait_for(
-                collect_all_votes(),
-                timeout=self.VOTE_COLLECTION_TIMEOUT
-            )
+            await asyncio.wait_for(collect_all_votes(), timeout=self.VOTE_COLLECTION_TIMEOUT)
         except asyncio.TimeoutError:
             logger.warning(
                 f"vote_collection_timeout collected={len(votes)} "
@@ -712,9 +711,7 @@ class ConsensusPhase:
 
         return votes
 
-    async def _collect_votes_with_errors(
-        self, ctx: "DebateContext"
-    ) -> tuple[list["Vote"], int]:
+    async def _collect_votes_with_errors(self, ctx: "DebateContext") -> tuple[list["Vote"], int]:
         """Collect votes with error tracking and outer timeout protection.
 
         Used for unanimity mode where we need to track errors.
@@ -746,9 +743,7 @@ class ConsensusPhase:
             logger.debug(f"agent_voting_unanimous agent={agent.name}")
             try:
                 # Use complexity-scaled timeout from governor
-                timeout = get_complexity_governor().get_scaled_timeout(
-                    float(AGENT_TIMEOUT_SECONDS)
-                )
+                timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
                 if self._with_timeout:
                     vote_result = await self._with_timeout(
                         self._vote_with_agent(agent, ctx.proposals, task),
@@ -760,7 +755,9 @@ class ConsensusPhase:
                 return (agent, vote_result)
             except Exception as e:
                 # Catch all exceptions to prevent voting failures from crashing the phase
-                logger.warning(f"vote_exception_unanimous agent={agent.name} error={type(e).__name__}: {e}")
+                logger.warning(
+                    f"vote_exception_unanimous agent={agent.name} error={type(e).__name__}: {e}"
+                )
                 return (agent, e)
 
         async def collect_all_votes():
@@ -796,7 +793,9 @@ class ConsensusPhase:
                     if isinstance(vote_result, Exception):
                         logger.error(f"vote_error_unanimous agent={agent.name} error={vote_result}")
                     else:
-                        logger.error(f"vote_error_unanimous agent={agent.name} error=vote returned None")
+                        logger.error(
+                            f"vote_error_unanimous agent={agent.name} error=vote returned None"
+                        )
                     voting_errors += 1
                 else:
                     votes.append(vote_result)
@@ -804,10 +803,7 @@ class ConsensusPhase:
 
         # Apply outer timeout to prevent N*agent_timeout runaway
         try:
-            await asyncio.wait_for(
-                collect_all_votes(),
-                timeout=self.VOTE_COLLECTION_TIMEOUT
-            )
+            await asyncio.wait_for(collect_all_votes(), timeout=self.VOTE_COLLECTION_TIMEOUT)
         except asyncio.TimeoutError:
             # Treat timeout as errors for missing votes
             missing = len(ctx.agents) - len(votes) - voting_errors
@@ -858,7 +854,9 @@ class ConsensusPhase:
         # Record position for truth-grounded personas
         if self.position_tracker:
             try:
-                debate_id = result.id if hasattr(result, 'id') else (ctx.env.task[:50] if ctx.env else "")
+                debate_id = (
+                    result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
+                )
                 self.position_tracker.record_position(
                     debate_id=debate_id,
                     agent_name=agent.name,
@@ -948,6 +946,7 @@ class ConsensusPhase:
                 # Create new vote with adjusted confidence
                 if adjusted_conf != original_conf:
                     from aragora.core import Vote
+
                     adjusted_vote = Vote(
                         agent=vote.agent,
                         choice=vote.choice,
@@ -959,7 +958,10 @@ class ConsensusPhase:
                     logger.debug(
                         "calibration_confidence_adjustment agent=%s "
                         "original=%.2f adjusted=%.2f bias=%s",
-                        vote.agent, original_conf, adjusted_conf, summary.bias_direction
+                        vote.agent,
+                        original_conf,
+                        adjusted_conf,
+                        summary.bias_direction,
                     )
                 else:
                     adjusted_votes.append(vote)
@@ -998,7 +1000,7 @@ class ConsensusPhase:
         if self._drain_user_events:
             self._drain_user_events()
 
-        base_user_weight = getattr(self.protocol, 'user_vote_weight', 0.5)
+        base_user_weight = getattr(self.protocol, "user_vote_weight", 0.5)
 
         for user_vote in self.user_votes:
             choice = user_vote.get("choice", "")
@@ -1044,14 +1046,14 @@ class ConsensusPhase:
         Returns:
             Updated vote counts with verification bonuses applied
         """
-        if not self.protocol or not getattr(self.protocol, 'verify_claims_during_consensus', False):
+        if not self.protocol or not getattr(self.protocol, "verify_claims_during_consensus", False):
             return vote_counts
 
         if not self._verify_claims:
             return vote_counts
 
-        verification_bonus = getattr(self.protocol, 'verification_weight_bonus', 0.2)
-        verification_timeout = getattr(self.protocol, 'verification_timeout_seconds', 5.0)
+        verification_bonus = getattr(self.protocol, "verification_weight_bonus", 0.2)
+        verification_timeout = getattr(self.protocol, "verification_timeout_seconds", 5.0)
         result = ctx.result
 
         for agent_name, proposal_text in proposals.items():
@@ -1063,8 +1065,7 @@ class ConsensusPhase:
             try:
                 # Verify top claims in the proposal (async with timeout)
                 verification_result = await asyncio.wait_for(
-                    self._verify_claims(proposal_text, limit=2),
-                    timeout=verification_timeout
+                    self._verify_claims(proposal_text, limit=2), timeout=verification_timeout
                 )
 
                 # Phase 11A: Handle both dict and int return types for backward compat
@@ -1077,7 +1078,7 @@ class ConsensusPhase:
                     disproven_count = 0
 
                 # Store verification counts for feedback loop (Phase 11A: now includes disproven)
-                if hasattr(result, 'verification_results'):
+                if hasattr(result, "verification_results"):
                     result.verification_results[agent_name] = {
                         "verified": verified_count,
                         "disproven": disproven_count,
@@ -1090,7 +1091,7 @@ class ConsensusPhase:
                     vote_counts[canonical] = current_count + bonus
 
                     # Store bonus for feedback loop
-                    if hasattr(result, 'verification_bonuses'):
+                    if hasattr(result, "verification_bonuses"):
                         result.verification_bonuses[agent_name] = bonus
 
                     logger.info(
@@ -1104,7 +1105,7 @@ class ConsensusPhase:
                 )
             except asyncio.TimeoutError:
                 logger.debug(f"verification_timeout agent={agent_name}")
-                if hasattr(result, 'verification_results'):
+                if hasattr(result, "verification_results"):
                     result.verification_results[agent_name] = -1  # Timeout indicator
                 self._emit_verification_event(ctx, agent_name, -1, 0.0, timeout=True)
             except Exception as e:
@@ -1133,7 +1134,7 @@ class ConsensusPhase:
             return
 
         result = ctx.result
-        if not hasattr(result, 'verification_results') or not result.verification_results:
+        if not hasattr(result, "verification_results") or not result.verification_results:
             return
 
         # Extract domain from context
@@ -1203,18 +1204,20 @@ class ConsensusPhase:
         try:
             from aragora.server.stream import StreamEvent, StreamEventType
 
-            ctx.event_emitter.emit(StreamEvent(
-                type=StreamEventType.CLAIM_VERIFICATION_RESULT,
-                loop_id=ctx.loop_id,
-                agent=agent_name,
-                data={
-                    "agent": agent_name,
-                    "verified_count": verified_count,
-                    "bonus_applied": bonus,
-                    "timeout": timeout,
-                    "debate_id": ctx.debate_id,
-                }
-            ))
+            ctx.event_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.CLAIM_VERIFICATION_RESULT,
+                    loop_id=ctx.loop_id,
+                    agent=agent_name,
+                    data={
+                        "agent": agent_name,
+                        "verified_count": verified_count,
+                        "bonus_applied": bonus,
+                        "timeout": timeout,
+                        "debate_id": ctx.debate_id,
+                    },
+                )
+            )
         except Exception as e:
             logger.debug(f"verification_event_error: {e}")
 
@@ -1331,7 +1334,9 @@ class ConsensusPhase:
             else:
                 result.consensus_strength = "weak"
 
-            logger.info(f"consensus_strength strength={result.consensus_strength} variance={variance:.2f}")
+            logger.info(
+                f"consensus_strength strength={result.consensus_strength} variance={variance:.2f}"
+            )
         else:
             result.consensus_strength = "unanimous"
             result.consensus_variance = 0.0
@@ -1361,7 +1366,9 @@ class ConsensusPhase:
         # Finalize for truth-grounded personas
         if self.position_tracker:
             try:
-                debate_id = result.id if hasattr(result, 'id') else (ctx.env.task[:50] if ctx.env else "")
+                debate_id = (
+                    result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
+                )
                 self.position_tracker.finalize_debate(
                     debate_id=debate_id,
                     winning_agent=winner_agent,
@@ -1374,7 +1381,9 @@ class ConsensusPhase:
         # Record calibration predictions
         if self.calibration_tracker:
             try:
-                debate_id = result.id if hasattr(result, 'id') else (ctx.env.task[:50] if ctx.env else "")
+                debate_id = (
+                    result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
+                )
                 domain = self._extract_debate_domain() if self._extract_debate_domain else "general"
                 for v in result.votes:
                     if not isinstance(v, Exception):
@@ -1390,7 +1399,9 @@ class ConsensusPhase:
                 logger.debug(f"calibration_recorded predictions={len(result.votes)}")
             except Exception as e:
                 category, msg, exc_info = _build_error_action(e, "calibration")
-                logger.warning(f"calibration_error category={category} error={msg}", exc_info=exc_info)
+                logger.warning(
+                    f"calibration_error category={category} error={msg}", exc_info=exc_info
+                )
 
     def _set_unanimous_winner(
         self,
@@ -1437,7 +1448,9 @@ class ConsensusPhase:
         # Record calibration predictions
         if self.calibration_tracker:
             try:
-                debate_id = result.id if hasattr(result, 'id') else (ctx.env.task[:50] if ctx.env else "")
+                debate_id = (
+                    result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
+                )
                 domain = self._extract_debate_domain() if self._extract_debate_domain else "general"
                 for v in result.votes:
                     if not isinstance(v, Exception):
@@ -1452,7 +1465,10 @@ class ConsensusPhase:
                 logger.debug(f"calibration_recorded_unanimous predictions={len(result.votes)}")
             except Exception as e:
                 category, msg, exc_info = _build_error_action(e, "calibration")
-                logger.warning(f"calibration_error_unanimous category={category} error={msg}", exc_info=exc_info)
+                logger.warning(
+                    f"calibration_error_unanimous category={category} error={msg}",
+                    exc_info=exc_info,
+                )
 
     def _set_no_unanimity(
         self,
@@ -1551,7 +1567,7 @@ class ConsensusPhase:
             return
 
         # Check if formal verification is enabled
-        formal_enabled = getattr(self.protocol, 'formal_verification_enabled', False)
+        formal_enabled = getattr(self.protocol, "formal_verification_enabled", False)
         if not formal_enabled:
             return
 
@@ -1560,8 +1576,8 @@ class ConsensusPhase:
             return
 
         # Get verification timeout from protocol
-        timeout = getattr(self.protocol, 'formal_verification_timeout', 30.0)
-        languages = getattr(self.protocol, 'formal_verification_languages', ['z3_smt'])
+        timeout = getattr(self.protocol, "formal_verification_timeout", 30.0)
+        languages = getattr(self.protocol, "formal_verification_languages", ["z3_smt"])
 
         logger.info(f"formal_verification_start languages={languages} timeout={timeout}")
 
@@ -1573,7 +1589,7 @@ class ConsensusPhase:
 
             # Check if any backend is available
             status = manager.status_report()
-            if not status.get('any_available', False):
+            if not status.get("any_available", False):
                 logger.debug("formal_verification_skip no backends available")
                 result.formal_verification = {
                     "status": "skipped",
@@ -1607,17 +1623,27 @@ class ConsensusPhase:
                 try:
                     from aragora.server.stream import StreamEvent, StreamEventType
 
-                    ctx.event_emitter.emit(StreamEvent(
-                        type=StreamEventType.FORMAL_VERIFICATION_RESULT,
-                        loop_id=ctx.loop_id,
-                        data={
-                            "debate_id": ctx.debate_id,
-                            "status": verification_result.status.value,
-                            "is_verified": verification_result.is_verified,
-                            "language": verification_result.language.value if verification_result.language else None,
-                            "formal_statement": verification_result.formal_statement[:500] if verification_result.formal_statement else None,
-                        }
-                    ))
+                    ctx.event_emitter.emit(
+                        StreamEvent(
+                            type=StreamEventType.FORMAL_VERIFICATION_RESULT,
+                            loop_id=ctx.loop_id,
+                            data={
+                                "debate_id": ctx.debate_id,
+                                "status": verification_result.status.value,
+                                "is_verified": verification_result.is_verified,
+                                "language": (
+                                    verification_result.language.value
+                                    if verification_result.language
+                                    else None
+                                ),
+                                "formal_statement": (
+                                    verification_result.formal_statement[:500]
+                                    if verification_result.formal_statement
+                                    else None
+                                ),
+                            },
+                        )
+                    )
                 except Exception as e:
                     logger.debug(f"formal_verification_event_error: {e}")
 

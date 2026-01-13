@@ -56,14 +56,14 @@ class LearningHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/learning/cycles":
-            limit = get_clamped_int_param(query_params, 'limit', 20, min_val=1, max_val=100)
+            limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
             return self._get_cycle_summaries(limit)
         if path == "/api/learning/patterns":
             return self._get_learned_patterns()
         if path == "/api/learning/agent-evolution":
             return self._get_agent_evolution()
         if path == "/api/learning/insights":
-            limit = get_clamped_int_param(query_params, 'limit', 50, min_val=1, max_val=200)
+            limit = get_clamped_int_param(query_params, "limit", 50, min_val=1, max_val=200)
             return self._get_aggregated_insights(limit)
         return None
 
@@ -101,19 +101,22 @@ class LearningHandler(BaseHandler):
                 # Extract cycle number
                 cycle_num = int(cycle_dir.name.replace("nomic-cycle-", ""))
 
-                cycles.append({
-                    "cycle": cycle_num,
-                    "debate_id": meta.get("debate_id", ""),
-                    "topic": meta.get("topic", ""),
-                    "agents": [a.get("name", "") for a in meta.get("agents", [])],
-                    "started_at": meta.get("started_at"),
-                    "ended_at": meta.get("ended_at"),
-                    "duration_ms": meta.get("duration_ms"),
-                    "status": meta.get("status", "unknown"),
-                    "final_verdict": meta.get("final_verdict"),
-                    "event_count": meta.get("event_count", 0),
-                    "success": meta.get("status") == "completed" and meta.get("final_verdict") is not None,
-                })
+                cycles.append(
+                    {
+                        "cycle": cycle_num,
+                        "debate_id": meta.get("debate_id", ""),
+                        "topic": meta.get("topic", ""),
+                        "agents": [a.get("name", "") for a in meta.get("agents", [])],
+                        "started_at": meta.get("started_at"),
+                        "ended_at": meta.get("ended_at"),
+                        "duration_ms": meta.get("duration_ms"),
+                        "status": meta.get("status", "unknown"),
+                        "final_verdict": meta.get("final_verdict"),
+                        "event_count": meta.get("event_count", 0),
+                        "success": meta.get("status") == "completed"
+                        and meta.get("final_verdict") is not None,
+                    }
+                )
             except (json.JSONDecodeError, ValueError) as e:
                 logger.warning(f"Failed to parse {meta_file}: {e}")
                 continue
@@ -121,12 +124,14 @@ class LearningHandler(BaseHandler):
             if len(cycles) >= limit:
                 break
 
-        return json_response({
-            "cycles": cycles,
-            "count": len(cycles),
-            "total_cycles": len(cycles),  # Use bounded count instead of loading all entries
-            "has_more": len(cycles) >= limit,
-        })
+        return json_response(
+            {
+                "cycles": cycles,
+                "count": len(cycles),
+                "total_cycles": len(cycles),  # Use bounded count instead of loading all entries
+                "has_more": len(cycles) >= limit,
+            }
+        )
 
     @handle_errors("learned patterns")
     def _get_learned_patterns(self) -> HandlerResult:
@@ -156,18 +161,22 @@ class LearningHandler(BaseHandler):
                         try:
                             entry = json.loads(line)
                             if entry.get("confidence", 1.0) < 0.3:
-                                failed_cycles.append({
-                                    "cycle": entry.get("cycle", 0),
-                                    "phase": entry.get("phase", ""),
-                                    "task": entry.get("task", "")[:100],
-                                    "error": entry.get("error", "")[:200],
-                                })
+                                failed_cycles.append(
+                                    {
+                                        "cycle": entry.get("cycle", 0),
+                                        "phase": entry.get("phase", ""),
+                                        "task": entry.get("task", "")[:100],
+                                        "error": entry.get("error", "")[:200],
+                                    }
+                                )
                             else:
-                                successful_cycles.append({
-                                    "cycle": entry.get("cycle", 0),
-                                    "phase": entry.get("phase", ""),
-                                    "confidence": entry.get("confidence", 0),
-                                })
+                                successful_cycles.append(
+                                    {
+                                        "cycle": entry.get("cycle", 0),
+                                        "phase": entry.get("phase", ""),
+                                        "confidence": entry.get("confidence", 0),
+                                    }
+                                )
                         except json.JSONDecodeError:
                             continue
                 patterns["failed_patterns"] = failed_cycles[-10:]
@@ -195,7 +204,15 @@ class LearningHandler(BaseHandler):
                         with open(meta_file) as f:
                             meta = json.load(f)
                         topic = meta.get("topic", "").lower()
-                        for keyword in ["security", "performance", "testing", "refactor", "api", "fix", "feature"]:
+                        for keyword in [
+                            "security",
+                            "performance",
+                            "testing",
+                            "refactor",
+                            "api",
+                            "fix",
+                            "feature",
+                        ]:
                             if keyword in topic:
                                 theme_counts[keyword] += 1
                         # Track winning agents
@@ -259,13 +276,15 @@ class LearningHandler(BaseHandler):
                             votes = vote_tally.get(agent_name, 0)
                             is_winner = agent_name == winner
 
-                            evolution[agent_name].append({
-                                "cycle": cycle_num,
-                                "votes": votes,
-                                "is_winner": is_winner,
-                                "participated": True,
-                                "status": status,
-                            })
+                            evolution[agent_name].append(
+                                {
+                                    "cycle": cycle_num,
+                                    "votes": votes,
+                                    "is_winner": is_winner,
+                                    "participated": True,
+                                    "status": status,
+                                }
+                            )
                     except (json.JSONDecodeError, ValueError) as e:
                         logger.debug(f"Failed to parse {meta_file}: {e}")
                         continue
@@ -292,10 +311,12 @@ class LearningHandler(BaseHandler):
                 "trend": trend,
             }
 
-        return json_response({
-            "agents": agent_trends,
-            "total_cycles_analyzed": cycles_analyzed,  # Use bounded count
-        })
+        return json_response(
+            {
+                "agents": agent_trends,
+                "total_cycles_analyzed": cycles_analyzed,  # Use bounded count
+            }
+        )
 
     @handle_errors("aggregated insights")
     def _get_aggregated_insights(self, limit: int) -> HandlerResult:
@@ -312,21 +333,26 @@ class LearningHandler(BaseHandler):
             try:
                 with get_db_connection(str(insight_db)) as conn:
                     cursor = conn.cursor()
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT insight_id, debate_id, category, content, confidence, created_at
                         FROM insights
                         ORDER BY created_at DESC
                         LIMIT ?
-                    """, (limit,))
+                    """,
+                        (limit,),
+                    )
                     for row in cursor.fetchall():
-                        insights.append({
-                            "insight_id": row[0],
-                            "debate_id": row[1],
-                            "category": row[2],
-                            "content": row[3],
-                            "confidence": row[4],
-                            "created_at": row[5],
-                        })
+                        insights.append(
+                            {
+                                "insight_id": row[0],
+                                "debate_id": row[1],
+                                "category": row[2],
+                                "content": row[3],
+                                "confidence": row[4],
+                                "created_at": row[5],
+                            }
+                        )
             except Exception as e:
                 logger.warning(f"Failed to read insights DB: {e}")
 
@@ -335,8 +361,10 @@ class LearningHandler(BaseHandler):
         for insight in insights:
             category_counts[insight.get("category", "general")] += 1
 
-        return json_response({
-            "insights": insights,
-            "count": len(insights),
-            "by_category": dict(category_counts),
-        })
+        return json_response(
+            {
+                "insights": insights,
+                "count": len(insights),
+                "by_category": dict(category_counts),
+            }
+        )

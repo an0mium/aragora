@@ -174,12 +174,10 @@ def require_auth(func: Callable) -> Callable:
         # Check that API token is configured
         if not auth_config.api_token:
             logger.warning(
-                "require_auth: No API token configured, "
-                "denying access to sensitive endpoint"
+                "require_auth: No API token configured, " "denying access to sensitive endpoint"
             )
             return _error_response(
-                "Authentication required. "
-                "Set ARAGORA_API_TOKEN environment variable.",
+                "Authentication required. " "Set ARAGORA_API_TOKEN environment variable.",
                 401,
             )
 

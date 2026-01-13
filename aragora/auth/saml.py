@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 try:
     from onelogin.saml2.auth import OneLogin_Saml2_Auth
     from onelogin.saml2.utils import OneLogin_Saml2_Utils
+
     HAS_SAML_LIB = True
 except ImportError:
     HAS_SAML_LIB = False
@@ -90,27 +91,29 @@ class SAMLConfig(SSOConfig):
     want_assertions_encrypted: bool = False
 
     # Attribute mapping (SAML attribute -> user field)
-    attribute_mapping: Dict[str, str] = field(default_factory=lambda: {
-        # Common SAML attributes
-        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress": "email",
-        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name": "name",
-        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname": "first_name",
-        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname": "last_name",
-        "http://schemas.microsoft.com/ws/2008/06/identity/claims/groups": "groups",
-        "http://schemas.microsoft.com/ws/2008/06/identity/claims/role": "roles",
-        # Short names (fallback)
-        "email": "email",
-        "mail": "email",
-        "name": "name",
-        "displayName": "display_name",
-        "firstName": "first_name",
-        "givenName": "first_name",
-        "lastName": "last_name",
-        "surname": "last_name",
-        "groups": "groups",
-        "roles": "roles",
-        "memberOf": "groups",
-    })
+    attribute_mapping: Dict[str, str] = field(
+        default_factory=lambda: {
+            # Common SAML attributes
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress": "email",
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name": "name",
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname": "first_name",
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname": "last_name",
+            "http://schemas.microsoft.com/ws/2008/06/identity/claims/groups": "groups",
+            "http://schemas.microsoft.com/ws/2008/06/identity/claims/role": "roles",
+            # Short names (fallback)
+            "email": "email",
+            "mail": "email",
+            "name": "name",
+            "displayName": "display_name",
+            "firstName": "first_name",
+            "givenName": "first_name",
+            "lastName": "last_name",
+            "surname": "last_name",
+            "groups": "groups",
+            "roles": "roles",
+            "memberOf": "groups",
+        }
+    )
 
     def __post_init__(self):
         if not self.provider_type:
@@ -151,8 +154,7 @@ class SAMLProvider(SSOProvider):
         errors = config.validate()
         if errors:
             raise SSOConfigurationError(
-                f"Invalid SAML configuration: {', '.join(errors)}",
-                {"errors": errors}
+                f"Invalid SAML configuration: {', '.join(errors)}", {"errors": errors}
             )
 
         # SECURITY: Warn about simplified parser in production
@@ -165,7 +167,7 @@ class SAMLProvider(SSOProvider):
                 raise SSOConfigurationError(
                     "python3-saml required for production SAML. "
                     "Install with: pip install python3-saml",
-                    {"code": "MISSING_SAML_LIBRARY"}
+                    {"code": "MISSING_SAML_LIBRARY"},
                 )
 
     @property
@@ -206,6 +208,7 @@ class SAMLProvider(SSOProvider):
         """Generate AuthnRequest without external library."""
         # Generate request ID
         import secrets
+
         request_id = f"_aragora_{secrets.token_hex(16)}"
 
         # Build AuthnRequest XML
@@ -297,8 +300,7 @@ class SAMLProvider(SSOProvider):
         if relay_state and relay_state in self._state_store:
             if not self.validate_state(relay_state):
                 raise SSOAuthenticationError(
-                    "Invalid or expired state parameter",
-                    {"code": "INVALID_STATE"}
+                    "Invalid or expired state parameter", {"code": "INVALID_STATE"}
                 )
 
         if HAS_SAML_LIB:
@@ -337,8 +339,7 @@ class SAMLProvider(SSOProvider):
                 status_value = status.get("Value", "")
                 if "Success" not in status_value:
                     raise SSOAuthenticationError(
-                        f"SAML authentication failed: {status_value}",
-                        {"status": status_value}
+                        f"SAML authentication failed: {status_value}", {"status": status_value}
                     )
 
             # Extract NameID
@@ -383,7 +384,7 @@ class SAMLProvider(SSOProvider):
             if not self.is_domain_allowed(user.email):
                 raise SSOAuthenticationError(
                     f"Email domain not allowed: {user.email.split('@')[-1]}",
-                    {"code": "DOMAIN_NOT_ALLOWED"}
+                    {"code": "DOMAIN_NOT_ALLOWED"},
                 )
 
             logger.info(f"SAML authentication successful for {user.email}")
@@ -423,7 +424,7 @@ class SAMLProvider(SSOProvider):
         if errors:
             raise SSOAuthenticationError(
                 f"SAML validation failed: {', '.join(errors)}",
-                {"errors": errors, "reason": auth.get_last_error_reason()}
+                {"errors": errors, "reason": auth.get_last_error_reason()},
             )
 
         if not auth.is_authenticated():
@@ -453,7 +454,7 @@ class SAMLProvider(SSOProvider):
         if not self.is_domain_allowed(user.email):
             raise SSOAuthenticationError(
                 f"Email domain not allowed: {user.email.split('@')[-1]}",
-                {"code": "DOMAIN_NOT_ALLOWED"}
+                {"code": "DOMAIN_NOT_ALLOWED"},
             )
 
         return user
@@ -485,10 +486,14 @@ class SAMLProvider(SSOProvider):
                     "url": acs_url or self.config.callback_url,
                     "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
                 },
-                "singleLogoutService": {
-                    "url": self.config.logout_url,
-                    "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
-                } if self.config.logout_url else {},
+                "singleLogoutService": (
+                    {
+                        "url": self.config.logout_url,
+                        "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
+                    }
+                    if self.config.logout_url
+                    else {}
+                ),
                 "NameIDFormat": self.config.name_id_format,
                 "x509cert": self.config.sp_certificate,
                 "privateKey": self.config.sp_private_key,
@@ -499,10 +504,14 @@ class SAMLProvider(SSOProvider):
                     "url": self.config.idp_sso_url,
                     "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
                 },
-                "singleLogoutService": {
-                    "url": self.config.idp_slo_url,
-                    "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
-                } if self.config.idp_slo_url else {},
+                "singleLogoutService": (
+                    {
+                        "url": self.config.idp_slo_url,
+                        "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
+                    }
+                    if self.config.idp_slo_url
+                    else {}
+                ),
                 "x509cert": self.config.idp_certificate,
             },
             "security": {
@@ -515,12 +524,14 @@ class SAMLProvider(SSOProvider):
     def _get_host_from_url(self, url: str) -> str:
         """Extract host from URL."""
         from urllib.parse import urlparse
+
         parsed = urlparse(url)
         return parsed.netloc
 
     def _get_path_from_url(self, url: str) -> str:
         """Extract path from URL."""
         from urllib.parse import urlparse
+
         parsed = urlparse(url)
         return parsed.path
 
@@ -534,6 +545,7 @@ class SAMLProvider(SSOProvider):
         if HAS_SAML_LIB:
             settings = self._get_onelogin_settings()
             from onelogin.saml2.metadata import OneLogin_Saml2_Metadata
+
             return OneLogin_Saml2_Metadata.builder(settings)
 
         # Simple metadata without library

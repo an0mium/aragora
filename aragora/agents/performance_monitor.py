@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AgentMetric:
     """Single metric entry for an agent call."""
+
     agent_name: str
     operation: str
     start_time: float
@@ -38,12 +39,13 @@ class AgentMetric:
 @dataclass
 class AgentStats:
     """Aggregated statistics for an agent."""
+
     total_calls: int = 0
     successful_calls: int = 0
     failed_calls: int = 0
     timeout_calls: int = 0
     total_duration_ms: float = 0.0
-    min_duration_ms: float = float('inf')
+    min_duration_ms: float = float("inf")
     max_duration_ms: float = 0.0
     avg_duration_ms: float = 0.0
     total_response_chars: int = 0
@@ -55,7 +57,7 @@ class AgentStats:
             self.successful_calls += 1
         else:
             self.failed_calls += 1
-            if metric.error and 'timeout' in metric.error.lower():
+            if metric.error and "timeout" in metric.error.lower():
                 self.timeout_calls += 1
 
         if metric.duration_ms is not None:
@@ -177,7 +179,7 @@ class AgentPerformanceMonitor:
         if response is not None:
             if isinstance(response, str):
                 # Remove null bytes as suggested by gemini-visionary
-                response = response.replace('\0', '')
+                response = response.replace("\0", "")
                 metric.response_length = len(response)
             else:
                 metric.response_length = 0
@@ -212,9 +214,7 @@ class AgentPerformanceMonitor:
 
         insights: dict[str, Any] = {
             "total_calls": len(self.metrics),
-            "total_duration_ms": sum(
-                m.duration_ms for m in self.metrics if m.duration_ms
-            ),
+            "total_duration_ms": sum(m.duration_ms for m in self.metrics if m.duration_ms),
             "agent_stats": {},
             "slowest_agents": [],
             "most_failures": [],
@@ -229,16 +229,16 @@ class AgentPerformanceMonitor:
                 "success_rate": round(stats.success_rate, 1),
                 "timeout_rate": round(stats.timeout_rate, 1),
                 "avg_duration_ms": round(stats.avg_duration_ms, 0),
-                "min_duration_ms": round(stats.min_duration_ms, 0) if stats.min_duration_ms != float('inf') else 0,
+                "min_duration_ms": (
+                    round(stats.min_duration_ms, 0) if stats.min_duration_ms != float("inf") else 0
+                ),
                 "max_duration_ms": round(stats.max_duration_ms, 0),
                 "total_response_chars": stats.total_response_chars,
             }
 
         # Rank by slowness
         sorted_by_speed = sorted(
-            self.agent_stats.items(),
-            key=lambda x: x[1].avg_duration_ms,
-            reverse=True
+            self.agent_stats.items(), key=lambda x: x[1].avg_duration_ms, reverse=True
         )
         insights["slowest_agents"] = [
             {"agent": name, "avg_ms": round(stats.avg_duration_ms, 0)}
@@ -247,12 +247,14 @@ class AgentPerformanceMonitor:
 
         # Rank by failure rate
         sorted_by_failures = sorted(
-            self.agent_stats.items(),
-            key=lambda x: x[1].failed_calls,
-            reverse=True
+            self.agent_stats.items(), key=lambda x: x[1].failed_calls, reverse=True
         )
         insights["most_failures"] = [
-            {"agent": name, "failures": stats.failed_calls, "rate": round(100 - stats.success_rate, 1)}
+            {
+                "agent": name,
+                "failures": stats.failed_calls,
+                "rate": round(100 - stats.success_rate, 1),
+            }
             for name, stats in sorted_by_failures[:3]
             if stats.failed_calls > 0
         ]
@@ -260,10 +262,12 @@ class AgentPerformanceMonitor:
         # Identify timeout-prone agents
         for agent_name, stats in self.agent_stats.items():
             if stats.timeout_rate > 20:
-                insights["timeout_prone"].append({
-                    "agent": agent_name,
-                    "timeout_rate": round(stats.timeout_rate, 1),
-                })
+                insights["timeout_prone"].append(
+                    {
+                        "agent": agent_name,
+                        "timeout_rate": round(stats.timeout_rate, 1),
+                    }
+                )
 
         # Generate recommendations
         for agent_name, stats in self.agent_stats.items():
@@ -344,7 +348,7 @@ class AgentPerformanceMonitor:
         }
 
         try:
-            with open(filepath, 'w') as f:
+            with open(filepath, "w") as f:
                 json.dump(data, f, indent=2)
             logger.info(f"perf_saved path={filepath} metrics={len(self.metrics)}")
             return filepath

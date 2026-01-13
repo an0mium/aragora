@@ -35,11 +35,22 @@ def storage(tmp_path):
 @pytest.fixture
 def mock_result():
     """Create mock GauntletResult for testing."""
-    result = Mock(spec=[
-        'gauntlet_id', 'input_hash', 'input_summary', 'verdict',
-        'confidence', 'robustness_score', 'risk_summary', 'vulnerabilities',
-        'agents_used', 'template_used', 'duration_seconds', 'to_dict'
-    ])
+    result = Mock(
+        spec=[
+            "gauntlet_id",
+            "input_hash",
+            "input_summary",
+            "verdict",
+            "confidence",
+            "robustness_score",
+            "risk_summary",
+            "vulnerabilities",
+            "agents_used",
+            "template_used",
+            "duration_seconds",
+            "to_dict",
+        ]
+    )
     result.gauntlet_id = "gauntlet-test-123"
     result.input_hash = "abc123hash"
     result.input_summary = "Test input content for gauntlet validation"
@@ -57,24 +68,37 @@ def mock_result():
     result.agents_used = ["claude", "gpt-4"]
     result.template_used = "security"
     result.duration_seconds = 45.5
-    result.to_dict = Mock(return_value={
-        "gauntlet_id": "gauntlet-test-123",
-        "verdict": "pass",
-        "confidence": 0.85,
-        "robustness_score": 0.9,
-        "risk_summary": {"critical": 0, "high": 1, "medium": 2, "low": 3},
-    })
+    result.to_dict = Mock(
+        return_value={
+            "gauntlet_id": "gauntlet-test-123",
+            "verdict": "pass",
+            "confidence": 0.85,
+            "robustness_score": 0.9,
+            "risk_summary": {"critical": 0, "high": 1, "medium": 2, "low": 3},
+        }
+    )
     return result
 
 
 @pytest.fixture
 def mock_result_fail():
     """Create mock failed result."""
-    result = Mock(spec=[
-        'gauntlet_id', 'input_hash', 'input_summary', 'verdict',
-        'confidence', 'robustness_score', 'risk_summary', 'vulnerabilities',
-        'agents_used', 'template_used', 'duration_seconds', 'to_dict'
-    ])
+    result = Mock(
+        spec=[
+            "gauntlet_id",
+            "input_hash",
+            "input_summary",
+            "verdict",
+            "confidence",
+            "robustness_score",
+            "risk_summary",
+            "vulnerabilities",
+            "agents_used",
+            "template_used",
+            "duration_seconds",
+            "to_dict",
+        ]
+    )
     result.gauntlet_id = "gauntlet-test-456"
     result.input_hash = "def456hash"
     result.input_summary = "Another test input"
@@ -92,12 +116,14 @@ def mock_result_fail():
     result.agents_used = ["claude"]
     result.template_used = None
     result.duration_seconds = 30.0
-    result.to_dict = Mock(return_value={
-        "gauntlet_id": "gauntlet-test-456",
-        "verdict": "fail",
-        "confidence": 0.95,
-        "risk_summary": {"critical": 2, "high": 3, "medium": 1, "low": 0},
-    })
+    result.to_dict = Mock(
+        return_value={
+            "gauntlet_id": "gauntlet-test-456",
+            "verdict": "fail",
+            "confidence": 0.95,
+            "risk_summary": {"critical": 2, "high": 3, "medium": 1, "low": 0},
+        }
+    )
     return result
 
 
@@ -146,11 +172,13 @@ class TestBasicOperations:
 
         # Modify and save again
         mock_result.confidence = 0.99
-        mock_result.to_dict = Mock(return_value={
-            "gauntlet_id": "gauntlet-test-123",
-            "verdict": "pass",
-            "confidence": 0.99,
-        })
+        mock_result.to_dict = Mock(
+            return_value={
+                "gauntlet_id": "gauntlet-test-123",
+                "verdict": "pass",
+                "confidence": 0.99,
+            }
+        )
         storage.save(mock_result)
 
         retrieved = storage.get("gauntlet-test-123")
@@ -243,10 +271,12 @@ class TestHistory:
         storage.save(mock_result)
 
         mock_result.gauntlet_id = "gauntlet-test-124"
-        mock_result.to_dict = Mock(return_value={
-            "gauntlet_id": "gauntlet-test-124",
-            "verdict": "pass",
-        })
+        mock_result.to_dict = Mock(
+            return_value={
+                "gauntlet_id": "gauntlet-test-124",
+                "verdict": "pass",
+            }
+        )
         storage.save(mock_result)
 
         history = storage.get_history("abc123hash")
@@ -276,10 +306,7 @@ class TestComparison:
         storage.save(mock_result)
         storage.save(mock_result_fail)
 
-        comparison = storage.compare(
-            "gauntlet-test-123",
-            "gauntlet-test-456"
-        )
+        comparison = storage.compare("gauntlet-test-123", "gauntlet-test-456")
 
         assert comparison is not None
         assert comparison["result1_id"] == "gauntlet-test-123"
@@ -291,10 +318,7 @@ class TestComparison:
         """Test comparing with non-existent result."""
         storage.save(mock_result)
 
-        comparison = storage.compare(
-            "gauntlet-test-123",
-            "gauntlet-nonexistent"
-        )
+        comparison = storage.compare("gauntlet-test-123", "gauntlet-nonexistent")
         assert comparison is None
 
     def test_compare_improvement(self, storage, mock_result, mock_result_fail):
@@ -303,10 +327,7 @@ class TestComparison:
         storage.save(mock_result_fail)  # Fail result (worse)
 
         # Compare: mock_result (pass) vs mock_result_fail (fail)
-        comparison = storage.compare(
-            "gauntlet-test-123",
-            "gauntlet-test-456"
-        )
+        comparison = storage.compare("gauntlet-test-123", "gauntlet-test-456")
 
         assert comparison is not None
         # mock_result has fewer critical issues
@@ -422,11 +443,22 @@ class TestSchema:
         storage1 = GauntletStorage(str(db_path))
         storage2 = GauntletStorage(str(db_path))
 
-        mock_result = Mock(spec=[
-            'gauntlet_id', 'input_hash', 'input_summary', 'verdict',
-            'confidence', 'robustness_score', 'risk_summary', 'vulnerabilities',
-            'agents_used', 'template_used', 'duration_seconds', 'to_dict'
-        ])
+        mock_result = Mock(
+            spec=[
+                "gauntlet_id",
+                "input_hash",
+                "input_summary",
+                "verdict",
+                "confidence",
+                "robustness_score",
+                "risk_summary",
+                "vulnerabilities",
+                "agents_used",
+                "template_used",
+                "duration_seconds",
+                "to_dict",
+            ]
+        )
         mock_result.gauntlet_id = "test-shared"
         mock_result.input_hash = "hash123"
         mock_result.input_summary = "Test input summary"
@@ -494,13 +526,17 @@ class TestBackendSelection:
         """Test ARAGORA_DATABASE_URL env var is recognized."""
         db_path = tmp_path / "aragora_env_test.db"
 
-        with patch.dict(os.environ, {"ARAGORA_DATABASE_URL": "postgresql://localhost/test"}, clear=False):
+        with patch.dict(
+            os.environ, {"ARAGORA_DATABASE_URL": "postgresql://localhost/test"}, clear=False
+        ):
             # Clear DATABASE_URL if set
             env = os.environ.copy()
             env.pop("DATABASE_URL", None)
 
             with patch.dict(os.environ, env, clear=True):
-                with patch.dict(os.environ, {"ARAGORA_DATABASE_URL": "postgresql://localhost/test"}):
+                with patch.dict(
+                    os.environ, {"ARAGORA_DATABASE_URL": "postgresql://localhost/test"}
+                ):
                     try:
                         storage = GauntletStorage(str(db_path))
                         assert storage._backend.backend_type == "postgresql"
@@ -539,11 +575,22 @@ class TestPostgreSQLBackendMock:
     @pytest.fixture
     def mock_pg_result(self):
         """Create mock GauntletResult for PostgreSQL tests."""
-        result = Mock(spec=[
-            'gauntlet_id', 'input_hash', 'input_summary', 'verdict',
-            'confidence', 'robustness_score', 'risk_summary', 'vulnerabilities',
-            'agents_used', 'template_used', 'duration_seconds', 'to_dict'
-        ])
+        result = Mock(
+            spec=[
+                "gauntlet_id",
+                "input_hash",
+                "input_summary",
+                "verdict",
+                "confidence",
+                "robustness_score",
+                "risk_summary",
+                "vulnerabilities",
+                "agents_used",
+                "template_used",
+                "duration_seconds",
+                "to_dict",
+            ]
+        )
         result.gauntlet_id = "pg-test-123"
         result.input_hash = "pghash123"
         result.input_summary = "PostgreSQL test input"
@@ -561,11 +608,13 @@ class TestPostgreSQLBackendMock:
         result.agents_used = ["claude", "gpt-4"]
         result.template_used = "security"
         result.duration_seconds = 35.0
-        result.to_dict = Mock(return_value={
-            "gauntlet_id": "pg-test-123",
-            "verdict": "pass",
-            "confidence": 0.92,
-        })
+        result.to_dict = Mock(
+            return_value={
+                "gauntlet_id": "pg-test-123",
+                "verdict": "pass",
+                "confidence": 0.92,
+            }
+        )
         return result
 
     def test_save_uses_upsert_for_postgresql(self, mock_pg_backend, mock_pg_result):
@@ -603,8 +652,21 @@ class TestPostgreSQLBackendMock:
         #                      robustness_score, critical_count, high_count, total_findings,
         #                      agents_used, template_used, created_at, duration_seconds
         mock_pg_backend.fetch_all.return_value = [
-            ("pg-test-123", "hash123", "summary", "pass", 0.9, 0.8,
-             0, 1, 4, '["claude"]', "security", "2024-01-01 00:00:00", 30.0)
+            (
+                "pg-test-123",
+                "hash123",
+                "summary",
+                "pass",
+                0.9,
+                0.8,
+                0,
+                1,
+                4,
+                '["claude"]',
+                "security",
+                "2024-01-01 00:00:00",
+                30.0,
+            )
         ]
 
         storage = GauntletStorage.__new__(GauntletStorage)

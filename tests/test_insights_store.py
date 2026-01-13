@@ -154,9 +154,7 @@ class TestInsightStoreInit:
 
         with sqlite3.connect(temp_db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
             tables = {row[0] for row in cursor.fetchall()}
 
         assert "insights" in tables
@@ -189,9 +187,7 @@ class TestStoreDebateInsights:
         assert stats["consensus_debates"] == 1
 
     @pytest.mark.asyncio
-    async def test_store_creates_agent_performance(
-        self, insight_store, sample_debate_insights
-    ):
+    async def test_store_creates_agent_performance(self, insight_store, sample_debate_insights):
         """Test that storing insights creates agent performance records."""
         await insight_store.store_debate_insights(sample_debate_insights)
 
@@ -201,9 +197,7 @@ class TestStoreDebateInsights:
         assert agent_stats["proposals_accepted"] == 1
 
     @pytest.mark.asyncio
-    async def test_store_updates_pattern_clusters(
-        self, insight_store, sample_debate_insights
-    ):
+    async def test_store_updates_pattern_clusters(self, insight_store, sample_debate_insights):
         """Test that pattern insights update pattern clusters."""
         # Store twice to test increment
         await insight_store.store_debate_insights(sample_debate_insights)
@@ -299,9 +293,7 @@ class TestSearch:
         assert len(results) == 0
 
     @pytest.mark.asyncio
-    async def test_search_sql_injection_prevention(
-        self, insight_store, sample_debate_insights
-    ):
+    async def test_search_sql_injection_prevention(self, insight_store, sample_debate_insights):
         """Test that SQL injection attempts are safely handled."""
         await insight_store.store_debate_insights(sample_debate_insights)
 
@@ -328,9 +320,7 @@ class TestGetCommonPatterns:
         assert patterns == []
 
     @pytest.mark.asyncio
-    async def test_get_common_patterns_min_occurrences(
-        self, insight_store, sample_debate_insights
-    ):
+    async def test_get_common_patterns_min_occurrences(self, insight_store, sample_debate_insights):
         """Test min_occurrences filter."""
         await insight_store.store_debate_insights(sample_debate_insights)
 
@@ -339,9 +329,7 @@ class TestGetCommonPatterns:
         assert len(patterns) == 0
 
     @pytest.mark.asyncio
-    async def test_get_common_patterns_by_category(
-        self, insight_store, sample_debate_insights
-    ):
+    async def test_get_common_patterns_by_category(self, insight_store, sample_debate_insights):
         """Test filtering patterns by category."""
         await insight_store.store_debate_insights(sample_debate_insights)
 
@@ -379,9 +367,7 @@ class TestGetAgentStats:
         assert stats["debate_count"] == 0
 
     @pytest.mark.asyncio
-    async def test_acceptance_rate_calculation(
-        self, insight_store, sample_debate_insights
-    ):
+    async def test_acceptance_rate_calculation(self, insight_store, sample_debate_insights):
         """Test that acceptance rate is calculated correctly."""
         await insight_store.store_debate_insights(sample_debate_insights)
 
@@ -442,9 +428,7 @@ class TestGetRecentInsights:
         assert len(recent) >= 1
 
     @pytest.mark.asyncio
-    async def test_get_recent_insights_limit(
-        self, insight_store, sample_debate_insights
-    ):
+    async def test_get_recent_insights_limit(self, insight_store, sample_debate_insights):
         """Test recent insights respects limit."""
         await insight_store.store_debate_insights(sample_debate_insights)
 
@@ -560,9 +544,7 @@ class TestRowToInsight:
     """Tests for row to Insight conversion."""
 
     @pytest.mark.asyncio
-    async def test_row_conversion_preserves_data(
-        self, insight_store, sample_debate_insights
-    ):
+    async def test_row_conversion_preserves_data(self, insight_store, sample_debate_insights):
         """Test that data is preserved through store/retrieve cycle."""
         await insight_store.store_debate_insights(sample_debate_insights)
 
@@ -675,9 +657,7 @@ class TestInsightApplicationCycle:
         assert isinstance(insights, list)
 
     @pytest.mark.asyncio
-    async def test_get_relevant_insights_filters_by_confidence(
-        self, insight_store, sample_insight
-    ):
+    async def test_get_relevant_insights_filters_by_confidence(self, insight_store, sample_insight):
         """Should filter out low confidence insights."""
         # Create insight with low confidence
         sample_insight.confidence = 0.3
@@ -721,15 +701,11 @@ class TestInsightApplicationCycle:
         """Should respect limit parameter."""
         await insight_store.store_debate_insights(sample_debate_insights)
 
-        insights = await insight_store.get_relevant_insights(
-            min_confidence=0.5, limit=1
-        )
+        insights = await insight_store.get_relevant_insights(min_confidence=0.5, limit=1)
         assert len(insights) <= 1
 
     @pytest.mark.asyncio
-    async def test_record_insight_usage_success(
-        self, insight_store, sample_debate_insights
-    ):
+    async def test_record_insight_usage_success(self, insight_store, sample_debate_insights):
         """Should record successful insight usage."""
         await insight_store.store_debate_insights(sample_debate_insights)
 
@@ -737,7 +713,7 @@ class TestInsightApplicationCycle:
         insights = await insight_store.get_recent_insights(limit=1)
         if insights:
             insight = insights[0]
-            insight_id = getattr(insight, 'id', None) or getattr(insight, 'insight_id', "test-id")
+            insight_id = getattr(insight, "id", None) or getattr(insight, "insight_id", "test-id")
 
             # Record successful usage
             await insight_store.record_insight_usage(
@@ -750,9 +726,7 @@ class TestInsightApplicationCycle:
             assert True
 
     @pytest.mark.asyncio
-    async def test_record_insight_usage_failure(
-        self, insight_store, sample_debate_insights
-    ):
+    async def test_record_insight_usage_failure(self, insight_store, sample_debate_insights):
         """Should record failed insight usage."""
         await insight_store.store_debate_insights(sample_debate_insights)
 
@@ -765,9 +739,7 @@ class TestInsightApplicationCycle:
         assert True
 
     @pytest.mark.asyncio
-    async def test_insight_usage_tracking(
-        self, insight_store, sample_debate_insights
-    ):
+    async def test_insight_usage_tracking(self, insight_store, sample_debate_insights):
         """Usage tracking infrastructure should work."""
         await insight_store.store_debate_insights(sample_debate_insights)
 
@@ -775,7 +747,7 @@ class TestInsightApplicationCycle:
         insights = await insight_store.get_recent_insights(limit=1)
         if insights:
             insight = insights[0]
-            insight_id = getattr(insight, 'id', None) or getattr(insight, 'insight_id', "test-id")
+            insight_id = getattr(insight, "id", None) or getattr(insight, "insight_id", "test-id")
 
             # Record multiple successful usages
             for i in range(3):
@@ -798,9 +770,7 @@ class TestInsightContextInjection:
         await insight_store.store_debate_insights(sample_debate_insights)
 
         # Get insights for injection
-        insights = await insight_store.get_relevant_insights(
-            min_confidence=0.5, limit=5
-        )
+        insights = await insight_store.get_relevant_insights(min_confidence=0.5, limit=5)
 
         # Format for prompt (simulating what ContextInitializer does)
         if insights:

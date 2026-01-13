@@ -16,7 +16,7 @@ from enum import Enum
 import random
 
 from aragora.config import DB_TIMEOUT_SECONDS
-from aragora.debate.traces_database import TracesDatabase
+from aragora.storage.base_store import SQLiteStore
 
 
 class EventType(Enum):
@@ -137,7 +137,9 @@ class DebateTrace:
         trace = cls(**data, events=events)
 
         if stored_checksum and trace.checksum != stored_checksum:
-            raise ValueError(f"Trace checksum mismatch: expected {stored_checksum}, got {trace.checksum}")
+            raise ValueError(
+                f"Trace checksum mismatch: expected {stored_checksum}, got {trace.checksum}"
+            )
 
         return trace
 
@@ -156,11 +158,42 @@ class DebateTrace:
             raise OSError(f"Failed to read debate trace {path}: {e}") from e
 
 
-class DebateTracer:
+class DebateTracer(SQLiteStore):
     """
     Records debate events for replay and analysis.
 
     Creates deterministic traces that can be replayed with identical results.
+    """
+
+    SCHEMA_NAME = "debate_tracer"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS traces (
+            trace_id TEXT PRIMARY KEY,
+            debate_id TEXT,
+            task TEXT,
+            agents TEXT,
+            random_seed INTEGER,
+            started_at TEXT,
+            completed_at TEXT,
+            checksum TEXT,
+            trace_json TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS trace_events (
+            event_id TEXT PRIMARY KEY,
+            trace_id TEXT,
+            event_type TEXT,
+            timestamp TEXT,
+            round_num INTEGER,
+            agent TEXT,
+            content TEXT,
+            FOREIGN KEY (trace_id) REFERENCES traces(trace_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_trace_events_trace
+        ON trace_events(trace_id);
     """
 
     def __init__(
@@ -171,12 +204,13 @@ class DebateTracer:
         random_seed: Optional[int] = None,
         db_path: str = "aragora_traces.db",
     ):
+        # Initialize SQLiteStore first
+        super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
+
         self.debate_id = debate_id
         self.task = task
         self.agents = agents
         self.random_seed = random_seed or random.randint(0, 2**32 - 1)
-        self.db_path = Path(db_path)
-        self.db = TracesDatabase(db_path)
 
         # Seed random for determinism
         random.seed(self.random_seed)
@@ -193,47 +227,6 @@ class DebateTracer:
         self._event_counter = 0
         self._current_round = 0
         self._event_stack: list[str] = []  # For parent tracking
-
-        self._init_db()
-
-    def _init_db(self):
-        """Initialize trace database."""
-        with self.db.connection() as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS traces (
-                    trace_id TEXT PRIMARY KEY,
-                    debate_id TEXT,
-                    task TEXT,
-                    agents TEXT,
-                    random_seed INTEGER,
-                    started_at TEXT,
-                    completed_at TEXT,
-                    checksum TEXT,
-                    trace_json TEXT
-                )
-            """)
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS trace_events (
-                    event_id TEXT PRIMARY KEY,
-                    trace_id TEXT,
-                    event_type TEXT,
-                    timestamp TEXT,
-                    round_num INTEGER,
-                    agent TEXT,
-                    content TEXT,
-                    FOREIGN KEY (trace_id) REFERENCES traces(trace_id)
-                )
-            """)
-
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_trace_events_trace
-                ON trace_events(trace_id)
-            """)
-
-            conn.commit()
 
     def _generate_event_id(self) -> str:
         """Generate unique event ID."""
@@ -368,40 +361,46 @@ class DebateTracer:
 
     def _save_trace(self):
         """Save trace to database."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO traces
                 (trace_id, debate_id, task, agents, random_seed, started_at, completed_at, checksum, trace_json)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                self.trace.trace_id,
-                self.debate_id,
-                self.task,
-                json.dumps(self.agents),
-                self.random_seed,
-                self.trace.started_at,
-                self.trace.completed_at,
-                self.trace.checksum,
-                self.trace.to_json(),
-            ))
+            """,
+                (
+                    self.trace.trace_id,
+                    self.debate_id,
+                    self.task,
+                    json.dumps(self.agents),
+                    self.random_seed,
+                    self.trace.started_at,
+                    self.trace.completed_at,
+                    self.trace.checksum,
+                    self.trace.to_json(),
+                ),
+            )
 
             # Save individual events for querying
             for event in self.trace.events:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR REPLACE INTO trace_events
                     (event_id, trace_id, event_type, timestamp, round_num, agent, content)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    event.event_id,
-                    self.trace.trace_id,
-                    event.event_type.value,
-                    event.timestamp,
-                    event.round_num,
-                    event.agent,
-                    json.dumps(event.content),
-                ))
+                """,
+                    (
+                        event.event_id,
+                        self.trace.trace_id,
+                        event.event_type.value,
+                        event.timestamp,
+                        event.round_num,
+                        event.agent,
+                        json.dumps(event.content),
+                    ),
+                )
 
             conn.commit()
 
@@ -420,18 +419,22 @@ class DebateTracer:
                 state["round"] = event.content["round"]
                 state["agents_acted"] = set()
             elif event.event_type == EventType.AGENT_PROPOSAL:
-                state["messages"].append({
-                    "agent": event.agent,
-                    "content": event.content["content"],
-                    "round": state["round"],
-                })
+                state["messages"].append(
+                    {
+                        "agent": event.agent,
+                        "content": event.content["content"],
+                        "round": state["round"],
+                    }
+                )
                 state["agents_acted"].add(event.agent)
             elif event.event_type == EventType.AGENT_CRITIQUE:
-                state["critiques"].append({
-                    "agent": event.agent,
-                    "target": event.content["target_agent"],
-                    "issues": event.content["issues"],
-                })
+                state["critiques"].append(
+                    {
+                        "agent": event.agent,
+                        "target": event.content["target_agent"],
+                        "issues": event.content["issues"],
+                    }
+                )
             elif event.event_type == EventType.CONSENSUS_CHECK:
                 state["consensus"] = event.content
 
@@ -544,7 +547,7 @@ class DebateReplayer:
         )
 
         # Copy events up to fork point
-        new_tracer.trace.events = self.trace.events[:fork_idx + 1]
+        new_tracer.trace.events = self.trace.events[: fork_idx + 1]
         new_tracer._event_counter = fork_idx + 1
 
         # Set current round from last round event
@@ -579,12 +582,14 @@ class DebateReplayer:
             elif event_b is None:
                 diffs.append({"type": "removed", "position": i, "event": event_a.to_dict()})
             elif event_a.to_dict() != event_b.to_dict():
-                diffs.append({
-                    "type": "changed",
-                    "position": i,
-                    "from": event_a.to_dict(),
-                    "to": event_b.to_dict(),
-                })
+                diffs.append(
+                    {
+                        "type": "changed",
+                        "position": i,
+                        "from": event_a.to_dict(),
+                        "to": event_b.to_dict(),
+                    }
+                )
 
         return diffs
 
@@ -652,23 +657,28 @@ def list_traces(db_path: str = "aragora_traces.db", limit: int = 20) -> list[dic
     with db.connection() as conn:
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT trace_id, debate_id, task, agents, started_at, completed_at, checksum
             FROM traces
             ORDER BY started_at DESC
             LIMIT ?
-        """, (limit,))
+        """,
+            (limit,),
+        )
 
         traces = []
         for row in cursor.fetchall():
-            traces.append({
-                "trace_id": row[0],
-                "debate_id": row[1],
-                "task": row[2][:100],
-                "agents": json.loads(row[3]),
-                "started_at": row[4],
-                "completed_at": row[5],
-                "checksum": row[6],
-            })
+            traces.append(
+                {
+                    "trace_id": row[0],
+                    "debate_id": row[1],
+                    "task": row[2][:100],
+                    "agents": json.loads(row[3]),
+                    "started_at": row[4],
+                    "completed_at": row[5],
+                    "checksum": row[6],
+                }
+            )
 
     return traces

@@ -33,6 +33,7 @@ MAX_OAUTH_STATES = int(os.environ.get("OAUTH_MAX_STATES", "10000"))
 @dataclass
 class OAuthState:
     """OAuth state data."""
+
     user_id: Optional[str]
     redirect_url: Optional[str]
     expires_at: float
@@ -114,10 +115,7 @@ class InMemoryOAuthStateStore(OAuthStateStore):
         with self._lock:
             # Enforce max size - remove oldest entries if at capacity
             if len(self._states) >= self._max_size:
-                sorted_states = sorted(
-                    self._states.items(),
-                    key=lambda x: x[1].expires_at
-                )
+                sorted_states = sorted(self._states.items(), key=lambda x: x[1].expires_at)
                 remove_count = max(1, len(sorted_states) // 10)
                 for key, _ in sorted_states[:remove_count]:
                     del self._states[key]
@@ -176,6 +174,7 @@ class RedisOAuthStateStore(OAuthStateStore):
 
         try:
             import redis
+
             self._redis = redis.from_url(
                 self._redis_url,
                 decode_responses=True,
@@ -213,6 +212,7 @@ class RedisOAuthStateStore(OAuthStateStore):
             raise RedisUnavailableError("OAuth state storage")
 
         import json
+
         state_token = secrets.token_urlsafe(32)
         now = time.time()
 
@@ -240,6 +240,7 @@ class RedisOAuthStateStore(OAuthStateStore):
             raise RedisUnavailableError("OAuth state storage")
 
         import json
+
         key = self._key(state)
 
         # Atomic get and delete using pipeline

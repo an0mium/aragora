@@ -188,7 +188,7 @@ class TestGauntletRunnerRun:
         runner = GauntletRunner()
 
         # Patch _run_red_team to raise an exception
-        with patch.object(runner, '_run_red_team', side_effect=Exception("Test error")):
+        with patch.object(runner, "_run_red_team", side_effect=Exception("Test error")):
             result = await runner.run("Test input")
 
         assert "Error during validation" in result.verdict_reasoning
@@ -209,9 +209,7 @@ class TestRunRedTeam:
             started_at=datetime.now().isoformat(),
         )
 
-        summary = await runner._run_red_team(
-            "Test input", "", result, lambda *a: None
-        )
+        summary = await runner._run_red_team("Test input", "", result, lambda *a: None)
 
         assert isinstance(summary, AttackSummary)
 
@@ -226,9 +224,7 @@ class TestRunRedTeam:
             started_at=datetime.now().isoformat(),
         )
 
-        summary = await runner._run_red_team(
-            "Test input", "", result, lambda *a: None
-        )
+        summary = await runner._run_red_team("Test input", "", result, lambda *a: None)
 
         assert summary.total_attacks == 0
         assert summary.successful_attacks == 0
@@ -248,9 +244,7 @@ class TestRunProbes:
             started_at=datetime.now().isoformat(),
         )
 
-        summary = await runner._run_probes(
-            "Test input", "", result, lambda *a: None
-        )
+        summary = await runner._run_probes("Test input", "", result, lambda *a: None)
 
         assert isinstance(summary, ProbeSummary)
 
@@ -265,9 +259,7 @@ class TestRunProbes:
             started_at=datetime.now().isoformat(),
         )
 
-        summary = await runner._run_probes(
-            "Test input", "", result, lambda *a: None
-        )
+        summary = await runner._run_probes("Test input", "", result, lambda *a: None)
 
         # Without agent_factory, no probes can run
         assert summary.probes_run == 0
@@ -285,9 +277,7 @@ class TestRunProbes:
             started_at=datetime.now().isoformat(),
         )
 
-        summary = await runner._run_probes(
-            "Test input", "", result, lambda *a: None
-        )
+        summary = await runner._run_probes("Test input", "", result, lambda *a: None)
 
         assert summary.probes_run == 0
         assert summary.vulnerabilities_found == 0
@@ -307,9 +297,7 @@ class TestRunScenarios:
             started_at=datetime.now().isoformat(),
         )
 
-        summary = await runner._run_scenarios(
-            "Test input", "", result, lambda *a: None
-        )
+        summary = await runner._run_scenarios("Test input", "", result, lambda *a: None)
 
         assert isinstance(summary, ScenarioSummary)
 

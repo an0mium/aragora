@@ -27,6 +27,7 @@ def _ensure_imports():
             from aragora.debate.orchestrator import Arena as _Arena, DebateProtocol as _DP
             from aragora.core import Environment as _Env
             from aragora.agents.base import create_agent as _ca
+
             Arena = _Arena
             DebateProtocol = _DP
             Environment = _Env
@@ -83,7 +84,7 @@ class ForkBridgeHandler:
         Returns:
             Success status
         """
-        fork_id = data.get('fork_id')
+        fork_id = data.get("fork_id")
 
         if not fork_id:
             logger.warning("Missing fork_id in fork request")
@@ -99,8 +100,7 @@ class ForkBridgeHandler:
         fork_data = self.get_fork(fork_id)
         if not fork_data:
             await self._send_error(
-                ws,
-                f"Fork '{fork_id}' not found. Register a fork first via the forking API."
+                ws, f"Fork '{fork_id}' not found. Register a fork first via the forking API."
             )
             return False
 
@@ -116,9 +116,9 @@ class ForkBridgeHandler:
             _ensure_imports()
 
             # Extract fork configuration
-            hypothesis = fork_data.get('hypothesis', 'Forked debate')
-            lead_agent = fork_data.get('lead_agent', 'unknown')
-            initial_messages = fork_data.get('messages', [])
+            hypothesis = fork_data.get("hypothesis", "Forked debate")
+            lead_agent = fork_data.get("lead_agent", "unknown")
+            initial_messages = fork_data.get("messages", [])
             # Validate initial_messages type and size
             if not isinstance(initial_messages, list):
                 logger.warning(f"Invalid initial_messages type: {type(initial_messages).__name__}")
@@ -127,13 +127,15 @@ class ForkBridgeHandler:
                 # Validate per-message structure and truncate
                 validated = []
                 for msg in initial_messages[:1000]:
-                    if isinstance(msg, dict) and isinstance(msg.get('content'), str):
+                    if isinstance(msg, dict) and isinstance(msg.get("content"), str):
                         validated.append(msg)
                 if len(validated) < min(len(initial_messages), 1000):
-                    logger.debug(f"Filtered {min(len(initial_messages), 1000) - len(validated)} invalid messages")
+                    logger.debug(
+                        f"Filtered {min(len(initial_messages), 1000) - len(validated)} invalid messages"
+                    )
                 initial_messages = validated
-            original_task = fork_data.get('task', 'Continue the debate')
-            agents_config = fork_data.get('agents', ['anthropic-api', 'openai-api'])
+            original_task = fork_data.get("task", "Continue the debate")
+            agents_config = fork_data.get("agents", ["anthropic-api", "openai-api"])
 
             # Create agents
             agents = []
@@ -156,16 +158,15 @@ class ForkBridgeHandler:
 
             # Create arena with initial message context
             arena = Arena(
-                env, agents, protocol,
+                env,
+                agents,
+                protocol,
                 loop_id=loop_id,
                 initial_messages=initial_messages,
             )
 
             # Run in background task
-            task_obj = asyncio.create_task(
-                self._run_fork_debate(arena, loop_id),
-                name=loop_id
-            )
+            task_obj = asyncio.create_task(self._run_fork_debate(arena, loop_id), name=loop_id)
 
             def _on_task_done(t: asyncio.Task):
                 """Cleanup task from active_loops when done - with exception safety."""
@@ -195,15 +196,18 @@ class ForkBridgeHandler:
                 self.active_loops[loop_id] = task_obj
 
             # Send success response
-            await self._send_json(ws, {
-                "type": "fork_started",
-                "data": {
-                    "loop_id": loop_id,
-                    "fork_id": fork_id,
-                    "hypothesis": hypothesis,
-                    "status": "running"
-                }
-            })
+            await self._send_json(
+                ws,
+                {
+                    "type": "fork_started",
+                    "data": {
+                        "loop_id": loop_id,
+                        "fork_id": fork_id,
+                        "hypothesis": hypothesis,
+                        "status": "running",
+                    },
+                },
+            )
 
             logger.info(f"Fork debate started: {fork_id} -> {loop_id}")
             return True
@@ -227,12 +231,12 @@ class ForkBridgeHandler:
         except Exception as e:
             logger.error(f"Fork debate {loop_id} failed: {type(e).__name__}: {e}")
             raise  # Re-raise so callback can detect it
-    
+
     async def _send_json(self, ws: Any, data: dict) -> None:
         """Send JSON message to websocket (handles both aiohttp and websockets)."""
         try:
             # Try aiohttp style first
-            if hasattr(ws, 'send_json'):
+            if hasattr(ws, "send_json"):
                 await ws.send_json(data)
             else:
                 # Fall back to websockets style
@@ -242,7 +246,4 @@ class ForkBridgeHandler:
 
     async def _send_error(self, ws: Any, message: str) -> None:
         """Send error message to websocket."""
-        await self._send_json(ws, {
-            "type": "error",
-            "data": {"message": message}
-        })
+        await self._send_json(ws, {"type": "error", "data": {"message": message}})

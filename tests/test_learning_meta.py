@@ -22,6 +22,7 @@ from aragora.learning.meta import (
 # LearningMetrics Tests
 # ============================================================================
 
+
 class TestLearningMetrics:
     """Tests for LearningMetrics dataclass."""
 
@@ -59,6 +60,7 @@ class TestLearningMetrics:
 # HyperparameterState Tests
 # ============================================================================
 
+
 class TestHyperparameterState:
     """Tests for HyperparameterState dataclass."""
 
@@ -68,10 +70,10 @@ class TestHyperparameterState:
 
         # Surprise weights should sum to 1.0
         total = (
-            state.surprise_weight_success +
-            state.surprise_weight_semantic +
-            state.surprise_weight_temporal +
-            state.surprise_weight_agent
+            state.surprise_weight_success
+            + state.surprise_weight_semantic
+            + state.surprise_weight_temporal
+            + state.surprise_weight_agent
         )
         assert abs(total - 1.0) < 0.01
 
@@ -112,6 +114,7 @@ class TestHyperparameterState:
 # ============================================================================
 # MetaLearner Tests
 # ============================================================================
+
 
 class TestMetaLearner:
     """Tests for MetaLearner class."""
@@ -230,9 +233,7 @@ class TestMetaLearnerAdjustments:
 
     def test_adjust_tier_imbalance(self, meta_learner):
         """Should adjust when fast tier underperforms slow."""
-        metrics = LearningMetrics(
-            tier_efficiency={"fast": 0.4, "slow": 0.7}
-        )
+        metrics = LearningMetrics(tier_efficiency={"fast": 0.4, "slow": 0.7})
         original_fast = meta_learner.state.fast_promotion_threshold
 
         adjustments = meta_learner.adjust_hyperparameters(metrics)
@@ -265,10 +266,10 @@ class TestMetaLearnerAdjustments:
         meta_learner.adjust_hyperparameters(metrics)
 
         total = (
-            meta_learner.state.surprise_weight_success +
-            meta_learner.state.surprise_weight_semantic +
-            meta_learner.state.surprise_weight_temporal +
-            meta_learner.state.surprise_weight_agent
+            meta_learner.state.surprise_weight_success
+            + meta_learner.state.surprise_weight_semantic
+            + meta_learner.state.surprise_weight_temporal
+            + meta_learner.state.surprise_weight_agent
         )
 
         assert abs(total - 1.0) < 0.01
@@ -318,7 +319,8 @@ class TestMetaLearnerEvaluation:
         """Should store metrics in history when there are memories."""
         # Create continuum_memory table needed by evaluate_learning_efficiency
         conn = sqlite3.connect(temp_db)
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS continuum_memory (
                 id INTEGER PRIMARY KEY,
                 success_count INTEGER DEFAULT 0,
@@ -327,7 +329,8 @@ class TestMetaLearnerEvaluation:
                 tier TEXT DEFAULT 'fast',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
         conn.commit()
         conn.close()
 
@@ -342,7 +345,8 @@ class TestMetaLearnerEvaluation:
         """Should log metrics to database when there are memories."""
         # Create continuum_memory table needed by evaluate_learning_efficiency
         conn = sqlite3.connect(temp_db)
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS continuum_memory (
                 id INTEGER PRIMARY KEY,
                 success_count INTEGER DEFAULT 0,
@@ -351,7 +355,8 @@ class TestMetaLearnerEvaluation:
                 tier TEXT DEFAULT 'fast',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
         conn.commit()
         conn.close()
 
@@ -448,14 +453,10 @@ class TestMetaLearnerHistory:
         """Should detect improving trend."""
         # First half: low retention
         for _ in range(3):
-            meta_learner.metrics_history.append(
-                LearningMetrics(pattern_retention_rate=0.5)
-            )
+            meta_learner.metrics_history.append(LearningMetrics(pattern_retention_rate=0.5))
         # Second half: high retention
         for _ in range(3):
-            meta_learner.metrics_history.append(
-                LearningMetrics(pattern_retention_rate=0.8)
-            )
+            meta_learner.metrics_history.append(LearningMetrics(pattern_retention_rate=0.8))
 
         trend = meta_learner._compute_trend(meta_learner.metrics_history)
 
@@ -465,14 +466,10 @@ class TestMetaLearnerHistory:
         """Should detect declining trend."""
         # First half: high retention
         for _ in range(3):
-            meta_learner.metrics_history.append(
-                LearningMetrics(pattern_retention_rate=0.8)
-            )
+            meta_learner.metrics_history.append(LearningMetrics(pattern_retention_rate=0.8))
         # Second half: low retention
         for _ in range(3):
-            meta_learner.metrics_history.append(
-                LearningMetrics(pattern_retention_rate=0.5)
-            )
+            meta_learner.metrics_history.append(LearningMetrics(pattern_retention_rate=0.5))
 
         trend = meta_learner._compute_trend(meta_learner.metrics_history)
 
@@ -481,9 +478,7 @@ class TestMetaLearnerHistory:
     def test_compute_trend_stable(self, meta_learner):
         """Should detect stable trend."""
         for _ in range(6):
-            meta_learner.metrics_history.append(
-                LearningMetrics(pattern_retention_rate=0.7)
-            )
+            meta_learner.metrics_history.append(LearningMetrics(pattern_retention_rate=0.7))
 
         trend = meta_learner._compute_trend(meta_learner.metrics_history)
 
@@ -491,9 +486,7 @@ class TestMetaLearnerHistory:
 
     def test_compute_trend_insufficient_data(self, meta_learner):
         """Should indicate insufficient data."""
-        meta_learner.metrics_history.append(
-            LearningMetrics(pattern_retention_rate=0.7)
-        )
+        meta_learner.metrics_history.append(LearningMetrics(pattern_retention_rate=0.7))
 
         trend = meta_learner._compute_trend(meta_learner.metrics_history)
 

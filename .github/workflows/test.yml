@@ -42,13 +42,8 @@ jobs:
           pip install pytest-cov pytest-timeout
 
       - name: Run tests
-        run: |
-          pytest tests/ -v \
-            --timeout=60 \
-            --cov=aragora \
-            --cov-report=xml \
-            --cov-report=term-missing \
-            -x --tb=short
+        run: bash scripts/test_tiers.sh ci
+        shell: bash
         env:
           PYTHONPATH: .
 
@@ -115,6 +110,57 @@ jobs:
             sleep 1
           done
           curl -fsS http://127.0.0.1:8090/api/health >/dev/null
+
+  frontend:
+    name: Frontend E2E Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: aragora/live/package-lock.json
+
+      - name: Install dependencies
+        working-directory: aragora/live
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: aragora/live
+        run: npx playwright install --with-deps
+
+      - name: Build frontend
+        working-directory: aragora/live
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+
+      - name: Run E2E tests
+        working-directory: aragora/live
+        run: npx playwright test
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: aragora/live/playwright-report/
+          retention-days: 7
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-results
+          path: aragora/live/test-results/
+          retention-days: 7
 
   benchmark:
     name: Performance Benchmarks

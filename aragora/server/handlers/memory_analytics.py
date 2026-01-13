@@ -72,12 +72,12 @@ class MemoryAnalyticsHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/memory/analytics":
-            days = get_clamped_int_param(query_params, 'days', 30, min_val=1, max_val=365)
+            days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
             return self._get_analytics(days)
 
         if path.startswith("/api/memory/analytics/tier/"):
             tier_name = path.split("/")[-1]
-            days = get_clamped_int_param(query_params, 'days', 30, min_val=1, max_val=365)
+            days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
             return self._get_tier_stats(tier_name, days)
 
         return None
@@ -124,8 +124,7 @@ class MemoryAnalyticsHandler(BaseHandler):
             tier_name_upper = tier_name.upper()
             if tier_name_upper not in [t.name for t in MemoryTier]:
                 return error_response(
-                    f"Invalid tier: {tier_name}. "
-                    f"Valid tiers: {[t.value for t in MemoryTier]}",
+                    f"Invalid tier: {tier_name}. " f"Valid tiers: {[t.value for t in MemoryTier]}",
                     400,
                 )
 
@@ -149,7 +148,9 @@ class MemoryAnalyticsHandler(BaseHandler):
 
         self.tracker.take_snapshot()
 
-        return json_response({
-            "status": "success",
-            "message": "Snapshot recorded for all tiers",
-        })
+        return json_response(
+            {
+                "status": "success",
+                "message": "Snapshot recorded for all tiers",
+            }
+        )

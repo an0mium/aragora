@@ -20,9 +20,11 @@ from aragora.server.handlers.base import clear_cache
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_introspection_snapshot():
     """Create a mock introspection snapshot."""
+
     def create_snapshot(agent_name, reputation_score=0.75):
         snapshot = Mock()
         snapshot.to_dict.return_value = {
@@ -34,19 +36,20 @@ def mock_introspection_snapshot():
             "draws": 5,
             "strengths": ["analytical", "thorough"],
             "weaknesses": ["speed"],
-            "recent_performance": {
-                "last_5_debates": ["win", "win", "loss", "draw", "win"]
-            },
+            "recent_performance": {"last_5_debates": ["win", "win", "loss", "draw", "win"]},
         }
         return snapshot
+
     return create_snapshot
 
 
 @pytest.fixture
 def mock_get_agent_introspection(mock_introspection_snapshot):
     """Create a mock get_agent_introspection function."""
+
     def mock_func(agent, memory=None, persona_manager=None):
         return mock_introspection_snapshot(agent)
+
     return mock_func
 
 
@@ -96,6 +99,7 @@ def clear_caches():
 # Route Matching Tests
 # ============================================================================
 
+
 class TestIntrospectionRouting:
     """Tests for route matching."""
 
@@ -124,11 +128,13 @@ class TestIntrospectionRouting:
 # GET /api/introspection/all Tests
 # ============================================================================
 
+
 class TestGetAllIntrospection:
     """Tests for GET /api/introspection/all endpoint."""
 
     def test_all_introspection_module_unavailable(self, introspection_handler):
         import aragora.server.handlers.introspection as mod
+
         original = mod.INTROSPECTION_AVAILABLE
         mod.INTROSPECTION_AVAILABLE = False
         try:
@@ -146,7 +152,7 @@ class TestGetAllIntrospection:
         if not mod.INTROSPECTION_AVAILABLE:
             pytest.skip("Introspection module not available")
 
-        with patch.object(mod, 'get_agent_introspection', mock_get_agent_introspection):
+        with patch.object(mod, "get_agent_introspection", mock_get_agent_introspection):
             result = introspection_handler.handle("/api/introspection/all", {}, None)
 
             assert result is not None
@@ -160,11 +166,13 @@ class TestGetAllIntrospection:
 # GET /api/introspection/leaderboard Tests
 # ============================================================================
 
+
 class TestGetIntrospectionLeaderboard:
     """Tests for GET /api/introspection/leaderboard endpoint."""
 
     def test_leaderboard_module_unavailable(self, introspection_handler):
         import aragora.server.handlers.introspection as mod
+
         original = mod.INTROSPECTION_AVAILABLE
         mod.INTROSPECTION_AVAILABLE = False
         try:
@@ -180,8 +188,10 @@ class TestGetIntrospectionLeaderboard:
         if not mod.INTROSPECTION_AVAILABLE:
             pytest.skip("Introspection module not available")
 
-        with patch.object(mod, 'get_agent_introspection', mock_get_agent_introspection):
-            result = introspection_handler.handle("/api/introspection/leaderboard", {"limit": "5"}, None)
+        with patch.object(mod, "get_agent_introspection", mock_get_agent_introspection):
+            result = introspection_handler.handle(
+                "/api/introspection/leaderboard", {"limit": "5"}, None
+            )
 
             assert result is not None
             assert result.status_code == 200
@@ -195,9 +205,11 @@ class TestGetIntrospectionLeaderboard:
         if not mod.INTROSPECTION_AVAILABLE:
             pytest.skip("Introspection module not available")
 
-        with patch.object(mod, 'get_agent_introspection', mock_get_agent_introspection):
+        with patch.object(mod, "get_agent_introspection", mock_get_agent_introspection):
             # Request limit of 100, should be capped at 50
-            result = introspection_handler.handle("/api/introspection/leaderboard", {"limit": "100"}, None)
+            result = introspection_handler.handle(
+                "/api/introspection/leaderboard", {"limit": "100"}, None
+            )
 
             assert result is not None
             assert result.status_code == 200
@@ -207,12 +219,14 @@ class TestGetIntrospectionLeaderboard:
 # GET /api/introspection/agents Tests (List Agents)
 # ============================================================================
 
+
 class TestListAgents:
     """Tests for GET /api/introspection/agents endpoint."""
 
     def test_list_agents_returns_list(self, introspection_handler):
         """Test that list agents returns agent list."""
         from aragora.server.handlers.base import clear_cache
+
         clear_cache()  # Clear cache for fresh response
 
         result = introspection_handler.handle("/api/introspection/agents", {}, None)
@@ -227,6 +241,7 @@ class TestListAgents:
     def test_list_agents_default_agents(self, introspection_handler):
         """Test that default agents are returned when no store available."""
         from aragora.server.handlers.base import clear_cache
+
         clear_cache()
 
         result = introspection_handler.handle("/api/introspection/agents", {}, None)
@@ -245,11 +260,13 @@ class TestListAgents:
 # GET /api/introspection/agents/{name} Tests
 # ============================================================================
 
+
 class TestGetAgentIntrospection:
     """Tests for GET /api/introspection/agents/{name} endpoint."""
 
     def test_agent_introspection_module_unavailable(self, introspection_handler):
         import aragora.server.handlers.introspection as mod
+
         original = mod.INTROSPECTION_AVAILABLE
         mod.INTROSPECTION_AVAILABLE = False
         try:
@@ -265,7 +282,7 @@ class TestGetAgentIntrospection:
         if not mod.INTROSPECTION_AVAILABLE:
             pytest.skip("Introspection module not available")
 
-        with patch.object(mod, 'get_agent_introspection', mock_get_agent_introspection):
+        with patch.object(mod, "get_agent_introspection", mock_get_agent_introspection):
             result = introspection_handler.handle("/api/introspection/agents/claude", {}, None)
 
             assert result is not None
@@ -280,13 +297,15 @@ class TestGetAgentIntrospection:
         assert result is not None
         assert result.status_code == 400
 
-    def test_agent_introspection_with_hyphen(self, introspection_handler, mock_get_agent_introspection):
+    def test_agent_introspection_with_hyphen(
+        self, introspection_handler, mock_get_agent_introspection
+    ):
         import aragora.server.handlers.introspection as mod
 
         if not mod.INTROSPECTION_AVAILABLE:
             pytest.skip("Introspection module not available")
 
-        with patch.object(mod, 'get_agent_introspection', mock_get_agent_introspection):
+        with patch.object(mod, "get_agent_introspection", mock_get_agent_introspection):
             result = introspection_handler.handle("/api/introspection/agents/gpt-4", {}, None)
 
             assert result is not None
@@ -298,6 +317,7 @@ class TestGetAgentIntrospection:
 # Security Tests
 # ============================================================================
 
+
 class TestIntrospectionSecurity:
     """Security tests for introspection endpoints."""
 
@@ -307,17 +327,22 @@ class TestIntrospectionSecurity:
         assert result.status_code == 400
 
     def test_sql_injection_blocked(self, introspection_handler):
-        result = introspection_handler.handle("/api/introspection/agents/'; DROP TABLE agents;--", {}, None)
+        result = introspection_handler.handle(
+            "/api/introspection/agents/'; DROP TABLE agents;--", {}, None
+        )
         assert result.status_code == 400
 
     def test_xss_blocked(self, introspection_handler):
-        result = introspection_handler.handle("/api/introspection/agents/<script>alert(1)</script>", {}, None)
+        result = introspection_handler.handle(
+            "/api/introspection/agents/<script>alert(1)</script>", {}, None
+        )
         assert result.status_code == 400
 
 
 # ============================================================================
 # Error Handling Tests
 # ============================================================================
+
 
 class TestIntrospectionErrorHandling:
     """Tests for error handling."""
@@ -335,7 +360,7 @@ class TestIntrospectionErrorHandling:
         def raise_error(*args, **kwargs):
             raise Exception("Introspection error")
 
-        with patch.object(mod, 'get_agent_introspection', raise_error):
+        with patch.object(mod, "get_agent_introspection", raise_error):
             result = introspection_handler.handle("/api/introspection/agents/claude", {}, None)
 
             assert result is not None
@@ -345,6 +370,7 @@ class TestIntrospectionErrorHandling:
 # ============================================================================
 # Edge Cases
 # ============================================================================
+
 
 class TestIntrospectionEdgeCases:
     """Tests for edge cases."""
@@ -366,13 +392,15 @@ class TestIntrospectionEdgeCases:
         # Should either accept or reject gracefully
         assert result is not None
 
-    def test_default_agents_used_when_no_store(self, handler_no_nomic_dir, mock_get_agent_introspection):
+    def test_default_agents_used_when_no_store(
+        self, handler_no_nomic_dir, mock_get_agent_introspection
+    ):
         import aragora.server.handlers.introspection as mod
 
         if not mod.INTROSPECTION_AVAILABLE:
             pytest.skip("Introspection module not available")
 
-        with patch.object(mod, 'get_agent_introspection', mock_get_agent_introspection):
+        with patch.object(mod, "get_agent_introspection", mock_get_agent_introspection):
             result = handler_no_nomic_dir.handle("/api/introspection/all", {}, None)
 
             assert result is not None

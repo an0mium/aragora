@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { withErrorBoundary } from './PanelErrorBoundary';
+import { API_BASE_URL } from '@/config';
 
 interface RelationshipEntry {
   agent: string;
@@ -46,7 +48,7 @@ interface AgentNetworkPanelProps {
   onAgentSelect?: (agent: string) => void;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 // SVG Network Graph Component
 function NetworkGraph({
@@ -214,7 +216,7 @@ function NetworkGraph({
   );
 }
 
-export function AgentNetworkPanel({
+function AgentNetworkPanelComponent({
   selectedAgent,
   apiBase = DEFAULT_API_BASE,
   onAgentSelect,
@@ -339,8 +341,13 @@ export function AgentNetworkPanel({
   if (!isExpanded) {
     return (
       <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={false}
+        aria-label={`Expand Agent Network panel${network ? ` for ${network.agent}` : ''}`}
         className="panel panel-compact cursor-pointer"
         onClick={() => setIsExpanded(true)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsExpanded(true); } }}
       >
         <div className="flex items-center justify-between">
           <h3 className="panel-title-sm flex items-center gap-2">
@@ -369,6 +376,8 @@ export function AgentNetworkPanel({
         </h3>
         <button
           onClick={() => setIsExpanded(false)}
+          aria-expanded={true}
+          aria-label="Collapse Agent Network panel"
           className="panel-toggle hover:text-accent"
         >
           [COLLAPSE]
@@ -414,9 +423,10 @@ export function AgentNetworkPanel({
               <h4 className="text-lg font-medium text-white">
                 {network.agent}&apos;s Relationship Network
               </h4>
-              <div className="flex gap-1">
+              <div className="flex gap-1" role="group" aria-label="View mode">
                 <button
                   onClick={() => setViewMode('graph')}
+                  aria-pressed={viewMode === 'graph'}
                   className={`px-2 py-1 text-xs rounded ${
                     viewMode === 'graph'
                       ? 'bg-blue-600 text-white'
@@ -427,6 +437,7 @@ export function AgentNetworkPanel({
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
+                  aria-pressed={viewMode === 'list'}
                   className={`px-2 py-1 text-xs rounded ${
                     viewMode === 'list'
                       ? 'bg-blue-600 text-white'
@@ -565,4 +576,6 @@ export function AgentNetworkPanel({
   );
 }
 
+// Wrap with error boundary for graceful error handling
+export const AgentNetworkPanel = withErrorBoundary(AgentNetworkPanelComponent, 'Agent Network');
 export default AgentNetworkPanel;

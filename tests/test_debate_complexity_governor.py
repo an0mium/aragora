@@ -34,6 +34,7 @@ from aragora.debate.complexity_governor import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture(autouse=True)
 def reset_global_governor():
     """Reset global governor before and after each test."""
@@ -61,6 +62,7 @@ def stressed_governor():
 # ============================================================================
 # classify_task_complexity() Tests
 # ============================================================================
+
 
 class TestClassifyTaskComplexity:
     """Tests for classify_task_complexity function."""
@@ -123,6 +125,7 @@ class TestClassifyTaskComplexity:
 # StressLevel Enum Tests
 # ============================================================================
 
+
 class TestStressLevel:
     """Tests for StressLevel enum."""
 
@@ -156,6 +159,7 @@ class TestStressLevel:
 # ============================================================================
 # GovernorConstraints Tests
 # ============================================================================
+
 
 class TestGovernorConstraints:
     """Tests for GovernorConstraints dataclass."""
@@ -228,6 +232,7 @@ class TestGovernorConstraints:
 # AgentPerformanceMetrics Tests
 # ============================================================================
 
+
 class TestAgentPerformanceMetrics:
     """Tests for AgentPerformanceMetrics dataclass."""
 
@@ -294,6 +299,7 @@ class TestAgentPerformanceMetrics:
 # AdaptiveComplexityGovernor Initialization Tests
 # ============================================================================
 
+
 class TestGovernorInit:
     """Tests for AdaptiveComplexityGovernor initialization."""
 
@@ -324,6 +330,7 @@ class TestGovernorInit:
 # ============================================================================
 # Agent Response Recording Tests
 # ============================================================================
+
 
 class TestRecordAgentResponse:
     """Tests for recording agent responses."""
@@ -370,6 +377,7 @@ class TestRecordAgentResponse:
 # Agent Timeout Recording Tests
 # ============================================================================
 
+
 class TestRecordAgentTimeout:
     """Tests for recording agent timeouts."""
 
@@ -396,6 +404,7 @@ class TestRecordAgentTimeout:
 # ============================================================================
 # Round Completion Recording Tests
 # ============================================================================
+
 
 class TestRecordRoundComplete:
     """Tests for recording round completion."""
@@ -432,6 +441,7 @@ class TestRecordRoundComplete:
 # Stress Level Evaluation Tests
 # ============================================================================
 
+
 class TestStressLevelEvaluation:
     """Tests for stress level evaluation and transitions."""
 
@@ -445,7 +455,11 @@ class TestStressLevelEvaluation:
         governor.record_agent_response("agent", 100, success=True)  # 1 success
         governor.record_agent_timeout("agent", 60.0)  # 50% timeout rate
 
-        assert governor.stress_level in (StressLevel.ELEVATED, StressLevel.HIGH, StressLevel.CRITICAL)
+        assert governor.stress_level in (
+            StressLevel.ELEVATED,
+            StressLevel.HIGH,
+            StressLevel.CRITICAL,
+        )
 
     def test_consecutive_failures_escalate(self, governor):
         """Test consecutive failures cause escalation."""
@@ -484,6 +498,7 @@ class TestStressLevelEvaluation:
 # Constraint Retrieval Tests
 # ============================================================================
 
+
 class TestConstraintRetrieval:
     """Tests for constraint retrieval."""
 
@@ -506,6 +521,7 @@ class TestConstraintRetrieval:
 # ============================================================================
 # Agent-Specific Constraints Tests
 # ============================================================================
+
 
 class TestAgentConstraints:
     """Tests for agent-specific constraints."""
@@ -548,6 +564,7 @@ class TestAgentConstraints:
 # Complexity Decision Tests
 # ============================================================================
 
+
 class TestComplexityDecisions:
     """Tests for complexity-related decisions."""
 
@@ -589,6 +606,7 @@ class TestComplexityDecisions:
 # ============================================================================
 # Task Complexity and Timeout Scaling Tests
 # ============================================================================
+
 
 class TestTimeoutScaling:
     """Tests for task complexity and timeout scaling."""
@@ -639,6 +657,7 @@ class TestTimeoutScaling:
 # Status and Reset Tests
 # ============================================================================
 
+
 class TestStatusAndReset:
     """Tests for status retrieval and reset."""
 
@@ -676,6 +695,7 @@ class TestStatusAndReset:
 # Global Governor Tests
 # ============================================================================
 
+
 class TestGlobalGovernor:
     """Tests for global governor functions."""
 
@@ -698,6 +718,7 @@ class TestGlobalGovernor:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestIntegration:
     """Integration tests for realistic scenarios."""
@@ -755,4 +776,3 @@ class TestIntegration:
 
         assert good_constraints["reliability_score"] == 1.0
         assert governor.should_skip_agent("bad_agent") is True
-

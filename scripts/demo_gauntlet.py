@@ -53,6 +53,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 # ANSI colors for terminal output
 class Colors:
     HEADER = "\033[95m"
@@ -128,7 +129,7 @@ This policy defines rate limiting rules for the Aragora public API to ensure fai
 ## Monitoring
 
 Rate limit metrics are exposed at `/api/metrics/rate-limits` for authorized clients.
-Dashboard available at admin.aragora.dev/rate-limits.
+Dashboard available at admin.aragora.ai/rate-limits.
 
 ## Changelog
 
@@ -248,6 +249,7 @@ def create_agents(use_real_apis: bool = False) -> list[Agent]:
                 OpenAIAgent,
                 GeminiAgent,
             )
+
             agents = []
             if os.getenv("ANTHROPIC_API_KEY"):
                 agents.append(AnthropicAgent("claude-adversary", model="claude-sonnet-4-20250514"))
@@ -309,15 +311,21 @@ def print_result(result: GauntletResult):
     print(color("  GAUNTLET RESULT", Colors.BOLD))
     print(f"{color('=' * 60, Colors.CYAN)}\n")
 
-    print(f"  {color('VERDICT:', Colors.BOLD)} {color(result.verdict.value.upper(), verdict_color)}")
+    print(
+        f"  {color('VERDICT:', Colors.BOLD)} {color(result.verdict.value.upper(), verdict_color)}"
+    )
     print(f"  Confidence: {result.confidence:.0%}")
     print(f"  Risk Score: {result.risk_score:.0%}")
     print(f"  Robustness: {result.robustness_score:.0%}")
     print(f"  Coverage: {result.coverage_score:.0%}")
 
     print(f"\n  {color('FINDINGS:', Colors.BOLD)}")
-    print(f"    Critical: {color(str(len(result.critical_findings)), Colors.FAIL if result.critical_findings else Colors.ENDC)}")
-    print(f"    High:     {color(str(len(result.high_findings)), Colors.WARNING if result.high_findings else Colors.ENDC)}")
+    print(
+        f"    Critical: {color(str(len(result.critical_findings)), Colors.FAIL if result.critical_findings else Colors.ENDC)}"
+    )
+    print(
+        f"    High:     {color(str(len(result.high_findings)), Colors.WARNING if result.high_findings else Colors.ENDC)}"
+    )
     print(f"    Medium:   {len(result.medium_findings)}")
     print(f"    Low:      {len(result.low_findings)}")
 
@@ -453,13 +461,15 @@ Examples:
         help="Path to input document (default: sample policy)",
     )
     parser.add_argument(
-        "--profile", "-p",
+        "--profile",
+        "-p",
         choices=list(PROFILES.keys()),
         default="demo",
         help="Gauntlet profile (demo=fast, quick=2min, thorough=15min)",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=Path,
         default=None,
         help="Output directory for receipts (default: current directory)",
@@ -470,7 +480,8 @@ Examples:
         help="Use real API agents if API keys are available",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Enable verbose logging",
     )
@@ -481,12 +492,14 @@ Examples:
         logging.getLogger().setLevel(logging.DEBUG)
 
     try:
-        asyncio.run(run_demo(
-            input_file=args.input_file,
-            profile=args.profile,
-            output_dir=args.output,
-            use_real_apis=args.real_apis,
-        ))
+        asyncio.run(
+            run_demo(
+                input_file=args.input_file,
+                profile=args.profile,
+                output_dir=args.output,
+                use_real_apis=args.real_apis,
+            )
+        )
     except KeyboardInterrupt:
         print(f"\n{color('Gauntlet cancelled.', Colors.WARNING)}")
         sys.exit(1)

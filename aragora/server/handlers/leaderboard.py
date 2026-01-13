@@ -71,7 +71,9 @@ class LeaderboardViewHandler(BaseHandler):
         try:
             data[key] = fetch_fn()
         except Exception as e:
-            logger.error("Leaderboard section '%s' failed: %s: %s", key, type(e).__name__, e, exc_info=True)
+            logger.error(
+                "Leaderboard section '%s' failed: %s: %s", key, type(e).__name__, e, exc_info=True
+            )
             errors[key] = str(e)
             data[key] = fallback
 
@@ -85,13 +87,13 @@ class LeaderboardViewHandler(BaseHandler):
 
         logger.debug(f"Leaderboard request: {path} params={query_params}")
         if path == "/api/leaderboard-view":
-            limit = get_int_param(query_params, 'limit', 10)
-            domain = get_string_param(query_params, 'domain')
+            limit = get_int_param(query_params, "limit", 10)
+            domain = get_string_param(query_params, "domain")
             if domain:
                 is_valid, err = validate_path_segment(domain, "domain", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
-            loop_id = get_string_param(query_params, 'loop_id')
+            loop_id = get_string_param(query_params, "loop_id")
             if loop_id:
                 is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
                 if not is_valid:
@@ -99,7 +101,9 @@ class LeaderboardViewHandler(BaseHandler):
             return self._get_leaderboard_view(limit, domain, loop_id)
         return None
 
-    def _get_leaderboard_view(self, limit: int, domain: Optional[str], loop_id: Optional[str]) -> HandlerResult:
+    def _get_leaderboard_view(
+        self, limit: int, domain: Optional[str], loop_id: Optional[str]
+    ) -> HandlerResult:
         """
         Get consolidated leaderboard view with all tab data.
 
@@ -111,47 +115,61 @@ class LeaderboardViewHandler(BaseHandler):
 
         # Fetch all sections with graceful error handling
         self._safe_fetch_section(
-            data, errors, "rankings",
+            data,
+            errors,
+            "rankings",
             lambda: self._fetch_rankings(limit, domain),
-            {"agents": [], "count": 0}
+            {"agents": [], "count": 0},
         )
         self._safe_fetch_section(
-            data, errors, "matches",
+            data,
+            errors,
+            "matches",
             lambda: self._fetch_matches(limit, loop_id),
-            {"matches": [], "count": 0}
+            {"matches": [], "count": 0},
         )
         self._safe_fetch_section(
-            data, errors, "reputation",
-            self._fetch_reputations,
-            {"reputations": [], "count": 0}
+            data, errors, "reputation", self._fetch_reputations, {"reputations": [], "count": 0}
         )
         self._safe_fetch_section(
-            data, errors, "teams",
+            data,
+            errors,
+            "teams",
             lambda: self._fetch_teams(min_debates=3, limit=10),
-            {"combinations": [], "count": 0}
+            {"combinations": [], "count": 0},
         )
         self._safe_fetch_section(
-            data, errors, "stats",
+            data,
+            errors,
+            "stats",
             self._fetch_stats,
-            {"mean_elo": 1500, "median_elo": 1500, "total_agents": 0,
-             "total_matches": 0, "rating_distribution": {},
-             "trending_up": [], "trending_down": []}
+            {
+                "mean_elo": 1500,
+                "median_elo": 1500,
+                "total_agents": 0,
+                "total_matches": 0,
+                "rating_distribution": {},
+                "trending_up": [],
+                "trending_down": [],
+            },
         )
         self._safe_fetch_section(
-            data, errors, "introspection",
-            self._fetch_introspection,
-            {"agents": {}, "count": 0}
+            data, errors, "introspection", self._fetch_introspection, {"agents": {}, "count": 0}
         )
 
-        logger.info(f"Leaderboard view: {len(errors)} failed sections, {len(data.get('rankings', {}).get('agents', []))} agents")
-        return json_response({
-            "data": data,
-            "errors": {
-                "partial_failure": len(errors) > 0,
-                "failed_sections": list(errors.keys()),
-                "messages": errors,
+        logger.info(
+            f"Leaderboard view: {len(errors)} failed sections, {len(data.get('rankings', {}).get('agents', []))} agents"
+        )
+        return json_response(
+            {
+                "data": data,
+                "errors": {
+                    "partial_failure": len(errors) > 0,
+                    "failed_sections": list(errors.keys()),
+                    "messages": errors,
+                },
             }
-        })
+        )
 
     @ttl_cache(ttl_seconds=CACHE_TTL_LB_RANKINGS, key_prefix="lb_rankings", skip_first=True)
     def _fetch_rankings(self, limit: int, domain: Optional[str]) -> dict:
@@ -164,12 +182,17 @@ class LeaderboardViewHandler(BaseHandler):
         if domain:
             rankings = elo.get_leaderboard(limit=min(limit, 50), domain=domain)
         else:
-            rankings = elo.get_cached_leaderboard(limit=min(limit, 50)) if hasattr(elo, 'get_cached_leaderboard') else elo.get_leaderboard(limit=min(limit, 50))
+            rankings = (
+                elo.get_cached_leaderboard(limit=min(limit, 50))
+                if hasattr(elo, "get_cached_leaderboard")
+                else elo.get_leaderboard(limit=min(limit, 50))
+            )
 
         # Enhance with consistency data (batch fetch)
         consistency_map = {}
         try:
             from aragora.insights.flip_detector import FlipDetector
+
             nomic_dir = self.get_nomic_dir()
             if nomic_dir:
                 detector = FlipDetector(str(get_db_path(DatabaseType.POSITIONS, nomic_dir)))
@@ -186,7 +209,11 @@ class LeaderboardViewHandler(BaseHandler):
                         consistency = 1.0 - (score.total_flips / total_positions)
                         consistency_map[agent_name] = {
                             "consistency": round(consistency, 3),
-                            "consistency_class": "high" if consistency >= 0.8 else "medium" if consistency >= 0.6 else "low"
+                            "consistency_class": (
+                                "high"
+                                if consistency >= 0.8
+                                else "medium" if consistency >= 0.6 else "low"
+                            ),
                         }
         except ImportError:
             pass
@@ -210,7 +237,7 @@ class LeaderboardViewHandler(BaseHandler):
         if not elo:
             return {"matches": [], "count": 0}
 
-        if hasattr(elo, 'get_cached_recent_matches'):
+        if hasattr(elo, "get_cached_recent_matches"):
             matches = elo.get_cached_recent_matches(limit=min(limit, 50))
         else:
             matches = elo.get_recent_matches(limit=min(limit, 50))
@@ -270,9 +297,13 @@ class LeaderboardViewHandler(BaseHandler):
         elo = self.get_elo_system()
         if not elo:
             return {
-                "mean_elo": 1500, "median_elo": 1500, "total_agents": 0,
-                "total_matches": 0, "rating_distribution": {},
-                "trending_up": [], "trending_down": []
+                "mean_elo": 1500,
+                "median_elo": 1500,
+                "total_agents": 0,
+                "total_matches": 0,
+                "rating_distribution": {},
+                "trending_up": [],
+                "trending_down": [],
             }
 
         stats = elo.get_stats()
@@ -287,7 +318,9 @@ class LeaderboardViewHandler(BaseHandler):
             "trending_down": stats.get("trending_down", []),
         }
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_LB_INTROSPECTION, key_prefix="lb_introspection", skip_first=True)
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_LB_INTROSPECTION, key_prefix="lb_introspection", skip_first=True
+    )
     def _fetch_introspection(self) -> dict:
         """Fetch agent introspection data."""
         try:
@@ -318,6 +351,7 @@ class LeaderboardViewHandler(BaseHandler):
         persona_manager = None
         try:
             from aragora.agents.personas import PersonaManager
+
             if nomic_dir:
                 persona_db = get_db_path(DatabaseType.PERSONAS, nomic_dir)
                 if persona_db.exists():
@@ -328,11 +362,15 @@ class LeaderboardViewHandler(BaseHandler):
         snapshots = {}
         for agent in agents:
             try:
-                snapshot = get_agent_introspection(agent, memory=memory, persona_manager=persona_manager)
+                snapshot = get_agent_introspection(
+                    agent, memory=memory, persona_manager=persona_manager
+                )
                 snapshots[agent] = snapshot.to_dict()
             except Exception as e:
                 # Skip agents that fail introspection
-                logger.warning("Agent introspection failed for %s: %s: %s", agent, type(e).__name__, e)
+                logger.warning(
+                    "Agent introspection failed for %s: %s: %s", agent, type(e).__name__, e
+                )
                 continue
 
         return {"agents": snapshots, "count": len(snapshots)}

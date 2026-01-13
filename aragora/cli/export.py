@@ -38,8 +38,15 @@ def create_demo_artifact():
         messages=[
             Message(role="proposer", agent="codex", content="Token bucket with Redis...", round=0),
             Message(role="proposer", agent="claude", content="Consider sliding window...", round=0),
-            Message(role="critic", agent="claude", content="Redis single point of failure...", round=1),
-            Message(role="synthesizer", agent="codex", content="Combined approach with fallback...", round=2),
+            Message(
+                role="critic", agent="claude", content="Redis single point of failure...", round=1
+            ),
+            Message(
+                role="synthesizer",
+                agent="codex",
+                content="Combined approach with fallback...",
+                round=2,
+            ),
         ],
         critiques=[
             Critique(
@@ -54,10 +61,12 @@ def create_demo_artifact():
         ],
     )
 
-    artifact = (ArtifactBuilder()
+    artifact = (
+        ArtifactBuilder()
         .from_result(demo_result)
         .with_verification("claim-1", "Token bucket is O(1)", "verified", "simulation")
-        .build())
+        .build()
+    )
 
     return artifact
 
@@ -67,10 +76,7 @@ def load_artifact_from_debate(debate_id: str, db_path: Optional[str] = None):
     from aragora.debate.traces import DebateReplayer
     from aragora.export.artifact import DebateArtifact, ConsensusProof
 
-    replayer = DebateReplayer.from_database(
-        f"trace-{debate_id}",
-        db_path or "aragora_traces.db"
-    )
+    replayer = DebateReplayer.from_database(f"trace-{debate_id}", db_path or "aragora_traces.db")
     trace = replayer.trace
 
     artifact = DebateArtifact(
@@ -144,7 +150,7 @@ def main(args: argparse.Namespace) -> None:
         artifact = create_demo_artifact()
     elif args.debate_id:
         try:
-            artifact = load_artifact_from_debate(args.debate_id, getattr(args, 'db', None))
+            artifact = load_artifact_from_debate(args.debate_id, getattr(args, "db", None))
         except Exception as e:
             print(f"Error loading debate: {e}")
             print("Use --demo for a sample export, or ensure the debate ID exists.")

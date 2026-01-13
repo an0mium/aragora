@@ -47,6 +47,7 @@ def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Optiona
                 # Server is up, try to get emitter
                 try:
                     from aragora.server.stream import SyncEventEmitter
+
                     return SyncEventEmitter()
                 except ImportError:
                     pass
@@ -253,9 +254,10 @@ def cmd_status(args: argparse.Namespace) -> None:
 
     # Check server health
     print("\n🌐 Server Status:")
-    server_url = args.server if hasattr(args, 'server') else DEFAULT_API_URL
+    server_url = args.server if hasattr(args, "server") else DEFAULT_API_URL
     try:
         import urllib.request
+
         req = urllib.request.Request(f"{server_url}/api/health", method="GET")
         with urllib.request.urlopen(req, timeout=2) as resp:
             if resp.status == 200:
@@ -268,6 +270,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     # Check database
     print("\n💾 Databases:")
     from aragora.config import DB_MEMORY_PATH, DB_INSIGHTS_PATH, DB_ELO_PATH
+
     db_paths = [
         (DB_MEMORY_PATH, "Memory store"),
         (DB_INSIGHTS_PATH, "Insights store"),
@@ -286,6 +289,7 @@ def cmd_status(args: argparse.Namespace) -> None:
         print("\n🔄 Nomic Loop:")
         try:
             import json
+
             with open(nomic_state) as f:
                 state = json.load(f)
             total_cycles = state.get("total_cycles", 0)
@@ -302,6 +306,7 @@ def cmd_status(args: argparse.Namespace) -> None:
 def cmd_agents(args: argparse.Namespace) -> None:
     """Handle 'agents' command - list available agents and their configuration."""
     from aragora.cli.agents import main as agents_main
+
     agents_main(args)
 
 
@@ -327,6 +332,7 @@ def cmd_patterns(args: argparse.Namespace) -> None:
 def cmd_demo(args: argparse.Namespace) -> None:
     """Handle 'demo' command - run a quick compelling demo."""
     from aragora.cli.demo import main as demo_main
+
     demo_main(args)
 
 
@@ -350,12 +356,14 @@ def cmd_templates(args: argparse.Namespace) -> None:
 def cmd_export(args: argparse.Namespace) -> None:
     """Handle 'export' command - export debate artifacts."""
     from aragora.cli.export import main as export_main
+
     export_main(args)
 
 
 def cmd_doctor(args: argparse.Namespace) -> None:
     """Handle 'doctor' command - run system health checks."""
     from aragora.cli.doctor import main as doctor_main
+
     validate = getattr(args, "validate", False)
     sys.exit(doctor_main(validate_keys=validate))
 
@@ -363,6 +371,7 @@ def cmd_doctor(args: argparse.Namespace) -> None:
 def cmd_validate(_: argparse.Namespace) -> None:
     """Handle 'validate' command - validate API keys."""
     from aragora.cli.doctor import run_validate
+
     sys.exit(run_validate())
 
 
@@ -387,6 +396,7 @@ def cmd_improve(args: argparse.Namespace) -> None:
         tree = reader.get_file_tree(max_depth=2)
 
         print("📂 Codebase structure:")
+
         def print_tree(t, indent=0):
             for k, v in sorted(t.items()):
                 if isinstance(v, dict):
@@ -394,6 +404,7 @@ def cmd_improve(args: argparse.Namespace) -> None:
                     print_tree(v, indent + 1)
                 else:
                     print("  " * indent + f"📄 {k} ({v} bytes)")
+
         print_tree(tree)
 
 
@@ -431,11 +442,13 @@ def cmd_serve(args: argparse.Namespace) -> None:
     print("=" * 60 + "\n")
 
     try:
-        asyncio.run(run_unified_server(
-            http_port=args.api_port,
-            ws_port=args.ws_port,
-            static_dir=static_dir,
-        ))
+        asyncio.run(
+            run_unified_server(
+                http_port=args.api_port,
+                ws_port=args.ws_port,
+                static_dir=static_dir,
+            )
+        )
     except KeyboardInterrupt:
         print("\n\nServer stopped.")
 
@@ -443,48 +456,56 @@ def cmd_serve(args: argparse.Namespace) -> None:
 def cmd_init(args: argparse.Namespace) -> None:
     """Handle 'init' command - project scaffolding."""
     from aragora.cli.init import cmd_init as init_handler
+
     init_handler(args)
 
 
 def cmd_repl(args: argparse.Namespace) -> None:
     """Handle 'repl' command - interactive debate mode."""
     from aragora.cli.repl import cmd_repl as repl_handler
+
     repl_handler(args)
 
 
 def cmd_config(args: argparse.Namespace) -> None:
     """Handle 'config' command - manage configuration."""
     from aragora.cli.config import cmd_config as config_handler
+
     config_handler(args)
 
 
 def cmd_replay(args: argparse.Namespace) -> None:
     """Handle 'replay' command - replay stored debates."""
     from aragora.cli.replay import cmd_replay as replay_handler
+
     replay_handler(args)
 
 
 def cmd_bench(args: argparse.Namespace) -> None:
     """Handle 'bench' command - benchmark agents."""
     from aragora.cli.bench import cmd_bench as bench_handler
+
     bench_handler(args)
 
 
 def cmd_review(args: argparse.Namespace) -> int:
     """Handle 'review' command - AI red team code review."""
     from aragora.cli.review import cmd_review as review_handler
+
     return review_handler(args)
 
 
 def cmd_gauntlet(args: argparse.Namespace) -> None:
     """Handle 'gauntlet' command - adversarial stress-testing."""
     from aragora.cli.gauntlet import cmd_gauntlet as gauntlet_handler
+
     return gauntlet_handler(args)
 
 
 def cmd_badge(args) -> None:
     """Generate badge markdown for README."""
     from aragora.cli.badge import main as badge_main
+
     badge_main(args)
 
 
@@ -492,6 +513,7 @@ def cmd_mcp_server(args: argparse.Namespace) -> None:
     """Handle 'mcp-server' command - run MCP server."""
     try:
         from aragora.mcp.server import main as mcp_main
+
         mcp_main()
     except ImportError as e:
         print(f"\nError: MCP dependencies not installed")
@@ -500,7 +522,9 @@ def cmd_mcp_server(args: argparse.Namespace) -> None:
         print("  pip install mcp")
         print("  # or")
         print("  pip install aragora[mcp]")
-        print("\nMCP (Model Context Protocol) enables integration with Claude Desktop and other MCP clients.")
+        print(
+            "\nMCP (Model Context Protocol) enables integration with Claude Desktop and other MCP clients."
+        )
         sys.exit(1)
     except Exception as e:
         print(f"\nMCP server error: {e}")
@@ -646,7 +670,11 @@ def _poll_batch_status(server_url: str, batch_id: str, token: str = None) -> Non
             total = status.get("total_items", 0)
             batch_status = status.get("status", "unknown")
 
-            print(f"\r[{progress:5.1f}%] {completed}/{total} completed, {failed} failed - {batch_status}", end="", flush=True)
+            print(
+                f"\r[{progress:5.1f}%] {completed}/{total} completed, {failed} failed - {batch_status}",
+                end="",
+                flush=True,
+            )
 
             if batch_status in ("completed", "partial", "failed", "cancelled"):
                 print("\n")
@@ -698,21 +726,27 @@ def _batch_local(items: list, args: argparse.Namespace) -> None:
                 )
             )
 
-            results.append({
-                "question": question,
-                "success": True,
-                "consensus_reached": result.consensus_reached,
-                "confidence": result.confidence,
-                "final_answer": result.final_answer[:200],
-            })
-            print(f"    => {'Consensus' if result.consensus_reached else 'No consensus'} ({result.confidence:.0%})")
+            results.append(
+                {
+                    "question": question,
+                    "success": True,
+                    "consensus_reached": result.consensus_reached,
+                    "confidence": result.confidence,
+                    "final_answer": result.final_answer[:200],
+                }
+            )
+            print(
+                f"    => {'Consensus' if result.consensus_reached else 'No consensus'} ({result.confidence:.0%})"
+            )
 
         except Exception as e:
-            results.append({
-                "question": question,
-                "success": False,
-                "error": str(e),
-            })
+            results.append(
+                {
+                    "question": question,
+                    "success": False,
+                    "error": str(e),
+                }
+            )
             print(f"    => ERROR: {e}")
 
     elapsed = time.time() - start_time
@@ -741,6 +775,7 @@ def get_version() -> str:
     """Get package version from pyproject.toml or fallback."""
     try:
         from importlib.metadata import version
+
         return version("aragora")
     except ImportError:
         # importlib.metadata not available (Python < 3.8)
@@ -805,17 +840,26 @@ Examples:
     stats_parser.set_defaults(func=cmd_stats)
 
     # Status command - environment health check
-    status_parser = subparsers.add_parser("status", help="Show environment health and agent availability")
-    status_parser.add_argument("--server", "-s", default=DEFAULT_API_URL, help=f"Server URL to check (default: {DEFAULT_API_URL})")
+    status_parser = subparsers.add_parser(
+        "status", help="Show environment health and agent availability"
+    )
+    status_parser.add_argument(
+        "--server",
+        "-s",
+        default=DEFAULT_API_URL,
+        help=f"Server URL to check (default: {DEFAULT_API_URL})",
+    )
     status_parser.set_defaults(func=cmd_status)
 
     # Agents command - list available agents
     agents_parser = subparsers.add_parser(
         "agents",
         help="List available agents and their configuration",
-        description="Show all available agent types, their API key requirements, and configuration status."
+        description="Show all available agent types, their API key requirements, and configuration status.",
     )
-    agents_parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed descriptions")
+    agents_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show detailed descriptions"
+    )
     agents_parser.set_defaults(func=cmd_agents)
 
     # Patterns command
@@ -838,13 +882,15 @@ Examples:
     export_parser = subparsers.add_parser("export", help="Export debate artifacts")
     export_parser.add_argument("--debate-id", "-d", help="Debate ID to export")
     export_parser.add_argument(
-        "--format", "-f",
+        "--format",
+        "-f",
         choices=["html", "json", "md"],
         default="html",
         help="Output format (default: html)",
     )
     export_parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default=".",
         help="Output directory (default: current)",
     )
@@ -858,16 +904,13 @@ Examples:
     # Doctor command
     doctor_parser = subparsers.add_parser("doctor", help="Run system health checks")
     doctor_parser.add_argument(
-        "--validate", "-v",
-        action="store_true",
-        help="Validate API keys by making test calls"
+        "--validate", "-v", action="store_true", help="Validate API keys by making test calls"
     )
     doctor_parser.set_defaults(func=cmd_doctor)
 
     # Validate command (API key validation)
     validate_parser = subparsers.add_parser(
-        "validate",
-        help="Validate API keys by making test calls"
+        "validate", help="Validate API keys by making test calls"
     )
     validate_parser.set_defaults(func=cmd_validate)
 
@@ -875,7 +918,9 @@ Examples:
     improve_parser = subparsers.add_parser("improve", help="Self-improvement mode")
     improve_parser.add_argument("--path", "-p", help="Path to codebase (default: current dir)")
     improve_parser.add_argument("--focus", "-f", help="Focus area for improvements")
-    improve_parser.add_argument("--analyze", "-a", action="store_true", help="Analyze codebase structure")
+    improve_parser.add_argument(
+        "--analyze", "-a", action="store_true", help="Analyze codebase structure"
+    )
     improve_parser.set_defaults(func=cmd_improve)
 
     # Serve command (live debate server)
@@ -895,8 +940,10 @@ Examples:
     # REPL command (interactive mode)
     repl_parser = subparsers.add_parser("repl", help="Interactive debate mode")
     repl_parser.add_argument(
-        "--agents", "-a", default="anthropic-api,openai-api",
-        help="Comma-separated agents for debates"
+        "--agents",
+        "-a",
+        default="anthropic-api,openai-api",
+        help="Comma-separated agents for debates",
     )
     repl_parser.add_argument("--rounds", "-r", type=int, default=3, help="Debate rounds")
     repl_parser.set_defaults(func=cmd_repl)
@@ -904,9 +951,11 @@ Examples:
     # Config command (manage settings)
     config_parser = subparsers.add_parser("config", help="Manage configuration")
     config_parser.add_argument(
-        "action", nargs="?", default="show",
+        "action",
+        nargs="?",
+        default="show",
         choices=["show", "get", "set", "env", "path"],
-        help="Config action"
+        help="Config action",
     )
     config_parser.add_argument("key", nargs="?", help="Config key (for get/set)")
     config_parser.add_argument("value", nargs="?", help="Config value (for set)")
@@ -915,9 +964,7 @@ Examples:
     # Replay command (replay stored debates)
     replay_parser = subparsers.add_parser("replay", help="Replay stored debates")
     replay_parser.add_argument(
-        "action", nargs="?", default="list",
-        choices=["list", "show", "play"],
-        help="Replay action"
+        "action", nargs="?", default="list", choices=["list", "show", "play"], help="Replay action"
     )
     replay_parser.add_argument("id", nargs="?", help="Replay ID (for show/play)")
     replay_parser.add_argument("--directory", "-d", help="Replays directory")
@@ -928,8 +975,10 @@ Examples:
     # Bench command (benchmark agents)
     bench_parser = subparsers.add_parser("bench", help="Benchmark agents")
     bench_parser.add_argument(
-        "--agents", "-a", default="anthropic-api,openai-api",
-        help="Comma-separated agents to benchmark"
+        "--agents",
+        "-a",
+        default="anthropic-api,openai-api",
+        help="Comma-separated agents to benchmark",
     )
     bench_parser.add_argument("--iterations", "-n", type=int, default=3, help="Iterations per task")
     bench_parser.add_argument("--task", "-t", help="Custom benchmark task")
@@ -938,10 +987,12 @@ Examples:
 
     # Review command (AI red team code review)
     from aragora.cli.review import create_review_parser
+
     create_review_parser(subparsers)
 
     # Gauntlet command (adversarial stress-testing)
     from aragora.cli.gauntlet import create_gauntlet_parser
+
     create_gauntlet_parser(subparsers)
 
     # Badge command (generate README badges)
@@ -951,19 +1002,22 @@ Examples:
         description="Generate shareable badges to show your project uses Aragora.",
     )
     badge_parser.add_argument(
-        "--type", "-t",
+        "--type",
+        "-t",
         choices=["reviewed", "consensus", "gauntlet"],
         default="reviewed",
         help="Badge type: reviewed (blue), consensus (green), gauntlet (orange)",
     )
     badge_parser.add_argument(
-        "--style", "-s",
+        "--style",
+        "-s",
         choices=["flat", "flat-square", "for-the-badge", "plastic"],
         default="flat",
         help="Badge style (default: flat)",
     )
     badge_parser.add_argument(
-        "--repo", "-r",
+        "--repo",
+        "-r",
         help="Link to specific repo (default: aragora repo)",
     )
     badge_parser.set_defaults(func=cmd_badge)
@@ -995,21 +1049,25 @@ Examples:
         help="Path to JSONL or JSON file with debate items",
     )
     batch_parser.add_argument(
-        "--server", "-s",
+        "--server",
+        "-s",
         action="store_true",
         help="Submit to server batch API instead of processing locally",
     )
     batch_parser.add_argument(
-        "--url", "-u",
+        "--url",
+        "-u",
         default=DEFAULT_API_URL,
         help=f"Server URL (default: {DEFAULT_API_URL})",
     )
     batch_parser.add_argument(
-        "--token", "-t",
+        "--token",
+        "-t",
         help="API authentication token",
     )
     batch_parser.add_argument(
-        "--webhook", "-w",
+        "--webhook",
+        "-w",
         help="Webhook URL for completion notification",
     )
     batch_parser.add_argument(
@@ -1018,18 +1076,21 @@ Examples:
         help="Wait for batch completion (server mode only)",
     )
     batch_parser.add_argument(
-        "--agents", "-a",
+        "--agents",
+        "-a",
         default="anthropic-api,openai-api",
         help="Default agents for items without agents specified",
     )
     batch_parser.add_argument(
-        "--rounds", "-r",
+        "--rounds",
+        "-r",
         type=int,
         default=3,
         help="Default rounds for items without rounds specified",
     )
     batch_parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output path for results JSON (local mode only)",
     )
     batch_parser.set_defaults(func=cmd_batch)

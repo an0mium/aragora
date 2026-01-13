@@ -25,23 +25,23 @@ class NomicState(Enum):
     """
 
     # Initial/terminal states
-    IDLE = auto()           # Waiting for trigger
+    IDLE = auto()  # Waiting for trigger
 
     # Active phases
-    CONTEXT = auto()        # Gathering codebase context
-    DEBATE = auto()         # Multi-agent debate on improvements
-    DESIGN = auto()         # Designing the implementation
-    IMPLEMENT = auto()      # Writing code changes
-    VERIFY = auto()         # Testing and validation
-    COMMIT = auto()         # Committing approved changes
+    CONTEXT = auto()  # Gathering codebase context
+    DEBATE = auto()  # Multi-agent debate on improvements
+    DESIGN = auto()  # Designing the implementation
+    IMPLEMENT = auto()  # Writing code changes
+    VERIFY = auto()  # Testing and validation
+    COMMIT = auto()  # Committing approved changes
 
     # Error handling
-    RECOVERY = auto()       # Handling errors, deciding next action
+    RECOVERY = auto()  # Handling errors, deciding next action
 
     # Terminal states
-    COMPLETED = auto()      # Cycle completed successfully
-    FAILED = auto()         # Cycle failed, cannot recover
-    PAUSED = auto()         # Manually paused, awaiting resume
+    COMPLETED = auto()  # Cycle completed successfully
+    FAILED = auto()  # Cycle failed, cannot recover
+    PAUSED = auto()  # Manually paused, awaiting resume
 
 
 # Valid state transitions
@@ -50,24 +50,56 @@ class NomicState(Enum):
 VALID_TRANSITIONS: Dict[NomicState, Set[NomicState]] = {
     NomicState.IDLE: {NomicState.CONTEXT, NomicState.PAUSED},
     NomicState.CONTEXT: {NomicState.DEBATE, NomicState.RECOVERY, NomicState.PAUSED},
-    NomicState.DEBATE: {NomicState.DESIGN, NomicState.RECOVERY, NomicState.IDLE,
-                        NomicState.PAUSED, NomicState.COMPLETED},
-    NomicState.DESIGN: {NomicState.IMPLEMENT, NomicState.RECOVERY, NomicState.DEBATE,
-                        NomicState.PAUSED, NomicState.COMPLETED},
-    NomicState.IMPLEMENT: {NomicState.VERIFY, NomicState.RECOVERY, NomicState.PAUSED,
-                           NomicState.COMPLETED},
-    NomicState.VERIFY: {NomicState.COMMIT, NomicState.IMPLEMENT, NomicState.RECOVERY,
-                        NomicState.PAUSED},
+    NomicState.DEBATE: {
+        NomicState.DESIGN,
+        NomicState.RECOVERY,
+        NomicState.IDLE,
+        NomicState.PAUSED,
+        NomicState.COMPLETED,
+    },
+    NomicState.DESIGN: {
+        NomicState.IMPLEMENT,
+        NomicState.RECOVERY,
+        NomicState.DEBATE,
+        NomicState.PAUSED,
+        NomicState.COMPLETED,
+    },
+    NomicState.IMPLEMENT: {
+        NomicState.VERIFY,
+        NomicState.RECOVERY,
+        NomicState.PAUSED,
+        NomicState.COMPLETED,
+    },
+    NomicState.VERIFY: {
+        NomicState.COMMIT,
+        NomicState.IMPLEMENT,
+        NomicState.RECOVERY,
+        NomicState.PAUSED,
+    },
     NomicState.COMMIT: {NomicState.COMPLETED, NomicState.RECOVERY, NomicState.PAUSED},
-    NomicState.RECOVERY: {NomicState.IDLE, NomicState.CONTEXT, NomicState.DEBATE,
-                          NomicState.DESIGN, NomicState.IMPLEMENT, NomicState.VERIFY,
-                          NomicState.FAILED, NomicState.PAUSED, NomicState.COMPLETED},
+    NomicState.RECOVERY: {
+        NomicState.IDLE,
+        NomicState.CONTEXT,
+        NomicState.DEBATE,
+        NomicState.DESIGN,
+        NomicState.IMPLEMENT,
+        NomicState.VERIFY,
+        NomicState.FAILED,
+        NomicState.PAUSED,
+        NomicState.COMPLETED,
+    },
     NomicState.COMPLETED: {NomicState.IDLE},
     NomicState.FAILED: {NomicState.IDLE},
     # PAUSED can resume to any active state (stored in previous_state)
-    NomicState.PAUSED: {NomicState.IDLE, NomicState.CONTEXT, NomicState.DEBATE,
-                        NomicState.DESIGN, NomicState.IMPLEMENT, NomicState.VERIFY,
-                        NomicState.COMMIT},
+    NomicState.PAUSED: {
+        NomicState.IDLE,
+        NomicState.CONTEXT,
+        NomicState.DEBATE,
+        NomicState.DESIGN,
+        NomicState.IMPLEMENT,
+        NomicState.VERIFY,
+        NomicState.COMMIT,
+    },
 }
 
 
@@ -237,9 +269,13 @@ class StateContext:
         """Deserialize context from dictionary."""
         ctx = cls()
         ctx.cycle_id = data.get("cycle_id", "")
-        ctx.started_at = datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None
+        ctx.started_at = (
+            datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None
+        )
         ctx.current_state = NomicState[data.get("current_state", "IDLE")]
-        ctx.previous_state = NomicState[data["previous_state"]] if data.get("previous_state") else None
+        ctx.previous_state = (
+            NomicState[data["previous_state"]] if data.get("previous_state") else None
+        )
         ctx.context_result = data.get("context_result")
         ctx.debate_result = data.get("debate_result")
         ctx.design_result = data.get("design_result")

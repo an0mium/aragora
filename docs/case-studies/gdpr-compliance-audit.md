@@ -110,7 +110,7 @@ DataFlow remediated all critical and high-severity issues in 10 days:
     {
       "attack_id": "gdpr-001",
       "finding": "Analytics processing lacks documented legal basis",
-      "agents_agreed": ["claude-opus", "gpt-4", "gemini-pro"],
+      "agents_agreed": ["anthropic-api", "openai-api", "gemini"],
       "dissenting": [],
       "severity": "critical",
       "gdpr_articles": ["Article 6(1)", "Article 5(1)(a)"]
@@ -118,7 +118,7 @@ DataFlow remediated all critical and high-severity issues in 10 days:
     {
       "attack_id": "gdpr-003",
       "finding": "Right to erasure broken - analytics data retained after deletion",
-      "agents_agreed": ["claude-opus", "gpt-4", "gemini-pro"],
+      "agents_agreed": ["anthropic-api", "openai-api", "gemini"],
       "dissenting": [],
       "severity": "critical",
       "gdpr_articles": ["Article 17"]

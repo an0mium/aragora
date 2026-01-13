@@ -11,6 +11,7 @@ from aragora.server.handlers.memory import MemoryHandler, CONTINUUM_AVAILABLE
 
 class MockMemoryTier(Enum):
     """Mock MemoryTier for testing."""
+
     FAST = "fast"
     MEDIUM = "medium"
     SLOW = "slow"
@@ -19,6 +20,7 @@ class MockMemoryTier(Enum):
 
 class MockMemory:
     """Mock memory object for testing."""
+
     def __init__(self, id="mem1", tier=None, content="Test content", importance=0.5):
         self.id = id
         self.tier = tier or MockMemoryTier.FAST
@@ -104,9 +106,7 @@ class TestRetrieveEndpoint:
 
         with patch("aragora.server.handlers.memory.MemoryTier", MockMemoryTier):
             result = handler.handle(
-                "/api/memory/continuum/retrieve",
-                {"query": ["test query"]},
-                None
+                "/api/memory/continuum/retrieve", {"query": ["test query"]}, None
             )
 
         mock_continuum.retrieve.assert_called_once()
@@ -124,7 +124,7 @@ class TestRetrieveEndpoint:
             result = handler.handle(
                 "/api/memory/continuum/retrieve",
                 {"limit": "5"},  # parse_query_params converts single-value lists to strings
-                None
+                None,
             )
 
         mock_continuum.retrieve.assert_called_once()
@@ -140,9 +140,7 @@ class TestRetrieveEndpoint:
 
         with patch("aragora.server.handlers.memory.MemoryTier", MockMemoryTier):
             result = handler.handle(
-                "/api/memory/continuum/retrieve",
-                {"min_importance": ["0.7"]},
-                None
+                "/api/memory/continuum/retrieve", {"min_importance": ["0.7"]}, None
             )
 
         mock_continuum.retrieve.assert_called_once()
@@ -158,9 +156,7 @@ class TestRetrieveEndpoint:
 
         with patch("aragora.server.handlers.memory.MemoryTier", MockMemoryTier):
             result = handler.handle(
-                "/api/memory/continuum/retrieve",
-                {"tiers": ["fast,slow"]},
-                None
+                "/api/memory/continuum/retrieve", {"tiers": ["fast,slow"]}, None
             )
 
         mock_continuum.retrieve.assert_called_once()
@@ -314,16 +310,19 @@ class TestMemoryHandlerImport:
     def test_handler_importable(self):
         """MemoryHandler can be imported from handlers package."""
         from aragora.server.handlers import MemoryHandler
+
         assert MemoryHandler is not None
 
     def test_handler_in_all_exports(self):
         """MemoryHandler is in __all__ exports."""
         from aragora.server.handlers import __all__
+
         assert "MemoryHandler" in __all__
 
     def test_continuum_available_flag(self):
         """CONTINUUM_AVAILABLE flag is defined."""
         from aragora.server.handlers.memory import CONTINUUM_AVAILABLE
+
         assert isinstance(CONTINUUM_AVAILABLE, bool)
 
 
@@ -615,7 +614,9 @@ class TestDeleteMemoryEndpoint:
             mock_auth_ctx.is_authenticated = True
             mock_extract.return_value = mock_auth_ctx
             # Path traversal attempt
-            result = handler.handle_delete("/api/memory/continuum/../../../etc/passwd", {}, mock_handler)
+            result = handler.handle_delete(
+                "/api/memory/continuum/../../../etc/passwd", {}, mock_handler
+            )
 
         # Should either reject with 400 or not match the route at all (None)
         assert result is None or result.status_code == 400

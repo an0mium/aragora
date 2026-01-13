@@ -39,6 +39,7 @@ def _get_metrics() -> tuple[CacheMetricFunc, CacheMetricFunc]:
     if _record_cache_hit is None:
         try:
             from aragora.observability.metrics import record_cache_hit, record_cache_miss
+
             _record_cache_hit = record_cache_hit
             _record_cache_miss = record_cache_miss
         except ImportError:
@@ -60,7 +61,9 @@ class BoundedTTLCache:
     evicting oldest entries when the limit is reached.
     """
 
-    def __init__(self, max_entries: int = CACHE_MAX_ENTRIES, evict_percent: float = CACHE_EVICT_PERCENT):
+    def __init__(
+        self, max_entries: int = CACHE_MAX_ENTRIES, evict_percent: float = CACHE_EVICT_PERCENT
+    ):
         self._cache: OrderedDict[str, tuple[float, Any]] = OrderedDict()
         self._lock = threading.RLock()  # Thread safety lock
         self._max_entries = max_entries
@@ -216,6 +219,7 @@ def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool 
         def _get_leaderboard(self, limit: int):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -238,7 +242,9 @@ def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool 
             _cache.set(cache_key, result)
             logger.debug(f"Cache miss, stored {cache_key}")
             return result
+
         return wrapper
+
     return decorator
 
 
@@ -258,6 +264,7 @@ def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first:
         async def _get_graph_debate(self, debate_id: str):
             ...
     """
+
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -280,7 +287,9 @@ def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first:
             _cache.set(cache_key, result)
             logger.debug(f"Cache miss, stored {cache_key}")
             return result
+
         return wrapper
+
     return decorator
 
 
@@ -372,32 +381,50 @@ def get_cache_stats() -> dict:
 CACHE_INVALIDATION_MAP: dict[str, list[str]] = {
     # ELO/ranking events
     "elo_updated": [
-        "leaderboard", "lb_rankings", "agents_list", "agent_profile",
-        "calibration_lb", "recent_matches", "analytics_ranking",
+        "leaderboard",
+        "lb_rankings",
+        "agents_list",
+        "agent_profile",
+        "calibration_lb",
+        "recent_matches",
+        "analytics_ranking",
     ],
     "match_recorded": [
-        "leaderboard", "lb_rankings", "lb_matches", "recent_matches",
-        "agent_h2h", "analytics_ranking",
+        "leaderboard",
+        "lb_rankings",
+        "lb_matches",
+        "recent_matches",
+        "agent_h2h",
+        "analytics_ranking",
     ],
     # Debate events
     "debate_completed": [
-        "dashboard_debates", "analytics_debates", "replays_list",
-        "consensus_stats", "consensus_similar",
+        "dashboard_debates",
+        "analytics_debates",
+        "replays_list",
+        "consensus_stats",
+        "consensus_similar",
     ],
     "debate_started": [
         "dashboard_debates",
     ],
     # Agent events
     "agent_updated": [
-        "agent_profile", "agents_list", "lb_introspection",
+        "agent_profile",
+        "agents_list",
+        "lb_introspection",
     ],
     # Memory events
     "memory_updated": [
-        "analytics_memory", "critique_patterns", "critique_stats",
+        "analytics_memory",
+        "critique_patterns",
+        "critique_stats",
     ],
     # Consensus events
     "consensus_reached": [
-        "consensus_stats", "consensus_settled", "consensus_similar",
+        "consensus_stats",
+        "consensus_settled",
+        "consensus_similar",
     ],
 }
 
@@ -417,7 +444,9 @@ def invalidate_on_event(event_name: str) -> int:
         cleared = _cache.clear(prefix)
         total_cleared += cleared
         if cleared > 0:
-            logger.debug(f"Cache invalidation: {event_name} cleared {cleared} entries with prefix '{prefix}'")
+            logger.debug(
+                f"Cache invalidation: {event_name} cleared {cleared} entries with prefix '{prefix}'"
+            )
     if total_cleared > 0:
         logger.info(f"Cache invalidated: event={event_name}, entries_cleared={total_cleared}")
     return total_cleared

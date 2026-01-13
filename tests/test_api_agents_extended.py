@@ -272,7 +272,10 @@ class TestAnthropicFallback:
         assert "claude-sonnet-4-20250514" in AnthropicAPIAgent.OPENROUTER_MODEL_MAP
 
         # Default should map to sonnet
-        assert AnthropicAPIAgent.OPENROUTER_MODEL_MAP.get("unknown", "anthropic/claude-sonnet-4") == "anthropic/claude-sonnet-4"
+        assert (
+            AnthropicAPIAgent.OPENROUTER_MODEL_MAP.get("unknown", "anthropic/claude-sonnet-4")
+            == "anthropic/claude-sonnet-4"
+        )
 
     def test_fallback_preserves_system_prompt(self, anthropic_agent):
         """Test that system prompt is preserved in fallback agent."""
@@ -287,6 +290,7 @@ class TestAnthropicFallback:
     async def test_missing_openrouter_api_key_graceful_error(self, anthropic_agent):
         """Test graceful handling when OPENROUTER_API_KEY not set."""
         import os
+
         # Ensure OPENROUTER_API_KEY is not set
         saved = os.environ.pop("OPENROUTER_API_KEY", None)
 
@@ -305,6 +309,7 @@ class TestAnthropicFallback:
 
             with patch("aiohttp.ClientSession", return_value=mock_session_cm):
                 from aragora.agents.errors import AgentError
+
                 with pytest.raises(AgentError) as exc_info:
                     await anthropic_agent.generate("Test")
 
@@ -347,6 +352,7 @@ class TestAnthropicFallback:
 
         with patch("aiohttp.ClientSession", return_value=mock_session_cm):
             from aragora.agents.errors import AgentError
+
             with pytest.raises(AgentError) as exc_info:
                 await agent.generate("Test")
 
@@ -471,7 +477,10 @@ class TestGeminiFallback:
     def test_gemini_fallback_model_mapping(self, gemini_agent):
         """Test that Gemini models are mapped correctly to OpenRouter."""
         assert "gemini-3-pro-preview" in GeminiAgent.OPENROUTER_MODEL_MAP
-        assert GeminiAgent.OPENROUTER_MODEL_MAP["gemini-3-pro-preview"] == "google/gemini-2.0-flash-001"
+        assert (
+            GeminiAgent.OPENROUTER_MODEL_MAP["gemini-3-pro-preview"]
+            == "google/gemini-2.0-flash-001"
+        )
         assert "gemini-1.5-pro" in GeminiAgent.OPENROUTER_MODEL_MAP
 
     def test_gemini_quota_keyword_detection(self, gemini_agent):
@@ -512,6 +521,7 @@ class TestGeminiFallback:
 
         with patch("aiohttp.ClientSession", return_value=mock_session_cm):
             from aragora.agents.errors import AgentError
+
             with pytest.raises(AgentError) as exc_info:
                 await agent.generate("Test")
 
@@ -577,6 +587,7 @@ class TestStreamingErrorHandling:
 
         with patch("aiohttp.ClientSession", return_value=mock_session_cm):
             from aragora.agents.errors import AgentStreamError
+
             with pytest.raises(AgentStreamError) as exc_info:
                 chunks = []
                 async for chunk in anthropic_agent.generate_stream("Test"):
@@ -594,7 +605,7 @@ class TestStreamingErrorHandling:
         async def iter_malformed():
             yield b'data: {"type": "content_block_delta", invalid json}\n'
             yield b'data: {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "valid"}}\n'
-            yield b'data: [DONE]\n'
+            yield b"data: [DONE]\n"
 
         mock_response.content = MagicMock()
         mock_response.content.iter_any = iter_malformed
@@ -674,6 +685,7 @@ class TestStreamingErrorHandling:
 
         with patch("aiohttp.ClientSession", return_value=mock_session_cm):
             from aragora.agents.errors import AgentStreamError
+
             with pytest.raises(AgentStreamError) as exc_info:
                 async for chunk in anthropic_agent.generate_stream("Test"):
                     pass
@@ -693,8 +705,7 @@ class TestConcurrency:
     async def test_5_concurrent_generate_calls(self, anthropic_agent):
         """Test 5 concurrent generate calls."""
         mock_response = create_mock_aiohttp_response(
-            status=200,
-            json_data={"content": [{"text": "Response"}]}
+            status=200, json_data={"content": [{"text": "Response"}]}
         )
 
         mock_post_cm = MagicMock()
@@ -719,8 +730,7 @@ class TestConcurrency:
     async def test_10_concurrent_generate_calls(self, anthropic_agent):
         """Test 10 concurrent generate calls."""
         mock_response = create_mock_aiohttp_response(
-            status=200,
-            json_data={"content": [{"text": "Response"}]}
+            status=200, json_data={"content": [{"text": "Response"}]}
         )
 
         mock_post_cm = MagicMock()
@@ -803,9 +813,7 @@ class TestOpenRouterAgent:
         set_openrouter_tier("standard")
 
         mock_response = create_mock_aiohttp_response(
-            status=200,
-            json_data={"choices": [{"message": {"content": "Response"}}]},
-            headers={}
+            status=200, json_data={"choices": [{"message": {"content": "Response"}}]}, headers={}
         )
 
         mock_post_cm = MagicMock()
@@ -829,9 +837,7 @@ class TestOpenRouterAgent:
         set_openrouter_tier("standard")
 
         mock_response = create_mock_aiohttp_response(
-            status=429,
-            text="Rate limited",
-            headers={"Retry-After": "60"}
+            status=429, text="Rate limited", headers={"Retry-After": "60"}
         )
 
         mock_post_cm = MagicMock()
@@ -846,9 +852,12 @@ class TestOpenRouterAgent:
         mock_session_cm.__aexit__ = AsyncMock(return_value=None)
 
         # Mock asyncio.sleep to prevent actual waiting during retries
-        with patch("aiohttp.ClientSession", return_value=mock_session_cm), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with (
+            patch("aiohttp.ClientSession", return_value=mock_session_cm),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
             from aragora.agents.errors import AgentRateLimitError
+
             with pytest.raises(AgentRateLimitError) as exc_info:
                 await openrouter_agent.generate("Test")
 
@@ -898,6 +907,7 @@ class TestStreamingFallback:
     async def test_anthropic_streaming_fallback_works(self, anthropic_agent):
         """Test that streaming fallback works for Anthropic."""
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test_key"}):
+
             async def mock_stream(*args, **kwargs):
                 yield "Fallback "
                 yield "streaming"
@@ -930,6 +940,7 @@ class TestStreamingFallback:
     async def test_openai_streaming_fallback_works(self, openai_agent):
         """Test that streaming fallback works for OpenAI."""
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test_key"}):
+
             async def mock_stream(*args, **kwargs):
                 yield "OpenAI "
                 yield "fallback"
@@ -971,10 +982,8 @@ class TestAPIResponseParsing:
     async def test_anthropic_unexpected_response_format(self, anthropic_agent):
         """Test handling of unexpected Anthropic response format."""
         from aragora.agents.errors import AgentError
-        mock_response = create_mock_aiohttp_response(
-            status=200,
-            json_data={"unexpected": "format"}
-        )
+
+        mock_response = create_mock_aiohttp_response(status=200, json_data={"unexpected": "format"})
 
         mock_post_cm = MagicMock()
         mock_post_cm.__aenter__ = AsyncMock(return_value=mock_response)
@@ -997,10 +1006,8 @@ class TestAPIResponseParsing:
     async def test_openai_unexpected_response_format(self, openai_agent):
         """Test handling of unexpected OpenAI response format."""
         from aragora.agents.errors import AgentError
-        mock_response = create_mock_aiohttp_response(
-            status=200,
-            json_data={"unexpected": "format"}
-        )
+
+        mock_response = create_mock_aiohttp_response(status=200, json_data={"unexpected": "format"})
 
         mock_post_cm = MagicMock()
         mock_post_cm.__aenter__ = AsyncMock(return_value=mock_response)

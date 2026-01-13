@@ -39,6 +39,7 @@ from aragora.server.handlers.base import clear_cache
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_elo_system():
     """Create a mock ELO system."""
@@ -88,6 +89,7 @@ def clear_caches():
 # ============================================================================
 # Route Matching Tests
 # ============================================================================
+
 
 class TestAgentsHandlerRouting:
     """Tests for route matching."""
@@ -141,6 +143,7 @@ class TestAgentsHandlerRouting:
 # ============================================================================
 # Leaderboard Endpoint Tests
 # ============================================================================
+
 
 class TestLeaderboardEndpoint:
     """Tests for /api/leaderboard and /api/rankings endpoints."""
@@ -201,6 +204,7 @@ class TestLeaderboardEndpoint:
 # Recent Matches Tests
 # ============================================================================
 
+
 class TestRecentMatchesEndpoint:
     """Tests for /api/matches/recent endpoint."""
 
@@ -231,6 +235,7 @@ class TestRecentMatchesEndpoint:
 # Agent Compare Tests
 # ============================================================================
 
+
 class TestAgentCompareEndpoint:
     """Tests for /api/agent/compare endpoint."""
 
@@ -244,11 +249,7 @@ class TestAgentCompareEndpoint:
 
     def test_compare_returns_profiles(self, agents_handler):
         """Should return agent profiles for comparison."""
-        result = agents_handler.handle(
-            "/api/agent/compare",
-            {"agents": ["claude", "gpt4"]},
-            None
-        )
+        result = agents_handler.handle("/api/agent/compare", {"agents": ["claude", "gpt4"]}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -257,11 +258,7 @@ class TestAgentCompareEndpoint:
 
     def test_compare_includes_head_to_head(self, agents_handler):
         """Should include head-to-head stats for 2 agents."""
-        result = agents_handler.handle(
-            "/api/agent/compare",
-            {"agents": ["claude", "gpt4"]},
-            None
-        )
+        result = agents_handler.handle("/api/agent/compare", {"agents": ["claude", "gpt4"]}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -270,11 +267,7 @@ class TestAgentCompareEndpoint:
     def test_compare_unavailable_returns_503(self):
         """Should return 503 when ELO system not available."""
         handler = AgentsHandler({})
-        result = handler.handle(
-            "/api/agent/compare",
-            {"agents": ["claude", "gpt4"]},
-            None
-        )
+        result = handler.handle("/api/agent/compare", {"agents": ["claude", "gpt4"]}, None)
 
         assert result.status_code == 503
 
@@ -282,6 +275,7 @@ class TestAgentCompareEndpoint:
 # ============================================================================
 # Agent Profile Tests
 # ============================================================================
+
 
 class TestAgentProfileEndpoint:
     """Tests for /api/agent/{name}/profile endpoint."""
@@ -318,6 +312,7 @@ class TestAgentProfileEndpoint:
 # Agent History Tests
 # ============================================================================
 
+
 class TestAgentHistoryEndpoint:
     """Tests for /api/agent/{name}/history endpoint."""
 
@@ -349,6 +344,7 @@ class TestAgentHistoryEndpoint:
 # Agent Calibration Tests
 # ============================================================================
 
+
 class TestAgentCalibrationEndpoint:
     """Tests for /api/agent/{name}/calibration endpoint."""
 
@@ -362,11 +358,7 @@ class TestAgentCalibrationEndpoint:
 
     def test_calibration_accepts_domain(self, agents_handler, mock_elo_system):
         """Should accept domain parameter."""
-        result = agents_handler.handle(
-            "/api/agent/claude/calibration",
-            {"domain": "science"},
-            None
-        )
+        result = agents_handler.handle("/api/agent/claude/calibration", {"domain": "science"}, None)
 
         assert result.status_code == 200
         mock_elo_system.get_calibration.assert_called_with("claude", domain="science")
@@ -375,6 +367,7 @@ class TestAgentCalibrationEndpoint:
 # ============================================================================
 # Agent Consistency Tests
 # ============================================================================
+
 
 class TestAgentConsistencyEndpoint:
     """Tests for /api/agent/{name}/consistency endpoint."""
@@ -402,6 +395,7 @@ class TestAgentConsistencyEndpoint:
 # Agent Network Tests
 # ============================================================================
 
+
 class TestAgentNetworkEndpoint:
     """Tests for /api/agent/{name}/network endpoint."""
 
@@ -426,6 +420,7 @@ class TestAgentNetworkEndpoint:
 # ============================================================================
 # Agent Rivals/Allies Tests
 # ============================================================================
+
 
 class TestAgentRivalsEndpoint:
     """Tests for /api/agent/{name}/rivals endpoint."""
@@ -459,6 +454,7 @@ class TestAgentAlliesEndpoint:
 # Agent Moments Tests
 # ============================================================================
 
+
 class TestAgentMomentsEndpoint:
     """Tests for /api/agent/{name}/moments endpoint."""
 
@@ -476,6 +472,7 @@ class TestAgentMomentsEndpoint:
 # ============================================================================
 # Agent Positions Tests
 # ============================================================================
+
 
 class TestAgentPositionsEndpoint:
     """Tests for /api/agent/{name}/positions endpoint."""
@@ -495,6 +492,7 @@ class TestAgentPositionsEndpoint:
 # Agent Flips Tests
 # ============================================================================
 
+
 class TestAgentFlipsEndpoint:
     """Tests for /api/agent/{name}/flips endpoint."""
 
@@ -513,6 +511,7 @@ class TestAgentFlipsEndpoint:
 # ============================================================================
 # Head-to-Head Tests
 # ============================================================================
+
 
 class TestHeadToHeadEndpoint:
     """Tests for /api/agent/{name}/head-to-head/{opponent} endpoint."""
@@ -545,6 +544,7 @@ class TestHeadToHeadEndpoint:
 # Flips Recent/Summary Tests
 # ============================================================================
 
+
 class TestFlipsRecentEndpoint:
     """Tests for /api/flips/recent endpoint."""
 
@@ -575,6 +575,7 @@ class TestFlipsSummaryEndpoint:
 # ============================================================================
 # Security Tests
 # ============================================================================
+
 
 class TestAgentsSecurity:
     """Tests for security measures."""
@@ -630,6 +631,7 @@ class TestAgentsSecurity:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestAgentsErrorHandling:
     """Tests for error handling."""
 
@@ -678,6 +680,7 @@ class TestAgentsErrorHandling:
 # Limit Cap Tests
 # ============================================================================
 
+
 class TestLimitCaps:
     """Tests for limit parameter capping."""
 
@@ -708,6 +711,7 @@ class TestLimitCaps:
 # FlipDetector Mock Tests
 # ============================================================================
 
+
 class TestFlipDetectorIntegration:
     """Tests for FlipDetector integration."""
 
@@ -715,7 +719,7 @@ class TestFlipDetectorIntegration:
         """Should enhance rankings with consistency when FlipDetector available."""
         agents_handler.ctx["nomic_dir"] = tmp_path
 
-        with patch('aragora.insights.flip_detector.FlipDetector') as MockDetector:
+        with patch("aragora.insights.flip_detector.FlipDetector") as MockDetector:
             mock_detector = Mock()
             mock_score = Mock()
             mock_score.total_positions = 10
@@ -733,7 +737,7 @@ class TestFlipDetectorIntegration:
         """Should return consistency score from FlipDetector."""
         agents_handler.ctx["nomic_dir"] = tmp_path
 
-        with patch('aragora.insights.flip_detector.FlipDetector') as MockDetector:
+        with patch("aragora.insights.flip_detector.FlipDetector") as MockDetector:
             mock_detector = Mock()
             mock_score = Mock()
             mock_score.agent_name = "claude"
@@ -753,7 +757,7 @@ class TestFlipDetectorIntegration:
         """Should return flip data from FlipDetector."""
         agents_handler.ctx["nomic_dir"] = tmp_path
 
-        with patch('aragora.insights.flip_detector.FlipDetector') as MockDetector:
+        with patch("aragora.insights.flip_detector.FlipDetector") as MockDetector:
             mock_detector = Mock()
             mock_flip = Mock()
             mock_flip.to_dict.return_value = {"agent": "claude", "topic": "test"}
@@ -773,7 +777,7 @@ class TestFlipDetectorIntegration:
         """Should return recent flips from FlipDetector."""
         agents_handler.ctx["nomic_dir"] = tmp_path
 
-        with patch('aragora.insights.flip_detector.FlipDetector') as MockDetector:
+        with patch("aragora.insights.flip_detector.FlipDetector") as MockDetector:
             mock_detector = Mock()
             mock_flip = Mock()
             mock_flip.to_dict.return_value = {"agent": "claude", "topic": "test"}
@@ -791,7 +795,7 @@ class TestFlipDetectorIntegration:
         """Should return summary from FlipDetector."""
         agents_handler.ctx["nomic_dir"] = tmp_path
 
-        with patch('aragora.insights.flip_detector.FlipDetector') as MockDetector:
+        with patch("aragora.insights.flip_detector.FlipDetector") as MockDetector:
             mock_detector = Mock()
             mock_detector.get_flip_summary.return_value = {
                 "total_flips": 50,
@@ -812,13 +816,15 @@ class TestFlipDetectorIntegration:
 # MomentDetector and PositionLedger Tests
 # ============================================================================
 
+
 class TestMomentDetectorIntegration:
     """Tests for MomentDetector integration."""
 
     def test_moments_with_detector(self, agents_handler, mock_elo_system):
         """Should return moments from MomentDetector."""
-        with patch('aragora.agents.grounded.MomentDetector') as MockMD:
+        with patch("aragora.agents.grounded.MomentDetector") as MockMD:
             from datetime import datetime
+
             mock_moment = Mock()
             mock_moment.id = "m1"
             mock_moment.moment_type = "upset_win"
@@ -856,7 +862,7 @@ class TestPositionLedgerIntegration:
         """Should return positions from PositionLedger."""
         agents_handler.ctx["nomic_dir"] = tmp_path
 
-        with patch('aragora.agents.grounded.PositionLedger') as MockLedger:
+        with patch("aragora.agents.grounded.PositionLedger") as MockLedger:
             mock_ledger = Mock()
             mock_ledger.get_agent_positions.return_value = [
                 {"topic": "AI safety", "position": "for", "confidence": 0.8}
@@ -884,6 +890,7 @@ class TestPositionLedgerIntegration:
 # Agent Object Type Handling Tests
 # ============================================================================
 
+
 class TestAgentObjectTypes:
     """Tests for handling different agent object types."""
 
@@ -902,7 +909,9 @@ class TestAgentObjectTypes:
 
     def test_leaderboard_handles_object_agents(self, agents_handler, mock_elo_system):
         """Should handle agents returned as objects."""
-        mock_agent = Mock(spec=["agent_name", "elo", "wins", "losses", "draws", "win_rate", "games_played"])
+        mock_agent = Mock(
+            spec=["agent_name", "elo", "wins", "losses", "draws", "win_rate", "games_played"]
+        )
         mock_agent.agent_name = "gemini"  # Real AgentRating uses agent_name
         mock_agent.elo = 1550
         mock_agent.wins = 8
@@ -925,6 +934,7 @@ class TestAgentObjectTypes:
 # ============================================================================
 # Domain Validation Tests
 # ============================================================================
+
 
 class TestDomainValidation:
     """Tests for domain parameter validation."""
@@ -952,6 +962,7 @@ class TestDomainValidation:
 # Loop ID Validation Tests
 # ============================================================================
 
+
 class TestLoopIdValidation:
     """Tests for loop_id parameter validation."""
 
@@ -972,15 +983,14 @@ class TestLoopIdValidation:
 # Compare Agents Edge Cases
 # ============================================================================
 
+
 class TestCompareAgentsEdgeCases:
     """Edge case tests for agent comparison."""
 
     def test_compare_limits_to_five_agents(self, agents_handler, mock_elo_system):
         """Should limit comparison to 5 agents."""
         result = agents_handler.handle(
-            "/api/agent/compare",
-            {"agents": ["a", "b", "c", "d", "e", "f", "g"]},
-            None
+            "/api/agent/compare", {"agents": ["a", "b", "c", "d", "e", "f", "g"]}, None
         )
 
         assert result.status_code == 200
@@ -991,11 +1001,7 @@ class TestCompareAgentsEdgeCases:
         """Should handle head-to-head exception gracefully."""
         mock_elo_system.get_head_to_head.side_effect = Exception("H2H error")
 
-        result = agents_handler.handle(
-            "/api/agent/compare",
-            {"agents": ["claude", "gpt4"]},
-            None
-        )
+        result = agents_handler.handle("/api/agent/compare", {"agents": ["claude", "gpt4"]}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -1006,6 +1012,7 @@ class TestCompareAgentsEdgeCases:
 # ============================================================================
 # Head-to-Head Fallback Tests
 # ============================================================================
+
 
 class TestHeadToHeadFallback:
     """Tests for head-to-head fallback behavior."""
@@ -1025,6 +1032,7 @@ class TestHeadToHeadFallback:
 # Calibration Fallback Tests
 # ============================================================================
 
+
 class TestCalibrationFallback:
     """Tests for calibration fallback behavior."""
 
@@ -1042,6 +1050,7 @@ class TestCalibrationFallback:
 # ============================================================================
 # Cache Behavior Tests
 # ============================================================================
+
 
 class TestCacheBehavior:
     """Tests for caching behavior."""
@@ -1071,6 +1080,7 @@ class TestCacheBehavior:
 # ============================================================================
 # Nomic Dir Handling Tests
 # ============================================================================
+
 
 class TestNomicDirHandling:
     """Tests for nomic_dir handling."""

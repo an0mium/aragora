@@ -89,17 +89,27 @@ class TestRisk:
         """Test risk_score with edge case values."""
         # Zero impact
         risk_zero_impact = Risk(
-            id="r1", title="T", description="D",
-            level=RiskLevel.LOW, category=RiskCategory.UNKNOWN,
-            source="test", impact=0.0, likelihood=1.0
+            id="r1",
+            title="T",
+            description="D",
+            level=RiskLevel.LOW,
+            category=RiskCategory.UNKNOWN,
+            source="test",
+            impact=0.0,
+            likelihood=1.0,
         )
         assert risk_zero_impact.risk_score == 0.0
 
         # Maximum values
         risk_max = Risk(
-            id="r2", title="T", description="D",
-            level=RiskLevel.CRITICAL, category=RiskCategory.SECURITY,
-            source="test", impact=1.0, likelihood=1.0
+            id="r2",
+            title="T",
+            description="D",
+            level=RiskLevel.CRITICAL,
+            category=RiskCategory.SECURITY,
+            source="test",
+            impact=1.0,
+            likelihood=1.0,
         )
         assert risk_max.risk_score == 1.0
 
@@ -162,29 +172,49 @@ class TestRiskRegister:
         """Create sample risks for testing."""
         return [
             Risk(
-                id="r1", title="Critical Security", description="Auth bypass",
-                level=RiskLevel.CRITICAL, category=RiskCategory.SECURITY,
-                source="audit", mitigation_status="proposed"
+                id="r1",
+                title="Critical Security",
+                description="Auth bypass",
+                level=RiskLevel.CRITICAL,
+                category=RiskCategory.SECURITY,
+                source="audit",
+                mitigation_status="proposed",
             ),
             Risk(
-                id="r2", title="High Performance", description="Slow query",
-                level=RiskLevel.HIGH, category=RiskCategory.PERFORMANCE,
-                source="profiler", mitigation_status="in_progress"
+                id="r2",
+                title="High Performance",
+                description="Slow query",
+                level=RiskLevel.HIGH,
+                category=RiskCategory.PERFORMANCE,
+                source="profiler",
+                mitigation_status="in_progress",
             ),
             Risk(
-                id="r3", title="Medium Technical", description="Legacy code",
-                level=RiskLevel.MEDIUM, category=RiskCategory.TECHNICAL,
-                source="review", mitigation_status="implemented"
+                id="r3",
+                title="Medium Technical",
+                description="Legacy code",
+                level=RiskLevel.MEDIUM,
+                category=RiskCategory.TECHNICAL,
+                source="review",
+                mitigation_status="implemented",
             ),
             Risk(
-                id="r4", title="Low Maintainability", description="Missing docs",
-                level=RiskLevel.LOW, category=RiskCategory.MAINTAINABILITY,
-                source="lint", mitigation_status="accepted"
+                id="r4",
+                title="Low Maintainability",
+                description="Missing docs",
+                level=RiskLevel.LOW,
+                category=RiskCategory.MAINTAINABILITY,
+                source="lint",
+                mitigation_status="accepted",
             ),
             Risk(
-                id="r5", title="High Security", description="XSS vuln",
-                level=RiskLevel.HIGH, category=RiskCategory.SECURITY,
-                source="scanner", mitigation_status="proposed"
+                id="r5",
+                title="High Security",
+                description="XSS vuln",
+                level=RiskLevel.HIGH,
+                category=RiskCategory.SECURITY,
+                source="scanner",
+                mitigation_status="proposed",
             ),
         ]
 
@@ -384,8 +414,13 @@ class TestRiskCategoryEnum:
     def test_risk_category_values(self):
         """Test RiskCategory enum has expected values."""
         expected = {
-            "technical", "security", "performance",
-            "scalability", "maintainability", "compatibility", "unknown"
+            "technical",
+            "security",
+            "performance",
+            "scalability",
+            "maintainability",
+            "compatibility",
+            "unknown",
         }
         actual = {cat.value for cat in RiskCategory}
         assert actual == expected

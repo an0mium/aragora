@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Valid SQL identifier pattern: alphanumeric and underscores, must start with letter/underscore
-_SQL_IDENTIFIER_PATTERN = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+_SQL_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 # Maximum length for SQL identifiers (SQLite limit is 255, we use 128 for safety)
 _MAX_IDENTIFIER_LENGTH = 128
@@ -61,10 +61,23 @@ def _validate_sql_identifier(name: str, context: str = "identifier") -> str:
         )
 
     # Additional check for SQL keywords that could be dangerous
-    sql_keywords = frozenset({
-        'DROP', 'DELETE', 'TRUNCATE', 'ALTER', 'CREATE', 'INSERT', 'UPDATE',
-        'EXEC', 'EXECUTE', 'UNION', 'SELECT', '--', ';',
-    })
+    sql_keywords = frozenset(
+        {
+            "DROP",
+            "DELETE",
+            "TRUNCATE",
+            "ALTER",
+            "CREATE",
+            "INSERT",
+            "UPDATE",
+            "EXEC",
+            "EXECUTE",
+            "UNION",
+            "SELECT",
+            "--",
+            ";",
+        }
+    )
     if name.upper() in sql_keywords:
         raise ValueError(f"SQL keyword not allowed as {context}: '{name}'")
 
@@ -93,9 +106,17 @@ def _validate_where_clause(where: str) -> str:
     # Check for dangerous patterns (case-insensitive)
     where_upper = where.upper()
     dangerous_patterns = [
-        '; DROP', '; DELETE', '; TRUNCATE', '; ALTER',
-        'UNION SELECT', 'UNION ALL', '/*', '*/', '--',
-        'EXEC(', 'EXECUTE(',
+        "; DROP",
+        "; DELETE",
+        "; TRUNCATE",
+        "; ALTER",
+        "UNION SELECT",
+        "UNION ALL",
+        "/*",
+        "*/",
+        "--",
+        "EXEC(",
+        "EXECUTE(",
     ]
 
     for pattern in dangerous_patterns:
@@ -104,6 +125,7 @@ def _validate_where_clause(where: str) -> str:
             raise ValueError(f"WHERE clause contains forbidden pattern")
 
     return where
+
 
 # Type variable for entities
 T = TypeVar("T")
@@ -170,9 +192,7 @@ class BaseRepository(ABC, Generic[T]):
         return self._db_path
 
     @contextmanager
-    def _connection(
-        self, readonly: bool = False
-    ) -> Generator[sqlite3.Connection, None, None]:
+    def _connection(self, readonly: bool = False) -> Generator[sqlite3.Connection, None, None]:
         """
         Get a database connection with proper configuration.
 

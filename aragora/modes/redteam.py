@@ -168,10 +168,12 @@ Round {round_num} of {self.attack_rounds} - find the most critical issues first.
         round_num: int,
     ) -> str:
         """Generate prompt for defense phase."""
-        attacks_text = "\n".join([
-            f"- [{a.attack_type.value}] {a.attack_description} (Severity: {a.severity:.0%})"
-            for a in attacks
-        ])
+        attacks_text = "\n".join(
+            [
+                f"- [{a.attack_type.value}] {a.attack_description} (Severity: {a.severity:.0%})"
+                for a in attacks
+            ]
+        )
 
         return f"""You are DEFENDING this proposal against attacks.
 
@@ -276,7 +278,7 @@ class RedTeamMode:
             for i, agent in enumerate(red_team_agents):
                 # Rotate attack types across rounds
                 attack_types = self.protocol.ATTACK_CATEGORIES[
-                    i % len(self.protocol.ATTACK_CATEGORIES):
+                    i % len(self.protocol.ATTACK_CATEGORIES) :
                 ]
                 if not isinstance(attack_types, list):
                     attack_types = [attack_types]
@@ -314,10 +316,11 @@ class RedTeamMode:
         # Calculate results
         successful = [a for a in all_attacks if a.risk_score > 0.5]
         critical = [a for a in all_attacks if a.severity > 0.8]
-        mitigated = [a for a in all_attacks if any(
-            d.attack_id == a.attack_id and d.success
-            for d in all_defenses
-        )]
+        mitigated = [
+            a
+            for a in all_attacks
+            if any(d.attack_id == a.attack_id and d.success for d in all_defenses)
+        ]
 
         robustness = 1.0 - (len(successful) / len(all_attacks)) if all_attacks else 1.0
 
@@ -331,7 +334,11 @@ class RedTeamMode:
             mitigated_issues=mitigated,
             accepted_risks=[],
             robustness_score=robustness,
-            coverage_score=len(set(a.attack_type for a in all_attacks)) / len(AttackType) if len(AttackType) > 0 else 0.0,
+            coverage_score=(
+                len(set(a.attack_type for a in all_attacks)) / len(AttackType)
+                if len(AttackType) > 0
+                else 0.0
+            ),
         )
 
     def _parse_attacks(
@@ -369,10 +376,21 @@ class RedTeamMode:
                     break
 
             # If line looks like an attack description
-            if len(line) > 20 and any(word in line.lower() for word in [
-                "vulnerability", "issue", "problem", "weakness", "flaw",
-                "attack", "exploit", "could", "might", "fails"
-            ]):
+            if len(line) > 20 and any(
+                word in line.lower()
+                for word in [
+                    "vulnerability",
+                    "issue",
+                    "problem",
+                    "weakness",
+                    "flaw",
+                    "attack",
+                    "exploit",
+                    "could",
+                    "might",
+                    "fails",
+                ]
+            ):
                 self._attack_counter += 1
                 attack = Attack(
                     attack_id=f"attack-{self._attack_counter:04d}",
@@ -437,10 +455,12 @@ async def redteam_code_review(
     run_agent_fn: Callable,
 ) -> RedTeamResult:
     """Red-team a code review."""
-    mode = RedTeamMode(RedTeamProtocol(
-        attack_rounds=2,
-        include_steelman=False,
-    ))
+    mode = RedTeamMode(
+        RedTeamProtocol(
+            attack_rounds=2,
+            include_steelman=False,
+        )
+    )
 
     # Override attack categories for code
     mode.protocol.ATTACK_CATEGORIES = [
@@ -464,11 +484,13 @@ async def redteam_policy(
     run_agent_fn: Callable,
 ) -> RedTeamResult:
     """Red-team a policy document."""
-    mode = RedTeamMode(RedTeamProtocol(
-        attack_rounds=3,
-        include_steelman=True,
-        include_strawman=True,
-    ))
+    mode = RedTeamMode(
+        RedTeamProtocol(
+            attack_rounds=3,
+            include_steelman=True,
+            include_strawman=True,
+        )
+    )
 
     mode.protocol.ATTACK_CATEGORIES = [
         AttackType.LOGICAL_FALLACY,

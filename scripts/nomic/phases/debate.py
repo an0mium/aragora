@@ -19,6 +19,7 @@ from . import DebateResult
 @dataclass
 class DebateConfig:
     """Configuration for debate phase."""
+
     rounds: int = 2
     consensus_mode: str = "judge"
     judge_selection: str = "elo_ranked"
@@ -32,6 +33,7 @@ class DebateConfig:
 @dataclass
 class LearningContext:
     """Aggregated learning context for debate."""
+
     failure_lessons: str = ""
     successful_patterns: str = ""
     failure_patterns: str = ""
@@ -78,6 +80,7 @@ class LearningContext:
 @dataclass
 class PostDebateHooks:
     """Hooks for post-debate processing."""
+
     on_consensus_stored: Optional[Callable] = None
     on_calibration_recorded: Optional[Callable] = None
     on_insights_extracted: Optional[Callable] = None
@@ -178,7 +181,9 @@ class DebatePhase:
         self._log("\n" + "=" * 70)
         self._log("PHASE 1: IMPROVEMENT DEBATE")
         self._log("=" * 70)
-        self._stream_emit("on_phase_start", "debate", self.cycle_count, {"agents": len(self.agents)})
+        self._stream_emit(
+            "on_phase_start", "debate", self.cycle_count, {"agents": len(self.agents)}
+        )
         self._record_replay("phase", "system", "debate")
 
         # Load belief network from previous cycle
@@ -233,8 +238,12 @@ class DebatePhase:
 
         phase_duration = (datetime.now() - phase_start).total_seconds()
         self._stream_emit(
-            "on_phase_end", "debate", self.cycle_count, result.consensus_reached,
-            phase_duration, {"confidence": result.confidence}
+            "on_phase_end",
+            "debate",
+            self.cycle_count,
+            result.consensus_reached,
+            phase_duration,
+            {"confidence": result.confidence},
         )
 
         return DebateResult(
@@ -262,9 +271,7 @@ class DebatePhase:
             for cp in checkpoints:
                 if f"cycle_{prev_cycle}_debate" in str(cp):
                     self._log(f"  [belief] Loading belief network from cycle {prev_cycle}")
-                    await self.nomic_integration.resume_from_checkpoint(
-                        cp.get("checkpoint_id", "")
-                    )
+                    await self.nomic_integration.resume_from_checkpoint(cp.get("checkpoint_id", ""))
                     break
         except Exception as e:
             self._log(f"  [belief] Failed to load previous belief network: {e}")

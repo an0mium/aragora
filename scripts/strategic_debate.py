@@ -115,13 +115,13 @@ What concrete positioning should Aragora pursue to find product-market fit?
         rounds=3,
         consensus="majority",
         asymmetric_stances=True,  # Force perspective diversity
-        topology="all-to-all",    # Everyone critiques everyone
-        agreement_intensity=5,    # Balanced (not too adversarial or collaborative)
-        enable_research=False,    # Focus on the provided context
+        topology="all-to-all",  # Everyone critiques everyone
+        agreement_intensity=5,  # Balanced (not too adversarial or collaborative)
+        enable_research=False,  # Focus on the provided context
         early_stopping=True,
         early_stop_threshold=0.7,
         convergence_detection=True,
-        timeout_seconds=600,      # 10 minute max
+        timeout_seconds=600,  # 10 minute max
     )
 
     logger.info(f"Starting strategic positioning debate with {len(agents)} agents...")
@@ -143,7 +143,7 @@ async def generate_audio(result, output_dir: Path):
         # Create a trace from the result for the broadcast system
         trace_data = {
             "debate_id": f"strategic_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            "task": result.task if hasattr(result, 'task') else "Strategic positioning debate",
+            "task": result.task if hasattr(result, "task") else "Strategic positioning debate",
             "events": [],
             "final_answer": result.final_answer,
             "consensus_reached": result.consensus_reached,
@@ -152,16 +152,22 @@ async def generate_audio(result, output_dir: Path):
 
         # Add messages as events
         for i, msg in enumerate(result.messages):
-            trace_data["events"].append({
-                "type": "proposal",
-                "agent": msg.agent,
-                "content": msg.content,
-                "round": msg.round_num if hasattr(msg, 'round_num') else i // len(result.messages) + 1,
-            })
+            trace_data["events"].append(
+                {
+                    "type": "proposal",
+                    "agent": msg.agent,
+                    "content": msg.content,
+                    "round": (
+                        msg.round_num
+                        if hasattr(msg, "round_num")
+                        else i // len(result.messages) + 1
+                    ),
+                }
+            )
 
         # Save trace
         trace_path = output_dir / "debate_trace.json"
-        with open(trace_path, 'w') as f:
+        with open(trace_path, "w") as f:
             json.dump(trace_data, f, indent=2, default=str)
 
         logger.info(f"Saved debate trace to {trace_path}")
@@ -193,22 +199,23 @@ def save_results(result, output_dir: Path):
         "confidence": result.confidence,
         "rounds_used": result.rounds_used,
         "duration_seconds": result.duration_seconds,
-        "dissenting_views": result.dissenting_views if hasattr(result, 'dissenting_views') else [],
-        "votes": [
-            {"agent": v.agent, "choice": v.choice, "reasoning": v.reasoning}
-            for v in result.votes
-        ] if result.votes else [],
+        "dissenting_views": result.dissenting_views if hasattr(result, "dissenting_views") else [],
+        "votes": (
+            [{"agent": v.agent, "choice": v.choice, "reasoning": v.reasoning} for v in result.votes]
+            if result.votes
+            else []
+        ),
         "generated_at": datetime.now().isoformat(),
     }
 
-    with open(result_path, 'w') as f:
+    with open(result_path, "w") as f:
         json.dump(result_data, f, indent=2)
 
     logger.info(f"Saved result JSON to {result_path}")
 
     # Save readable summary
     summary_path = output_dir / "debate_summary.md"
-    with open(summary_path, 'w') as f:
+    with open(summary_path, "w") as f:
         f.write("# Aragora Strategic Positioning Debate\n\n")
         f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         f.write(f"**Consensus Reached:** {'Yes' if result.consensus_reached else 'No'}\n")
@@ -220,7 +227,7 @@ def save_results(result, output_dir: Path):
         f.write(result.final_answer)
         f.write("\n\n---\n\n")
 
-        if hasattr(result, 'dissenting_views') and result.dissenting_views:
+        if hasattr(result, "dissenting_views") and result.dissenting_views:
             f.write("## Alternative Perspectives\n\n")
             for i, view in enumerate(result.dissenting_views, 1):
                 f.write(f"### Alternative {i}\n\n")

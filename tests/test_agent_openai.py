@@ -104,17 +104,18 @@ class TestOpenAIGenerate:
         """Test successful API response."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "choices": [{"message": {"content": "Hello from GPT!"}}]
-        })
+        mock_response.json = AsyncMock(
+            return_value={"choices": [{"message": {"content": "Hello from GPT!"}}]}
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.generate("Test prompt")
@@ -131,10 +132,11 @@ class TestOpenAIGenerate:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             # The handle_agent_errors decorator may wrap or handle errors
@@ -162,10 +164,11 @@ class TestOpenAIGenerate:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_openai_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_openai_response), __aexit__=AsyncMock()
+            )
+        )
 
         # Mock fallback agent
         mock_fallback = AsyncMock()
@@ -196,10 +199,11 @@ class TestOpenAIGenerate:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             with patch.dict("os.environ", {"OPENROUTER_API_KEY": ""}, clear=False):
@@ -220,9 +224,9 @@ class TestOpenAIGenerate:
 
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "choices": [{"message": {"content": "Response"}}]
-        })
+        mock_response.json = AsyncMock(
+            return_value={"choices": [{"message": {"content": "Response"}}]}
+        )
 
         captured_payload = None
 
@@ -230,8 +234,7 @@ class TestOpenAIGenerate:
             nonlocal captured_payload
             captured_payload = kwargs.get("json", {})
             return MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response),
-                __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
             )
 
         mock_session = MagicMock()
@@ -266,7 +269,7 @@ class TestOpenAIStreaming:
         # Mock SSE response
         sse_data = b'data: {"choices": [{"delta": {"content": "Hello"}}]}\n\n'
         sse_data += b'data: {"choices": [{"delta": {"content": " world"}}]}\n\n'
-        sse_data += b'data: [DONE]\n\n'
+        sse_data += b"data: [DONE]\n\n"
 
         async def mock_iter():
             yield sse_data
@@ -281,14 +284,18 @@ class TestOpenAIStreaming:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         chunks = []
         with patch("aiohttp.ClientSession", return_value=mock_session):
-            with patch("aragora.agents.api_agents.common.iter_chunks_with_timeout", return_value=mock_iter()):
+            with patch(
+                "aragora.agents.api_agents.common.iter_chunks_with_timeout",
+                return_value=mock_iter(),
+            ):
                 async for chunk in agent.generate_stream("Test prompt"):
                     chunks.append(chunk)
 
@@ -304,10 +311,11 @@ class TestOpenAIStreaming:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             # Error may raise or return error message depending on decorator
@@ -337,10 +345,11 @@ class TestOpenAIStreaming:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         # Mock fallback streaming
         async def mock_fallback_stream(*args, **kwargs):
@@ -446,10 +455,11 @@ class TestOpenAIFallbackDisabled:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         # Track whether fallback was called
         fallback_called = False

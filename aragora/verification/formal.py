@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 class FormalProofStatus(Enum):
     """Status of a formal proof attempt."""
+
     NOT_ATTEMPTED = "not_attempted"
     TRANSLATION_FAILED = "translation_failed"  # Couldn't translate to formal language
     PROOF_FOUND = "proof_found"
@@ -40,6 +41,7 @@ class FormalProofStatus(Enum):
 
 class FormalLanguage(Enum):
     """Supported formal proof languages."""
+
     LEAN4 = "lean4"
     COQ = "coq"
     ISABELLE = "isabelle"
@@ -50,6 +52,7 @@ class FormalLanguage(Enum):
 @dataclass
 class FormalProofResult:
     """Result of a formal verification attempt."""
+
     status: FormalProofStatus
     language: FormalLanguage
 
@@ -142,7 +145,9 @@ class FormalVerificationBackend(Protocol):
         """
         ...
 
-    async def prove(self, formal_statement: str, timeout_seconds: float = 60.0) -> FormalProofResult:
+    async def prove(
+        self, formal_statement: str, timeout_seconds: float = 60.0
+    ) -> FormalProofResult:
         """
         Attempt to prove a formal statement.
 
@@ -171,6 +176,7 @@ class FormalVerificationBackend(Protocol):
 
 class TranslationModel(Enum):
     """Available models for NL-to-Lean translation."""
+
     DEEPSEEK_PROVER = "deepseek_prover"  # Best for mathematical proofs
     CLAUDE = "claude"  # General-purpose, good at reasoning
     OPENAI = "openai"  # GPT-4, solid alternative
@@ -198,17 +204,37 @@ class LeanBackend:
 
     # Claim types suitable for Lean verification
     LEAN_CLAIM_TYPES = {
-        "MATHEMATICAL", "LOGICAL", "ARITHMETIC", "PROOF",
-        "THEOREM", "LEMMA", "PROPERTY", "INVARIANT",
+        "MATHEMATICAL",
+        "LOGICAL",
+        "ARITHMETIC",
+        "PROOF",
+        "THEOREM",
+        "LEMMA",
+        "PROPERTY",
+        "INVARIANT",
     }
 
     # Patterns indicating mathematical content
     MATH_PATTERNS = [
-        r"\bfor all\b", r"\bforall\b", r"\bexists\b", r"\bthere exists\b",
-        r"\biff\b", r"\bimplies\b", r"\bif and only if\b",
-        r"\bprove\b", r"\bproof\b", r"\btheorem\b", r"\blemma\b",
-        r"\bprime\b", r"\bdivisible\b", r"\beven\b", r"\bodd\b",
-        r"\bsum\b", r"\bproduct\b", r"\bintegral\b", r"\bderivative\b",
+        r"\bfor all\b",
+        r"\bforall\b",
+        r"\bexists\b",
+        r"\bthere exists\b",
+        r"\biff\b",
+        r"\bimplies\b",
+        r"\bif and only if\b",
+        r"\bprove\b",
+        r"\bproof\b",
+        r"\btheorem\b",
+        r"\blemma\b",
+        r"\bprime\b",
+        r"\bdivisible\b",
+        r"\beven\b",
+        r"\bodd\b",
+        r"\bsum\b",
+        r"\bproduct\b",
+        r"\bintegral\b",
+        r"\bderivative\b",
         r"[∀∃→←↔∧∨¬⊢⊨≡≠≤≥∈∉⊂⊃∩∪∅ℕℤℚℝℂ]",
     ]
 
@@ -242,12 +268,12 @@ class LeanBackend:
     def is_available(self) -> bool:
         """Check if Lean 4 toolchain (lean and lake) is available."""
         import shutil
+
         has_lean = shutil.which("lean") is not None
         if has_lean and self._lean_version is None:
             try:
                 result = subprocess.run(
-                    ["lean", "--version"],
-                    capture_output=True, text=True, timeout=5
+                    ["lean", "--version"], capture_output=True, text=True, timeout=5
                 )
                 if result.returncode == 0:
                     self._lean_version = result.stdout.strip().split("\n")[0]
@@ -292,6 +318,7 @@ class LeanBackend:
         if self._deepseek_translator is None:
             try:
                 from aragora.verification.deepseek_prover import DeepSeekProverTranslator
+
                 translator = DeepSeekProverTranslator()
                 if translator.is_available:
                     self._deepseek_translator = translator
@@ -320,7 +347,9 @@ class LeanBackend:
             if translator:
                 result = await translator.translate(claim, context)
                 if result.success and result.lean_code:
-                    logger.debug(f"DeepSeek-Prover translation succeeded (confidence: {result.confidence:.2f})")
+                    logger.debug(
+                        f"DeepSeek-Prover translation succeeded (confidence: {result.confidence:.2f})"
+                    )
                     return result.lean_code
                 elif self._translation_model == TranslationModel.DEEPSEEK_PROVER:
                     # Explicit DeepSeek selection but failed
@@ -385,9 +414,13 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
                 return None
 
             async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                async with session.post(
+                    url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=30)
+                ) as response:
                     if response.status != 200:
-                        logger.warning(f"LLM API returned status {response.status} for Lean translation")
+                        logger.warning(
+                            f"LLM API returned status {response.status} for Lean translation"
+                        )
                         return None
 
                     try:
@@ -410,6 +443,7 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
 
                     # Extract Lean code from markdown if present
                     import re
+
                     lean_match = re.search(r"```(?:lean4?|lean)?\n?(.*?)```", result, re.DOTALL)
                     if lean_match:
                         return lean_match.group(1).strip()
@@ -425,7 +459,9 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
             logger.warning(f"Failed to translate claim to Lean 4: {type(e).__name__}: {e}")
             return None
 
-    async def prove(self, formal_statement: str, timeout_seconds: float = 60.0) -> FormalProofResult:
+    async def prove(
+        self, formal_statement: str, timeout_seconds: float = 60.0
+    ) -> FormalProofResult:
         """
         Attempt to verify a Lean 4 theorem using the Lean type checker.
 
@@ -610,6 +646,7 @@ class Z3Backend:
         """Check if z3 Python package is installed."""
         try:
             import z3
+
             self._z3_version = f"z3-{z3.get_version_string()}"
             return True
         except ImportError:
@@ -642,9 +679,15 @@ class Z3Backend:
 
         # Explicit claim types we handle
         z3_types = {
-            "assertion", "precondition", "postcondition",
-            "arithmetic", "constraint", "logical", "invariant",
-            "LOGICAL", "FACTUAL",  # ClaimType enum values
+            "assertion",
+            "precondition",
+            "postcondition",
+            "arithmetic",
+            "constraint",
+            "logical",
+            "invariant",
+            "LOGICAL",
+            "FACTUAL",  # ClaimType enum values
         }
         if claim_type and claim_type in z3_types:
             return True
@@ -713,6 +756,7 @@ class Z3Backend:
         """Validate SMT-LIB2 syntax using Z3 parser."""
         try:
             import z3
+
             ctx = z3.Context()
             z3.parse_smt2_string(smtlib, ctx=ctx)
             return True
@@ -808,6 +852,7 @@ Return ONLY the SMT-LIB2 code, no explanation."""
                 # Extract SMT-LIB2 from response (may have markdown)
                 if "```" in smtlib:
                     import re
+
                     match = re.search(r"```(?:smt2?|smtlib2?)?\n?(.*?)```", smtlib, re.DOTALL)
                     if match:
                         smtlib = match.group(1)
@@ -823,7 +868,9 @@ Return ONLY the SMT-LIB2 code, no explanation."""
 
         return None
 
-    async def prove(self, formal_statement: str, timeout_seconds: float = 60.0) -> FormalProofResult:
+    async def prove(
+        self, formal_statement: str, timeout_seconds: float = 60.0
+    ) -> FormalProofResult:
         """
         Attempt to prove a formal statement using Z3.
 

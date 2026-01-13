@@ -55,7 +55,7 @@ class ReplaysHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Dynamic route for specific replay
-        if path.startswith("/api/replays/") and len(path.split('/')) == 4:
+        if path.startswith("/api/replays/") and len(path.split("/")) == 4:
             return True
         return False
 
@@ -70,15 +70,15 @@ class ReplaysHandler(BaseHandler):
         nomic_dir = self.ctx.get("nomic_dir")
 
         if path == "/api/replays":
-            limit = get_int_param(query_params, 'limit', 100)
+            limit = get_int_param(query_params, "limit", 100)
             return self._list_replays(nomic_dir, max(1, min(limit, 500)))
 
         if path == "/api/learning/evolution":
-            limit = get_int_param(query_params, 'limit', 20)
+            limit = get_int_param(query_params, "limit", 20)
             return self._get_learning_evolution(nomic_dir, max(1, min(limit, 100)))
 
         if path == "/api/meta-learning/stats":
-            limit = get_int_param(query_params, 'limit', 20)
+            limit = get_int_param(query_params, "limit", 20)
             return self._get_meta_learning_stats(nomic_dir, max(1, min(limit, 50)))
 
         if path.startswith("/api/replays/"):
@@ -86,8 +86,8 @@ class ReplaysHandler(BaseHandler):
             if err:
                 return err
             # Support pagination for large replay files
-            offset = get_int_param(query_params, 'offset', 0)
-            limit = get_int_param(query_params, 'limit', 1000)
+            offset = get_int_param(query_params, "offset", 0)
+            limit = get_int_param(query_params, "limit", 1000)
             return self._get_replay(nomic_dir, replay_id, max(0, offset), max(1, min(limit, 5000)))
 
         return None
@@ -128,12 +128,14 @@ class ReplaysHandler(BaseHandler):
             if meta_file.exists():
                 try:
                     meta = json.loads(meta_file.read_text())
-                    replays.append({
-                        "id": replay_path.name,
-                        "topic": meta.get("topic", replay_path.name),
-                        "agents": [a.get("name") for a in meta.get("agents", [])],
-                        "schema_version": meta.get("schema_version", "1.0"),
-                    })
+                    replays.append(
+                        {
+                            "id": replay_path.name,
+                            "topic": meta.get("topic", replay_path.name),
+                            "agents": [a.get("name") for a in meta.get("agents", [])],
+                            "schema_version": meta.get("schema_version", "1.0"),
+                        }
+                    )
                 except json.JSONDecodeError:
                     # Skip malformed meta files
                     continue
@@ -176,7 +178,7 @@ class ReplaysHandler(BaseHandler):
         events: list[dict[str, Any]] = []
         total_events = 0
         if events_file.exists():
-            with open(events_file, 'r') as f:
+            with open(events_file, "r") as f:
                 for i, line in enumerate(f):
                     total_events += 1
                     # Skip until we reach offset
@@ -192,22 +194,24 @@ class ReplaysHandler(BaseHandler):
                         except json.JSONDecodeError:
                             continue
 
-        return json_response({
-            "id": replay_id,
-            "meta": meta,
-            "events": events,
-            "event_count": len(events),
-            "total_events": total_events,
-            "offset": offset,
-            "limit": limit,
-            "has_more": offset + len(events) < total_events,
-        })
+        return json_response(
+            {
+                "id": replay_id,
+                "meta": meta,
+                "events": events,
+                "event_count": len(events),
+                "total_events": total_events,
+                "offset": offset,
+                "limit": limit,
+                "has_more": offset + len(events) < total_events,
+            }
+        )
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_LEARNING_EVOLUTION, key_prefix="learning_evolution", skip_first=True)
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_LEARNING_EVOLUTION, key_prefix="learning_evolution", skip_first=True
+    )
     @handle_errors("learning evolution retrieval")
-    def _get_learning_evolution(
-        self, nomic_dir: Optional[Path], limit: int
-    ) -> HandlerResult:
+    def _get_learning_evolution(self, nomic_dir: Optional[Path], limit: int) -> HandlerResult:
         """Get learning/evolution data from meta_learning.db and elo_snapshot.json.
 
         Returns data in the format expected by the LearningEvolution frontend:
@@ -237,20 +241,25 @@ class ReplaysHandler(BaseHandler):
                     conn.row_factory = sqlite3.Row
 
                     # Get recent patterns, transform for frontend format
-                    cursor = conn.execute("""
+                    cursor = conn.execute(
+                        """
                         SELECT * FROM meta_patterns
                         ORDER BY created_at DESC
                         LIMIT ?
-                    """, (limit,))
+                    """,
+                        (limit,),
+                    )
                     for row in cursor.fetchall():
                         row_dict = dict(row)
                         # Transform to frontend expected format
-                        patterns.append({
-                            "date": row_dict.get("created_at", "")[:10],  # YYYY-MM-DD
-                            "issue_type": row_dict.get("pattern_type", "unknown"),
-                            "success_rate": row_dict.get("success_rate", 0.5),
-                            "pattern_count": row_dict.get("occurrence_count", 1),
-                        })
+                        patterns.append(
+                            {
+                                "date": row_dict.get("created_at", "")[:10],  # YYYY-MM-DD
+                                "issue_type": row_dict.get("pattern_type", "unknown"),
+                                "success_rate": row_dict.get("success_rate", 0.5),
+                                "pattern_count": row_dict.get("occurrence_count", 1),
+                            }
+                        )
             except sqlite3.OperationalError as e:
                 if "no such table" not in str(e):
                     raise
@@ -262,7 +271,9 @@ class ReplaysHandler(BaseHandler):
             try:
                 elo_data = json.loads(elo_path.read_text())
                 agent_ratings = elo_data.get("ratings", {})
-                snapshot_time = elo_data.get("timestamp", "")[:10] if elo_data.get("timestamp") else ""
+                snapshot_time = (
+                    elo_data.get("timestamp", "")[:10] if elo_data.get("timestamp") else ""
+                )
 
                 for agent_name, rating in agent_ratings.items():
                     # Calculate acceptance rate from win ratio
@@ -270,13 +281,17 @@ class ReplaysHandler(BaseHandler):
                     wins = rating.get("wins", 0)
                     acceptance_rate = wins / games if games > 0 else 0.5
 
-                    agents.append({
-                        "agent": agent_name,
-                        "date": snapshot_time,
-                        "acceptance_rate": acceptance_rate,
-                        "critique_quality": rating.get("calibration_score", 0.5),
-                        "reputation_score": min(rating.get("elo", 1000) / 2000, 1.0),  # Normalize ELO to 0-1
-                    })
+                    agents.append(
+                        {
+                            "agent": agent_name,
+                            "date": snapshot_time,
+                            "acceptance_rate": acceptance_rate,
+                            "critique_quality": rating.get("calibration_score", 0.5),
+                            "reputation_score": min(
+                                rating.get("elo", 1000) / 2000, 1.0
+                            ),  # Normalize ELO to 0-1
+                        }
+                    )
             except (json.JSONDecodeError, KeyError) as e:
                 logger.debug(f"Failed to parse ELO snapshot {snapshot_file.name}: {e}")
 
@@ -298,56 +313,74 @@ class ReplaysHandler(BaseHandler):
 
                 for date, day_debates in sorted(date_groups.items()):
                     total = len(day_debates)
-                    consensus_count = sum(1 for d in day_debates if d.get("consensus_reached", False))
-                    avg_conf = sum(d.get("confidence", 0.5) for d in day_debates) / total if total else 0
-                    avg_rounds = sum(d.get("rounds", 3) for d in day_debates) / total if total else 3
-                    avg_duration = sum(d.get("duration_seconds", 60) for d in day_debates) / total if total else 60
+                    consensus_count = sum(
+                        1 for d in day_debates if d.get("consensus_reached", False)
+                    )
+                    avg_conf = (
+                        sum(d.get("confidence", 0.5) for d in day_debates) / total if total else 0
+                    )
+                    avg_rounds = (
+                        sum(d.get("rounds", 3) for d in day_debates) / total if total else 3
+                    )
+                    avg_duration = (
+                        sum(d.get("duration_seconds", 60) for d in day_debates) / total
+                        if total
+                        else 60
+                    )
 
-                    debates.append({
-                        "date": date,
-                        "total_debates": total,
-                        "consensus_rate": consensus_count / total if total else 0,
-                        "avg_confidence": avg_conf,
-                        "avg_rounds": avg_rounds,
-                        "avg_duration": avg_duration,
-                    })
+                    debates.append(
+                        {
+                            "date": date,
+                            "total_debates": total,
+                            "consensus_rate": consensus_count / total if total else 0,
+                            "avg_confidence": avg_conf,
+                            "avg_rounds": avg_rounds,
+                            "avg_duration": avg_duration,
+                        }
+                    )
             except (json.JSONDecodeError, KeyError) as e:
                 logger.debug(f"Failed to parse nomic state for debate history: {e}")
 
-        return json_response({
-            "patterns": patterns,
-            "patterns_count": len(patterns),
-            "agents": agents,
-            "agents_count": len(agents),
-            "debates": debates,
-            "debates_count": len(debates),
-        })
+        return json_response(
+            {
+                "patterns": patterns,
+                "patterns_count": len(patterns),
+                "agents": agents,
+                "agents_count": len(agents),
+                "debates": debates,
+                "debates_count": len(debates),
+            }
+        )
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_META_LEARNING, key_prefix="meta_learning_stats", skip_first=True)
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_META_LEARNING, key_prefix="meta_learning_stats", skip_first=True
+    )
     @handle_errors("meta learning stats retrieval")
-    def _get_meta_learning_stats(
-        self, nomic_dir: Optional[Path], limit: int
-    ) -> HandlerResult:
+    def _get_meta_learning_stats(self, nomic_dir: Optional[Path], limit: int) -> HandlerResult:
         """Get meta-learning hyperparameters and efficiency stats.
 
         Returns current hyperparameters, adjustment history, and efficiency metrics.
         """
         if not nomic_dir:
-            return json_response({
-                "status": "no_data",
-                "current_hyperparams": {},
-                "adjustment_history": [],
-                "efficiency_log": [],
-            })
+            return json_response(
+                {
+                    "status": "no_data",
+                    "current_hyperparams": {},
+                    "adjustment_history": [],
+                    "efficiency_log": [],
+                }
+            )
 
         db_path = nomic_dir / "meta_learning.db"
         if not db_path.exists():
-            return json_response({
-                "status": "no_database",
-                "current_hyperparams": {},
-                "adjustment_history": [],
-                "efficiency_log": [],
-            })
+            return json_response(
+                {
+                    "status": "no_database",
+                    "current_hyperparams": {},
+                    "adjustment_history": [],
+                    "efficiency_log": [],
+                }
+            )
 
         try:
             db = MemoryDatabase(str(db_path))
@@ -355,22 +388,27 @@ class ReplaysHandler(BaseHandler):
                 conn.row_factory = sqlite3.Row
 
                 # Get current hyperparameters (most recent)
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT hyperparams, metrics, adjustment_reason, created_at
                     FROM meta_hyperparams
                     ORDER BY created_at DESC
                     LIMIT 1
-                """)
+                """
+                )
                 row = cursor.fetchone()
                 current_hyperparams = safe_json_parse(row["hyperparams"], {}) if row else {}
 
                 # Get adjustment history
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT hyperparams, metrics, adjustment_reason, created_at
                     FROM meta_hyperparams
                     ORDER BY created_at DESC
                     LIMIT ?
-                """, (limit,))
+                """,
+                    (limit,),
+                )
                 adjustment_history = [
                     {
                         "hyperparams": safe_json_parse(row["hyperparams"], {}),
@@ -382,12 +420,15 @@ class ReplaysHandler(BaseHandler):
                 ]
 
                 # Get efficiency log
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT cycle_number, metrics, created_at
                     FROM meta_efficiency_log
                     ORDER BY created_at DESC
                     LIMIT ?
-                """, (limit,))
+                """,
+                    (limit,),
+                )
                 efficiency_log = [
                     {
                         "cycle": row["cycle_number"],
@@ -419,21 +460,25 @@ class ReplaysHandler(BaseHandler):
                         else:
                             trend = "stable"
 
-            return json_response({
-                "status": "ok",
-                "current_hyperparams": current_hyperparams,
-                "adjustment_history": adjustment_history,
-                "efficiency_log": efficiency_log,
-                "trend": trend,
-                "evaluations": len(efficiency_log),
-            })
+            return json_response(
+                {
+                    "status": "ok",
+                    "current_hyperparams": current_hyperparams,
+                    "adjustment_history": adjustment_history,
+                    "efficiency_log": efficiency_log,
+                    "trend": trend,
+                    "evaluations": len(efficiency_log),
+                }
+            )
         except sqlite3.OperationalError as e:
             # Table may not exist yet
             if "no such table" in str(e):
-                return json_response({
-                    "status": "tables_not_initialized",
-                    "current_hyperparams": {},
-                    "adjustment_history": [],
-                    "efficiency_log": [],
-                })
+                return json_response(
+                    {
+                        "status": "tables_not_initialized",
+                        "current_hyperparams": {},
+                        "adjustment_history": [],
+                        "efficiency_log": [],
+                    }
+                )
             raise

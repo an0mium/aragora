@@ -159,6 +159,8 @@ Case studies:
 
 ## Quick Start
 
+Start here: [docs/START_HERE.md](docs/START_HERE.md) for the canonical 5-minute setup.
+
 ```bash
 # Clone and install
 git clone https://github.com/an0mium/aragora.git

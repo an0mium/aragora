@@ -52,9 +52,7 @@ def create_voting_agents(vote_distribution: dict[str, str]) -> list[MockAgent]:
     return agents
 
 
-def create_confidence_agents(
-    votes: list[tuple[str, str, float]]
-) -> list[MockAgent]:
+def create_confidence_agents(votes: list[tuple[str, str, float]]) -> list[MockAgent]:
     """
     Create agents with specific confidence levels.
 
@@ -90,11 +88,13 @@ class TestUnanimousVotes:
     @pytest.mark.asyncio
     async def test_unanimous_vote_reaches_consensus(self):
         """All agents voting for same option should reach consensus."""
-        agents = create_voting_agents({
-            "agent_1": "proposal_A",
-            "agent_2": "proposal_A",
-            "agent_3": "proposal_A",
-        })
+        agents = create_voting_agents(
+            {
+                "agent_1": "proposal_A",
+                "agent_2": "proposal_A",
+                "agent_3": "proposal_A",
+            }
+        )
         env = Environment(task="Unanimous test")
         protocol = DebateProtocol(rounds=1, consensus="majority")
 
@@ -106,11 +106,13 @@ class TestUnanimousVotes:
     @pytest.mark.asyncio
     async def test_unanimous_with_high_confidence(self):
         """Unanimous vote with high confidence should be strong consensus."""
-        agents = create_confidence_agents([
-            ("agent_1", "proposal_A", 0.95),
-            ("agent_2", "proposal_A", 0.92),
-            ("agent_3", "proposal_A", 0.98),
-        ])
+        agents = create_confidence_agents(
+            [
+                ("agent_1", "proposal_A", 0.95),
+                ("agent_2", "proposal_A", 0.92),
+                ("agent_3", "proposal_A", 0.98),
+            ]
+        )
         env = Environment(task="High confidence unanimous")
         protocol = DebateProtocol(rounds=1, consensus="majority")
 
@@ -123,11 +125,13 @@ class TestUnanimousVotes:
     @pytest.mark.asyncio
     async def test_unanimous_with_low_confidence(self):
         """Unanimous vote with low confidence should still reach consensus."""
-        agents = create_confidence_agents([
-            ("agent_1", "proposal_A", 0.55),
-            ("agent_2", "proposal_A", 0.52),
-            ("agent_3", "proposal_A", 0.51),
-        ])
+        agents = create_confidence_agents(
+            [
+                ("agent_1", "proposal_A", 0.55),
+                ("agent_2", "proposal_A", 0.52),
+                ("agent_3", "proposal_A", 0.51),
+            ]
+        )
         env = Environment(task="Low confidence unanimous")
         protocol = DebateProtocol(rounds=1, consensus="majority")
 
@@ -149,12 +153,14 @@ class TestTieBreaking:
     @pytest.mark.asyncio
     async def test_two_way_tie_with_four_agents(self):
         """2-2 tie should be handled gracefully."""
-        agents = create_voting_agents({
-            "agent_1": "proposal_A",
-            "agent_2": "proposal_A",
-            "agent_3": "proposal_B",
-            "agent_4": "proposal_B",
-        })
+        agents = create_voting_agents(
+            {
+                "agent_1": "proposal_A",
+                "agent_2": "proposal_A",
+                "agent_3": "proposal_B",
+                "agent_4": "proposal_B",
+            }
+        )
         env = Environment(task="Two-way tie test")
         protocol = DebateProtocol(rounds=2, consensus="majority")
 
@@ -167,11 +173,13 @@ class TestTieBreaking:
     @pytest.mark.asyncio
     async def test_three_way_tie(self):
         """Three-way tie should be handled."""
-        agents = create_voting_agents({
-            "agent_1": "proposal_A",
-            "agent_2": "proposal_B",
-            "agent_3": "proposal_C",
-        })
+        agents = create_voting_agents(
+            {
+                "agent_1": "proposal_A",
+                "agent_2": "proposal_B",
+                "agent_3": "proposal_C",
+            }
+        )
         env = Environment(task="Three-way tie test")
         protocol = DebateProtocol(rounds=2, consensus="majority")
 
@@ -184,12 +192,14 @@ class TestTieBreaking:
     @pytest.mark.asyncio
     async def test_tie_broken_by_confidence(self):
         """When tied on count, higher confidence should win."""
-        agents = create_confidence_agents([
-            ("agent_1", "proposal_A", 0.9),  # High confidence
-            ("agent_2", "proposal_A", 0.9),
-            ("agent_3", "proposal_B", 0.6),  # Lower confidence
-            ("agent_4", "proposal_B", 0.5),
-        ])
+        agents = create_confidence_agents(
+            [
+                ("agent_1", "proposal_A", 0.9),  # High confidence
+                ("agent_2", "proposal_A", 0.9),
+                ("agent_3", "proposal_B", 0.6),  # Lower confidence
+                ("agent_4", "proposal_B", 0.5),
+            ]
+        )
         env = Environment(task="Confidence tie-breaker")
         protocol = DebateProtocol(rounds=1, consensus="majority")
 
@@ -210,13 +220,15 @@ class TestSplitVotes:
     @pytest.mark.asyncio
     async def test_majority_with_dissent(self):
         """3-2 majority should reach consensus."""
-        agents = create_voting_agents({
-            "agent_1": "proposal_A",
-            "agent_2": "proposal_A",
-            "agent_3": "proposal_A",
-            "agent_4": "proposal_B",
-            "agent_5": "proposal_B",
-        })
+        agents = create_voting_agents(
+            {
+                "agent_1": "proposal_A",
+                "agent_2": "proposal_A",
+                "agent_3": "proposal_A",
+                "agent_4": "proposal_B",
+                "agent_5": "proposal_B",
+            }
+        )
         env = Environment(task="Majority with dissent")
         protocol = DebateProtocol(rounds=1, consensus="majority")
 
@@ -230,14 +242,16 @@ class TestSplitVotes:
     async def test_supermajority_required(self):
         """Test when supermajority (2/3) is required."""
         # 4-2 split (67% majority)
-        agents = create_voting_agents({
-            "agent_1": "proposal_A",
-            "agent_2": "proposal_A",
-            "agent_3": "proposal_A",
-            "agent_4": "proposal_A",
-            "agent_5": "proposal_B",
-            "agent_6": "proposal_B",
-        })
+        agents = create_voting_agents(
+            {
+                "agent_1": "proposal_A",
+                "agent_2": "proposal_A",
+                "agent_3": "proposal_A",
+                "agent_4": "proposal_A",
+                "agent_5": "proposal_B",
+                "agent_6": "proposal_B",
+            }
+        )
         env = Environment(task="Supermajority test")
         protocol = DebateProtocol(rounds=1, consensus="supermajority")
 
@@ -249,13 +263,15 @@ class TestSplitVotes:
     @pytest.mark.asyncio
     async def test_no_clear_majority(self):
         """Vote split across many options with no majority."""
-        agents = create_voting_agents({
-            "agent_1": "proposal_A",
-            "agent_2": "proposal_B",
-            "agent_3": "proposal_C",
-            "agent_4": "proposal_D",
-            "agent_5": "proposal_E",
-        })
+        agents = create_voting_agents(
+            {
+                "agent_1": "proposal_A",
+                "agent_2": "proposal_B",
+                "agent_3": "proposal_C",
+                "agent_4": "proposal_D",
+                "agent_5": "proposal_E",
+            }
+        )
         env = Environment(task="No majority test")
         protocol = DebateProtocol(rounds=2, consensus="majority")
 
@@ -310,35 +326,41 @@ class TestContinueDebateFlag:
             MockAgent(
                 name="wants_more",
                 role="proposer",
-                votes=[Vote(
-                    agent="wants_more",
-                    choice="proposal_A",
-                    reasoning="Need more",
-                    confidence=0.6,
-                    continue_debate=True,
-                )],
+                votes=[
+                    Vote(
+                        agent="wants_more",
+                        choice="proposal_A",
+                        reasoning="Need more",
+                        confidence=0.6,
+                        continue_debate=True,
+                    )
+                ],
             ),
             MockAgent(
                 name="satisfied_1",
                 role="critic",
-                votes=[Vote(
-                    agent="satisfied_1",
-                    choice="proposal_A",
-                    reasoning="Good enough",
-                    confidence=0.85,
-                    continue_debate=False,
-                )],
+                votes=[
+                    Vote(
+                        agent="satisfied_1",
+                        choice="proposal_A",
+                        reasoning="Good enough",
+                        confidence=0.85,
+                        continue_debate=False,
+                    )
+                ],
             ),
             MockAgent(
                 name="satisfied_2",
                 role="synthesizer",
-                votes=[Vote(
-                    agent="satisfied_2",
-                    choice="proposal_A",
-                    reasoning="Agree",
-                    confidence=0.9,
-                    continue_debate=False,
-                )],
+                votes=[
+                    Vote(
+                        agent="satisfied_2",
+                        choice="proposal_A",
+                        reasoning="Agree",
+                        confidence=0.9,
+                        continue_debate=False,
+                    )
+                ],
             ),
         ]
 
@@ -363,11 +385,13 @@ class TestConfidenceThresholds:
     async def test_all_agents_at_threshold(self):
         """All agents exactly at confidence threshold."""
         threshold = 0.7
-        agents = create_confidence_agents([
-            ("agent_1", "proposal_A", threshold),
-            ("agent_2", "proposal_A", threshold),
-            ("agent_3", "proposal_A", threshold),
-        ])
+        agents = create_confidence_agents(
+            [
+                ("agent_1", "proposal_A", threshold),
+                ("agent_2", "proposal_A", threshold),
+                ("agent_3", "proposal_A", threshold),
+            ]
+        )
 
         env = Environment(task="Threshold edge case")
         protocol = DebateProtocol(rounds=1, consensus="majority")
@@ -380,11 +404,13 @@ class TestConfidenceThresholds:
     @pytest.mark.asyncio
     async def test_confidence_just_below_threshold(self):
         """Agents with confidence just below typical threshold."""
-        agents = create_confidence_agents([
-            ("agent_1", "proposal_A", 0.49),
-            ("agent_2", "proposal_A", 0.48),
-            ("agent_3", "proposal_A", 0.47),
-        ])
+        agents = create_confidence_agents(
+            [
+                ("agent_1", "proposal_A", 0.49),
+                ("agent_2", "proposal_A", 0.48),
+                ("agent_3", "proposal_A", 0.47),
+            ]
+        )
 
         env = Environment(task="Below threshold")
         protocol = DebateProtocol(rounds=2, consensus="majority")
@@ -398,11 +424,13 @@ class TestConfidenceThresholds:
     @pytest.mark.asyncio
     async def test_extreme_confidence_variance(self):
         """One agent very confident, others uncertain."""
-        agents = create_confidence_agents([
-            ("agent_1", "proposal_A", 0.99),  # Very confident
-            ("agent_2", "proposal_A", 0.51),  # Barely confident
-            ("agent_3", "proposal_B", 0.50),  # Indifferent
-        ])
+        agents = create_confidence_agents(
+            [
+                ("agent_1", "proposal_A", 0.99),  # Very confident
+                ("agent_2", "proposal_A", 0.51),  # Barely confident
+                ("agent_3", "proposal_B", 0.50),  # Indifferent
+            ]
+        )
 
         env = Environment(task="Confidence variance")
         protocol = DebateProtocol(rounds=1, consensus="majority")
@@ -424,10 +452,12 @@ class TestFewAgents:
     @pytest.mark.asyncio
     async def test_two_agents_agree(self):
         """Two agents agreeing should reach consensus."""
-        agents = create_voting_agents({
-            "agent_1": "proposal_A",
-            "agent_2": "proposal_A",
-        })
+        agents = create_voting_agents(
+            {
+                "agent_1": "proposal_A",
+                "agent_2": "proposal_A",
+            }
+        )
 
         env = Environment(task="Two agents agree")
         protocol = DebateProtocol(rounds=1, consensus="majority")
@@ -441,10 +471,12 @@ class TestFewAgents:
     @pytest.mark.asyncio
     async def test_two_agents_disagree(self):
         """Two agents disagreeing - perfect tie."""
-        agents = create_voting_agents({
-            "agent_1": "proposal_A",
-            "agent_2": "proposal_B",
-        })
+        agents = create_voting_agents(
+            {
+                "agent_1": "proposal_A",
+                "agent_2": "proposal_B",
+            }
+        )
 
         env = Environment(task="Two agents disagree")
         protocol = DebateProtocol(rounds=2, consensus="majority")

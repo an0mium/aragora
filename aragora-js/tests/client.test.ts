@@ -323,6 +323,17 @@ describe('AragoraClient', () => {
   });
 
   describe('error handling', () => {
+    // Use a client with retries disabled for error handling tests
+    let noRetryClient: AragoraClient;
+
+    beforeEach(() => {
+      noRetryClient = new AragoraClient({
+        baseUrl: 'http://localhost:8080',
+        apiKey: 'test-api-key',
+        retry: { maxRetries: 0 },
+      });
+    });
+
     it('should throw AragoraError on HTTP error', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -330,7 +341,7 @@ describe('AragoraClient', () => {
         json: () => Promise.resolve({ error: 'Not found', code: 'NOT_FOUND' }),
       });
 
-      await expect(client.debates.get('nonexistent')).rejects.toThrow(AragoraError);
+      await expect(noRetryClient.debates.get('nonexistent')).rejects.toThrow(AragoraError);
     });
 
     it('should throw AragoraError with correct properties', async () => {
@@ -345,13 +356,14 @@ describe('AragoraClient', () => {
       });
 
       try {
-        await client.debates.get('test');
+        await noRetryClient.debates.get('test');
       } catch (error) {
         expect(error).toBeInstanceOf(AragoraError);
         if (error instanceof AragoraError) {
           expect(error.status).toBe(429);
           expect(error.code).toBe('RATE_LIMIT');
           expect(error.message).toBe('Rate limit exceeded');
+          expect(error.retryable).toBe(true); // 429 is retryable
         }
       }
     });
@@ -359,13 +371,14 @@ describe('AragoraClient', () => {
     it('should handle network errors', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-      await expect(client.health()).rejects.toThrow(AragoraError);
+      await expect(noRetryClient.health()).rejects.toThrow(AragoraError);
     });
 
     it('should handle timeout', async () => {
-      const client = new AragoraClient({
+      const timeoutClient = new AragoraClient({
         baseUrl: 'http://localhost:8080',
         timeout: 50, // Very short timeout
+        retry: { maxRetries: 0 },
       });
 
       // Mock fetch that respects the AbortSignal
@@ -390,7 +403,7 @@ describe('AragoraClient', () => {
         });
       });
 
-      await expect(client.health()).rejects.toThrow('timed out');
+      await expect(timeoutClient.health()).rejects.toThrow('timed out');
     });
   });
 

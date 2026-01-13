@@ -70,6 +70,7 @@ try:
     from aragora.debate.orchestrator import Arena, DebateProtocol
     from aragora.agents.base import create_agent
     from aragora.core import Environment
+
     DEBATE_AVAILABLE = True
 except ImportError:
     DEBATE_AVAILABLE = False
@@ -119,7 +120,7 @@ from aragora.server.auth import auth_config
 # Trusted proxies for X-Forwarded-For header validation
 # Only trust X-Forwarded-For if request comes from these IPs
 TRUSTED_PROXIES = frozenset(
-    p.strip() for p in os.getenv('ARAGORA_TRUSTED_PROXIES', '127.0.0.1,::1,localhost').split(',')
+    p.strip() for p in os.getenv("ARAGORA_TRUSTED_PROXIES", "127.0.0.1,::1,localhost").split(",")
 )
 
 # =============================================================================
@@ -127,13 +128,13 @@ TRUSTED_PROXIES = frozenset(
 # =============================================================================
 
 # Connection rate limiting per IP
-WS_CONNECTIONS_PER_IP_PER_MINUTE = int(os.getenv('ARAGORA_WS_CONN_RATE', '30'))
+WS_CONNECTIONS_PER_IP_PER_MINUTE = int(os.getenv("ARAGORA_WS_CONN_RATE", "30"))
 
 # Token revalidation interval for long-lived connections (5 minutes)
 WS_TOKEN_REVALIDATION_INTERVAL = 300.0
 
 # Maximum connections per IP (concurrent)
-WS_MAX_CONNECTIONS_PER_IP = int(os.getenv('ARAGORA_WS_MAX_PER_IP', '10'))
+WS_MAX_CONNECTIONS_PER_IP = int(os.getenv("ARAGORA_WS_MAX_PER_IP", "10"))
 
 
 # =============================================================================
@@ -154,6 +155,7 @@ from .debate_stream_server import DebateStreamServer
 # =============================================================================
 # Unified HTTP + WebSocket Server (aiohttp-based)
 # =============================================================================
+
 
 class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[misc]
     """
@@ -203,6 +205,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # EloSystem for leaderboard
         try:
             from aragora.ranking.elo import EloSystem
+
             elo_path = nomic_dir / "agent_elo.db"
             if elo_path.exists():
                 self.elo_system = EloSystem(str(elo_path))
@@ -213,6 +216,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # InsightStore for insights
         try:
             from aragora.insights.store import InsightStore
+
             insights_path = nomic_dir / DB_INSIGHTS_PATH
             if insights_path.exists():
                 self.insight_store = InsightStore(str(insights_path))
@@ -223,6 +227,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # FlipDetector for position reversals
         try:
             from aragora.insights.flip_detector import FlipDetector
+
             positions_path = nomic_dir / "aragora_positions.db"
             if positions_path.exists():
                 self.flip_detector = FlipDetector(str(positions_path))
@@ -233,6 +238,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # PersonaManager for agent specialization
         try:
             from aragora.personas.manager import PersonaManager
+
             personas_path = nomic_dir / DB_PERSONAS_PATH
             if personas_path.exists():
                 self.persona_manager = PersonaManager(str(personas_path))
@@ -243,6 +249,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # DebateEmbeddingsDatabase for memory
         try:
             from aragora.debate.embeddings import DebateEmbeddingsDatabase
+
             embeddings_path = nomic_dir / "debate_embeddings.db"
             if embeddings_path.exists():
                 self.debate_embeddings = DebateEmbeddingsDatabase(str(embeddings_path))
@@ -270,8 +277,11 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             if event.type == StreamEventType.DEBATE_START:
                 # Enforce max size with LRU eviction (only evict ended debates)
                 if len(self.debate_states) >= self.config.max_debate_states:
-                    ended_states = [(k, self._debate_states_last_access.get(k, 0))
-                                    for k, v in self.debate_states.items() if v.get("ended")]
+                    ended_states = [
+                        (k, self._debate_states_last_access.get(k, 0))
+                        for k, v in self.debate_states.items()
+                        if v.get("ended")
+                    ]
                     if ended_states:
                         oldest = min(ended_states, key=lambda x: x[1])[0]
                         self.debate_states.pop(oldest, None)
@@ -309,11 +319,18 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # Use base class method for active loop management
         self.set_active_loop(loop_id, instance)
         # Broadcast loop registration
-        self._emitter.emit(StreamEvent(
-            type=StreamEventType.LOOP_REGISTER,
-            data={"loop_id": loop_id, "name": name, "started_at": instance.started_at, "path": path},
-            loop_id=loop_id,
-        ))
+        self._emitter.emit(
+            StreamEvent(
+                type=StreamEventType.LOOP_REGISTER,
+                data={
+                    "loop_id": loop_id,
+                    "name": name,
+                    "started_at": instance.started_at,
+                    "path": path,
+                },
+                loop_id=loop_id,
+            )
+        )
 
     def unregister_loop(self, loop_id: str) -> None:
         """Unregister a nomic loop instance."""
@@ -321,13 +338,17 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # Also cleanup associated cartographer to prevent memory leak
         self.unregister_cartographer(loop_id)
         # Broadcast loop unregistration
-        self._emitter.emit(StreamEvent(
-            type=StreamEventType.LOOP_UNREGISTER,
-            data={"loop_id": loop_id},
-            loop_id=loop_id,
-        ))
+        self._emitter.emit(
+            StreamEvent(
+                type=StreamEventType.LOOP_UNREGISTER,
+                data={"loop_id": loop_id},
+                loop_id=loop_id,
+            )
+        )
 
-    def update_loop_state(self, loop_id: str, cycle: Optional[int] = None, phase: Optional[str] = None) -> None:
+    def update_loop_state(
+        self, loop_id: str, cycle: Optional[int] = None, phase: Optional[str] = None
+    ) -> None:
         """Update loop state (cycle/phase)."""
         with self._active_loops_lock:
             if loop_id in self.active_loops:
@@ -457,27 +478,27 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             parsed_config will be None.
         """
         # Validate required fields with length limits
-        question = data.get('question', '').strip()
+        question = data.get("question", "").strip()
         if not question:
             return None, "question field is required"
         if len(question) > 10000:
             return None, "question must be under 10,000 characters"
 
         # Parse optional fields with validation
-        agents_str = data.get('agents', 'anthropic-api,openai-api,gemini,grok')
+        agents_str = data.get("agents", "anthropic-api,openai-api,gemini,grok")
         try:
-            rounds = min(max(int(data.get('rounds', 3)), 1), 10)  # Clamp to 1-10
+            rounds = min(max(int(data.get("rounds", 3)), 1), 10)  # Clamp to 1-10
         except (ValueError, TypeError):
             rounds = 3
-        consensus = data.get('consensus', 'majority')
+        consensus = data.get("consensus", "majority")
 
         return {
             "question": question,
             "agents_str": agents_str,
             "rounds": rounds,
             "consensus": consensus,
-            "use_trending": data.get('use_trending', False),
-            "trending_category": data.get('trending_category', None),
+            "use_trending": data.get("use_trending", False),
+            "trending_category": data.get("trending_category", None),
         }, None
 
     async def _fetch_trending_topic_async(self, category: Optional[str] = None) -> Optional[Any]:
@@ -538,7 +559,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             if len(agent_list) > MAX_AGENTS_PER_DEBATE:
                 with _active_debates_lock:
                     _active_debates[debate_id]["status"] = "error"
-                    _active_debates[debate_id]["error"] = f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
+                    _active_debates[debate_id][
+                        "error"
+                    ] = f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
                     _active_debates[debate_id]["completed_at"] = time.time()
                 return
             if len(agent_list) < 2:
@@ -558,7 +581,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                     role = None
                 # Validate agent type against allowlist
                 if agent_type.lower() not in ALLOWED_AGENT_TYPES:
-                    raise ValueError(f"Invalid agent type: {agent_type}. Allowed: {', '.join(sorted(ALLOWED_AGENT_TYPES))}")
+                    raise ValueError(
+                        f"Invalid agent type: {agent_type}. Allowed: {', '.join(sorted(ALLOWED_AGENT_TYPES))}"
+                    )
                 agent_specs.append((agent_type, role))
 
             # Create agents with streaming support
@@ -593,12 +618,15 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             if user_id or org_id:
                 try:
                     from aragora.billing.usage import UsageTracker
+
                     usage_tracker = UsageTracker()
                 except ImportError:
                     pass
 
             arena = Arena(
-                env, agents, protocol,  # type: ignore[arg-type]
+                env,
+                agents,
+                protocol,  # type: ignore[arg-type]
                 event_hooks=hooks,
                 event_emitter=self.emitter,
                 loop_id=debate_id,
@@ -610,7 +638,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
             # Run debate with timeout protection
             # Use protocol timeout if configured, otherwise use global default
-            protocol_timeout = getattr(arena.protocol, 'timeout_seconds', 0)
+            protocol_timeout = getattr(arena.protocol, "timeout_seconds", 0)
             timeout = (
                 protocol_timeout
                 if isinstance(protocol_timeout, (int, float)) and protocol_timeout > 0
@@ -634,6 +662,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
         except Exception as e:
             import traceback
+
             safe_msg = _safe_error_message(e, "debate_execution")
             error_trace = traceback.format_exc()
             with _active_debates_lock:
@@ -642,12 +671,14 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                 _active_debates[debate_id]["error"] = safe_msg
             logger.error(f"[debate] Thread error in {debate_id}: {str(e)}\n{error_trace}")
             # Emit error event to client
-            self.emitter.emit(StreamEvent(
-                type=StreamEventType.ERROR,
-                data={"error": safe_msg, "debate_id": debate_id},
-            ))
+            self.emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.ERROR,
+                    data={"error": safe_msg, "debate_id": debate_id},
+                )
+            )
 
-    async def _handle_start_debate(self, request) -> 'aiohttp.web.Response':
+    async def _handle_start_debate(self, request) -> "aiohttp.web.Response":
         """POST /api/debate - Start an ad-hoc debate with specified question.
 
         Accepts JSON body with:
@@ -673,34 +704,34 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             headers = dict(request.headers)
             client_ip = request.remote or ""
             if client_ip in TRUSTED_PROXIES:
-                forwarded = request.headers.get('X-Forwarded-For', '')
+                forwarded = request.headers.get("X-Forwarded-For", "")
                 if forwarded:
-                    client_ip = forwarded.split(',')[0].strip()
+                    client_ip = forwarded.split(",")[0].strip()
 
             authenticated, remaining = check_auth(headers, "", loop_id="", ip_address=client_ip)
             if not authenticated:
                 status = 429 if remaining == 0 else 401
-                msg = "Rate limit exceeded" if remaining == 0 else "Authentication required to start debates"
+                msg = (
+                    "Rate limit exceeded"
+                    if remaining == 0
+                    else "Authentication required to start debates"
+                )
                 return web.json_response(
-                    {"error": msg},
-                    status=status,
-                    headers=self._cors_headers(origin)
+                    {"error": msg}, status=status, headers=self._cors_headers(origin)
                 )
 
             # Check usage limits for authenticated users
             usage_error = await self._check_usage_limit(headers)
             if usage_error:
                 return web.json_response(
-                    usage_error,
-                    status=402,
-                    headers=self._cors_headers(origin)
+                    usage_error, status=402, headers=self._cors_headers(origin)
                 )
 
         if not DEBATE_AVAILABLE:
             return web.json_response(
                 {"error": "Debate orchestrator not available"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
         # Parse JSON body
@@ -709,18 +740,14 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         except Exception as e:
             logger.debug(f"Invalid JSON in request: {e}")
             return web.json_response(
-                {"error": "Invalid JSON"},
-                status=400,
-                headers=self._cors_headers(origin)
+                {"error": "Invalid JSON"}, status=400, headers=self._cors_headers(origin)
             )
 
         # Parse and validate request
         config, error = self._parse_debate_request(data)
         if error:
             return web.json_response(
-                {"error": error},
-                status=400,
-                headers=self._cors_headers(origin)
+                {"error": error}, status=400, headers=self._cors_headers(origin)
             )
 
         question = config["question"]
@@ -738,6 +765,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         org_id = ""
         try:
             from aragora.billing.jwt_auth import validate_access_token
+
             auth_header = request.headers.get("Authorization", "")
             if auth_header.startswith("Bearer ") and not auth_header[7:].startswith("ara_"):
                 payload = validate_access_token(auth_header[7:])
@@ -773,33 +801,45 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         with _debate_executor_lock:
             if executor is None:
                 executor = ThreadPoolExecutor(
-                    max_workers=MAX_CONCURRENT_DEBATES,
-                    thread_name_prefix="debate-"
+                    max_workers=MAX_CONCURRENT_DEBATES, thread_name_prefix="debate-"
                 )
                 set_debate_executor(executor)
 
         try:
             executor.submit(
                 self._execute_debate_thread,
-                debate_id, question, agents_str, rounds, consensus, trending_topic,
-                user_id, org_id,
+                debate_id,
+                question,
+                agents_str,
+                rounds,
+                consensus,
+                trending_topic,
+                user_id,
+                org_id,
             )
         except RuntimeError:
-            return web.json_response({
-                "success": False,
-                "error": "Server at capacity. Please try again later.",
-            }, status=503, headers=self._cors_headers(origin))
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": "Server at capacity. Please try again later.",
+                },
+                status=503,
+                headers=self._cors_headers(origin),
+            )
 
         # Return immediately with debate ID
-        return web.json_response({
-            "success": True,
-            "debate_id": debate_id,
-            "question": question,
-            "agents": agents_str.split(","),
-            "rounds": rounds,
-            "status": "starting",
-            "message": "Debate started. Connect to WebSocket to receive events.",
-        }, headers=self._cors_headers(origin))
+        return web.json_response(
+            {
+                "success": True,
+                "debate_id": debate_id,
+                "question": question,
+                "agents": agents_str.split(","),
+                "rounds": rounds,
+                "status": "starting",
+                "message": "Debate started. Connect to WebSocket to receive events.",
+            },
+            headers=self._cors_headers(origin),
+        )
 
     def _validate_audience_payload(self, data: dict) -> tuple[Optional[dict], Optional[str]]:
         """Validate audience message payload.
@@ -842,7 +882,10 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             if not self.is_ws_authenticated(ws_id):
                 return False, {
                     "type": "error",
-                    "data": {"message": "Authentication required for voting/suggestions", "code": 401}
+                    "data": {
+                        "message": "Authentication required for voting/suggestions",
+                        "code": 401,
+                    },
                 }
 
             # Periodic token revalidation for long-lived connections
@@ -852,7 +895,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                     self.revoke_ws_auth(ws_id, "Token expired or revoked")
                     return False, {
                         "type": "auth_revoked",
-                        "data": {"message": "Token has been revoked or expired", "code": 401}
+                        "data": {"message": "Token has been revoked or expired", "code": 401},
                     }
                 self.mark_ws_token_validated(ws_id)
 
@@ -878,21 +921,19 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         if not loop_valid:
             return False, {
                 "type": "error",
-                "data": {"message": f"Invalid or inactive loop_id: {loop_id}"}
+                "data": {"message": f"Invalid or inactive loop_id: {loop_id}"},
             }
 
         # Validate token is authorized for this specific loop_id
         try:
             from aragora.server.auth import auth_config
+
             if auth_config.enabled:
                 stored_token = self.get_ws_token(ws_id)
                 if stored_token:
                     is_valid, err_msg = auth_config.validate_token_for_loop(stored_token, loop_id)
                     if not is_valid:
-                        return False, {
-                            "type": "error",
-                            "data": {"message": err_msg, "code": 403}
-                        }
+                        return False, {"type": "error", "data": {"message": err_msg, "code": 403}}
         except ImportError:
             pass
 
@@ -915,7 +956,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         if rate_limiter is None or not rate_limiter.consume(1):
             return False, {
                 "type": "error",
-                "data": {"message": "Rate limit exceeded, try again later"}
+                "data": {"message": "Rate limit exceeded, try again later"},
             }
 
         return True, None
@@ -937,23 +978,31 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         self.audience_inbox.put(audience_msg)
 
         # Emit event for dashboard visibility
-        event_type = StreamEventType.USER_VOTE if msg_type == "user_vote" else StreamEventType.USER_SUGGESTION
-        self._emitter.emit(StreamEvent(
-            type=event_type,
-            data=audience_msg.payload,
-            loop_id=loop_id,
-        ))
+        event_type = (
+            StreamEventType.USER_VOTE
+            if msg_type == "user_vote"
+            else StreamEventType.USER_SUGGESTION
+        )
+        self._emitter.emit(
+            StreamEvent(
+                type=event_type,
+                data=audience_msg.payload,
+                loop_id=loop_id,
+            )
+        )
 
         # Emit updated audience metrics after each vote
         if msg_type == "user_vote":
             metrics = self.audience_inbox.get_summary(loop_id=loop_id)
-            self._emitter.emit(StreamEvent(
-                type=StreamEventType.AUDIENCE_METRICS,
-                data=metrics,
-                loop_id=loop_id,
-            ))
+            self._emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.AUDIENCE_METRICS,
+                    data=metrics,
+                    loop_id=loop_id,
+                )
+            )
 
-    async def _websocket_handler(self, request) -> 'aiohttp.web.StreamResponse':
+    async def _websocket_handler(self, request) -> "aiohttp.web.StreamResponse":
         """Handle WebSocket connections with security validation and optional auth."""
         import aiohttp
         import aiohttp.web as web
@@ -969,9 +1018,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         client_ip = remote_ip  # Default to direct connection IP
         if remote_ip in TRUSTED_PROXIES:
             # Only trust X-Forwarded-For from trusted proxies
-            forwarded = request.headers.get('X-Forwarded-For', '')
+            forwarded = request.headers.get("X-Forwarded-For", "")
             if forwarded:
-                first_ip = forwarded.split(',')[0].strip()
+                first_ip = forwarded.split(",")[0].strip()
                 if first_ip:
                     client_ip = first_ip
 
@@ -992,13 +1041,13 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                 ws_token = auth_header[7:]
 
             if auth_config.enabled:
-                authenticated, remaining = check_auth(
-                    headers, "", loop_id="", ip_address=client_ip
-                )
+                authenticated, remaining = check_auth(headers, "", loop_id="", ip_address=client_ip)
 
                 if not authenticated:
                     status = 429 if remaining == 0 else 401
-                    error_msg = "Rate limit exceeded" if remaining == 0 else "Authentication required"
+                    error_msg = (
+                        "Rate limit exceeded" if remaining == 0 else "Authentication required"
+                    )
                     return web.Response(status=status, text=error_msg)
 
                 is_authenticated = True
@@ -1007,7 +1056,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                 is_authenticated = True  # Everyone is "authenticated" when auth is disabled
         except ImportError:
             # Log warning if auth is required but module unavailable
-            if os.getenv('ARAGORA_AUTH_REQUIRED'):
+            if os.getenv("ARAGORA_AUTH_REQUIRED"):
                 logger.warning("[ws] Auth required but module unavailable - rejecting connection")
                 return web.Response(status=500, text="Authentication system unavailable")
             is_authenticated = True  # Auth module not available, allow connection
@@ -1040,8 +1089,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # Initialize rate limiter for this client (thread-safe)
         with self._rate_limiters_lock:
             self._rate_limiters[client_id] = TokenBucket(
-                rate_per_minute=10.0,  # 10 messages per minute
-                burst_size=5  # Allow burst of 5
+                rate_per_minute=10.0, burst_size=5  # 10 messages per minute  # Allow burst of 5
             )
             self._rate_limiter_last_access[client_id] = time.time()
 
@@ -1053,25 +1101,30 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # Send connection info including auth status
         try:
             from aragora.server.auth import auth_config as _auth_config
+
             write_access = is_authenticated or not _auth_config.enabled
         except ImportError:
             write_access = True
 
-        await ws.send_json({
-            "type": "connection_info",
-            "data": {
-                "authenticated": is_authenticated,
-                "client_id": client_id[:8] + "...",  # Partial for privacy
-                "write_access": write_access,
+        await ws.send_json(
+            {
+                "type": "connection_info",
+                "data": {
+                    "authenticated": is_authenticated,
+                    "client_id": client_id[:8] + "...",  # Partial for privacy
+                    "write_access": write_access,
+                },
             }
-        })
+        )
 
         # Send initial loop list
         loops_data = self._get_loops_data()
-        await ws.send_json({
-            "type": "loop_list",
-            "data": {"loops": loops_data, "count": len(loops_data)},
-        })
+        await ws.send_json(
+            {
+                "type": "loop_list",
+                "data": {"loops": loops_data, "count": len(loops_data)},
+            }
+        )
 
         try:
             async for msg in ws:
@@ -1079,11 +1132,18 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                     # Defense-in-depth: check message size before parsing
                     msg_data = msg.data  # type: ignore[union-attr]
                     if len(msg_data) > WS_MAX_MESSAGE_SIZE:
-                        logger.warning(f"[ws] Message too large: {len(msg_data)} bytes (max {WS_MAX_MESSAGE_SIZE})")
-                        await ws.send_json({
-                            "type": "error",
-                            "data": {"code": "MESSAGE_TOO_LARGE", "message": f"Message exceeds {WS_MAX_MESSAGE_SIZE} byte limit"}
-                        })
+                        logger.warning(
+                            f"[ws] Message too large: {len(msg_data)} bytes (max {WS_MAX_MESSAGE_SIZE})"
+                        )
+                        await ws.send_json(
+                            {
+                                "type": "error",
+                                "data": {
+                                    "code": "MESSAGE_TOO_LARGE",
+                                    "message": f"Message exceeds {WS_MAX_MESSAGE_SIZE} byte limit",
+                                },
+                            }
+                        )
                         continue
 
                     try:
@@ -1092,10 +1152,12 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
                         if msg_type == "get_loops":
                             loops_data = self._get_loops_data()
-                            await ws.send_json({
-                                "type": "loop_list",
-                                "data": {"loops": loops_data, "count": len(loops_data)},
-                            })
+                            await ws.send_json(
+                                {
+                                    "type": "loop_list",
+                                    "data": {"loops": loops_data, "count": len(loops_data)},
+                                }
+                            )
 
                         elif msg_type in ("user_vote", "user_suggestion"):
                             # Validate authentication for write operations
@@ -1105,15 +1167,24 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                                 continue
 
                             # Get loop_id (use ws-bound as fallback for proprioceptive socket)
-                            loop_id = data.get("loop_id") or getattr(ws, '_bound_loop_id', "")
+                            loop_id = data.get("loop_id") or getattr(ws, "_bound_loop_id", "")
 
                             # Optional per-message token validation
                             msg_token = data.get("token")
                             if msg_token:
                                 try:
                                     from aragora.server.auth import auth_config
+
                                     if not auth_config.validate_token(msg_token, loop_id):
-                                        await ws.send_json({"type": "error", "data": {"code": "AUTH_FAILED", "message": "Invalid or revoked token"}})
+                                        await ws.send_json(
+                                            {
+                                                "type": "error",
+                                                "data": {
+                                                    "code": "AUTH_FAILED",
+                                                    "message": "Invalid or revoked token",
+                                                },
+                                            }
+                                        )
                                         continue
                                 except ImportError:
                                     pass
@@ -1141,36 +1212,51 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
                             # Process the message
                             self._process_audience_message(msg_type, loop_id, payload, client_id)
-                            await ws.send_json({"type": "ack", "data": {"message": "Message received", "msg_type": msg_type}})
+                            await ws.send_json(
+                                {
+                                    "type": "ack",
+                                    "data": {"message": "Message received", "msg_type": msg_type},
+                                }
+                            )
 
                     except json.JSONDecodeError as e:
                         logger.warning(f"[ws] Invalid JSON: {e.msg} at pos {e.pos}")
-                        await ws.send_json({
-                            "type": "error",
-                            "data": {"code": "INVALID_JSON", "message": f"JSON parse error: {e.msg}"}
-                        })
+                        await ws.send_json(
+                            {
+                                "type": "error",
+                                "data": {
+                                    "code": "INVALID_JSON",
+                                    "message": f"JSON parse error: {e.msg}",
+                                },
+                            }
+                        )
 
                 elif msg.type == aiohttp.WSMsgType.ERROR:  # type: ignore[union-attr]
-                    logger.error(f'[ws] Error: {ws.exception()}')
+                    logger.error(f"[ws] Error: {ws.exception()}")
                     break
 
                 elif msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED):  # type: ignore[union-attr]
-                    logger.debug(f'[ws] Client {client_id[:8]}... closed connection')
+                    logger.debug(f"[ws] Client {client_id[:8]}... closed connection")
                     break
 
                 elif msg.type == aiohttp.WSMsgType.BINARY:  # type: ignore[union-attr]
-                    logger.warning(f'[ws] Binary message rejected from {client_id[:8]}...')
-                    await ws.send_json({
-                        "type": "error",
-                        "data": {"code": "BINARY_NOT_SUPPORTED", "message": "Binary messages not supported"}
-                    })
+                    logger.warning(f"[ws] Binary message rejected from {client_id[:8]}...")
+                    await ws.send_json(
+                        {
+                            "type": "error",
+                            "data": {
+                                "code": "BINARY_NOT_SUPPORTED",
+                                "message": "Binary messages not supported",
+                            },
+                        }
+                    )
 
                 # PING/PONG handled automatically by aiohttp, but log if we see them
                 elif msg.type in (aiohttp.WSMsgType.PING, aiohttp.WSMsgType.PONG):  # type: ignore[union-attr]
                     pass  # Handled by aiohttp automatically
 
                 else:
-                    logger.warning(f'[ws] Unhandled message type: {msg.type}')  # type: ignore[union-attr]
+                    logger.warning(f"[ws] Unhandled message type: {msg.type}")  # type: ignore[union-attr]
 
         finally:
             self.clients.discard(ws)
@@ -1219,7 +1305,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                     try:
                         await client.send_str(message)
                     except Exception as e:
-                        logger.debug("WebSocket client disconnected during broadcast: %s", type(e).__name__)
+                        logger.debug(
+                            "WebSocket client disconnected during broadcast: %s", type(e).__name__
+                        )
                         dead_clients.append(client)
 
                 if dead_clients:
@@ -1271,6 +1359,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # Initialize error monitoring (no-op if SENTRY_DSN not set)
         try:
             from aragora.server.error_monitoring import init_monitoring
+
             if init_monitoring():
                 logger.info("Error monitoring enabled (Sentry)")
         except ImportError:
@@ -1297,7 +1386,11 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             ("GET", "/agent/{name}/network", self._handle_agent_network),
             ("GET", "/memory/tier-stats", self._handle_memory_tier_stats),
             ("GET", "/laboratory/emergent-traits", self._handle_laboratory_emergent_traits),
-            ("GET", "/laboratory/cross-pollinations/suggest", self._handle_laboratory_cross_pollinations),
+            (
+                "GET",
+                "/laboratory/cross-pollinations/suggest",
+                self._handle_laboratory_cross_pollinations,
+            ),
             ("GET", "/health", self._handle_health),
             ("GET", "/nomic/state", self._handle_nomic_state),
             ("GET", "/debate/{loop_id}/graph", self._handle_graph_json),

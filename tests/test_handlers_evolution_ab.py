@@ -28,6 +28,7 @@ import pytest
 
 class MockABTestStatus(Enum):
     """Mock status enum for A/B tests."""
+
     ACTIVE = "active"
     CONCLUDED = "concluded"
     CANCELLED = "cancelled"
@@ -328,6 +329,7 @@ class TestListTests:
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["tests"] == []
         assert body["count"] == 0
@@ -339,8 +341,7 @@ class TestListTests:
         ab_handler.manager.start_test("gpt4", 1, 2)
 
         with patch.object(
-            ab_handler, "_get_all_tests",
-            return_value=list(ab_handler.manager.tests.values())
+            ab_handler, "_get_all_tests", return_value=list(ab_handler.manager.tests.values())
         ):
             result = ab_handler.handle(
                 "/api/evolution/ab-tests",
@@ -349,6 +350,7 @@ class TestListTests:
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["count"] == 2
 
@@ -365,6 +367,7 @@ class TestListTests:
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["count"] == 1
         assert body["tests"][0]["agent"] == "claude"
@@ -389,6 +392,7 @@ class TestGetTest:
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["id"] == test.id
         assert body["agent"] == "claude"
@@ -422,6 +426,7 @@ class TestGetActiveTest:
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["agent"] == "claude"
         assert body["has_active_test"] is True
@@ -436,6 +441,7 @@ class TestGetActiveTest:
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["agent"] == "gpt4"
         assert body["has_active_test"] is False
@@ -463,6 +469,7 @@ class TestCreateTest:
 
         assert result.status_code == 201
         import json
+
         body = json.loads(result.body)
         assert "test" in body
         assert body["test"]["agent"] == "claude"
@@ -521,6 +528,7 @@ class TestCreateTest:
 
         assert result.status_code == 201
         import json
+
         body = json.loads(result.body)
         assert body["test"]["metadata"]["description"] == "Test improvement"
 
@@ -548,6 +556,7 @@ class TestRecordResult:
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["test"]["evolved_wins"] == 1
 
@@ -566,6 +575,7 @@ class TestRecordResult:
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["test"]["baseline_wins"] == 1
 
@@ -650,6 +660,7 @@ class TestConcludeTest:
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["result"]["winner"] == "evolved"
         assert body["result"]["confidence"] == 0.95
@@ -723,6 +734,7 @@ class TestCancelTest:
 
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body)
         assert body["test_id"] == test.id
 
@@ -733,7 +745,9 @@ class TestCancelTest:
 
         assert result.status_code == 404
 
-    def test_cancel_test_already_concluded(self, ab_handler, mock_handler_authenticated, mock_auth_ctx):
+    def test_cancel_test_already_concluded(
+        self, ab_handler, mock_handler_authenticated, mock_auth_ctx
+    ):
         """Test cancelling already concluded test."""
         test = ab_handler.manager.start_test("claude", 1, 2)
         test.status = MockABTestStatus.CONCLUDED
@@ -777,8 +791,7 @@ class TestManagerNotConfigured:
 
         # Mock the manager property to return None
         with patch.object(
-            type(ab_handler), "manager",
-            new_callable=lambda: property(lambda self: None)
+            type(ab_handler), "manager", new_callable=lambda: property(lambda self: None)
         ):
             result = ab_handler._list_tests({})
 
@@ -789,8 +802,7 @@ class TestManagerNotConfigured:
         ab_handler._manager = None
 
         with patch.object(
-            type(ab_handler), "manager",
-            new_callable=lambda: property(lambda self: None)
+            type(ab_handler), "manager", new_callable=lambda: property(lambda self: None)
         ):
             result = ab_handler._get_test("test-123")
 
@@ -801,8 +813,7 @@ class TestManagerNotConfigured:
         ab_handler._manager = None
 
         with patch.object(
-            type(ab_handler), "manager",
-            new_callable=lambda: property(lambda self: None)
+            type(ab_handler), "manager", new_callable=lambda: property(lambda self: None)
         ):
             result = ab_handler._create_test({"agent": "claude"})
 
@@ -831,6 +842,7 @@ class TestIntegration:
         assert create_result.status_code == 201
 
         import json
+
         test_id = json.loads(create_result.body)["test"]["id"]
 
         # 2. Check it's the active test
@@ -899,4 +911,3 @@ class TestIntegration:
             {"agent": "claude", "baseline_version": 2, "evolved_version": 3},
         )
         assert create_result.status_code == 201
-

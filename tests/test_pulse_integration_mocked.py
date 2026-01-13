@@ -66,25 +66,27 @@ class TestPulseManagerIntegration:
         manager.select_topic_for_debate = mock_select
 
         # Mock analytics
-        manager.get_analytics = MagicMock(return_value={
-            "total_debates": 42,
-            "consensus_rate": 0.78,
-            "avg_confidence": 0.85,
-            "by_platform": {
-                "hackernews": {"debates": 15, "consensus_rate": 0.80},
-                "reddit": {"debates": 18, "consensus_rate": 0.72},
-                "twitter": {"debates": 9, "consensus_rate": 0.89},
-            },
-            "by_category": {
-                "ai": {"debates": 20, "avg_confidence": 0.88},
-                "tech": {"debates": 12, "avg_confidence": 0.82},
-                "science": {"debates": 10, "avg_confidence": 0.85},
-            },
-            "recent_outcomes": [
-                {"topic": "AI Safety", "consensus": True, "confidence": 0.92},
-                {"topic": "Crypto Regulation", "consensus": False, "confidence": 0.65},
-            ],
-        })
+        manager.get_analytics = MagicMock(
+            return_value={
+                "total_debates": 42,
+                "consensus_rate": 0.78,
+                "avg_confidence": 0.85,
+                "by_platform": {
+                    "hackernews": {"debates": 15, "consensus_rate": 0.80},
+                    "reddit": {"debates": 18, "consensus_rate": 0.72},
+                    "twitter": {"debates": 9, "consensus_rate": 0.89},
+                },
+                "by_category": {
+                    "ai": {"debates": 20, "avg_confidence": 0.88},
+                    "tech": {"debates": 12, "avg_confidence": 0.82},
+                    "science": {"debates": 10, "avg_confidence": 0.85},
+                },
+                "recent_outcomes": [
+                    {"topic": "AI Safety", "consensus": True, "confidence": 0.92},
+                    {"topic": "Crypto Regulation", "consensus": False, "confidence": 0.65},
+                ],
+            }
+        )
 
         return manager
 
@@ -147,18 +149,20 @@ class TestPulseAnalytics:
     def _create_mock_manager_with_analytics(self):
         """Create manager with analytics data."""
         manager = MagicMock()
-        manager.get_analytics = MagicMock(return_value={
-            "total_debates": 100,
-            "consensus_rate": 0.75,
-            "avg_confidence": 0.82,
-            "by_platform": {
-                "hackernews": {"debates": 40, "consensus_rate": 0.80},
-                "reddit": {"debates": 35, "consensus_rate": 0.70},
-                "twitter": {"debates": 25, "consensus_rate": 0.76},
-            },
-            "by_category": {},
-            "recent_outcomes": [],
-        })
+        manager.get_analytics = MagicMock(
+            return_value={
+                "total_debates": 100,
+                "consensus_rate": 0.75,
+                "avg_confidence": 0.82,
+                "by_platform": {
+                    "hackernews": {"debates": 40, "consensus_rate": 0.80},
+                    "reddit": {"debates": 35, "consensus_rate": 0.70},
+                    "twitter": {"debates": 25, "consensus_rate": 0.76},
+                },
+                "by_category": {},
+                "recent_outcomes": [],
+            }
+        )
         return manager
 
     def test_analytics_structure(self):
@@ -209,9 +213,8 @@ class TestPulseHandlerWithMocks:
         # Mock the internal methods
         def mock_get_trending(limit):
             import asyncio
-            topics = asyncio.get_event_loop().run_until_complete(
-                manager.get_trending_topics()
-            )
+
+            topics = asyncio.get_event_loop().run_until_complete(manager.get_trending_topics())
             max_volume = max((t.volume for t in topics), default=1) or 1
             return {
                 "topics": [
@@ -247,6 +250,7 @@ class TestPulseHandlerWithMocks:
 
         # Simulate the handler response format
         import asyncio
+
         topics = asyncio.get_event_loop().run_until_complete(manager.get_trending_topics())
 
         max_volume = max((t.volume for t in topics), default=1)

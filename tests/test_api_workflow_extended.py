@@ -69,26 +69,26 @@ class TestHandler(BaseHandler):
             return HandlerResult(
                 status_code=200,
                 content_type="application/json",
-                body=json.dumps({"message": "Success"}).encode()
+                body=json.dumps({"message": "Success"}).encode(),
             )
         elif path == "/api/test/item" and method == "POST":
             return HandlerResult(
                 status_code=201,
                 content_type="application/json",
-                body=json.dumps({"created": True}).encode()
+                body=json.dumps({"created": True}).encode(),
             )
         elif path == "/api/test/search":
             query = params.get("q", "")
             return HandlerResult(
                 status_code=200,
                 content_type="application/json",
-                body=json.dumps({"query": query, "results": []}).encode()
+                body=json.dumps({"query": query, "results": []}).encode(),
             )
         else:
             return HandlerResult(
                 status_code=405,
                 content_type="application/json",
-                body=json.dumps({"error": "Method not allowed"}).encode()
+                body=json.dumps({"error": "Method not allowed"}).encode(),
             )
 
 
@@ -129,9 +129,7 @@ class TestHandlerResult:
     def test_handler_result_creation(self):
         """Test HandlerResult creation."""
         result = HandlerResult(
-            status_code=200,
-            content_type="application/json",
-            body=b'{"test": true}'
+            status_code=200, content_type="application/json", body=b'{"test": true}'
         )
         assert result.status_code == 200
         assert result.body == b'{"test": true}'
@@ -139,19 +137,14 @@ class TestHandlerResult:
     def test_handler_result_with_headers(self):
         """Test HandlerResult with custom headers."""
         result = HandlerResult(
-            status_code=200,
-            content_type="text/plain",
-            body=b"OK",
-            headers={"X-Custom": "value"}
+            status_code=200, content_type="text/plain", body=b"OK", headers={"X-Custom": "value"}
         )
         assert result.headers["X-Custom"] == "value"
 
     def test_handler_result_content_type(self):
         """Test HandlerResult with content type."""
         result = HandlerResult(
-            status_code=200,
-            content_type="application/json",
-            body=b'{"json": true}'
+            status_code=200, content_type="application/json", body=b'{"json": true}'
         )
         assert result.content_type == "application/json"
 
@@ -230,9 +223,7 @@ class TestRequestHandling:
         """Test query parameter extraction."""
         handler = TestHandler(server_context={})
         request = MockRequest(
-            path="/api/test/search",
-            method="GET",
-            query_params={"q": "search term"}
+            path="/api/test/search", method="GET", query_params={"q": "search term"}
         )
 
         result = handler.handle("/api/test/search", {"q": "search term"}, request, "GET")
@@ -255,7 +246,7 @@ class TestErrorResponses:
         result = HandlerResult(
             status_code=400,
             content_type="application/json",
-            body=json.dumps({"error": "Invalid request"}).encode()
+            body=json.dumps({"error": "Invalid request"}).encode(),
         )
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -266,7 +257,7 @@ class TestErrorResponses:
         result = HandlerResult(
             status_code=401,
             content_type="application/json",
-            body=json.dumps({"error": "Not authenticated"}).encode()
+            body=json.dumps({"error": "Not authenticated"}).encode(),
         )
         assert result.status_code == 401
 
@@ -275,7 +266,7 @@ class TestErrorResponses:
         result = HandlerResult(
             status_code=403,
             content_type="application/json",
-            body=json.dumps({"error": "Access denied"}).encode()
+            body=json.dumps({"error": "Access denied"}).encode(),
         )
         assert result.status_code == 403
 
@@ -284,7 +275,7 @@ class TestErrorResponses:
         result = HandlerResult(
             status_code=404,
             content_type="application/json",
-            body=json.dumps({"error": "Resource not found"}).encode()
+            body=json.dumps({"error": "Resource not found"}).encode(),
         )
         assert result.status_code == 404
 
@@ -293,7 +284,7 @@ class TestErrorResponses:
         result = HandlerResult(
             status_code=500,
             content_type="application/json",
-            body=json.dumps({"error": "Internal server error"}).encode()
+            body=json.dumps({"error": "Internal server error"}).encode(),
         )
         assert result.status_code == 500
 
@@ -367,13 +358,7 @@ class TestJSONBody:
 
     def test_nested_json_body(self):
         """Test nested JSON body."""
-        body = json.dumps({
-            "outer": {
-                "inner": {
-                    "value": 42
-                }
-            }
-        }).encode()
+        body = json.dumps({"outer": {"inner": {"value": 42}}}).encode()
         request = MockRequest(body=body)
 
         data = json.loads(request.rfile.read())
@@ -421,28 +406,18 @@ class TestResponseContentType:
     def test_json_response(self):
         """Test JSON response content type."""
         result = HandlerResult(
-            status_code=200,
-            content_type="application/json",
-            body=b'{"data": true}'
+            status_code=200, content_type="application/json", body=b'{"data": true}'
         )
         assert result.content_type == "application/json"
 
     def test_text_response(self):
         """Test text response content type."""
-        result = HandlerResult(
-            status_code=200,
-            content_type="text/plain",
-            body=b"Plain text"
-        )
+        result = HandlerResult(status_code=200, content_type="text/plain", body=b"Plain text")
         assert result.content_type == "text/plain"
 
     def test_html_response(self):
         """Test HTML response content type."""
-        result = HandlerResult(
-            status_code=200,
-            content_type="text/html",
-            body=b"<html>...</html>"
-        )
+        result = HandlerResult(status_code=200, content_type="text/html", body=b"<html>...</html>")
         assert result.content_type == "text/html"
 
 
@@ -491,28 +466,54 @@ class TestStatusCodes:
 
     def test_success_codes(self):
         """Test 2xx success codes."""
-        assert HandlerResult(status_code=200, content_type="text/plain", body=b"").status_code == 200
-        assert HandlerResult(status_code=201, content_type="text/plain", body=b"").status_code == 201
-        assert HandlerResult(status_code=204, content_type="text/plain", body=b"").status_code == 204
+        assert (
+            HandlerResult(status_code=200, content_type="text/plain", body=b"").status_code == 200
+        )
+        assert (
+            HandlerResult(status_code=201, content_type="text/plain", body=b"").status_code == 201
+        )
+        assert (
+            HandlerResult(status_code=204, content_type="text/plain", body=b"").status_code == 204
+        )
 
     def test_redirect_codes(self):
         """Test 3xx redirect codes."""
-        assert HandlerResult(status_code=301, content_type="text/plain", body=b"").status_code == 301
-        assert HandlerResult(status_code=302, content_type="text/plain", body=b"").status_code == 302
-        assert HandlerResult(status_code=304, content_type="text/plain", body=b"").status_code == 304
+        assert (
+            HandlerResult(status_code=301, content_type="text/plain", body=b"").status_code == 301
+        )
+        assert (
+            HandlerResult(status_code=302, content_type="text/plain", body=b"").status_code == 302
+        )
+        assert (
+            HandlerResult(status_code=304, content_type="text/plain", body=b"").status_code == 304
+        )
 
     def test_client_error_codes(self):
         """Test 4xx client error codes."""
-        assert HandlerResult(status_code=400, content_type="text/plain", body=b"").status_code == 400
-        assert HandlerResult(status_code=401, content_type="text/plain", body=b"").status_code == 401
-        assert HandlerResult(status_code=404, content_type="text/plain", body=b"").status_code == 404
-        assert HandlerResult(status_code=429, content_type="text/plain", body=b"").status_code == 429
+        assert (
+            HandlerResult(status_code=400, content_type="text/plain", body=b"").status_code == 400
+        )
+        assert (
+            HandlerResult(status_code=401, content_type="text/plain", body=b"").status_code == 401
+        )
+        assert (
+            HandlerResult(status_code=404, content_type="text/plain", body=b"").status_code == 404
+        )
+        assert (
+            HandlerResult(status_code=429, content_type="text/plain", body=b"").status_code == 429
+        )
 
     def test_server_error_codes(self):
         """Test 5xx server error codes."""
-        assert HandlerResult(status_code=500, content_type="text/plain", body=b"").status_code == 500
-        assert HandlerResult(status_code=502, content_type="text/plain", body=b"").status_code == 502
-        assert HandlerResult(status_code=503, content_type="text/plain", body=b"").status_code == 503
+        assert (
+            HandlerResult(status_code=500, content_type="text/plain", body=b"").status_code == 500
+        )
+        assert (
+            HandlerResult(status_code=502, content_type="text/plain", body=b"").status_code == 502
+        )
+        assert (
+            HandlerResult(status_code=503, content_type="text/plain", body=b"").status_code == 503
+        )
 
 
 # =============================================================================

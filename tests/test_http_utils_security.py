@@ -103,9 +103,22 @@ class TestQueryParamValidation:
     def test_all_allowed_params_documented(self):
         """All allowed params should be in ALLOWED_QUERY_PARAMS."""
         expected_params = {
-            "limit", "offset", "domain", "loop_id", "topic", "query",
-            "table", "agent", "agent_a", "agent_b", "sections", "buckets",
-            "tiers", "min_importance", "event_type", "lines",
+            "limit",
+            "offset",
+            "domain",
+            "loop_id",
+            "topic",
+            "query",
+            "table",
+            "agent",
+            "agent_a",
+            "agent_b",
+            "sections",
+            "buckets",
+            "tiers",
+            "min_importance",
+            "event_type",
+            "lines",
         }
         assert expected_params.issubset(set(ALLOWED_QUERY_PARAMS.keys()))
 
@@ -146,6 +159,7 @@ class TestSafeFloat:
     def test_nan_handling(self):
         """NaN should convert (but be NaN)."""
         import math
+
         result = safe_float("nan")
         assert math.isnan(result)
 
@@ -237,6 +251,7 @@ class TestRunAsync:
 
     def test_simple_coroutine(self):
         """Simple coroutine should execute."""
+
         async def simple():
             return 42
 
@@ -245,6 +260,7 @@ class TestRunAsync:
 
     def test_coroutine_with_sleep(self):
         """Coroutine with async operations should work."""
+
         async def with_sleep():
             await asyncio.sleep(0.01)
             return "done"
@@ -254,6 +270,7 @@ class TestRunAsync:
 
     def test_exception_propagates(self):
         """Exceptions in coroutine should propagate."""
+
         async def raises():
             raise ValueError("test error")
 
@@ -262,6 +279,7 @@ class TestRunAsync:
 
     def test_timeout_behavior(self):
         """Long-running coroutines should respect timeout."""
+
         async def slow():
             await asyncio.sleep(0.1)
             return "done"
@@ -272,6 +290,7 @@ class TestRunAsync:
 
     def test_nested_async_calls(self):
         """Nested async calls should work."""
+
         async def inner():
             return 1
 
@@ -284,6 +303,7 @@ class TestRunAsync:
 
     def test_returns_none_when_coroutine_returns_none(self):
         """Should return None when coroutine returns None."""
+
         async def returns_none():
             return None
 
@@ -297,6 +317,7 @@ class TestRunAsyncInEventLoop:
     @pytest.mark.asyncio
     async def test_from_async_context(self):
         """run_async should work from async context (uses thread pool)."""
+
         async def inner():
             return "from_thread"
 
@@ -307,6 +328,7 @@ class TestRunAsyncInEventLoop:
     @pytest.mark.asyncio
     async def test_concurrent_run_async(self):
         """Multiple run_async calls should be safe."""
+
         async def task(n):
             await asyncio.sleep(0.01)
             return n * 2

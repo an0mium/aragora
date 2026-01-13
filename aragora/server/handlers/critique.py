@@ -32,9 +32,7 @@ logger = logging.getLogger(__name__)
 _critique_limiter = RateLimiter(requests_per_minute=60)
 
 # Lazy import for optional dependency using centralized utility
-CritiqueStore, CRITIQUE_STORE_AVAILABLE = try_import_class(
-    "aragora.memory.store", "CritiqueStore"
-)
+CritiqueStore, CRITIQUE_STORE_AVAILABLE = try_import_class("aragora.memory.store", "CritiqueStore")
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 
@@ -68,8 +66,10 @@ class CritiqueHandler(BaseHandler):
         nomic_dir = self.ctx.get("nomic_dir")
 
         if path == "/api/critiques/patterns":
-            limit = get_clamped_int_param(query_params, 'limit', 10, min_val=1, max_val=50)
-            min_success = get_bounded_float_param(query_params, 'min_success', 0.5, min_val=0.0, max_val=1.0)
+            limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
+            min_success = get_bounded_float_param(
+                query_params, "min_success", 0.5, min_val=0.0, max_val=1.0
+            )
             return self._get_critique_patterns(nomic_dir, limit, min_success)
 
         if path == "/api/critiques/archive":
@@ -90,9 +90,9 @@ class CritiqueHandler(BaseHandler):
         """Extract and validate agent name from path."""
         # Pattern: /api/agent/{name}/reputation
         # Block path traversal attempts
-        if '..' in path:
+        if ".." in path:
             return None
-        parts = path.split('/')
+        parts = path.split("/")
         if len(parts) >= 4:
             agent = parts[3]
             is_valid, _ = validate_agent_name_with_version(agent)
@@ -116,19 +116,21 @@ class CritiqueHandler(BaseHandler):
             patterns = store.retrieve_patterns(min_success_rate=min_success, limit=limit)
             stats = store.get_stats()
 
-            return json_response({
-                "patterns": [
-                    {
-                        "issue_type": p.issue_type,
-                        "pattern": p.pattern_text,
-                        "success_rate": p.success_rate,
-                        "usage_count": p.usage_count,
-                    }
-                    for p in patterns
-                ],
-                "count": len(patterns),
-                "stats": stats,
-            })
+            return json_response(
+                {
+                    "patterns": [
+                        {
+                            "issue_type": p.issue_type,
+                            "pattern": p.pattern_text,
+                            "success_rate": p.success_rate,
+                            "usage_count": p.usage_count,
+                        }
+                        for p in patterns
+                    ],
+                    "count": len(patterns),
+                    "stats": stats,
+                }
+            )
         except Exception as e:
             return error_response(_safe_error_message(e, "critique_patterns"), 500)
 
@@ -160,26 +162,26 @@ class CritiqueHandler(BaseHandler):
 
             store = CritiqueStore(str(db_path))
             reputations = store.get_all_reputations()
-            return json_response({
-                "reputations": [
-                    {
-                        "agent": r.agent_name,
-                        "score": r.reputation_score,
-                        "vote_weight": r.vote_weight,
-                        "proposal_acceptance_rate": r.proposal_acceptance_rate,
-                        "critique_value": r.critique_value,
-                        "debates_participated": r.debates_participated,
-                    }
-                    for r in reputations
-                ],
-                "count": len(reputations),
-            })
+            return json_response(
+                {
+                    "reputations": [
+                        {
+                            "agent": r.agent_name,
+                            "score": r.reputation_score,
+                            "vote_weight": r.vote_weight,
+                            "proposal_acceptance_rate": r.proposal_acceptance_rate,
+                            "critique_value": r.critique_value,
+                            "debates_participated": r.debates_participated,
+                        }
+                        for r in reputations
+                    ],
+                    "count": len(reputations),
+                }
+            )
         except Exception as e:
             return error_response(_safe_error_message(e, "reputations"), 500)
 
-    def _get_agent_reputation(
-        self, nomic_dir: Optional[Path], agent: str
-    ) -> HandlerResult:
+    def _get_agent_reputation(self, nomic_dir: Optional[Path], agent: str) -> HandlerResult:
         """Get reputation for a specific agent."""
         if not CRITIQUE_STORE_AVAILABLE:
             return error_response("Critique store not available", 503)
@@ -187,31 +189,29 @@ class CritiqueHandler(BaseHandler):
         try:
             db_path = nomic_dir / "debates.db" if nomic_dir else None
             if not db_path or not db_path.exists():
-                return json_response({
-                    "agent": agent,
-                    "reputation": None,
-                    "message": "No reputation data available"
-                })
+                return json_response(
+                    {"agent": agent, "reputation": None, "message": "No reputation data available"}
+                )
 
             store = CritiqueStore(str(db_path))
             rep = store.get_reputation(agent)
 
             if rep:
-                return json_response({
-                    "agent": agent,
-                    "reputation": {
-                        "score": rep.reputation_score,
-                        "vote_weight": rep.vote_weight,
-                        "proposal_acceptance_rate": rep.proposal_acceptance_rate,
-                        "critique_value": rep.critique_value,
-                        "debates_participated": rep.debates_participated,
+                return json_response(
+                    {
+                        "agent": agent,
+                        "reputation": {
+                            "score": rep.reputation_score,
+                            "vote_weight": rep.vote_weight,
+                            "proposal_acceptance_rate": rep.proposal_acceptance_rate,
+                            "critique_value": rep.critique_value,
+                            "debates_participated": rep.debates_participated,
+                        },
                     }
-                })
+                )
             else:
-                return json_response({
-                    "agent": agent,
-                    "reputation": None,
-                    "message": "Agent not found"
-                })
+                return json_response(
+                    {"agent": agent, "reputation": None, "message": "Agent not found"}
+                )
         except Exception as e:
             return error_response(_safe_error_message(e, "agent_reputation"), 500)

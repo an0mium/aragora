@@ -55,6 +55,7 @@ def temp_nomic_dir():
 def fresh_registry():
     """Reset the global registry for each test."""
     import aragora.server.initialization as init_module
+
     old_registry = init_module._registry
     init_module._registry = None
     yield
@@ -518,10 +519,19 @@ class TestSubsystemRegistry:
     @patch("aragora.server.initialization.init_verification_manager")
     def test_initialize_all_with_nomic_dir(
         self,
-        mock_verify, mock_moment, mock_consensus,
-        mock_continuum, mock_position_tracker, mock_embeddings,
-        mock_ledger, mock_persona, mock_flip, mock_elo,
-        mock_insight, mock_persist, temp_nomic_dir
+        mock_verify,
+        mock_moment,
+        mock_consensus,
+        mock_continuum,
+        mock_position_tracker,
+        mock_embeddings,
+        mock_ledger,
+        mock_persona,
+        mock_flip,
+        mock_elo,
+        mock_insight,
+        mock_persist,
+        temp_nomic_dir,
     ):
         """Should initialize all subsystems with nomic_dir."""
         mock_persist.return_value = "persistence"
@@ -652,18 +662,20 @@ class TestInitializationIntegration:
     async def test_async_initialization_completes(self, fresh_registry, temp_nomic_dir):
         """Async initialization should complete without errors."""
         # Disable all optional imports to test async path
-        with patch("aragora.server.initialization.PERSISTENCE_AVAILABLE", False), \
-             patch("aragora.server.initialization.INSIGHTS_AVAILABLE", False), \
-             patch("aragora.server.initialization.RANKING_AVAILABLE", False), \
-             patch("aragora.server.initialization.FLIP_DETECTOR_AVAILABLE", False), \
-             patch("aragora.server.initialization.PERSONAS_AVAILABLE", False), \
-             patch("aragora.server.initialization.POSITION_LEDGER_AVAILABLE", False), \
-             patch("aragora.server.initialization.EMBEDDINGS_AVAILABLE", False), \
-             patch("aragora.server.initialization.CONSENSUS_MEMORY_AVAILABLE", False), \
-             patch("aragora.server.initialization.MOMENT_DETECTOR_AVAILABLE", False), \
-             patch("aragora.server.initialization.POSITION_TRACKER_AVAILABLE", False), \
-             patch("aragora.server.initialization.CONTINUUM_AVAILABLE", False), \
-             patch("aragora.server.initialization.VERIFICATION_AVAILABLE", False):
+        with (
+            patch("aragora.server.initialization.PERSISTENCE_AVAILABLE", False),
+            patch("aragora.server.initialization.INSIGHTS_AVAILABLE", False),
+            patch("aragora.server.initialization.RANKING_AVAILABLE", False),
+            patch("aragora.server.initialization.FLIP_DETECTOR_AVAILABLE", False),
+            patch("aragora.server.initialization.PERSONAS_AVAILABLE", False),
+            patch("aragora.server.initialization.POSITION_LEDGER_AVAILABLE", False),
+            patch("aragora.server.initialization.EMBEDDINGS_AVAILABLE", False),
+            patch("aragora.server.initialization.CONSENSUS_MEMORY_AVAILABLE", False),
+            patch("aragora.server.initialization.MOMENT_DETECTOR_AVAILABLE", False),
+            patch("aragora.server.initialization.POSITION_TRACKER_AVAILABLE", False),
+            patch("aragora.server.initialization.CONTINUUM_AVAILABLE", False),
+            patch("aragora.server.initialization.VERIFICATION_AVAILABLE", False),
+        ):
 
             registry = SubsystemRegistry()
             await registry.initialize_all_async(nomic_dir=temp_nomic_dir)

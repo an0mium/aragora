@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TaskConfig:
     """Configuration for a background task."""
+
     name: str
     interval_seconds: float
     callback: Callable[[], Any]
@@ -87,7 +88,9 @@ class BackgroundTaskManager:
             )
             logger.info(
                 "Registered background task: %s (interval=%ds, enabled=%s)",
-                name, interval_seconds, enabled
+                name,
+                interval_seconds,
+                enabled,
             )
 
     def unregister_task(self, name: str) -> bool:
@@ -182,14 +185,18 @@ class BackgroundTaskManager:
 
             logger.info(
                 "Background task %s completed (duration=%.2fs, runs=%d)",
-                task.name, duration, task.run_count
+                task.name,
+                duration,
+                task.run_count,
             )
         except Exception as e:
             task.error_count += 1
             logger.error(
                 "Background task %s failed (errors=%d): %s",
-                task.name, task.error_count, e,
-                exc_info=True
+                task.name,
+                task.error_count,
+                e,
+                exc_info=True,
             )
 
     def get_stats(self) -> Dict[str, Any]:
@@ -207,7 +214,8 @@ class BackgroundTaskManager:
                         "error_count": task.error_count,
                         "seconds_until_next": (
                             max(0, task.interval_seconds - (time.time() - task.last_run))
-                            if task.last_run else 0
+                            if task.last_run
+                            else 0
                         ),
                     }
                     for name, task in self._tasks.items()
@@ -284,21 +292,18 @@ def setup_default_tasks(
             if pressure < pressure_threshold:
                 logger.debug(
                     "Memory pressure %.1f%% below threshold %.1f%%, skipping cleanup",
-                    pressure * 100, pressure_threshold * 100
+                    pressure * 100,
+                    pressure_threshold * 100,
                 )
                 return
 
-            logger.info(
-                "Memory pressure %.1f%% exceeds threshold, running cleanup",
-                pressure * 100
-            )
+            logger.info("Memory pressure %.1f%% exceeds threshold, running cleanup", pressure * 100)
 
             result = memory.cleanup_expired_memories(archive=True)
 
             if result["deleted"] > 0 or result["archived"] > 0:
                 logger.info(
-                    "Memory cleanup: archived=%d, deleted=%d",
-                    result["archived"], result["deleted"]
+                    "Memory cleanup: archived=%d, deleted=%d", result["archived"], result["deleted"]
                 )
         except ImportError:
             logger.debug("ContinuumMemory not available, skipping cleanup")
@@ -317,6 +322,7 @@ def setup_default_tasks(
     def stale_debate_cleanup():
         try:
             from aragora.server.state import get_state_manager
+
             state_mgr = get_state_manager()
             cleaned = state_mgr.cleanup_stale_debates(max_age_seconds=3600)  # 1 hour max
             if cleaned > 0:
@@ -340,6 +346,7 @@ def setup_default_tasks(
                 persist_all_circuit_breakers,
                 cleanup_stale_persisted,
             )
+
             # Prune in-memory stale circuit breakers
             cleaned = prune_circuit_breakers()
             if cleaned > 0:
@@ -402,6 +409,7 @@ def setup_default_tasks(
     def consensus_cleanup_task():
         try:
             from aragora.memory.consensus import ConsensusMemory
+
             consensus = ConsensusMemory()
 
             # Archive records older than 90 days
@@ -436,13 +444,13 @@ def setup_default_tasks(
                 clear_all_lru_caches,
                 get_registered_cache_count,
             )
+
             cache_count = get_registered_cache_count()
             if cache_count > 0:
                 cleared = clear_all_lru_caches()
                 if cleared > 0:
                     logger.info(
-                        "LRU cache cleanup: cleared %d entries from %d caches",
-                        cleared, cache_count
+                        "LRU cache cleanup: cleared %d entries from %d caches", cleared, cache_count
                     )
         except ImportError:
             logger.debug("cache_registry not available, skipping LRU cleanup")

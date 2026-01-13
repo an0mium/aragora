@@ -40,9 +40,9 @@ _OAUTH_STATE_TTL = 600  # 10 minutes
 MAX_OAUTH_STATES = 5000  # Prevent memory exhaustion from rapid state generation
 
 # Allowed hosts for OAuth redirect URI (prevent open redirect)
-_OAUTH_HOSTS_ENV = os.getenv('ARAGORA_ALLOWED_OAUTH_HOSTS')
+_OAUTH_HOSTS_ENV = os.getenv("ARAGORA_ALLOWED_OAUTH_HOSTS")
 if _OAUTH_HOSTS_ENV:
-    ALLOWED_OAUTH_HOSTS = frozenset(h.strip() for h in _OAUTH_HOSTS_ENV.split(','))
+    ALLOWED_OAUTH_HOSTS = frozenset(h.strip() for h in _OAUTH_HOSTS_ENV.split(","))
 else:
     if _IS_PRODUCTION:
         logger.warning(
@@ -53,7 +53,7 @@ else:
         ALLOWED_OAUTH_HOSTS = frozenset()
     else:
         # Dev mode: use localhost fallbacks
-        ALLOWED_OAUTH_HOSTS = frozenset(['localhost:8080', '127.0.0.1:8080'])
+        ALLOWED_OAUTH_HOSTS = frozenset(["localhost:8080", "127.0.0.1:8080"])
         logger.debug("[Social] Using localhost for OAuth hosts (dev mode)")
 
 
@@ -104,22 +104,22 @@ class SocialMediaHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the request."""
-        if path.startswith('/api/youtube/'):
+        if path.startswith("/api/youtube/"):
             return True
-        if path.startswith('/api/debates/') and '/publish/' in path:
+        if path.startswith("/api/debates/") and "/publish/" in path:
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle GET requests."""
         # YouTube OAuth endpoints
-        if path == '/api/youtube/auth':
+        if path == "/api/youtube/auth":
             return self._get_youtube_auth_url(handler)
-        if path == '/api/youtube/callback':
-            code = query_params.get('code')
-            state = query_params.get('state')
+        if path == "/api/youtube/callback":
+            code = query_params.get("code")
+            state = query_params.get("state")
             return self._handle_youtube_callback(code, state, handler)
-        if path == '/api/youtube/status':
+        if path == "/api/youtube/status":
             return self._get_youtube_status()
 
         return None
@@ -127,14 +127,14 @@ class SocialMediaHandler(BaseHandler):
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests."""
         # Twitter publishing
-        if path.startswith('/api/debates/') and path.endswith('/publish/twitter'):
+        if path.startswith("/api/debates/") and path.endswith("/publish/twitter"):
             debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err
             return self._publish_to_twitter(debate_id, handler)
 
         # YouTube publishing
-        if path.startswith('/api/debates/') and path.endswith('/publish/youtube'):
+        if path.startswith("/api/debates/") and path.endswith("/publish/youtube"):
             debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err
@@ -151,10 +151,13 @@ class SocialMediaHandler(BaseHandler):
             return error_response("YouTube connector not initialized", status=500)
 
         if not youtube.client_id:
-            return json_response({
-                "error": "YouTube client ID not configured",
-                "hint": "Set YOUTUBE_CLIENT_ID environment variable"
-            }, status=400)
+            return json_response(
+                {
+                    "error": "YouTube client ID not configured",
+                    "hint": "Set YOUTUBE_CLIENT_ID environment variable",
+                },
+                status=400,
+            )
 
         # Validate Host header against whitelist (prevent open redirect)
         host = get_host_header(handler)
@@ -162,22 +165,29 @@ class SocialMediaHandler(BaseHandler):
             logger.warning(f"OAuth auth request with untrusted host: {host}")
             return error_response("Untrusted host for OAuth redirect", status=400)
 
-        scheme = 'https' if handler and handler.headers.get('X-Forwarded-Proto') == 'https' else 'http'
+        scheme = (
+            "https" if handler and handler.headers.get("X-Forwarded-Proto") == "https" else "http"
+        )
         redirect_uri = f"{scheme}://{host}/api/youtube/callback"
 
         import secrets
+
         state = secrets.token_urlsafe(32)
 
         # Store state for CSRF validation in callback
         _store_oauth_state(state)
 
         auth_url = youtube.get_auth_url(redirect_uri, state)
-        return json_response({
-            "auth_url": auth_url,
-            "state": state,
-        })
+        return json_response(
+            {
+                "auth_url": auth_url,
+                "state": state,
+            }
+        )
 
-    def _handle_youtube_callback(self, code: Optional[str], state: Optional[str], handler) -> HandlerResult:
+    def _handle_youtube_callback(
+        self, code: Optional[str], state: Optional[str], handler
+    ) -> HandlerResult:
         """Handle YouTube OAuth callback."""
         if not code:
             return error_response("Missing authorization code", status=400)
@@ -199,22 +209,29 @@ class SocialMediaHandler(BaseHandler):
             logger.warning(f"OAuth callback with untrusted host: {host}")
             return error_response("Untrusted host for OAuth redirect", status=400)
 
-        scheme = 'https' if handler and handler.headers.get('X-Forwarded-Proto') == 'https' else 'http'
+        scheme = (
+            "https" if handler and handler.headers.get("X-Forwarded-Proto") == "https" else "http"
+        )
         redirect_uri = f"{scheme}://{host}/api/youtube/callback"
 
         try:
             result = _run_async(youtube.exchange_code(code, redirect_uri))
 
             if result.get("success"):
-                return json_response({
-                    "success": True,
-                    "message": "YouTube authentication successful",
-                })
+                return json_response(
+                    {
+                        "success": True,
+                        "message": "YouTube authentication successful",
+                    }
+                )
             else:
-                return json_response({
-                    "success": False,
-                    "error": result.get("error", "Unknown error"),
-                }, status=400)
+                return json_response(
+                    {
+                        "success": False,
+                        "error": result.get("error", "Unknown error"),
+                    },
+                    status=400,
+                )
 
         except Exception as e:
             logger.error(f"YouTube OAuth callback failed: {e}")
@@ -224,19 +241,23 @@ class SocialMediaHandler(BaseHandler):
         """Get YouTube connector status."""
         youtube = self.ctx.get("youtube_connector")
         if not youtube:
-            return json_response({
-                "configured": False,
-                "error": "YouTube connector not initialized",
-            })
+            return json_response(
+                {
+                    "configured": False,
+                    "error": "YouTube connector not initialized",
+                }
+            )
 
-        return json_response({
-            "configured": youtube.is_configured,
-            "has_client_id": bool(youtube.client_id),
-            "has_client_secret": bool(youtube.client_secret),
-            "has_refresh_token": bool(youtube.refresh_token),
-            "quota_remaining": youtube.rate_limiter.remaining_quota,
-            "circuit_breaker_open": youtube.circuit_breaker.is_open,
-        })
+        return json_response(
+            {
+                "configured": youtube.is_configured,
+                "has_client_id": bool(youtube.client_id),
+                "has_client_secret": bool(youtube.client_secret),
+                "has_refresh_token": bool(youtube.refresh_token),
+                "quota_remaining": youtube.rate_limiter.remaining_quota,
+                "circuit_breaker_open": youtube.circuit_breaker.is_open,
+            }
+        )
 
     # === Social Publishing Endpoints ===
 
@@ -247,10 +268,13 @@ class SocialMediaHandler(BaseHandler):
             return error_response("Twitter connector not initialized", status=500)
 
         if not twitter.is_configured:
-            return json_response({
-                "error": "Twitter API credentials not configured",
-                "hint": "Set TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET"
-            }, status=400)
+            return json_response(
+                {
+                    "error": "Twitter API credentials not configured",
+                    "hint": "Set TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET",
+                },
+                status=400,
+            )
 
         storage = self.get_storage()
         if not storage:
@@ -272,7 +296,9 @@ class SocialMediaHandler(BaseHandler):
         thread_mode = options.get("thread_mode", False)
 
         host = get_host_header(handler)
-        scheme = 'https' if handler and handler.headers.get('X-Forwarded-Proto') == 'https' else 'http'
+        scheme = (
+            "https" if handler and handler.headers.get("X-Forwarded-Proto") == "https" else "http"
+        )
         debate_url = f"{scheme}://{host}/debates/{debate_id}"
 
         audio_store = self.ctx.get("audio_store")
@@ -304,18 +330,23 @@ class SocialMediaHandler(BaseHandler):
                 result = _run_async(twitter.post_tweet(tweet_text))
 
             if result.get("success"):
-                return json_response({
-                    "success": True,
-                    "debate_id": debate_id,
-                    "tweet_id": result.get("tweet_id"),
-                    "thread_ids": result.get("thread_ids"),
-                    "url": result.get("url"),
-                })
+                return json_response(
+                    {
+                        "success": True,
+                        "debate_id": debate_id,
+                        "tweet_id": result.get("tweet_id"),
+                        "thread_ids": result.get("thread_ids"),
+                        "url": result.get("url"),
+                    }
+                )
             else:
-                return json_response({
-                    "success": False,
-                    "error": result.get("error", "Unknown error"),
-                }, status=500)
+                return json_response(
+                    {
+                        "success": False,
+                        "error": result.get("error", "Unknown error"),
+                    },
+                    status=500,
+                )
 
         except Exception as e:
             logger.error(f"Failed to publish to Twitter: {e}")
@@ -328,10 +359,13 @@ class SocialMediaHandler(BaseHandler):
             return error_response("YouTube connector not initialized", status=500)
 
         if not youtube.is_configured:
-            return json_response({
-                "error": "YouTube API credentials not configured",
-                "hint": "Set YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN"
-            }, status=400)
+            return json_response(
+                {
+                    "error": "YouTube API credentials not configured",
+                    "hint": "Set YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN",
+                },
+                status=400,
+            )
 
         storage = self.get_storage()
         if not storage:
@@ -345,17 +379,23 @@ class SocialMediaHandler(BaseHandler):
 
         # Check quota
         if not youtube.rate_limiter.can_upload():
-            return json_response({
-                "error": "YouTube daily quota exceeded",
-                "quota_remaining": youtube.rate_limiter.remaining_quota,
-            }, status=429)
+            return json_response(
+                {
+                    "error": "YouTube daily quota exceeded",
+                    "quota_remaining": youtube.rate_limiter.remaining_quota,
+                },
+                status=429,
+            )
 
         audio_store = self.ctx.get("audio_store")
         if not audio_store or not audio_store.exists(debate_id):
-            return json_response({
-                "error": "No audio found for this debate",
-                "hint": "Generate audio first using POST /api/debates/{id}/broadcast"
-            }, status=400)
+            return json_response(
+                {
+                    "error": "No audio found for this debate",
+                    "hint": "Generate audio first using POST /api/debates/{id}/broadcast",
+                },
+                status=400,
+            )
 
         # Read POST body for options
         body = self.read_json_body(handler) if handler else {}
@@ -382,9 +422,7 @@ class SocialMediaHandler(BaseHandler):
                     video_path = video_generator.generate_waveform_video(audio_path)
                 except Exception as e:
                     logger.debug(f"Waveform video generation failed, using static fallback: {e}")
-                    video_path = video_generator.generate_static_video(
-                        audio_path, task, agents
-                    )
+                    video_path = video_generator.generate_static_video(audio_path, task, agents)
             else:
                 return error_response("Video generator not available", status=503)
 
@@ -392,7 +430,8 @@ class SocialMediaHandler(BaseHandler):
 
             metadata = YouTubeVideoMetadata(
                 title=custom_title or f"AI Debate: {task[:80]}",
-                description=custom_description or f"Multi-agent AI debate on: {task}\n\nAgents: {', '.join(agents)}",
+                description=custom_description
+                or f"Multi-agent AI debate on: {task}\n\nAgents: {', '.join(agents)}",
                 tags=tags or ["AI", "debate", "agents", "artificial intelligence"],
                 privacy_status=privacy,
             )
@@ -401,18 +440,23 @@ class SocialMediaHandler(BaseHandler):
             result = _run_async(youtube.upload(video_path, metadata))
 
             if result.get("success"):
-                return json_response({
-                    "success": True,
-                    "debate_id": debate_id,
-                    "video_id": result.get("video_id"),
-                    "url": result.get("url"),
-                    "quota_remaining": youtube.rate_limiter.remaining_quota,
-                })
+                return json_response(
+                    {
+                        "success": True,
+                        "debate_id": debate_id,
+                        "video_id": result.get("video_id"),
+                        "url": result.get("url"),
+                        "quota_remaining": youtube.rate_limiter.remaining_quota,
+                    }
+                )
             else:
-                return json_response({
-                    "success": False,
-                    "error": result.get("error", "Upload failed"),
-                }, status=500)
+                return json_response(
+                    {
+                        "success": False,
+                        "error": result.get("error", "Upload failed"),
+                    },
+                    status=500,
+                )
 
         except Exception as e:
             logger.error(f"Failed to publish to YouTube: {e}")

@@ -57,12 +57,14 @@ from .runner import GauntletRunner
 from .receipt import DecisionReceipt
 from .heatmap import RiskHeatmap, HeatmapCell
 
+
 # Re-export orchestrator classes from modes (full 5-phase implementation)
 # These are imported here to provide a single canonical import location
 # NOTE: Import is deferred to avoid circular imports and deprecation warning at import time
 def _get_orchestrator_classes():
     """Lazy import of orchestrator classes."""
     import warnings
+
     # Suppress deprecation warning during internal re-export
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -105,6 +107,7 @@ def _get_orchestrator_classes():
         "SOX_GAUNTLET": SOX_GAUNTLET,
     }
 
+
 # Lazy attribute access for orchestrator classes
 def __getattr__(name: str):
     """Lazy loading for orchestrator classes."""
@@ -131,6 +134,7 @@ def __getattr__(name: str):
         classes = _get_orchestrator_classes()
         return classes[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     # Shared types (canonical)

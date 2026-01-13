@@ -54,12 +54,14 @@ def mock_artifact():
     artifact.task = "Design a rate limiter"
     artifact.agents = ["claude", "gemini"]
     artifact.consensus_proof = MagicMock(reached=True, confidence=0.95)
-    artifact.to_json.return_value = json.dumps({
-        "artifact_id": "test-id-123",
-        "task": "Design a rate limiter",
-        "agents": ["claude", "gemini"],
-        "consensus_proof": {"reached": True, "confidence": 0.95},
-    })
+    artifact.to_json.return_value = json.dumps(
+        {
+            "artifact_id": "test-id-123",
+            "task": "Design a rate limiter",
+            "agents": ["claude", "gemini"],
+            "consensus_proof": {"reached": True, "confidence": 0.95},
+        }
+    )
     return artifact
 
 
@@ -203,9 +205,7 @@ class TestDatabaseInitialization:
         DebateStorage(db_path=temp_db)
 
         with sqlite3.connect(temp_db) as conn:
-            cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='index'"
-            )
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='index'")
             indexes = [row[0] for row in cursor.fetchall()]
 
         assert "idx_slug" in indexes
@@ -284,10 +284,7 @@ class TestSaveOperations:
         slug = storage.save(mock_artifact)
 
         with sqlite3.connect(temp_db) as conn:
-            cursor = conn.execute(
-                "SELECT view_count FROM debates WHERE slug = ?",
-                (slug,)
-            )
+            cursor = conn.execute("SELECT view_count FROM debates WHERE slug = ?", (slug,))
             count = cursor.fetchone()[0]
 
         assert count == 0
@@ -297,10 +294,7 @@ class TestSaveOperations:
         slug = storage.save(mock_artifact)
 
         with sqlite3.connect(temp_db) as conn:
-            cursor = conn.execute(
-                "SELECT created_at FROM debates WHERE slug = ?",
-                (slug,)
-            )
+            cursor = conn.execute("SELECT created_at FROM debates WHERE slug = ?", (slug,))
             created_at = cursor.fetchone()[0]
 
         assert created_at is not None
@@ -310,10 +304,7 @@ class TestSaveOperations:
         slug = storage.save(mock_artifact)
 
         with sqlite3.connect(temp_db) as conn:
-            cursor = conn.execute(
-                "SELECT agents FROM debates WHERE slug = ?",
-                (slug,)
-            )
+            cursor = conn.execute("SELECT agents FROM debates WHERE slug = ?", (slug,))
             agents_json = cursor.fetchone()[0]
 
         agents = json.loads(agents_json)
@@ -359,10 +350,7 @@ class TestRetrievalOperations:
         storage.get_by_slug(slug)
 
         with sqlite3.connect(temp_db) as conn:
-            cursor = conn.execute(
-                "SELECT view_count FROM debates WHERE slug = ?",
-                (slug,)
-            )
+            cursor = conn.execute("SELECT view_count FROM debates WHERE slug = ?", (slug,))
             count1 = cursor.fetchone()[0]
 
         assert count1 == 1
@@ -371,10 +359,7 @@ class TestRetrievalOperations:
         storage.get_by_slug(slug)
 
         with sqlite3.connect(temp_db) as conn:
-            cursor = conn.execute(
-                "SELECT view_count FROM debates WHERE slug = ?",
-                (slug,)
-            )
+            cursor = conn.execute("SELECT view_count FROM debates WHERE slug = ?", (slug,))
             count2 = cursor.fetchone()[0]
 
         assert count2 == 2
@@ -412,10 +397,7 @@ class TestRetrievalOperations:
         storage.get_by_id("test-id-123")
 
         with sqlite3.connect(temp_db) as conn:
-            cursor = conn.execute(
-                "SELECT view_count FROM debates WHERE slug = ?",
-                (slug,)
-            )
+            cursor = conn.execute("SELECT view_count FROM debates WHERE slug = ?", (slug,))
             count = cursor.fetchone()[0]
 
         assert count == 0  # No increment
@@ -529,20 +511,23 @@ class TestDeleteAndEdgeCases:
         """list_recent should handle invalid datetime."""
         # Insert with invalid datetime directly
         with sqlite3.connect(temp_db) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO debates (id, slug, task, agents, artifact_json,
                                     consensus_reached, confidence, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                "invalid-dt-id",
-                "invalid-dt-slug",
-                "Test",
-                "[]",
-                "{}",
-                False,
-                0,
-                "not-a-valid-datetime",
-            ))
+            """,
+                (
+                    "invalid-dt-id",
+                    "invalid-dt-slug",
+                    "Test",
+                    "[]",
+                    "{}",
+                    False,
+                    0,
+                    "not-a-valid-datetime",
+                ),
+            )
             conn.commit()
 
         # Should not crash
@@ -617,10 +602,7 @@ class TestConcurrentAccess:
 
         # View count should be exactly 20
         with sqlite3.connect(storage.db_path) as conn:
-            cursor = conn.execute(
-                "SELECT view_count FROM debates WHERE slug = ?",
-                (slug,)
-            )
+            cursor = conn.execute("SELECT view_count FROM debates WHERE slug = ?", (slug,))
             count = cursor.fetchone()[0]
 
         assert count == 20
@@ -649,7 +631,7 @@ class TestAudioMethods:
         with sqlite3.connect(temp_db) as conn:
             cursor = conn.execute(
                 "SELECT audio_path, audio_duration_seconds FROM debates WHERE id = ?",
-                ("test-id-123",)
+                ("test-id-123",),
             )
             row = cursor.fetchone()
         assert row[0] == "/path/to/audio.mp3"
@@ -711,9 +693,7 @@ class TestAudioMethods:
         def update_audio(thread_id):
             try:
                 storage.update_audio(
-                    "test-id-123",
-                    f"/audio_{thread_id}.mp3",
-                    duration_seconds=thread_id * 10
+                    "test-id-123", f"/audio_{thread_id}.mp3", duration_seconds=thread_id * 10
                 )
             except Exception as e:
                 errors.append(e)
@@ -842,19 +822,22 @@ class TestJSONHandling:
         """Retrieving debate with corrupted JSON in DB should raise."""
         # Insert with invalid JSON directly
         with sqlite3.connect(temp_db) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO debates (id, slug, task, agents, artifact_json,
                                     consensus_reached, confidence)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                "corrupted-json",
-                "corrupted-slug",
-                "Test",
-                "[]",
-                "NOT VALID JSON {{{",
-                False,
-                0,
-            ))
+            """,
+                (
+                    "corrupted-json",
+                    "corrupted-slug",
+                    "Test",
+                    "[]",
+                    "NOT VALID JSON {{{",
+                    False,
+                    0,
+                ),
+            )
             conn.commit()
 
         # Should raise JSONDecodeError
@@ -865,20 +848,23 @@ class TestJSONHandling:
         """list_recent with malformed agents JSON should handle gracefully."""
         # Insert with invalid agents JSON
         with sqlite3.connect(temp_db) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO debates (id, slug, task, agents, artifact_json,
                                     consensus_reached, confidence, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                "malformed-agents",
-                "malformed-agents-slug",
-                "Test",
-                "NOT VALID JSON",  # Invalid
-                "{}",
-                False,
-                0,
-                datetime.now().isoformat(),
-            ))
+            """,
+                (
+                    "malformed-agents",
+                    "malformed-agents-slug",
+                    "Test",
+                    "NOT VALID JSON",  # Invalid
+                    "{}",
+                    False,
+                    0,
+                    datetime.now().isoformat(),
+                ),
+            )
             conn.commit()
 
         # Should raise JSONDecodeError on invalid agents
@@ -905,19 +891,22 @@ class TestJSONHandling:
         """Empty artifact_json field handling."""
         # Insert with empty JSON
         with sqlite3.connect(temp_db) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO debates (id, slug, task, agents, artifact_json,
                                     consensus_reached, confidence)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                "empty-json",
-                "empty-json-slug",
-                "Test",
-                "[]",
-                "{}",  # Empty but valid JSON
-                False,
-                0,
-            ))
+            """,
+                (
+                    "empty-json",
+                    "empty-json-slug",
+                    "Test",
+                    "[]",
+                    "{}",  # Empty but valid JSON
+                    False,
+                    0,
+                ),
+            )
             conn.commit()
 
         debate = storage.get_by_slug("empty-json-slug")
@@ -968,20 +957,23 @@ class TestListRecentEdgeCases:
         """Handle empty agents JSON string in database."""
         # Insert with empty JSON array string
         with sqlite3.connect(temp_db) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO debates (id, slug, task, agents, artifact_json,
                                     consensus_reached, confidence, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                "empty-agents",
-                "empty-agents-slug",
-                "Test",
-                "[]",  # Empty array (agents column is NOT NULL)
-                "{}",
-                False,
-                0,
-                datetime.now().isoformat(),
-            ))
+            """,
+                (
+                    "empty-agents",
+                    "empty-agents-slug",
+                    "Test",
+                    "[]",  # Empty array (agents column is NOT NULL)
+                    "{}",
+                    False,
+                    0,
+                    datetime.now().isoformat(),
+                ),
+            )
             conn.commit()
 
         results = storage.list_recent()
@@ -991,21 +983,24 @@ class TestListRecentEdgeCases:
     def test_list_recent_handles_null_view_count(self, storage, temp_db):
         """Handle NULL view_count in database."""
         with sqlite3.connect(temp_db) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO debates (id, slug, task, agents, artifact_json,
                                     consensus_reached, confidence, created_at, view_count)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                "null-view",
-                "null-view-slug",
-                "Test",
-                "[]",
-                "{}",
-                False,
-                0,
-                datetime.now().isoformat(),
-                None,  # NULL view_count
-            ))
+            """,
+                (
+                    "null-view",
+                    "null-view-slug",
+                    "Test",
+                    "[]",
+                    "{}",
+                    False,
+                    0,
+                    datetime.now().isoformat(),
+                    None,  # NULL view_count
+                ),
+            )
             conn.commit()
 
         results = storage.list_recent()

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DebateViewer } from '../DebateViewer';
 
@@ -81,6 +81,12 @@ Object.defineProperty(navigator, 'clipboard', {
 });
 
 describe('DebateViewer', () => {
+  const actUser = async (action: () => Promise<void>) => {
+    await act(async () => {
+      await action();
+    });
+  };
+
   const defaultWebSocketState = {
     status: 'connecting' as const,
     task: '',
@@ -366,7 +372,7 @@ describe('DebateViewer', () => {
       expect(screen.getByTestId('user-participation')).toBeInTheDocument();
 
       // Toggle off
-      await user.click(screen.getByText('[HIDE VOTE]'));
+      await actUser(() => user.click(screen.getByText('[HIDE VOTE]')));
 
       // Should be hidden
       expect(screen.queryByTestId('user-participation')).not.toBeInTheDocument();

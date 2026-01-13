@@ -27,18 +27,20 @@ def temp_db_dir():
         for db_name in ["elo.db", "continuum.db", "test.db"]:
             db_path = db_dir / db_name
             with sqlite3.connect(str(db_path)) as conn:
-                conn.execute("""
+                conn.execute(
+                    """
                     CREATE TABLE test_table (
                         id INTEGER PRIMARY KEY,
                         data TEXT,
                         created_at TEXT
                     )
-                """)
+                """
+                )
                 # Insert some test data
                 for i in range(10):
                     conn.execute(
                         "INSERT INTO test_table (data, created_at) VALUES (?, ?)",
-                        (f"data_{i}", datetime.now().isoformat())
+                        (f"data_{i}", datetime.now().isoformat()),
                     )
 
         yield db_dir
@@ -145,31 +147,28 @@ class TestDatabaseMaintenance:
         # Create database with old and new records
         # Use 'memories' table name which is in ALLOWED_CLEANUP_TABLES whitelist
         with sqlite3.connect(str(db_path)) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE memories (
                     id INTEGER PRIMARY KEY,
                     data TEXT,
                     created_at TEXT
                 )
-            """)
+            """
+            )
             # Old record (100 days ago)
             old_date = (datetime.now() - timedelta(days=100)).isoformat()
             conn.execute(
-                "INSERT INTO memories (data, created_at) VALUES (?, ?)",
-                ("old_data", old_date)
+                "INSERT INTO memories (data, created_at) VALUES (?, ?)", ("old_data", old_date)
             )
             # New record (today)
             new_date = datetime.now().isoformat()
             conn.execute(
-                "INSERT INTO memories (data, created_at) VALUES (?, ?)",
-                ("new_data", new_date)
+                "INSERT INTO memories (data, created_at) VALUES (?, ?)", ("new_data", new_date)
             )
 
         maintenance = DatabaseMaintenance(temp_db_dir)
-        results = maintenance.cleanup_old_data(
-            days=90,
-            tables={"test_cleanup.db": "memories"}
-        )
+        results = maintenance.cleanup_old_data(days=90, tables={"test_cleanup.db": "memories"})
 
         # Should have cleaned 1 record
         assert "test_cleanup.db:memories" in results
@@ -184,10 +183,7 @@ class TestDatabaseMaintenance:
         """Test cleanup handles nonexistent tables gracefully."""
         # Use 'suggestions' which is in ALLOWED_CLEANUP_TABLES but doesn't exist in elo.db
         maintenance = DatabaseMaintenance(temp_db_dir)
-        results = maintenance.cleanup_old_data(
-            days=90,
-            tables={"elo.db": "suggestions"}
-        )
+        results = maintenance.cleanup_old_data(days=90, tables={"elo.db": "suggestions"})
         assert results == {}
 
     def test_get_stats(self, maintenance, temp_db_dir):

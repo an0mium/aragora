@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Generator, Optional
 
 from aragora.config import DB_CALIBRATION_PATH, DB_TIMEOUT_SECONDS
-from aragora.ranking.calibration_database import CalibrationDatabase
+from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager
 
 # Schema version for CalibrationTracker migrations
@@ -176,7 +176,7 @@ def adjust_agent_confidence(
     return calibration_summary.adjust_confidence(confidence)
 
 
-class CalibrationTracker:
+class CalibrationTracker(SQLiteStore):
     """
     Track prediction calibration for agents.
 
@@ -184,44 +184,28 @@ class CalibrationTracker:
     Stores data in SQLite for persistence across sessions.
     """
 
+    SCHEMA_NAME = "calibration"
+    SCHEMA_VERSION = CALIBRATION_SCHEMA_VERSION
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent TEXT NOT NULL,
+            confidence REAL NOT NULL,
+            correct INTEGER NOT NULL,
+            domain TEXT DEFAULT 'general',
+            debate_id TEXT,
+            position_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_pred_agent ON predictions(agent);
+        CREATE INDEX IF NOT EXISTS idx_pred_domain ON predictions(domain);
+        CREATE INDEX IF NOT EXISTS idx_pred_confidence ON predictions(confidence);
+    """
+
     def __init__(self, db_path: str = DB_CALIBRATION_PATH):
-        self.db_path = Path(db_path)
-        self.db = CalibrationDatabase(db_path)
-        self._init_db()
-
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection with guaranteed cleanup."""
-        with self.db.connection() as conn:
-            yield conn
-
-    def _init_db(self) -> None:
-        """Initialize database tables using SchemaManager."""
-        with self._get_connection() as conn:
-            # Use SchemaManager for version tracking and migrations
-            manager = SchemaManager(
-                conn, "calibration", current_version=CALIBRATION_SCHEMA_VERSION
-            )
-
-            # Initial schema (v1)
-            initial_schema = """
-                CREATE TABLE IF NOT EXISTS predictions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    agent TEXT NOT NULL,
-                    confidence REAL NOT NULL,
-                    correct INTEGER NOT NULL,
-                    domain TEXT DEFAULT 'general',
-                    debate_id TEXT,
-                    position_id TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_pred_agent ON predictions(agent);
-                CREATE INDEX IF NOT EXISTS idx_pred_domain ON predictions(domain);
-                CREATE INDEX IF NOT EXISTS idx_pred_confidence ON predictions(confidence);
-            """
-
-            manager.ensure_schema(initial_schema=initial_schema)
+        super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
 
     def record_prediction(
         self,
@@ -248,7 +232,7 @@ class CalibrationTracker:
         """
         confidence = max(0.0, min(1.0, confidence))
 
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.execute(
                 """
                 INSERT INTO predictions (agent, confidence, correct, domain, debate_id, position_id, created_at)
@@ -289,7 +273,7 @@ class CalibrationTracker:
         bucket_size = 1.0 / num_buckets
         buckets = []
 
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             for i in range(num_buckets):
                 range_start = i * bucket_size
                 range_end = (i + 1) * bucket_size
@@ -365,7 +349,7 @@ class CalibrationTracker:
         Returns:
             Brier score (0.0 to 1.0)
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             query = """
                 SELECT AVG((confidence - correct) * (confidence - correct))
                 FROM predictions
@@ -454,7 +438,7 @@ class CalibrationTracker:
         Returns:
             Dict mapping domain name to CalibrationSummary
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.execute(
                 "SELECT DISTINCT domain FROM predictions WHERE agent = ?",
                 (agent,),
@@ -465,7 +449,7 @@ class CalibrationTracker:
 
     def get_all_agents(self) -> list[str]:
         """Get list of all agents with recorded predictions."""
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.execute("SELECT DISTINCT agent FROM predictions ORDER BY agent")
             agents = [row[0] for row in cursor.fetchall()]
         return agents
@@ -516,7 +500,7 @@ class CalibrationTracker:
         Returns:
             Number of records deleted
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.execute("DELETE FROM predictions WHERE agent = ?", (agent,))
             deleted = cursor.rowcount
             conn.commit()
@@ -536,9 +520,7 @@ def integrate_with_position_ledger(
     Returns:
         Number of predictions imported
     """
-    positions = position_ledger.get_agent_positions(
-        agent, limit=1000, outcome_filter=None
-    )
+    positions = position_ledger.get_agent_positions(agent, limit=1000, outcome_filter=None)
 
     imported = 0
     for pos in positions:

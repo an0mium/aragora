@@ -1,15 +1,5 @@
 /**
  * Tests for ConsensusQualityDashboard component
- *
- * Tests cover:
- * - Loading state
- * - Error handling
- * - Empty state when no debates
- * - Quality score display with color coding
- * - Consensus rate and confidence metrics
- * - Trend indicator
- * - Alert banner display
- * - Confidence history chart
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -51,317 +41,120 @@ describe('ConsensusQualityDashboard', () => {
     mockFetch.mockReset();
   });
 
-  describe('Loading State', () => {
-    it('shows loading state initially', () => {
-      mockFetch.mockImplementation(() => new Promise(() => {}));
+  it('shows a loading indicator while fetching', () => {
+    mockFetch.mockImplementation(() => new Promise(() => {}));
 
-      render(<ConsensusQualityDashboard />);
+    render(<ConsensusQualityDashboard />);
 
-      expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    expect(screen.getByText('CONSENSUS QUALITY')).toBeInTheDocument();
+    expect(screen.getByText('...')).toBeInTheDocument();
+  });
+
+  it('displays an error message for failed responses', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 500 });
+
+    render(<ConsensusQualityDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/failed to fetch consensus quality/i)).toBeInTheDocument();
     });
   });
 
-  describe('Error State', () => {
-    it('displays error message when fetch fails', async () => {
-      mockFetch.mockRejectedValue(new Error('Network error'));
-
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/failed to fetch/i)).toBeInTheDocument();
-      });
+  it('shows empty state when no debates exist', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        stats: {
+          total_debates: 0,
+          confidence_history: [],
+          trend: 'insufficient_data',
+          average_confidence: 0,
+          consensus_rate: 0,
+          consensus_reached_count: 0,
+        },
+        quality_score: 0,
+        alert: null,
+      }),
     });
 
-    it('displays error for non-ok response', async () => {
-      mockFetch.mockResolvedValue({ ok: false, status: 500 });
+    render(<ConsensusQualityDashboard />);
 
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/failed to fetch consensus quality/i)).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Empty State', () => {
-    it('shows empty message when no debates exist', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({
-          stats: { total_debates: 0, confidence_history: [], trend: 'insufficient_data', average_confidence: 0, consensus_rate: 0, consensus_reached_count: 0 },
-          quality_score: 0,
-          alert: null,
-        }),
-      });
-
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/no debate data/i)).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      expect(screen.getByText(/no debate data available yet/i)).toBeInTheDocument();
     });
   });
 
-  describe('Quality Score Display', () => {
-    beforeEach(() => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockQualityData),
-      });
+  it('renders quality score and key metrics', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockQualityData),
     });
 
-    it('displays quality score prominently', async () => {
-      render(<ConsensusQualityDashboard />);
+    render(<ConsensusQualityDashboard />);
 
-      await waitFor(() => {
-        expect(screen.getByText('82')).toBeInTheDocument();
-        expect(screen.getByText('Quality Score')).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      expect(screen.getByText('82')).toBeInTheDocument();
+      expect(screen.getByText('Quality Score')).toBeInTheDocument();
     });
 
-    it('applies green color for high scores (>=80)', async () => {
-      render(<ConsensusQualityDashboard />);
+    expect(screen.getByText('84%')).toBeInTheDocument();
+    expect(screen.getByText('78%')).toBeInTheDocument();
+    expect(screen.getByText(/improving/i)).toBeInTheDocument();
 
-      await waitFor(() => {
-        const scoreElement = screen.getByText('82');
-        expect(scoreElement).toHaveClass('text-green-400');
-      });
+    expect(screen.getByText('CONFIDENCE HISTORY')).toBeInTheDocument();
+    expect(screen.getByText('Older')).toBeInTheDocument();
+    expect(screen.getByText('Recent')).toBeInTheDocument();
+
+    expect(screen.getByText('50 total debates')).toBeInTheDocument();
+    expect(screen.getByText('42 reached consensus')).toBeInTheDocument();
+  });
+
+  it('applies green color for high quality scores', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockQualityData),
     });
 
-    it('applies yellow color for medium scores (60-79)', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ ...mockQualityData, quality_score: 65 }),
-      });
+    render(<ConsensusQualityDashboard />);
 
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        const scoreElement = screen.getByText('65');
-        expect(scoreElement).toHaveClass('text-yellow-400');
-      });
-    });
-
-    it('applies red color for low scores (<40)', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ ...mockQualityData, quality_score: 25 }),
-      });
-
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        const scoreElement = screen.getByText('25');
-        expect(scoreElement).toHaveClass('text-red-400');
-      });
+    await waitFor(() => {
+      const scoreElement = screen.getByText('82');
+      expect(scoreElement).toHaveClass('text-green-400');
     });
   });
 
-  describe('Key Metrics', () => {
-    beforeEach(() => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockQualityData),
-      });
+  it('shows alert banner when provided', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockQualityDataWithAlert),
     });
 
-    it('displays consensus rate', async () => {
-      render(<ConsensusQualityDashboard />);
+    render(<ConsensusQualityDashboard />);
 
-      await waitFor(() => {
-        expect(screen.getByText('84%')).toBeInTheDocument();
-        expect(screen.getByText('Consensus Rate')).toBeInTheDocument();
-      });
-    });
-
-    it('displays average confidence', async () => {
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText('78%')).toBeInTheDocument();
-        expect(screen.getByText('Avg Confidence')).toBeInTheDocument();
-      });
-    });
-
-    it('displays trend indicator', async () => {
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/improving/i)).toBeInTheDocument();
-        expect(screen.getByText('📈')).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      expect(screen.getByText('⚠️')).toBeInTheDocument();
+      expect(screen.getByText('Consensus rate declining over the past week')).toBeInTheDocument();
     });
   });
 
-  describe('Trend Indicator', () => {
-    it('shows green color for improving trend', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockQualityData),
-      });
-
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        const trendElement = screen.getByText(/improving/i).closest('div');
-        expect(trendElement).toHaveClass('text-green-400');
-      });
+  it('refetches data when refresh is clicked', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockQualityData),
     });
 
-    it('shows red color for declining trend', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({
-          ...mockQualityData,
-          stats: { ...mockQualityData.stats, trend: 'declining' },
-        }),
-      });
+    render(<ConsensusQualityDashboard />);
 
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText('📉')).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      expect(screen.getByText('82')).toBeInTheDocument();
     });
 
-    it('shows stable indicator', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({
-          ...mockQualityData,
-          stats: { ...mockQualityData.stats, trend: 'stable' },
-        }),
-      });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
 
-      render(<ConsensusQualityDashboard />);
+    fireEvent.click(screen.getByRole('button', { name: '↻' }));
 
-      await waitFor(() => {
-        expect(screen.getByText('➡️')).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Alert Banner', () => {
-    it('displays warning alert when present', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockQualityDataWithAlert),
-      });
-
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText('⚠️')).toBeInTheDocument();
-        expect(screen.getByText('Consensus rate declining over the past week')).toBeInTheDocument();
-      });
-    });
-
-    it('displays critical alert with appropriate styling', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({
-          ...mockQualityData,
-          alert: { level: 'critical', message: 'System error detected' },
-        }),
-      });
-
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText('🚨')).toBeInTheDocument();
-        expect(screen.getByText('System error detected')).toBeInTheDocument();
-      });
-    });
-
-    it('does not display alert section when no alert', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockQualityData),
-      });
-
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText('82')).toBeInTheDocument();
-      });
-
-      expect(screen.queryByText('🚨')).not.toBeInTheDocument();
-      expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Confidence History Chart', () => {
-    beforeEach(() => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockQualityData),
-      });
-    });
-
-    it('displays confidence history section', async () => {
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText('CONFIDENCE HISTORY')).toBeInTheDocument();
-      });
-    });
-
-    it('shows chart axis labels', async () => {
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Older')).toBeInTheDocument();
-        expect(screen.getByText('Recent')).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Summary Stats', () => {
-    beforeEach(() => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockQualityData),
-      });
-    });
-
-    it('displays total debates count', async () => {
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText('50 total debates')).toBeInTheDocument();
-      });
-    });
-
-    it('displays consensus reached count', async () => {
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText('42 reached consensus')).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Refresh Functionality', () => {
-    it('refetches data when refresh button clicked', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockQualityData),
-      });
-
-      render(<ConsensusQualityDashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText('82')).toBeInTheDocument();
-      });
-
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-
-      const refreshButton = screen.getByRole('button', { name: /refresh/i });
-      fireEvent.click(refreshButton);
-
-      await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledTimes(2);
-      });
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
 });

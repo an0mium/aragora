@@ -76,10 +76,11 @@ class TestOllamaAvailability:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.get = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.get = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.is_available()
@@ -95,10 +96,11 @@ class TestOllamaAvailability:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.get = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.get = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.is_available()
@@ -119,20 +121,23 @@ class TestOllamaModelDiscovery:
         """Test listing models when server returns data."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "models": [
-                {"name": "llama3.2", "size": 1000000},
-                {"name": "codellama", "size": 2000000},
-            ]
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "models": [
+                    {"name": "llama3.2", "size": 1000000},
+                    {"name": "codellama", "size": 2000000},
+                ]
+            }
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.get = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.get = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             models = await agent.list_models()
@@ -149,10 +154,11 @@ class TestOllamaModelDiscovery:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.get = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.get = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             models = await agent.list_models()
@@ -173,17 +179,16 @@ class TestOllamaGenerate:
         """Test successful generation."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "response": "Hello from Ollama!"
-        })
+        mock_response.json = AsyncMock(return_value={"response": "Hello from Ollama!"})
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.generate("Test prompt")
@@ -199,9 +204,9 @@ class TestOllamaGenerate:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(side_effect=aiohttp.ClientConnectorError(
-            MagicMock(), OSError("Connection refused")
-        ))
+        mock_session.post = MagicMock(
+            side_effect=aiohttp.ClientConnectorError(MagicMock(), OSError("Connection refused"))
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             # May raise or return error string depending on decorator
@@ -304,10 +309,11 @@ class TestLMStudioAvailability:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.get = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.get = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.is_available()
@@ -328,20 +334,23 @@ class TestLMStudioModelDiscovery:
         """Test listing models when server returns data."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "data": [
-                {"id": "model-1", "object": "model"},
-                {"id": "model-2", "object": "model"},
-            ]
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "data": [
+                    {"id": "model-1", "object": "model"},
+                    {"id": "model-2", "object": "model"},
+                ]
+            }
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.get = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.get = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             models = await agent.list_models()
@@ -381,19 +390,18 @@ class TestLMStudioGenerate:
         """Test successful generation."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "choices": [{
-                "message": {"content": "Hello from LM Studio!"}
-            }]
-        })
+        mock_response.json = AsyncMock(
+            return_value={"choices": [{"message": {"content": "Hello from LM Studio!"}}]}
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.generate("Test prompt")
@@ -405,9 +413,9 @@ class TestLMStudioGenerate:
         """Test payload includes properly formatted messages."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "choices": [{"message": {"content": "Response"}}]
-        })
+        mock_response.json = AsyncMock(
+            return_value={"choices": [{"message": {"content": "Response"}}]}
+        )
 
         captured_payload = None
 
@@ -415,8 +423,7 @@ class TestLMStudioGenerate:
             nonlocal captured_payload
             captured_payload = kwargs.get("json", {})
             return MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response),
-                __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
             )
 
         mock_session = MagicMock()

@@ -23,6 +23,7 @@ from aragora.memory.continuum import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def temp_db(tmp_path):
     """Create a temporary database path."""
@@ -54,6 +55,7 @@ def populated_continuum(continuum):
 # Schema Migration Tests
 # =============================================================================
 
+
 class TestSchemaV2Migration:
     """Tests for v2 schema migration."""
 
@@ -61,10 +63,12 @@ class TestSchemaV2Migration:
         """Archive table should be created on init."""
         with sqlite3.connect(continuum.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT name FROM sqlite_master
                 WHERE type='table' AND name='continuum_memory_archive'
-            """)
+            """
+            )
             result = cursor.fetchone()
         assert result is not None
 
@@ -80,6 +84,7 @@ class TestSchemaV2Migration:
 # =============================================================================
 # Cleanup Expired Memories Tests
 # =============================================================================
+
 
 class TestCleanupExpiredMemories:
     """Tests for cleanup_expired_memories method."""
@@ -234,6 +239,7 @@ class TestCleanupExpiredMemories:
 # Enforce Tier Limits Tests
 # =============================================================================
 
+
 class TestEnforceTierLimits:
     """Tests for enforce_tier_limits method."""
 
@@ -318,6 +324,7 @@ class TestEnforceTierLimits:
 # Archive Stats Tests
 # =============================================================================
 
+
 class TestArchiveStats:
     """Tests for get_archive_stats method."""
 
@@ -349,6 +356,7 @@ class TestArchiveStats:
 # =============================================================================
 # Handler Tests
 # =============================================================================
+
 
 class TestMemoryHandler:
     """Tests for memory handler API endpoints."""

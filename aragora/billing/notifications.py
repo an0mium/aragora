@@ -153,6 +153,7 @@ class BillingNotifier:
         email: str,
         attempt_count: int = 1,
         invoice_url: Optional[str] = None,
+        days_until_downgrade: int = 7,
     ) -> NotificationResult:
         """
         Send payment failure notification.
@@ -163,6 +164,7 @@ class BillingNotifier:
             email: Email address to notify
             attempt_count: Number of failed payment attempts
             invoice_url: URL to the failed invoice
+            days_until_downgrade: Days until subscription downgrade (default 7)
 
         Returns:
             NotificationResult indicating success/failure
@@ -185,8 +187,7 @@ class BillingNotifier:
         else:
             urgency = "NOTICE"
             urgency_message = (
-                "We were unable to process your payment. "
-                "Please update your payment information."
+                "We were unable to process your payment. " "Please update your payment information."
             )
 
         html_body = f"""
@@ -248,15 +249,17 @@ If you believe this is an error, please contact support@aragora.ai
             return result
 
         # Fall back to webhook
-        webhook_result = self._send_webhook({
-            "event": "payment_failed",
-            "org_id": org_id,
-            "org_name": org_name,
-            "email": email,
-            "attempt_count": attempt_count,
-            "urgency": urgency,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        webhook_result = self._send_webhook(
+            {
+                "event": "payment_failed",
+                "org_id": org_id,
+                "org_name": org_name,
+                "email": email,
+                "attempt_count": attempt_count,
+                "urgency": urgency,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
         if webhook_result.success:
             return webhook_result
 
@@ -365,16 +368,18 @@ Questions? Contact us at support@aragora.ai
             return result
 
         # Fall back to webhook
-        webhook_result = self._send_webhook({
-            "event": "trial_ending",
-            "org_id": org_id,
-            "org_name": org_name,
-            "email": email,
-            "days_remaining": days_remaining,
-            "trial_end": trial_end.isoformat(),
-            "urgency": urgency,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        webhook_result = self._send_webhook(
+            {
+                "event": "trial_ending",
+                "org_id": org_id,
+                "org_name": org_name,
+                "email": email,
+                "days_remaining": days_remaining,
+                "trial_end": trial_end.isoformat(),
+                "urgency": urgency,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
         if webhook_result.success:
             return webhook_result
 
@@ -460,21 +465,22 @@ We'd love to hear your feedback. What could we have done better?
             return result
 
         # Fall back to webhook
-        webhook_result = self._send_webhook({
-            "event": "subscription_canceled",
-            "org_id": org_id,
-            "org_name": org_name,
-            "email": email,
-            "reason": reason,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        webhook_result = self._send_webhook(
+            {
+                "event": "subscription_canceled",
+                "org_id": org_id,
+                "org_name": org_name,
+                "email": email,
+                "reason": reason,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
         if webhook_result.success:
             return webhook_result
 
         # Log as final fallback
         logger.info(
-            f"SUBSCRIPTION_CANCELED: org={org_id} name={org_name} email={email} "
-            f"reason={reason}"
+            f"SUBSCRIPTION_CANCELED: org={org_id} name={org_name} email={email} " f"reason={reason}"
         )
         return NotificationResult(success=True, method="log")
 

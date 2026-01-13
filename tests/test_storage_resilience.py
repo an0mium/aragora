@@ -88,18 +88,11 @@ class TestResilientConnection:
         conn = ResilientConnection(temp_db)
 
         # Insert
-        last_id = conn.execute(
-            "INSERT INTO test (value) VALUES (?)",
-            ("hello",)
-        )
+        last_id = conn.execute("INSERT INTO test (value) VALUES (?)", ("hello",))
         assert last_id is not None
 
         # Select
-        rows = conn.execute(
-            "SELECT * FROM test WHERE value = ?",
-            ("hello",),
-            fetch=True
-        )
+        rows = conn.execute("SELECT * FROM test WHERE value = ?", ("hello",), fetch=True)
         assert len(rows) == 1
         assert rows[0]["value"] == "hello"
 
@@ -108,10 +101,7 @@ class TestResilientConnection:
         conn = ResilientConnection(temp_db)
 
         params = [("value1",), ("value2",), ("value3",)]
-        affected = conn.executemany(
-            "INSERT INTO test (value) VALUES (?)",
-            params
-        )
+        affected = conn.executemany("INSERT INTO test (value) VALUES (?)", params)
         assert affected == 3
 
     def test_transaction_commit(self, temp_db):
@@ -122,11 +112,7 @@ class TestResilientConnection:
             cursor.execute("INSERT INTO test (value) VALUES (?)", ("committed",))
 
         # Verify with new connection
-        rows = conn.execute(
-            "SELECT * FROM test WHERE value = ?",
-            ("committed",),
-            fetch=True
-        )
+        rows = conn.execute("SELECT * FROM test WHERE value = ?", ("committed",), fetch=True)
         assert len(rows) == 1
 
     def test_transaction_rollback_on_error(self, temp_db):
@@ -142,11 +128,7 @@ class TestResilientConnection:
             pass
 
         # Verify rollback
-        rows = conn.execute(
-            "SELECT * FROM test WHERE value = ?",
-            ("rollback_test",),
-            fetch=True
-        )
+        rows = conn.execute("SELECT * FROM test WHERE value = ?", ("rollback_test",), fetch=True)
         assert len(rows) == 0
 
     def test_retry_on_transient_error(self, temp_db):
@@ -209,12 +191,7 @@ class TestResilientConnection:
 
     def test_exponential_backoff_delays(self, temp_db):
         """Test that exponential backoff is applied correctly."""
-        conn = ResilientConnection(
-            temp_db,
-            max_retries=3,
-            base_delay=0.1,
-            max_delay=1.0
-        )
+        conn = ResilientConnection(temp_db, max_retries=3, base_delay=0.1, max_delay=1.0)
 
         # Check delay calculations
         assert conn._calculate_delay(0) == 0.1  # 0.1 * 2^0
@@ -228,6 +205,7 @@ class TestWithRetryDecorator:
 
     def test_successful_execution(self, temp_db):
         """Test decorator with successful function."""
+
         @with_retry(max_retries=3)
         def insert_record(db_path: str, value: str):
             conn = sqlite3.connect(db_path)
@@ -262,6 +240,7 @@ class TestWithRetryDecorator:
 
     def test_preserves_function_metadata(self):
         """Test that decorator preserves function name and docstring."""
+
         @with_retry()
         def documented_function():
             """This is the docstring."""
@@ -407,10 +386,7 @@ class TestIntegration:
             nonlocal success_count
             conn = ResilientConnection(temp_db, max_retries=5, base_delay=0.01)
             try:
-                conn.execute(
-                    "INSERT INTO test (value) VALUES (?)",
-                    (f"worker_{worker_id}",)
-                )
+                conn.execute("INSERT INTO test (value) VALUES (?)", (f"worker_{worker_id}",))
                 with lock:
                     success_count += 1
             except Exception as e:
@@ -449,8 +425,7 @@ class TestIntegration:
             # Verify
             with pool.get_connection() as conn:
                 cursor = conn.execute(
-                    "SELECT COUNT(*) FROM test WHERE value LIKE ?",
-                    ("pool_retry_%",)
+                    "SELECT COUNT(*) FROM test WHERE value LIKE ?", ("pool_retry_%",)
                 )
                 count = cursor.fetchone()[0]
                 assert count == 10
@@ -488,7 +463,9 @@ class TestAtomicTransaction:
 
         # Verify insert was rolled back
         verify_conn = sqlite3.connect(temp_db)
-        cursor = verify_conn.execute("SELECT COUNT(*) FROM test WHERE value = ?", ("rollback_test",))
+        cursor = verify_conn.execute(
+            "SELECT COUNT(*) FROM test WHERE value = ?", ("rollback_test",)
+        )
         count = cursor.fetchone()[0]
         verify_conn.close()
         assert count == 0
@@ -530,13 +507,16 @@ class TestAtomicTransaction:
 
         # Verify the insert succeeded
         verify_conn = sqlite3.connect(temp_db)
-        cursor = verify_conn.execute("SELECT COUNT(*) FROM test WHERE value = ?", ("retry_success",))
+        cursor = verify_conn.execute(
+            "SELECT COUNT(*) FROM test WHERE value = ?", ("retry_success",)
+        )
         count = cursor.fetchone()[0]
         verify_conn.close()
         assert count == 1
 
     def test_atomic_transaction_max_retries_exceeded(self, temp_db):
         """Test atomic transaction fails after max retries."""
+
         def always_locked(*args, **kwargs):
             raise sqlite3.OperationalError("database is locked")
 
@@ -573,8 +553,7 @@ class TestAtomicTransaction:
             try:
                 with atomic_transaction(temp_db, max_retries=5, base_delay=0.01) as conn:
                     conn.execute(
-                        "INSERT INTO test (value) VALUES (?)",
-                        (f"concurrent_{worker_id}",)
+                        "INSERT INTO test (value) VALUES (?)", (f"concurrent_{worker_id}",)
                     )
                 with lock:
                     success_count += 1
@@ -593,7 +572,9 @@ class TestAtomicTransaction:
 
         # Verify all inserts
         verify_conn = sqlite3.connect(temp_db)
-        cursor = verify_conn.execute("SELECT COUNT(*) FROM test WHERE value LIKE ?", ("concurrent_%",))
+        cursor = verify_conn.execute(
+            "SELECT COUNT(*) FROM test WHERE value LIKE ?", ("concurrent_%",)
+        )
         count = cursor.fetchone()[0]
         verify_conn.close()
         assert count == 10

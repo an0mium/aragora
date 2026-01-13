@@ -2,6 +2,8 @@
 
 This guide helps new contributors get set up and productive with Aragora development.
 
+If you just want to run a debate (not contribute), start at [docs/START_HERE.md](docs/START_HERE.md).
+
 ## Quick Start
 
 ```bash
@@ -233,7 +235,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 ## Frontend Development
 
-The frontend is a Next.js app in `aragora/live/`:
+The frontend is a Next.js app in `aragora/live/`. See [docs/FRONTEND_DEVELOPMENT.md](docs/FRONTEND_DEVELOPMENT.md) for the full guide. The TypeScript SDK lives in `aragora-js/` and is not a UI.
 
 ```bash
 cd aragora/live

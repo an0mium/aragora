@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AgentTabs } from '../AgentTabs';
 import type { StreamEvent } from '@/types/events';
@@ -24,6 +24,20 @@ describe('AgentTabs', () => {
       json: async () => ({ positions: [] }),
     });
   });
+
+  const actUser = async (action: () => Promise<void>) => {
+    await act(async () => {
+      await action();
+    });
+  };
+
+  const selectAgentTab = async (user: ReturnType<typeof userEvent.setup>, agentName: string) => {
+    const agentTabs = screen.getAllByText(agentName);
+    await actUser(() => user.click(agentTabs[0]));
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalled();
+    });
+  };
 
   const createAgentMessageEvent = (
     agent: string,
@@ -104,8 +118,7 @@ describe('AgentTabs', () => {
       render(<AgentTabs events={events} />);
 
       // Click the claude tab button (first one in the tab bar)
-      const claudeTabs = screen.getAllByText('claude');
-      await user.click(claudeTabs[0]);
+      await selectAgentTab(user, 'claude');
 
       // Should show individual agent view
       await waitFor(() => {
@@ -155,8 +168,7 @@ describe('AgentTabs', () => {
       const user = userEvent.setup();
       render(<AgentTabs events={events} />);
 
-      const claudeTabs = screen.getAllByText('claude');
-      await user.click(claudeTabs[0]);
+      await selectAgentTab(user, 'claude');
 
       await waitFor(() => {
         expect(screen.getByText('92%')).toBeInTheDocument();
@@ -167,15 +179,14 @@ describe('AgentTabs', () => {
       const user = userEvent.setup();
       render(<AgentTabs events={events} />);
 
-      const claudeTabs = screen.getAllByText('claude');
-      await user.click(claudeTabs[0]);
+      await selectAgentTab(user, 'claude');
 
       // Click history button
       await waitFor(() => {
         expect(screen.getByText('History')).toBeInTheDocument();
       });
 
-      await user.click(screen.getByText('History'));
+      await actUser(() => user.click(screen.getByText('History')));
 
       // Should show all messages in history
       await waitFor(() => {
@@ -203,8 +214,7 @@ describe('AgentTabs', () => {
 
       render(<AgentTabs events={events} />);
 
-      const claudeTabs = screen.getAllByText('claude');
-      await user.click(claudeTabs[0]);
+      await selectAgentTab(user, 'claude');
 
       // Wait for positions to load and show count
       await waitFor(() => {
@@ -212,7 +222,7 @@ describe('AgentTabs', () => {
       });
 
       // Click positions button
-      await user.click(screen.getByText(/Positions/));
+      await actUser(() => user.click(screen.getByText(/Positions/)));
 
       await waitFor(() => {
         expect(screen.getByText('AI Safety')).toBeInTheDocument();
@@ -228,15 +238,14 @@ describe('AgentTabs', () => {
 
       render(<AgentTabs events={events} />);
 
-      const claudeTabs = screen.getAllByText('claude');
-      await user.click(claudeTabs[0]);
+      await selectAgentTab(user, 'claude');
 
       // Should handle error gracefully (positions empty)
       await waitFor(() => {
         expect(screen.getByText(/Positions/)).toBeInTheDocument();
       });
 
-      await user.click(screen.getByText(/Positions/));
+      await actUser(() => user.click(screen.getByText(/Positions/)));
 
       await waitFor(() => {
         expect(screen.getByText(/No recorded positions/i)).toBeInTheDocument();
@@ -329,8 +338,7 @@ describe('AgentTabs', () => {
 
       render(<AgentTabs events={events} />);
 
-      const claudeTabs = screen.getAllByText('claude');
-      await user.click(claudeTabs[0]);
+      await selectAgentTab(user, 'claude');
 
       await waitFor(() => {
         expect(screen.getByText('Round 3')).toBeInTheDocument();

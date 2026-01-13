@@ -62,6 +62,7 @@ def sample_belief_network():
         initial_confidence=0.6,
     )
     from aragora.reasoning.claims import RelationType
+
     network.add_factor("claim-1", "claim-2", RelationType.SUPPORTS, strength=0.8)
     return network
 
@@ -97,7 +98,9 @@ class TestCheckpointResume:
     """Tests for checkpoint resume functionality."""
 
     @pytest.mark.asyncio
-    async def test_resume_restores_belief_network(self, integration_with_checkpoint, sample_belief_network):
+    async def test_resume_restores_belief_network(
+        self, integration_with_checkpoint, sample_belief_network
+    ):
         """Test that resume restores belief network from checkpoint."""
         # Create mock resumed debate with belief network
         mock_checkpoint = MagicMock()
@@ -108,7 +111,9 @@ class TestCheckpointResume:
 
         mock_resumed = MagicMock()
         mock_resumed.checkpoint = mock_checkpoint
-        integration_with_checkpoint.checkpoint_mgr.resume_from_checkpoint.return_value = mock_resumed
+        integration_with_checkpoint.checkpoint_mgr.resume_from_checkpoint.return_value = (
+            mock_resumed
+        )
 
         result = await integration_with_checkpoint.resume_from_checkpoint("ckpt-123")
 
@@ -128,7 +133,9 @@ class TestCheckpointResume:
 
         mock_resumed = MagicMock()
         mock_resumed.checkpoint = mock_checkpoint
-        integration_with_checkpoint.checkpoint_mgr.resume_from_checkpoint.return_value = mock_resumed
+        integration_with_checkpoint.checkpoint_mgr.resume_from_checkpoint.return_value = (
+            mock_resumed
+        )
 
         await integration_with_checkpoint.resume_from_checkpoint("ckpt-456")
 
@@ -147,7 +154,9 @@ class TestCheckpointResume:
     @pytest.mark.asyncio
     async def test_resume_exception_returns_none(self, integration_with_checkpoint):
         """Test that resume gracefully handles exceptions."""
-        integration_with_checkpoint.checkpoint_mgr.resume_from_checkpoint.side_effect = RuntimeError("DB error")
+        integration_with_checkpoint.checkpoint_mgr.resume_from_checkpoint.side_effect = (
+            RuntimeError("DB error")
+        )
 
         result = await integration_with_checkpoint.resume_from_checkpoint("ckpt-error")
 
@@ -194,7 +203,6 @@ class TestDeadlockResolutionExtended:
         result = await integration.resolve_deadlock(contested_nodes)
 
         assert result is None
-
 
 
 # =============================================================================

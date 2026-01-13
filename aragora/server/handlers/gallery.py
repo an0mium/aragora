@@ -140,12 +140,14 @@ class GalleryHandler(BaseHandler):
         debates = self._load_debates_from_replays(nomic_dir, limit, offset, agent_filter)
 
         logger.info(f"Gallery listing: {len(debates)} debates (limit={limit}, offset={offset})")
-        return json_response({
-            "debates": [d.to_dict() for d in debates],
-            "total": len(debates),
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "debates": [d.to_dict() for d in debates],
+                "total": len(debates),
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     def _get_debate(self, debate_id: str) -> HandlerResult:
         """Get full debate details by stable ID."""

@@ -661,6 +661,17 @@ describe('BillingAPI', () => {
   // ===========================================================================
 
   describe('error handling', () => {
+    // Use a client with retries disabled for error handling tests
+    let noRetryClient: AragoraClient;
+
+    beforeEach(() => {
+      noRetryClient = new AragoraClient({
+        baseUrl: 'http://localhost:8080',
+        apiKey: 'test-api-key',
+        retry: { maxRetries: 0 },
+      });
+    });
+
     it('should throw AragoraError with correct properties on payment failure', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -673,7 +684,7 @@ describe('BillingAPI', () => {
       });
 
       try {
-        await client.billing.checkout({
+        await noRetryClient.billing.checkout({
           plan_id: 'pro',
           success_url: 'https://app.aragora.ai/success',
           cancel_url: 'https://app.aragora.ai/cancel',
@@ -701,12 +712,13 @@ describe('BillingAPI', () => {
       });
 
       try {
-        await client.billing.usage();
+        await noRetryClient.billing.usage();
         expect.fail('Should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(AragoraError);
         if (error instanceof AragoraError) {
           expect(error.code).toBe('QUOTA_EXCEEDED');
+          expect(error.retryable).toBe(true); // 429 is retryable
         }
       }
     });
@@ -714,7 +726,7 @@ describe('BillingAPI', () => {
     it('should handle network errors', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-      await expect(client.billing.plans()).rejects.toThrow(AragoraError);
+      await expect(noRetryClient.billing.plans()).rejects.toThrow(AragoraError);
     });
   });
 });

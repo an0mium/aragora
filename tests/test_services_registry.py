@@ -36,6 +36,7 @@ from aragora.services.registry import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture(autouse=True)
 def reset_registry():
     """Reset registry before and after each test."""
@@ -66,6 +67,7 @@ class AnotherService:
 # ServiceScope Tests
 # ============================================================================
 
+
 class TestServiceScope:
     """Tests for ServiceScope enum."""
 
@@ -89,6 +91,7 @@ class TestServiceScope:
 # ServiceDescriptor Tests
 # ============================================================================
 
+
 class TestServiceDescriptor:
     """Tests for ServiceDescriptor dataclass."""
 
@@ -103,28 +106,20 @@ class TestServiceDescriptor:
     def test_create_with_instance(self):
         """Test creating descriptor with instance."""
         instance = MockService("test")
-        descriptor = ServiceDescriptor(
-            service_type=MockService,
-            instance=instance
-        )
+        descriptor = ServiceDescriptor(service_type=MockService, instance=instance)
         assert descriptor.instance == instance
 
     def test_create_with_factory(self):
         """Test creating descriptor with factory."""
         factory = lambda: MockService("factory")
-        descriptor = ServiceDescriptor(
-            service_type=MockService,
-            factory=factory
-        )
+        descriptor = ServiceDescriptor(service_type=MockService, factory=factory)
         assert descriptor.factory == factory
 
     def test_to_dict_format(self):
         """Test to_dict returns expected format."""
         instance = MockService()
         descriptor = ServiceDescriptor(
-            service_type=MockService,
-            instance=instance,
-            scope=ServiceScope.SINGLETON
+            service_type=MockService, instance=instance, scope=ServiceScope.SINGLETON
         )
         result = descriptor.to_dict()
 
@@ -152,6 +147,7 @@ class TestServiceDescriptor:
 # ============================================================================
 # ServiceRegistry Singleton Tests
 # ============================================================================
+
 
 class TestServiceRegistrySingleton:
     """Tests for ServiceRegistry singleton behavior."""
@@ -211,6 +207,7 @@ class TestServiceRegistrySingleton:
 # ============================================================================
 # Service Registration Tests
 # ============================================================================
+
 
 class TestServiceRegistration:
     """Tests for service registration."""
@@ -284,6 +281,7 @@ class TestServiceRegistration:
 # Service Resolution Tests
 # ============================================================================
 
+
 class TestServiceResolution:
     """Tests for service resolution."""
 
@@ -350,6 +348,7 @@ class TestServiceResolution:
 # Has and Unregister Tests
 # ============================================================================
 
+
 class TestHasAndUnregister:
     """Tests for has() and unregister() methods."""
 
@@ -407,6 +406,7 @@ class TestHasAndUnregister:
 # List Services Tests
 # ============================================================================
 
+
 class TestListServices:
     """Tests for list_services() method."""
 
@@ -453,6 +453,7 @@ class TestListServices:
 # ============================================================================
 # Shutdown Tests
 # ============================================================================
+
 
 class TestShutdown:
     """Tests for shutdown() method."""
@@ -508,6 +509,7 @@ class TestShutdown:
 # Stats Tests
 # ============================================================================
 
+
 class TestRegistryStats:
     """Tests for stats() method."""
 
@@ -544,6 +546,7 @@ class TestRegistryStats:
 # ServiceNotFoundError Tests
 # ============================================================================
 
+
 class TestServiceNotFoundError:
     """Tests for ServiceNotFoundError exception."""
 
@@ -563,6 +566,7 @@ class TestServiceNotFoundError:
 # ============================================================================
 # Module-Level Convenience Functions Tests
 # ============================================================================
+
 
 class TestModuleFunctions:
     """Tests for module-level convenience functions."""
@@ -609,6 +613,7 @@ class TestModuleFunctions:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestServiceRegistryIntegration:
     """Integration tests for ServiceRegistry."""

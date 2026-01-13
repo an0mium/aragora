@@ -46,6 +46,7 @@ def store(temp_db):
     """Create a CritiqueStore with temporary database."""
     # Clear the global cache to prevent cross-test contamination
     from aragora.server.handlers.base import clear_cache
+
     clear_cache()
     return CritiqueStore(db_path=temp_db)
 
@@ -88,10 +89,13 @@ class TestPatternStorageExtended:
     def test_store_pattern_empty_suggestions(self, store):
         """Test storing pattern with empty suggestions list."""
         critique = Critique(
-            agent="a", target_agent="b", target_content="code",
+            agent="a",
+            target_agent="b",
+            target_content="code",
             issues=["Issue with no suggestion"],
             suggestions=[],  # Empty
-            severity=0.5, reasoning=""
+            severity=0.5,
+            reasoning="",
         )
 
         store.store_pattern(critique, "fix")
@@ -103,10 +107,13 @@ class TestPatternStorageExtended:
     def test_store_pattern_multiple_issues(self, store):
         """Test storing critique with multiple issues creates multiple patterns."""
         critique = Critique(
-            agent="a", target_agent="b", target_content="code",
+            agent="a",
+            target_agent="b",
+            target_content="code",
             issues=["Issue one", "Issue two", "Issue three"],
             suggestions=["Fix one"],
-            severity=0.6, reasoning=""
+            severity=0.6,
+            reasoning="",
         )
 
         store.store_pattern(critique, "fix")
@@ -117,9 +124,13 @@ class TestPatternStorageExtended:
     def test_store_pattern_very_long_example_task(self, store):
         """Test that long example_task is truncated."""
         critique = Critique(
-            agent="a", target_agent="b", target_content="code",
+            agent="a",
+            target_agent="b",
+            target_content="code",
             issues=["test issue"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
 
         long_fix = "x" * 1000
@@ -131,10 +142,13 @@ class TestPatternStorageExtended:
     def test_store_pattern_special_characters(self, store):
         """Test storing pattern with special characters."""
         critique = Critique(
-            agent="a", target_agent="b", target_content="code",
+            agent="a",
+            target_agent="b",
+            target_content="code",
             issues=["Issue with 'quotes' and \"double quotes\""],
             suggestions=["Fix with; semicolon"],
-            severity=0.5, reasoning=""
+            severity=0.5,
+            reasoning="",
         )
 
         store.store_pattern(critique, "fix")
@@ -145,10 +159,13 @@ class TestPatternStorageExtended:
     def test_store_pattern_unicode(self, store):
         """Test storing pattern with unicode characters."""
         critique = Critique(
-            agent="a", target_agent="b", target_content="code",
+            agent="a",
+            target_agent="b",
+            target_content="code",
             issues=["Issue with emoji 🔥 and unicode ñ"],
             suggestions=["Fix with symbols ★"],
-            severity=0.5, reasoning=""
+            severity=0.5,
+            reasoning="",
         )
 
         store.store_pattern(critique, "fix")
@@ -168,9 +185,13 @@ class TestPatternStorageExtended:
     def test_concurrent_pattern_upsert(self, store):
         """Test concurrent upserts to same pattern."""
         critique = Critique(
-            agent="a", target_agent="b", target_content="code",
+            agent="a",
+            target_agent="b",
+            target_content="code",
             issues=["concurrent test issue"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
 
         def store_pattern():
@@ -238,6 +259,7 @@ class TestAgentReputationExtended:
 
     def test_concurrent_reputation_updates(self, store):
         """Test concurrent reputation updates don't corrupt data."""
+
         def update_proposals():
             for _ in range(20):
                 store.update_reputation("concurrent_agent", proposal_made=True)
@@ -297,13 +319,23 @@ class TestCalibrationExtended:
         """Test calibration converges with multiple predictions."""
         # Create debate with critique
         critique = Critique(
-            agent="calibration_agent", target_agent="t", target_content="code",
-            issues=["test"], suggestions=["fix"], severity=0.5, reasoning=""
+            agent="calibration_agent",
+            target_agent="t",
+            target_content="code",
+            issues=["test"],
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
         result = DebateResult(
-            id="cal_debate", task="test", final_answer="answer",
-            consensus_reached=True, confidence=0.8, rounds_used=1,
-            duration_seconds=1.0, critiques=[critique]
+            id="cal_debate",
+            task="test",
+            final_answer="answer",
+            consensus_reached=True,
+            confidence=0.8,
+            rounds_used=1,
+            duration_seconds=1.0,
+            critiques=[critique],
         )
         store.store_debate(result)
 
@@ -329,13 +361,23 @@ class TestCalibrationExtended:
     def test_calibration_without_agent_name(self, store):
         """Test update_prediction_outcome uses critique's agent if none provided."""
         critique = Critique(
-            agent="original_agent", target_agent="t", target_content="code",
-            issues=["test"], suggestions=["fix"], severity=0.5, reasoning=""
+            agent="original_agent",
+            target_agent="t",
+            target_content="code",
+            issues=["test"],
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
         result = DebateResult(
-            id="cal_debate2", task="test", final_answer="answer",
-            consensus_reached=True, confidence=0.8, rounds_used=1,
-            duration_seconds=1.0, critiques=[critique]
+            id="cal_debate2",
+            task="test",
+            final_answer="answer",
+            consensus_reached=True,
+            confidence=0.8,
+            rounds_used=1,
+            duration_seconds=1.0,
+            critiques=[critique],
         )
         store.store_debate(result)
 
@@ -378,8 +420,9 @@ class TestDebateStorageExtended:
 
         with store._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT grounded_verdict FROM debates WHERE id = ?",
-                          ("grounded_debate",))
+            cursor.execute(
+                "SELECT grounded_verdict FROM debates WHERE id = ?", ("grounded_debate",)
+            )
             row = cursor.fetchone()
             assert row is not None
             verdict_data = json.loads(row[0])
@@ -388,6 +431,7 @@ class TestDebateStorageExtended:
 
     def test_store_debate_grounded_verdict_no_to_dict(self, store):
         """Test storing debate when grounded_verdict has no to_dict method."""
+
         class BadVerdict:
             pass
 
@@ -408,8 +452,9 @@ class TestDebateStorageExtended:
 
         with store._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT grounded_verdict FROM debates WHERE id = ?",
-                          ("bad_verdict_debate",))
+            cursor.execute(
+                "SELECT grounded_verdict FROM debates WHERE id = ?", ("bad_verdict_debate",)
+            )
             row = cursor.fetchone()
             assert row[0] is None
 
@@ -486,9 +531,13 @@ class TestPatternPruningExtended:
     def test_prune_patterns_100_percent_success_rate(self, store):
         """Test patterns with 100% success rate are not pruned."""
         critique = Critique(
-            agent="a", target_agent="b", target_content="code",
+            agent="a",
+            target_agent="b",
+            target_content="code",
             issues=["perfect pattern"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
 
         # Store many times (100% success rate)
@@ -505,9 +554,13 @@ class TestPatternPruningExtended:
     def test_prune_patterns_archive_created(self, store):
         """Test pruned patterns are archived."""
         critique = Critique(
-            agent="a", target_agent="b", target_content="code",
+            agent="a",
+            target_agent="b",
+            target_content="code",
             issues=["archive test pattern"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
         store.store_pattern(critique, "fix")
 
@@ -525,9 +578,13 @@ class TestPatternPruningExtended:
     def test_prune_patterns_no_archive(self, store):
         """Test pruning without archiving deletes permanently."""
         critique = Critique(
-            agent="a", target_agent="b", target_content="code",
+            agent="a",
+            target_agent="b",
+            target_content="code",
             issues=["no archive pattern"],
-            suggestions=["fix"], severity=0.5, reasoning=""
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
         store.store_pattern(critique, "fix")
         store.fail_pattern("no archive pattern")
@@ -572,6 +629,7 @@ class TestDatabaseConnectionExtended:
 
     def test_concurrent_reads_and_writes(self, store, sample_critique):
         """Test concurrent reads and writes don't deadlock."""
+
         def writer():
             for _ in range(20):
                 store.store_pattern(sample_critique, "fix")
@@ -600,6 +658,7 @@ class TestDatabaseConnectionExtended:
 
     def test_store_with_high_concurrency(self, store):
         """Test store handles high concurrency."""
+
         def task(task_id):
             critique = Critique(
                 agent=f"agent_{task_id}",
@@ -672,9 +731,13 @@ class TestStatisticsExtended:
         ]
         for t, issue_text in type_issues:
             critique = Critique(
-                agent="a", target_agent="b", target_content="code",
+                agent="a",
+                target_agent="b",
+                target_content="code",
                 issues=[issue_text],  # Will be categorized by keyword
-                suggestions=["fix"], severity=0.5, reasoning=""
+                suggestions=["fix"],
+                severity=0.5,
+                reasoning="",
             )
             store.store_pattern(critique, "fix")
             store.store_pattern(critique, "fix")
@@ -688,34 +751,42 @@ class TestStatisticsExtended:
     def test_export_only_consensus_debates(self, store):
         """Test export only includes consensus debates."""
         critique = Critique(
-            agent="a", target_agent="b", target_content="code",
-            issues=["export test"], suggestions=["fix"],
-            severity=0.5, reasoning=""
+            agent="a",
+            target_agent="b",
+            target_content="code",
+            issues=["export test"],
+            suggestions=["fix"],
+            severity=0.5,
+            reasoning="",
         )
 
         # Consensus debate
-        store.store_debate(DebateResult(
-            id="export_consensus",
-            task="Consensus task",
-            final_answer="Answer",
-            consensus_reached=True,
-            confidence=0.9,
-            rounds_used=1,
-            duration_seconds=10.0,
-            critiques=[critique],
-        ))
+        store.store_debate(
+            DebateResult(
+                id="export_consensus",
+                task="Consensus task",
+                final_answer="Answer",
+                consensus_reached=True,
+                confidence=0.9,
+                rounds_used=1,
+                duration_seconds=10.0,
+                critiques=[critique],
+            )
+        )
 
         # Non-consensus debate
-        store.store_debate(DebateResult(
-            id="export_no_consensus",
-            task="No consensus task",
-            final_answer=None,
-            consensus_reached=False,
-            confidence=0.3,
-            rounds_used=5,
-            duration_seconds=100.0,
-            critiques=[critique],
-        ))
+        store.store_debate(
+            DebateResult(
+                id="export_no_consensus",
+                task="No consensus task",
+                final_answer=None,
+                consensus_reached=False,
+                confidence=0.3,
+                rounds_used=5,
+                duration_seconds=100.0,
+                critiques=[critique],
+            )
+        )
 
         export = store.export_for_training()
         assert len(export) >= 1
@@ -739,9 +810,16 @@ class TestEdgeCases:
     def test_pattern_success_rate_division_by_zero(self):
         """Test success_rate with zero total."""
         pattern = Pattern(
-            id="p1", issue_type="test", issue_text="test",
-            suggestion_text="fix", success_count=0, failure_count=0,
-            avg_severity=0.5, example_task="", created_at="", updated_at=""
+            id="p1",
+            issue_type="test",
+            issue_text="test",
+            suggestion_text="fix",
+            success_count=0,
+            failure_count=0,
+            avg_severity=0.5,
+            example_task="",
+            created_at="",
+            updated_at="",
         )
         assert pattern.success_rate == 0.5  # Default
 
@@ -787,10 +865,13 @@ class TestEdgeCases:
             duration_seconds=10.0,
             critiques=[
                 Critique(
-                    agent="a", target_agent="b", target_content="code",
+                    agent="a",
+                    target_agent="b",
+                    target_content="code",
                     issues=["Valid issue"],
                     suggestions=[],  # Empty but valid
-                    severity=0.5, reasoning=""
+                    severity=0.5,
+                    reasoning="",
                 )
             ],
         )

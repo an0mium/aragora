@@ -49,6 +49,7 @@ LOG_BACKUP_COUNT = int(os.environ.get("ARAGORA_LOG_BACKUP_COUNT", 5))  # Keep 5 
 @dataclass
 class LogRecord:
     """Structured log record with all context fields."""
+
     timestamp: str
     level: str
     logger: str
@@ -434,9 +435,11 @@ def log_function(
                 raise
 
         import asyncio
+
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         return wrapper
+
     return decorator
 
 
@@ -446,6 +449,7 @@ def log_request(logger: StructuredLogger = None):
 
     Logs request start, completion, and any errors with timing.
     """
+
     def decorator(func: Callable) -> Callable:
         _logger = logger or get_logger(func.__module__)
 
@@ -457,7 +461,7 @@ def log_request(logger: StructuredLogger = None):
                 start = time.monotonic()
                 _logger.info(
                     "Request started",
-                    method=getattr(self, 'method', 'GET'),
+                    method=getattr(self, "method", "GET"),
                     query_params=list(query_params.keys()) if query_params else [],
                 )
                 try:
@@ -480,4 +484,5 @@ def log_request(logger: StructuredLogger = None):
                     raise
 
         return wrapper
+
     return decorator

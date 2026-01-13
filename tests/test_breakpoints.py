@@ -22,15 +22,18 @@ from aragora.debate.breakpoints import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def mock_message():
     """Factory for creating mock message objects."""
+
     def _create(agent="claude", content="Test message", round_num=1):
         msg = MagicMock()
         msg.agent = agent
         msg.content = content
         msg.round = round_num
         return msg
+
     return _create
 
 
@@ -103,6 +106,7 @@ def sample_guidance():
 # BreakpointTrigger Enum Tests
 # =============================================================================
 
+
 class TestBreakpointTriggerEnum:
     """Tests for BreakpointTrigger enum."""
 
@@ -131,6 +135,7 @@ class TestBreakpointTriggerEnum:
 # =============================================================================
 # DebateSnapshot Dataclass Tests
 # =============================================================================
+
 
 class TestDebateSnapshot:
     """Tests for DebateSnapshot dataclass."""
@@ -219,6 +224,7 @@ class TestDebateSnapshot:
 # HumanGuidance Dataclass Tests
 # =============================================================================
 
+
 class TestHumanGuidance:
     """Tests for HumanGuidance dataclass."""
 
@@ -274,6 +280,7 @@ class TestHumanGuidance:
 # Breakpoint Dataclass Tests
 # =============================================================================
 
+
 class TestBreakpointDataclass:
     """Tests for Breakpoint dataclass."""
 
@@ -324,6 +331,7 @@ class TestBreakpointDataclass:
 # BreakpointConfig Tests
 # =============================================================================
 
+
 class TestBreakpointConfig:
     """Tests for BreakpointConfig dataclass."""
 
@@ -352,6 +360,7 @@ class TestBreakpointConfig:
 # =============================================================================
 # HumanNotifier Tests
 # =============================================================================
+
 
 class TestHumanNotifier:
     """Tests for HumanNotifier class."""
@@ -427,6 +436,7 @@ class TestHumanNotifier:
 # BreakpointManager Initialization Tests
 # =============================================================================
 
+
 class TestBreakpointManagerInit:
     """Tests for BreakpointManager initialization."""
 
@@ -455,6 +465,7 @@ class TestBreakpointManagerInit:
 # =============================================================================
 # check_triggers Method Tests
 # =============================================================================
+
 
 class TestCheckTriggers:
     """Tests for BreakpointManager.check_triggers method."""
@@ -642,6 +653,7 @@ class TestCheckTriggers:
 # _detect_deadlock Method Tests
 # =============================================================================
 
+
 class TestDetectDeadlock:
     """Tests for BreakpointManager._detect_deadlock method."""
 
@@ -711,6 +723,7 @@ class TestDetectDeadlock:
 # _create_breakpoint Method Tests
 # =============================================================================
 
+
 class TestCreateBreakpoint:
     """Tests for BreakpointManager._create_breakpoint method."""
 
@@ -720,11 +733,21 @@ class TestCreateBreakpoint:
 
         bp1 = breakpoint_manager._create_breakpoint(
             BreakpointTrigger.LOW_CONFIDENCE,
-            "debate-1", "task", messages, 0.5, 1, 10,
+            "debate-1",
+            "task",
+            messages,
+            0.5,
+            1,
+            10,
         )
         bp2 = breakpoint_manager._create_breakpoint(
             BreakpointTrigger.DEADLOCK,
-            "debate-1", "task", messages, 0.5, 2, 10,
+            "debate-1",
+            "task",
+            messages,
+            0.5,
+            2,
+            10,
         )
 
         assert bp1.breakpoint_id != bp2.breakpoint_id
@@ -736,7 +759,12 @@ class TestCreateBreakpoint:
 
         bp = breakpoint_manager._create_breakpoint(
             BreakpointTrigger.LOW_CONFIDENCE,
-            "debate-1", "task", messages, 0.5, 1, 10,
+            "debate-1",
+            "task",
+            messages,
+            0.5,
+            1,
+            10,
         )
 
         assert len(bp.debate_snapshot.latest_messages) == 5
@@ -751,7 +779,12 @@ class TestCreateBreakpoint:
 
         bp = breakpoint_manager._create_breakpoint(
             BreakpointTrigger.LOW_CONFIDENCE,
-            "debate-1", "task", messages, 0.5, 1, 10,
+            "debate-1",
+            "task",
+            messages,
+            0.5,
+            1,
+            10,
         )
 
         # Should have both agents, with most recent positions
@@ -766,7 +799,12 @@ class TestCreateBreakpoint:
 
         breakpoint_manager._create_breakpoint(
             BreakpointTrigger.LOW_CONFIDENCE,
-            "debate-1", "task", messages, 0.5, 1, 10,
+            "debate-1",
+            "task",
+            messages,
+            0.5,
+            1,
+            10,
         )
 
         assert breakpoint_manager._breakpoint_counter == initial_count + 1
@@ -775,6 +813,7 @@ class TestCreateBreakpoint:
 # =============================================================================
 # inject_guidance Method Tests
 # =============================================================================
+
 
 class TestInjectGuidance:
     """Tests for BreakpointManager.inject_guidance method."""
@@ -878,18 +917,21 @@ class TestInjectGuidance:
 # handle_breakpoint Method Tests
 # =============================================================================
 
+
 class TestHandleBreakpoint:
     """Tests for BreakpointManager.handle_breakpoint method."""
 
     @pytest.mark.asyncio
     async def test_notifies_human(self, sample_breakpoint):
         """Should notify human when handling breakpoint."""
-        mock_input = AsyncMock(return_value=HumanGuidance(
-            guidance_id="g1",
-            debate_id="d1",
-            human_id="h1",
-            action="continue",
-        ))
+        mock_input = AsyncMock(
+            return_value=HumanGuidance(
+                guidance_id="g1",
+                debate_id="d1",
+                human_id="h1",
+                action="continue",
+            )
+        )
         manager = BreakpointManager(get_human_input=mock_input)
 
         with patch.object(manager.notifier, "notify", new_callable=AsyncMock) as mock_notify:
@@ -900,12 +942,14 @@ class TestHandleBreakpoint:
     @pytest.mark.asyncio
     async def test_marks_resolved(self, sample_breakpoint):
         """Should mark breakpoint as resolved."""
-        mock_input = AsyncMock(return_value=HumanGuidance(
-            guidance_id="g1",
-            debate_id="d1",
-            human_id="h1",
-            action="continue",
-        ))
+        mock_input = AsyncMock(
+            return_value=HumanGuidance(
+                guidance_id="g1",
+                debate_id="d1",
+                human_id="h1",
+                action="continue",
+            )
+        )
         manager = BreakpointManager(get_human_input=mock_input)
 
         with patch.object(manager.notifier, "notify", new_callable=AsyncMock):
@@ -918,6 +962,7 @@ class TestHandleBreakpoint:
     @pytest.mark.asyncio
     async def test_timeout_uses_default_action(self, sample_breakpoint):
         """Should use default action on timeout."""
+
         async def slow_input(bp):
             await asyncio.sleep(100)  # Will be interrupted
             return HumanGuidance(
@@ -943,11 +988,13 @@ class TestHandleBreakpoint:
 # Decorator Tests
 # =============================================================================
 
+
 class TestDecorators:
     """Tests for breakpoint decorators."""
 
     def test_critical_decision_sets_attributes(self):
         """@critical_decision should set function attributes."""
+
         @critical_decision(reason="Important choice")
         def my_func():
             pass
@@ -958,6 +1005,7 @@ class TestDecorators:
 
     def test_breakpoint_decorator_sets_attributes(self):
         """@breakpoint decorator should set attributes."""
+
         @breakpoint(trigger="confidence < 0.5", threshold=0.5, message="Low confidence")
         def my_func():
             pass
@@ -972,6 +1020,7 @@ class TestDecorators:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
@@ -1002,7 +1051,12 @@ class TestEdgeCases:
 
         bp = breakpoint_manager._create_breakpoint(
             BreakpointTrigger.LOW_CONFIDENCE,
-            "debate-1", "task", messages, 0.5, 1, 10,
+            "debate-1",
+            "task",
+            messages,
+            0.5,
+            1,
+            10,
         )
 
         # Content should be truncated to 200 chars in latest_messages

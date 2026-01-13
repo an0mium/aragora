@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Load environment
 from dotenv import load_dotenv
+
 load_dotenv()
 load_dotenv("/etc/aragora/.env")
 
@@ -44,6 +45,7 @@ def check_stripe_api() -> tuple[bool, str]:
     """Test Stripe API connectivity."""
     try:
         import stripe
+
         stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
 
         if not stripe.api_key:
@@ -64,6 +66,7 @@ def check_webhook_endpoint() -> tuple[bool, str]:
     """Check webhook endpoint configuration."""
     try:
         import stripe
+
         stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
 
         if not stripe.api_key:
@@ -88,6 +91,7 @@ def check_prices() -> tuple[bool, str]:
     """Verify price IDs exist in Stripe."""
     try:
         import stripe
+
         stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
 
         if not stripe.api_key:
@@ -125,6 +129,7 @@ def check_payout_settings() -> tuple[bool, str]:
     """Check payout/bank account configuration."""
     try:
         import stripe
+
         stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
 
         if not stripe.api_key:
@@ -185,23 +190,38 @@ def main():
     print()
 
     checks = [
-        ("Environment Variables", [
-            ("STRIPE_SECRET_KEY", lambda: check_env_var("STRIPE_SECRET_KEY", "sk_")),
-            ("STRIPE_PUBLISHABLE_KEY", lambda: check_env_var("STRIPE_PUBLISHABLE_KEY", "pk_")),
-            ("STRIPE_WEBHOOK_SECRET", lambda: check_env_var("STRIPE_WEBHOOK_SECRET", "whsec_")),
-            ("STRIPE_PRICE_STARTER", lambda: check_env_var("STRIPE_PRICE_STARTER", "price_")),
-            ("STRIPE_PRICE_PROFESSIONAL", lambda: check_env_var("STRIPE_PRICE_PROFESSIONAL", "price_")),
-            ("STRIPE_PRICE_ENTERPRISE", lambda: check_env_var("STRIPE_PRICE_ENTERPRISE", "price_")),
-        ]),
-        ("Stripe API", [
-            ("API Connection", check_stripe_api),
-            ("Webhook Endpoint", check_webhook_endpoint),
-            ("Price IDs", check_prices),
-            ("Payout Settings", check_payout_settings),
-        ]),
-        ("Database", [
-            ("UserStore", check_database),
-        ]),
+        (
+            "Environment Variables",
+            [
+                ("STRIPE_SECRET_KEY", lambda: check_env_var("STRIPE_SECRET_KEY", "sk_")),
+                ("STRIPE_PUBLISHABLE_KEY", lambda: check_env_var("STRIPE_PUBLISHABLE_KEY", "pk_")),
+                ("STRIPE_WEBHOOK_SECRET", lambda: check_env_var("STRIPE_WEBHOOK_SECRET", "whsec_")),
+                ("STRIPE_PRICE_STARTER", lambda: check_env_var("STRIPE_PRICE_STARTER", "price_")),
+                (
+                    "STRIPE_PRICE_PROFESSIONAL",
+                    lambda: check_env_var("STRIPE_PRICE_PROFESSIONAL", "price_"),
+                ),
+                (
+                    "STRIPE_PRICE_ENTERPRISE",
+                    lambda: check_env_var("STRIPE_PRICE_ENTERPRISE", "price_"),
+                ),
+            ],
+        ),
+        (
+            "Stripe API",
+            [
+                ("API Connection", check_stripe_api),
+                ("Webhook Endpoint", check_webhook_endpoint),
+                ("Price IDs", check_prices),
+                ("Payout Settings", check_payout_settings),
+            ],
+        ),
+        (
+            "Database",
+            [
+                ("UserStore", check_database),
+            ],
+        ),
     ]
 
     all_passed = True
@@ -229,7 +249,7 @@ def main():
         print("✓ All checks passed! Stripe is ready for production.")
         print()
         print("Next steps:")
-        print("  1. Make a test purchase at https://live.aragora.ai")
+        print("  1. Make a test purchase at https://aragora.ai")
         print("  2. Verify payment appears in Stripe Dashboard")
         print("  3. Wait 2 days for first payout to bank")
     else:

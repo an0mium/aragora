@@ -47,9 +47,7 @@ class LMStudioAgent(APIAgent):
         base_url: str | None = None,
         max_tokens: int = 4096,
     ):
-        resolved_base = base_url or os.environ.get(
-            "LM_STUDIO_HOST", "http://localhost:1234"
-        )
+        resolved_base = base_url or os.environ.get("LM_STUDIO_HOST", "http://localhost:1234")
         # Ensure /v1 suffix for OpenAI compatibility
         if not resolved_base.endswith("/v1"):
             resolved_base = resolved_base.rstrip("/") + "/v1"
@@ -247,7 +245,9 @@ class LMStudioAgent(APIAgent):
                     cause=e,
                 )
 
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
+    async def critique(
+        self, proposal: str, task: str, context: list[Message] | None = None
+    ) -> Critique:
         """Critique a proposal using LM Studio."""
         critique_prompt = f"""You are a critical reviewer. Analyze this proposal:
 

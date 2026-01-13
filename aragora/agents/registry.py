@@ -29,6 +29,7 @@ except (ImportError, ModuleNotFoundError):
 if TYPE_CHECKING:
     from aragora.agents.api_agents import APIAgent
     from aragora.agents.cli_agents import CLIAgent
+
     Agent = Union[APIAgent, CLIAgent]
 
 
@@ -45,6 +46,7 @@ def _run_async_in_thread(coro):
     asyncio.run() is called from within a ThreadPoolExecutor.
     """
     import asyncio
+
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
@@ -121,6 +123,7 @@ class AgentRegistry:
         Returns:
             Decorator function
         """
+
         def decorator(agent_cls: type[T]) -> type[T]:
             spec = AgentSpec(
                 name=type_name,
@@ -169,10 +172,7 @@ class AgentRegistry:
         """
         if model_type not in cls._registry:
             valid_types = ", ".join(sorted(cls._registry.keys()))
-            raise ValueError(
-                f"Unknown agent type: {model_type}. "
-                f"Valid types: {valid_types}"
-            )
+            raise ValueError(f"Unknown agent type: {model_type}. " f"Valid types: {valid_types}")
 
         spec = cls._registry[model_type]
         resolved_name = name or spec.default_name
@@ -297,6 +297,7 @@ class AgentRegistry:
 
         Note: API keys are masked in the output to prevent secret leakage.
         """
+
         def _mask_key(cache_key: tuple) -> tuple:
             """Mask API key (5th element) in cache key tuple."""
             # Cache key: (model_type, name, role, model, api_key)
@@ -348,6 +349,7 @@ class AgentRegistry:
         if loop and loop.is_running():
             # Already in async context - create new event loop in thread
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 future = pool.submit(_run_async_in_thread, detector.detect_all())
                 status = future.result(timeout=10)
@@ -395,6 +397,7 @@ class AgentRegistry:
 
         if loop and loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 future = pool.submit(_run_async_in_thread, detector.detect_all())
                 status = future.result(timeout=10)

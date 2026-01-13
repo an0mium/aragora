@@ -31,6 +31,7 @@ from aragora.debate.immune_system import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture(autouse=True)
 def reset_global_state():
     """Reset global immune system before and after each test."""
@@ -62,6 +63,7 @@ def health_event():
 # ============================================================================
 # HealthStatus Enum Tests
 # ============================================================================
+
 
 class TestHealthStatus:
     """Tests for HealthStatus enum."""
@@ -95,6 +97,7 @@ class TestHealthStatus:
 # ============================================================================
 # AgentStatus Enum Tests
 # ============================================================================
+
 
 class TestAgentStatus:
     """Tests for AgentStatus enum."""
@@ -131,6 +134,7 @@ class TestAgentStatus:
 # ============================================================================
 # HealthEvent Dataclass Tests
 # ============================================================================
+
 
 class TestHealthEvent:
     """Tests for HealthEvent dataclass."""
@@ -181,6 +185,7 @@ class TestHealthEvent:
 # AgentHealthState Dataclass Tests
 # ============================================================================
 
+
 class TestAgentHealthState:
     """Tests for AgentHealthState dataclass."""
 
@@ -225,6 +230,7 @@ class TestAgentHealthState:
 # ============================================================================
 # TransparentImmuneSystem Tests
 # ============================================================================
+
 
 class TestTransparentImmuneSystem:
     """Tests for TransparentImmuneSystem class."""
@@ -365,6 +371,7 @@ class TestTransparentImmuneSystem:
 # System Status Update Tests
 # ============================================================================
 
+
 class TestSystemStatusUpdates:
     """Tests for system status transitions."""
 
@@ -405,6 +412,7 @@ class TestSystemStatusUpdates:
 # Broadcasting Tests
 # ============================================================================
 
+
 class TestBroadcasting:
     """Tests for event broadcasting."""
 
@@ -420,6 +428,7 @@ class TestBroadcasting:
 
     def test_broadcast_callback_error_handling(self, immune_system):
         """Test that broadcast errors don't crash the system."""
+
         def failing_callback(event):
             raise RuntimeError("Broadcast failed")
 
@@ -444,6 +453,7 @@ class TestBroadcasting:
 # ============================================================================
 # Agent Progress Tests
 # ============================================================================
+
 
 class TestAgentProgress:
     """Tests for agent progress reporting."""
@@ -473,6 +483,7 @@ class TestAgentProgress:
 # Global Singleton Tests
 # ============================================================================
 
+
 class TestGlobalSingleton:
     """Tests for global immune system singleton."""
 
@@ -498,6 +509,7 @@ class TestGlobalSingleton:
 # ============================================================================
 # Rolling Average Tests
 # ============================================================================
+
 
 class TestRollingAverage:
     """Tests for response time rolling average."""

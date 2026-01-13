@@ -44,6 +44,14 @@ STRIPE_PRICES = {
     SubscriptionTier.STARTER: os.environ.get("STRIPE_PRICE_STARTER", ""),
     SubscriptionTier.PROFESSIONAL: os.environ.get("STRIPE_PRICE_PROFESSIONAL", ""),
     SubscriptionTier.ENTERPRISE: os.environ.get("STRIPE_PRICE_ENTERPRISE", ""),
+    SubscriptionTier.ENTERPRISE_PLUS: os.environ.get("STRIPE_PRICE_ENTERPRISE_PLUS", ""),
+}
+
+# Metered billing price IDs for usage-based pricing
+STRIPE_METERED_PRICES = {
+    "tokens_input": os.environ.get("STRIPE_METERED_TOKENS_INPUT", ""),  # Per 1K input tokens
+    "tokens_output": os.environ.get("STRIPE_METERED_TOKENS_OUTPUT", ""),  # Per 1K output tokens
+    "debates": os.environ.get("STRIPE_METERED_DEBATES", ""),  # Per debate overage
 }
 
 
@@ -156,6 +164,26 @@ class BillingPortalSession:
         return {"id": self.id, "url": self.url}
 
 
+@dataclass
+class UsageRecord:
+    """Stripe usage record for metered billing."""
+
+    id: str
+    subscription_item_id: str
+    quantity: int
+    timestamp: datetime
+    action: str = "increment"  # "increment" or "set"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "subscription_item_id": self.subscription_item_id,
+            "quantity": self.quantity,
+            "timestamp": self.timestamp.isoformat(),
+            "action": self.action,
+        }
+
+
 class StripeClient:
     """
     Stripe API client.
@@ -174,8 +202,7 @@ class StripeClient:
         self.api_key = api_key or STRIPE_SECRET_KEY
         if not self.api_key:
             logger.warning(
-                "Stripe API key not configured. "
-                "Set STRIPE_SECRET_KEY environment variable."
+                "Stripe API key not configured. " "Set STRIPE_SECRET_KEY environment variable."
             )
 
     def _is_configured(self) -> bool:
@@ -485,9 +512,7 @@ class StripeClient:
         if at_period_end:
             # Schedule cancellation at period end
             data = {"cancel_at_period_end": "true"}
-            response = self._request(
-                "POST", f"/subscriptions/{subscription_id}", data
-            )
+            response = self._request("POST", f"/subscriptions/{subscription_id}", data)
         else:
             # Cancel immediately
             response = self._request("DELETE", f"/subscriptions/{subscription_id}")
@@ -542,6 +567,126 @@ class StripeClient:
 
         return response.get("data", [])
 
+    # =========================================================================
+    # Metered Billing (Usage Records)
+    # =========================================================================
+
+    def get_subscription_items(
+        self,
+        subscription_id: str,
+    ) -> list[dict]:
+        """
+        Get subscription items for a subscription.
+
+        Used to find metered billing subscription items to report usage against.
+
+        Args:
+            subscription_id: Stripe subscription ID
+
+        Returns:
+            List of subscription item data
+        """
+        response = self._request(
+            "GET",
+            f"/subscription_items?subscription={subscription_id}",
+        )
+        return response.get("data", [])
+
+    def report_usage(
+        self,
+        subscription_item_id: str,
+        quantity: int,
+        timestamp: Optional[datetime] = None,
+        action: str = "increment",
+        idempotency_key: Optional[str] = None,
+    ) -> UsageRecord:
+        """
+        Report usage for metered billing.
+
+        Args:
+            subscription_item_id: The subscription item to report usage for
+            quantity: The usage quantity (e.g., tokens / 1000)
+            timestamp: When the usage occurred (default: now)
+            action: "increment" to add to usage, "set" to replace
+            idempotency_key: Idempotency key to prevent duplicate reports
+
+        Returns:
+            UsageRecord with the created record data
+        """
+        if timestamp is None:
+            timestamp = datetime.utcnow()
+
+        data = {
+            "quantity": quantity,
+            "timestamp": int(timestamp.timestamp()),
+            "action": action,
+        }
+
+        response = self._request(
+            "POST",
+            f"/subscription_items/{subscription_item_id}/usage_records",
+            data,
+            idempotency_key=idempotency_key,
+        )
+
+        return UsageRecord(
+            id=response.get("id", ""),
+            subscription_item_id=subscription_item_id,
+            quantity=quantity,
+            timestamp=timestamp,
+            action=action,
+        )
+
+    def get_usage_summary(
+        self,
+        subscription_item_id: str,
+    ) -> dict:
+        """
+        Get current period usage summary for a subscription item.
+
+        Args:
+            subscription_item_id: The subscription item ID
+
+        Returns:
+            Usage summary with total_usage and period info
+        """
+        response = self._request(
+            "GET",
+            f"/subscription_items/{subscription_item_id}/usage_record_summaries?limit=1",
+        )
+
+        summaries = response.get("data", [])
+        if summaries:
+            return {
+                "total_usage": summaries[0].get("total_usage", 0),
+                "period_start": summaries[0].get("period", {}).get("start"),
+                "period_end": summaries[0].get("period", {}).get("end"),
+            }
+        return {"total_usage": 0, "period_start": None, "period_end": None}
+
+    def find_metered_subscription_item(
+        self,
+        subscription_id: str,
+        price_id: str,
+    ) -> Optional[str]:
+        """
+        Find a subscription item by price ID.
+
+        Useful for finding which subscription item to report usage against.
+
+        Args:
+            subscription_id: Stripe subscription ID
+            price_id: Price ID to search for
+
+        Returns:
+            Subscription item ID if found, None otherwise
+        """
+        items = self.get_subscription_items(subscription_id)
+        for item in items:
+            if item.get("price", {}).get("id") == price_id:
+                return item.get("id")
+        return None
+
     def _parse_subscription(self, data: dict) -> StripeSubscription:
         """Parse Stripe subscription response into StripeSubscription."""
         # Get price ID from items
@@ -563,12 +708,8 @@ class StripeClient:
             customer_id=data["customer"],
             status=data["status"],
             price_id=price_id,
-            current_period_start=datetime.fromtimestamp(
-                data.get("current_period_start", 0)
-            ),
-            current_period_end=datetime.fromtimestamp(
-                data.get("current_period_end", 0)
-            ),
+            current_period_start=datetime.fromtimestamp(data.get("current_period_start", 0)),
+            current_period_end=datetime.fromtimestamp(data.get("current_period_end", 0)),
             cancel_at_period_end=data.get("cancel_at_period_end", False),
             trial_start=trial_start,
             trial_end=trial_end,
@@ -631,9 +772,7 @@ def verify_webhook_signature(
     # Parse signature header
     # Format: t=timestamp,v1=signature,v1=signature2...
     try:
-        sig_parts = dict(
-            part.split("=", 1) for part in signature.split(",") if "=" in part
-        )
+        sig_parts = dict(part.split("=", 1) for part in signature.split(",") if "=" in part)
     except ValueError:
         return False
 
@@ -749,6 +888,7 @@ __all__ = [
     "StripeSubscription",
     "CheckoutSession",
     "BillingPortalSession",
+    "UsageRecord",
     # Exceptions
     "StripeError",
     "StripeConfigError",
@@ -761,4 +901,5 @@ __all__ = [
     "get_tier_from_price_id",
     "get_price_id_for_tier",
     "STRIPE_PRICES",
+    "STRIPE_METERED_PRICES",
 ]

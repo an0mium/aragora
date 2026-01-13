@@ -50,8 +50,7 @@ def timed_lock(
     if not acquired:
         lock_name = f" '{name}'" if name else ""
         raise TimeoutError(
-            f"Failed to acquire lock{lock_name} within {timeout}s. "
-            "This may indicate a deadlock."
+            f"Failed to acquire lock{lock_name} within {timeout}s. " "This may indicate a deadlock."
         )
     try:
         yield
@@ -119,9 +118,7 @@ async def async_timeout(
         return await asyncio.wait_for(coro, timeout=timeout)
     except asyncio.TimeoutError:
         op_name = f" ({operation_name})" if operation_name else ""
-        raise TimeoutError(
-            f"Async operation{op_name} timed out after {timeout}s"
-        ) from None
+        raise TimeoutError(f"Async operation{op_name} timed out after {timeout}s") from None
 
 
 __all__ = [

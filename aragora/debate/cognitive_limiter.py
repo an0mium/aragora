@@ -182,7 +182,7 @@ class CognitiveLoadLimiter:
             limited = list(messages)
         else:
             # Keep first and last (max_msgs - 1)
-            limited = [messages[0]] + list(messages[-(max_msgs - 1):])
+            limited = [messages[0]] + list(messages[-(max_msgs - 1) :])
             self.stats["messages_truncated"] += len(messages) - len(limited)
 
         # Now enforce character limit
@@ -315,7 +315,7 @@ class CognitiveLoadLimiter:
 
         # Truncate if still too long
         if len(summarized) > max_chars:
-            summarized = summarized[:max_chars - 3] + "..."
+            summarized = summarized[: max_chars - 3] + "..."
 
         # Handle different critique types
         if hasattr(critique, "_replace"):
@@ -357,9 +357,7 @@ class CognitiveLoadLimiter:
         other_budget = int(self.budget.max_context_chars * 0.15)
 
         if messages:
-            result["messages"] = self.limit_messages(
-                messages, max_chars=message_budget
-            )
+            result["messages"] = self.limit_messages(messages, max_chars=message_budget)
 
         if critiques:
             result["critiques"] = self.limit_critiques(
@@ -368,7 +366,7 @@ class CognitiveLoadLimiter:
 
         if patterns:
             if len(patterns) > self.budget.max_patterns_chars:
-                result["patterns"] = patterns[:self.budget.max_patterns_chars] + "..."
+                result["patterns"] = patterns[: self.budget.max_patterns_chars] + "..."
             else:
                 result["patterns"] = patterns
 
@@ -379,8 +377,11 @@ class CognitiveLoadLimiter:
                 result["extra_context"] = extra_context
 
         total_chars = sum(
-            len(str(v)) if isinstance(v, str) else
-            sum(len(getattr(m, "content", str(m))) for m in v)
+            (
+                len(str(v))
+                if isinstance(v, str)
+                else sum(len(getattr(m, "content", str(m))) for m in v)
+            )
             for v in result.values()
         )
 

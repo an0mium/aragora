@@ -34,6 +34,7 @@ from aragora.plugins.manifest import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def basic_manifest():
     """Create a basic plugin manifest for testing."""
@@ -89,6 +90,7 @@ def basic_context(tmp_path):
 # =============================================================================
 # Restricted Builtins Tests
 # =============================================================================
+
 
 class TestRestrictedBuiltins:
     """Test that dangerous builtins are not available."""
@@ -149,6 +151,7 @@ class TestRestrictedBuiltins:
 # =============================================================================
 # Path Traversal Security Tests
 # =============================================================================
+
 
 class TestPathTraversalPrevention:
     """Test that path traversal attacks are blocked."""
@@ -275,6 +278,7 @@ class TestPathTraversalPrevention:
 # Capability Tests
 # =============================================================================
 
+
 class TestCapabilities:
     """Test capability-based permission system."""
 
@@ -340,6 +344,7 @@ class TestCapabilities:
 # Plugin Context Tests
 # =============================================================================
 
+
 class TestPluginContext:
     """Test PluginContext functionality."""
 
@@ -379,6 +384,7 @@ class TestPluginContext:
 # =============================================================================
 # Plugin Result Tests
 # =============================================================================
+
 
 class TestPluginResult:
     """Test PluginResult functionality."""
@@ -423,6 +429,7 @@ class TestPluginResult:
 # =============================================================================
 # Requirement Validation Tests
 # =============================================================================
+
 
 class TestRequirementValidation:
     """Test plugin requirement validation."""
@@ -474,6 +481,7 @@ class TestRequirementValidation:
 # Entry Point Loading Tests
 # =============================================================================
 
+
 class TestEntryPointLoading:
     """Test plugin entry point loading."""
 
@@ -509,6 +517,7 @@ class TestEntryPointLoading:
 # Sandbox Level Tests
 # =============================================================================
 
+
 class TestSandboxLevels:
     """Test different sandbox levels."""
 
@@ -531,6 +540,7 @@ class TestSandboxLevels:
 # =============================================================================
 # Resource Limit Tests
 # =============================================================================
+
 
 class TestResourceLimits:
     """Test resource limit enforcement."""
@@ -558,6 +568,7 @@ class TestResourceLimits:
 # =============================================================================
 # Plugin Manifest Validation Tests
 # =============================================================================
+
 
 class TestPluginManifest:
     """Test plugin manifest validation."""
@@ -592,6 +603,7 @@ class TestPluginManifest:
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestPluginRunnerIntegration:
     """Integration tests for the full plugin runner flow."""
@@ -631,6 +643,7 @@ class TestPluginRunnerIntegration:
 # =============================================================================
 # Security Edge Cases
 # =============================================================================
+
 
 class TestSecurityEdgeCases:
     """Test security edge cases and attack vectors."""

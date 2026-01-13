@@ -436,13 +436,7 @@ class TestIntegration:
             timestamp=datetime.now().isoformat(),
             input_summary="Integration test input",
             input_hash="integration123",
-            risk_summary={
-                "critical": 1,
-                "high": 2,
-                "medium": 3,
-                "low": 0,
-                "total": 6
-            },
+            risk_summary={"critical": 1, "high": 2, "medium": 3, "low": 0, "total": 6},
             attacks_attempted=25,
             attacks_successful=6,
             probes_run=20,
@@ -625,7 +619,9 @@ class TestGauntletPersonaIntegration:
         class MockAgent(Agent):
             async def generate(self, prompt, history):
                 if "GDPR" in prompt:
-                    return "High severity risk: Missing consent mechanism. This is a compliance gap."
+                    return (
+                        "High severity risk: Missing consent mechanism. This is a compliance gap."
+                    )
                 return "Analysis complete. No critical issues."
 
             def critique(self, response, context):
@@ -649,9 +645,6 @@ class TestGauntletPersonaIntegration:
         result = await orchestrator.run(config)
 
         # Should have persona findings
-        persona_findings = [
-            f for f in result.all_findings
-            if "persona/" in f.category
-        ]
+        persona_findings = [f for f in result.all_findings if "persona/" in f.category]
         assert len(persona_findings) > 0
         assert any("GDPR" in f.title for f in persona_findings)

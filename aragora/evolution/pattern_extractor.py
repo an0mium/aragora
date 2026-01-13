@@ -16,9 +16,11 @@ from collections import defaultdict
 
 class StrategyTemplate(TypedDict):
     """Type definition for strategy templates."""
+
     name: str
     description: str
     tactics: list[str]
+
 
 logger = logging.getLogger(__name__)
 
@@ -135,10 +137,7 @@ class PatternExtractor:
         critiques = debate_outcome.get("critiques", [])
 
         # Get winning agent's messages
-        winner_messages = [
-            m.get("content", "") for m in messages
-            if m.get("agent") == winner
-        ]
+        winner_messages = [m.get("content", "") for m in messages if m.get("agent") == winner]
 
         # Extract evidence usage patterns
         evidence_patterns = self._extract_evidence_patterns(winner_messages, winner)
@@ -153,9 +152,7 @@ class PatternExtractor:
         patterns.extend(persuasion_patterns)
 
         # Extract critique response patterns
-        response_patterns = self._extract_response_patterns(
-            critiques, messages, winner
-        )
+        response_patterns = self._extract_response_patterns(critiques, messages, winner)
         patterns.extend(response_patterns)
 
         return patterns
@@ -182,14 +179,16 @@ class PatternExtractor:
                             examples.append(context)
 
         if evidence_count > 0:
-            patterns.append(Pattern(
-                pattern_type="evidence",
-                description="Uses evidence and citations to support arguments",
-                agent=agent,
-                frequency=evidence_count,
-                effectiveness=min(1.0, evidence_count / 3),  # Normalize
-                examples=examples,
-            ))
+            patterns.append(
+                Pattern(
+                    pattern_type="evidence",
+                    description="Uses evidence and citations to support arguments",
+                    agent=agent,
+                    frequency=evidence_count,
+                    effectiveness=min(1.0, evidence_count / 3),  # Normalize
+                    examples=examples,
+                )
+            )
 
         return patterns
 
@@ -213,14 +212,16 @@ class PatternExtractor:
                             examples.append(msg[start:end].strip())
 
         if structure_count > 0:
-            patterns.append(Pattern(
-                pattern_type="structure",
-                description="Uses clear argument structure with transitions",
-                agent=agent,
-                frequency=structure_count,
-                effectiveness=min(1.0, structure_count / 4),
-                examples=examples[:3],
-            ))
+            patterns.append(
+                Pattern(
+                    pattern_type="structure",
+                    description="Uses clear argument structure with transitions",
+                    agent=agent,
+                    frequency=structure_count,
+                    effectiveness=min(1.0, structure_count / 4),
+                    examples=examples[:3],
+                )
+            )
 
         return patterns
 
@@ -244,14 +245,16 @@ class PatternExtractor:
                             examples.append(msg[start:end].strip())
 
         if persuasion_count > 0:
-            patterns.append(Pattern(
-                pattern_type="persuasion",
-                description="Uses emphatic language and key point highlighting",
-                agent=agent,
-                frequency=persuasion_count,
-                effectiveness=min(1.0, persuasion_count / 3),
-                examples=examples[:3],
-            ))
+            patterns.append(
+                Pattern(
+                    pattern_type="persuasion",
+                    description="Uses emphatic language and key point highlighting",
+                    agent=agent,
+                    frequency=persuasion_count,
+                    effectiveness=min(1.0, persuasion_count / 3),
+                    examples=examples[:3],
+                )
+            )
 
         return patterns
 
@@ -268,18 +271,13 @@ class PatternExtractor:
             return patterns
 
         # Find critiques directed at the winner
-        critiques_to_winner = [
-            c for c in critiques if c.get("to") == winner
-        ]
+        critiques_to_winner = [c for c in critiques if c.get("to") == winner]
 
         if not critiques_to_winner:
             return patterns
 
         # Check if winner acknowledged and addressed critiques
-        winner_responses = [
-            m.get("content", "") for m in messages
-            if m.get("agent") == winner
-        ]
+        winner_responses = [m.get("content", "") for m in messages if m.get("agent") == winner]
 
         acknowledgment_markers = [
             r"you raise a valid point",
@@ -297,14 +295,16 @@ class PatternExtractor:
                     acknowledgment_count += 1
 
         if acknowledgment_count > 0:
-            patterns.append(Pattern(
-                pattern_type="response",
-                description="Acknowledges critiques before countering",
-                agent=winner,
-                frequency=acknowledgment_count,
-                effectiveness=min(1.0, acknowledgment_count / 2),
-                examples=[],
-            ))
+            patterns.append(
+                Pattern(
+                    pattern_type="response",
+                    description="Acknowledges critiques before countering",
+                    agent=winner,
+                    frequency=acknowledgment_count,
+                    effectiveness=min(1.0, acknowledgment_count / 2),
+                    examples=[],
+                )
+            )
 
         return patterns
 
@@ -373,10 +373,7 @@ class StrategyIdentifier:
         votes = debate_outcome.get("votes", {})
 
         # Get winning agent's messages
-        winner_messages = [
-            m.get("content", "") for m in messages
-            if m.get("agent") == winner
-        ]
+        winner_messages = [m.get("content", "") for m in messages if m.get("agent") == winner]
 
         if not winner_messages:
             return strategies
@@ -387,37 +384,43 @@ class StrategyIdentifier:
         evidence_score = self._score_evidence_strategy(combined_text)
         if evidence_score > 0.3:
             template = self.STRATEGY_TEMPLATES["evidence_based"]
-            strategies.append(Strategy(
-                name=template["name"],
-                description=template["description"],
-                success_rate=evidence_score,
-                agent=winner,
-                tactics=template["tactics"],
-            ))
+            strategies.append(
+                Strategy(
+                    name=template["name"],
+                    description=template["description"],
+                    success_rate=evidence_score,
+                    agent=winner,
+                    tactics=template["tactics"],
+                )
+            )
 
         # Check for structured strategy
         structure_score = self._score_structure_strategy(combined_text)
         if structure_score > 0.3:
             template = self.STRATEGY_TEMPLATES["structured"]
-            strategies.append(Strategy(
-                name=template["name"],
-                description=template["description"],
-                success_rate=structure_score,
-                agent=winner,
-                tactics=template["tactics"],
-            ))
+            strategies.append(
+                Strategy(
+                    name=template["name"],
+                    description=template["description"],
+                    success_rate=structure_score,
+                    agent=winner,
+                    tactics=template["tactics"],
+                )
+            )
 
         # Check for conciliatory strategy
         conciliatory_score = self._score_conciliatory_strategy(combined_text)
         if conciliatory_score > 0.3:
             template = self.STRATEGY_TEMPLATES["conciliatory"]
-            strategies.append(Strategy(
-                name=template["name"],
-                description=template["description"],
-                success_rate=conciliatory_score,
-                agent=winner,
-                tactics=template["tactics"],
-            ))
+            strategies.append(
+                Strategy(
+                    name=template["name"],
+                    description=template["description"],
+                    success_rate=conciliatory_score,
+                    agent=winner,
+                    tactics=template["tactics"],
+                )
+            )
 
         # Boost scores if consensus was reached
         if consensus_reached:
@@ -429,8 +432,16 @@ class StrategyIdentifier:
     def _score_evidence_strategy(self, text: str) -> float:
         """Score how much the text uses evidence-based argumentation."""
         markers = [
-            "according to", "research", "study", "data", "evidence",
-            "statistics", "source", "citation", "shows that", "demonstrates"
+            "according to",
+            "research",
+            "study",
+            "data",
+            "evidence",
+            "statistics",
+            "source",
+            "citation",
+            "shows that",
+            "demonstrates",
         ]
         count = sum(1 for m in markers if m in text)
         return min(1.0, count / 5)
@@ -438,8 +449,16 @@ class StrategyIdentifier:
     def _score_structure_strategy(self, text: str) -> float:
         """Score how structured the argumentation is."""
         markers = [
-            "first", "second", "third", "finally", "in conclusion",
-            "therefore", "thus", "hence", "consequently", "as a result"
+            "first",
+            "second",
+            "third",
+            "finally",
+            "in conclusion",
+            "therefore",
+            "thus",
+            "hence",
+            "consequently",
+            "as a result",
         ]
         count = sum(1 for m in markers if m in text)
         return min(1.0, count / 4)
@@ -447,8 +466,14 @@ class StrategyIdentifier:
     def _score_conciliatory_strategy(self, text: str) -> float:
         """Score how conciliatory the approach is."""
         markers = [
-            "you're right", "valid point", "i agree", "fair criticism",
-            "acknowledge", "however", "while true", "that said"
+            "you're right",
+            "valid point",
+            "i agree",
+            "fair criticism",
+            "acknowledge",
+            "however",
+            "while true",
+            "that said",
         ]
         count = sum(1 for m in markers if m in text)
         return min(1.0, count / 3)

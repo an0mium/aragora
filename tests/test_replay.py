@@ -42,7 +42,9 @@ class TestDebateRecorder:
                     Message(role="proposer", agent="agent1", content="Proposal 1"),
                     Message(role="critic", agent="agent2", content="Critique of proposal 1"),
                 ],
-                votes=[Vote(agent="agent1", choice="accept", confidence=0.9, reasoning="Good proposal")],
+                votes=[
+                    Vote(agent="agent1", choice="accept", confidence=0.9, reasoning="Good proposal")
+                ],
                 rounds_used=2,
                 duration_seconds=10.5,
             )
@@ -54,7 +56,7 @@ class TestDebateRecorder:
             assert Path(filepath).exists()
 
             # Verify content
-            with open(filepath, 'r') as f:
+            with open(filepath, "r") as f:
                 data = json.load(f)
 
             assert data["debate_result"]["id"] == "test-123"
@@ -199,7 +201,7 @@ class TestReplayEvent:
             event_type="turn",
             source="agent-1",
             content="Hello world",
-            metadata={"round": 1}
+            metadata={"round": 1},
         )
         assert event.event_id == "abc123"
         assert event.timestamp == 1704067200.0
@@ -217,7 +219,7 @@ class TestReplayEvent:
             offset_ms=0,
             event_type="turn",
             source="agent-1",
-            content="test"
+            content="test",
         )
         assert event.metadata == {}
 
@@ -230,7 +232,7 @@ class TestReplayEvent:
             event_type="turn",
             source="agent-1",
             content="Hello world",
-            metadata={"round": 1}
+            metadata={"round": 1},
         )
         jsonl = event.to_jsonl()
         parsed = json.loads(jsonl)
@@ -250,7 +252,7 @@ class TestReplayEvent:
             offset_ms=0,
             event_type="turn",
             source="agent-1",
-            content="Unicode: \u4e2d\u6587 \U0001f680"
+            content="Unicode: \u4e2d\u6587 \U0001f680",
         )
         jsonl = event.to_jsonl()
         assert "\u4e2d\u6587" in jsonl
@@ -285,7 +287,7 @@ class TestReplayEvent:
             event_type="vote",
             source="agent-2",
             content="approve",
-            metadata={"reasoning": "Good argument"}
+            metadata={"reasoning": "Good argument"},
         )
         jsonl = original.to_jsonl()
         restored = ReplayEvent.from_jsonl(jsonl)
@@ -320,7 +322,7 @@ class TestReplayMeta:
             proposal="AI systems should be regulated",
             agents=[{"id": "agent-1", "name": "Claude"}],
             started_at="2024-01-01T00:00:00",
-            status="completed"
+            status="completed",
         )
         assert meta.debate_id == "debate-123"
         assert meta.topic == "AI Safety"
@@ -329,11 +331,7 @@ class TestReplayMeta:
 
     def test_to_json(self):
         """Meta serializes to valid JSON."""
-        meta = ReplayMeta(
-            debate_id="debate-123",
-            topic="Test topic",
-            status="completed"
-        )
+        meta = ReplayMeta(debate_id="debate-123", topic="Test topic", status="completed")
         json_str = meta.to_json()
         parsed = json.loads(json_str)
         assert parsed["debate_id"] == "debate-123"
@@ -370,7 +368,7 @@ class TestReplayMeta:
             final_verdict="approved",
             vote_tally={"approve": 3, "reject": 1},
             event_count=50,
-            tags=["climate", "policy"]
+            tags=["climate", "policy"],
         )
         json_str = original.to_json()
         restored = ReplayMeta.from_json(json_str)
@@ -400,14 +398,16 @@ class TestReplayReader:
             agents=[{"id": "agent-1"}],
             started_at="2024-01-01T00:00:00",
             status="completed",
-            event_count=3
+            event_count=3,
         )
         (session_dir / "meta.json").write_text(meta.to_json())
 
         events = [
             ReplayEvent("e1", 1704067200.0, 0, "turn", "agent-1", "First message"),
             ReplayEvent("e2", 1704067201.0, 1000, "turn", "agent-2", "Second message"),
-            ReplayEvent("e3", 1704067202.0, 2000, "vote", "agent-1", "approve", {"reasoning": "Good"}),
+            ReplayEvent(
+                "e3", 1704067202.0, 2000, "vote", "agent-1", "approve", {"reasoning": "Good"}
+            ),
         ]
         events_file = session_dir / "events.jsonl"
         events_file.write_text("\n".join(e.to_jsonl() for e in events) + "\n")
@@ -525,7 +525,7 @@ class TestStreamReplayRecorder:
             topic="Test topic",
             proposal="Test proposal",
             agents=[{"id": "a1"}],
-            storage_dir=str(storage_dir)
+            storage_dir=str(storage_dir),
         )
         assert recorder.session_dir.exists()
         assert recorder.debate_id == "test-123"
@@ -538,7 +538,7 @@ class TestStreamReplayRecorder:
             topic="Test topic",
             proposal="Test proposal",
             agents=[{"id": "a1", "name": "Agent 1"}],
-            storage_dir=str(storage_dir)
+            storage_dir=str(storage_dir),
         )
         recorder.start()
         try:
@@ -558,7 +558,7 @@ class TestStreamReplayRecorder:
             topic="Turn test",
             proposal="Test",
             agents=[],
-            storage_dir=str(storage_dir)
+            storage_dir=str(storage_dir),
         )
         recorder.start()
         recorder.record_turn("agent-1", "Hello world", round_num=1)
@@ -582,7 +582,7 @@ class TestStreamReplayRecorder:
             topic="Vote test",
             proposal="Test",
             agents=[],
-            storage_dir=str(storage_dir)
+            storage_dir=str(storage_dir),
         )
         recorder.start()
         recorder.record_vote("agent-1", "approve", "Convincing argument")
@@ -604,7 +604,7 @@ class TestStreamReplayRecorder:
             topic="Audience test",
             proposal="Test",
             agents=[],
-            storage_dir=str(storage_dir)
+            storage_dir=str(storage_dir),
         )
         recorder.start()
         recorder.record_audience_input("user-123", "Great question!", loop_id="loop-1")
@@ -626,7 +626,7 @@ class TestStreamReplayRecorder:
             topic="Phase test",
             proposal="Test",
             agents=[],
-            storage_dir=str(storage_dir)
+            storage_dir=str(storage_dir),
         )
         recorder.start()
         recorder.record_phase_change("voting")
@@ -648,7 +648,7 @@ class TestStreamReplayRecorder:
             topic="System test",
             proposal="Test",
             agents=[],
-            storage_dir=str(storage_dir)
+            storage_dir=str(storage_dir),
         )
         recorder.start()
         recorder.record_system("Debate initialized")
@@ -669,7 +669,7 @@ class TestStreamReplayRecorder:
             topic="Finalize test",
             proposal="Test",
             agents=[],
-            storage_dir=str(storage_dir)
+            storage_dir=str(storage_dir),
         )
         recorder.start()
         recorder.record_turn("agent-1", "Test message", round_num=1)
@@ -692,7 +692,7 @@ class TestStreamReplayRecorder:
             topic="Abort test",
             proposal="Test",
             agents=[],
-            storage_dir=str(storage_dir)
+            storage_dir=str(storage_dir),
         )
         recorder.start()
         recorder.abort()
@@ -708,7 +708,7 @@ class TestStreamReplayRecorder:
             topic="Inactive test",
             proposal="Test",
             agents=[],
-            storage_dir=str(storage_dir)
+            storage_dir=str(storage_dir),
         )
         # Don't call start()
         recorder.record_turn("agent-1", "Should not be recorded", round_num=1)
@@ -741,7 +741,7 @@ class TestReplayStorage:
                 topic=f"Topic {i}",
                 started_at=f"2024-01-0{i+1}T00:00:00",
                 status="completed",
-                event_count=i * 10
+                event_count=i * 10,
             )
             (session_dir / "meta.json").write_text(meta.to_json())
 
@@ -854,7 +854,7 @@ class TestReplayStorage:
             meta = ReplayMeta(
                 debate_id=f"debate-{i}",
                 topic=f"Topic {i}",
-                started_at=f"2024-01-{i+1:02d}T00:00:00"
+                started_at=f"2024-01-{i+1:02d}T00:00:00",
             )
             (session_dir / "meta.json").write_text(meta.to_json())
 
@@ -890,7 +890,7 @@ class TestReplayStorage:
             meta = ReplayMeta(
                 debate_id=f"debate-{i}",
                 topic=f"Topic {i}",
-                started_at=f"2024-01-{i+1:02d}T00:00:00"
+                started_at=f"2024-01-{i+1:02d}T00:00:00",
             )
             (session_dir / "meta.json").write_text(meta.to_json())
 
@@ -919,11 +919,8 @@ class TestStreamReplayIntegration:
             debate_id="full-test",
             topic="Climate Change",
             proposal="Implement carbon tax",
-            agents=[
-                {"id": "claude", "name": "Claude"},
-                {"id": "gpt", "name": "GPT-4"}
-            ],
-            storage_dir=str(storage_dir)
+            agents=[{"id": "claude", "name": "Claude"}, {"id": "gpt", "name": "GPT-4"}],
+            storage_dir=str(storage_dir),
         )
         recorder.start()
 
@@ -973,7 +970,7 @@ class TestStreamReplayIntegration:
                 topic=f"Topic {i}",
                 proposal=f"Proposal {i}",
                 agents=[],
-                storage_dir=str(storage_dir)
+                storage_dir=str(storage_dir),
             )
             recorder.start()
             recorder.record_turn("agent", f"Message for debate {i}", round_num=1)

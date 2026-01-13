@@ -16,6 +16,7 @@ from aragora.core import Environment, Critique
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_protocol():
     """Create a mock DebateProtocol."""
@@ -144,6 +145,7 @@ def prompt_builder(mock_protocol, mock_environment):
 # Initialization Tests
 # ============================================================================
 
+
 class TestPromptBuilderInit:
     """Tests for PromptBuilder initialization."""
 
@@ -163,7 +165,9 @@ class TestPromptBuilderInit:
         )
         assert builder.memory == mock_memory
 
-    def test_init_with_continuum_memory(self, mock_protocol, mock_environment, mock_continuum_memory):
+    def test_init_with_continuum_memory(
+        self, mock_protocol, mock_environment, mock_continuum_memory
+    ):
         """Test initialization with continuum memory."""
         builder = PromptBuilder(
             protocol=mock_protocol,
@@ -194,6 +198,7 @@ class TestPromptBuilderInit:
 # Format Patterns Tests
 # ============================================================================
 
+
 class TestFormatPatternsForPrompt:
     """Tests for format_patterns_for_prompt method."""
 
@@ -204,9 +209,7 @@ class TestFormatPatternsForPrompt:
 
     def test_single_pattern(self, prompt_builder):
         """Test formatting single pattern."""
-        patterns = [
-            {"category": "logic", "pattern": "test pattern", "occurrences": 3}
-        ]
+        patterns = [{"category": "logic", "pattern": "test pattern", "occurrences": 3}]
         result = prompt_builder.format_patterns_for_prompt(patterns)
 
         assert "LEARNED PATTERNS" in result
@@ -223,17 +226,14 @@ class TestFormatPatternsForPrompt:
 
     def test_medium_severity_pattern(self, prompt_builder):
         """Test formatting medium severity pattern."""
-        patterns = [
-            {"category": "style", "pattern": "test", "occurrences": 1, "avg_severity": 0.5}
-        ]
+        patterns = [{"category": "style", "pattern": "test", "occurrences": 1, "avg_severity": 0.5}]
         result = prompt_builder.format_patterns_for_prompt(patterns)
         assert "[MEDIUM]" in result
 
     def test_limits_to_5_patterns(self, prompt_builder):
         """Test pattern list limits to 5."""
         patterns = [
-            {"category": f"cat-{i}", "pattern": f"pattern {i}", "occurrences": i}
-            for i in range(10)
+            {"category": f"cat-{i}", "pattern": f"pattern {i}", "occurrences": i} for i in range(10)
         ]
         result = prompt_builder.format_patterns_for_prompt(patterns)
         # Count category entries
@@ -243,6 +243,7 @@ class TestFormatPatternsForPrompt:
 # ============================================================================
 # Stance Guidance Tests
 # ============================================================================
+
 
 class TestGetStanceGuidance:
     """Tests for get_stance_guidance method."""
@@ -284,6 +285,7 @@ class TestGetStanceGuidance:
 # ============================================================================
 # Agreement Intensity Guidance Tests
 # ============================================================================
+
 
 class TestGetAgreementIntensityGuidance:
     """Tests for get_agreement_intensity_guidance method."""
@@ -329,6 +331,7 @@ class TestGetAgreementIntensityGuidance:
 # Role Context Tests
 # ============================================================================
 
+
 class TestGetRoleContext:
     """Tests for get_role_context method."""
 
@@ -360,6 +363,7 @@ class TestGetRoleContext:
 # Persona Context Tests
 # ============================================================================
 
+
 class TestGetPersonaContext:
     """Tests for get_persona_context method."""
 
@@ -386,6 +390,7 @@ class TestGetPersonaContext:
 # ============================================================================
 # Flip Context Tests
 # ============================================================================
+
 
 class TestGetFlipContext:
     """Tests for get_flip_context method."""
@@ -434,6 +439,7 @@ class TestGetFlipContext:
 # Continuum Context Tests
 # ============================================================================
 
+
 class TestGetContinuumContext:
     """Tests for get_continuum_context method."""
 
@@ -452,6 +458,7 @@ class TestGetContinuumContext:
 # ============================================================================
 # Belief Context Tests
 # ============================================================================
+
 
 class TestInjectBeliefContext:
     """Tests for _inject_belief_context method."""
@@ -484,6 +491,7 @@ class TestInjectBeliefContext:
 # ============================================================================
 # Calibration Context Tests
 # ============================================================================
+
 
 class TestInjectCalibrationContext:
     """Tests for _inject_calibration_context method."""
@@ -527,6 +535,7 @@ class TestInjectCalibrationContext:
 # ELO Context Tests
 # ============================================================================
 
+
 class TestGetEloContext:
     """Tests for get_elo_context method."""
 
@@ -556,6 +565,7 @@ class TestGetEloContext:
 # ============================================================================
 # Evidence Format Tests
 # ============================================================================
+
 
 class TestFormatEvidenceForPrompt:
     """Tests for format_evidence_for_prompt method."""
@@ -587,6 +597,7 @@ class TestFormatEvidenceForPrompt:
 # Set Evidence Pack Tests
 # ============================================================================
 
+
 class TestSetEvidencePack:
     """Tests for set_evidence_pack method."""
 
@@ -604,6 +615,7 @@ class TestSetEvidencePack:
 # ============================================================================
 # Build Proposal Prompt Tests
 # ============================================================================
+
 
 class TestBuildProposalPrompt:
     """Tests for build_proposal_prompt method."""
@@ -650,6 +662,7 @@ class TestBuildProposalPrompt:
 # Build Revision Prompt Tests
 # ============================================================================
 
+
 class TestBuildRevisionPrompt:
     """Tests for build_revision_prompt method."""
 
@@ -690,6 +703,7 @@ class TestBuildRevisionPrompt:
 # Build Judge Prompt Tests
 # ============================================================================
 
+
 class TestBuildJudgePrompt:
     """Tests for build_judge_prompt method."""
 
@@ -711,6 +725,7 @@ class TestBuildJudgePrompt:
 # Build Judge Vote Prompt Tests
 # ============================================================================
 
+
 class TestBuildJudgeVotePrompt:
     """Tests for build_judge_vote_prompt method."""
 
@@ -729,6 +744,7 @@ class TestBuildJudgeVotePrompt:
 # ============================================================================
 # Format Successful Patterns Tests
 # ============================================================================
+
 
 class TestFormatSuccessfulPatterns:
     """Tests for format_successful_patterns method."""
@@ -764,6 +780,7 @@ class TestFormatSuccessfulPatterns:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestPromptBuilderIntegration:
     """Integration tests for PromptBuilder."""

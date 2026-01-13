@@ -67,8 +67,16 @@ def artifact_with_graph():
         graph_data={
             "nodes": {
                 "n1": {"node_type": "root", "agent_id": "agent1", "content": "Initial proposal"},
-                "n2": {"node_type": "proposal", "agent_id": "agent1", "content": "Detailed proposal"},
-                "n3": {"node_type": "critique", "agent_id": "agent2", "content": "Critique of proposal"},
+                "n2": {
+                    "node_type": "proposal",
+                    "agent_id": "agent1",
+                    "content": "Detailed proposal",
+                },
+                "n3": {
+                    "node_type": "critique",
+                    "agent_id": "agent2",
+                    "content": "Critique of proposal",
+                },
                 "n4": {"node_type": "synthesis", "agent_id": "agent1", "content": "Synthesis"},
             }
         },
@@ -191,13 +199,16 @@ def full_artifact():
         },
         trace_data={
             "events": [
-                {"event_type": "agent_proposal", "agent": "a1", "round_num": 1, "content": {"content": "Test"}},
+                {
+                    "event_type": "agent_proposal",
+                    "agent": "a1",
+                    "round_num": 1,
+                    "content": {"content": "Test"},
+                },
             ]
         },
         provenance_data={
-            "chain": {
-                "records": [{"id": "e1", "source_type": "test", "content": "data"}]
-            }
+            "chain": {"records": [{"id": "e1", "source_type": "test", "content": "data"}]}
         },
         consensus_proof=ConsensusProof(
             reached=True,
@@ -323,7 +334,7 @@ class TestHTMLGeneration:
         """Test includes viewport meta tag."""
         exporter = StaticHTMLExporter(minimal_artifact)
         html = exporter.generate()
-        assert 'viewport' in html
+        assert "viewport" in html
 
     def test_includes_title(self, minimal_artifact):
         """Test includes title with task."""
@@ -848,11 +859,7 @@ class TestHTMLEdgeCases:
         artifact = DebateArtifact(
             task="Task with <tags> & 'quotes' \"double\"",
             agents=["agent<1>", "agent&2"],
-            graph_data={
-                "nodes": {
-                    "n1": {"content": "Content with <html> & entities"}
-                }
-            },
+            graph_data={"nodes": {"n1": {"content": "Content with <html> & entities"}}},
         )
         exporter = StaticHTMLExporter(artifact)
 
@@ -872,8 +879,7 @@ class TestHTMLEdgeCases:
     def test_many_verification_results(self):
         """Test with many verification results."""
         verifications = [
-            VerificationResult(f"c{i}", f"Claim {i}", "verified", "z3")
-            for i in range(20)
+            VerificationResult(f"c{i}", f"Claim {i}", "verified", "z3") for i in range(20)
         ]
         artifact = DebateArtifact(verification_results=verifications)
         exporter = StaticHTMLExporter(artifact)
@@ -884,12 +890,9 @@ class TestHTMLEdgeCases:
     def test_nested_provenance_records(self):
         """Test with many provenance records (shows last 10)."""
         records = [
-            {"id": f"ev-{i}", "source_type": "test", "content": f"Evidence {i}"}
-            for i in range(20)
+            {"id": f"ev-{i}", "source_type": "test", "content": f"Evidence {i}"} for i in range(20)
         ]
-        artifact = DebateArtifact(
-            provenance_data={"chain": {"records": records}}
-        )
+        artifact = DebateArtifact(provenance_data={"chain": {"records": records}})
         exporter = StaticHTMLExporter(artifact)
 
         html = exporter.generate()

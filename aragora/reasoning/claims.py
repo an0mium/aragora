@@ -173,12 +173,24 @@ from aragora.utils.cache_registry import register_lru_cache
 
 # Patterns for quick claim detection (compiled once for performance)
 _CLAIM_PATTERNS = {
-    ClaimType.PROPOSAL: re.compile(r'\b(should|propose|suggest|recommend|let\'s|we could|consider)\b', re.I),
-    ClaimType.OBJECTION: re.compile(r'\b(however|but|disagree|object|problem|issue|concern|although|whereas)\b', re.I),
-    ClaimType.CONCESSION: re.compile(r'\b(agree|accept|true|valid|correct|fair point|you\'re right|indeed)\b', re.I),
-    ClaimType.QUESTION: re.compile(r'\?|^(what|how|why|when|where|who|which|could you|would you)\b', re.I),
-    ClaimType.REBUTTAL: re.compile(r'\b(actually|in fact|on the contrary|no,|not quite|that\'s not)\b', re.I),
-    ClaimType.SYNTHESIS: re.compile(r'\b(therefore|thus|in summary|combining|overall|to conclude)\b', re.I),
+    ClaimType.PROPOSAL: re.compile(
+        r"\b(should|propose|suggest|recommend|let\'s|we could|consider)\b", re.I
+    ),
+    ClaimType.OBJECTION: re.compile(
+        r"\b(however|but|disagree|object|problem|issue|concern|although|whereas)\b", re.I
+    ),
+    ClaimType.CONCESSION: re.compile(
+        r"\b(agree|accept|true|valid|correct|fair point|you\'re right|indeed)\b", re.I
+    ),
+    ClaimType.QUESTION: re.compile(
+        r"\?|^(what|how|why|when|where|who|which|could you|would you)\b", re.I
+    ),
+    ClaimType.REBUTTAL: re.compile(
+        r"\b(actually|in fact|on the contrary|no,|not quite|that\'s not)\b", re.I
+    ),
+    ClaimType.SYNTHESIS: re.compile(
+        r"\b(therefore|thus|in summary|combining|overall|to conclude)\b", re.I
+    ),
 }
 
 
@@ -201,7 +213,7 @@ def fast_extract_claims(text: str, author: str = "unknown") -> list[dict]:
 
     claims = []
     # Split into sentences (handle multiple punctuation patterns)
-    sentences = re.split(r'(?<=[.!?])\s+', text)
+    sentences = re.split(r"(?<=[.!?])\s+", text)
 
     for sentence in sentences:
         sentence = sentence.strip()
@@ -219,17 +231,19 @@ def fast_extract_claims(text: str, author: str = "unknown") -> list[dict]:
                 break
 
         # Boost confidence for stronger indicators
-        if re.search(r'\b(must|definitely|certainly|clearly|obviously)\b', sentence, re.I):
+        if re.search(r"\b(must|definitely|certainly|clearly|obviously)\b", sentence, re.I):
             confidence = min(0.8, confidence + 0.2)
-        elif re.search(r'\b(maybe|perhaps|might|possibly|could be)\b', sentence, re.I):
+        elif re.search(r"\b(maybe|perhaps|might|possibly|could be)\b", sentence, re.I):
             confidence = max(0.2, confidence - 0.1)
 
-        claims.append({
-            "type": claim_type.value,
-            "text": sentence[:200],  # Truncate long sentences
-            "author": author,
-            "confidence": confidence,
-        })
+        claims.append(
+            {
+                "type": claim_type.value,
+                "text": sentence[:200],  # Truncate long sentences
+                "author": author,
+                "confidence": confidence,
+            }
+        )
 
     return claims
 
@@ -437,8 +451,7 @@ class ClaimsKernel:
     def find_unsupported_claims(self) -> list[TypedClaim]:
         """Find claims with no supporting evidence."""
         return [
-            c for c in self.claims.values()
-            if not c.evidence and c.claim_type != ClaimType.QUESTION
+            c for c in self.claims.values() if not c.evidence and c.claim_type != ClaimType.QUESTION
         ]
 
     def find_contradictions(self) -> list[tuple[TypedClaim, TypedClaim]]:
@@ -460,8 +473,7 @@ class ClaimsKernel:
         for obj in objections:
             # Check if any rebuttal targets this objection
             has_rebuttal = any(
-                r.target_claim_id == obj.claim_id and
-                r.relation_type == RelationType.CONTRADICTS
+                r.target_claim_id == obj.claim_id and r.relation_type == RelationType.CONTRADICTS
                 for r in self.relations.values()
             )
             if not has_rebuttal:
@@ -481,7 +493,8 @@ class ClaimsKernel:
 
         # Add support from other claims
         support_relations = [
-            r for r in self.relations.values()
+            r
+            for r in self.relations.values()
             if r.target_claim_id == claim_id and r.relation_type == RelationType.SUPPORTS
         ]
         for rel in support_relations:
@@ -491,7 +504,8 @@ class ClaimsKernel:
 
         # Subtract for unaddressed contradictions
         contradictions = [
-            r for r in self.relations.values()
+            r
+            for r in self.relations.values()
             if r.target_claim_id == claim_id and r.relation_type == RelationType.CONTRADICTS
         ]
         for rel in contradictions:
@@ -543,7 +557,11 @@ class ClaimsKernel:
         data = self.to_dict()
         # Fix enum serialization in relations
         for rel in data["relations"].values():
-            rel["relation_type"] = rel["relation_type"].value if isinstance(rel["relation_type"], RelationType) else rel["relation_type"]
+            rel["relation_type"] = (
+                rel["relation_type"].value
+                if isinstance(rel["relation_type"], RelationType)
+                else rel["relation_type"]
+            )
         return json.dumps(data, indent=indent, default=str)
 
     async def verify_claim_formally(
@@ -664,9 +682,7 @@ class ClaimsKernel:
         results = {}
 
         for claim_id in self.claims:
-            evidence = await self.verify_claim_formally(
-                claim_id, llm_translator, timeout_seconds
-            )
+            evidence = await self.verify_claim_formally(claim_id, llm_translator, timeout_seconds)
 
             if evidence is None:
                 results[claim_id] = "not_verifiable"

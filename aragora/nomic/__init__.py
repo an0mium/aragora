@@ -102,6 +102,7 @@ from aragora.nomic.phases import (
     check_design_scope,
 )
 
+
 # Legacy Integration (lazy imports to avoid circular dependencies)
 def __getattr__(name):
     """Lazy import legacy integration modules."""
@@ -123,12 +124,15 @@ def __getattr__(name):
 
     if name in legacy_integration:
         from aragora.nomic import integration
+
         return getattr(integration, name)
     elif name in legacy_preflight:
         from aragora.nomic import preflight
+
         return getattr(preflight, name)
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     # State Machine (New)

@@ -89,9 +89,7 @@ class InvitationRepository:
             row = cursor.fetchone()
             return self._row_to_invitation(row) if row else None
 
-    def get_by_email(
-        self, org_id: str, email: str
-    ) -> Optional["OrganizationInvitation"]:
+    def get_by_email(self, org_id: str, email: str) -> Optional["OrganizationInvitation"]:
         """Get pending invitation by org and email."""
         with self._transaction() as cursor:
             cursor.execute(

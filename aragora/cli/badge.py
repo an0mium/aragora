@@ -44,9 +44,7 @@ def get_badge_url(badge_type: str, style: str) -> str:
 
 
 def generate_badge_markdown(
-    badge_type: str = "reviewed",
-    style: str = "flat",
-    repo: str | None = None
+    badge_type: str = "reviewed", style: str = "flat", repo: str | None = None
 ) -> tuple[str, str]:
     """Generate badge markdown and HTML.
 
@@ -87,9 +85,7 @@ def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Aragora badges")
-    parser.add_argument("--type", "-t", choices=BADGE_TYPES, default="reviewed",
-                        help="Badge type")
-    parser.add_argument("--style", "-s", choices=BADGE_STYLES, default="flat",
-                        help="Badge style")
+    parser.add_argument("--type", "-t", choices=BADGE_TYPES, default="reviewed", help="Badge type")
+    parser.add_argument("--style", "-s", choices=BADGE_STYLES, default="flat", help="Badge style")
     parser.add_argument("--repo", "-r", help="GitHub repo (owner/repo)")
     main(parser.parse_args())

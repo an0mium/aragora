@@ -432,7 +432,9 @@ class TestBroadcastIntegration:
             with patch("aragora.broadcast.generate_audio") as mock_gen:
                 mock_gen.return_value = [tmp_path / "seg.mp3"]
                 with patch("aragora.broadcast.mix_audio", return_value=False):
-                    with patch("aragora.broadcast.mix_audio_with_ffmpeg", return_value=True) as mock_ffmpeg:
+                    with patch(
+                        "aragora.broadcast.mix_audio_with_ffmpeg", return_value=True
+                    ) as mock_ffmpeg:
                         result = await broadcast_debate(mock_trace, output_path)
 
         assert result == output_path
@@ -764,6 +766,7 @@ class TestHasMixedCodecs:
         wav_file.write_bytes(b"fake wav")
 
         call_count = 0
+
         def mock_ffprobe(*args, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -786,6 +789,7 @@ class TestHasMixedCodecs:
         xtts.write_bytes(b"fake wav")
 
         call_count = 0
+
         def mock_ffprobe(*args, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -871,6 +875,7 @@ class TestCodecAwareMixing:
         output_path = tmp_path / "output.mp3"
 
         call_count = 0
+
         def mock_subprocess(*args, **kwargs):
             nonlocal call_count
             call_count += 1

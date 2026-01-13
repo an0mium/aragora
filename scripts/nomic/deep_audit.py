@@ -202,9 +202,7 @@ Cross-examine each other's reasoning. Be thorough.""",
 
             self._log(f"    [deep-audit] Design confidence: {verdict.confidence:.0%}")
             if verdict.unanimous_issues:
-                self._log(
-                    f"    [deep-audit] Blocking issues: {len(verdict.unanimous_issues)}"
-                )
+                self._log(f"    [deep-audit] Blocking issues: {len(verdict.unanimous_issues)}")
                 for issue in verdict.unanimous_issues[:3]:
                     self._log(f"      - {issue[:150]}...")
 
@@ -283,9 +281,7 @@ Be rigorous. These files are protected for a reason.""",
 
             # Log verdict summary
             self._log(f"    [deep-audit] Confidence: {verdict.confidence:.0%}")
-            self._log(
-                f"    [deep-audit] Unanimous issues: {len(verdict.unanimous_issues)}"
-            )
+            self._log(f"    [deep-audit] Unanimous issues: {len(verdict.unanimous_issues)}")
             self._log(f"    [deep-audit] Split opinions: {len(verdict.split_opinions)}")
             self._log(f"    [deep-audit] Risk areas: {len(verdict.risk_areas)}")
 
@@ -305,9 +301,7 @@ Be rigorous. These files are protected for a reason.""",
 
             # Low confidence warning
             if verdict.confidence < 0.5 and len(verdict.split_opinions) > 2:
-                self._log(
-                    "    [deep-audit] WARNING - Low confidence, proceed with caution"
-                )
+                self._log("    [deep-audit] WARNING - Low confidence, proceed with caution")
 
             self._log("    [deep-audit] APPROVED - No unanimous blocking issues")
             return AuditResult(

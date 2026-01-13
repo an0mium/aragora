@@ -18,23 +18,25 @@ from .events import SpectatorEvents, EVENT_STYLES, EVENT_ASCII
 logger = logging.getLogger(__name__)
 
 # Valid event types for validation
-VALID_EVENT_TYPES = frozenset([
-    SpectatorEvents.DEBATE_START,
-    SpectatorEvents.DEBATE_END,
-    SpectatorEvents.ROUND_START,
-    SpectatorEvents.ROUND_END,
-    SpectatorEvents.PROPOSAL,
-    SpectatorEvents.CRITIQUE,
-    SpectatorEvents.REFINE,
-    SpectatorEvents.VOTE,
-    SpectatorEvents.JUDGE,
-    SpectatorEvents.CONSENSUS,
-    SpectatorEvents.CONVERGENCE,
-    SpectatorEvents.CONVERGED,
-    SpectatorEvents.MEMORY_RECALL,
-    SpectatorEvents.SYSTEM,
-    SpectatorEvents.ERROR,
-])
+VALID_EVENT_TYPES = frozenset(
+    [
+        SpectatorEvents.DEBATE_START,
+        SpectatorEvents.DEBATE_END,
+        SpectatorEvents.ROUND_START,
+        SpectatorEvents.ROUND_END,
+        SpectatorEvents.PROPOSAL,
+        SpectatorEvents.CRITIQUE,
+        SpectatorEvents.REFINE,
+        SpectatorEvents.VOTE,
+        SpectatorEvents.JUDGE,
+        SpectatorEvents.CONSENSUS,
+        SpectatorEvents.CONVERGENCE,
+        SpectatorEvents.CONVERGED,
+        SpectatorEvents.MEMORY_RECALL,
+        SpectatorEvents.SYSTEM,
+        SpectatorEvents.ERROR,
+    ]
+)
 
 
 @dataclass
@@ -73,7 +75,7 @@ class SpectatorStream:
     def _detect_capabilities(self) -> None:
         """Auto-detect terminal capabilities."""
         # Check if output is a TTY
-        is_tty = hasattr(self.output, 'isatty') and self.output.isatty()
+        is_tty = hasattr(self.output, "isatty") and self.output.isatty()
 
         # Respect NO_COLOR standard (https://no-color.org/)
         no_color = os.environ.get("NO_COLOR") is not None
@@ -83,8 +85,8 @@ class SpectatorStream:
         is_dumb = term == "dumb"
 
         # Check encoding for emoji support
-        encoding = getattr(self.output, 'encoding', 'ascii') or 'ascii'
-        supports_utf8 = encoding.lower().replace('-', '') in ('utf8', 'utf16', 'utf32')
+        encoding = getattr(self.output, "encoding", "ascii") or "ascii"
+        supports_utf8 = encoding.lower().replace("-", "") in ("utf8", "utf16", "utf32")
 
         self._use_color = is_tty and not no_color and not is_dumb
         self._use_emoji = is_tty and supports_utf8 and not is_dumb
@@ -211,6 +213,5 @@ class SpectatorStream:
             print(line, file=self.output, flush=True)
         except UnicodeEncodeError:
             # Fallback to ASCII-safe version
-            safe_line = line.encode('ascii', 'replace').decode('ascii')
+            safe_line = line.encode("ascii", "replace").decode("ascii")
             print(safe_line, file=self.output, flush=True)
-

@@ -16,40 +16,40 @@ class EventType(Enum):
     """Types of events that can trigger state transitions."""
 
     # Lifecycle events
-    START = auto()              # Start a new cycle
-    STOP = auto()               # Stop the current cycle
-    PAUSE = auto()              # Pause the current cycle
-    RESUME = auto()             # Resume a paused cycle
+    START = auto()  # Start a new cycle
+    STOP = auto()  # Stop the current cycle
+    PAUSE = auto()  # Pause the current cycle
+    RESUME = auto()  # Resume a paused cycle
 
     # Phase completion events
-    CONTEXT_COMPLETE = auto()   # Context gathering finished
-    DEBATE_COMPLETE = auto()    # Debate phase finished
-    DESIGN_COMPLETE = auto()    # Design phase finished
-    IMPLEMENT_COMPLETE = auto() # Implementation finished
-    VERIFY_COMPLETE = auto()    # Verification finished
-    COMMIT_COMPLETE = auto()    # Commit finished
+    CONTEXT_COMPLETE = auto()  # Context gathering finished
+    DEBATE_COMPLETE = auto()  # Debate phase finished
+    DESIGN_COMPLETE = auto()  # Design phase finished
+    IMPLEMENT_COMPLETE = auto()  # Implementation finished
+    VERIFY_COMPLETE = auto()  # Verification finished
+    COMMIT_COMPLETE = auto()  # Commit finished
 
     # Error events
-    ERROR = auto()              # An error occurred
-    TIMEOUT = auto()            # A timeout occurred
-    RETRY = auto()              # Retry the current phase
-    SKIP = auto()               # Skip to next phase
+    ERROR = auto()  # An error occurred
+    TIMEOUT = auto()  # A timeout occurred
+    RETRY = auto()  # Retry the current phase
+    SKIP = auto()  # Skip to next phase
 
     # Recovery events
-    RECOVER = auto()            # Attempt recovery
-    ROLLBACK = auto()           # Rollback changes
-    ABORT = auto()              # Abort the cycle
+    RECOVER = auto()  # Attempt recovery
+    ROLLBACK = auto()  # Rollback changes
+    ABORT = auto()  # Abort the cycle
 
     # Agent events
-    AGENT_FAILED = auto()       # An agent failed
-    AGENT_RECOVERED = auto()    # An agent recovered
-    CIRCUIT_OPEN = auto()       # Circuit breaker opened
-    CIRCUIT_CLOSE = auto()      # Circuit breaker closed
+    AGENT_FAILED = auto()  # An agent failed
+    AGENT_RECOVERED = auto()  # An agent recovered
+    CIRCUIT_OPEN = auto()  # Circuit breaker opened
+    CIRCUIT_CLOSE = auto()  # Circuit breaker closed
 
     # External events
-    USER_INPUT = auto()         # User provided input
+    USER_INPUT = auto()  # User provided input
     CHECKPOINT_LOADED = auto()  # Checkpoint was loaded
-    CONFIG_CHANGED = auto()     # Configuration changed
+    CONFIG_CHANGED = auto()  # Configuration changed
 
 
 @dataclass
@@ -97,7 +97,11 @@ class Event:
         return cls(
             event_id=data.get("event_id", str(uuid.uuid4())[:8]),
             event_type=EventType[data.get("event_type", "START")],
-            timestamp=datetime.fromisoformat(data["timestamp"]) if data.get("timestamp") else datetime.utcnow(),
+            timestamp=(
+                datetime.fromisoformat(data["timestamp"])
+                if data.get("timestamp")
+                else datetime.utcnow()
+            ),
             source=data.get("source", ""),
             data=data.get("data", {}),
             error_message=data.get("error_message"),
@@ -304,10 +308,14 @@ class EventLog:
         return {
             "total_events": len(self.events),
             "errors": len(self.get_errors()),
-            "event_types": {et.name: len(self.get_events_by_type(et))
-                           for et in EventType if self.get_events_by_type(et)},
+            "event_types": {
+                et.name: len(self.get_events_by_type(et))
+                for et in EventType
+                if self.get_events_by_type(et)
+            },
             "duration_seconds": (
                 (self.events[-1].timestamp - self.events[0].timestamp).total_seconds()
-                if len(self.events) >= 2 else 0
+                if len(self.events) >= 2
+                else 0
             ),
         }

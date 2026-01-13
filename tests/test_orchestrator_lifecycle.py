@@ -44,7 +44,7 @@ class MockAgent(Agent):
             issues=["Minor issue"],
             suggestions=["Consider refactoring"],
             severity=0.3,
-            reasoning="Test reasoning"
+            reasoning="Test reasoning",
         )
 
     async def vote(self, proposals: dict, task: str) -> Vote:
@@ -58,7 +58,7 @@ class MockAgent(Agent):
             choice=choice,
             reasoning="Test vote",
             confidence=0.8,
-            continue_debate=False
+            continue_debate=False,
         )
 
 
@@ -246,7 +246,13 @@ class TestConsensusEdgeCases:
                 self.call_count += 1
                 choices = list(proposals.keys())
                 choice = choices[self.call_count % len(choices)] if choices else "none"
-                return Vote(agent=self.name, choice=choice, reasoning="Changed", confidence=0.5, continue_debate=False)
+                return Vote(
+                    agent=self.name,
+                    choice=choice,
+                    reasoning="Changed",
+                    confidence=0.5,
+                    continue_debate=False,
+                )
 
         agents = [
             ChangingAgent("changer", "My proposal"),

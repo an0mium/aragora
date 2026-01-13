@@ -225,21 +225,23 @@ def build_relationship_updates(
     """
     updates = []
     for i, agent_a in enumerate(participants):
-        for agent_b in participants[i + 1:]:
+        for agent_b in participants[i + 1 :]:
             # Check if both agents voted and agreed
             agreed = (
-                agent_a in vote_choices and
-                agent_b in vote_choices and
-                vote_choices[agent_a] == vote_choices[agent_b]
+                agent_a in vote_choices
+                and agent_b in vote_choices
+                and vote_choices[agent_a] == vote_choices[agent_b]
             )
             a_win = 1 if winner == agent_a else 0
             b_win = 1 if winner == agent_b else 0
-            updates.append({
-                "agent_a": agent_a,
-                "agent_b": agent_b,
-                "debate_increment": 1,
-                "agreement_increment": 1 if agreed else 0,
-                "a_win": a_win,
-                "b_win": b_win,
-            })
+            updates.append(
+                {
+                    "agent_a": agent_a,
+                    "agent_b": agent_b,
+                    "debate_increment": 1,
+                    "agreement_increment": 1 if agreed else 0,
+                    "a_win": a_win,
+                    "b_win": b_win,
+                }
+            )
     return updates

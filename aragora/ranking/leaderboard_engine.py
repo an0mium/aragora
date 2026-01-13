@@ -101,7 +101,7 @@ class LeaderboardEngine:
         if not self._rating_factory:
             raise ConfigurationError(
                 component="LeaderboardEngine",
-                reason="rating_factory must be set to create AgentRating objects"
+                reason="rating_factory must be set to create AgentRating objects",
             )
 
         with self._db.connection() as conn:
@@ -255,14 +255,16 @@ class LeaderboardEngine:
         for row in rows:
             elo_changes: dict[str, Any] = safe_json_loads(row[4], {})
             participants: list[str] = safe_json_loads(row[2], [])
-            matches.append({
-                "debate_id": row[0],
-                "winner": row[1],
-                "participants": participants,
-                "domain": row[3],
-                "elo_changes": elo_changes,
-                "created_at": row[5],
-            })
+            matches.append(
+                {
+                    "debate_id": row[0],
+                    "winner": row[1],
+                    "participants": participants,
+                    "domain": row[3],
+                    "elo_changes": elo_changes,
+                    "created_at": row[5],
+                }
+            )
         return matches
 
     def get_head_to_head(self, agent_a: str, agent_b: str) -> dict:

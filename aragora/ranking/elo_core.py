@@ -97,7 +97,7 @@ def calculate_pairwise_elo_changes(
     base_effective_k = k_factor * confidence_weight
 
     for i, agent_a in enumerate(participants):
-        for agent_b in participants[i + 1:]:
+        for agent_b in participants[i + 1 :]:
             rating_a = ratings[agent_a]
             rating_b = ratings[agent_b]
 
@@ -224,6 +224,7 @@ def elo_diff_for_probability(target_probability: float) -> float:
         raise ValueError("Probability must be in (0, 1)")
 
     import math
+
     return 400 * math.log10(target_probability / (1 - target_probability))
 
 

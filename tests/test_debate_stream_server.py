@@ -34,15 +34,13 @@ from aragora.server.stream.events import StreamEventType, StreamEvent
 # WebSocketMessageRateLimiter Tests
 # ============================================================================
 
+
 class TestWebSocketMessageRateLimiter:
     """Tests for per-connection message rate limiting."""
 
     def test_allows_burst_messages(self):
         """Should allow burst_size messages immediately."""
-        limiter = WebSocketMessageRateLimiter(
-            messages_per_second=10.0,
-            burst_size=5
-        )
+        limiter = WebSocketMessageRateLimiter(messages_per_second=10.0, burst_size=5)
 
         # Should allow burst_size messages
         for _ in range(5):
@@ -50,10 +48,7 @@ class TestWebSocketMessageRateLimiter:
 
     def test_rate_limits_after_burst(self):
         """Should rate limit after burst exhausted."""
-        limiter = WebSocketMessageRateLimiter(
-            messages_per_second=1.0,  # Slow refill
-            burst_size=3
-        )
+        limiter = WebSocketMessageRateLimiter(messages_per_second=1.0, burst_size=3)  # Slow refill
 
         # Exhaust burst
         for _ in range(3):
@@ -64,10 +59,7 @@ class TestWebSocketMessageRateLimiter:
 
     def test_refills_tokens_over_time(self):
         """Tokens should refill based on elapsed time."""
-        limiter = WebSocketMessageRateLimiter(
-            messages_per_second=10.0,
-            burst_size=1
-        )
+        limiter = WebSocketMessageRateLimiter(messages_per_second=10.0, burst_size=1)
 
         # Exhaust token
         limiter.allow_message()
@@ -81,10 +73,7 @@ class TestWebSocketMessageRateLimiter:
 
     def test_tokens_capped_at_burst_size(self):
         """Tokens should not exceed burst_size."""
-        limiter = WebSocketMessageRateLimiter(
-            messages_per_second=100.0,
-            burst_size=5
-        )
+        limiter = WebSocketMessageRateLimiter(messages_per_second=100.0, burst_size=5)
 
         # Simulate long time passing
         limiter._last_update = time.time() - 100.0
@@ -100,6 +89,7 @@ class TestWebSocketMessageRateLimiter:
 # ============================================================================
 # DebateStreamServer Connection Tests
 # ============================================================================
+
 
 class TestDebateStreamServerConnectionRate:
     """Tests for connection rate limiting."""
@@ -170,6 +160,7 @@ class TestDebateStreamServerConnectionRate:
 # Token Validation Tests
 # ============================================================================
 
+
 class TestDebateStreamServerAuth:
     """Tests for authentication handling."""
 
@@ -177,7 +168,7 @@ class TestDebateStreamServerAuth:
         """With auth disabled, validation always passes."""
         server = DebateStreamServer()
 
-        with patch('aragora.server.stream.debate_stream_server.auth_config') as mock_config:
+        with patch("aragora.server.stream.debate_stream_server.auth_config") as mock_config:
             mock_config.enabled = False
 
             mock_ws = MagicMock()
@@ -187,7 +178,7 @@ class TestDebateStreamServerAuth:
         """With auth enabled, valid token required."""
         server = DebateStreamServer()
 
-        with patch('aragora.server.stream.debate_stream_server.auth_config') as mock_config:
+        with patch("aragora.server.stream.debate_stream_server.auth_config") as mock_config:
             mock_config.enabled = True
             mock_config.validate_token.return_value = True
 
@@ -203,7 +194,7 @@ class TestDebateStreamServerAuth:
         """Missing token should fail validation."""
         server = DebateStreamServer()
 
-        with patch('aragora.server.stream.debate_stream_server.auth_config') as mock_config:
+        with patch("aragora.server.stream.debate_stream_server.auth_config") as mock_config:
             mock_config.enabled = True
 
             mock_ws = MagicMock()
@@ -231,6 +222,7 @@ class TestDebateStreamServerAuth:
 # ============================================================================
 # IP Extraction Tests
 # ============================================================================
+
 
 class TestDebateStreamServerIpExtraction:
     """Tests for client IP extraction."""
@@ -281,6 +273,7 @@ class TestDebateStreamServerIpExtraction:
 # Origin Validation Tests
 # ============================================================================
 
+
 class TestDebateStreamServerOrigin:
     """Tests for origin header extraction."""
 
@@ -298,7 +291,7 @@ class TestDebateStreamServerOrigin:
         """Should handle older websockets library API."""
         server = DebateStreamServer()
 
-        mock_ws = MagicMock(spec=['request_headers'])
+        mock_ws = MagicMock(spec=["request_headers"])
         mock_ws.request_headers = {"Origin": "https://legacy.com"}
 
         origin = server._extract_ws_origin(mock_ws)
@@ -318,6 +311,7 @@ class TestDebateStreamServerOrigin:
 # ============================================================================
 # Loop Registration Tests
 # ============================================================================
+
 
 class TestDebateStreamServerLoops:
     """Tests for loop registration and management."""
@@ -378,6 +372,7 @@ class TestDebateStreamServerLoops:
 # Debate State Tests
 # ============================================================================
 
+
 class TestDebateStreamServerState:
     """Tests for debate state tracking."""
 
@@ -405,20 +400,24 @@ class TestDebateStreamServerState:
         server = DebateStreamServer()
 
         # First create debate
-        server._update_debate_state(StreamEvent(
-            type=StreamEventType.DEBATE_START,
-            data={"task": "Test", "agents": []},
-            loop_id="debate-1",
-        ))
+        server._update_debate_state(
+            StreamEvent(
+                type=StreamEventType.DEBATE_START,
+                data={"task": "Test", "agents": []},
+                loop_id="debate-1",
+            )
+        )
 
         # Add message
-        server._update_debate_state(StreamEvent(
-            type=StreamEventType.AGENT_MESSAGE,
-            data={"role": "proposer", "content": "Hello"},
-            agent="agent1",
-            round=1,
-            loop_id="debate-1",
-        ))
+        server._update_debate_state(
+            StreamEvent(
+                type=StreamEventType.AGENT_MESSAGE,
+                data={"role": "proposer", "content": "Hello"},
+                agent="agent1",
+                round=1,
+                loop_id="debate-1",
+            )
+        )
 
         state = server.debate_states["debate-1"]
         assert len(state["messages"]) == 1
@@ -429,17 +428,21 @@ class TestDebateStreamServerState:
         """CONSENSUS should update consensus fields."""
         server = DebateStreamServer()
 
-        server._update_debate_state(StreamEvent(
-            type=StreamEventType.DEBATE_START,
-            data={"task": "Test", "agents": []},
-            loop_id="debate-1",
-        ))
+        server._update_debate_state(
+            StreamEvent(
+                type=StreamEventType.DEBATE_START,
+                data={"task": "Test", "agents": []},
+                loop_id="debate-1",
+            )
+        )
 
-        server._update_debate_state(StreamEvent(
-            type=StreamEventType.CONSENSUS,
-            data={"reached": True, "confidence": 0.95, "answer": "The answer"},
-            loop_id="debate-1",
-        ))
+        server._update_debate_state(
+            StreamEvent(
+                type=StreamEventType.CONSENSUS,
+                data={"reached": True, "confidence": 0.95, "answer": "The answer"},
+                loop_id="debate-1",
+            )
+        )
 
         state = server.debate_states["debate-1"]
         assert state["consensus_reached"] is True
@@ -450,17 +453,21 @@ class TestDebateStreamServerState:
         """DEBATE_END should mark debate as ended."""
         server = DebateStreamServer()
 
-        server._update_debate_state(StreamEvent(
-            type=StreamEventType.DEBATE_START,
-            data={"task": "Test", "agents": []},
-            loop_id="debate-1",
-        ))
+        server._update_debate_state(
+            StreamEvent(
+                type=StreamEventType.DEBATE_START,
+                data={"task": "Test", "agents": []},
+                loop_id="debate-1",
+            )
+        )
 
-        server._update_debate_state(StreamEvent(
-            type=StreamEventType.DEBATE_END,
-            data={"duration": 120.5, "rounds": 3},
-            loop_id="debate-1",
-        ))
+        server._update_debate_state(
+            StreamEvent(
+                type=StreamEventType.DEBATE_END,
+                data={"duration": 120.5, "rounds": 3},
+                loop_id="debate-1",
+            )
+        )
 
         state = server.debate_states["debate-1"]
         assert state["ended"] is True
@@ -471,17 +478,21 @@ class TestDebateStreamServerState:
         """LOOP_UNREGISTER should remove debate state."""
         server = DebateStreamServer()
 
-        server._update_debate_state(StreamEvent(
-            type=StreamEventType.DEBATE_START,
-            data={"task": "Test", "agents": []},
-            loop_id="debate-1",
-        ))
+        server._update_debate_state(
+            StreamEvent(
+                type=StreamEventType.DEBATE_START,
+                data={"task": "Test", "agents": []},
+                loop_id="debate-1",
+            )
+        )
 
-        server._update_debate_state(StreamEvent(
-            type=StreamEventType.LOOP_UNREGISTER,
-            data={},
-            loop_id="debate-1",
-        ))
+        server._update_debate_state(
+            StreamEvent(
+                type=StreamEventType.LOOP_UNREGISTER,
+                data={},
+                loop_id="debate-1",
+            )
+        )
 
         assert "debate-1" not in server.debate_states
 
@@ -489,21 +500,25 @@ class TestDebateStreamServerState:
         """Messages should be capped at 1000."""
         server = DebateStreamServer()
 
-        server._update_debate_state(StreamEvent(
-            type=StreamEventType.DEBATE_START,
-            data={"task": "Test", "agents": []},
-            loop_id="debate-1",
-        ))
+        server._update_debate_state(
+            StreamEvent(
+                type=StreamEventType.DEBATE_START,
+                data={"task": "Test", "agents": []},
+                loop_id="debate-1",
+            )
+        )
 
         # Add 1100 messages
         for i in range(1100):
-            server._update_debate_state(StreamEvent(
-                type=StreamEventType.AGENT_MESSAGE,
-                data={"role": "proposer", "content": f"Message {i}"},
-                agent="agent1",
-                round=1,
-                loop_id="debate-1",
-            ))
+            server._update_debate_state(
+                StreamEvent(
+                    type=StreamEventType.AGENT_MESSAGE,
+                    data={"role": "proposer", "content": f"Message {i}"},
+                    agent="agent1",
+                    round=1,
+                    loop_id="debate-1",
+                )
+            )
 
         state = server.debate_states["debate-1"]
         assert len(state["messages"]) == 1000
@@ -515,6 +530,7 @@ class TestDebateStreamServerState:
 # Audience Payload Validation Tests
 # ============================================================================
 
+
 class TestDebateStreamServerAudiencePayload:
     """Tests for audience message payload validation."""
 
@@ -522,9 +538,9 @@ class TestDebateStreamServerAudiencePayload:
         """Valid payload should pass."""
         server = DebateStreamServer()
 
-        payload, error = server._validate_audience_payload({
-            "payload": {"choice": "option_a", "reason": "Good option"}
-        })
+        payload, error = server._validate_audience_payload(
+            {"payload": {"choice": "option_a", "reason": "Good option"}}
+        )
 
         assert payload is not None
         assert error is None
@@ -543,9 +559,7 @@ class TestDebateStreamServerAudiencePayload:
         """Non-dict payload should error."""
         server = DebateStreamServer()
 
-        payload, error = server._validate_audience_payload({
-            "payload": "not a dict"
-        })
+        payload, error = server._validate_audience_payload({"payload": "not a dict"})
 
         assert payload is None
         assert "Invalid payload format" in error
@@ -557,9 +571,7 @@ class TestDebateStreamServerAudiencePayload:
         # Create payload > 10KB
         large_payload = {"data": "x" * 15000}
 
-        payload, error = server._validate_audience_payload({
-            "payload": large_payload
-        })
+        payload, error = server._validate_audience_payload({"payload": large_payload})
 
         assert payload is None
         assert "too large" in error.lower()
@@ -568,6 +580,7 @@ class TestDebateStreamServerAudiencePayload:
 # ============================================================================
 # Connection Cleanup Tests
 # ============================================================================
+
 
 class TestDebateStreamServerCleanup:
     """Tests for connection cleanup."""
@@ -633,6 +646,7 @@ class TestDebateStreamServerCleanup:
 # ============================================================================
 # Broadcast Tests
 # ============================================================================
+
 
 class TestDebateStreamServerBroadcast:
     """Tests for event broadcasting."""
@@ -703,6 +717,7 @@ class TestDebateStreamServerBroadcast:
 # Server Lifecycle Tests
 # ============================================================================
 
+
 class TestDebateStreamServerLifecycle:
     """Tests for server start/stop."""
 
@@ -735,6 +750,7 @@ class TestDebateStreamServerLifecycle:
 # Message Parsing Tests
 # ============================================================================
 
+
 class TestDebateStreamServerMessageParsing:
     """Tests for WebSocket message parsing."""
 
@@ -754,7 +770,7 @@ class TestDebateStreamServerMessageParsing:
         """Should return None for invalid JSON."""
         server = DebateStreamServer()
 
-        result = await server._parse_message('not valid json')
+        result = await server._parse_message("not valid json")
 
         assert result is None
 
@@ -765,7 +781,8 @@ class TestDebateStreamServerMessageParsing:
 
         # Create message larger than WS_MAX_MESSAGE_SIZE
         from aragora.config import WS_MAX_MESSAGE_SIZE
-        large_message = '{"data": "' + 'x' * (WS_MAX_MESSAGE_SIZE + 1000) + '"}'
+
+        large_message = '{"data": "' + "x" * (WS_MAX_MESSAGE_SIZE + 1000) + '"}'
 
         result = await server._parse_message(large_message)
 

@@ -15,6 +15,7 @@ class TestAgentTypeAttribute:
 
     def test_base_agent_has_agent_type(self):
         """Test base Agent class has agent_type attribute initialized."""
+
         # Create a concrete implementation for testing
         class ConcreteAgent(Agent):
             async def generate(self, prompt, context=None):
@@ -381,7 +382,7 @@ class TestAgentStreamingCapability:
             agent = GeminiAgent()
 
         # GeminiAgent should support streaming
-        assert hasattr(agent, 'generate')
+        assert hasattr(agent, "generate")
 
     def test_anthropic_supports_streaming(self):
         """Test AnthropicAPIAgent has streaming capability."""
@@ -390,7 +391,7 @@ class TestAgentStreamingCapability:
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test"}):
             agent = AnthropicAPIAgent()
 
-        assert hasattr(agent, 'generate')
+        assert hasattr(agent, "generate")
 
 
 class TestOpenRouterRateLimiter:
@@ -422,6 +423,7 @@ class TestOpenRouterRateLimiter:
         with patch.dict("os.environ", {}, clear=False):
             # Remove OPENROUTER_TIER if present
             import os
+
             os.environ.pop("OPENROUTER_TIER", None)
             limiter = OpenRouterRateLimiter()
 

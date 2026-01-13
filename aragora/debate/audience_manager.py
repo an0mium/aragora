@@ -76,9 +76,7 @@ class AudienceManager:
         # Optional callback for notifications
         self._notify_callback: Optional[Callable[[str], None]] = None
 
-    def set_notify_callback(
-        self, callback: Callable[..., None]
-    ) -> None:
+    def set_notify_callback(self, callback: Callable[..., None]) -> None:
         """Set callback for spectator notifications."""
         self._notify_callback = callback  # type: ignore[assignment]
 

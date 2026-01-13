@@ -119,6 +119,10 @@ def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Aragora demos")
-    parser.add_argument("name", nargs="?", default="rate-limiter",
-                        help=f"Demo name (available: {', '.join(DEMO_TASKS.keys())})")
+    parser.add_argument(
+        "name",
+        nargs="?",
+        default="rate-limiter",
+        help=f"Demo name (available: {', '.join(DEMO_TASKS.keys())})",
+    )
     main(parser.parse_args())

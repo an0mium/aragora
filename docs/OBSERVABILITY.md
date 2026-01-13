@@ -184,7 +184,7 @@ from aragora.observability import (
 record_request("GET", "/api/debates", 200, 0.05)
 
 # Record an agent call
-record_agent_call("claude", success=True, latency=1.2)
+record_agent_call("anthropic-api", success=True, latency=1.2)
 
 # Track active debates
 with track_debate():

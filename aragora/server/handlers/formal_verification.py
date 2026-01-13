@@ -37,6 +37,7 @@ def _init_verification():
         TranslationModel,
         get_formal_verification_manager,
     )
+
     return {
         "FormalVerificationManager": FormalVerificationManager,
         "FormalProofStatus": FormalProofStatus,
@@ -92,9 +93,7 @@ class FormalVerificationHandler(BaseHandler):
 
     @handle_errors("formal verification claim")
     @rate_limit(rpm=30)
-    async def _handle_verify_claim(
-        self, handler, body: Optional[bytes]
-    ) -> HandlerResult:
+    async def _handle_verify_claim(self, handler, body: Optional[bytes]) -> HandlerResult:
         """
         POST /api/verify/claim - Verify a single claim.
 
@@ -146,9 +145,7 @@ class FormalVerificationHandler(BaseHandler):
 
     @handle_errors("formal verification batch")
     @rate_limit(rpm=10)
-    async def _handle_verify_batch(
-        self, handler, body: Optional[bytes]
-    ) -> HandlerResult:
+    async def _handle_verify_batch(self, handler, body: Optional[bytes]) -> HandlerResult:
         """
         POST /api/verify/batch - Batch verification of multiple claims.
 
@@ -222,11 +219,13 @@ class FormalVerificationHandler(BaseHandler):
 
         for r in results:
             if isinstance(r, Exception):
-                processed.append({
-                    "status": "error",
-                    "error_message": str(r),
-                    "is_verified": False,
-                })
+                processed.append(
+                    {
+                        "status": "error",
+                        "error_message": str(r),
+                        "is_verified": False,
+                    }
+                )
                 summary["failed"] += 1
             else:
                 result_dict = r.to_dict()
@@ -261,6 +260,7 @@ class FormalVerificationHandler(BaseHandler):
         # Check DeepSeek-Prover availability
         try:
             from aragora.verification.deepseek_prover import DeepSeekProverTranslator
+
             translator = DeepSeekProverTranslator()
             status["deepseek_prover_available"] = translator.is_available
         except ImportError:
@@ -270,9 +270,7 @@ class FormalVerificationHandler(BaseHandler):
 
     @handle_errors("formal verification translate")
     @rate_limit(rpm=30)
-    async def _handle_translate(
-        self, handler, body: Optional[bytes]
-    ) -> HandlerResult:
+    async def _handle_translate(self, handler, body: Optional[bytes]) -> HandlerResult:
         """
         POST /api/verify/translate - Translate claim to formal language only.
 
@@ -314,48 +312,57 @@ class FormalVerificationHandler(BaseHandler):
             # Try DeepSeek-Prover first
             try:
                 from aragora.verification.deepseek_prover import DeepSeekProverTranslator
+
                 translator = DeepSeekProverTranslator()
                 if translator.is_available:
                     result = await translator.translate(claim, context)
-                    return json_response({
-                        "success": result.success,
-                        "formal_statement": result.lean_code,
-                        "language": "lean4",
-                        "model_used": result.model_used,
-                        "confidence": result.confidence,
-                        "translation_time_ms": result.translation_time_ms,
-                        "error_message": result.error_message,
-                    })
+                    return json_response(
+                        {
+                            "success": result.success,
+                            "formal_statement": result.lean_code,
+                            "language": "lean4",
+                            "model_used": result.model_used,
+                            "confidence": result.confidence,
+                            "translation_time_ms": result.translation_time_ms,
+                            "error_message": result.error_message,
+                        }
+                    )
             except ImportError:
                 pass
 
             # Fallback to LeanBackend
             from aragora.verification.formal import LeanBackend
+
             backend = LeanBackend()
             formal_statement = await backend.translate(claim, context)
-            return json_response({
-                "success": formal_statement is not None,
-                "formal_statement": formal_statement,
-                "language": "lean4",
-                "model_used": "claude/openai",
-                "confidence": 0.6 if formal_statement else 0.0,
-                "translation_time_ms": 0,
-                "error_message": "" if formal_statement else "Translation failed",
-            })
+            return json_response(
+                {
+                    "success": formal_statement is not None,
+                    "formal_statement": formal_statement,
+                    "language": "lean4",
+                    "model_used": "claude/openai",
+                    "confidence": 0.6 if formal_statement else 0.0,
+                    "translation_time_ms": 0,
+                    "error_message": "" if formal_statement else "Translation failed",
+                }
+            )
 
         elif target == "z3_smt":
             from aragora.verification.formal import Z3Backend
+
             backend = Z3Backend()
             formal_statement = await backend.translate(claim, context)
-            return json_response({
-                "success": formal_statement is not None,
-                "formal_statement": formal_statement,
-                "language": "z3_smt",
-                "model_used": "pattern/llm",
-                "confidence": 0.7 if formal_statement else 0.0,
-                "translation_time_ms": 0,
-                "error_message": "" if formal_statement else "Translation failed",
-            })
+            return json_response(
+                {
+                    "success": formal_statement is not None,
+                    "formal_statement": formal_statement,
+                    "language": "z3_smt",
+                    "model_used": "pattern/llm",
+                    "confidence": 0.7 if formal_statement else 0.0,
+                    "translation_time_ms": 0,
+                    "error_message": "" if formal_statement else "Translation failed",
+                }
+            )
 
         else:
             return error_response(f"Unknown target language: {target}", 400)

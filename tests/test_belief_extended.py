@@ -283,9 +283,7 @@ class TestMessagePassingPipeline:
         first_p_true = first_msg.p_true
 
         # Modify source and send again - damping should blend
-        network.nodes[factor.source_node_id].posterior = BeliefDistribution(
-            p_true=0.1, p_false=0.9
-        )
+        network.nodes[factor.source_node_id].posterior = BeliefDistribution(p_true=0.1, p_false=0.9)
         network._send_messages(factor)
         second_msg = target_node.incoming_messages[factor.factor_id]
 
@@ -693,12 +691,8 @@ class TestConvergenceBehavior:
 
     def test_tight_convergence_threshold(self):
         """Tight threshold should require more iterations."""
-        network_tight = BeliefNetwork(
-            damping=0.5, convergence_threshold=1e-10, max_iterations=200
-        )
-        network_loose = BeliefNetwork(
-            damping=0.5, convergence_threshold=0.1, max_iterations=200
-        )
+        network_tight = BeliefNetwork(damping=0.5, convergence_threshold=1e-10, max_iterations=200)
+        network_loose = BeliefNetwork(damping=0.5, convergence_threshold=0.1, max_iterations=200)
 
         for net in [network_tight, network_loose]:
             net.add_claim("A", "A", "agent1", 0.9)
@@ -751,9 +745,7 @@ class TestConvergenceBehavior:
 
     def test_early_termination_on_convergence(self):
         """Network should stop early when converged."""
-        network = BeliefNetwork(
-            damping=0.5, convergence_threshold=0.01, max_iterations=1000
-        )
+        network = BeliefNetwork(damping=0.5, convergence_threshold=0.01, max_iterations=1000)
         network.add_claim("A", "A", "agent1", 0.8)
         network.add_claim("B", "B", "agent2", 0.8)
         network.add_factor("A", "B", RelationType.SUPPORTS, 0.5)
@@ -921,9 +913,13 @@ class TestFactorPotentials:
         )
 
         # Both true: SUPPORTS high, CONTRADICTS low
-        assert supports.get_factor_potential(True, True) > contradicts.get_factor_potential(True, True)
+        assert supports.get_factor_potential(True, True) > contradicts.get_factor_potential(
+            True, True
+        )
         # Source true, target false: SUPPORTS low, CONTRADICTS high
-        assert supports.get_factor_potential(True, False) < contradicts.get_factor_potential(True, False)
+        assert supports.get_factor_potential(True, False) < contradicts.get_factor_potential(
+            True, False
+        )
 
     def test_depends_on_asymmetry(self):
         """DEPENDS_ON should be asymmetric (target needs source)."""

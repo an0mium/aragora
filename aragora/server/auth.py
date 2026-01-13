@@ -13,7 +13,13 @@ import threading
 import time
 from typing import Optional, Dict, Any
 
-from aragora.config import TOKEN_TTL_SECONDS, DEFAULT_RATE_LIMIT, IP_RATE_LIMIT, SHAREABLE_LINK_TTL, get_settings
+from aragora.config import (
+    TOKEN_TTL_SECONDS,
+    DEFAULT_RATE_LIMIT,
+    IP_RATE_LIMIT,
+    SHAREABLE_LINK_TTL,
+    get_settings,
+)
 from aragora.server.cors_config import cors_config
 from aragora.exceptions import AuthenticationError
 
@@ -74,6 +80,7 @@ class AuthConfig:
     def _cleanup_loop(self) -> None:
         """Background loop that periodically cleans up stale entries."""
         import logging
+
         _logger = logging.getLogger(__name__)
 
         while not self._cleanup_stop_event.is_set():
@@ -118,6 +125,7 @@ class AuthConfig:
         the server will refuse to start without a configured API token.
         """
         import logging
+
         _logger = logging.getLogger(__name__)
 
         self.api_token = os.getenv("ARAGORA_API_TOKEN")
@@ -164,11 +172,7 @@ class AuthConfig:
 
         expires = int(time.time()) + expires_in
         payload = f"{loop_id}:{expires}"
-        signature = hmac.new(
-            self.api_token.encode(),
-            payload.encode(),
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(self.api_token.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
         return f"{payload}:{signature}"
 
@@ -195,7 +199,7 @@ class AuthConfig:
             if len(self._revoked_tokens) >= self._max_revoked_tokens:
                 # Remove oldest 10% of entries
                 sorted_items = sorted(self._revoked_tokens.items(), key=lambda x: x[1])
-                for key, _ in sorted_items[:len(sorted_items) // 10]:
+                for key, _ in sorted_items[: len(sorted_items) // 10]:
                     del self._revoked_tokens[key]
 
             self._revoked_tokens[token_hash] = time.time()
@@ -243,9 +247,7 @@ class AuthConfig:
 
             # Verify signature
             expected = hmac.new(
-                self.api_token.encode(),
-                payload.encode(),
-                hashlib.sha256
+                self.api_token.encode(), payload.encode(), hashlib.sha256
             ).hexdigest()
 
             if not hmac.compare_digest(signature, expected):
@@ -315,8 +317,7 @@ class AuthConfig:
                 # If still at capacity, remove oldest 10%
                 if len(self._shareable_sessions) >= self._max_sessions:
                     sorted_sessions = sorted(
-                        self._shareable_sessions.items(),
-                        key=lambda x: x[1]["expires_at"]
+                        self._shareable_sessions.items(), key=lambda x: x[1]["expires_at"]
                     )
                     for k, _ in sorted_sessions[: len(sorted_sessions) // 10]:
                         del self._shareable_sessions[k]
@@ -425,7 +426,9 @@ class AuthConfig:
         # If still too large, evict oldest entries (LRU-style)
         if len(entries_dict) > self._max_tracked_entries:
             # Sort by most recent request time
-            sorted_keys = sorted(entries_dict.keys(), key=lambda k: max(entries_dict[k]) if entries_dict[k] else 0)
+            sorted_keys = sorted(
+                entries_dict.keys(), key=lambda k: max(entries_dict[k]) if entries_dict[k] else 0
+            )
             # Remove oldest 10%
             to_remove = len(sorted_keys) // 10
             for k in sorted_keys[:to_remove]:
@@ -482,7 +485,9 @@ class AuthConfig:
         stats["sessions_removed"] = 0
         now = time.time()
         with self._session_lock:
-            keys_to_remove = [k for k, v in self._shareable_sessions.items() if v["expires_at"] < now]
+            keys_to_remove = [
+                k for k, v in self._shareable_sessions.items() if v["expires_at"] < now
+            ]
             for key in keys_to_remove:
                 del self._shareable_sessions[key]
                 stats["sessions_removed"] += 1
@@ -580,7 +585,9 @@ class AuthConfig:
             self._ip_request_counts[ip_address].append(now)
             return True, self.ip_rate_limit_per_minute - current_count - 1
 
-    def extract_token_from_request(self, headers: Dict[str, str], query_params: Optional[Dict[str, list]] = None) -> Optional[str]:
+    def extract_token_from_request(
+        self, headers: Dict[str, str], query_params: Optional[Dict[str, list]] = None
+    ) -> Optional[str]:
         """Extract token from Authorization header only.
 
         Security: Query parameter tokens are not accepted because they:
@@ -610,7 +617,9 @@ auth_config = AuthConfig()
 auth_config.configure_from_env()
 
 
-def check_auth(headers: Dict[str, Any], query_string: str = "", loop_id: str = "", ip_address: str = "") -> tuple:
+def check_auth(
+    headers: Dict[str, Any], query_string: str = "", loop_id: str = "", ip_address: str = ""
+) -> tuple:
     """
     Check authentication and rate limiting for a request.
 
@@ -652,7 +661,9 @@ def check_auth(headers: Dict[str, Any], query_string: str = "", loop_id: str = "
     return True, remaining
 
 
-def generate_shareable_link(base_url: str, loop_id: str, expires_in: int = SHAREABLE_LINK_TTL) -> str:
+def generate_shareable_link(
+    base_url: str, loop_id: str, expires_in: int = SHAREABLE_LINK_TTL
+) -> str:
     """Generate a shareable link with session-based authentication.
 
     Uses server-side sessions instead of embedding tokens in URLs to prevent

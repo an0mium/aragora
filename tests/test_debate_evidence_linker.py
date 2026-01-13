@@ -27,10 +27,12 @@ from aragora.debate.evidence_quality import EvidenceType
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def linker_module():
     """Import the evidence_linker module."""
     from aragora.debate import evidence_linker
+
     return evidence_linker
 
 
@@ -63,6 +65,7 @@ def linker(EvidenceClaimLinker):
 # ============================================================================
 # EvidenceLink Tests
 # ============================================================================
+
 
 class TestEvidenceLink:
     """Tests for EvidenceLink dataclass."""
@@ -132,6 +135,7 @@ class TestEvidenceLink:
 # ClaimAnalysis Tests
 # ============================================================================
 
+
 class TestClaimAnalysis:
     """Tests for ClaimAnalysis dataclass."""
 
@@ -162,6 +166,7 @@ class TestClaimAnalysis:
 # ============================================================================
 # EvidenceCoverageResult Tests
 # ============================================================================
+
 
 class TestEvidenceCoverageResult:
     """Tests for EvidenceCoverageResult dataclass."""
@@ -208,6 +213,7 @@ class TestEvidenceCoverageResult:
 # EvidenceClaimLinker Init Tests
 # ============================================================================
 
+
 class TestLinkerInit:
     """Tests for EvidenceClaimLinker initialization."""
 
@@ -243,6 +249,7 @@ class TestLinkerInit:
 # ============================================================================
 # Claim Extraction Tests
 # ============================================================================
+
 
 class TestClaimExtraction:
     """Tests for claim extraction."""
@@ -297,6 +304,7 @@ class TestClaimExtraction:
 # Claim Detection Tests
 # ============================================================================
 
+
 class TestClaimDetection:
     """Tests for _is_claim method."""
 
@@ -314,20 +322,29 @@ class TestClaimDetection:
 
     def test_strong_assertion_is_claim(self, linker):
         """Test strong assertions are claims."""
-        assert linker._is_claim("We should implement caching immediately to improve performance.") is True
+        assert (
+            linker._is_claim("We should implement caching immediately to improve performance.")
+            is True
+        )
 
     def test_recommendation_is_claim(self, linker):
         """Test recommendations are claims."""
-        assert linker._is_claim("I recommend using Redis for the caching layer in production.") is True
+        assert (
+            linker._is_claim("I recommend using Redis for the caching layer in production.") is True
+        )
 
     def test_conclusion_is_claim(self, linker):
         """Test conclusions are claims."""
-        assert linker._is_claim("Therefore, the best approach is to implement database indexing.") is True
+        assert (
+            linker._is_claim("Therefore, the best approach is to implement database indexing.")
+            is True
+        )
 
 
 # ============================================================================
 # Evidence Linking Tests
 # ============================================================================
+
 
 class TestEvidenceLinking:
     """Tests for link_evidence_to_claims method."""
@@ -367,6 +384,7 @@ class TestEvidenceLinking:
 # ============================================================================
 # Link Strength Tests
 # ============================================================================
+
 
 class TestLinkStrength:
     """Tests for link strength computation."""
@@ -440,6 +458,7 @@ class TestLinkStrength:
 # Keyword Overlap Tests
 # ============================================================================
 
+
 class TestKeywordOverlap:
     """Tests for keyword overlap calculation."""
 
@@ -490,6 +509,7 @@ class TestKeywordOverlap:
 # ============================================================================
 # Evidence Coverage Tests
 # ============================================================================
+
 
 class TestEvidenceCoverage:
     """Tests for compute_evidence_coverage method."""
@@ -557,6 +577,7 @@ class TestEvidenceCoverage:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestIntegration:
     """Integration tests for EvidenceClaimLinker."""
@@ -628,6 +649,7 @@ class TestIntegration:
 # ============================================================================
 # Edge Cases
 # ============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases."""

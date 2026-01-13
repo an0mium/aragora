@@ -284,9 +284,7 @@ class TestAuthorizationURL:
     async def test_authorization_url_includes_required_params(self, provider: OIDCProvider):
         """Authorization URL includes all required OIDC parameters."""
         # Mock discovery
-        provider._discovery_cache = {
-            "authorization_endpoint": "https://example.com/authorize"
-        }
+        provider._discovery_cache = {"authorization_endpoint": "https://example.com/authorize"}
         provider._discovery_cached_at = 9999999999  # Future timestamp
 
         url = await provider.get_authorization_url(state="test-state")
@@ -305,9 +303,7 @@ class TestAuthorizationURL:
     @pytest.mark.asyncio
     async def test_authorization_url_includes_pkce_params(self, provider: OIDCProvider):
         """Authorization URL includes PKCE parameters when enabled."""
-        provider._discovery_cache = {
-            "authorization_endpoint": "https://example.com/authorize"
-        }
+        provider._discovery_cache = {"authorization_endpoint": "https://example.com/authorize"}
         provider._discovery_cached_at = 9999999999
 
         url = await provider.get_authorization_url(state="test-state")
@@ -321,9 +317,7 @@ class TestAuthorizationURL:
         """Authorization URL without PKCE when disabled."""
         valid_config.use_pkce = False
         provider = OIDCProvider(valid_config)
-        provider._discovery_cache = {
-            "authorization_endpoint": "https://example.com/authorize"
-        }
+        provider._discovery_cache = {"authorization_endpoint": "https://example.com/authorize"}
         provider._discovery_cached_at = 9999999999
 
         url = await provider.get_authorization_url(state="test-state")
@@ -335,15 +329,10 @@ class TestAuthorizationURL:
     @pytest.mark.asyncio
     async def test_authorization_url_custom_scopes(self, provider: OIDCProvider):
         """Authorization URL uses custom scopes when provided."""
-        provider._discovery_cache = {
-            "authorization_endpoint": "https://example.com/authorize"
-        }
+        provider._discovery_cache = {"authorization_endpoint": "https://example.com/authorize"}
         provider._discovery_cached_at = 9999999999
 
-        url = await provider.get_authorization_url(
-            state="test-state",
-            scopes=["openid", "custom"]
-        )
+        url = await provider.get_authorization_url(state="test-state", scopes=["openid", "custom"])
         params = parse_qs(urlparse(url).query)
 
         assert params["scope"][0] == "openid custom"
@@ -351,9 +340,7 @@ class TestAuthorizationURL:
     @pytest.mark.asyncio
     async def test_authorization_url_generates_state_if_not_provided(self, provider: OIDCProvider):
         """Authorization URL generates state if not provided."""
-        provider._discovery_cache = {
-            "authorization_endpoint": "https://example.com/authorize"
-        }
+        provider._discovery_cache = {"authorization_endpoint": "https://example.com/authorize"}
         provider._discovery_cached_at = 9999999999
 
         url = await provider.get_authorization_url()
@@ -365,9 +352,7 @@ class TestAuthorizationURL:
     @pytest.mark.asyncio
     async def test_authorization_url_stores_pkce_verifier(self, provider: OIDCProvider):
         """PKCE verifier is stored for later retrieval."""
-        provider._discovery_cache = {
-            "authorization_endpoint": "https://example.com/authorize"
-        }
+        provider._discovery_cache = {"authorization_endpoint": "https://example.com/authorize"}
         provider._discovery_cached_at = 9999999999
 
         await provider.get_authorization_url(state="test-state")
@@ -453,9 +438,7 @@ class TestTokenExchange:
     @pytest.mark.skipif(not HAS_HTTPX, reason="httpx not installed")
     async def test_exchange_code_includes_pkce_verifier(self, provider: OIDCProvider):
         """Token exchange includes PKCE verifier when available."""
-        provider._discovery_cache = {
-            "token_endpoint": "https://example.com/token"
-        }
+        provider._discovery_cache = {"token_endpoint": "https://example.com/token"}
         provider._discovery_cached_at = 9999999999
 
         with patch("httpx.AsyncClient") as mock_client_class:
@@ -543,9 +526,9 @@ class TestUserInfo:
         # Mapping format: {custom_claim_name: standard_target_name}
         # The code looks for entries where value matches the standard target
         valid_config.claim_mapping = {
-            "user_id": "sub",      # user_id claim maps to "sub" target (user.id)
-            "mail": "email",       # mail claim maps to "email" target
-            "display": "name",     # display claim maps to "name" target
+            "user_id": "sub",  # user_id claim maps to "sub" target (user.id)
+            "mail": "email",  # mail claim maps to "email" target
+            "display": "name",  # display claim maps to "name" target
         }
         provider = OIDCProvider(valid_config)
 
@@ -633,9 +616,7 @@ class TestLogout:
     @pytest.mark.asyncio
     async def test_logout_with_endpoint_includes_id_token_hint(self, provider: OIDCProvider):
         """Logout URL includes id_token_hint when available."""
-        provider._discovery_cache = {
-            "end_session_endpoint": "https://example.com/logout"
-        }
+        provider._discovery_cache = {"end_session_endpoint": "https://example.com/logout"}
         provider._discovery_cached_at = 9999999999
 
         user = SSOUser(id="123", email="test@example.com", id_token="test_id_token")
@@ -648,9 +629,7 @@ class TestLogout:
         """Logout URL includes post_logout_redirect_uri."""
         valid_config.post_logout_redirect_url = "https://app.example.com/logged-out"
         provider = OIDCProvider(valid_config)
-        provider._discovery_cache = {
-            "end_session_endpoint": "https://example.com/logout"
-        }
+        provider._discovery_cache = {"end_session_endpoint": "https://example.com/logout"}
         provider._discovery_cached_at = 9999999999
 
         user = SSOUser(id="123", email="test@example.com")
@@ -682,9 +661,7 @@ class TestDiscovery:
     async def test_get_endpoint_prefers_config(self, provider: OIDCProvider):
         """Endpoint getter prefers config over discovery."""
         provider.config.token_endpoint = "https://config.example.com/token"
-        provider._discovery_cache = {
-            "token_endpoint": "https://discovery.example.com/token"
-        }
+        provider._discovery_cache = {"token_endpoint": "https://discovery.example.com/token"}
         provider._discovery_cached_at = 9999999999
 
         result = await provider._get_endpoint("token_endpoint")

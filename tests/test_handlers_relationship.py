@@ -73,13 +73,15 @@ class TestSummaryEndpoint:
             db_path = f.name
 
         conn = sqlite3.connect(db_path)
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS agent_relationships (
                 agent_a TEXT, agent_b TEXT, debate_count INTEGER,
                 agreement_count INTEGER, a_wins_over_b INTEGER, b_wins_over_a INTEGER,
                 PRIMARY KEY (agent_a, agent_b)
             )
-        """)
+        """
+        )
         conn.close()
 
         mock_tracker = Mock()
@@ -120,13 +122,15 @@ class TestGraphEndpoint:
             db_path = f.name
 
         conn = sqlite3.connect(db_path)
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS agent_relationships (
                 agent_a TEXT, agent_b TEXT, debate_count INTEGER,
                 agreement_count INTEGER, a_wins_over_b INTEGER, b_wins_over_a INTEGER,
                 PRIMARY KEY (agent_a, agent_b)
             )
-        """)
+        """
+        )
         conn.close()
 
         mock_tracker = Mock()
@@ -236,13 +240,15 @@ class TestStatsEndpoint:
             db_path = f.name
 
         conn = sqlite3.connect(db_path)
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS agent_relationships (
                 agent_a TEXT, agent_b TEXT, debate_count INTEGER,
                 agreement_count INTEGER, a_wins_over_b INTEGER, b_wins_over_a INTEGER,
                 PRIMARY KEY (agent_a, agent_b)
             )
-        """)
+        """
+        )
         conn.close()
 
         mock_tracker = Mock()
@@ -265,9 +271,11 @@ class TestHandlerImport:
     def test_handler_can_be_imported(self):
         """Should be importable from handlers package."""
         from aragora.server.handlers import RelationshipHandler
+
         assert RelationshipHandler is not None
 
     def test_handler_in_all(self):
         """Should be in __all__ exports."""
         from aragora.server.handlers import __all__
+
         assert "RelationshipHandler" in __all__

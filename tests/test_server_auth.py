@@ -803,7 +803,9 @@ class TestCombinedRateLimits:
 
             # Both limits not exceeded yet for token, but IP is exhausted
             # Next request should fail due to IP limit (checked first)
-            result = check_auth({"Authorization": f"Bearer {token}"}, "", "loop", "test_combined_ip")
+            result = check_auth(
+                {"Authorization": f"Bearer {token}"}, "", "loop", "test_combined_ip"
+            )
             assert result[0] is False
 
         finally:

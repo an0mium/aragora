@@ -60,7 +60,7 @@ queue = await create_redis_queue()
 # Create a debate job
 job = create_debate_job(
     question="Should we use microservices?",
-    agents=["claude", "gpt"],
+    agents=["anthropic-api", "openai-api"],
     rounds=3,
     consensus="majority",
 )

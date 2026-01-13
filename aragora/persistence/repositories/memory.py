@@ -86,11 +86,7 @@ class RetrievedMemory:
     @property
     def total_score(self) -> float:
         """Combined retrieval score with default weights."""
-        return (
-            0.3 * self.recency_score +
-            0.3 * self.importance_score +
-            0.4 * self.relevance_score
-        )
+        return 0.3 * self.recency_score + 0.3 * self.importance_score + 0.4 * self.relevance_score
 
 
 # =============================================================================
@@ -149,7 +145,8 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
         """Create tables and indexes if they don't exist."""
         with self._transaction() as conn:
             # Memories table
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS memories (
                     id TEXT PRIMARY KEY,
                     agent_name TEXT NOT NULL,
@@ -160,31 +157,40 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
                     metadata TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_memories_agent
                 ON memories(agent_name)
-            """)
+            """
+            )
 
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_memories_type
                 ON memories(agent_name, memory_type)
-            """)
+            """
+            )
 
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_memories_importance
                 ON memories(agent_name, importance DESC)
-            """)
+            """
+            )
 
             # Reflection schedule table
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS reflection_schedule (
                     agent_name TEXT PRIMARY KEY,
                     last_reflection TEXT,
                     memories_since_reflection INTEGER DEFAULT 0
                 )
-            """)
+            """
+            )
 
     def _to_entity(self, row: sqlite3.Row) -> MemoryEntity:
         """Convert database row to MemoryEntity."""
@@ -386,12 +392,14 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
             importance_score = memory.importance
             relevance_score = self._relevance_score(memory.content, query) if query else 0.5
 
-            retrieved.append(RetrievedMemory(
-                memory=memory,
-                recency_score=recency_score,
-                importance_score=importance_score,
-                relevance_score=relevance_score,
-            ))
+            retrieved.append(
+                RetrievedMemory(
+                    memory=memory,
+                    recency_score=recency_score,
+                    importance_score=importance_score,
+                    relevance_score=relevance_score,
+                )
+            )
 
         # Sort by total score and limit
         retrieved.sort(key=lambda m: m.total_score, reverse=True)

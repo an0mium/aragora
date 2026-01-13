@@ -26,6 +26,7 @@ Metrics endpoint: GET /metrics
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from contextlib import contextmanager
@@ -189,14 +190,16 @@ class Histogram:
         with self._lock:
             results = []
             for key, counts in self._counts.items():
-                results.append((
-                    dict(key),
-                    {
-                        "buckets": list(zip(self.buckets, counts)),
-                        "sum": self._sums.get(key, 0),
-                        "count": self._totals.get(key, 0),
-                    },
-                ))
+                results.append(
+                    (
+                        dict(key),
+                        {
+                            "buckets": list(zip(self.buckets, counts)),
+                            "sum": self._sums.get(key, 0),
+                            "count": self._totals.get(key, 0),
+                        },
+                    )
+                )
             return results
 
 
@@ -221,6 +224,66 @@ class LabeledHistogram:
 
             self.histogram._sums[key] += value
             self.histogram._totals[key] += 1
+
+
+def get_percentile(histogram: Histogram, percentile: float, **labels) -> Optional[float]:
+    """Estimate a percentile from histogram buckets.
+
+    Uses linear interpolation between bucket boundaries.
+
+    Args:
+        histogram: The histogram to query
+        percentile: The percentile to compute (0-100, e.g., 50, 95, 99)
+        **labels: Label filters
+
+    Returns:
+        Estimated percentile value, or None if no data
+    """
+    key = tuple(sorted(labels.items())) if labels else ()
+
+    with histogram._lock:
+        if key not in histogram._totals or histogram._totals[key] == 0:
+            return None
+
+        total = histogram._totals[key]
+        target = total * (percentile / 100.0)
+        counts = histogram._counts[key]
+
+        # Find the bucket containing the target percentile
+        cumulative = 0
+        for i, (bucket, count) in enumerate(zip(histogram.buckets, counts)):
+            if cumulative + count >= target:
+                if i == 0:
+                    # In first bucket, estimate using bucket boundary
+                    return bucket * (target / count) if count > 0 else bucket
+                else:
+                    # Linear interpolation between buckets
+                    prev_bucket = histogram.buckets[i - 1]
+                    prev_cumulative = cumulative
+                    within_bucket = (target - prev_cumulative) / count if count > 0 else 0
+                    return prev_bucket + (bucket - prev_bucket) * within_bucket
+            cumulative += count
+
+        # Above all buckets, return highest bucket boundary
+        return histogram.buckets[-1]
+
+
+def get_percentiles(histogram: Histogram, **labels) -> dict[str, Optional[float]]:
+    """Get common percentiles (p50, p90, p95, p99) from a histogram.
+
+    Args:
+        histogram: The histogram to query
+        **labels: Label filters
+
+    Returns:
+        Dict with keys 'p50', 'p90', 'p95', 'p99' and their values
+    """
+    return {
+        "p50": get_percentile(histogram, 50, **labels),
+        "p90": get_percentile(histogram, 90, **labels),
+        "p95": get_percentile(histogram, 95, **labels),
+        "p99": get_percentile(histogram, 99, **labels),
+    }
 
 
 # =============================================================================
@@ -318,6 +381,70 @@ SECURITY_VIOLATIONS = Counter(
 
 
 # =============================================================================
+# Business Metrics (Debate Outcomes)
+# =============================================================================
+
+DEBATES_TOTAL = Counter(
+    name="aragora_debates_completed_total",
+    help="Total completed debates by status and domain",
+    label_names=["status", "domain"],
+)
+
+CONSENSUS_REACHED = Counter(
+    name="aragora_consensus_reached_total",
+    help="Total consensus events by domain and type",
+    label_names=["domain", "consensus_type"],  # consensus_type: majority, supermajority, unanimous
+)
+
+# Debate confidence score distribution
+DEBATE_CONFIDENCE = Histogram(
+    name="aragora_debate_confidence_score",
+    help="Confidence score of debate conclusions",
+    label_names=["domain"],
+    buckets=[0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0],
+)
+
+# Agent participation and outcomes
+AGENT_PARTICIPATION = Counter(
+    name="aragora_agent_participation_total",
+    help="Agent participation in debates by outcome",
+    label_names=["agent_name", "outcome"],  # outcome: won, lost, abstained, contributed
+)
+
+# Last debate timestamp for staleness detection
+LAST_DEBATE_TIMESTAMP = Gauge(
+    name="aragora_last_debate_timestamp",
+    help="Unix timestamp of the last completed debate",
+    label_names=[],
+)
+
+DEBATE_DURATION = Histogram(
+    name="aragora_debate_duration_seconds",
+    help="Debate duration in seconds",
+    label_names=["domain", "status"],
+    buckets=[5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0],
+)
+
+CONSENSUS_QUALITY = Gauge(
+    name="aragora_consensus_quality",
+    help="Average consensus confidence by domain (0.0-1.0)",
+    label_names=["domain"],
+)
+
+CIRCUIT_BREAKERS_OPEN = Gauge(
+    name="aragora_circuit_breakers_open",
+    help="Number of circuit breakers in open state",
+    label_names=[],
+)
+
+AGENT_ERRORS = Counter(
+    name="aragora_agent_errors_total",
+    help="Agent error count by agent name",
+    label_names=["agent"],
+)
+
+
+# =============================================================================
 # Agent Metrics
 # =============================================================================
 
@@ -347,9 +474,7 @@ AGENT_TOKENS = Counter(
 
 
 @contextmanager
-def track_request(
-    endpoint: str, method: str = "GET"
-) -> Generator[None, None, None]:
+def track_request(endpoint: str, method: str = "GET") -> Generator[None, None, None]:
     """Context manager to track request latency."""
     start = time.perf_counter()
     status = "success"
@@ -420,6 +545,119 @@ def track_security_violation(violation_type: str) -> None:
     SECURITY_VIOLATIONS.inc(type=violation_type)
 
 
+def track_debate_outcome(
+    status: str,
+    domain: str,
+    duration_seconds: float,
+    consensus_reached: bool = False,
+    confidence: float = 0.0,
+    consensus_type: str = "majority",
+) -> None:
+    """Track debate outcome metrics.
+
+    Args:
+        status: Debate status (completed, timeout, error, aborted)
+        domain: Debate domain (security, performance, testing, etc)
+        duration_seconds: Time taken for the debate
+        consensus_reached: Whether consensus was reached
+        confidence: Consensus confidence (0.0-1.0)
+        consensus_type: Type of consensus (majority, supermajority, unanimous)
+    """
+    import time as time_module
+
+    # Increment debate counter
+    DEBATES_TOTAL.inc(status=status, domain=domain)
+
+    # Record duration
+    DEBATE_DURATION.observe(duration_seconds, domain=domain, status=status)
+
+    # Update last debate timestamp
+    LAST_DEBATE_TIMESTAMP.set(time_module.time())
+
+    # Track confidence distribution
+    if confidence > 0:
+        DEBATE_CONFIDENCE.observe(confidence, domain=domain)
+
+    # Track consensus metrics
+    if consensus_reached:
+        CONSENSUS_REACHED.inc(domain=domain, consensus_type=consensus_type)
+        # Update rolling average confidence (simplified: just set to latest)
+        if confidence > 0:
+            CONSENSUS_QUALITY.set(confidence, domain=domain)
+
+
+def track_circuit_breaker_state(open_count: int) -> None:
+    """Track number of open circuit breakers.
+
+    Args:
+        open_count: Number of circuit breakers currently in open state
+    """
+    CIRCUIT_BREAKERS_OPEN.set(open_count)
+
+
+def track_agent_error(agent: str) -> None:
+    """Track an agent error.
+
+    Args:
+        agent: Name of the agent that encountered an error
+    """
+    AGENT_ERRORS.inc(agent=agent)
+
+
+def track_agent_participation(agent_name: str, outcome: str) -> None:
+    """Track an agent's participation in a debate.
+
+    Args:
+        agent_name: Name of the agent
+        outcome: Participation outcome (won, lost, abstained, contributed)
+    """
+    AGENT_PARTICIPATION.inc(agent_name=agent_name, outcome=outcome)
+
+
+@contextmanager
+def track_debate_execution(domain: str = "general") -> Generator[dict, None, None]:
+    """Context manager to track debate execution metrics.
+
+    Usage:
+        with track_debate_execution(domain="security") as ctx:
+            # run debate
+            ctx["consensus"] = True
+            ctx["confidence"] = 0.85
+            ctx["status"] = "completed"
+
+    Args:
+        domain: The debate domain
+
+    Yields:
+        Dict to populate with outcome data (consensus, confidence, status)
+    """
+    start = time.perf_counter()
+    ctx = {
+        "status": "completed",
+        "consensus": False,
+        "confidence": 0.0,
+    }
+    ACTIVE_DEBATES.inc()
+    try:
+        yield ctx
+    except asyncio.TimeoutError:
+        ctx["status"] = "timeout"
+        raise
+    except Exception:
+        ctx["status"] = "error"
+        raise
+    finally:
+        ACTIVE_DEBATES.dec()
+        duration = time.perf_counter() - start
+        track_debate_outcome(
+            status=ctx["status"],
+            domain=domain,
+            duration_seconds=duration,
+            consensus_reached=ctx["consensus"],
+            confidence=ctx["confidence"],
+        )
+
+
 # =============================================================================
 # Prometheus Format Export
 # =============================================================================
@@ -456,17 +694,29 @@ def generate_metrics() -> str:
         AUTH_FAILURES,
         RATE_LIMIT_HITS,
         SECURITY_VIOLATIONS,
+        # Business metrics
+        DEBATES_TOTAL,
+        CONSENSUS_REACHED,
+        AGENT_ERRORS,
+        AGENT_PARTICIPATION,
     ]
 
     gauges = [
         SUBSCRIPTION_ACTIVE,
         ACTIVE_DEBATES,
         WEBSOCKET_CONNECTIONS,
+        # Business metrics
+        CONSENSUS_QUALITY,
+        CIRCUIT_BREAKERS_OPEN,
+        LAST_DEBATE_TIMESTAMP,
     ]
 
     histograms = [
         API_LATENCY,
         AGENT_LATENCY,
+        # Business metrics
+        DEBATE_DURATION,
+        DEBATE_CONFIDENCE,
     ]
 
     # Export counters
@@ -492,22 +742,17 @@ def generate_metrics() -> str:
         for labels, data in histogram.collect():
             for bucket, count in data["buckets"]:
                 bucket_labels = {**labels, "le": str(bucket)}
-                lines.append(
-                    f"{histogram.name}_bucket{_format_labels(bucket_labels)} {count}"
-                )
+                lines.append(f"{histogram.name}_bucket{_format_labels(bucket_labels)} {count}")
             inf_labels = {**labels, "le": "+Inf"}
-            lines.append(
-                f"{histogram.name}_bucket{_format_labels(inf_labels)} {data['count']}"
-            )
+            lines.append(f"{histogram.name}_bucket{_format_labels(inf_labels)} {data['count']}")
             lines.append(f"{histogram.name}_sum{_format_labels(labels)} {data['sum']}")
-            lines.append(
-                f"{histogram.name}_count{_format_labels(labels)} {data['count']}"
-            )
+            lines.append(f"{histogram.name}_count{_format_labels(labels)} {data['count']}")
         lines.append("")
 
     # Include observability metrics if prometheus_client is available
     try:
         from prometheus_client import generate_latest, REGISTRY
+
         observability_metrics = generate_latest(REGISTRY).decode("utf-8")
         if observability_metrics.strip():
             lines.append("# Observability metrics (from prometheus_client)")
@@ -526,6 +771,9 @@ __all__ = [
     "Counter",
     "Gauge",
     "Histogram",
+    # Percentile helpers
+    "get_percentile",
+    "get_percentiles",
     # Billing metrics
     "SUBSCRIPTION_EVENTS",
     "SUBSCRIPTION_ACTIVE",
@@ -542,6 +790,16 @@ __all__ = [
     "AUTH_FAILURES",
     "RATE_LIMIT_HITS",
     "SECURITY_VIOLATIONS",
+    # Business metrics (debate outcomes)
+    "DEBATES_TOTAL",
+    "CONSENSUS_REACHED",
+    "DEBATE_DURATION",
+    "DEBATE_CONFIDENCE",
+    "CONSENSUS_QUALITY",
+    "CIRCUIT_BREAKERS_OPEN",
+    "AGENT_ERRORS",
+    "AGENT_PARTICIPATION",
+    "LAST_DEBATE_TIMESTAMP",
     # Agent metrics
     "AGENT_REQUESTS",
     "AGENT_LATENCY",
@@ -555,6 +813,11 @@ __all__ = [
     "track_auth_failure",
     "track_rate_limit_hit",
     "track_security_violation",
+    "track_debate_outcome",
+    "track_circuit_breaker_state",
+    "track_agent_error",
+    "track_agent_participation",
+    "track_debate_execution",
     # Export
     "generate_metrics",
 ]

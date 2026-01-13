@@ -209,9 +209,7 @@ class TestMemoryStreamDatabase:
 
         with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
             tables = [row[0] for row in cursor.fetchall()]
 
         assert "memories" in tables
@@ -223,9 +221,7 @@ class TestMemoryStreamDatabase:
 
         with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='index'"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='index'")
             indices = [row[0] for row in cursor.fetchall()]
 
         assert "idx_memories_agent" in indices
@@ -619,9 +615,7 @@ class TestMemoryStreamContextAndStats:
 class TestMemoryStreamWithEmbeddings:
     """Tests for MemoryStream with embedding provider."""
 
-    def test_relevance_uses_embeddings_when_available(
-        self, temp_db, mock_embedding_provider
-    ):
+    def test_relevance_uses_embeddings_when_available(self, temp_db, mock_embedding_provider):
         """Should use embedding provider for relevance scoring."""
         stream = MemoryStream(
             db_path=temp_db,

@@ -4,7 +4,9 @@ Aragora provides a [Model Context Protocol (MCP)](https://modelcontextprotocol.i
 
 ## Overview
 
-The MCP server exposes Aragora's core capabilities as tools:
+The MCP server exposes Aragora's core capabilities as tools and resources:
+
+### Tools
 
 | Tool | Description |
 |------|-------------|
@@ -12,6 +14,19 @@ The MCP server exposes Aragora's core capabilities as tools:
 | `run_gauntlet` | Stress-test content through adversarial analysis |
 | `list_agents` | List available AI agents |
 | `get_debate` | Retrieve results of a previous debate |
+| `search_debates` | Search debates by topic, date, or agents |
+| `get_agent_history` | Get agent debate history and ELO stats |
+| `get_consensus_proofs` | Retrieve formal verification proofs |
+| `list_trending_topics` | Get trending topics from Pulse |
+
+### Resources
+
+| URI Template | Description |
+|--------------|-------------|
+| `debate://{debate_id}` | Access debate results by ID |
+| `agent://{agent_name}/stats` | Access agent statistics and ELO rating |
+| `consensus://{debate_id}` | Access formal verification proofs for a debate |
+| `trending://topics` | Access current trending topics |
 
 ## Quick Start
 
@@ -33,23 +48,17 @@ Add Aragora to your Claude Desktop configuration:
   "mcpServers": {
     "aragora": {
       "command": "aragora",
-      "args": ["mcp-server"]
+      "args": ["mcp-server"],
+      "env": {
+        "ANTHROPIC_API_KEY": "your_key_here",
+        "OPENAI_API_KEY": "your_key_here"
+      }
     }
   }
 }
 ```
 
-### 3. Set Environment Variables
-
-Ensure at least one AI provider API key is set:
-
-```bash
-export ANTHROPIC_API_KEY=your_key_here
-# and/or
-export OPENAI_API_KEY=your_key_here
-```
-
-### 4. Restart Claude Desktop
+### 3. Restart Claude Desktop
 
 Restart Claude Desktop to load the MCP server. You should see "aragora" in the available tools.
 
@@ -168,6 +177,200 @@ Retrieve results of a previous debate by ID.
 |-----------|------|-------------|
 | `debate_id` | string | The debate ID to retrieve |
 
+**Example usage:**
+```
+Use get_debate to retrieve debate mcp_a1b2c3d4
+```
+
+### search_debates
+
+Search debates by topic, date range, or participating agents.
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `query` | string | - | Search query for topic text |
+| `agent` | string | - | Filter by agent name |
+| `start_date` | string | - | Start date (YYYY-MM-DD) |
+| `end_date` | string | - | End date (YYYY-MM-DD) |
+| `consensus_only` | boolean | `false` | Only return debates that reached consensus |
+| `limit` | integer | `20` | Max results (1-100) |
+
+**Example usage:**
+```
+Use search_debates to find debates about "microservices" that reached consensus
+```
+
+**Example response:**
+```json
+{
+  "debates": [
+    {
+      "debate_id": "mcp_a1b2c3d4",
+      "task": "Should we use microservices or a monolith?",
+      "consensus_reached": true,
+      "confidence": 0.85,
+      "timestamp": "2025-01-12 10:30:00"
+    }
+  ],
+  "count": 1,
+  "query": "microservices",
+  "filters": {
+    "agent": null,
+    "consensus_only": true,
+    "date_range": "* to *"
+  }
+}
+```
+
+### get_agent_history
+
+Get an agent's debate history, ELO rating, and performance stats.
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `agent_name` | string | (required) | The agent name (e.g., 'anthropic-api') |
+| `include_debates` | boolean | `true` | Include recent debate summaries |
+| `limit` | integer | `10` | Max debates to include |
+
+**Example usage:**
+```
+Use get_agent_history to see anthropic-api's performance stats and recent debates
+```
+
+**Example response:**
+```json
+{
+  "agent_name": "anthropic-api",
+  "elo_rating": 1650,
+  "elo_deviation": 45,
+  "total_debates": 127,
+  "consensus_rate": 0.78,
+  "win_rate": 0.62,
+  "avg_confidence": 0.81,
+  "recent_debates": [
+    {
+      "debate_id": "mcp_a1b2c3d4",
+      "task": "Should we use microservices or a monolith?",
+      "consensus_reached": true,
+      "timestamp": "2025-01-12 10:30:00"
+    }
+  ]
+}
+```
+
+### get_consensus_proofs
+
+Retrieve formal verification proofs from debates.
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `debate_id` | string | - | Specific debate ID (optional, searches all if omitted) |
+| `proof_type` | string | `"all"` | Type: z3, lean, or all |
+| `limit` | integer | `10` | Max proofs to return |
+
+**Example usage:**
+```
+Use get_consensus_proofs to get Z3 proofs from debate mcp_a1b2c3d4
+```
+
+**Example response:**
+```json
+{
+  "proofs": [
+    {
+      "debate_id": "mcp_a1b2c3d4",
+      "type": "z3",
+      "statement": "consensus_valid",
+      "proof": "(declare-const agreement Int)...",
+      "verified": true
+    }
+  ],
+  "count": 1,
+  "debate_id": "mcp_a1b2c3d4",
+  "proof_type": "z3"
+}
+```
+
+### list_trending_topics
+
+Get trending topics from Pulse that could make good debates.
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `platform` | string | `"all"` | Source: hackernews, reddit, arxiv, all |
+| `category` | string | - | Topic category filter (e.g., 'tech', 'ai') |
+| `min_score` | number | `0.5` | Minimum topic score (0-1) |
+| `limit` | integer | `10` | Max topics to return |
+
+**Example usage:**
+```
+Use list_trending_topics to find AI-related topics from Hacker News with high debate potential
+```
+
+**Example response:**
+```json
+{
+  "topics": [
+    {
+      "topic": "The future of AI regulation in the EU",
+      "platform": "hackernews",
+      "category": "ai",
+      "score": 0.85,
+      "volume": 342,
+      "debate_potential": "high"
+    }
+  ],
+  "count": 1,
+  "platform": "hackernews",
+  "category": "ai",
+  "min_score": 0.5
+}
+```
+
+## Resources Reference
+
+Resources allow direct access to Aragora data via URI patterns.
+
+### debate://{debate_id}
+
+Access debate results directly.
+
+**Example:**
+```
+Read the resource debate://mcp_a1b2c3d4
+```
+
+### agent://{agent_name}/stats
+
+Access agent statistics and ELO rating.
+
+**Example:**
+```
+Read the resource agent://anthropic-api/stats
+```
+
+### consensus://{debate_id}
+
+Access formal verification proofs for a specific debate.
+
+**Example:**
+```
+Read the resource consensus://mcp_a1b2c3d4
+```
+
+### trending://topics
+
+Access current trending topics from Pulse.
+
+**Example:**
+```
+Read the resource trending://topics
+```
+
 ## Running the Server Manually
 
 For debugging or development:
@@ -178,6 +381,9 @@ python -m aragora.mcp.server
 
 # Or via CLI
 aragora mcp-server
+
+# With debug logging
+LOG_LEVEL=DEBUG aragora mcp-server
 ```
 
 ## Troubleshooting
@@ -207,6 +413,13 @@ If you hit rate limits, consider:
 - Using fewer agents
 - Reducing the number of rounds
 - Using the `quick` gauntlet profile instead of `thorough`
+
+### MCP package not installed
+
+If you see "MCP package not installed":
+```bash
+pip install mcp
+```
 
 ## API Key Requirements
 
@@ -246,8 +459,30 @@ Run a 5-round debate on "Should we migrate our database from PostgreSQL to Mongo
 for our social media application?" with consensus type unanimous.
 ```
 
+### Find Debate-worthy Topics
+
+```
+Use list_trending_topics to find high-scoring AI topics from Hacker News,
+then run a debate on the most interesting one.
+```
+
+### Compare Agent Performance
+
+```
+Use get_agent_history for anthropic-api and openai-api to compare their
+ELO ratings and consensus rates.
+```
+
+### Search Past Debates
+
+```
+Use search_debates to find all debates about "architecture" from the past month
+that reached consensus.
+```
+
 ## Related Documentation
 
+- [MCP Advanced Usage](./MCP_ADVANCED.md) - Advanced patterns and customization
 - [Gauntlet Mode](./GAUNTLET.md) - Full gauntlet documentation
 - [API Reference](./API_REFERENCE.md) - Complete API documentation
 - [Environment Variables](./ENVIRONMENT.md) - All configuration options

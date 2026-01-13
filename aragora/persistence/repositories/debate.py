@@ -189,9 +189,7 @@ class DebateRepository(BaseRepository[DebateEntity]):
             """
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_slug ON debates(slug)")
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_created ON debates(created_at)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_created ON debates(created_at)")
             conn.commit()
 
     def _to_entity(self, row: Any) -> DebateEntity:
@@ -229,14 +227,14 @@ class DebateRepository(BaseRepository[DebateEntity]):
             "artifact_json": entity.artifact_json,
             "consensus_reached": entity.consensus_reached,
             "confidence": entity.confidence,
-            "created_at": entity.created_at.isoformat()
-            if entity.created_at
-            else datetime.now().isoformat(),
+            "created_at": (
+                entity.created_at.isoformat() if entity.created_at else datetime.now().isoformat()
+            ),
             "view_count": entity.view_count,
             "audio_path": entity.audio_path,
-            "audio_generated_at": entity.audio_generated_at.isoformat()
-            if entity.audio_generated_at
-            else None,
+            "audio_generated_at": (
+                entity.audio_generated_at.isoformat() if entity.audio_generated_at else None
+            ),
             "audio_duration_seconds": entity.audio_duration_seconds,
         }
 
@@ -360,9 +358,7 @@ class DebateRepository(BaseRepository[DebateEntity]):
             List of matching DebateMetadata.
         """
         # Escape LIKE special characters
-        escaped_query = (
-            query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        )
+        escaped_query = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         pattern = f"%{escaped_query}%"
 
         rows = self._fetch_all(

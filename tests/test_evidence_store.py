@@ -377,9 +377,7 @@ class TestEvidenceStore:
     def test_init_creates_tables(self, store):
         """Test initialization creates required tables."""
         with store._cursor() as cursor:
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = {row["name"] for row in cursor.fetchall()}
         assert "evidence" in tables
         assert "debate_evidence" in tables
@@ -756,10 +754,7 @@ class TestEvidenceStore:
                     snippet=f"Unique content from thread {thread_id} item {i}.",  # Unique to avoid dedup
                 )
 
-        threads = [
-            threading.Thread(target=save_evidence, args=(tid,))
-            for tid in range(3)
-        ]
+        threads = [threading.Thread(target=save_evidence, args=(tid,)) for tid in range(3)]
         for t in threads:
             t.start()
         for t in threads:
@@ -847,6 +842,7 @@ class TestEvidenceStoreIntegration:
 
     def test_save_evidence_pack_mock(self, store):
         """Test saving evidence pack (simulated)."""
+
         # Simulate EvidencePack
         class MockSnippet:
             def __init__(self, eid, source, title, snippet):

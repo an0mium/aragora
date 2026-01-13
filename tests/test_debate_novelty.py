@@ -26,6 +26,7 @@ from aragora.debate.novelty import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_backend():
     """Create a mock similarity backend for predictable tests."""
@@ -53,6 +54,7 @@ def sample_proposals():
 # ============================================================================
 # NoveltyScore Tests
 # ============================================================================
+
 
 class TestNoveltyScore:
     """Tests for NoveltyScore dataclass."""
@@ -114,6 +116,7 @@ class TestNoveltyScore:
 # NoveltyResult Tests
 # ============================================================================
 
+
 class TestNoveltyResult:
     """Tests for NoveltyResult dataclass."""
 
@@ -154,6 +157,7 @@ class TestNoveltyResult:
 # NoveltyTracker Initialization Tests
 # ============================================================================
 
+
 class TestNoveltyTrackerInit:
     """Tests for NoveltyTracker initialization."""
 
@@ -187,6 +191,7 @@ class TestNoveltyTrackerInit:
 # First Round Novelty Tests
 # ============================================================================
 
+
 class TestFirstRoundNovelty:
     """Tests for first round novelty computation."""
 
@@ -218,6 +223,7 @@ class TestFirstRoundNovelty:
 # ============================================================================
 # Subsequent Round Novelty Tests
 # ============================================================================
+
 
 class TestSubsequentRoundNovelty:
     """Tests for novelty computation in subsequent rounds."""
@@ -284,6 +290,7 @@ class TestSubsequentRoundNovelty:
 # History Management Tests
 # ============================================================================
 
+
 class TestHistoryManagement:
     """Tests for proposal history management."""
 
@@ -328,6 +335,7 @@ class TestHistoryManagement:
 # Agent Trajectory Tests
 # ============================================================================
 
+
 class TestAgentTrajectory:
     """Tests for agent novelty trajectories."""
 
@@ -366,6 +374,7 @@ class TestAgentTrajectory:
 # ============================================================================
 # Debate Summary Tests
 # ============================================================================
+
 
 class TestDebateSummary:
     """Tests for debate novelty summaries."""
@@ -411,6 +420,7 @@ class TestDebateSummary:
 # ============================================================================
 # Low Novelty Detection Tests
 # ============================================================================
+
 
 class TestLowNoveltyDetection:
     """Tests for low novelty detection and flagging."""

@@ -116,8 +116,15 @@ def main():
 
     # Known external APIs (don't deprecate)
     external_apis = {
-        "auth", "billing", "webhook", "oauth", "api-key",
-        "health", "status", "metrics", "admin",
+        "auth",
+        "billing",
+        "webhook",
+        "oauth",
+        "api-key",
+        "health",
+        "status",
+        "metrics",
+        "admin",
     }
 
     for category in sorted(categories.keys()):

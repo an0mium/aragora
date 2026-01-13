@@ -18,6 +18,7 @@ from aragora.reasoning.provenance import SourceType
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def mock_provenance_manager():
     """Mock ProvenanceManager with chain and graph."""
@@ -68,6 +69,7 @@ def create_mock_citation(
 # ReliabilityLevel Enum Tests
 # =============================================================================
 
+
 class TestReliabilityLevel:
     """Tests for ReliabilityLevel enum."""
 
@@ -88,6 +90,7 @@ class TestReliabilityLevel:
 # =============================================================================
 # ClaimReliability Dataclass Tests
 # =============================================================================
+
 
 class TestClaimReliability:
     """Tests for ClaimReliability dataclass."""
@@ -139,6 +142,7 @@ class TestClaimReliability:
 # EvidenceReliability Dataclass Tests
 # =============================================================================
 
+
 class TestEvidenceReliability:
     """Tests for EvidenceReliability dataclass."""
 
@@ -180,6 +184,7 @@ class TestEvidenceReliability:
 # =============================================================================
 # Evidence Scoring Tests
 # =============================================================================
+
 
 class TestEvidenceScoring:
     """Tests for evidence reliability scoring."""
@@ -233,9 +238,7 @@ class TestEvidenceScoring:
 
     def test_freshness_very_recent(self, mock_provenance_manager):
         """Evidence < 7 days should have freshness 1.0."""
-        record = create_mock_record(
-            timestamp=datetime.now() - timedelta(days=3)
-        )
+        record = create_mock_record(timestamp=datetime.now() - timedelta(days=3))
         mock_provenance_manager.chain.get_record.return_value = record
 
         scorer = ReliabilityScorer(mock_provenance_manager)
@@ -245,9 +248,7 @@ class TestEvidenceScoring:
 
     def test_freshness_7_to_30_days(self, mock_provenance_manager):
         """Evidence 7-30 days should have freshness 0.9."""
-        record = create_mock_record(
-            timestamp=datetime.now() - timedelta(days=15)
-        )
+        record = create_mock_record(timestamp=datetime.now() - timedelta(days=15))
         mock_provenance_manager.chain.get_record.return_value = record
 
         scorer = ReliabilityScorer(mock_provenance_manager)
@@ -257,9 +258,7 @@ class TestEvidenceScoring:
 
     def test_freshness_30_to_90_days(self, mock_provenance_manager):
         """Evidence 30-90 days should have freshness 0.7."""
-        record = create_mock_record(
-            timestamp=datetime.now() - timedelta(days=60)
-        )
+        record = create_mock_record(timestamp=datetime.now() - timedelta(days=60))
         mock_provenance_manager.chain.get_record.return_value = record
 
         scorer = ReliabilityScorer(mock_provenance_manager)
@@ -269,9 +268,7 @@ class TestEvidenceScoring:
 
     def test_freshness_90_to_365_days(self, mock_provenance_manager):
         """Evidence 90-365 days should have freshness 0.5."""
-        record = create_mock_record(
-            timestamp=datetime.now() - timedelta(days=200)
-        )
+        record = create_mock_record(timestamp=datetime.now() - timedelta(days=200))
         mock_provenance_manager.chain.get_record.return_value = record
 
         scorer = ReliabilityScorer(mock_provenance_manager)
@@ -281,9 +278,7 @@ class TestEvidenceScoring:
 
     def test_freshness_over_365_days(self, mock_provenance_manager):
         """Evidence > 365 days should have freshness 0.3."""
-        record = create_mock_record(
-            timestamp=datetime.now() - timedelta(days=400)
-        )
+        record = create_mock_record(timestamp=datetime.now() - timedelta(days=400))
         mock_provenance_manager.chain.get_record.return_value = record
 
         scorer = ReliabilityScorer(mock_provenance_manager)
@@ -305,6 +300,7 @@ class TestEvidenceScoring:
 # =============================================================================
 # Claim Scoring Tests
 # =============================================================================
+
 
 class TestClaimScoring:
     """Tests for claim reliability scoring."""
@@ -330,14 +326,13 @@ class TestClaimScoring:
 
     def test_evidence_coverage_saturates_at_3(self, mock_provenance_manager):
         """3+ supporting sources -> coverage 1.0."""
-        citations = [
-            create_mock_citation(f"ev-{i}") for i in range(5)
-        ]
+        citations = [create_mock_citation(f"ev-{i}") for i in range(5)]
         mock_provenance_manager.graph.get_claim_evidence.return_value = citations
 
         # Setup mock records
         def get_record_side_effect(ev_id):
             return create_mock_record(evidence_id=ev_id)
+
         mock_provenance_manager.chain.get_record.side_effect = get_record_side_effect
 
         scorer = ReliabilityScorer(mock_provenance_manager)
@@ -380,9 +375,7 @@ class TestClaimScoring:
         mock_provenance_manager.graph.get_claim_evidence.return_value = citations
         mock_provenance_manager.chain.get_record.return_value = create_mock_record()
 
-        verification_results = {
-            "claim-1": {"status": "verified", "method": "z3"}
-        }
+        verification_results = {"claim-1": {"status": "verified", "method": "z3"}}
         scorer = ReliabilityScorer(mock_provenance_manager, verification_results)
         result = scorer.score_claim("claim-1")
 
@@ -396,9 +389,7 @@ class TestClaimScoring:
         mock_provenance_manager.graph.get_claim_evidence.return_value = citations
         mock_provenance_manager.chain.get_record.return_value = create_mock_record()
 
-        verification_results = {
-            "claim-1": {"status": "refuted"}
-        }
+        verification_results = {"claim-1": {"status": "refuted"}}
         scorer = ReliabilityScorer(mock_provenance_manager, verification_results)
         result = scorer.score_claim("claim-1")
 
@@ -419,10 +410,10 @@ class TestClaimScoring:
 
         # Verify weights are 0.25 each
         expected = (
-            0.25 * result.evidence_coverage +
-            0.25 * result.source_quality +
-            0.25 * result.consistency +
-            0.25 * result.verification_status
+            0.25 * result.evidence_coverage
+            + 0.25 * result.source_quality
+            + 0.25 * result.consistency
+            + 0.25 * result.verification_status
         )
         assert abs(result.reliability_score - expected) < 0.001
 
@@ -442,6 +433,7 @@ class TestClaimScoring:
 # =============================================================================
 # Level Classification Tests
 # =============================================================================
+
 
 class TestLevelClassification:
     """Tests for score to level conversion."""
@@ -490,6 +482,7 @@ class TestLevelClassification:
 # =============================================================================
 # Filtering and Report Tests
 # =============================================================================
+
 
 class TestFilteringAndReports:
     """Tests for filtering methods and report generation."""
@@ -547,6 +540,7 @@ class TestFilteringAndReports:
 # =============================================================================
 # Convenience Function Tests
 # =============================================================================
+
 
 class TestConvenienceFunction:
     """Tests for compute_claim_reliability function."""

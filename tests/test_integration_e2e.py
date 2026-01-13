@@ -42,7 +42,9 @@ class MockAgent(Agent):
     async def generate(self, prompt: str, context: list = None) -> str:
         """Return mock response."""
         if self.generate_responses:
-            response = self.generate_responses[self._generate_call_count % len(self.generate_responses)]
+            response = self.generate_responses[
+                self._generate_call_count % len(self.generate_responses)
+            ]
             self._generate_call_count += 1
             return response
         return f"Mock response from {self.name}"
@@ -50,7 +52,9 @@ class MockAgent(Agent):
     async def critique(self, proposal: str, task: str, context: list = None) -> Critique:
         """Return mock critique."""
         if self.critique_responses:
-            response = self.critique_responses[self._critique_call_count % len(self.critique_responses)]
+            response = self.critique_responses[
+                self._critique_call_count % len(self.critique_responses)
+            ]
             self._critique_call_count += 1
             return response
         return Critique(
@@ -60,7 +64,7 @@ class MockAgent(Agent):
             issues=["Integration test issue"],
             suggestions=["Integration test suggestion"],
             severity=0.5,
-            reasoning="Integration test reasoning"
+            reasoning="Integration test reasoning",
         )
 
     async def vote(self, proposals: dict, task: str) -> Vote:
@@ -75,7 +79,7 @@ class MockAgent(Agent):
             choice=choice,
             reasoning="Integration test vote",
             confidence=0.8,
-            continue_debate=False
+            continue_debate=False,
         )
 
 
@@ -135,13 +139,15 @@ class TestFullDebateFlow:
         """Debate should stop early if consensus is reached."""
         # Configure agents to agree immediately
         for agent in mock_agents:
-            agent.vote_responses = [Vote(
-                agent=agent.name,
-                choice="proposer-agent",
-                reasoning="I agree",
-                confidence=0.95,
-                continue_debate=False
-            )]
+            agent.vote_responses = [
+                Vote(
+                    agent=agent.name,
+                    choice="proposer-agent",
+                    reasoning="I agree",
+                    confidence=0.95,
+                    continue_debate=False,
+                )
+            ]
 
         protocol = DebateProtocol(
             rounds=5,  # High limit
@@ -193,13 +199,15 @@ class TestEloIntegration:
         """Debate completion should update ELO ratings."""
         # Configure votes so proposer wins
         for agent in mock_agents:
-            agent.vote_responses = [Vote(
-                agent=agent.name,
-                choice="proposer-agent",
-                reasoning="Proposer wins",
-                confidence=0.9,
-                continue_debate=False
-            )]
+            agent.vote_responses = [
+                Vote(
+                    agent=agent.name,
+                    choice="proposer-agent",
+                    reasoning="Proposer wins",
+                    confidence=0.9,
+                    continue_debate=False,
+                )
+            ]
 
         # Get initial ratings
         initial_ratings = {}
@@ -510,13 +518,15 @@ class TestConsensusProtocols:
         """Majority consensus should select the most voted option."""
         # All agents vote for proposer
         for agent in mock_agents:
-            agent.vote_responses = [Vote(
-                agent=agent.name,
-                choice="proposer-agent",
-                reasoning="I vote for proposer",
-                confidence=0.8,
-                continue_debate=False
-            )]
+            agent.vote_responses = [
+                Vote(
+                    agent=agent.name,
+                    choice="proposer-agent",
+                    reasoning="I vote for proposer",
+                    confidence=0.8,
+                    continue_debate=False,
+                )
+            ]
 
         protocol = DebateProtocol(rounds=1, consensus="majority", **TEST_PROTOCOL_DEFAULTS)
         arena = Arena(

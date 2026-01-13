@@ -95,8 +95,7 @@ class TelegramMessage:
         if self.reply_markup:
             payload["reply_markup"] = {
                 "inline_keyboard": [
-                    [button.to_dict() for button in row]
-                    for row in self.reply_markup
+                    [button.to_dict() for button in row] for row in self.reply_markup
                 ]
             }
 
@@ -165,9 +164,7 @@ class TelegramIntegration:
 
                 url = f"{self.config.api_base}/sendMessage"
                 async with session.post(
-                    url,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=10)
+                    url, json=payload, timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     result = await response.json()
 
@@ -189,7 +186,7 @@ class TelegramIntegration:
             except aiohttp.ClientError as e:
                 logger.error(f"Telegram connection error: {e}")
                 if attempt < self.config.max_retries - 1:
-                    await asyncio.sleep(self.config.retry_delay * (2 ** attempt))
+                    await asyncio.sleep(self.config.retry_delay * (2**attempt))
                     continue
                 return False
             except Exception as e:
@@ -200,11 +197,7 @@ class TelegramIntegration:
 
     def _escape_html(self, text: str) -> str:
         """Escape HTML special characters."""
-        return (
-            text.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-        )
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
     async def post_debate_summary(self, result: DebateResult) -> bool:
         """Post a debate summary to Telegram.
@@ -224,16 +217,14 @@ class TelegramIntegration:
         # Add inline keyboard buttons
         buttons: list[list[InlineButton]] = []
         if hasattr(result, "debate_id"):
-            buttons.append([
-                InlineButton(
-                    text="View Details",
-                    url=f"https://aragora.ai/debate/{result.debate_id}"
-                ),
-                InlineButton(
-                    text="Share",
-                    callback_data=f"share_{result.debate_id}"
-                )
-            ])
+            buttons.append(
+                [
+                    InlineButton(
+                        text="View Details", url=f"https://aragora.ai/debate/{result.debate_id}"
+                    ),
+                    InlineButton(text="Share", callback_data=f"share_{result.debate_id}"),
+                ]
+            )
 
         message = TelegramMessage(text=text, reply_markup=buttons)
         return await self._send_message(message)
@@ -243,7 +234,7 @@ class TelegramIntegration:
         status_emoji = "\u2705" if result.consensus_reached else "\u274c"  # checkmark or X
         consensus_status = "Reached" if result.consensus_reached else "Not Reached"
         winner_text = result.winner or "No clear winner"
-        confidence = getattr(result, 'confidence', 0.0)
+        confidence = getattr(result, "confidence", 0.0)
 
         task_escaped = self._escape_html(result.task)
 
@@ -263,16 +254,20 @@ class TelegramIntegration:
             preview = self._escape_html(result.final_answer[:400])
             if len(result.final_answer) > 400:
                 preview += "..."
-            lines.extend([
-                "",
-                f"<b>Final Proposal:</b>",
-                f"<pre>{preview}</pre>",
-            ])
+            lines.extend(
+                [
+                    "",
+                    f"<b>Final Proposal:</b>",
+                    f"<pre>{preview}</pre>",
+                ]
+            )
 
-        lines.extend([
-            "",
-            f"<i>\U0001F916 Aragora AI | {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}</i>",
-        ])
+        lines.extend(
+            [
+                "",
+                f"<i>\U0001f916 Aragora AI | {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}</i>",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -298,11 +293,13 @@ class TelegramIntegration:
             return True
 
         if confidence < self.config.min_consensus_confidence:
-            logger.debug(f"Skipping consensus alert: confidence {confidence} < {self.config.min_consensus_confidence}")
+            logger.debug(
+                f"Skipping consensus alert: confidence {confidence} < {self.config.min_consensus_confidence}"
+            )
             return True
 
         lines = [
-            "\U0001F389 <b>Consensus Reached!</b>",
+            "\U0001f389 <b>Consensus Reached!</b>",
             "",
             f"\u2022 <b>Debate:</b> <code>{debate_id[:8]}...</code>",
             f"\u2022 <b>Confidence:</b> {confidence:.0%}",
@@ -319,12 +316,9 @@ class TelegramIntegration:
 
         text = "\n".join(lines)
 
-        buttons: list[list[InlineButton]] = [[
-            InlineButton(
-                text="View Debate",
-                url=f"https://aragora.ai/debate/{debate_id}"
-            )
-        ]]
+        buttons: list[list[InlineButton]] = [
+            [InlineButton(text="View Debate", url=f"https://aragora.ai/debate/{debate_id}")]
+        ]
 
         message = TelegramMessage(text=text, reply_markup=buttons)
         return await self._send_message(message)
@@ -351,10 +345,10 @@ class TelegramIntegration:
             return True
 
         severity_emojis = {
-            "info": "\u2139\ufe0f",       # info
-            "warning": "\u26a0\ufe0f",    # warning
-            "error": "\u274c",            # X
-            "critical": "\U0001F6A8",     # rotating light
+            "info": "\u2139\ufe0f",  # info
+            "warning": "\u26a0\ufe0f",  # warning
+            "error": "\u274c",  # X
+            "critical": "\U0001f6a8",  # rotating light
         }
         emoji = severity_emojis.get(severity, "\u26a0\ufe0f")
 
@@ -389,9 +383,9 @@ class TelegramIntegration:
         """
         top_agents = rankings[:top_n]
 
-        lines = ["\U0001F3C6 <b>Agent Leaderboard Update</b>", ""]
+        lines = ["\U0001f3c6 <b>Agent Leaderboard Update</b>", ""]
 
-        medals = ["\U0001F947", "\U0001F948", "\U0001F949"]  # gold, silver, bronze
+        medals = ["\U0001f947", "\U0001f948", "\U0001f949"]  # gold, silver, bronze
         for i, agent in enumerate(top_agents):
             medal = medals[i] if i < 3 else f"#{i+1}"
             name = self._escape_html(agent.get("name", "Unknown"))
@@ -425,7 +419,7 @@ class TelegramIntegration:
             agents_text += f" +{len(agents) - 4} more"
 
         lines = [
-            "\U0001F4AC <b>Debate Started</b>",
+            "\U0001f4ac <b>Debate Started</b>",
             "",
             f"<b>Task:</b> {task_escaped}",
             "",
@@ -436,12 +430,9 @@ class TelegramIntegration:
 
         text = "\n".join(lines)
 
-        buttons: list[list[InlineButton]] = [[
-            InlineButton(
-                text="Watch Live",
-                url=f"https://aragora.ai/debate/{debate_id}"
-            )
-        ]]
+        buttons: list[list[InlineButton]] = [
+            [InlineButton(text="Watch Live", url=f"https://aragora.ai/debate/{debate_id}")]
+        ]
 
         message = TelegramMessage(text=text, reply_markup=buttons)
         return await self._send_message(message)

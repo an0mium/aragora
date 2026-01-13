@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { API_BASE_URL } from '@/config';
 
 interface DebateExportModalProps {
   debateId: string;
@@ -13,7 +14,7 @@ interface DebateExportModalProps {
 type ExportFormat = 'json' | 'csv' | 'dot' | 'html';
 type ExportTable = 'summary' | 'messages' | 'critiques' | 'votes' | 'verifications';
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 const FORMAT_DESCRIPTIONS: Record<ExportFormat, string> = {
   json: 'Complete debate data in JSON format',

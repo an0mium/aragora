@@ -252,7 +252,7 @@ class TestPreflightHealthCheckCircuitBreakers:
         mock_status_fn = MagicMock(return_value={})
         with patch.dict(
             "sys.modules",
-            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)}
+            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)},
         ):
             result = await check._check_circuit_breakers()
 
@@ -262,13 +262,15 @@ class TestPreflightHealthCheckCircuitBreakers:
     @pytest.mark.asyncio
     async def test_all_closed_passes(self, check):
         """Test that all closed circuit breakers pass."""
-        mock_status_fn = MagicMock(return_value={
-            "claude": {"status": "closed"},
-            "gemini": {"status": "closed"},
-        })
+        mock_status_fn = MagicMock(
+            return_value={
+                "claude": {"status": "closed"},
+                "gemini": {"status": "closed"},
+            }
+        )
         with patch.dict(
             "sys.modules",
-            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)}
+            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)},
         ):
             result = await check._check_circuit_breakers()
 
@@ -278,13 +280,15 @@ class TestPreflightHealthCheckCircuitBreakers:
     @pytest.mark.asyncio
     async def test_some_open_warns(self, check):
         """Test that some open circuit breakers produce warning."""
-        mock_status_fn = MagicMock(return_value={
-            "claude": {"status": "open"},
-            "gemini": {"status": "closed"},
-        })
+        mock_status_fn = MagicMock(
+            return_value={
+                "claude": {"status": "open"},
+                "gemini": {"status": "closed"},
+            }
+        )
         with patch.dict(
             "sys.modules",
-            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)}
+            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)},
         ):
             result = await check._check_circuit_breakers()
 
@@ -294,13 +298,15 @@ class TestPreflightHealthCheckCircuitBreakers:
     @pytest.mark.asyncio
     async def test_all_open_fails(self, check):
         """Test that all open circuit breakers fail."""
-        mock_status_fn = MagicMock(return_value={
-            "claude": {"status": "open"},
-            "gemini": {"status": "open"},
-        })
+        mock_status_fn = MagicMock(
+            return_value={
+                "claude": {"status": "open"},
+                "gemini": {"status": "open"},
+            }
+        )
         with patch.dict(
             "sys.modules",
-            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)}
+            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)},
         ):
             result = await check._check_circuit_breakers()
 
@@ -312,6 +318,7 @@ class TestPreflightHealthCheckCircuitBreakers:
         """Test that import error skips check."""
         # Remove the module to cause ImportError
         import sys
+
         # Save original if exists
         original = sys.modules.get("aragora.resilience")
         try:
@@ -531,7 +538,7 @@ class TestPreflightHealthCheckHelpers:
         mock_status_fn = MagicMock(return_value={"agent": {"status": "closed"}})
         with patch.dict(
             "sys.modules",
-            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)}
+            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)},
         ):
             result = check._is_circuit_open("agent")
         assert result is False
@@ -541,7 +548,7 @@ class TestPreflightHealthCheckHelpers:
         mock_status_fn = MagicMock(return_value={"agent": {"status": "open"}})
         with patch.dict(
             "sys.modules",
-            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)}
+            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)},
         ):
             result = check._is_circuit_open("agent")
         assert result is True
@@ -551,7 +558,7 @@ class TestPreflightHealthCheckHelpers:
         mock_status_fn = MagicMock(return_value={})
         with patch.dict(
             "sys.modules",
-            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)}
+            {"aragora.resilience": MagicMock(get_circuit_breaker_status=mock_status_fn)},
         ):
             result = check._is_circuit_open("unknown_agent")
         assert result is False
@@ -596,6 +603,7 @@ class TestRunPreflight:
 
         # Mock immune system emission (make import fail inside the function)
         import sys
+
         original = sys.modules.get("aragora.debate.immune_system")
         try:
             sys.modules["aragora.debate.immune_system"] = None
@@ -618,6 +626,7 @@ class TestRunPreflight:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-12345")
 
         import sys
+
         original = sys.modules.get("aragora.debate.immune_system")
         try:
             sys.modules["aragora.debate.immune_system"] = None
@@ -643,6 +652,7 @@ class TestRunPreflight:
         mock_module = MagicMock(get_immune_system=MagicMock(return_value=mock_immune))
 
         import sys
+
         original = sys.modules.get("aragora.debate.immune_system")
         try:
             sys.modules["aragora.debate.immune_system"] = mock_module
@@ -667,6 +677,7 @@ class TestRunPreflight:
         mock_module = MagicMock(get_immune_system=MagicMock(return_value=mock_immune))
 
         import sys
+
         original = sys.modules.get("aragora.debate.immune_system")
         try:
             sys.modules["aragora.debate.immune_system"] = mock_module
@@ -739,5 +750,7 @@ class TestPreflightIntegration:
             result = await check.run(timeout=5.0)
 
         # Should complete but record the error
-        assert any("Unexpected error" in str(issue) or "RuntimeError" in str(issue)
-                   for issue in result.blocking_issues)
+        assert any(
+            "Unexpected error" in str(issue) or "RuntimeError" in str(issue)
+            for issue in result.blocking_issues
+        )

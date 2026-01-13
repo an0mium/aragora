@@ -192,7 +192,7 @@ class Policy:
         - Negation: not x, not (x == 1)
         """
         try:
-            tree = ast.parse(condition, mode='eval')
+            tree = ast.parse(condition, mode="eval")
             return bool(self._eval_node(tree.body, context))
         except (SyntaxError, ValueError, TypeError, KeyError):
             return False
@@ -493,29 +493,33 @@ class PolicyEngine:
         session_id: str = "default",
     ) -> None:
         """Record that an action was taken (for auditing)."""
-        self._audit_log.append({
-            "timestamp": datetime.now().isoformat(),
-            "agent": agent,
-            "tool": tool,
-            "capability": capability,
-            "success": success,
-            "context": context or {},
-            "session_id": session_id,
-        })
+        self._audit_log.append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "agent": agent,
+                "tool": tool,
+                "capability": capability,
+                "success": success,
+                "context": context or {},
+                "session_id": session_id,
+            }
+        )
 
     def _log_action(self, result: PolicyResult) -> None:
         """Log an action check to the audit trail."""
-        self._audit_log.append({
-            "timestamp": result.checked_at,
-            "agent": result.agent,
-            "tool": result.tool,
-            "capability": result.capability,
-            "decision": result.decision.value,
-            "allowed": result.allowed,
-            "reason": result.reason,
-            "risk_cost": result.risk_cost,
-            "context": result.context,
-        })
+        self._audit_log.append(
+            {
+                "timestamp": result.checked_at,
+                "agent": result.agent,
+                "tool": result.tool,
+                "capability": result.capability,
+                "decision": result.decision.value,
+                "allowed": result.allowed,
+                "reason": result.reason,
+                "risk_cost": result.risk_cost,
+                "context": result.context,
+            }
+        )
 
     def get_audit_log(self, limit: int = 100) -> list[dict]:
         """Get recent audit log entries."""

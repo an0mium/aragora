@@ -232,6 +232,7 @@ class TestPersonaLaboratory:
     def persona_manager(self, temp_persona_db):
         """Create a PersonaManager with temp database."""
         from aragora.agents.personas import PersonaManager
+
         return PersonaManager(temp_persona_db)
 
     @pytest.fixture

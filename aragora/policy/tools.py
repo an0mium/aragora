@@ -231,197 +231,209 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
     """Register built-in Aragora tools."""
 
     # File reading tool
-    registry.register(Tool(
-        name="file_reader",
-        description="Read files from the filesystem",
-        category=ToolCategory.READ,
-        risk_level=RiskLevel.NONE,
-        blast_radius=BlastRadius.READ_ONLY,
-        capabilities=[
-            ToolCapability(
-                "read_file",
-                "Read contents of a file",
-                risk_level=RiskLevel.NONE,
-                blast_radius=BlastRadius.READ_ONLY,
-            ),
-            ToolCapability(
-                "list_directory",
-                "List files in a directory",
-                risk_level=RiskLevel.NONE,
-                blast_radius=BlastRadius.READ_ONLY,
-            ),
-            ToolCapability(
-                "search_files",
-                "Search for files by pattern",
-                risk_level=RiskLevel.NONE,
-                blast_radius=BlastRadius.READ_ONLY,
-            ),
-        ],
-    ))
+    registry.register(
+        Tool(
+            name="file_reader",
+            description="Read files from the filesystem",
+            category=ToolCategory.READ,
+            risk_level=RiskLevel.NONE,
+            blast_radius=BlastRadius.READ_ONLY,
+            capabilities=[
+                ToolCapability(
+                    "read_file",
+                    "Read contents of a file",
+                    risk_level=RiskLevel.NONE,
+                    blast_radius=BlastRadius.READ_ONLY,
+                ),
+                ToolCapability(
+                    "list_directory",
+                    "List files in a directory",
+                    risk_level=RiskLevel.NONE,
+                    blast_radius=BlastRadius.READ_ONLY,
+                ),
+                ToolCapability(
+                    "search_files",
+                    "Search for files by pattern",
+                    risk_level=RiskLevel.NONE,
+                    blast_radius=BlastRadius.READ_ONLY,
+                ),
+            ],
+        )
+    )
 
     # File writing tool
-    registry.register(Tool(
-        name="file_writer",
-        description="Write and modify files",
-        category=ToolCategory.WRITE,
-        risk_level=RiskLevel.MEDIUM,
-        blast_radius=BlastRadius.LOCAL,
-        capabilities=[
-            ToolCapability(
-                "write_file",
-                "Write contents to a file",
-                risk_level=RiskLevel.MEDIUM,
-                blast_radius=BlastRadius.LOCAL,
-            ),
-            ToolCapability(
-                "create_file",
-                "Create a new file",
-                risk_level=RiskLevel.LOW,
-                blast_radius=BlastRadius.LOCAL,
-            ),
-            ToolCapability(
-                "delete_file",
-                "Delete a file",
-                risk_level=RiskLevel.HIGH,
-                blast_radius=BlastRadius.LOCAL,
-                requires_human_approval=True,
-            ),
-        ],
-    ))
+    registry.register(
+        Tool(
+            name="file_writer",
+            description="Write and modify files",
+            category=ToolCategory.WRITE,
+            risk_level=RiskLevel.MEDIUM,
+            blast_radius=BlastRadius.LOCAL,
+            capabilities=[
+                ToolCapability(
+                    "write_file",
+                    "Write contents to a file",
+                    risk_level=RiskLevel.MEDIUM,
+                    blast_radius=BlastRadius.LOCAL,
+                ),
+                ToolCapability(
+                    "create_file",
+                    "Create a new file",
+                    risk_level=RiskLevel.LOW,
+                    blast_radius=BlastRadius.LOCAL,
+                ),
+                ToolCapability(
+                    "delete_file",
+                    "Delete a file",
+                    risk_level=RiskLevel.HIGH,
+                    blast_radius=BlastRadius.LOCAL,
+                    requires_human_approval=True,
+                ),
+            ],
+        )
+    )
 
     # Code execution tool
-    registry.register(Tool(
-        name="code_executor",
-        description="Execute code and shell commands",
-        category=ToolCategory.EXECUTE,
-        risk_level=RiskLevel.HIGH,
-        blast_radius=BlastRadius.LOCAL,
-        requires_human_approval=True,
-        capabilities=[
-            ToolCapability(
-                "run_python",
-                "Execute Python code",
-                risk_level=RiskLevel.HIGH,
-                blast_radius=BlastRadius.LOCAL,
-            ),
-            ToolCapability(
-                "run_shell",
-                "Execute shell commands",
-                risk_level=RiskLevel.CRITICAL,
-                blast_radius=BlastRadius.SHARED,
-                requires_human_approval=True,
-            ),
-            ToolCapability(
-                "run_tests",
-                "Run test suite",
-                risk_level=RiskLevel.LOW,
-                blast_radius=BlastRadius.READ_ONLY,
-            ),
-        ],
-    ))
+    registry.register(
+        Tool(
+            name="code_executor",
+            description="Execute code and shell commands",
+            category=ToolCategory.EXECUTE,
+            risk_level=RiskLevel.HIGH,
+            blast_radius=BlastRadius.LOCAL,
+            requires_human_approval=True,
+            capabilities=[
+                ToolCapability(
+                    "run_python",
+                    "Execute Python code",
+                    risk_level=RiskLevel.HIGH,
+                    blast_radius=BlastRadius.LOCAL,
+                ),
+                ToolCapability(
+                    "run_shell",
+                    "Execute shell commands",
+                    risk_level=RiskLevel.CRITICAL,
+                    blast_radius=BlastRadius.SHARED,
+                    requires_human_approval=True,
+                ),
+                ToolCapability(
+                    "run_tests",
+                    "Run test suite",
+                    risk_level=RiskLevel.LOW,
+                    blast_radius=BlastRadius.READ_ONLY,
+                ),
+            ],
+        )
+    )
 
     # Git tool
-    registry.register(Tool(
-        name="git",
-        description="Git version control operations",
-        category=ToolCategory.WRITE,
-        risk_level=RiskLevel.MEDIUM,
-        blast_radius=BlastRadius.LOCAL,
-        capabilities=[
-            ToolCapability(
-                "git_status",
-                "Check git status",
-                risk_level=RiskLevel.NONE,
-                blast_radius=BlastRadius.READ_ONLY,
-            ),
-            ToolCapability(
-                "git_diff",
-                "Show changes",
-                risk_level=RiskLevel.NONE,
-                blast_radius=BlastRadius.READ_ONLY,
-            ),
-            ToolCapability(
-                "git_commit",
-                "Commit changes",
-                risk_level=RiskLevel.MEDIUM,
-                blast_radius=BlastRadius.LOCAL,
-            ),
-            ToolCapability(
-                "git_push",
-                "Push to remote",
-                risk_level=RiskLevel.HIGH,
-                blast_radius=BlastRadius.SHARED,
-                requires_human_approval=True,
-            ),
-        ],
-    ))
+    registry.register(
+        Tool(
+            name="git",
+            description="Git version control operations",
+            category=ToolCategory.WRITE,
+            risk_level=RiskLevel.MEDIUM,
+            blast_radius=BlastRadius.LOCAL,
+            capabilities=[
+                ToolCapability(
+                    "git_status",
+                    "Check git status",
+                    risk_level=RiskLevel.NONE,
+                    blast_radius=BlastRadius.READ_ONLY,
+                ),
+                ToolCapability(
+                    "git_diff",
+                    "Show changes",
+                    risk_level=RiskLevel.NONE,
+                    blast_radius=BlastRadius.READ_ONLY,
+                ),
+                ToolCapability(
+                    "git_commit",
+                    "Commit changes",
+                    risk_level=RiskLevel.MEDIUM,
+                    blast_radius=BlastRadius.LOCAL,
+                ),
+                ToolCapability(
+                    "git_push",
+                    "Push to remote",
+                    risk_level=RiskLevel.HIGH,
+                    blast_radius=BlastRadius.SHARED,
+                    requires_human_approval=True,
+                ),
+            ],
+        )
+    )
 
     # Database tool
-    registry.register(Tool(
-        name="database",
-        description="Database operations",
-        category=ToolCategory.DATABASE,
-        risk_level=RiskLevel.MEDIUM,
-        blast_radius=BlastRadius.SHARED,
-        capabilities=[
-            ToolCapability(
-                "db_query",
-                "Run read-only queries",
-                risk_level=RiskLevel.NONE,
-                blast_radius=BlastRadius.READ_ONLY,
-            ),
-            ToolCapability(
-                "db_insert",
-                "Insert records",
-                risk_level=RiskLevel.MEDIUM,
-                blast_radius=BlastRadius.SHARED,
-            ),
-            ToolCapability(
-                "db_update",
-                "Update records",
-                risk_level=RiskLevel.HIGH,
-                blast_radius=BlastRadius.SHARED,
-            ),
-            ToolCapability(
-                "db_delete",
-                "Delete records",
-                risk_level=RiskLevel.CRITICAL,
-                blast_radius=BlastRadius.SHARED,
-                requires_human_approval=True,
-            ),
-        ],
-    ))
+    registry.register(
+        Tool(
+            name="database",
+            description="Database operations",
+            category=ToolCategory.DATABASE,
+            risk_level=RiskLevel.MEDIUM,
+            blast_radius=BlastRadius.SHARED,
+            capabilities=[
+                ToolCapability(
+                    "db_query",
+                    "Run read-only queries",
+                    risk_level=RiskLevel.NONE,
+                    blast_radius=BlastRadius.READ_ONLY,
+                ),
+                ToolCapability(
+                    "db_insert",
+                    "Insert records",
+                    risk_level=RiskLevel.MEDIUM,
+                    blast_radius=BlastRadius.SHARED,
+                ),
+                ToolCapability(
+                    "db_update",
+                    "Update records",
+                    risk_level=RiskLevel.HIGH,
+                    blast_radius=BlastRadius.SHARED,
+                ),
+                ToolCapability(
+                    "db_delete",
+                    "Delete records",
+                    risk_level=RiskLevel.CRITICAL,
+                    blast_radius=BlastRadius.SHARED,
+                    requires_human_approval=True,
+                ),
+            ],
+        )
+    )
 
     # External API tool
-    registry.register(Tool(
-        name="external_api",
-        description="Call external APIs",
-        category=ToolCategory.NETWORK,
-        risk_level=RiskLevel.MEDIUM,
-        blast_radius=BlastRadius.SHARED,
-        cost_multiplier=2.0,  # External calls may have real costs
-        capabilities=[
-            ToolCapability(
-                "api_get",
-                "GET request to external API",
-                risk_level=RiskLevel.LOW,
-                blast_radius=BlastRadius.READ_ONLY,
-            ),
-            ToolCapability(
-                "api_post",
-                "POST request to external API",
-                risk_level=RiskLevel.MEDIUM,
-                blast_radius=BlastRadius.SHARED,
-            ),
-            ToolCapability(
-                "api_delete",
-                "DELETE request to external API",
-                risk_level=RiskLevel.HIGH,
-                blast_radius=BlastRadius.SHARED,
-                requires_human_approval=True,
-            ),
-        ],
-    ))
+    registry.register(
+        Tool(
+            name="external_api",
+            description="Call external APIs",
+            category=ToolCategory.NETWORK,
+            risk_level=RiskLevel.MEDIUM,
+            blast_radius=BlastRadius.SHARED,
+            cost_multiplier=2.0,  # External calls may have real costs
+            capabilities=[
+                ToolCapability(
+                    "api_get",
+                    "GET request to external API",
+                    risk_level=RiskLevel.LOW,
+                    blast_radius=BlastRadius.READ_ONLY,
+                ),
+                ToolCapability(
+                    "api_post",
+                    "POST request to external API",
+                    risk_level=RiskLevel.MEDIUM,
+                    blast_radius=BlastRadius.SHARED,
+                ),
+                ToolCapability(
+                    "api_delete",
+                    "DELETE request to external API",
+                    risk_level=RiskLevel.HIGH,
+                    blast_radius=BlastRadius.SHARED,
+                    requires_human_approval=True,
+                ),
+            ],
+        )
+    )
 
 
 __all__ = [

@@ -74,7 +74,7 @@ async def broadcast_debate(
 
         # Determine output path
         if output_path is None:
-            trace_id = getattr(trace, 'id', None) or getattr(trace, 'debate_id', 'unknown')
+            trace_id = getattr(trace, "id", None) or getattr(trace, "debate_id", "unknown")
             output_path = Path(tempfile.gettempdir()) / f"aragora_debate_{trace_id}.{format}"
 
         # Mix audio files

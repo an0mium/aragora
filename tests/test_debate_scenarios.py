@@ -584,19 +584,25 @@ class TestScenarioComparator:
         comparator = ScenarioComparator()
 
         # These strings share most words, giving high Jaccard similarity
-        assert comparator._conclusions_similar(
-            "Python is the best choice for this project",
-            "Python is the best choice for our project",
-        ) is True
+        assert (
+            comparator._conclusions_similar(
+                "Python is the best choice for this project",
+                "Python is the best choice for our project",
+            )
+            is True
+        )
 
     def test_conclusions_similar_low_overlap(self):
         """Test conclusions similarity with low word overlap."""
         comparator = ScenarioComparator()
 
-        assert comparator._conclusions_similar(
-            "Use Python for backend",
-            "JavaScript is best for frontend",
-        ) is False
+        assert (
+            comparator._conclusions_similar(
+                "Use Python for backend",
+                "JavaScript is best for frontend",
+            )
+            is False
+        )
 
     def test_conclusions_similar_empty_strings(self):
         """Test conclusions similarity with empty strings."""
@@ -865,7 +871,10 @@ class TestMatrixDebateRunner:
         for i in range(4):
             matrix.add_scenario(
                 Scenario(
-                    id=str(i), name=f"Scenario {i}", scenario_type=ScenarioType.CUSTOM, description=""
+                    id=str(i),
+                    name=f"Scenario {i}",
+                    scenario_type=ScenarioType.CUSTOM,
+                    description="",
                 )
             )
 
@@ -966,6 +975,7 @@ class TestMatrixDebateRunner:
     @pytest.mark.asyncio
     async def test_baseline_scenario_identified(self):
         """Test baseline scenario is identified in results."""
+
         async def mock_debate(task, context):
             return MagicMock(
                 final_answer="Done",
@@ -1095,7 +1105,12 @@ class TestScenarioIntegration:
         analysis = comparator.analyze_matrix(result)
 
         # Accept any valid outcome - the key is that results were analyzed
-        assert analysis["outcome_category"] in ["consistent", "conditional", "divergent", "inconclusive"]
+        assert analysis["outcome_category"] in [
+            "consistent",
+            "conditional",
+            "divergent",
+            "inconclusive",
+        ]
         assert analysis["total_scenarios"] == 3
 
     def test_scenario_serialization_roundtrip(self):

@@ -557,9 +557,7 @@ class TestRecordVerification:
 
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT verified_at FROM debate_outcomes WHERE debate_id = 'debate-1'"
-        )
+        cursor.execute("SELECT verified_at FROM debate_outcomes WHERE debate_id = 'debate-1'")
         result = cursor.fetchone()
         conn.close()
 
@@ -636,13 +634,17 @@ class TestGetAgentPositionAccuracy:
 
     def test_accuracy_rate_with_sufficient_data(self, tracker_with_verifications):
         """Test accuracy rate with sufficient verifications."""
-        stats = tracker_with_verifications.get_agent_position_accuracy("agent1", min_verifications=5)
+        stats = tracker_with_verifications.get_agent_position_accuracy(
+            "agent1", min_verifications=5
+        )
         # Should have non-zero accuracy now
         assert stats["accuracy_rate"] >= 0.0
 
     def test_calibration_calculation(self, tracker_with_verifications):
         """Test calibration score calculation."""
-        stats = tracker_with_verifications.get_agent_position_accuracy("agent1", min_verifications=5)
+        stats = tracker_with_verifications.get_agent_position_accuracy(
+            "agent1", min_verifications=5
+        )
         # calibration = 1.0 - |avg_confidence - accuracy_rate|
         # Should be between 0 and 1
         assert 0.0 <= stats["calibration"] <= 1.0
@@ -687,6 +689,7 @@ class TestGetPositionHistory:
         """Test that results are ordered by created_at descending."""
         # Insert with explicit timestamps to ensure ordering
         import sqlite3 as sqlite3_module
+
         conn = sqlite3_module.connect(temp_db)
         cursor = conn.cursor()
         cursor.execute(
@@ -947,7 +950,9 @@ class TestGetReliableAgents:
         for i in range(12, 24):
             laboratory.position_tracker.record_position(f"d{i}", "agent2", "vote", f"t{i}")
             laboratory.position_tracker.finalize_debate(f"d{i}", "agent2", f"P{i}", 0.9)
-            laboratory.position_tracker.record_verification(f"d{i}", result=(i < 18))  # 50% accuracy
+            laboratory.position_tracker.record_verification(
+                f"d{i}", result=(i < 18)
+            )  # 50% accuracy
 
         result = laboratory.get_reliable_agents(min_verified=10, min_accuracy=0.4)
         if len(result) >= 2:

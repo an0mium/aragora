@@ -33,10 +33,7 @@ from .base import (
 logger = logging.getLogger(__name__)
 
 # Lazy imports for optional dependencies
-_plugin_imports, PLUGINS_AVAILABLE = try_import(
-    "aragora.plugins.runner",
-    "get_registry"
-)
+_plugin_imports, PLUGINS_AVAILABLE = try_import("aragora.plugins.runner", "get_registry")
 get_registry = _plugin_imports.get("get_registry")
 
 # In-memory store for installed plugins per user/org
@@ -124,10 +121,12 @@ class PluginsHandler(BaseHandler):
 
         registry = get_registry()
         plugins = registry.list_plugins()
-        return json_response({
-            "plugins": [p.to_dict() for p in plugins],
-            "count": len(plugins),
-        })
+        return json_response(
+            {
+                "plugins": [p.to_dict() for p in plugins],
+                "count": len(plugins),
+            }
+        )
 
     @handle_errors("get marketplace")
     def _get_marketplace(self) -> HandlerResult:
@@ -136,12 +135,14 @@ class PluginsHandler(BaseHandler):
         Returns featured plugins and plugins organized by category.
         """
         if not PLUGINS_AVAILABLE or not get_registry:
-            return json_response({
-                "featured": [],
-                "categories": {},
-                "total": 0,
-                "message": "Plugin system not configured",
-            })
+            return json_response(
+                {
+                    "featured": [],
+                    "categories": {},
+                    "total": 0,
+                    "message": "Plugin system not configured",
+                }
+            )
 
         registry = get_registry()
         plugins = registry.list_plugins()
@@ -154,20 +155,22 @@ class PluginsHandler(BaseHandler):
             plugin_dict = plugin.to_dict()
 
             # Check for featured flag
-            if getattr(plugin, 'featured', False):
+            if getattr(plugin, "featured", False):
                 featured.append(plugin_dict)
 
             # Group by category
-            category = getattr(plugin, 'category', 'other')
+            category = getattr(plugin, "category", "other")
             if category not in categories:
                 categories[category] = []
             categories[category].append(plugin_dict)
 
-        return json_response({
-            "featured": featured[:5],  # Top 5 featured
-            "categories": categories,
-            "total": len(plugins),
-        })
+        return json_response(
+            {
+                "featured": featured[:5],  # Top 5 featured
+                "categories": categories,
+                "total": len(plugins),
+            }
+        )
 
     @handle_errors("get plugin")
     def _get_plugin(self, plugin_name: str) -> HandlerResult:
@@ -184,11 +187,13 @@ class PluginsHandler(BaseHandler):
         runner = registry.get_runner(plugin_name)
         if runner:
             valid, missing = runner._validate_requirements()
-            return json_response({
-                **manifest.to_dict(),
-                "requirements_satisfied": valid,
-                "missing_requirements": missing,
-            })
+            return json_response(
+                {
+                    **manifest.to_dict(),
+                    "requirements_satisfied": valid,
+                    "missing_requirements": missing,
+                }
+            )
         else:
             return json_response(manifest.to_dict())
 
@@ -236,9 +241,7 @@ class PluginsHandler(BaseHandler):
 
         # Run plugin with timeout
         # Use run_async() for safe sync/async bridging
-        result = run_async(
-            registry.run_plugin(plugin_name, input_data, config, working_dir)
-        )
+        result = run_async(registry.run_plugin(plugin_name, input_data, config, working_dir))
         return json_response(result.to_dict())
 
     @require_auth
@@ -262,16 +265,20 @@ class PluginsHandler(BaseHandler):
             for name, install_info in user_plugins.items():
                 manifest = registry.get(name)
                 if manifest:
-                    plugins_list.append({
-                        **manifest.to_dict(),
-                        "installed_at": install_info.get("installed_at"),
-                        "user_config": install_info.get("config", {}),
-                    })
+                    plugins_list.append(
+                        {
+                            **manifest.to_dict(),
+                            "installed_at": install_info.get("installed_at"),
+                            "user_config": install_info.get("config", {}),
+                        }
+                    )
 
-        return json_response({
-            "installed": plugins_list,
-            "count": len(plugins_list),
-        })
+        return json_response(
+            {
+                "installed": plugins_list,
+                "count": len(plugins_list),
+            }
+        )
 
     @require_auth
     @rate_limit(requests_per_minute=30, burst=10, limiter_name="plugin_install")
@@ -302,9 +309,7 @@ class PluginsHandler(BaseHandler):
         if runner:
             valid, missing = runner._validate_requirements()
             if not valid:
-                return error_response(
-                    f"Missing requirements: {', '.join(missing)}", 400
-                )
+                return error_response(f"Missing requirements: {', '.join(missing)}", 400)
 
         # Read optional config from body
         body = self.read_json_body(handler) or {}
@@ -316,12 +321,14 @@ class PluginsHandler(BaseHandler):
 
         # Check if already installed
         if plugin_name in _installed_plugins[user_id]:
-            return json_response({
-                "success": True,
-                "message": f"Plugin {plugin_name} already installed",
-                "plugin": manifest.to_dict(),
-                "already_installed": True,
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "message": f"Plugin {plugin_name} already installed",
+                    "plugin": manifest.to_dict(),
+                    "already_installed": True,
+                }
+            )
 
         # Install the plugin
         _installed_plugins[user_id][plugin_name] = {
@@ -329,12 +336,14 @@ class PluginsHandler(BaseHandler):
             "config": config,
         }
 
-        return json_response({
-            "success": True,
-            "message": f"Plugin {plugin_name} installed successfully",
-            "plugin": manifest.to_dict(),
-            "installed_at": _installed_plugins[user_id][plugin_name]["installed_at"],
-        })
+        return json_response(
+            {
+                "success": True,
+                "message": f"Plugin {plugin_name} installed successfully",
+                "plugin": manifest.to_dict(),
+                "installed_at": _installed_plugins[user_id][plugin_name]["installed_at"],
+            }
+        )
 
     @require_auth
     @handle_errors("uninstall plugin")
@@ -356,7 +365,9 @@ class PluginsHandler(BaseHandler):
         # Remove the plugin
         del _installed_plugins[user_id][plugin_name]
 
-        return json_response({
-            "success": True,
-            "message": f"Plugin {plugin_name} uninstalled successfully",
-        })
+        return json_response(
+            {
+                "success": True,
+                "message": f"Plugin {plugin_name} uninstalled successfully",
+            }
+        )

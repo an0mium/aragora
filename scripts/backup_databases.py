@@ -88,8 +88,8 @@ def backup_database(db_path: Path, backup_dir: Path, compress: bool = True) -> P
         dest_conn.close()
 
         # Compress the backup
-        with open(temp_backup, 'rb') as f_in:
-            with gzip.open(backup_path, 'wb') as f_out:
+        with open(temp_backup, "rb") as f_in:
+            with gzip.open(backup_path, "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
         temp_backup.unlink()
@@ -173,11 +173,7 @@ def main():
 
     for db_path in databases:
         try:
-            backup_path = backup_database(
-                db_path,
-                backup_dir,
-                compress=not args.no_compress
-            )
+            backup_path = backup_database(db_path, backup_dir, compress=not args.no_compress)
             backed_up.append((db_path.name, backup_path.name))
 
             # Rotate old backups
@@ -201,6 +197,7 @@ def main():
     # Write manifest
     manifest_path = backup_dir / "manifest.json"
     import json
+
     manifest = {
         "created_at": datetime.now().isoformat(),
         "root": str(root),

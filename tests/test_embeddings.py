@@ -43,6 +43,7 @@ from aragora.memory.embeddings import (
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def cache():
     """Create a fresh EmbeddingCache."""
@@ -76,6 +77,7 @@ def retriever(temp_db, base_provider):
 # ============================================================================
 # EmbeddingCache Tests
 # ============================================================================
+
 
 class TestEmbeddingCache:
     """Tests for EmbeddingCache TTL and LRU eviction."""
@@ -195,6 +197,7 @@ class TestEmbeddingCache:
 # EmbeddingProvider Tests
 # ============================================================================
 
+
 class TestEmbeddingProvider:
     """Tests for base EmbeddingProvider (hash-based fallback)."""
 
@@ -250,6 +253,7 @@ class TestEmbeddingProvider:
 # OpenAIEmbedding Tests
 # ============================================================================
 
+
 class TestOpenAIEmbedding:
     """Tests for OpenAIEmbedding provider."""
 
@@ -301,6 +305,7 @@ class TestOpenAIEmbedding:
 # GeminiEmbedding Tests
 # ============================================================================
 
+
 class TestGeminiEmbedding:
     """Tests for GeminiEmbedding provider."""
 
@@ -326,6 +331,7 @@ class TestGeminiEmbedding:
 # ============================================================================
 # OllamaEmbedding Tests
 # ============================================================================
+
 
 class TestOllamaEmbedding:
     """Tests for OllamaEmbedding provider."""
@@ -365,6 +371,7 @@ class TestOllamaEmbedding:
 # ============================================================================
 # Cosine Similarity Tests
 # ============================================================================
+
 
 class TestCosineSimilarity:
     """Tests for cosine_similarity function."""
@@ -407,7 +414,7 @@ class TestCosineSimilarity:
     def test_pure_python_fallback(self):
         """Test pure Python fallback when numpy unavailable."""
         # Temporarily mock numpy import to fail
-        with patch.dict('sys.modules', {'numpy': None}):
+        with patch.dict("sys.modules", {"numpy": None}):
             # Need to reload the function to trigger fallback
             # Instead, we test the fallback logic directly
             a = [1.0, 2.0, 3.0]
@@ -426,6 +433,7 @@ class TestCosineSimilarity:
 # ============================================================================
 # Pack/Unpack Embedding Tests
 # ============================================================================
+
 
 class TestPackUnpackEmbedding:
     """Tests for pack_embedding and unpack_embedding."""
@@ -470,6 +478,7 @@ class TestPackUnpackEmbedding:
 # SemanticRetriever Tests
 # ============================================================================
 
+
 class TestSemanticRetriever:
     """Tests for SemanticRetriever class."""
 
@@ -479,9 +488,12 @@ class TestSemanticRetriever:
 
         # Check table exists
         import sqlite3
+
         with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='embeddings'")
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='embeddings'"
+            )
             assert cursor.fetchone() is not None
 
     def test_init_idempotent(self, temp_db, base_provider):
@@ -581,6 +593,7 @@ class TestSemanticRetriever:
 # Auto-Detect Provider Tests
 # ============================================================================
 
+
 class TestAutoDetectProvider:
     """Tests for _auto_detect_provider logic."""
 
@@ -606,7 +619,7 @@ class TestAutoDetectProvider:
         """Test hash-based fallback when no API keys."""
         with patch.dict(os.environ, {}, clear=True):
             # Also mock socket to fail Ollama check
-            with patch('socket.socket') as mock_socket:
+            with patch("socket.socket") as mock_socket:
                 mock_sock = Mock()
                 mock_sock.connect_ex.return_value = 1  # Connection refused
                 mock_socket.return_value.__enter__ = Mock(return_value=mock_sock)
@@ -619,7 +632,7 @@ class TestAutoDetectProvider:
     def test_ollama_when_available(self, temp_db):
         """Test Ollama used when running and no API keys."""
         with patch.dict(os.environ, {}, clear=True):
-            with patch('socket.socket') as mock_socket:
+            with patch("socket.socket") as mock_socket:
                 mock_sock = Mock()
                 mock_sock.connect_ex.return_value = 0  # Connection success
                 mock_socket.return_value.__enter__ = Mock(return_value=mock_sock)
@@ -633,12 +646,14 @@ class TestAutoDetectProvider:
 # Retry With Backoff Tests
 # ============================================================================
 
+
 class TestRetryWithBackoff:
     """Tests for _retry_with_backoff helper."""
 
     @pytest.mark.asyncio
     async def test_success_first_try(self):
         """Test successful call on first try."""
+
         async def success():
             return "result"
 
@@ -657,7 +672,7 @@ class TestRetryWithBackoff:
                 raise asyncio.TimeoutError()
             return "success"
 
-        with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("asyncio.sleep", new_callable=AsyncMock):
             result = await _retry_with_backoff(failing_then_success)
             assert result == "success"
             assert call_count == 2
@@ -674,17 +689,18 @@ class TestRetryWithBackoff:
                 raise aiohttp.ClientError("Error")
             return "success"
 
-        with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("asyncio.sleep", new_callable=AsyncMock):
             result = await _retry_with_backoff(failing_then_success)
             assert result == "success"
 
     @pytest.mark.asyncio
     async def test_max_retries_exceeded(self):
         """Test exception raised after max retries."""
+
         async def always_fail():
             raise asyncio.TimeoutError()
 
-        with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("asyncio.sleep", new_callable=AsyncMock):
             with pytest.raises(asyncio.TimeoutError):
                 await _retry_with_backoff(always_fail, max_retries=3)
 
@@ -699,7 +715,7 @@ class TestRetryWithBackoff:
         async def always_fail():
             raise asyncio.TimeoutError()
 
-        with patch('asyncio.sleep', mock_sleep):
+        with patch("asyncio.sleep", mock_sleep):
             with pytest.raises(asyncio.TimeoutError):
                 await _retry_with_backoff(always_fail, max_retries=3, base_delay=1.0)
 
@@ -710,6 +726,7 @@ class TestRetryWithBackoff:
 # ============================================================================
 # Global Cache Stats Tests
 # ============================================================================
+
 
 class TestGetEmbeddingCacheStats:
     """Tests for get_embedding_cache_stats function."""

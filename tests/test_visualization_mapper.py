@@ -888,16 +888,20 @@ class TestCartographerEdgeCases:
         id2 = cart.update_from_message("a2", "Node 2", "", 1)
 
         # Manually add a back-edge
-        cart.edges.append(ArgumentEdge(
-            source_id=id2,
-            target_id=id1,
-            relation=EdgeRelation.RESPONDS_TO,
-        ))
-        cart.edges.append(ArgumentEdge(
-            source_id=id1,
-            target_id=id2,
-            relation=EdgeRelation.RESPONDS_TO,
-        ))
+        cart.edges.append(
+            ArgumentEdge(
+                source_id=id2,
+                target_id=id1,
+                relation=EdgeRelation.RESPONDS_TO,
+            )
+        )
+        cart.edges.append(
+            ArgumentEdge(
+                source_id=id1,
+                target_id=id2,
+                relation=EdgeRelation.RESPONDS_TO,
+            )
+        )
 
         # Should not hang or crash
         stats = cart.get_statistics()

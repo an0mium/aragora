@@ -34,6 +34,7 @@ from aragora.debate.convergence import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def jaccard_backend():
     """Create Jaccard backend for testing."""
@@ -75,6 +76,7 @@ def previous_responses():
 # ============================================================================
 # JaccardBackend Tests
 # ============================================================================
+
 
 class TestJaccardBackend:
     """Tests for JaccardBackend."""
@@ -168,6 +170,7 @@ class TestJaccardBackend:
 # TFIDFBackend Tests
 # ============================================================================
 
+
 class TestTFIDFBackend:
     """Tests for TFIDFBackend."""
 
@@ -220,6 +223,7 @@ class TestTFIDFBackend:
 # ============================================================================
 # ConvergenceResult Tests
 # ============================================================================
+
 
 class TestConvergenceResult:
     """Tests for ConvergenceResult dataclass."""
@@ -280,6 +284,7 @@ class TestConvergenceResult:
 # ============================================================================
 # Advanced Metrics Tests
 # ============================================================================
+
 
 class TestArgumentDiversityMetric:
     """Tests for ArgumentDiversityMetric."""
@@ -364,9 +369,13 @@ class TestAdvancedConvergenceMetrics:
         """Test overall score with all metrics."""
         metrics = AdvancedConvergenceMetrics(
             semantic_similarity=0.8,
-            argument_diversity=ArgumentDiversityMetric(2, 10, 0.2),  # Low diversity = high convergence
+            argument_diversity=ArgumentDiversityMetric(
+                2, 10, 0.2
+            ),  # Low diversity = high convergence
             evidence_convergence=EvidenceConvergenceMetric(8, 10, 0.8),
-            stance_volatility=StanceVolatilityMetric(1, 10, 0.1),  # Low volatility = high convergence
+            stance_volatility=StanceVolatilityMetric(
+                1, 10, 0.1
+            ),  # Low volatility = high convergence
         )
         score = metrics.compute_overall_score()
 
@@ -391,6 +400,7 @@ class TestAdvancedConvergenceMetrics:
 # ============================================================================
 # AdvancedConvergenceAnalyzer Tests
 # ============================================================================
+
 
 class TestAdvancedConvergenceAnalyzer:
     """Tests for AdvancedConvergenceAnalyzer."""
@@ -508,6 +518,7 @@ class TestAdvancedConvergenceAnalyzer:
 # ============================================================================
 # ConvergenceDetector Tests
 # ============================================================================
+
 
 class TestConvergenceDetector:
     """Tests for ConvergenceDetector main class."""
@@ -645,6 +656,7 @@ class TestConvergenceDetector:
 # get_similarity_backend Tests
 # ============================================================================
 
+
 class TestGetSimilarityBackend:
     """Tests for get_similarity_backend factory function."""
 
@@ -681,6 +693,7 @@ class TestGetSimilarityBackend:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestConvergenceIntegration:
     """Integration tests for convergence detection."""
@@ -731,7 +744,10 @@ class TestConvergenceIntegration:
             {"agent_a": "I agree this could work.", "agent_b": "I agree as well."},
         ]
 
-        current = {"agent_a": "I agree this is the right approach.", "agent_b": "I agree completely."}
+        current = {
+            "agent_a": "I agree this is the right approach.",
+            "agent_b": "I agree completely.",
+        }
         previous = history[-1]
 
         metrics = analyzer.analyze(

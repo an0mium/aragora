@@ -6,6 +6,10 @@ import { WS_URL } from '@/config';
 
 const DEFAULT_WS_URL = WS_URL;
 
+// Reconnection configuration
+const MAX_RECONNECT_ATTEMPTS = 5;
+const MAX_RECONNECT_DELAY_MS = 30000; // 30 seconds cap
+
 /**
  * Validate WebSocket URL format.
  * @returns Object with valid flag and optional error message
@@ -91,6 +95,7 @@ interface UseGauntletWebSocketReturn {
   status: GauntletConnectionStatus;
   error: string | null;
   isConnected: boolean;
+  reconnectAttempt: number;  // Expose for UI feedback
 
   // Gauntlet data
   inputType: string;
@@ -123,10 +128,43 @@ export function useGauntletWebSocket({
   const [events, setEvents] = useState<GauntletEvent[]>([]);
   const [verdict, setVerdict] = useState<GauntletVerdict | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const elapsedIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isUnmountedRef = useRef(false);
+
+  // Clear any pending reconnection timeout
+  const clearReconnectTimeout = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Schedule reconnection with exponential backoff
+  const scheduleReconnect = useCallback(() => {
+    if (isUnmountedRef.current) return;
+    if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+      setStatus('error');
+      setError(`Connection lost. Max reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached.`);
+      return;
+    }
+
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s (capped at 30s)
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempt), MAX_RECONNECT_DELAY_MS);
+    logger.debug(`[Gauntlet WebSocket] Scheduling reconnect attempt ${reconnectAttempt + 1} in ${delay}ms`);
+
+    clearReconnectTimeout();
+    reconnectTimeoutRef.current = setTimeout(() => {
+      if (!isUnmountedRef.current) {
+        setReconnectAttempt(prev => prev + 1);
+        // Reconnection will be triggered by the useEffect dependency on reconnectAttempt
+      }
+    }, delay);
+  }, [reconnectAttempt, clearReconnectTimeout]);
 
   const toGauntletFinding = useCallback((payload: Record<string, unknown>): GauntletFinding | null => {
     const findingId = typeof payload.finding_id === 'string' ? payload.finding_id : null;
@@ -350,17 +388,27 @@ export function useGauntletWebSocket({
       ws.onerror = (err) => {
         logger.error('Gauntlet WebSocket error:', err);
         setError('Connection error');
-        setStatus('error');
+        // Don't set status to error here - let onclose handle reconnection
+        // The error event is always followed by a close event
       };
 
-      ws.onclose = () => {
-        logger.debug('Gauntlet WebSocket closed');
-        if (status !== 'complete') {
-          setStatus('error');
-        }
+      ws.onclose = (event) => {
+        logger.debug('Gauntlet WebSocket closed', { code: event.code, reason: event.reason });
         // Clean up interval
         if (elapsedIntervalRef.current) {
           clearInterval(elapsedIntervalRef.current);
+        }
+        // Only attempt reconnection for abnormal closures when not complete
+        if (status !== 'complete' && !isUnmountedRef.current) {
+          // Code 1000 = normal closure, 1001 = going away (page navigation)
+          if (event.code !== 1000 && event.code !== 1001) {
+            logger.debug('Gauntlet WebSocket abnormal close, scheduling reconnect');
+            setStatus('connecting');
+            scheduleReconnect();
+          } else {
+            setStatus('error');
+            setError('Connection closed');
+          }
         }
       };
     } catch (err) {
@@ -368,9 +416,10 @@ export function useGauntletWebSocket({
       setError(err instanceof Error ? err.message : 'Connection failed');
       setStatus('error');
     }
-  }, [enabled, gauntletId, wsUrl, status, handleEvent]);
+  }, [enabled, gauntletId, wsUrl, status, handleEvent, scheduleReconnect]);
 
   const reconnect = useCallback(() => {
+    clearReconnectTimeout();
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
@@ -383,14 +432,19 @@ export function useGauntletWebSocket({
     setVerdict(null);
     setProgress(0);
     setPhase('init');
+    setReconnectAttempt(0);
     // Reconnect
     connect();
-  }, [connect]);
+  }, [connect, clearReconnectTimeout]);
 
+  // Initial connection effect
   useEffect(() => {
+    isUnmountedRef.current = false;
     connect();
 
     return () => {
+      isUnmountedRef.current = true;
+      clearReconnectTimeout();
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
@@ -399,12 +453,26 @@ export function useGauntletWebSocket({
         clearInterval(elapsedIntervalRef.current);
       }
     };
-  }, [connect]);
+  }, [connect, clearReconnectTimeout]);
+
+  // Reconnection effect - triggers when reconnectAttempt increases
+  useEffect(() => {
+    if (reconnectAttempt > 0 && !isUnmountedRef.current) {
+      logger.debug(`[Gauntlet WebSocket] Reconnect attempt ${reconnectAttempt}`);
+      // Close existing connection if any
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      connect();
+    }
+  }, [reconnectAttempt, connect]);
 
   return {
     status,
     error,
     isConnected: status === 'streaming',
+    reconnectAttempt,
     inputType,
     inputSummary,
     phase,

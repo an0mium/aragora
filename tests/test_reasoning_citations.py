@@ -19,6 +19,7 @@ from aragora.reasoning.citations import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def sample_evidence():
     """Create sample ScholarlyEvidence."""
@@ -51,16 +52,26 @@ def citation_store():
 # CitationType Enum Tests
 # =============================================================================
 
+
 class TestCitationType:
     """Tests for CitationType enum."""
 
     def test_all_12_types_exist(self):
         """Should have all 12 citation types."""
         expected_types = [
-            "ACADEMIC_PAPER", "BOOK", "CONFERENCE", "PREPRINT",
-            "DOCUMENTATION", "OFFICIAL_SOURCE", "NEWS_ARTICLE",
-            "BLOG_POST", "CODE_REPOSITORY", "DATASET", "WEB_PAGE",
-            "INTERNAL_DEBATE", "UNKNOWN"
+            "ACADEMIC_PAPER",
+            "BOOK",
+            "CONFERENCE",
+            "PREPRINT",
+            "DOCUMENTATION",
+            "OFFICIAL_SOURCE",
+            "NEWS_ARTICLE",
+            "BLOG_POST",
+            "CODE_REPOSITORY",
+            "DATASET",
+            "WEB_PAGE",
+            "INTERNAL_DEBATE",
+            "UNKNOWN",
         ]
         actual_types = [t.name for t in CitationType]
         for expected in expected_types:
@@ -76,13 +87,20 @@ class TestCitationType:
 # CitationQuality Enum Tests
 # =============================================================================
 
+
 class TestCitationQuality:
     """Tests for CitationQuality enum."""
 
     def test_all_6_quality_levels_exist(self):
         """Should have all 6 quality levels."""
-        expected = ["PEER_REVIEWED", "AUTHORITATIVE", "REPUTABLE",
-                    "MIXED", "UNVERIFIED", "QUESTIONABLE"]
+        expected = [
+            "PEER_REVIEWED",
+            "AUTHORITATIVE",
+            "REPUTABLE",
+            "MIXED",
+            "UNVERIFIED",
+            "QUESTIONABLE",
+        ]
         actual = [q.name for q in CitationQuality]
         for e in expected:
             assert e in actual
@@ -95,6 +113,7 @@ class TestCitationQuality:
 # =============================================================================
 # ScholarlyEvidence Tests
 # =============================================================================
+
 
 class TestScholarlyEvidenceIdGeneration:
     """Tests for ID generation in ScholarlyEvidence."""
@@ -316,6 +335,7 @@ class TestScholarlyEvidenceToDict:
 # CitedClaim Tests
 # =============================================================================
 
+
 class TestCitedClaim:
     """Tests for CitedClaim dataclass."""
 
@@ -358,6 +378,7 @@ class TestCitedClaim:
 # =============================================================================
 # GroundedVerdict Tests
 # =============================================================================
+
 
 class TestGroundedVerdict:
     """Tests for GroundedVerdict dataclass."""
@@ -410,11 +431,13 @@ class TestGroundedVerdict:
         # Create 10 different citations
         citations = []
         for i in range(10):
-            citations.append(ScholarlyEvidence(
-                title=f"Paper {i}",
-                authors=[f"Author {i}"],
-                year=2020 + i,
-            ))
+            citations.append(
+                ScholarlyEvidence(
+                    title=f"Paper {i}",
+                    authors=[f"Author {i}"],
+                    year=2020 + i,
+                )
+            )
 
         claim = CitedClaim(claim_text="Test", citations=citations)
         verdict = GroundedVerdict(
@@ -444,6 +467,7 @@ class TestGroundedVerdict:
 # =============================================================================
 # CitationExtractor Tests
 # =============================================================================
+
 
 class TestCitationExtractorExtractClaims:
     """Tests for extract_claims method."""
@@ -553,6 +577,7 @@ class TestCitationExtractorSuggestTypes:
 # CitationStore Tests
 # =============================================================================
 
+
 class TestCitationStore:
     """Tests for CitationStore."""
 
@@ -594,6 +619,7 @@ class TestCitationStore:
 # =============================================================================
 # create_citation_from_url Tests
 # =============================================================================
+
 
 class TestCreateCitationFromUrl:
     """Tests for create_citation_from_url function."""

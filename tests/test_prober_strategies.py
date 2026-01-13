@@ -171,6 +171,7 @@ class TestProbeStrategyABC:
 
     def test_subclass_must_implement_methods(self):
         """Verify subclass without implementations fails."""
+
         class IncompleteStrategy(ProbeStrategy):
             pass
 
@@ -179,6 +180,7 @@ class TestProbeStrategyABC:
 
     def test_subclass_with_implementations_works(self):
         """Verify complete subclass can be instantiated."""
+
         class CompleteStrategy(ProbeStrategy):
             def generate_probe(self, context, previous_probes):
                 return "test probe"
@@ -730,14 +732,17 @@ class TestInstructionInjectionProbe:
 
         probes = []
         for i in range(5):
-            prev = [ProbeResult(
-                probe_id=str(j),
-                probe_type=ProbeType.INSTRUCTION_INJECTION,
-                target_agent="a",
-                probe_prompt="",
-                agent_response="",
-                vulnerability_found=False,
-            ) for j in range(i)]
+            prev = [
+                ProbeResult(
+                    probe_id=str(j),
+                    probe_type=ProbeType.INSTRUCTION_INJECTION,
+                    target_agent="a",
+                    probe_prompt="",
+                    agent_response="",
+                    vulnerability_found=False,
+                )
+                for j in range(i)
+            ]
             probes.append(strategy.generate_probe([], prev))
 
         # Should have variety in probes
@@ -886,14 +891,17 @@ class TestCapabilityExaggerationProbe:
 
         probes = []
         for i in range(5):
-            prev = [ProbeResult(
-                probe_id=str(j),
-                probe_type=ProbeType.CAPABILITY_EXAGGERATION,
-                target_agent="a",
-                probe_prompt="",
-                agent_response="",
-                vulnerability_found=False,
-            ) for j in range(i)]
+            prev = [
+                ProbeResult(
+                    probe_id=str(j),
+                    probe_type=ProbeType.CAPABILITY_EXAGGERATION,
+                    target_agent="a",
+                    probe_prompt="",
+                    agent_response="",
+                    vulnerability_found=False,
+                )
+                for j in range(i)
+            ]
             probes.append(strategy.generate_probe([], prev))
 
         # Should have variety in probes

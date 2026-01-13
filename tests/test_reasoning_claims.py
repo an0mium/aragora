@@ -33,8 +33,14 @@ class TestClaimTypeEnum:
     def test_all_claim_types_defined(self):
         """Verify all expected claim types exist."""
         expected = [
-            "assertion", "proposal", "objection", "concession",
-            "rebuttal", "synthesis", "assumption", "question"
+            "assertion",
+            "proposal",
+            "objection",
+            "concession",
+            "rebuttal",
+            "synthesis",
+            "assumption",
+            "question",
         ]
         actual = [ct.value for ct in ClaimType]
         assert sorted(expected) == sorted(actual)
@@ -52,8 +58,14 @@ class TestRelationTypeEnum:
     def test_all_relation_types_defined(self):
         """Verify all expected relation types exist."""
         expected = [
-            "supports", "contradicts", "refines", "depends_on",
-            "answers", "supersedes", "elaborates", "qualifies"
+            "supports",
+            "contradicts",
+            "refines",
+            "depends_on",
+            "answers",
+            "supersedes",
+            "elaborates",
+            "qualifies",
         ]
         actual = [rt.value for rt in RelationType]
         assert sorted(expected) == sorted(actual)
@@ -70,8 +82,14 @@ class TestEvidenceTypeEnum:
     def test_all_evidence_types_defined(self):
         """Verify all expected evidence types exist."""
         expected = [
-            "argument", "data", "citation", "example",
-            "tool_output", "code", "test_result", "expert_opinion"
+            "argument",
+            "data",
+            "citation",
+            "example",
+            "tool_output",
+            "code",
+            "test_result",
+            "expert_opinion",
         ]
         actual = [et.value for et in EvidenceType]
         assert sorted(expected) == sorted(actual)
@@ -82,10 +100,7 @@ class TestSourceReference:
 
     def test_source_reference_creation(self):
         """Test basic source reference creation."""
-        ref = SourceReference(
-            source_type="agent",
-            identifier="claude-3-opus"
-        )
+        ref = SourceReference(source_type="agent", identifier="claude-3-opus")
         assert ref.source_type == "agent"
         assert ref.identifier == "claude-3-opus"
         assert ref.timestamp is not None
@@ -95,7 +110,7 @@ class TestSourceReference:
         ref = SourceReference(
             source_type="url",
             identifier="https://example.com",
-            metadata={"fetched_at": "2026-01-05"}
+            metadata={"fetched_at": "2026-01-05"},
         )
         assert ref.metadata["fetched_at"] == "2026-01-05"
 
@@ -168,12 +183,18 @@ class TestTypedClaim:
         source = SourceReference(source_type="agent", identifier="test")
         evidence = [
             TypedEvidence(
-                evidence_id="e1", evidence_type=EvidenceType.ARGUMENT,
-                content="arg", source=source, strength=0.6
+                evidence_id="e1",
+                evidence_type=EvidenceType.ARGUMENT,
+                content="arg",
+                source=source,
+                strength=0.6,
             ),
             TypedEvidence(
-                evidence_id="e2", evidence_type=EvidenceType.DATA,
-                content="data", source=source, strength=0.8
+                evidence_id="e2",
+                evidence_type=EvidenceType.DATA,
+                content="data",
+                source=source,
+                strength=0.8,
             ),
         ]
         claim = TypedClaim(
@@ -192,8 +213,11 @@ class TestTypedClaim:
         source = SourceReference(source_type="agent", identifier="test")
         evidence = [
             TypedEvidence(
-                evidence_id="e1", evidence_type=EvidenceType.ARGUMENT,
-                content="strong", source=source, strength=0.9
+                evidence_id="e1",
+                evidence_type=EvidenceType.ARGUMENT,
+                content="strong",
+                source=source,
+                strength=0.9,
             ),
         ]
         claim = TypedClaim(

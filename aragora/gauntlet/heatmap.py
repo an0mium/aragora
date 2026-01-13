@@ -27,6 +27,7 @@ class HeatmapCell:
         if self.count == 0:
             return 0.0
         import math
+
         return min(1.0, math.log10(self.count + 1) / 2)
 
     def to_dict(self) -> dict:
@@ -76,24 +77,31 @@ class RiskHeatmap:
             category_totals[category] = 0
             for severity in severities:
                 vulns = [
-                    v for v in result.vulnerabilities
+                    v
+                    for v in result.vulnerabilities
                     if v.category == category and v.severity.value == severity
                 ]
                 count = len(vulns)
                 category_totals[category] += count
                 severity_totals[severity] = severity_totals.get(severity, 0) + count
 
-                cells.append(HeatmapCell(
-                    category=category,
-                    severity=severity,
-                    count=count,
-                    vulnerabilities=[v.id for v in vulns],
-                ))
+                cells.append(
+                    HeatmapCell(
+                        category=category,
+                        severity=severity,
+                        count=count,
+                        vulnerabilities=[v.id for v in vulns],
+                    )
+                )
 
         # Find highest risk
-        highest_category = max(category_totals, key=category_totals.get) if category_totals else None
-        highest_severity = "critical" if severity_totals.get("critical", 0) > 0 else (
-            "high" if severity_totals.get("high", 0) > 0 else None
+        highest_category = (
+            max(category_totals, key=category_totals.get) if category_totals else None
+        )
+        highest_severity = (
+            "critical"
+            if severity_totals.get("critical", 0) > 0
+            else ("high" if severity_totals.get("high", 0) > 0 else None)
         )
 
         return cls(
@@ -120,23 +128,30 @@ class RiskHeatmap:
             category_totals[category] = 0
             for severity in severities:
                 matches = [
-                    f for f in findings
+                    f
+                    for f in findings
                     if f.category == category and f.severity_level.lower() == severity
                 ]
                 count = len(matches)
                 category_totals[category] += count
                 severity_totals[severity] = severity_totals.get(severity, 0) + count
 
-                cells.append(HeatmapCell(
-                    category=category,
-                    severity=severity,
-                    count=count,
-                    vulnerabilities=[f.finding_id for f in matches],
-                ))
+                cells.append(
+                    HeatmapCell(
+                        category=category,
+                        severity=severity,
+                        count=count,
+                        vulnerabilities=[f.finding_id for f in matches],
+                    )
+                )
 
-        highest_category = max(category_totals, key=category_totals.get) if category_totals else None
-        highest_severity = "critical" if severity_totals.get("critical", 0) > 0 else (
-            "high" if severity_totals.get("high", 0) > 0 else None
+        highest_category = (
+            max(category_totals, key=category_totals.get) if category_totals else None
+        )
+        highest_severity = (
+            "critical"
+            if severity_totals.get("critical", 0) > 0
+            else ("high" if severity_totals.get("high", 0) > 0 else None)
         )
 
         return cls(
@@ -189,6 +204,7 @@ class RiskHeatmap:
     def to_json(self) -> str:
         """Export as JSON."""
         import json
+
         return json.dumps(self.to_dict(), indent=2)
 
     def to_svg(self, width: int = 600, height: int = 400) -> str:
@@ -202,18 +218,18 @@ class RiskHeatmap:
         # Color scale
         colors = {
             "critical": "#dc2626",  # Red
-            "high": "#ea580c",       # Orange
-            "medium": "#eab308",     # Yellow
-            "low": "#22c55e",        # Green
+            "high": "#ea580c",  # Orange
+            "medium": "#eab308",  # Yellow
+            "low": "#22c55e",  # Green
         }
 
         svg_parts = [
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">',
-            '<style>',
-            '  .label { font-family: sans-serif; font-size: 12px; }',
-            '  .count { font-family: sans-serif; font-size: 14px; font-weight: bold; fill: white; }',
-            '  .header { font-family: sans-serif; font-size: 11px; font-weight: bold; }',
-            '</style>',
+            "<style>",
+            "  .label { font-family: sans-serif; font-size: 12px; }",
+            "  .count { font-family: sans-serif; font-size: 14px; font-weight: bold; fill: white; }",
+            "  .header { font-family: sans-serif; font-size: 11px; font-weight: bold; }",
+            "</style>",
         ]
 
         # Header row (severities)
@@ -255,8 +271,8 @@ class RiskHeatmap:
                         f'text-anchor="middle" class="count">{count}</text>'
                     )
 
-        svg_parts.append('</svg>')
-        return '\n'.join(svg_parts)
+        svg_parts.append("</svg>")
+        return "\n".join(svg_parts)
 
     def to_ascii(self) -> str:
         """Generate ASCII table representation."""
@@ -264,7 +280,11 @@ class RiskHeatmap:
             return "No findings to display"
 
         # Header
-        header = "Category".ljust(20) + " | " + " | ".join(s[:4].upper().center(6) for s in self.severities)
+        header = (
+            "Category".ljust(20)
+            + " | "
+            + " | ".join(s[:4].upper().center(6) for s in self.severities)
+        )
         separator = "-" * len(header)
 
         lines = [header, separator]

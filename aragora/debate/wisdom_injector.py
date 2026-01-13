@@ -137,9 +137,7 @@ class WisdomInjector:
             try:
                 with open(wisdom_file) as f:
                     data = json.load(f)
-                self.pending_wisdom = [
-                    WisdomSubmission(**w) for w in data.get("pending", [])
-                ]
+                self.pending_wisdom = [WisdomSubmission(**w) for w in data.get("pending", [])]
                 logger.debug(f"wisdom_loaded count={len(self.pending_wisdom)}")
             except Exception as e:
                 logger.error(f"wisdom_load_failed error={e}")
@@ -148,11 +146,15 @@ class WisdomInjector:
         """Save pending wisdom to storage."""
         wisdom_file = self.storage_path / f"{self.loop_id}_pending.json"
         try:
-            with open(wisdom_file, 'w') as f:
-                json.dump({
-                    "pending": [w.to_dict() for w in self.pending_wisdom],
-                    "updated_at": datetime.now().isoformat(),
-                }, f, indent=2)
+            with open(wisdom_file, "w") as f:
+                json.dump(
+                    {
+                        "pending": [w.to_dict() for w in self.pending_wisdom],
+                        "updated_at": datetime.now().isoformat(),
+                    },
+                    f,
+                    indent=2,
+                )
         except Exception as e:
             logger.error(f"wisdom_save_failed error={e}")
 
@@ -180,7 +182,7 @@ class WisdomInjector:
             return None
 
         if len(text) > self.MAX_WISDOM_LENGTH:
-            text = text[:self.MAX_WISDOM_LENGTH]
+            text = text[: self.MAX_WISDOM_LENGTH]
             logger.debug(f"wisdom_truncated length={len(text)}")
 
         # Check for duplicates
@@ -209,10 +211,9 @@ class WisdomInjector:
         self.pending_wisdom.append(wisdom)
         if len(self.pending_wisdom) > self.MAX_PENDING_WISDOM:
             # Remove oldest unused
-            self.pending_wisdom = sorted(
-                self.pending_wisdom,
-                key=lambda w: (w.used, -w.timestamp)
-            )[:self.MAX_PENDING_WISDOM]
+            self.pending_wisdom = sorted(self.pending_wisdom, key=lambda w: (w.used, -w.timestamp))[
+                : self.MAX_PENDING_WISDOM
+            ]
 
         self._save_pending()
         logger.info(f"wisdom_submitted id={wisdom.id} submitter={submitter_id}")
@@ -307,13 +308,12 @@ class WisdomInjector:
         # Calculate relevance for all pending wisdom
         for wisdom in self.pending_wisdom:
             if not wisdom.used:
-                wisdom.relevance_score = self._calculate_relevance(
-                    wisdom, debate_context
-                )
+                wisdom.relevance_score = self._calculate_relevance(wisdom, debate_context)
 
         # Filter by threshold and sort by relevance
         relevant = [
-            w for w in self.pending_wisdom
+            w
+            for w in self.pending_wisdom
             if not w.used and w.relevance_score >= self.RELEVANCE_THRESHOLD
         ]
         relevant.sort(key=lambda w: -w.relevance_score)
@@ -358,8 +358,7 @@ class WisdomInjector:
 
         self._save_pending()
         logger.info(
-            f"wisdom_injected id={wisdom.id} reason={reason} "
-            f"submitter={wisdom.submitter_id}"
+            f"wisdom_injected id={wisdom.id} reason={reason} " f"submitter={wisdom.submitter_id}"
         )
 
         return injection
@@ -379,7 +378,7 @@ class WisdomInjector:
 
         lines = ["[Audience Insights]"]
         for i, wisdom in enumerate(wisdoms, 1):
-            lines.append(f"{i}. \"{wisdom.text}\" - audience member")
+            lines.append(f'{i}. "{wisdom.text}" - audience member')
 
         return "\n".join(lines)
 
@@ -391,9 +390,7 @@ class WisdomInjector:
             "used_count": len(self.used_wisdom),
             "injection_count": len(self.injections),
             "unique_submitters": len(self.submitter_stats),
-            "total_upvotes": sum(
-                s.get("upvotes", 0) for s in self.submitter_stats.values()
-            ),
+            "total_upvotes": sum(s.get("upvotes", 0) for s in self.submitter_stats.values()),
         }
 
 

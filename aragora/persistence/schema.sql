@@ -106,7 +106,7 @@ CREATE INDEX idx_agent_metrics_loop ON agent_metrics(loop_id, cycle);
 
 -- ============================================================================
 -- ENABLE REAL-TIME
--- Required for live.aragora.ai subscriptions
+-- Required for aragora.ai subscriptions
 -- ============================================================================
 
 -- Enable realtime for stream_events (most important for live dashboard)

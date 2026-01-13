@@ -134,7 +134,10 @@ class TestRedditConnectorSearch:
             assert "This is the post content" in evidence.content
             assert evidence.author == "testuser"
             assert evidence.source_type == SourceType.EXTERNAL_API
-            assert evidence.url == "https://www.reddit.com/r/programming/comments/abc123/test_post_title/"
+            assert (
+                evidence.url
+                == "https://www.reddit.com/r/programming/comments/abc123/test_post_title/"
+            )
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
@@ -209,7 +212,9 @@ class TestRedditConnectorSearch:
             mock_response = MagicMock()
             mock_response.status_code = 429
             mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                side_effect=httpx.HTTPStatusError("Rate limited", request=MagicMock(), response=mock_response)
+                side_effect=httpx.HTTPStatusError(
+                    "Rate limited", request=MagicMock(), response=mock_response
+                )
             )
 
             results = await connector.search("test query")
@@ -493,9 +498,7 @@ class TestRedditConnectorHelperMethods:
 
             await connector.get_top("programming", limit=10, time_filter="week")
 
-            mock.assert_called_once_with(
-                "programming", sort="top", limit=10, time_filter="week"
-            )
+            mock.assert_called_once_with("programming", sort="top", limit=10, time_filter="week")
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")

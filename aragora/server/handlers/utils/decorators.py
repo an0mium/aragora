@@ -137,6 +137,7 @@ def validate_params(
     Returns:
         Decorator function that adds validated params to kwargs.
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -145,6 +146,7 @@ def validate_params(
             if params is None:
                 # Try to find it in positional args by introspection
                 import inspect
+
                 sig = inspect.signature(func)
                 param_names = list(sig.parameters.keys())
                 if query_params_arg in param_names:
@@ -186,7 +188,9 @@ def validate_params(
             # Merge extracted params into kwargs
             kwargs.update(extracted)
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -212,6 +216,7 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
     Returns:
         Decorator function that wraps handler methods with error handling.
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -230,7 +235,9 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
                     status=status,
                     headers={"X-Trace-Id": trace_id},
                 )
+
         return wrapper
+
     return decorator
 
 
@@ -276,7 +283,9 @@ def auto_error_response(
                 elif log_level == "warning":
                     logger.warning(f"Failed to {operation}: {e}")
                 return error_response(safe_error_message(e, operation), 500)
+
         return wrapper
+
     return decorator
 
 
@@ -296,6 +305,7 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
     Returns:
         Decorator function that wraps handler methods with logging.
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -308,7 +318,7 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
                 duration_ms = round((time.time() - start_time) * 1000, 2)
 
                 # Extract status code from result (supports HandlerResult and dicts)
-                status_code = getattr(result, 'status_code', 200) if result else 200
+                status_code = getattr(result, "status_code", 200) if result else 200
                 if isinstance(result, dict):
                     status_code = result.get("status", 200)
 
@@ -319,9 +329,11 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
                     logger.info(log_msg)
 
                 if log_response and result:
-                    body = getattr(result, 'body', b'')
+                    body = getattr(result, "body", b"")
                     if body and len(body) < 1000:  # Only log small responses
-                        logger.debug(f"[{trace_id}] Response: {body.decode('utf-8', errors='ignore')[:500]}")
+                        logger.debug(
+                            f"[{trace_id}] Response: {body.decode('utf-8', errors='ignore')[:500]}"
+                        )
 
                 return result
 
@@ -332,7 +344,9 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
                     exc_info=True,
                 )
                 raise
+
         return wrapper
+
     return decorator
 
 
@@ -426,15 +440,16 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
     Args:
         permission: Required permission (e.g., "debates:create")
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             from aragora.billing.jwt_auth import extract_user_from_request
 
-            handler = kwargs.get('handler')
+            handler = kwargs.get("handler")
             if handler is None and args:
                 for arg in args:
-                    if hasattr(arg, 'headers'):
+                    if hasattr(arg, "headers"):
                         handler = arg
                         break
 
@@ -443,9 +458,9 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
                 return error_response("Authentication required", 401)
 
             user_store = None
-            if hasattr(handler, 'user_store'):
+            if hasattr(handler, "user_store"):
                 user_store = handler.user_store
-            elif hasattr(handler.__class__, 'user_store'):
+            elif hasattr(handler.__class__, "user_store"):
                 user_store = handler.__class__.user_store
 
             user_ctx = extract_user_from_request(handler, user_store)
@@ -461,10 +476,11 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
                 )
                 return error_response(f"Permission denied: requires '{permission}'", 403)
 
-            kwargs['user'] = user_ctx
+            kwargs["user"] = user_ctx
             return func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
@@ -480,14 +496,15 @@ def require_user_auth(func: Callable) -> Callable:
     Uses the billing JWT auth system to validate Bearer tokens and API keys.
     The authenticated user context is passed as 'user' keyword argument.
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         from aragora.billing.jwt_auth import extract_user_from_request
 
-        handler = kwargs.get('handler')
+        handler = kwargs.get("handler")
         if handler is None and args:
             for arg in args:
-                if hasattr(arg, 'headers'):
+                if hasattr(arg, "headers"):
                     handler = arg
                     break
 
@@ -496,9 +513,9 @@ def require_user_auth(func: Callable) -> Callable:
             return error_response("Authentication required", 401)
 
         user_store = None
-        if hasattr(handler, 'user_store'):
+        if hasattr(handler, "user_store"):
             user_store = handler.user_store
-        elif hasattr(handler.__class__, 'user_store'):
+        elif hasattr(handler.__class__, "user_store"):
             user_store = handler.__class__.user_store
 
         user_ctx = extract_user_from_request(handler, user_store)
@@ -507,7 +524,7 @@ def require_user_auth(func: Callable) -> Callable:
             error_msg = user_ctx.error_reason or "Authentication required"
             return error_response(error_msg, 401)
 
-        kwargs['user'] = user_ctx
+        kwargs["user"] = user_ctx
         return func(*args, **kwargs)
 
     return wrapper
@@ -520,14 +537,15 @@ def require_auth(func: Callable) -> Callable:
     Use this for sensitive endpoints that must never run without authentication.
     For JWT/API key authentication, use @require_user_auth instead.
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         from aragora.server.auth import auth_config
 
-        handler = kwargs.get('handler')
+        handler = kwargs.get("handler")
         if handler is None and args:
             for arg in args:
-                if hasattr(arg, 'headers'):
+                if hasattr(arg, "headers"):
                     handler = arg
                     break
 
@@ -536,26 +554,24 @@ def require_auth(func: Callable) -> Callable:
             return error_response("Authentication required", 401)
 
         auth_header = None
-        if hasattr(handler, 'headers'):
-            auth_header = handler.headers.get('Authorization', '')
+        if hasattr(handler, "headers"):
+            auth_header = handler.headers.get("Authorization", "")
 
         token = None
-        if auth_header and auth_header.startswith('Bearer '):
+        if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:]
 
         if not auth_config.api_token:
-            logger.warning(
-                "require_auth: No API token configured, denying access"
-            )
+            logger.warning("require_auth: No API token configured, denying access")
             return error_response(
-                "Authentication required. Set ARAGORA_API_TOKEN environment variable.",
-                401
+                "Authentication required. Set ARAGORA_API_TOKEN environment variable.", 401
             )
 
         if not token or not auth_config.validate_token(token):
             return error_response("Invalid or missing authentication token", 401)
 
         return func(*args, **kwargs)
+
     return wrapper
 
 
@@ -570,12 +586,14 @@ def require_storage(func: Callable) -> Callable:
 
     Returns 503 Service Unavailable if storage is not configured.
     """
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         storage = self.get_storage()
         if not storage:
             return error_response("Storage not available", 503)
         return func(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -592,13 +610,16 @@ def require_feature(
         feature_name: Human-readable name for error message
         status_code: HTTP status code to return if unavailable
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             if not feature_check():
                 return error_response(f"{feature_name} not available", status_code)
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -621,6 +642,7 @@ def safe_fetch(
         with safe_fetch(data, errors, "rankings", {"agents": [], "count": 0}):
             data["rankings"] = self._fetch_rankings(limit)
     """
+
     @contextmanager
     def _safe_fetch():
         try:
@@ -650,6 +672,7 @@ def with_error_recovery(
         log_errors: Whether to log errors
         metrics_key: Optional key for metrics tracking
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -658,11 +681,12 @@ def with_error_recovery(
             except Exception as e:
                 if log_errors:
                     logger.warning(
-                        f"with_error_recovery '{func.__name__}' failed: "
-                        f"{type(e).__name__}: {e}"
+                        f"with_error_recovery '{func.__name__}' failed: " f"{type(e).__name__}: {e}"
                     )
                 return fallback_value
+
         return wrapper
+
     return decorator
 
 

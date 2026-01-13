@@ -20,6 +20,7 @@ from unittest.mock import patch, MagicMock
 # Consensus Module Tests
 # =============================================================================
 
+
 class TestVoteType:
     """Tests for VoteType enum."""
 
@@ -377,6 +378,7 @@ class TestConsensusProof:
 # Convergence Module Tests
 # =============================================================================
 
+
 class TestJaccardBackend:
     """Tests for Jaccard similarity backend."""
 
@@ -404,7 +406,7 @@ class TestJaccardBackend:
         # "hello" overlaps, "world" and "universe" don't
         similarity = backend.compute_similarity("hello world", "hello universe")
         # |{hello}| / |{hello, world, universe}| = 1/3
-        assert similarity == pytest.approx(1/3, rel=0.01)
+        assert similarity == pytest.approx(1 / 3, rel=0.01)
 
     def test_jaccard_case_insensitive(self):
         """Test Jaccard similarity is case insensitive."""
@@ -486,6 +488,7 @@ class TestConvergenceBackendSelection:
 # =============================================================================
 # Vote Aggregation Tests
 # =============================================================================
+
 
 class TestAggregatedVotes:
     """Tests for AggregatedVotes dataclass."""
@@ -669,6 +672,7 @@ class TestUnresolvedTension:
 # Convergence Detection Integration Tests
 # =============================================================================
 
+
 class TestConvergenceDetection:
     """Tests for convergence detection scenarios."""
 
@@ -706,6 +710,7 @@ class TestConvergenceDetection:
 # =============================================================================
 # Consensus Building Tests
 # =============================================================================
+
 
 class TestConsensusBuilding:
     """Tests for consensus building scenarios."""
@@ -772,6 +777,7 @@ class TestConsensusBuilding:
 # Evidence Chain Tests
 # =============================================================================
 
+
 class TestEvidenceChain:
     """Tests for evidence chain tracking."""
 
@@ -822,6 +828,7 @@ class TestEvidenceChain:
 # =============================================================================
 # Confidence Calculation Tests
 # =============================================================================
+
 
 class TestConfidenceCalculation:
     """Tests for confidence score calculations."""
@@ -874,6 +881,7 @@ class TestConfidenceCalculation:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""

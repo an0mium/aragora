@@ -109,10 +109,7 @@ class MemoryAnalytics:
     def to_dict(self) -> dict:
         """Convert to API response format."""
         return {
-            "tier_stats": {
-                tier: stats.to_dict()
-                for tier, stats in self.tier_stats.items()
-            },
+            "tier_stats": {tier: stats.to_dict() for tier, stats in self.tier_stats.items()},
             "promotion_effectiveness": round(self.promotion_effectiveness, 3),
             "learning_velocity": round(self.learning_velocity, 3),
             "total_entries": self.total_entries,
@@ -136,6 +133,43 @@ class TierAnalyticsTracker:
     - Per-tier statistics
     - Promotion effectiveness metrics
     - Recommendations for memory management
+
+    Uses SQLiteStore internally for standardized schema management.
+    """
+
+    SCHEMA_NAME = "tier_analytics"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS memory_usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_id TEXT NOT NULL,
+            tier TEXT NOT NULL,
+            debate_id TEXT NOT NULL,
+            quality_before REAL,
+            quality_after REAL,
+            used_at TEXT,
+            UNIQUE(memory_id, debate_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS tier_movements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_id TEXT NOT NULL,
+            from_tier TEXT NOT NULL,
+            to_tier TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            moved_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS tier_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            snapshot_date TEXT NOT NULL,
+            tier TEXT NOT NULL,
+            entry_count INTEGER,
+            total_hits INTEGER,
+            avg_quality_impact REAL,
+            UNIQUE(snapshot_date, tier)
+        );
     """
 
     def __init__(self, db_path: str = "memory_analytics.db"):
@@ -145,57 +179,15 @@ class TierAnalyticsTracker:
         Args:
             db_path: Path to SQLite database file
         """
+        from aragora.storage.base_store import SQLiteStore
+
+        class _AnalyticsDB(SQLiteStore):
+            SCHEMA_NAME = TierAnalyticsTracker.SCHEMA_NAME
+            SCHEMA_VERSION = TierAnalyticsTracker.SCHEMA_VERSION
+            INITIAL_SCHEMA = TierAnalyticsTracker.INITIAL_SCHEMA
+
         self.db_path = Path(db_path)
-        self._init_db()
-
-    def _init_db(self):
-        """Initialize database schema."""
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
-            cursor = conn.cursor()
-
-            # Memory usage events
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS memory_usage (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    memory_id TEXT NOT NULL,
-                    tier TEXT NOT NULL,
-                    debate_id TEXT NOT NULL,
-                    quality_before REAL,
-                    quality_after REAL,
-                    used_at TEXT,
-                    UNIQUE(memory_id, debate_id)
-                )
-            """)
-
-            # Tier movements
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS tier_movements (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    memory_id TEXT NOT NULL,
-                    from_tier TEXT NOT NULL,
-                    to_tier TEXT NOT NULL,
-                    reason TEXT NOT NULL,
-                    moved_at TEXT
-                )
-            """)
-
-            # Daily tier snapshots for trend analysis
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS tier_snapshots (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    snapshot_date TEXT NOT NULL,
-                    tier TEXT NOT NULL,
-                    entry_count INTEGER,
-                    total_hits INTEGER,
-                    avg_quality_impact REAL,
-                    UNIQUE(snapshot_date, tier)
-                )
-            """)
-
-            conn.commit()
+        self._db = _AnalyticsDB(db_path, timeout=DB_TIMEOUT_SECONDS)
 
     def record_usage(
         self,
@@ -223,10 +215,7 @@ class TierAnalyticsTracker:
             quality_after=quality_after,
         )
 
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with self._db.connection() as conn:
             cursor = conn.cursor()
             try:
                 cursor.execute(
@@ -246,9 +235,7 @@ class TierAnalyticsTracker:
                 )
                 conn.commit()
             except sqlite3.IntegrityError:
-                logger.debug(
-                    f"Memory {memory_id} already recorded for debate {debate_id}"
-                )
+                logger.debug(f"Memory {memory_id} already recorded for debate {debate_id}")
 
     def record_tier_movement(
         self,
@@ -273,10 +260,7 @@ class TierAnalyticsTracker:
             reason=reason,
         )
 
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with self._db.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -311,10 +295,7 @@ class TierAnalyticsTracker:
         """
         cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
 
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with self._db.connection() as conn:
             cursor = conn.cursor()
 
             # Get usage stats
@@ -374,10 +355,7 @@ class TierAnalyticsTracker:
         """
         cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
 
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with self._db.connection() as conn:
             cursor = conn.cursor()
 
             # Get promoted memories
@@ -427,10 +405,7 @@ class TierAnalyticsTracker:
         """
         cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
 
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with self._db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -470,16 +445,13 @@ class TierAnalyticsTracker:
         glacial = tier_stats.get("glacial", {})
         if glacial.get("entries", 0) > 1000 and glacial.get("avg_hits", 0) < 0.1:
             recommendations.append(
-                "Glacial tier has many entries with low hit rate. "
-                "Consider pruning old entries."
+                "Glacial tier has many entries with low hit rate. " "Consider pruning old entries."
             )
 
         # Check promotion effectiveness
         effectiveness = analytics.get("promotion_effectiveness", 0.5)
         if effectiveness < 0.4:
-            recommendations.append(
-                "Low promotion effectiveness. Review promotion criteria."
-            )
+            recommendations.append("Low promotion effectiveness. Review promotion criteria.")
         elif effectiveness > 0.8:
             recommendations.append(
                 "High promotion effectiveness. Consider more aggressive promotion."
@@ -488,9 +460,7 @@ class TierAnalyticsTracker:
         # Check learning velocity
         velocity = analytics.get("learning_velocity", 0)
         if velocity < 1.0:
-            recommendations.append(
-                "Low learning velocity. System may not be capturing patterns."
-            )
+            recommendations.append("Low learning velocity. System may not be capturing patterns.")
 
         # Check tier balance
         fast_entries = fast.get("entries", 0)
@@ -555,10 +525,7 @@ class TierAnalyticsTracker:
         """Take a daily snapshot for trend analysis."""
         today = datetime.utcnow().date().isoformat()
 
-        with sqlite3.connect(
-            str(self.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with self._db.connection() as conn:
             cursor = conn.cursor()
 
             for tier in MemoryTier:

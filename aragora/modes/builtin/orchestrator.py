@@ -24,8 +24,12 @@ class OrchestratorMode(Mode):
     description: str = "Coordination mode for complex multi-step workflows"
     tool_groups: ToolGroup = field(
         default_factory=lambda: (
-            ToolGroup.READ | ToolGroup.EDIT | ToolGroup.COMMAND |
-            ToolGroup.BROWSER | ToolGroup.MCP | ToolGroup.DEBATE
+            ToolGroup.READ
+            | ToolGroup.EDIT
+            | ToolGroup.COMMAND
+            | ToolGroup.BROWSER
+            | ToolGroup.MCP
+            | ToolGroup.DEBATE
         )
     )
     file_patterns: list[str] = field(default_factory=list)

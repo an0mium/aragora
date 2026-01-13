@@ -34,8 +34,8 @@ class TestEvolutionHookWiring:
         config = ArenaConfig(enable_prompt_evolution=True)
         assert config.enable_prompt_evolution is True
 
-    @patch('aragora.debate.orchestrator.init_phases')
-    @patch('aragora.evolution.evolver.PromptEvolver')
+    @patch("aragora.debate.orchestrator.init_phases")
+    @patch("aragora.evolution.evolver.PromptEvolver")
     def test_arena_auto_creates_evolver_when_enabled(self, mock_evolver_class, mock_init_phases):
         """Arena should auto-create PromptEvolver when enable_prompt_evolution=True."""
         from aragora.debate.orchestrator import Arena, ArenaConfig
@@ -58,7 +58,7 @@ class TestEvolutionHookWiring:
         # The evolver should be created
         assert arena.prompt_evolver is not None
 
-    @patch('aragora.debate.orchestrator.init_phases')
+    @patch("aragora.debate.orchestrator.init_phases")
     def test_arena_uses_provided_evolver(self, mock_init_phases):
         """Arena should use the provided prompt_evolver from config."""
         from aragora.debate.orchestrator import Arena, ArenaConfig
@@ -157,7 +157,7 @@ class TestEvolutionHookInFeedbackPhase:
         ctx.result.messages = []
 
         # Call the internal method that should use the evolver
-        if hasattr(phase, '_record_evolution_patterns'):
+        if hasattr(phase, "_record_evolution_patterns"):
             phase._record_evolution_patterns(ctx)
             # Verify evolver extract_winning_patterns was called
             mock_evolver.extract_winning_patterns.assert_called()
@@ -185,7 +185,9 @@ class TestPromptEvolverIntegration:
         Confidence: 85%
         """
 
-        patterns = evolver.extract_patterns(response) if hasattr(evolver, 'extract_patterns') else []
+        patterns = (
+            evolver.extract_patterns(response) if hasattr(evolver, "extract_patterns") else []
+        )
         # Should extract something (implementation-dependent)
         assert isinstance(patterns, (list, dict))
 
@@ -199,7 +201,7 @@ class TestPromptEvolverIntegration:
         evolver = PromptEvolver()
 
         # Update performance for an agent - signature: (agent_name, version, debate_result)
-        if hasattr(evolver, 'update_performance'):
+        if hasattr(evolver, "update_performance"):
             mock_result = Mock()
             mock_result.consensus_reached = True
             mock_result.confidence = 0.9
@@ -208,7 +210,7 @@ class TestPromptEvolverIntegration:
             evolver.update_performance("claude", 1, mock_result)
 
             # Should track the history
-            if hasattr(evolver, 'get_performance'):
+            if hasattr(evolver, "get_performance"):
                 perf = evolver.get_performance("claude")
                 assert perf is not None
 
@@ -243,7 +245,8 @@ class TestEvolutionPatternExtraction:
 
         # Simple regex extraction
         import re
-        match = re.search(r'(\d+)%\s*confident', response.lower())
+
+        match = re.search(r"(\d+)%\s*confident", response.lower())
         assert match is not None
         assert int(match.group(1)) == 85
 
@@ -252,7 +255,7 @@ class TestEvolutionHookE2E:
     """End-to-end tests for evolution hook integration."""
 
     @pytest.mark.asyncio
-    @patch('aragora.debate.orchestrator.init_phases')
+    @patch("aragora.debate.orchestrator.init_phases")
     async def test_arena_run_triggers_evolution(self, mock_init_phases):
         """Running Arena with evolution enabled should trigger pattern recording."""
         from aragora.debate.orchestrator import Arena, ArenaConfig

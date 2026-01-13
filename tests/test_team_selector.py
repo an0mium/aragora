@@ -26,6 +26,7 @@ from aragora.debate.team_selector import TeamSelector, TeamSelectionConfig
 @dataclass
 class MockAgent:
     """Mock Agent for testing."""
+
     name: str
     model: str = "test-model"
 
@@ -249,11 +250,13 @@ class TestSelectEloScoring:
             MockAgent(name="high_elo"),
             MockAgent(name="mid_elo"),
         ]
-        elo = MockEloSystem({
-            "low_elo": 900,
-            "mid_elo": 1000,
-            "high_elo": 1500,
-        })
+        elo = MockEloSystem(
+            {
+                "low_elo": 900,
+                "mid_elo": 1000,
+                "high_elo": 1500,
+            }
+        )
         selector = TeamSelector(elo_system=elo)
 
         selected = selector.select(agents)
@@ -310,10 +313,12 @@ class TestSelectCalibrationScoring:
             MockAgent(name="poor_calibration"),
             MockAgent(name="good_calibration"),
         ]
-        calibration = MockCalibrationTracker({
-            "poor_calibration": 0.4,  # High Brier = bad
-            "good_calibration": 0.1,  # Low Brier = good
-        })
+        calibration = MockCalibrationTracker(
+            {
+                "poor_calibration": 0.4,  # High Brier = bad
+                "good_calibration": 0.1,  # Low Brier = good
+            }
+        )
         selector = TeamSelector(calibration_tracker=calibration)
 
         selected = selector.select(agents)
@@ -366,16 +371,20 @@ class TestCombinedScoring:
             MockAgent(name="high_elo_bad_cal"),
             MockAgent(name="low_elo_good_cal"),
         ]
-        elo = MockEloSystem({
-            "balanced": 1200,
-            "high_elo_bad_cal": 1500,
-            "low_elo_good_cal": 900,
-        })
-        calibration = MockCalibrationTracker({
-            "balanced": 0.2,
-            "high_elo_bad_cal": 0.5,
-            "low_elo_good_cal": 0.1,
-        })
+        elo = MockEloSystem(
+            {
+                "balanced": 1200,
+                "high_elo_bad_cal": 1500,
+                "low_elo_good_cal": 900,
+            }
+        )
+        calibration = MockCalibrationTracker(
+            {
+                "balanced": 0.2,
+                "high_elo_bad_cal": 0.5,
+                "low_elo_good_cal": 0.1,
+            }
+        )
 
         selector = TeamSelector(
             elo_system=elo,
@@ -400,11 +409,13 @@ class TestCombinedScoring:
             MockAgent(name="available_low"),
             MockAgent(name="available_high"),
         ]
-        elo = MockEloSystem({
-            "blocked_high": 1800,
-            "available_low": 900,
-            "available_high": 1400,
-        })
+        elo = MockEloSystem(
+            {
+                "blocked_high": 1800,
+                "available_low": 900,
+                "available_high": 1400,
+            }
+        )
         breaker = MockCircuitBreaker(blocked_agents=["blocked_high"])
 
         selector = TeamSelector(

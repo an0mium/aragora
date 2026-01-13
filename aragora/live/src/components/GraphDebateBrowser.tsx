@@ -7,6 +7,7 @@ import * as d3Force from 'd3-force';
 import * as d3Selection from 'd3-selection';
 import { Skeleton } from './Skeleton';
 import { useGraphDebateWebSocket } from '@/hooks/useGraphDebateWebSocket';
+import { API_BASE_URL } from '@/config';
 
 // Types from the backend graph.py
 interface DebateNode {
@@ -756,6 +757,82 @@ interface GraphDebateBrowserProps {
   initialDebateId?: string | null;
 }
 
+// Mobile list view for graph debates (fallback for small screens)
+function MobileGraphListView({
+  nodes,
+  selectedNodeId,
+  onNodeSelect,
+}: {
+  nodes: Record<string, DebateNode>;
+  selectedNodeId: string | null;
+  onNodeSelect: (nodeId: string | null) => void;
+}) {
+  // Sort nodes by timestamp
+  const sortedNodes = Object.values(nodes).sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
+  return (
+    <div className="space-y-2 p-2">
+      <div className="text-xs font-mono text-text-muted mb-3 px-2">
+        Showing {sortedNodes.length} nodes (tap for details)
+      </div>
+      {sortedNodes.map((node) => {
+        const colors = getAgentColors(node.agent_id);
+        const isSelected = selectedNodeId === node.id;
+
+        return (
+          <button
+            key={node.id}
+            onClick={() => onNodeSelect(isSelected ? null : node.id)}
+            className={`w-full text-left p-3 border transition-all ${
+              isSelected
+                ? 'bg-acid-green/10 border-acid-green'
+                : 'bg-bg border-border hover:border-acid-green/50'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <span className={`px-1.5 py-0.5 text-xs font-mono ${colors.bg} ${colors.text}`}>
+                  {node.agent_id.slice(0, 8)}
+                </span>
+                <span className={`text-xs font-mono ${getBranchColor(node.branch_id || 'main')}`}>
+                  {node.node_type.replace('_', ' ')}
+                </span>
+              </div>
+              <span className="text-xs font-mono text-acid-green">
+                {(node.confidence * 100).toFixed(0)}%
+              </span>
+            </div>
+            <div className="text-xs font-mono text-text-muted line-clamp-2">
+              {node.content.slice(0, 150)}{node.content.length > 150 ? '...' : ''}
+            </div>
+            {isSelected && (
+              <div className="mt-2 pt-2 border-t border-border text-xs font-mono text-text">
+                {node.content}
+              </div>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Hook to detect mobile viewport
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
 export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebateBrowserProps) {
   const [debates, setDebates] = useState<GraphDebate[]>([]);
   const [selectedDebate, setSelectedDebate] = useState<GraphDebate | null>(null);
@@ -765,6 +842,8 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
   const [error, setError] = useState<string | null>(null);
   const [newDebateTask, setNewDebateTask] = useState('');
   const [creating, setCreating] = useState(false);
+  const [mobileViewMode, setMobileViewMode] = useState<'graph' | 'list'>('list');
+  const isMobile = useIsMobile();
 
   // WebSocket connection for real-time updates
   const {
@@ -794,7 +873,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
     // Re-fetch the selected debate to get updated graph
     const refreshDebate = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+        const apiUrl = API_BASE_URL;
         const response = await fetch(
           `${apiUrl}/api/debates/graph/${selectedDebate.debate_id}`
         );
@@ -819,7 +898,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
       // Re-fetch the selected debate to get updated graph
       const refreshDebate = async () => {
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+          const apiUrl = API_BASE_URL;
           const response = await fetch(
             `${apiUrl}/api/debates/graph/${selectedDebate.debate_id}`
           );
@@ -842,7 +921,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
   const fetchDebates = useCallback(async () => {
     try {
       setLoading(true);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+      const apiUrl = API_BASE_URL;
       // For now, we'll show a placeholder since the API stores in memory
       // In production, this would fetch from storage
       setDebates([]);
@@ -865,7 +944,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
     const fetchInitialDebate = async () => {
       try {
         setLoading(true);
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+        const apiUrl = API_BASE_URL;
         const response = await fetch(`${apiUrl}/api/debates/graph/${initialDebateId}`);
         if (response.ok) {
           const data = await response.json();
@@ -893,7 +972,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
 
     try {
       setCreating(true);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+      const apiUrl = API_BASE_URL;
       const response = await fetch(`${apiUrl}/api/debates/graph`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1022,6 +1101,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
             {debates.map((debate) => (
               <div
                 key={debate.debate_id}
+                data-testid={`graph-debate-item-${debate.debate_id}`}
                 onClick={() => {
                   setSelectedDebate(debate);
                   setSelectedNodeId(null);
@@ -1046,29 +1126,77 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
         </div>
 
         {/* Graph visualization */}
-        <div className="lg:col-span-3 bg-surface border border-acid-green/30 relative min-h-[500px]">
-          <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50">
-            <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
-              {'>'} GRAPH VISUALIZATION
-            </span>
-            {selectedDebate && (
-              <span className="ml-4 text-xs font-mono text-text-muted">
-                {selectedDebate.task.slice(0, 60)}{selectedDebate.task.length > 60 ? '...' : ''}
-              </span>
-            )}
+        <div className="lg:col-span-3 bg-surface border border-acid-green/30 relative min-h-[300px] md:min-h-[500px]">
+          <div className="px-3 md:px-4 py-2 md:py-3 border-b border-acid-green/20 bg-bg/50">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+                  {'>'} GRAPH
+                </span>
+                {selectedDebate && (
+                  <span
+                    data-testid="graph-debate-title"
+                    className="hidden sm:inline text-xs font-mono text-text-muted truncate max-w-[200px] md:max-w-none"
+                  >
+                    {selectedDebate.task.slice(0, 60)}{selectedDebate.task.length > 60 ? '...' : ''}
+                  </span>
+                )}
+              </div>
+              {/* Mobile view toggle */}
+              {isMobile && selectedDebate && (
+                <div className="flex gap-1" role="group" aria-label="View mode">
+                  <button
+                    onClick={() => setMobileViewMode('list')}
+                    aria-pressed={mobileViewMode === 'list'}
+                    className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                      mobileViewMode === 'list'
+                        ? 'border-acid-green text-acid-green bg-acid-green/10'
+                        : 'border-border text-text-muted'
+                    }`}
+                  >
+                    LIST
+                  </button>
+                  <button
+                    onClick={() => setMobileViewMode('graph')}
+                    aria-pressed={mobileViewMode === 'graph'}
+                    className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                      mobileViewMode === 'graph'
+                        ? 'border-acid-green text-acid-green bg-acid-green/10'
+                        : 'border-border text-text-muted'
+                    }`}
+                  >
+                    GRAPH
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {selectedDebate ? (
             <>
-              <div className="p-4 overflow-x-auto">
-                <GraphVisualization
-                  graph={selectedDebate.graph}
-                  selectedNodeId={selectedNodeId}
-                  onNodeSelect={setSelectedNodeId}
-                  highlightedBranch={highlightedBranch}
-                  onBranchHover={setHighlightedBranch}
-                />
-              </div>
+              {/* Mobile list view */}
+              {isMobile && mobileViewMode === 'list' ? (
+                <div className="max-h-[400px] overflow-y-auto">
+                  <MobileGraphListView
+                    nodes={selectedDebate.graph.nodes}
+                    selectedNodeId={selectedNodeId}
+                    onNodeSelect={setSelectedNodeId}
+                  />
+                </div>
+              ) : (
+                /* Graph view - scrollable on mobile */
+                <div className="relative w-full overflow-x-auto">
+                  <div className="min-w-[600px] lg:min-w-0 p-2 md:p-4">
+                    <GraphVisualization
+                      graph={selectedDebate.graph}
+                      selectedNodeId={selectedNodeId}
+                      onNodeSelect={setSelectedNodeId}
+                      highlightedBranch={highlightedBranch}
+                      onBranchHover={setHighlightedBranch}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Branch legend - interactive */}
               <div className="px-4 py-2 border-t border-acid-green/20 bg-bg/30">

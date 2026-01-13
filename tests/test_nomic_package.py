@@ -82,9 +82,7 @@ class TestPhaseRecovery:
 
         recovery = PhaseRecovery(log_func=lambda x: None)
         normal_delay = recovery.get_retry_delay(Exception("normal error"), "debate")
-        rate_limit_delay = recovery.get_retry_delay(
-            Exception("rate limit exceeded"), "debate"
-        )
+        rate_limit_delay = recovery.get_retry_delay(Exception("rate limit exceeded"), "debate")
         assert rate_limit_delay >= 120  # Minimum for rate limits
         assert rate_limit_delay > normal_delay
 

@@ -132,9 +132,7 @@ class RedisRateLimiter:
             return self._redis
 
         except ImportError:
-            logger.warning(
-                "redis package not installed. Install with: pip install redis"
-            )
+            logger.warning("redis package not installed. Install with: pip install redis")
             self._available = False
             return None
         except Exception as e:

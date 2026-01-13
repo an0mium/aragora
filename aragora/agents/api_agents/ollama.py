@@ -257,7 +257,9 @@ class OllamaAgent(APIAgent):
                     cause=e,
                 )
 
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
+    async def critique(
+        self, proposal: str, task: str, context: list[Message] | None = None
+    ) -> Critique:
         """Critique a proposal using Ollama."""
         critique_prompt = f"""You are a critical reviewer. Analyze this proposal:
 

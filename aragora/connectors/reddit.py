@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 # Try to import optional dependencies
 try:
     import httpx
+
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
@@ -102,6 +103,7 @@ class RedditConnector(BaseConnector):
     async def _rate_limit(self) -> None:
         """Enforce rate limiting between requests."""
         import time
+
         now = time.time()
         elapsed = now - self._last_request_time
         if elapsed < self.rate_limit_delay:
@@ -365,11 +367,13 @@ class RedditConnector(BaseConnector):
                     comment_author = comment_data.get("author", "[deleted]")
                     comment_score = comment_data.get("score", 0)
                     if comment_body and comment_author != "[deleted]":
-                        top_comments.append({
-                            "author": comment_author,
-                            "body": comment_body[:500],  # Truncate
-                            "score": comment_score,
-                        })
+                        top_comments.append(
+                            {
+                                "author": comment_author,
+                                "body": comment_body[:500],  # Truncate
+                                "score": comment_score,
+                            }
+                        )
             evidence.metadata["top_comments"] = top_comments
 
         return evidence

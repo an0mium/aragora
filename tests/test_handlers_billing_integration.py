@@ -51,17 +51,13 @@ class MockUserStore:
     def get_organization_by_id(self, org_id: str) -> Optional[Organization]:
         return self.orgs.get(org_id)
 
-    def get_organization_by_subscription(
-        self, subscription_id: str
-    ) -> Optional[Organization]:
+    def get_organization_by_subscription(self, subscription_id: str) -> Optional[Organization]:
         for org in self.orgs.values():
             if org.stripe_subscription_id == subscription_id:
                 return org
         return None
 
-    def get_organization_by_stripe_customer(
-        self, customer_id: str
-    ) -> Optional[Organization]:
+    def get_organization_by_stripe_customer(self, customer_id: str) -> Optional[Organization]:
         for org in self.orgs.values():
             if org.stripe_customer_id == customer_id:
                 return org
@@ -91,15 +87,12 @@ class MockUserStore:
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict]:
-        entries = [
-            e for e in self.audit_log
-            if e.get("org_id") == org_id
-        ]
+        entries = [e for e in self.audit_log if e.get("org_id") == org_id]
         if action:
             entries = [e for e in entries if e.get("action") == action]
         if resource_type:
             entries = [e for e in entries if e.get("resource_type") == resource_type]
-        return entries[offset:offset + limit]
+        return entries[offset : offset + limit]
 
     def get_audit_log_count(
         self,
@@ -488,11 +481,10 @@ class TestCheckoutValidation:
         """Test checkout fails without tier specified."""
         mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
-            handler = MockHandler(method="POST", body={"success_url": "http://x", "cancel_url": "http://y"})
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
+            handler = MockHandler(
+                method="POST", body={"success_url": "http://x", "cancel_url": "http://y"}
+            )
             result = billing_handler._create_checkout(handler)
 
         assert result.status_code == 400
@@ -503,10 +495,7 @@ class TestCheckoutValidation:
         """Test checkout fails without success/cancel URLs."""
         mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="POST", body={"tier": "starter"})
             result = billing_handler._create_checkout(handler)
 
@@ -518,13 +507,10 @@ class TestCheckoutValidation:
         """Test checkout fails for free tier."""
         mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(
                 method="POST",
-                body={"tier": "free", "success_url": "http://x", "cancel_url": "http://y"}
+                body={"tier": "free", "success_url": "http://x", "cancel_url": "http://y"},
             )
             result = billing_handler._create_checkout(handler)
 
@@ -536,13 +522,10 @@ class TestCheckoutValidation:
         """Test checkout fails for invalid tier."""
         mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(
                 method="POST",
-                body={"tier": "platinum", "success_url": "http://x", "cancel_url": "http://y"}
+                body={"tier": "platinum", "success_url": "http://x", "cancel_url": "http://y"},
             )
             result = billing_handler._create_checkout(handler)
 
@@ -563,10 +546,7 @@ class TestPortalValidation:
         """Test portal fails without return URL."""
         mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="POST", body={})
             result = billing_handler._create_portal(handler)
 
@@ -587,16 +567,9 @@ class TestRoleBasedAccess:
         """Test cancel subscription requires owner or admin role."""
         test_user.role = "member"
         test_org.stripe_subscription_id = "sub_123"
-        mock_auth = MockAuthContext(
-            user_id=test_user.id,
-            is_authenticated=True,
-            role="member"
-        )
+        mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True, role="member")
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="POST", body={})
             result = billing_handler._cancel_subscription(handler)
 
@@ -608,16 +581,9 @@ class TestRoleBasedAccess:
         """Test resume subscription requires owner or admin role."""
         test_user.role = "member"
         test_org.stripe_subscription_id = "sub_123"
-        mock_auth = MockAuthContext(
-            user_id=test_user.id,
-            is_authenticated=True,
-            role="member"
-        )
+        mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True, role="member")
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="POST", body={})
             result = billing_handler._resume_subscription(handler)
 
@@ -630,16 +596,9 @@ class TestRoleBasedAccess:
     ):
         """Test audit log access requires owner or admin role."""
         test_user.role = "member"
-        mock_auth = MockAuthContext(
-            user_id=test_user.id,
-            is_authenticated=True,
-            role="member"
-        )
+        mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True, role="member")
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._get_audit_log(handler)
 
@@ -662,16 +621,9 @@ class TestEnterpriseFeatures:
         """Test audit log requires enterprise tier."""
         test_user.role = "owner"
         test_org.tier = SubscriptionTier.STARTER  # Not enterprise
-        mock_auth = MockAuthContext(
-            user_id=test_user.id,
-            is_authenticated=True,
-            role="owner"
-        )
+        mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True, role="owner")
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._get_audit_log(handler)
 
@@ -684,19 +636,12 @@ class TestEnterpriseFeatures:
     ):
         """Test audit log access allowed for enterprise tier with owner role."""
         test_user.role = "owner"
-        mock_auth = MockAuthContext(
-            user_id=test_user.id,
-            is_authenticated=True,
-            role="owner"
-        )
+        mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True, role="owner")
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             handler.query_params = {}
-            with patch.object(billing_handler, 'ctx', {"user_store": user_store}):
+            with patch.object(billing_handler, "ctx", {"user_store": user_store}):
                 result = billing_handler._get_audit_log(handler)
 
         assert result.status_code == 200
@@ -727,10 +672,7 @@ class TestBillingAuthentication:
         """Test get usage requires authentication."""
         mock_auth = MockAuthContext(is_authenticated=False)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._get_usage(handler)
 
@@ -742,10 +684,7 @@ class TestBillingAuthentication:
         """Test get subscription requires authentication."""
         mock_auth = MockAuthContext(is_authenticated=False)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._get_subscription(handler)
 
@@ -755,10 +694,7 @@ class TestBillingAuthentication:
         """Test create checkout requires authentication."""
         mock_auth = MockAuthContext(is_authenticated=False)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="POST", body={})
             result = billing_handler._create_checkout(handler)
 
@@ -768,10 +704,7 @@ class TestBillingAuthentication:
         """Test cancel subscription requires authentication."""
         mock_auth = MockAuthContext(is_authenticated=False)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="POST", body={})
             result = billing_handler._cancel_subscription(handler)
 
@@ -790,10 +723,7 @@ class TestUserNotFound:
         """Test get usage returns 404 for non-existent user."""
         mock_auth = MockAuthContext(is_authenticated=True, user_id="nonexistent")
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._get_usage(handler)
 
@@ -805,10 +735,7 @@ class TestUserNotFound:
         """Test get subscription returns 404 for non-existent user."""
         mock_auth = MockAuthContext(is_authenticated=True, user_id="nonexistent")
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._get_subscription(handler)
 
@@ -827,10 +754,7 @@ class TestUsageForecast:
         """Test forecast requires authentication."""
         mock_auth = MockAuthContext(is_authenticated=False)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._get_usage_forecast(handler)
 
@@ -841,10 +765,7 @@ class TestUsageForecast:
         test_user.org_id = None
         mock_auth = MockAuthContext(is_authenticated=True, user_id=test_user.id)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._get_usage_forecast(handler)
 
@@ -865,10 +786,7 @@ class TestInvoices:
         """Test invoices requires authentication."""
         mock_auth = MockAuthContext(is_authenticated=False)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._get_invoices(handler)
 
@@ -881,10 +799,7 @@ class TestInvoices:
         test_org.stripe_customer_id = None
         mock_auth = MockAuthContext(is_authenticated=True, user_id=test_user.id)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._get_invoices(handler)
 
@@ -931,10 +846,12 @@ class TestAuditLogging:
 
     def test_log_audit_extracts_client_info(self, billing_handler, user_store):
         """Test _log_audit extracts IP and user agent from handler."""
-        handler = MockHandler(headers={
-            "User-Agent": "TestBrowser/1.0",
-            "X-Forwarded-For": "192.168.1.1",
-        })
+        handler = MockHandler(
+            headers={
+                "User-Agent": "TestBrowser/1.0",
+                "X-Forwarded-For": "192.168.1.1",
+            }
+        )
 
         with patch("aragora.server.middleware.auth.extract_client_ip", return_value="192.168.1.1"):
             billing_handler._log_audit(
@@ -992,9 +909,7 @@ class TestWebhookHandling:
         assert test_org.tier == SubscriptionTier.FREE
         assert test_org.stripe_subscription_id is None
 
-    def test_webhook_invoice_paid_resets_usage(
-        self, billing_handler, user_store, test_org
-    ):
+    def test_webhook_invoice_paid_resets_usage(self, billing_handler, user_store, test_org):
         """Test invoice paid webhook resets organization usage."""
         test_org.stripe_customer_id = "cus_123"
         test_org.debates_used_this_month = 45
@@ -1002,11 +917,13 @@ class TestWebhookHandling:
         @dataclass
         class MockEvent:
             type: str = "invoice.payment_succeeded"
-            object: dict = field(default_factory=lambda: {
-                "customer": "cus_123",
-                "subscription": "sub_123",
-                "amount_paid": 9900,
-            })
+            object: dict = field(
+                default_factory=lambda: {
+                    "customer": "cus_123",
+                    "subscription": "sub_123",
+                    "amount_paid": 9900,
+                }
+            )
             data: dict = field(default_factory=dict)
             metadata: dict = field(default_factory=dict)
 
@@ -1080,10 +997,7 @@ class TestBillingEdgeCases:
         """Test checkout with empty/invalid body."""
         mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="POST", body=None)
             handler._body = b"not json"
             handler.rfile = BytesIO(handler._body)
@@ -1104,10 +1018,7 @@ class TestBillingEdgeCases:
         test_user.org_id = None
         mock_auth = MockAuthContext(is_authenticated=True, user_id=test_user.id)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._get_usage(handler)
 
@@ -1121,10 +1032,7 @@ class TestBillingEdgeCases:
         test_org.stripe_subscription_id = None
         mock_auth = MockAuthContext(is_authenticated=True, user_id=test_user.id)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._get_subscription(handler)
 
@@ -1146,10 +1054,7 @@ class TestUsageExport:
         """Test export requires authentication."""
         mock_auth = MockAuthContext(is_authenticated=False)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._export_usage_csv(handler)
 
@@ -1160,10 +1065,7 @@ class TestUsageExport:
         test_user.org_id = None
         mock_auth = MockAuthContext(is_authenticated=True, user_id=test_user.id)
 
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_auth
-        ):
+        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
             result = billing_handler._export_usage_csv(handler)
 

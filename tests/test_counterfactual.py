@@ -40,6 +40,7 @@ def pivot_claim():
 @pytest.fixture
 def mock_message():
     """Factory for mock messages."""
+
     def _make(agent, content, round_num=1):
         return Message(
             round=round_num,
@@ -47,17 +48,20 @@ def mock_message():
             agent=agent,
             content=content,
         )
+
     return _make
 
 
 @pytest.fixture
 def mock_vote():
     """Factory for mock votes."""
+
     def _make(agent, choice):
         vote = MagicMock(spec=Vote)
         vote.agent = agent
         vote.choice = choice
         return vote
+
     return _make
 
 
@@ -76,6 +80,7 @@ def orchestrator():
 @pytest.fixture
 def mock_run_branch_fn():
     """Create mock run_branch_fn."""
+
     async def _fn(task, context, branch_id):
         result = MagicMock(spec=DebateResult)
         result.final_answer = f"Conclusion for {branch_id}"
@@ -84,6 +89,7 @@ def mock_run_branch_fn():
         result.messages = []
         result.votes = []
         return result
+
     return _fn
 
 
@@ -162,7 +168,7 @@ class TestPivotClaim:
             statement="Test",
             author="agent",
             disagreement_score=0.6,  # > 0.5
-            importance_score=0.4,    # > 0.3
+            importance_score=0.4,  # > 0.3
             blocking_agents=[],
         )
         assert claim.should_branch is True
@@ -682,7 +688,9 @@ class TestDetectImpasse:
         """Should return pivot when disagreement detected."""
         messages = [
             mock_message("a1", "I think we should use microservices"),
-            mock_message("a2", "I fundamentally disagree with using microservices because it adds complexity"),
+            mock_message(
+                "a2", "I fundamentally disagree with using microservices because it adds complexity"
+            ),
             mock_message("a1", "The premise is flawed when you consider scalability"),
             mock_message("a2", "I cannot accept that argument about scalability"),
         ]
@@ -758,7 +766,10 @@ class TestFindDisagreements:
     def test_extracts_claim_text(self, detector, mock_message):
         """Should extract claim text after phrase."""
         messages = [
-            mock_message("a1", "I fundamentally disagree with the microservices approach because it is complex."),
+            mock_message(
+                "a1",
+                "I fundamentally disagree with the microservices approach because it is complex.",
+            ),
         ]
         result = detector._find_disagreements(messages)
         # Should extract text starting from phrase
@@ -801,7 +812,9 @@ class TestFindDisagreements:
     def test_multiple_phrases_in_message(self, detector, mock_message):
         """Should detect multiple phrases in one message."""
         messages = [
-            mock_message("a1", "I fundamentally disagree and the premise is flawed in this detailed analysis"),
+            mock_message(
+                "a1", "I fundamentally disagree and the premise is flawed in this detailed analysis"
+            ),
         ]
         result = detector._find_disagreements(messages)
         # May find multiple disagreements
@@ -927,16 +940,14 @@ class TestCheckAndBranch:
             mock_message("a1", "Perfect"),
             mock_message("a2", "Done"),
         ]
-        result = await orchestrator.check_and_branch(
-            "debate-1", messages, [], mock_run_branch_fn
-        )
+        result = await orchestrator.check_and_branch("debate-1", messages, [], mock_run_branch_fn)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_returns_none_should_branch_false(self, orchestrator, mock_run_branch_fn):
         """Should return None when pivot.should_branch is False."""
         # Mock detector to return pivot with should_branch=False
-        with patch.object(orchestrator.impasse_detector, 'detect_impasse') as mock:
+        with patch.object(orchestrator.impasse_detector, "detect_impasse") as mock:
             pivot = PivotClaim(
                 claim_id="test",
                 statement="Test",
@@ -946,13 +957,13 @@ class TestCheckAndBranch:
                 blocking_agents=[],
             )
             mock.return_value = pivot
-            result = await orchestrator.check_and_branch(
-                "debate-1", [], [], mock_run_branch_fn
-            )
+            result = await orchestrator.check_and_branch("debate-1", [], [], mock_run_branch_fn)
             assert result is None
 
     @pytest.mark.asyncio
-    async def test_returns_none_at_max_branches(self, orchestrator, pivot_claim, mock_run_branch_fn):
+    async def test_returns_none_at_max_branches(
+        self, orchestrator, pivot_claim, mock_run_branch_fn
+    ):
         """Should return None when at max_branches limit."""
         orchestrator.max_branches = 2
         # Pre-populate branches
@@ -965,34 +976,34 @@ class TestCheckAndBranch:
             )
             orchestrator.branches[branch.branch_id] = branch
 
-        with patch.object(orchestrator.impasse_detector, 'detect_impasse') as mock:
+        with patch.object(orchestrator.impasse_detector, "detect_impasse") as mock:
             mock.return_value = pivot_claim
-            result = await orchestrator.check_and_branch(
-                "debate-1", [], [], mock_run_branch_fn
-            )
+            result = await orchestrator.check_and_branch("debate-1", [], [], mock_run_branch_fn)
             assert result is None
 
     @pytest.mark.asyncio
-    async def test_creates_branches_when_warranted(self, orchestrator, pivot_claim, mock_run_branch_fn):
+    async def test_creates_branches_when_warranted(
+        self, orchestrator, pivot_claim, mock_run_branch_fn
+    ):
         """Should create branches when conditions are met."""
-        with patch.object(orchestrator.impasse_detector, 'detect_impasse') as mock:
+        with patch.object(orchestrator.impasse_detector, "detect_impasse") as mock:
             mock.return_value = pivot_claim
-            result = await orchestrator.check_and_branch(
-                "debate-1", [], [], mock_run_branch_fn
-            )
+            result = await orchestrator.check_and_branch("debate-1", [], [], mock_run_branch_fn)
             assert result is not None
             assert len(result) == 2
 
     @pytest.mark.asyncio
-    async def test_calls_create_and_run_branches(self, orchestrator, pivot_claim, mock_run_branch_fn):
+    async def test_calls_create_and_run_branches(
+        self, orchestrator, pivot_claim, mock_run_branch_fn
+    ):
         """Should call create_and_run_branches."""
-        with patch.object(orchestrator.impasse_detector, 'detect_impasse') as mock_detect:
-            with patch.object(orchestrator, 'create_and_run_branches', new_callable=AsyncMock) as mock_create:
+        with patch.object(orchestrator.impasse_detector, "detect_impasse") as mock_detect:
+            with patch.object(
+                orchestrator, "create_and_run_branches", new_callable=AsyncMock
+            ) as mock_create:
                 mock_detect.return_value = pivot_claim
                 mock_create.return_value = []
-                await orchestrator.check_and_branch(
-                    "debate-1", [], [], mock_run_branch_fn
-                )
+                await orchestrator.check_and_branch("debate-1", [], [], mock_run_branch_fn)
                 mock_create.assert_called_once()
 
 
@@ -1056,6 +1067,7 @@ class TestCreateAndRunBranches:
     @pytest.mark.asyncio
     async def test_handles_exceptions_in_gather(self, orchestrator, pivot_claim):
         """Should handle exceptions from branch execution."""
+
         async def failing_fn(task, context, branch_id):
             raise RuntimeError("Branch failed")
 
@@ -1291,7 +1303,9 @@ class TestSynthesizeBranches:
             conclusion="B",
             confidence=0.7,
         )
-        with patch.object(orchestrator, '_compare_branches', wraps=orchestrator._compare_branches) as mock:
+        with patch.object(
+            orchestrator, "_compare_branches", wraps=orchestrator._compare_branches
+        ) as mock:
             orchestrator.synthesize_branches(branch_true, branch_false)
             mock.assert_called_once()
 

@@ -45,9 +45,17 @@ _subprocess_semaphore = asyncio.Semaphore(_MAX_CLI_SUBPROCESSES)
 
 # Re-export constants for backward compatibility
 __all__ = [
-    "CLIAgent", "CodexAgent", "ClaudeAgent", "OpenAIAgent",
-    "GeminiCLIAgent", "GrokCLIAgent", "QwenCLIAgent", "DeepseekCLIAgent", "KiloCodeAgent",
-    "MAX_CONTEXT_CHARS", "MAX_MESSAGE_CHARS",
+    "CLIAgent",
+    "CodexAgent",
+    "ClaudeAgent",
+    "OpenAIAgent",
+    "GeminiCLIAgent",
+    "GrokCLIAgent",
+    "QwenCLIAgent",
+    "DeepseekCLIAgent",
+    "KiloCodeAgent",
+    "MAX_CONTEXT_CHARS",
+    "MAX_MESSAGE_CHARS",
     "RATE_LIMIT_PATTERNS",  # Re-exported from errors.py
 ]
 
@@ -143,7 +151,9 @@ class CLIAgent(CritiqueMixin, Agent):
         if self._fallback_agent is None:
             api_key = os.environ.get("OPENROUTER_API_KEY")
             if not api_key:
-                logger.warning(f"[{self.name}] No OPENROUTER_API_KEY set, fallback disabled - rate limit errors will not have a fallback")
+                logger.warning(
+                    f"[{self.name}] No OPENROUTER_API_KEY set, fallback disabled - rate limit errors will not have a fallback"
+                )
                 return None
 
             # Import here to avoid circular dependency
@@ -163,7 +173,9 @@ class CLIAgent(CritiqueMixin, Agent):
             # Copy system prompt if set
             if self.system_prompt:
                 self._fallback_agent.system_prompt = self.system_prompt
-            logger.info(f"[{self.name}] Created OpenRouter fallback agent with model {openrouter_model}")
+            logger.info(
+                f"[{self.name}] Created OpenRouter fallback agent with model {openrouter_model}"
+            )
 
         return self._fallback_agent
 
@@ -192,9 +204,9 @@ class CLIAgent(CritiqueMixin, Agent):
         if not isinstance(arg, str):
             return str(arg)
         # Remove null bytes (cause 'embedded null byte' error)
-        sanitized = arg.replace('\x00', '')
+        sanitized = arg.replace("\x00", "")
         # Remove other problematic control characters (except newlines/tabs)
-        sanitized = re.sub(r'[\x01-\x08\x0b-\x0c\x0e-\x1f\x7f]', '', sanitized)
+        sanitized = re.sub(r"[\x01-\x08\x0b-\x0c\x0e-\x1f\x7f]", "", sanitized)
         return sanitized
 
     async def _run_cli(self, command: list[str], input_text: str | None = None) -> str:
@@ -237,11 +249,11 @@ class CLIAgent(CritiqueMixin, Agent):
                     if self._circuit_breaker is not None:
                         self._circuit_breaker.record_failure()
                     # Build informative error message with return code
-                    stderr_text = stderr.decode('utf-8', errors='replace').strip()
+                    stderr_text = stderr.decode("utf-8", errors="replace").strip()
                     error_msg = f"CLI command failed with return code {proc.returncode}"
                     if stderr_text:
                         # For verbose CLIs (like Codex), extract last meaningful line
-                        lines = [l.strip() for l in stderr_text.split('\n') if l.strip()]
+                        lines = [l.strip() for l in stderr_text.split("\n") if l.strip()]
                         if lines:
                             last_line = lines[-1][:200]
                             error_msg += f": {last_line}"
@@ -258,7 +270,7 @@ class CLIAgent(CritiqueMixin, Agent):
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_success()
 
-                return stdout.decode('utf-8', errors='replace').strip()
+                return stdout.decode("utf-8", errors="replace").strip()
 
             except asyncio.TimeoutError:
                 # Record failure to circuit breaker
@@ -339,9 +351,7 @@ class CLIAgent(CritiqueMixin, Agent):
         if self.prefer_api:
             fallback = self._get_fallback_agent()
             if fallback:
-                logger.debug(
-                    f"[{self.name}] prefer_api=True, using OpenRouter directly"
-                )
+                logger.debug(f"[{self.name}] prefer_api=True, using OpenRouter directly")
                 self._fallback_used = True
                 return await fallback.generate(prompt, context)
             # If no fallback available, fall through to CLI
@@ -392,7 +402,9 @@ Provide structured feedback:
 - SEVERITY: 0.0-1.0 rating
 - REASONING: Brief explanation"""
 
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
+    async def critique(
+        self, proposal: str, task: str, context: list[Message] | None = None
+    ) -> Critique:
         """Critique a proposal using this CLI agent.
 
         Default implementation uses _build_critique_prompt and generate.
@@ -417,18 +429,18 @@ class CodexAgent(CLIAgent):
 
     def _extract_codex_response(self, result: str) -> str:
         """Extract the actual response from codex output (skip header)."""
-        lines = result.split('\n')
+        lines = result.split("\n")
         response_lines = []
         in_response = False
         for line in lines:
-            if line.strip() == 'codex':
+            if line.strip() == "codex":
                 in_response = True
                 continue
             if in_response:
-                if line.startswith('tokens used'):
+                if line.startswith("tokens used"):
                     continue
                 response_lines.append(line)
-        return '\n'.join(response_lines).strip() if response_lines else result
+        return "\n".join(response_lines).strip() if response_lines else result
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using codex exec.
@@ -441,13 +453,15 @@ class CodexAgent(CLIAgent):
         if len(full_prompt) > 10000:
             return await self._generate_with_fallback(
                 ["codex", "exec", "--skip-git-repo-check", "-"],
-                prompt, context,
+                prompt,
+                context,
                 input_text=full_prompt,
                 response_extractor=self._extract_codex_response,
             )
         return await self._generate_with_fallback(
             ["codex", "exec", "--skip-git-repo-check", full_prompt],
-            prompt, context,
+            prompt,
+            context,
             response_extractor=self._extract_codex_response,
         )
 
@@ -487,7 +501,8 @@ class ClaudeAgent(CLIAgent):
         # Pass prompt via stdin to avoid shell argument length limits
         return await self._generate_with_fallback(
             ["claude", "--print", "-p", "-"],
-            prompt, context,
+            prompt,
+            context,
             input_text=full_prompt,
         )
 
@@ -506,16 +521,17 @@ class GeminiCLIAgent(CLIAgent):
 
     def _extract_gemini_response(self, result: str) -> str:
         """Filter out YOLO mode message from gemini output."""
-        lines = result.split('\n')
-        filtered = [l for l in lines if not l.startswith('YOLO mode is enabled')]
-        return '\n'.join(filtered).strip()
+        lines = result.split("\n")
+        filtered = [l for l in lines if not l.startswith("YOLO mode is enabled")]
+        return "\n".join(filtered).strip()
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using gemini CLI."""
         full_prompt = self._build_full_prompt(prompt, context)
         return await self._generate_with_fallback(
             ["gemini", "--yolo", "-o", "text", full_prompt],
-            prompt, context,
+            prompt,
+            context,
             response_extractor=self._extract_gemini_response,
         )
 
@@ -556,7 +572,7 @@ class KiloCodeAgent(CLIAgent):
 
     def _extract_kilocode_response(self, output: str) -> str:
         """Extract the assistant response from Kilo Code JSON output."""
-        lines = output.strip().split('\n')
+        lines = output.strip().split("\n")
         responses = []
         for line in lines:
             line = line.strip()
@@ -580,14 +596,22 @@ class KiloCodeAgent(CLIAgent):
         """Generate a response using kilocode CLI with codebase access."""
         full_prompt = self._build_full_prompt(prompt, context)
         cmd = [
-            "kilocode", "--auto", "--yolo", "--json",
-            "-pv", self.provider_id,
-            "-m", self.mode,
-            "-t", str(self.timeout),
+            "kilocode",
+            "--auto",
+            "--yolo",
+            "--json",
+            "-pv",
+            self.provider_id,
+            "-m",
+            self.mode,
+            "-t",
+            str(self.timeout),
             full_prompt,
         ]
         return await self._generate_with_fallback(
-            cmd, prompt, context,
+            cmd,
+            prompt,
+            context,
             response_extractor=self._extract_kilocode_response,
         )
 
@@ -606,7 +630,7 @@ class GrokCLIAgent(CLIAgent):
 
     def _extract_grok_response(self, output: str) -> str:
         """Extract the final assistant response from Grok CLI JSON output."""
-        lines = output.strip().split('\n')
+        lines = output.strip().split("\n")
         final_content = None
         for line in lines:
             line = line.strip()
@@ -629,7 +653,8 @@ class GrokCLIAgent(CLIAgent):
         full_prompt = self._build_full_prompt(prompt, context)
         return await self._generate_with_fallback(
             ["grok", "-p", full_prompt],
-            prompt, context,
+            prompt,
+            context,
             response_extractor=self._extract_grok_response,
         )
 
@@ -651,7 +676,8 @@ class QwenCLIAgent(CLIAgent):
         full_prompt = self._build_full_prompt(prompt, context)
         return await self._generate_with_fallback(
             ["qwen", "-p", full_prompt],
-            prompt, context,
+            prompt,
+            context,
         )
 
 
@@ -673,7 +699,8 @@ class DeepseekCLIAgent(CLIAgent):
         full_prompt = self._build_full_prompt(prompt, context)
         return await self._generate_with_fallback(
             ["deepseek", "-p", full_prompt],
-            prompt, context,
+            prompt,
+            context,
         )
 
 
@@ -690,7 +717,9 @@ class OpenAIAgent(CLIAgent):
     Falls back to OpenRouter (OpenAI GPT) on CLI failures if enabled.
     """
 
-    def __init__(self, name: str, model: str = "gpt-4o", role: str = "proposer", timeout: int = 120) -> None:
+    def __init__(
+        self, name: str, model: str = "gpt-4o", role: str = "proposer", timeout: int = 120
+    ) -> None:
         super().__init__(name, model, role, timeout)
 
     def _extract_openai_response(self, result: str) -> str:
@@ -708,8 +737,18 @@ class OpenAIAgent(CLIAgent):
         """Generate a response using openai CLI."""
         full_prompt = self._build_full_prompt(prompt, context)
         return await self._generate_with_fallback(
-            ["openai", "api", "chat.completions.create", "-m", self.model, "-g", "user", full_prompt],
-            prompt, context,
+            [
+                "openai",
+                "api",
+                "chat.completions.create",
+                "-m",
+                self.model,
+                "-g",
+                "user",
+                full_prompt,
+            ],
+            prompt,
+            context,
             response_extractor=self._extract_openai_response,
         )
 

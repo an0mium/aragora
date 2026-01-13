@@ -39,14 +39,16 @@ logger = logging.getLogger(__name__)
 
 class DebateVisibility(str, Enum):
     """Visibility level for a debate."""
-    PRIVATE = "private"    # Only creator can access
-    TEAM = "team"          # Organization members can access
-    PUBLIC = "public"      # Anyone with link can access
+
+    PRIVATE = "private"  # Only creator can access
+    TEAM = "team"  # Organization members can access
+    PUBLIC = "public"  # Anyone with link can access
 
 
 @dataclass
 class ShareSettings:
     """Sharing settings for a debate."""
+
     debate_id: str
     visibility: DebateVisibility = DebateVisibility.PRIVATE
     share_token: Optional[str] = None
@@ -133,7 +135,10 @@ class ShareStore:
         """Save sharing settings (thread-safe with size limit)."""
         with self._lock:
             # Enforce max size with LRU eviction (by created_at)
-            if settings.debate_id not in self._settings and len(self._settings) >= MAX_SHARE_SETTINGS:
+            if (
+                settings.debate_id not in self._settings
+                and len(self._settings) >= MAX_SHARE_SETTINGS
+            ):
                 # Remove oldest 10% by created_at
                 sorted_items = sorted(self._settings.items(), key=lambda x: x[1].created_at)
                 remove_count = max(1, len(sorted_items) // 10)
@@ -365,7 +370,7 @@ class SharingHandler(BaseHandler):
             except ValueError:
                 return error_response(
                     f"Invalid visibility. Must be: {', '.join(v.value for v in DebateVisibility)}",
-                    400
+                    400,
                 )
 
         # Update expiration
@@ -385,10 +390,12 @@ class SharingHandler(BaseHandler):
         # Save
         self._store.save(settings)
 
-        return json_response({
-            "success": True,
-            "settings": settings.to_dict(),
-        })
+        return json_response(
+            {
+                "success": True,
+                "settings": settings.to_dict(),
+            }
+        )
 
     @rate_limit(rpm=60, limiter_name="shared_debate_access")
     @handle_errors("get shared debate")
@@ -420,14 +427,16 @@ class SharingHandler(BaseHandler):
         if not debate_data:
             return error_response("Debate not found", 404)
 
-        return json_response({
-            "debate": debate_data,
-            "sharing": {
-                "allow_comments": settings.allow_comments,
-                "allow_forking": settings.allow_forking,
-                "view_count": settings.view_count,
-            },
-        })
+        return json_response(
+            {
+                "debate": debate_data,
+                "sharing": {
+                    "allow_comments": settings.allow_comments,
+                    "allow_forking": settings.allow_forking,
+                    "view_count": settings.view_count,
+                },
+            }
+        )
 
     @handle_errors("revoke share")
     def _revoke_share(self, debate_id: str, handler) -> HandlerResult:
@@ -460,10 +469,12 @@ class SharingHandler(BaseHandler):
 
         logger.info(f"Share links revoked for debate {debate_id}")
 
-        return json_response({
-            "success": True,
-            "message": "Share links revoked",
-        })
+        return json_response(
+            {
+                "success": True,
+                "message": "Share links revoked",
+            }
+        )
 
     def _generate_share_token(self, debate_id: str) -> str:
         """Generate a secure share token."""
@@ -481,6 +492,7 @@ class SharingHandler(BaseHandler):
         """
         try:
             from aragora.server.storage import get_debates_db
+
             db = get_debates_db()
             if db:
                 return db.get(debate_id)

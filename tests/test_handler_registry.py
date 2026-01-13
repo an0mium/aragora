@@ -50,7 +50,9 @@ class TestHandlerRegistry:
 
     def test_handler_registry_count(self):
         """HANDLER_REGISTRY should contain all 33 handlers."""
-        assert len(HANDLER_REGISTRY) >= 33, f"Expected at least 33 handlers, got {len(HANDLER_REGISTRY)}"
+        assert (
+            len(HANDLER_REGISTRY) >= 33
+        ), f"Expected at least 33 handlers, got {len(HANDLER_REGISTRY)}"
 
     def test_handler_registry_structure(self):
         """Each registry entry should be a (str, class) tuple."""
@@ -60,7 +62,9 @@ class TestHandlerRegistry:
             attr_name, handler_class = entry
             assert isinstance(attr_name, str), f"Attr name {attr_name} is not a string"
             assert attr_name.startswith("_"), f"Attr name {attr_name} should start with '_'"
-            assert attr_name.endswith("_handler"), f"Attr name {attr_name} should end with '_handler'"
+            assert attr_name.endswith(
+                "_handler"
+            ), f"Attr name {attr_name} should end with '_handler'"
             assert handler_class is not None, f"Handler class for {attr_name} is None"
 
     def test_all_handler_classes_importable(self):
@@ -99,6 +103,7 @@ class TestHandlerRegistry:
             ProbesHandler,
             InsightsHandler,
         )
+
         # If we get here, all imports succeeded
         assert True
 
@@ -150,9 +155,7 @@ class TestHandlerRouting:
                 return  # Found a match, test passes
 
         # If none matched, show which paths were tried
-        pytest.fail(
-            f"{handler_name} doesn't handle any of its expected paths: {expected_paths}"
-        )
+        pytest.fail(f"{handler_name} doesn't handle any of its expected paths: {expected_paths}")
 
 
 class TestRoutingConflicts:
@@ -215,10 +218,7 @@ class TestRoutingConflicts:
 
         conflicts = []
         for path in unique_paths:
-            matching_handlers = [
-                name for name, handler in handlers
-                if handler.can_handle(path)
-            ]
+            matching_handlers = [name for name, handler in handlers if handler.can_handle(path)]
             if len(matching_handlers) > 1:
                 conflicts.append(f"{path}: {matching_handlers}")
 
@@ -269,8 +269,7 @@ class TestHandlerRegistryMixin:
     def test_mixin_has_handler_attributes(self):
         """Mixin should have all handler attribute declarations."""
         for attr_name, _ in HANDLER_REGISTRY:
-            assert hasattr(HandlerRegistryMixin, attr_name), \
-                f"Mixin missing {attr_name} attribute"
+            assert hasattr(HandlerRegistryMixin, attr_name), f"Mixin missing {attr_name} attribute"
 
     def test_mixin_has_init_handlers(self):
         """Mixin should have _init_handlers classmethod."""
@@ -293,6 +292,7 @@ class TestHandlerMethods:
     def sample_handler(self):
         """Create a sample handler for testing."""
         from aragora.server.handlers import DebatesHandler
+
         return DebatesHandler({})
 
     def test_handle_returns_handler_result_or_none(self, sample_handler):

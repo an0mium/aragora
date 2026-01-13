@@ -16,6 +16,7 @@ from aragora.storage.share_store import ShareLinkStore
 # Mock ShareSettings and DebateVisibility for isolated testing
 class MockDebateVisibility:
     """Mock visibility enum."""
+
     PRIVATE = "private"
     TEAM = "team"
     PUBLIC = "public"
@@ -257,8 +258,7 @@ class TestShareLinkStoreViewCount:
 
         # Check last_viewed_at via raw query
         row = memory_store.fetch_one(
-            "SELECT last_viewed_at FROM share_links WHERE debate_id = ?",
-            ("debate-timestamp",)
+            "SELECT last_viewed_at FROM share_links WHERE debate_id = ?", ("debate-timestamp",)
         )
         assert row is not None
         assert before <= row[0] <= after
@@ -327,25 +327,31 @@ class TestShareLinkStoreStats:
         """Should return accurate statistics."""
         # Create various links
         for i in range(3):
-            memory_store.save(MockShareSettings(
-                debate_id=f"public-{i}",
-                visibility="public",
-                share_token=f"token_public_{i}_abc",
-            ))
+            memory_store.save(
+                MockShareSettings(
+                    debate_id=f"public-{i}",
+                    visibility="public",
+                    share_token=f"token_public_{i}_abc",
+                )
+            )
 
         for i in range(2):
-            memory_store.save(MockShareSettings(
-                debate_id=f"private-{i}",
-                visibility="private",
-                share_token=None,
-            ))
+            memory_store.save(
+                MockShareSettings(
+                    debate_id=f"private-{i}",
+                    visibility="private",
+                    share_token=None,
+                )
+            )
 
         # Create one expired
-        memory_store.save(MockShareSettings(
-            debate_id="expired-1",
-            visibility="public",
-            expires_at=time.time() - 100,
-        ))
+        memory_store.save(
+            MockShareSettings(
+                debate_id="expired-1",
+                visibility="public",
+                expires_at=time.time() - 100,
+            )
+        )
 
         stats = memory_store.get_stats()
 
@@ -373,12 +379,14 @@ class TestShareLinkStorePersistence:
         """Should persist data across store instances."""
         # Create and save with first instance
         store1 = ShareLinkStore(temp_db)
-        store1.save(MockShareSettings(
-            debate_id="persistent-debate",
-            visibility="public",
-            share_token="persistent_token_1",
-            owner_id="user-persistent",
-        ))
+        store1.save(
+            MockShareSettings(
+                debate_id="persistent-debate",
+                visibility="public",
+                share_token="persistent_token_1",
+                owner_id="user-persistent",
+            )
+        )
         del store1
 
         # Load with second instance
@@ -414,10 +422,12 @@ class TestShareLinkStoreVisibility:
         visibilities = ["private", "team", "public"]
 
         for vis in visibilities:
-            memory_store.save(MockShareSettings(
-                debate_id=f"debate-{vis}",
-                visibility=vis,
-            ))
+            memory_store.save(
+                MockShareSettings(
+                    debate_id=f"debate-{vis}",
+                    visibility=vis,
+                )
+            )
 
         for vis in visibilities:
             retrieved = memory_store.get(f"debate-{vis}")

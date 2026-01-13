@@ -147,6 +147,7 @@ class AirlockProxy:
         context: Optional[list["Message"]] = None,
     ) -> str:
         """Generate a response with timeout and sanitization."""
+
         async def coro_factory() -> str:
             return await self._agent.generate(prompt, context)
 
@@ -316,8 +317,7 @@ class AirlockProxy:
                 if self._config.fallback_on_error:
                     self._metrics.fallback_responses += 1
                     logger.info(
-                        f"airlock_fallback agent={self._agent.name} "
-                        f"op={operation} reason=error"
+                        f"airlock_fallback agent={self._agent.name} " f"op={operation} reason=error"
                     )
                     return fallback
 
@@ -431,7 +431,7 @@ class AirlockProxy:
             "agent": self._agent.name,
             "choice": first_agent,
             "reasoning": f"Fallback vote due to agent timeout/error. "
-                        f"Defaulting to first proposal from {first_agent}.",
+            f"Defaulting to first proposal from {first_agent}.",
             "confidence": 0.1,  # Low confidence
             "continue_debate": False,
         }

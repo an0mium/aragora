@@ -54,7 +54,7 @@ class DebateRecorder:
         data["debate_result"] = self._make_serializable(data["debate_result"])
 
         # Save to file
-        with open(filepath, 'w', encoding='utf-8') as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
         return str(filepath)
@@ -65,7 +65,7 @@ class DebateRecorder:
             return {k: self._make_serializable(v) for k, v in obj.items()}
         elif isinstance(obj, list):
             return [self._make_serializable(item) for item in obj]
-        elif hasattr(obj, '__dict__'):
+        elif hasattr(obj, "__dict__"):
             # For dataclasses and objects, serialize their __dict__
             return self._make_serializable(obj.__dict__)
         elif isinstance(obj, (str, int, float, bool, type(None))):
@@ -98,14 +98,16 @@ class DebateReplayer:
 
         for file_path in self.storage_dir.glob("debate_*.json"):
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
                 debate_info = {
                     "filename": file_path.name,
                     "filepath": str(file_path),
                     "task": data.get("debate_result", {}).get("task", "Unknown"),
-                    "consensus_reached": data.get("debate_result", {}).get("consensus_reached", False),
+                    "consensus_reached": data.get("debate_result", {}).get(
+                        "consensus_reached", False
+                    ),
                     "confidence": data.get("debate_result", {}).get("confidence", 0.0),
                     "duration_seconds": data.get("debate_result", {}).get("duration_seconds", 0.0),
                     "rounds_used": data.get("debate_result", {}).get("rounds_used", 0),
@@ -134,7 +136,7 @@ class DebateReplayer:
             return None
 
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             # Reconstruct DebateResult from dict
@@ -167,6 +169,7 @@ class DebateReplayer:
 
         # Replay messages in sequence
         import time
+
         for i, message in enumerate(result.messages, 1):
             # Handle both dict and Message objects (dicts come from JSON loading)
             if isinstance(message, dict):

@@ -18,9 +18,11 @@ from aragora.server.handlers.base import clear_cache
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_calibration_bucket():
     """Create a mock calibration bucket."""
+
     def create_bucket(range_start, range_end, total, correct):
         bucket = Mock()
         bucket.range_start = range_start
@@ -30,6 +32,7 @@ def mock_calibration_bucket():
         bucket.accuracy = correct / total if total > 0 else 0
         bucket.brier_score = 0.15
         return bucket
+
     return create_bucket
 
 
@@ -89,6 +92,7 @@ def clear_caches():
 # Route Matching Tests
 # ============================================================================
 
+
 class TestCalibrationRouting:
     """Tests for route matching."""
 
@@ -113,11 +117,13 @@ class TestCalibrationRouting:
 # GET /api/agent/{name}/calibration-curve Tests
 # ============================================================================
 
+
 class TestCalibrationCurve:
     """Tests for GET /api/agent/{name}/calibration-curve endpoint."""
 
     def test_calibration_curve_module_unavailable(self, calibration_handler):
         import aragora.server.handlers.calibration as mod
+
         original = mod.CALIBRATION_AVAILABLE
         mod.CALIBRATION_AVAILABLE = False
         try:
@@ -135,7 +141,7 @@ class TestCalibrationCurve:
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
 
-        with patch.object(mod, 'CalibrationTracker', return_value=mock_calibration_tracker):
+        with patch.object(mod, "CalibrationTracker", return_value=mock_calibration_tracker):
             result = calibration_handler.handle("/api/agent/claude/calibration-curve", {}, None)
 
             assert result is not None
@@ -146,47 +152,65 @@ class TestCalibrationCurve:
             assert len(data["buckets"]) == 5
             assert data["count"] == 5
 
-    def test_calibration_curve_with_buckets_param(self, calibration_handler, mock_calibration_tracker):
+    def test_calibration_curve_with_buckets_param(
+        self, calibration_handler, mock_calibration_tracker
+    ):
         import aragora.server.handlers.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
 
-        with patch.object(mod, 'CalibrationTracker', return_value=mock_calibration_tracker):
-            result = calibration_handler.handle("/api/agent/claude/calibration-curve", {"buckets": "15"}, None)
+        with patch.object(mod, "CalibrationTracker", return_value=mock_calibration_tracker):
+            result = calibration_handler.handle(
+                "/api/agent/claude/calibration-curve", {"buckets": "15"}, None
+            )
 
             assert result is not None
             assert result.status_code == 200
             # Verify tracker was called with correct buckets
-            mock_calibration_tracker.get_calibration_curve.assert_called_with("claude", num_buckets=15, domain=None)
+            mock_calibration_tracker.get_calibration_curve.assert_called_with(
+                "claude", num_buckets=15, domain=None
+            )
 
-    def test_calibration_curve_buckets_clamped_min(self, calibration_handler, mock_calibration_tracker):
+    def test_calibration_curve_buckets_clamped_min(
+        self, calibration_handler, mock_calibration_tracker
+    ):
         import aragora.server.handlers.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
 
-        with patch.object(mod, 'CalibrationTracker', return_value=mock_calibration_tracker):
+        with patch.object(mod, "CalibrationTracker", return_value=mock_calibration_tracker):
             # Request 3 buckets, should be clamped to 5
-            result = calibration_handler.handle("/api/agent/claude/calibration-curve", {"buckets": "3"}, None)
+            result = calibration_handler.handle(
+                "/api/agent/claude/calibration-curve", {"buckets": "3"}, None
+            )
 
             assert result is not None
             assert result.status_code == 200
-            mock_calibration_tracker.get_calibration_curve.assert_called_with("claude", num_buckets=5, domain=None)
+            mock_calibration_tracker.get_calibration_curve.assert_called_with(
+                "claude", num_buckets=5, domain=None
+            )
 
-    def test_calibration_curve_buckets_clamped_max(self, calibration_handler, mock_calibration_tracker):
+    def test_calibration_curve_buckets_clamped_max(
+        self, calibration_handler, mock_calibration_tracker
+    ):
         import aragora.server.handlers.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
 
-        with patch.object(mod, 'CalibrationTracker', return_value=mock_calibration_tracker):
+        with patch.object(mod, "CalibrationTracker", return_value=mock_calibration_tracker):
             # Request 50 buckets, should be clamped to 20
-            result = calibration_handler.handle("/api/agent/claude/calibration-curve", {"buckets": "50"}, None)
+            result = calibration_handler.handle(
+                "/api/agent/claude/calibration-curve", {"buckets": "50"}, None
+            )
 
             assert result is not None
             assert result.status_code == 200
-            mock_calibration_tracker.get_calibration_curve.assert_called_with("claude", num_buckets=20, domain=None)
+            mock_calibration_tracker.get_calibration_curve.assert_called_with(
+                "claude", num_buckets=20, domain=None
+            )
 
     def test_calibration_curve_with_domain(self, calibration_handler, mock_calibration_tracker):
         import aragora.server.handlers.calibration as mod
@@ -194,8 +218,10 @@ class TestCalibrationCurve:
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
 
-        with patch.object(mod, 'CalibrationTracker', return_value=mock_calibration_tracker):
-            result = calibration_handler.handle("/api/agent/claude/calibration-curve", {"domain": "coding"}, None)
+        with patch.object(mod, "CalibrationTracker", return_value=mock_calibration_tracker):
+            result = calibration_handler.handle(
+                "/api/agent/claude/calibration-curve", {"domain": "coding"}, None
+            )
 
             assert result is not None
             assert result.status_code == 200
@@ -212,11 +238,13 @@ class TestCalibrationCurve:
 # GET /api/agent/{name}/calibration-summary Tests
 # ============================================================================
 
+
 class TestCalibrationSummary:
     """Tests for GET /api/agent/{name}/calibration-summary endpoint."""
 
     def test_calibration_summary_module_unavailable(self, calibration_handler):
         import aragora.server.handlers.calibration as mod
+
         original = mod.CALIBRATION_AVAILABLE
         mod.CALIBRATION_AVAILABLE = False
         try:
@@ -232,7 +260,7 @@ class TestCalibrationSummary:
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
 
-        with patch.object(mod, 'CalibrationTracker', return_value=mock_calibration_tracker):
+        with patch.object(mod, "CalibrationTracker", return_value=mock_calibration_tracker):
             result = calibration_handler.handle("/api/agent/claude/calibration-summary", {}, None)
 
             assert result is not None
@@ -253,8 +281,10 @@ class TestCalibrationSummary:
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
 
-        with patch.object(mod, 'CalibrationTracker', return_value=mock_calibration_tracker):
-            result = calibration_handler.handle("/api/agent/claude/calibration-summary", {"domain": "reasoning"}, None)
+        with patch.object(mod, "CalibrationTracker", return_value=mock_calibration_tracker):
+            result = calibration_handler.handle(
+                "/api/agent/claude/calibration-summary", {"domain": "reasoning"}, None
+            )
 
             assert result is not None
             assert result.status_code == 200
@@ -271,6 +301,7 @@ class TestCalibrationSummary:
 # Security Tests
 # ============================================================================
 
+
 class TestCalibrationSecurity:
     """Security tests for calibration endpoints."""
 
@@ -279,21 +310,28 @@ class TestCalibrationSecurity:
         assert result.status_code == 400
 
     def test_path_traversal_blocked_summary(self, calibration_handler):
-        result = calibration_handler.handle("/api/agent/..%2F..%2Fetc/calibration-summary", {}, None)
+        result = calibration_handler.handle(
+            "/api/agent/..%2F..%2Fetc/calibration-summary", {}, None
+        )
         assert result.status_code == 400
 
     def test_sql_injection_blocked(self, calibration_handler):
-        result = calibration_handler.handle("/api/agent/'; DROP TABLE agents;--/calibration-curve", {}, None)
+        result = calibration_handler.handle(
+            "/api/agent/'; DROP TABLE agents;--/calibration-curve", {}, None
+        )
         assert result.status_code == 400
 
     def test_xss_blocked(self, calibration_handler):
-        result = calibration_handler.handle("/api/agent/<img src=x onerror=alert(1)>/calibration-summary", {}, None)
+        result = calibration_handler.handle(
+            "/api/agent/<img src=x onerror=alert(1)>/calibration-summary", {}, None
+        )
         assert result.status_code == 400
 
 
 # ============================================================================
 # Error Handling Tests
 # ============================================================================
+
 
 class TestCalibrationErrorHandling:
     """Tests for error handling."""
@@ -311,7 +349,7 @@ class TestCalibrationErrorHandling:
         mock_tracker = Mock()
         mock_tracker.get_calibration_curve.side_effect = Exception("Database error")
 
-        with patch.object(mod, 'CalibrationTracker', return_value=mock_tracker):
+        with patch.object(mod, "CalibrationTracker", return_value=mock_tracker):
             result = calibration_handler.handle("/api/agent/claude/calibration-curve", {}, None)
 
             assert result is not None
@@ -326,7 +364,7 @@ class TestCalibrationErrorHandling:
         mock_tracker = Mock()
         mock_tracker.get_calibration_summary.side_effect = Exception("Database error")
 
-        with patch.object(mod, 'CalibrationTracker', return_value=mock_tracker):
+        with patch.object(mod, "CalibrationTracker", return_value=mock_tracker):
             result = calibration_handler.handle("/api/agent/claude/calibration-summary", {}, None)
 
             assert result is not None
@@ -336,6 +374,7 @@ class TestCalibrationErrorHandling:
 # ============================================================================
 # Edge Cases
 # ============================================================================
+
 
 class TestCalibrationEdgeCases:
     """Tests for edge cases."""
@@ -356,13 +395,15 @@ class TestCalibrationEdgeCases:
         # Should either accept or reject gracefully
         assert result is not None
 
-    def test_calibration_curve_bucket_data_structure(self, calibration_handler, mock_calibration_tracker):
+    def test_calibration_curve_bucket_data_structure(
+        self, calibration_handler, mock_calibration_tracker
+    ):
         import aragora.server.handlers.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
 
-        with patch.object(mod, 'CalibrationTracker', return_value=mock_calibration_tracker):
+        with patch.object(mod, "CalibrationTracker", return_value=mock_calibration_tracker):
             result = calibration_handler.handle("/api/agent/claude/calibration-curve", {}, None)
 
             assert result is not None
@@ -383,9 +424,11 @@ class TestCalibrationEdgeCases:
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
 
-        with patch.object(mod, 'CalibrationTracker', return_value=mock_calibration_tracker):
+        with patch.object(mod, "CalibrationTracker", return_value=mock_calibration_tracker):
             # Invalid buckets should default to 10
-            result = calibration_handler.handle("/api/agent/claude/calibration-curve", {"buckets": "invalid"}, None)
+            result = calibration_handler.handle(
+                "/api/agent/claude/calibration-curve", {"buckets": "invalid"}, None
+            )
 
             assert result is not None
             assert result.status_code == 200

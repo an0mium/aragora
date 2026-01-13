@@ -24,10 +24,10 @@ logger = logging.getLogger(__name__)
 class RevenueEventType(Enum):
     """Types of revenue events."""
 
-    INSTALL = "install"              # One-time purchase
-    SUBSCRIPTION = "subscription"    # Subscription payment
-    USAGE = "usage"                  # Per-use charge
-    REFUND = "refund"               # Refund
+    INSTALL = "install"  # One-time purchase
+    SUBSCRIPTION = "subscription"  # Subscription payment
+    USAGE = "usage"  # Per-use charge
+    REFUND = "refund"  # Refund
 
 
 @dataclass
@@ -37,28 +37,26 @@ class PluginRevenueEvent:
     id: str = field(default_factory=lambda: str(uuid4()))
     plugin_name: str = ""
     plugin_version: str = ""
-    developer_id: str = ""           # Plugin developer user ID
-    org_id: str = ""                 # Purchasing organization
-    user_id: str = ""                # User who triggered the event
+    developer_id: str = ""  # Plugin developer user ID
+    org_id: str = ""  # Purchasing organization
+    user_id: str = ""  # User who triggered the event
 
     event_type: RevenueEventType = RevenueEventType.INSTALL
-    gross_amount_cents: int = 0      # Total charge in cents
-    platform_fee_cents: int = 0      # Platform commission
-    developer_amount_cents: int = 0   # Amount to developer
+    gross_amount_cents: int = 0  # Total charge in cents
+    platform_fee_cents: int = 0  # Platform commission
+    developer_amount_cents: int = 0  # Amount to developer
     currency: str = "USD"
 
     # Stripe integration
     stripe_payment_id: str = ""
-    stripe_transfer_id: str = ""     # Transfer to developer's connected account
+    stripe_transfer_id: str = ""  # Transfer to developer's connected account
 
     metadata: dict = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.utcnow)
 
     def calculate_split(self, developer_share_percent: int = 70) -> None:
         """Calculate revenue split between platform and developer."""
-        self.developer_amount_cents = int(
-            self.gross_amount_cents * developer_share_percent / 100
-        )
+        self.developer_amount_cents = int(self.gross_amount_cents * developer_share_percent / 100)
         self.platform_fee_cents = self.gross_amount_cents - self.developer_amount_cents
 
     def to_dict(self) -> dict[str, Any]:
@@ -89,7 +87,7 @@ class DeveloperPayout:
     developer_id: str = ""
     amount_cents: int = 0
     currency: str = "USD"
-    status: str = "pending"          # pending, processing, completed, failed
+    status: str = "pending"  # pending, processing, completed, failed
     stripe_transfer_id: str = ""
     period_start: datetime = field(default_factory=datetime.utcnow)
     period_end: datetime = field(default_factory=datetime.utcnow)
@@ -182,7 +180,8 @@ class PluginRevenueTracker:
         """Create database schema if not exists."""
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connection() as conn:
-            conn.executescript("""
+            conn.executescript(
+                """
                 -- Plugin installs
                 CREATE TABLE IF NOT EXISTS plugin_installs (
                     id TEXT PRIMARY KEY,
@@ -241,7 +240,8 @@ class PluginRevenueTracker:
 
                 CREATE INDEX IF NOT EXISTS idx_payouts_developer
                     ON developer_payouts(developer_id, status);
-            """)
+            """
+            )
             conn.commit()
 
     def record_install(
@@ -296,10 +296,7 @@ class PluginRevenueTracker:
             )
             conn.commit()
 
-        logger.info(
-            f"Plugin install recorded: {plugin_name} v{plugin_version} "
-            f"by org {org_id}"
-        )
+        logger.info(f"Plugin install recorded: {plugin_name} v{plugin_version} " f"by org {org_id}")
         return install
 
     def record_revenue(
@@ -534,8 +531,7 @@ class PluginRevenueTracker:
             conn.commit()
 
         logger.info(
-            f"Payout created for developer {developer_id}: "
-            f"${payout.amount_cents/100:.2f}"
+            f"Payout created for developer {developer_id}: " f"${payout.amount_cents/100:.2f}"
         )
         return payout
 

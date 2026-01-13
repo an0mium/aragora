@@ -290,8 +290,8 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ```bash
 # Quick test
 python -c "
-from aragora.agents.api_agents import AnthropicApiAgent
-agent = AnthropicApiAgent('claude')
+from aragora.agents.api_agents import AnthropicAPIAgent
+agent = AnthropicAPIAgent(name=\"anthropic-api\")
 print('Anthropic API: OK')
 "
 ```
@@ -361,7 +361,7 @@ print('Anthropic API: OK')
 2. **Verify WebSocket URL in frontend:**
    ```typescript
    // Should match your backend
-   const WS_URL = 'ws://localhost:8080/ws';
+   const WS_URL = 'ws://localhost:8765/ws';
    ```
 
 3. **Check for HTTPS/WSS mismatch:**

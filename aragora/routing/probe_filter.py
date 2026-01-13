@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ProbeProfile:
     """Summary of an agent's probe history."""
+
     agent_name: str
 
     # Core metrics
@@ -231,7 +232,9 @@ class ProbeFilter:
 
         # Find dominant weakness
         if weakness_counts:
-            profile.dominant_weakness = max(weakness_counts.keys(), key=lambda k: weakness_counts[k])
+            profile.dominant_weakness = max(
+                weakness_counts.keys(), key=lambda k: weakness_counts[k]
+            )
 
         # Calculate days since last probe
         if latest_date:
@@ -278,7 +281,9 @@ class ProbeFilter:
 
             # Check exclusion criteria
             if profile.vulnerability_rate > max_vulnerability_rate:
-                logger.debug(f"Excluding {agent}: vulnerability rate {profile.vulnerability_rate:.0%} > {max_vulnerability_rate:.0%}")
+                logger.debug(
+                    f"Excluding {agent}: vulnerability rate {profile.vulnerability_rate:.0%} > {max_vulnerability_rate:.0%}"
+                )
                 continue
 
             if exclude_critical and profile.has_critical_issues():
@@ -286,7 +291,9 @@ class ProbeFilter:
                 continue
 
             if exclude_stale and profile.is_stale(stale_days):
-                logger.debug(f"Excluding {agent}: probe data is {profile.days_since_probe} days old")
+                logger.debug(
+                    f"Excluding {agent}: probe data is {profile.days_since_probe} days old"
+                )
                 continue
 
             filtered.append(agent)
@@ -390,7 +397,11 @@ class ProbeFilter:
         lines = ["Agent Probe Summary:", "-" * 40]
 
         for name, profile in sorted(profiles.items(), key=lambda x: x[1].probe_score, reverse=True):
-            status = "OK" if profile.probe_score >= 0.7 else "WARN" if profile.probe_score >= 0.5 else "RISK"
+            status = (
+                "OK"
+                if profile.probe_score >= 0.7
+                else "WARN" if profile.probe_score >= 0.5 else "RISK"
+            )
             weakness = f" [{profile.dominant_weakness}]" if profile.dominant_weakness else ""
             lines.append(
                 f"  {name}: {profile.probe_score:.0%} score, "

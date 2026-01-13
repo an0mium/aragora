@@ -82,14 +82,14 @@ class ConsensusVerifier:
         Returns:
             Updated vote counts with verification bonuses applied
         """
-        if not self.protocol or not getattr(self.protocol, 'verify_claims_during_consensus', False):
+        if not self.protocol or not getattr(self.protocol, "verify_claims_during_consensus", False):
             return vote_counts
 
         if not self._verify_claims:
             return vote_counts
 
-        verification_bonus = getattr(self.protocol, 'verification_weight_bonus', 0.2)
-        verification_timeout = getattr(self.protocol, 'verification_timeout_seconds', 5.0)
+        verification_bonus = getattr(self.protocol, "verification_weight_bonus", 0.2)
+        verification_timeout = getattr(self.protocol, "verification_timeout_seconds", 5.0)
         result = ctx.result
 
         for agent_name, proposal_text in proposals.items():
@@ -101,8 +101,7 @@ class ConsensusVerifier:
             try:
                 # Verify top claims in the proposal (async with timeout)
                 verification_result = await asyncio.wait_for(
-                    self._verify_claims(proposal_text, limit=2),
-                    timeout=verification_timeout
+                    self._verify_claims(proposal_text, limit=2), timeout=verification_timeout
                 )
 
                 # Handle both dict and int return types for backward compat
@@ -115,7 +114,7 @@ class ConsensusVerifier:
                     disproven_count = 0
 
                 # Store verification counts for feedback loop
-                if hasattr(result, 'verification_results'):
+                if hasattr(result, "verification_results"):
                     result.verification_results[agent_name] = {
                         "verified": verified_count,
                         "disproven": disproven_count,
@@ -129,7 +128,7 @@ class ConsensusVerifier:
                     vote_counts[canonical] = current_count + bonus
 
                     # Store bonus for feedback loop
-                    if hasattr(result, 'verification_bonuses'):
+                    if hasattr(result, "verification_bonuses"):
                         result.verification_bonuses[agent_name] = bonus
 
                     logger.info(
@@ -138,12 +137,10 @@ class ConsensusVerifier:
                     )
 
                 # Emit verification result event
-                self._emit_verification_event(
-                    ctx, agent_name, verified_count or 0, bonus
-                )
+                self._emit_verification_event(ctx, agent_name, verified_count or 0, bonus)
             except asyncio.TimeoutError:
                 logger.debug(f"verification_timeout agent={agent_name}")
-                if hasattr(result, 'verification_results'):
+                if hasattr(result, "verification_results"):
                     result.verification_results[agent_name] = -1  # Timeout indicator
                 self._emit_verification_event(ctx, agent_name, -1, 0.0, timeout=True)
             except Exception as e:
@@ -169,7 +166,7 @@ class ConsensusVerifier:
             return
 
         result = ctx.result
-        if not hasattr(result, 'verification_results') or not result.verification_results:
+        if not hasattr(result, "verification_results") or not result.verification_results:
             return
 
         # Extract domain from context
@@ -238,18 +235,20 @@ class ConsensusVerifier:
         try:
             from aragora.server.stream import StreamEvent, StreamEventType
 
-            ctx.event_emitter.emit(StreamEvent(
-                type=StreamEventType.CLAIM_VERIFICATION_RESULT,
-                loop_id=ctx.loop_id,
-                agent=agent_name,
-                data={
-                    "agent": agent_name,
-                    "verified_count": verified_count,
-                    "bonus_applied": bonus,
-                    "timeout": timeout,
-                    "debate_id": ctx.debate_id,
-                }
-            ))
+            ctx.event_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.CLAIM_VERIFICATION_RESULT,
+                    loop_id=ctx.loop_id,
+                    agent=agent_name,
+                    data={
+                        "agent": agent_name,
+                        "verified_count": verified_count,
+                        "bonus_applied": bonus,
+                        "timeout": timeout,
+                        "debate_id": ctx.debate_id,
+                    },
+                )
+            )
         except Exception as e:
             logger.debug(f"verification_event_error: {e}")
 

@@ -48,6 +48,7 @@ class BoundedDebateDict(OrderedDict):
 @dataclass
 class LoopInstance:
     """Represents an active nomic loop instance."""
+
     loop_id: str
     name: str
     started_at: float
@@ -104,7 +105,8 @@ def cleanup_stale_debates() -> None:
     now = time.time()
     with _active_debates_lock:
         stale_ids = [
-            debate_id for debate_id, debate in _active_debates.items()
+            debate_id
+            for debate_id, debate in _active_debates.items()
             if debate.get("status") in ("completed", "error")
             and now - debate.get("completed_at", now) > _DEBATE_TTL_SECONDS
         ]
@@ -161,7 +163,7 @@ class DebateStateManager:
                 oldest = min(
                     self._active_loops_last_access,
                     key=self._active_loops_last_access.get,
-                    default=None
+                    default=None,
                 )
                 if oldest:
                     self.active_loops.pop(oldest, None)
@@ -187,10 +189,7 @@ class DebateStateManager:
             return False
 
     def update_loop_state(
-        self,
-        loop_id: str,
-        cycle: Optional[int] = None,
-        phase: Optional[str] = None
+        self, loop_id: str, cycle: Optional[int] = None, phase: Optional[str] = None
     ) -> None:
         """Update the state of an active loop instance."""
         with self._active_loops_lock:
@@ -231,7 +230,8 @@ class DebateStateManager:
             if len(self.debate_states) >= self._MAX_DEBATE_STATES:
                 ended_states = [
                     (k, self._debate_states_last_access.get(k, 0))
-                    for k, v in self.debate_states.items() if v.get("ended")
+                    for k, v in self.debate_states.items()
+                    if v.get("ended")
                 ]
                 if ended_states:
                     oldest = min(ended_states, key=lambda x: x[1])[0]
@@ -255,7 +255,8 @@ class DebateStateManager:
         # Cleanup active_loops older than TTL
         with self._active_loops_lock:
             stale = [
-                k for k, v in self._active_loops_last_access.items()
+                k
+                for k, v in self._active_loops_last_access.items()
                 if now - v > self._ACTIVE_LOOPS_TTL
             ]
             for k in stale:
@@ -266,9 +267,10 @@ class DebateStateManager:
         # Cleanup debate_states older than TTL (only ended debates)
         with self._debate_states_lock:
             stale = [
-                k for k, state in self.debate_states.items()
-                if state.get("ended") and
-                   now - self._debate_states_last_access.get(k, 0) > self._DEBATE_STATES_TTL
+                k
+                for k, state in self.debate_states.items()
+                if state.get("ended")
+                and now - self._debate_states_last_access.get(k, 0) > self._DEBATE_STATES_TTL
             ]
             for k in stale:
                 self.debate_states.pop(k, None)
@@ -362,9 +364,7 @@ def start_cleanup_task(
     """
     global _cleanup_task
     if _cleanup_task is None or _cleanup_task.done():
-        _cleanup_task = asyncio.create_task(
-            periodic_state_cleanup(manager, interval_seconds)
-        )
+        _cleanup_task = asyncio.create_task(periodic_state_cleanup(manager, interval_seconds))
         logger.debug(f"Started periodic state cleanup task (interval={interval_seconds}s)")
     return _cleanup_task
 

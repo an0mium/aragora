@@ -46,8 +46,13 @@ class YouTubeAuthError(YouTubeError, ConnectorAuthError):
 class YouTubeQuotaError(YouTubeError, ConnectorQuotaError):
     """API quota exceeded."""
 
-    def __init__(self, message: str = "YouTube API quota exceeded", remaining: int = 0, reset_hours: int = 24):
-        super().__init__(f"{message}. Remaining: {remaining} units. Resets in ~{reset_hours}h", quota_reset=reset_hours * 3600)
+    def __init__(
+        self, message: str = "YouTube API quota exceeded", remaining: int = 0, reset_hours: int = 24
+    ):
+        super().__init__(
+            f"{message}. Remaining: {remaining} units. Resets in ~{reset_hours}h",
+            quota_reset=reset_hours * 3600,
+        )
         self.remaining = remaining
         self.reset_hours = reset_hours
 
@@ -64,7 +69,9 @@ class YouTubeUploadError(YouTubeError):
 class YouTubeAPIError(YouTubeError, ConnectorAPIError):
     """General API error."""
 
-    def __init__(self, message: str = "YouTube API request failed", status_code: Optional[int] = None):
+    def __init__(
+        self, message: str = "YouTube API request failed", status_code: Optional[int] = None
+    ):
         full_message = f"{message} (HTTP {status_code})" if status_code else message
         # Pass status_code to parent - ConnectorAPIError determines retryability
         super().__init__(full_message, status_code=status_code)
@@ -235,7 +242,9 @@ class YouTubeUploaderConnector:
                 missing.append("YOUTUBE_CLIENT_SECRET")
             if not self.refresh_token:
                 missing.append("YOUTUBE_REFRESH_TOKEN")
-            logger.warning(f"YouTube credentials incomplete. Missing: {', '.join(missing)}. Uploads will fail.")
+            logger.warning(
+                f"YouTube credentials incomplete. Missing: {', '.join(missing)}. Uploads will fail."
+            )
 
     @property
     def is_configured(self) -> bool:
@@ -579,9 +588,7 @@ class YouTubeUploaderConnector:
                         return items[0]
                     raise YouTubeAPIError(f"Video not found: {video_id}")
                 else:
-                    raise YouTubeAPIError(
-                        f"API request failed", status_code=response.status_code
-                    )
+                    raise YouTubeAPIError(f"API request failed", status_code=response.status_code)
 
         except (YouTubeAuthError, YouTubeAPIError):
             raise

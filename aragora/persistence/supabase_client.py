@@ -13,6 +13,7 @@ import logging
 
 try:
     from supabase import create_client, Client
+
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False
@@ -131,12 +132,14 @@ class SupabaseClient:
             return None
 
         try:
-            result = self.client.table("nomic_cycles")\
-                .select("*")\
-                .eq("loop_id", loop_id)\
-                .eq("cycle_number", cycle_number)\
-                .single()\
+            result = (
+                self.client.table("nomic_cycles")
+                .select("*")
+                .eq("loop_id", loop_id)
+                .eq("cycle_number", cycle_number)
+                .single()
                 .execute()
+            )
 
             if result.data:
                 return self._dict_to_cycle(result.data)
@@ -157,11 +160,13 @@ class SupabaseClient:
 
         start = time.monotonic()
         try:
-            query = self.client.table("nomic_cycles")\
-                .select("*")\
-                .order("started_at", desc=True)\
-                .limit(limit)\
+            query = (
+                self.client.table("nomic_cycles")
+                .select("*")
+                .order("started_at", desc=True)
+                .limit(limit)
                 .offset(offset)
+            )
 
             if loop_id:
                 query = query.eq("loop_id", loop_id)
@@ -184,7 +189,11 @@ class SupabaseClient:
             started_at = datetime.now()
 
         try:
-            completed_at = datetime.fromisoformat(data["completed_at"].replace("Z", "+00:00")) if data.get("completed_at") else None
+            completed_at = (
+                datetime.fromisoformat(data["completed_at"].replace("Z", "+00:00"))
+                if data.get("completed_at")
+                else None
+            )
         except (ValueError, TypeError):
             completed_at = None
 
@@ -230,11 +239,13 @@ class SupabaseClient:
             return None
 
         try:
-            result = self.client.table("debate_artifacts")\
-                .select("*")\
-                .eq("id", debate_id)\
-                .single()\
+            result = (
+                self.client.table("debate_artifacts")
+                .select("*")
+                .eq("id", debate_id)
+                .single()
                 .execute()
+            )
 
             if result.data:
                 return self._dict_to_debate(result.data)
@@ -255,10 +266,12 @@ class SupabaseClient:
 
         start = time.monotonic()
         try:
-            query = self.client.table("debate_artifacts")\
-                .select("*")\
-                .order("created_at", desc=True)\
+            query = (
+                self.client.table("debate_artifacts")
+                .select("*")
+                .order("created_at", desc=True)
                 .limit(limit)
+            )
 
             if loop_id:
                 query = query.eq("loop_id", loop_id)
@@ -337,11 +350,13 @@ class SupabaseClient:
             return []
 
         try:
-            query = self.client.table("stream_events")\
-                .select("*")\
-                .eq("loop_id", loop_id)\
-                .order("timestamp", desc=False)\
+            query = (
+                self.client.table("stream_events")
+                .select("*")
+                .eq("loop_id", loop_id)
+                .order("timestamp", desc=False)
                 .limit(limit)
+            )
 
             if cycle is not None:
                 query = query.eq("cycle", cycle)
@@ -398,12 +413,14 @@ class SupabaseClient:
             return []
 
         try:
-            result = self.client.table("agent_metrics")\
-                .select("*")\
-                .eq("agent_name", agent_name)\
-                .order("timestamp", desc=True)\
-                .limit(limit)\
+            result = (
+                self.client.table("agent_metrics")
+                .select("*")
+                .eq("agent_name", agent_name)
+                .order("timestamp", desc=True)
+                .limit(limit)
                 .execute()
+            )
 
             return [self._dict_to_metrics(d) for d in result.data]
         except Exception as e:
@@ -489,7 +506,8 @@ class SupabaseClient:
             total_debates = len(debates)
             consensus_rate = (
                 sum(1 for d in debates if d.consensus_reached) / total_debates
-                if total_debates > 0 else 0
+                if total_debates > 0
+                else 0
             )
 
             return {

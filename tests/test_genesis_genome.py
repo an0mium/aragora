@@ -30,9 +30,7 @@ class TestGenomeIdGeneration:
     def test_generates_12_char_hex_id(self):
         """ID should be 12 character hex string."""
         genome_id = generate_genome_id(
-            traits={"analytical": 0.8},
-            expertise={"security": 0.9},
-            parents=[]
+            traits={"analytical": 0.8}, expertise={"security": 0.9}, parents=[]
         )
         assert len(genome_id) == 12
         assert all(c in "0123456789abcdef" for c in genome_id)
@@ -152,11 +150,7 @@ class TestAgentGenome:
         genome = AgentGenome(genome_id="test", name="test")
 
         # Win with accepted critique and correct prediction
-        genome.update_fitness(
-            consensus_win=True,
-            critique_accepted=True,
-            prediction_correct=True
-        )
+        genome.update_fitness(consensus_win=True, critique_accepted=True, prediction_correct=True)
 
         assert genome.debates_participated == 1
         assert genome.consensus_contributions == 1
@@ -170,9 +164,7 @@ class TestAgentGenome:
         genome = AgentGenome(genome_id="test", name="test")
 
         genome.update_fitness(
-            consensus_win=False,
-            critique_accepted=False,
-            prediction_correct=False
+            consensus_win=False, critique_accepted=False, prediction_correct=False
         )
 
         assert genome.debates_participated == 1
@@ -351,7 +343,7 @@ class TestGenomeStore:
             store = GenomeStore(db_path=str(db_path))
 
             genomes = [
-                AgentGenome(genome_id=f"g{i}", name=f"agent-{i}", fitness_score=i/10)
+                AgentGenome(genome_id=f"g{i}", name=f"agent-{i}", fitness_score=i / 10)
                 for i in range(5)
             ]
 

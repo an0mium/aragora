@@ -79,17 +79,18 @@ class TestOpenRouterGenerate:
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.headers = {}
-        mock_response.json = AsyncMock(return_value={
-            "choices": [{"message": {"content": "Hello from OpenRouter!"}}]
-        })
+        mock_response.json = AsyncMock(
+            return_value={"choices": [{"message": {"content": "Hello from OpenRouter!"}}]}
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.generate("Test prompt")
@@ -107,10 +108,11 @@ class TestOpenRouterGenerate:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             try:
@@ -139,18 +141,19 @@ class TestOpenRouterGenerate:
                 mock_resp = MagicMock()
                 mock_resp.status = 200
                 mock_resp.headers = {}
-                mock_resp.json = AsyncMock(return_value={
-                    "choices": [{"message": {"content": "Success after retry"}}]
-                })
+                mock_resp.json = AsyncMock(
+                    return_value={"choices": [{"message": {"content": "Success after retry"}}]}
+                )
                 return mock_resp
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(side_effect=lambda *args, **kwargs: MagicMock(
-            __aenter__=AsyncMock(return_value=create_response()),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            side_effect=lambda *args, **kwargs: MagicMock(
+                __aenter__=AsyncMock(return_value=create_response()), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             with patch("asyncio.sleep", new_callable=AsyncMock):  # Speed up test
@@ -167,9 +170,9 @@ class TestOpenRouterGenerate:
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.headers = {}
-        mock_response.json = AsyncMock(return_value={
-            "choices": [{"message": {"content": "Response"}}]
-        })
+        mock_response.json = AsyncMock(
+            return_value={"choices": [{"message": {"content": "Response"}}]}
+        )
 
         captured_payload = None
 
@@ -177,8 +180,7 @@ class TestOpenRouterGenerate:
             nonlocal captured_payload
             captured_payload = kwargs.get("json", {})
             return MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response),
-                __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
             )
 
         mock_session = MagicMock()
@@ -216,7 +218,7 @@ class TestOpenRouterStreaming:
         # Mock SSE response (OpenAI-compatible format)
         sse_data = b'data: {"choices": [{"delta": {"content": "Hello"}}]}\n\n'
         sse_data += b'data: {"choices": [{"delta": {"content": " OpenRouter"}}]}\n\n'
-        sse_data += b'data: [DONE]\n\n'
+        sse_data += b"data: [DONE]\n\n"
 
         async def mock_iter():
             yield sse_data
@@ -232,14 +234,18 @@ class TestOpenRouterStreaming:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         chunks = []
         with patch("aiohttp.ClientSession", return_value=mock_session):
-            with patch("aragora.agents.api_agents.common.iter_chunks_with_timeout", return_value=mock_iter()):
+            with patch(
+                "aragora.agents.api_agents.common.iter_chunks_with_timeout",
+                return_value=mock_iter(),
+            ):
                 async for chunk in agent.generate_stream("Test prompt"):
                     chunks.append(chunk)
 
@@ -256,10 +262,11 @@ class TestOpenRouterStreaming:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             # Error may raise or return error message depending on decorator
@@ -383,9 +390,9 @@ class TestOpenRouterHeaders:
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.headers = {}
-        mock_response.json = AsyncMock(return_value={
-            "choices": [{"message": {"content": "Response"}}]
-        })
+        mock_response.json = AsyncMock(
+            return_value={"choices": [{"message": {"content": "Response"}}]}
+        )
 
         captured_headers = None
 
@@ -393,8 +400,7 @@ class TestOpenRouterHeaders:
             nonlocal captured_headers
             captured_headers = kwargs.get("headers", {})
             return MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response),
-                __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
             )
 
         mock_session = MagicMock()
@@ -426,24 +432,28 @@ class TestOpenRouterRateLimiter:
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.headers = {}
-        mock_response.json = AsyncMock(return_value={
-            "choices": [{"message": {"content": "Response"}}]
-        })
+        mock_response.json = AsyncMock(
+            return_value={"choices": [{"message": {"content": "Response"}}]}
+        )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         mock_limiter = MagicMock()
         mock_limiter.acquire = AsyncMock(return_value=True)
         mock_limiter.update_from_headers = MagicMock()
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
-            with patch("aragora.agents.api_agents.openrouter.get_openrouter_limiter", return_value=mock_limiter):
+            with patch(
+                "aragora.agents.api_agents.openrouter.get_openrouter_limiter",
+                return_value=mock_limiter,
+            ):
                 await agent.generate("Test")
 
         mock_limiter.acquire.assert_called_once()

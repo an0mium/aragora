@@ -194,9 +194,7 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
                     message.encode("utf-8"),
                     hashlib.sha256,
                 ).digest()
-                signature_valid = hmac.compare_digest(
-                    expected_signature_prev, actual_signature
-                )
+                signature_valid = hmac.compare_digest(expected_signature_prev, actual_signature)
                 if signature_valid:
                     logger.debug("jwt_decode: validated with previous secret (rotation)")
 
@@ -373,6 +371,7 @@ def validate_access_token(
         logger.debug("jwt_validate_failed: token revoked (persistent)")
         # Add to in-memory cache for faster subsequent checks
         import hashlib
+
         token_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
         blacklist.revoke(token_jti, payload.exp)
         return None
@@ -382,7 +381,7 @@ def validate_access_token(
         try:
             user = user_store.get_user_by_id(payload.user_id)
             if user is not None:
-                user_token_version = getattr(user, 'token_version', 1)
+                user_token_version = getattr(user, "token_version", 1)
                 if payload.tv < user_token_version:
                     logger.debug(
                         f"jwt_validate_failed: token version mismatch "
@@ -441,6 +440,7 @@ def validate_refresh_token(
     if use_persistent_blacklist and is_token_revoked_persistent(token):
         logger.debug("jwt_validate_failed: refresh token revoked (persistent)")
         import hashlib
+
         token_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
         blacklist.revoke(token_jti, payload.exp)
         return None
@@ -450,7 +450,7 @@ def validate_refresh_token(
         try:
             user = user_store.get_user_by_id(payload.user_id)
             if user is not None:
-                user_token_version = getattr(user, 'token_version', 1)
+                user_token_version = getattr(user, "token_version", 1)
                 if payload.tv < user_token_version:
                     logger.debug(
                         f"jwt_validate_failed: refresh token version mismatch "

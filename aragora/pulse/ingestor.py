@@ -111,7 +111,7 @@ class PulseIngestor(ABC):
                 return result
             except Exception as e:
                 last_error = e
-                delay = self.base_retry_delay * (2 ** attempt)
+                delay = self.base_retry_delay * (2**attempt)
                 logger.warning(
                     f"Attempt {attempt + 1}/{self.max_retries} failed: {e}. "
                     f"Retrying in {delay:.1f}s"
@@ -132,7 +132,9 @@ class PulseIngestor(ABC):
         """Fetch trending topics from the platform."""
         raise NotImplementedError("Subclasses must implement fetch_trending method")
 
-    def _filter_content(self, topics: List[TrendingTopic], filters: Dict[str, Any]) -> List[TrendingTopic]:
+    def _filter_content(
+        self, topics: List[TrendingTopic], filters: Dict[str, Any]
+    ) -> List[TrendingTopic]:
         """Apply content filters to remove harmful/inappropriate content."""
         filtered = []
 
@@ -165,16 +167,30 @@ class PulseIngestor(ABC):
 
         # High severity - immediate reject
         high_severity = [
-            "kill", "murder", "attack", "bomb", "terrorist",
-            "hate crime", "genocide", "ethnic cleansing",
+            "kill",
+            "murder",
+            "attack",
+            "bomb",
+            "terrorist",
+            "hate crime",
+            "genocide",
+            "ethnic cleansing",
         ]
         if any(term in text_lower for term in high_severity):
             return True
 
         # Medium severity - context-dependent
         medium_severity = [
-            "hate", "violence", "racist", "sexist", "homophobic",
-            "slur", "harass", "threat", "abuse", "bully",
+            "hate",
+            "violence",
+            "racist",
+            "sexist",
+            "homophobic",
+            "slur",
+            "harass",
+            "threat",
+            "abuse",
+            "bully",
         ]
         medium_count = sum(1 for term in medium_severity if term in text_lower)
         if medium_count >= 2:
@@ -229,15 +245,14 @@ class TwitterIngestor(PulseIngestor):
                         topic=trend["name"],
                         volume=trend.get("tweet_volume") or 0,
                         category=self._categorize_topic(trend["name"]),
-                        raw_data=trend
+                        raw_data=trend,
                     )
                     topics.append(topic)
 
                 return topics
 
         return await self._retry_with_backoff(
-            _fetch,
-            fallback_fn=lambda: self._mock_trending_data(limit)
+            _fetch, fallback_fn=lambda: self._mock_trending_data(limit)
         )
 
     def _categorize_topic(self, topic: str) -> str:
@@ -305,15 +320,14 @@ class HackerNewsIngestor(PulseIngestor):
                             "author": story.get("author"),
                             "num_comments": story.get("num_comments", 0),
                             "objectID": story.get("objectID"),
-                        }
+                        },
                     )
                     topics.append(topic)
 
                 return topics
 
         return await self._retry_with_backoff(
-            _fetch,
-            fallback_fn=lambda: self._mock_trending_data(limit)
+            _fetch, fallback_fn=lambda: self._mock_trending_data(limit)
         )
 
     def _categorize_topic(self, title: str) -> str:
@@ -333,10 +347,14 @@ class HackerNewsIngestor(PulseIngestor):
         """Mock HN data for development/testing."""
         mock_topics = [
             TrendingTopic("hackernews", "Show HN: I built an AI debate platform", 342, "ai"),
-            TrendingTopic("hackernews", "Why Rust is the future of systems programming", 256, "programming"),
+            TrendingTopic(
+                "hackernews", "Why Rust is the future of systems programming", 256, "programming"
+            ),
             TrendingTopic("hackernews", "The hidden costs of technical debt", 189, "tech"),
             TrendingTopic("hackernews", "OpenAI announces GPT-5 preview", 521, "ai"),
-            TrendingTopic("hackernews", "Startup raises $50M for quantum computing", 134, "business"),
+            TrendingTopic(
+                "hackernews", "Startup raises $50M for quantum computing", 134, "business"
+            ),
         ]
         return mock_topics[:limit]
 
@@ -389,7 +407,7 @@ class RedditIngestor(PulseIngestor):
                                     "author": post_data.get("author"),
                                     "num_comments": post_data.get("num_comments", 0),
                                     "permalink": post_data.get("permalink"),
-                                }
+                                },
                             )
                             all_topics.append(topic)
                     except Exception as e:
@@ -399,8 +417,7 @@ class RedditIngestor(PulseIngestor):
                 return all_topics[:limit]
 
         return await self._retry_with_backoff(
-            _fetch,
-            fallback_fn=lambda: self._mock_trending_data(limit)
+            _fetch, fallback_fn=lambda: self._mock_trending_data(limit)
         )
 
     def _categorize_subreddit(self, subreddit: str) -> str:
@@ -420,7 +437,9 @@ class RedditIngestor(PulseIngestor):
     def _mock_trending_data(self, limit: int) -> List[TrendingTopic]:
         """Mock Reddit data for development/testing."""
         mock_topics = [
-            TrendingTopic("reddit", "Scientists discover high-temperature superconductor", 15420, "science"),
+            TrendingTopic(
+                "reddit", "Scientists discover high-temperature superconductor", 15420, "science"
+            ),
             TrendingTopic("reddit", "New programming language gains traction", 8934, "programming"),
             TrendingTopic("reddit", "EU passes sweeping AI regulation", 12567, "news"),
             TrendingTopic("reddit", "Major tech company announces layoffs", 9823, "tech"),
@@ -470,6 +489,7 @@ class GitHubTrendingIngestor(PulseIngestor):
 
                 # Search for repositories created in the last 7 days, sorted by stars
                 from datetime import datetime, timedelta
+
                 week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
 
                 url = f"{self.base_url}/search/repositories"
@@ -491,7 +511,7 @@ class GitHubTrendingIngestor(PulseIngestor):
                         raise ExternalServiceError(
                             service="GitHub API",
                             reason=f"Rate limit exceeded. Reset at: {reset_time}",
-                            status_code=403
+                            status_code=403,
                         )
 
                 response.raise_for_status()
@@ -517,7 +537,7 @@ class GitHubTrendingIngestor(PulseIngestor):
                             "description": repo.get("description"),
                             "created_at": repo.get("created_at"),
                             "topics": repo.get("topics", []),
-                        }
+                        },
                     )
                     topics.append(topic)
 
@@ -525,8 +545,7 @@ class GitHubTrendingIngestor(PulseIngestor):
                 return topics
 
         return await self._retry_with_backoff(
-            _fetch,
-            fallback_fn=lambda: self._mock_trending_data(limit)
+            _fetch, fallback_fn=lambda: self._mock_trending_data(limit)
         )
 
     def _categorize_repo(self, repo: Dict[str, Any]) -> str:
@@ -537,7 +556,9 @@ class GitHubTrendingIngestor(PulseIngestor):
 
         # Check topics first (most specific)
         ai_keywords = ["machine-learning", "deep-learning", "ai", "llm", "gpt", "neural-network"]
-        if any(t in topics for t in ai_keywords) or any(k in description for k in ["ai", "llm", "machine learning"]):
+        if any(t in topics for t in ai_keywords) or any(
+            k in description for k in ["ai", "llm", "machine learning"]
+        ):
             return "ai"
 
         web_keywords = ["react", "vue", "angular", "frontend", "web", "nextjs"]
@@ -575,35 +596,35 @@ class GitHubTrendingIngestor(PulseIngestor):
                 "anthropics/claude-code: Official Anthropic CLI for Claude",
                 8500,
                 "ai",
-                raw_data={"full_name": "anthropics/claude-code", "language": "TypeScript"}
+                raw_data={"full_name": "anthropics/claude-code", "language": "TypeScript"},
             ),
             TrendingTopic(
                 "github",
                 "rust-lang/cargo: The Rust package manager",
                 5200,
                 "systems",
-                raw_data={"full_name": "rust-lang/cargo", "language": "Rust"}
+                raw_data={"full_name": "rust-lang/cargo", "language": "Rust"},
             ),
             TrendingTopic(
                 "github",
                 "vercel/ai: Build AI-powered applications with React",
                 4100,
                 "ai",
-                raw_data={"full_name": "vercel/ai", "language": "TypeScript"}
+                raw_data={"full_name": "vercel/ai", "language": "TypeScript"},
             ),
             TrendingTopic(
                 "github",
                 "kubernetes/kubernetes: Production-Grade Container Scheduling",
                 3800,
                 "devops",
-                raw_data={"full_name": "kubernetes/kubernetes", "language": "Go"}
+                raw_data={"full_name": "kubernetes/kubernetes", "language": "Go"},
             ),
             TrendingTopic(
                 "github",
                 "fastapi/fastapi: FastAPI framework for building APIs with Python",
                 3200,
                 "web",
-                raw_data={"full_name": "fastapi/fastapi", "language": "Python"}
+                raw_data={"full_name": "fastapi/fastapi", "language": "Python"},
             ),
         ]
         return mock_topics[:limit]
@@ -626,7 +647,7 @@ class PulseManager:
         self,
         platforms: List[str] = None,
         limit_per_platform: int = 5,
-        filters: Dict[str, Any] = None
+        filters: Dict[str, Any] = None,
     ) -> List[TrendingTopic]:
         """Get trending topics from specified platforms."""
         if platforms is None:
@@ -651,7 +672,9 @@ class PulseManager:
 
         # Apply global filters
         if filters and platforms:
-            all_topics = self.ingestors.get(platforms[0], TwitterIngestor())._filter_content(all_topics, filters)
+            all_topics = self.ingestors.get(platforms[0], TwitterIngestor())._filter_content(
+                all_topics, filters
+            )
 
         # Sort by volume and return top topics
         all_topics.sort(key=lambda t: t.volume, reverse=True)
@@ -716,7 +739,7 @@ class PulseManager:
 
         # Trim to max size (rolling window)
         if len(self._outcomes) > self._max_outcomes:
-            self._outcomes = self._outcomes[-self._max_outcomes:]
+            self._outcomes = self._outcomes[-self._max_outcomes :]
 
         logger.info(
             f"[pulse] Recorded debate outcome: {platform}/{topic[:50]}... "
@@ -767,8 +790,12 @@ class PulseManager:
 
         # Calculate platform stats
         for platform, stats in by_platform.items():
-            stats["consensus_rate"] = stats["consensus_count"] / stats["total"] if stats["total"] > 0 else 0.0
-            stats["avg_confidence"] = stats["confidence_sum"] / stats["total"] if stats["total"] > 0 else 0.0
+            stats["consensus_rate"] = (
+                stats["consensus_count"] / stats["total"] if stats["total"] > 0 else 0.0
+            )
+            stats["avg_confidence"] = (
+                stats["confidence_sum"] / stats["total"] if stats["total"] > 0 else 0.0
+            )
             del stats["confidence_sum"]
 
         # Group by category
@@ -788,8 +815,12 @@ class PulseManager:
 
         # Calculate category stats
         for cat, stats in by_category.items():
-            stats["consensus_rate"] = stats["consensus_count"] / stats["total"] if stats["total"] > 0 else 0.0
-            stats["avg_confidence"] = stats["confidence_sum"] / stats["total"] if stats["total"] > 0 else 0.0
+            stats["consensus_rate"] = (
+                stats["consensus_count"] / stats["total"] if stats["total"] > 0 else 0.0
+            )
+            stats["avg_confidence"] = (
+                stats["confidence_sum"] / stats["total"] if stats["total"] > 0 else 0.0
+            )
             del stats["confidence_sum"]
 
         # Recent outcomes (last 10)

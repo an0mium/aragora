@@ -22,12 +22,14 @@ create_arena_hooks = None
 
 try:
     from aragora.debate.orchestrator import Arena as ArenaClass
+
     Arena = ArenaClass
 except ImportError:
     pass
 
 try:
     from aragora.server.stream.arena_hooks import create_arena_hooks as _create_hooks
+
     create_arena_hooks = _create_hooks
 except ImportError:
     pass
@@ -41,6 +43,7 @@ class ArenaConfig:
     Different phases may need different configurations (e.g., design phase
     may skip memory recording, tournament may skip calibration).
     """
+
     phase_name: str = "debate"
     use_airlock: bool = True
     include_memory: bool = True
@@ -57,6 +60,7 @@ class ArenaFactoryDependencies:
     All dependencies are optional - the factory gracefully handles
     missing dependencies by passing None to Arena.
     """
+
     # Streaming
     stream_emitter: Optional[Any] = None
     loop_id: str = ""
@@ -148,20 +152,24 @@ class ArenaFactory:
 
         # Add memory systems if enabled
         if config.include_memory:
-            kwargs.update({
-                "memory": self.deps.critique_store,
-                "debate_embeddings": self.deps.debate_embeddings,
-                "insight_store": self.deps.insight_store,
-                "continuum_memory": self.deps.continuum_memory,
-            })
+            kwargs.update(
+                {
+                    "memory": self.deps.critique_store,
+                    "debate_embeddings": self.deps.debate_embeddings,
+                    "insight_store": self.deps.insight_store,
+                    "continuum_memory": self.deps.continuum_memory,
+                }
+            )
 
         # Add tracking systems if enabled
         if config.include_tracking:
-            kwargs.update({
-                "position_tracker": self.deps.position_tracker,
-                "position_ledger": self.deps.position_ledger,
-                "elo_system": self.deps.elo_system,
-            })
+            kwargs.update(
+                {
+                    "position_tracker": self.deps.position_tracker,
+                    "position_ledger": self.deps.position_ledger,
+                    "elo_system": self.deps.elo_system,
+                }
+            )
 
         # Add calibration if enabled
         if config.include_calibration:
@@ -169,11 +177,13 @@ class ArenaFactory:
 
         # Add relationship tracking if enabled
         if config.include_relationships:
-            kwargs.update({
-                "persona_manager": self.deps.persona_manager,
-                "relationship_tracker": self.deps.relationship_tracker,
-                "moment_detector": self.deps.moment_detector,
-            })
+            kwargs.update(
+                {
+                    "persona_manager": self.deps.persona_manager,
+                    "relationship_tracker": self.deps.relationship_tracker,
+                    "moment_detector": self.deps.moment_detector,
+                }
+            )
 
         # Add agent weights if provided
         if agent_weights:
@@ -206,6 +216,7 @@ class ArenaFactory:
         def make_combined_hook(log_fn: Callable, stream_hook_name: str) -> Callable:
             """Combine logging and streaming for a hook."""
             stream_fn = stream_hooks.get(stream_hook_name)
+
             def combined(*args, **kwargs):
                 log_fn(*args, **kwargs)
                 if stream_fn:
@@ -213,38 +224,43 @@ class ArenaFactory:
                         stream_fn(*args, **kwargs)
                     except Exception:
                         pass  # Don't let streaming errors break the loop
+
             return combined
 
         return {
             "on_debate_start": make_combined_hook(
-                lambda task, agents: self._log(f"    [{phase_name}] Debate started: {len(agents)} agents"),
-                "on_debate_start"
+                lambda task, agents: self._log(
+                    f"    [{phase_name}] Debate started: {len(agents)} agents"
+                ),
+                "on_debate_start",
             ),
             "on_message": make_combined_hook(
                 lambda agent, content, role, round_num: self._log(
                     f"    [{phase_name}][{role}] {agent} (round {round_num}): {content}"
                 ),
-                "on_message"
+                "on_message",
             ),
             "on_critique": make_combined_hook(
                 lambda agent, target, issues, severity, round_num, full_content=None: self._log(
                     f"    [{phase_name}][critique] {agent} -> {target}: {len(issues)} issues, severity {severity:.1f}"
                 ),
-                "on_critique"
+                "on_critique",
             ),
             "on_round_start": make_combined_hook(
                 lambda round_num: self._log(f"    [{phase_name}] --- Round {round_num} ---"),
-                "on_round_start"
+                "on_round_start",
             ),
             "on_consensus": make_combined_hook(
-                lambda result: self._log(f"    [{phase_name}] Consensus reached: {result.consensus_reached}"),
-                "on_consensus"
+                lambda result: self._log(
+                    f"    [{phase_name}] Consensus reached: {result.consensus_reached}"
+                ),
+                "on_consensus",
             ),
             "on_vote": make_combined_hook(
                 lambda agent, choice, reasoning: self._log(
                     f"    [{phase_name}][vote] {agent} -> {choice}"
                 ),
-                "on_vote"
+                "on_vote",
             ),
         }
 

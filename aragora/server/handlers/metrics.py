@@ -85,12 +85,8 @@ def get_verification_stats() -> dict:
     # Calculate derived metrics
     total = stats["total_claims_processed"]
     if total > 0:
-        stats["avg_verification_time_ms"] = round(
-            stats["total_verification_time_ms"] / total, 2
-        )
-        stats["z3_success_rate"] = round(
-            stats["z3_verified"] / total, 4
-        )
+        stats["avg_verification_time_ms"] = round(stats["total_verification_time_ms"] / total, 2)
+        stats["z3_success_rate"] = round(stats["z3_verified"] / total, 4)
     else:
         stats["avg_verification_time_ms"] = 0.0
         stats["z3_success_rate"] = 0.0
@@ -204,11 +200,7 @@ class MetricsHandler(BaseHandler):
             error_rate = total_errors / total_requests if total_requests > 0 else 0.0
 
             # Top endpoints by request count
-            top_endpoints = sorted(
-                counts_snapshot,
-                key=lambda x: x[1],
-                reverse=True
-            )[:10]
+            top_endpoints = sorted(counts_snapshot, key=lambda x: x[1], reverse=True)[:10]
 
             # Database sizes
             db_stats = self._get_database_sizes()
@@ -224,8 +216,7 @@ class MetricsHandler(BaseHandler):
                     "errors": total_errors,
                     "error_rate": round(error_rate, 4),
                     "top_endpoints": [
-                        {"endpoint": ep, "count": count}
-                        for ep, count in top_endpoints
+                        {"endpoint": ep, "count": count} for ep, count in top_endpoints
                     ],
                 },
                 "cache": {
@@ -364,6 +355,7 @@ class MetricsHandler(BaseHandler):
             # Memory usage (if psutil available)
             try:
                 import psutil
+
                 process = psutil.Process()
                 info["memory"] = {
                     "rss_mb": round(process.memory_info().rss / 1024 / 1024, 2),
@@ -381,16 +373,19 @@ class MetricsHandler(BaseHandler):
         """Get background task statistics."""
         try:
             from aragora.server.background import get_background_manager
+
             manager = get_background_manager()
             stats = manager.get_stats()
             return json_response(stats)
         except ImportError:
-            return json_response({
-                "running": False,
-                "task_count": 0,
-                "tasks": {},
-                "message": "Background task manager not available",
-            })
+            return json_response(
+                {
+                    "running": False,
+                    "task_count": 0,
+                    "tasks": {},
+                    "message": "Background task manager not available",
+                }
+            )
         except (RuntimeError, AttributeError) as e:
             logger.error("Failed to get background stats: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get background stats"), 500)
@@ -443,7 +438,7 @@ class MetricsHandler(BaseHandler):
     def _format_size(self, size_bytes: int) -> str:
         """Format size as human-readable string."""
         size_float = float(size_bytes)
-        for unit in ['B', 'KB', 'MB', 'GB']:
+        for unit in ["B", "KB", "MB", "GB"]:
             if size_float < 1024:
                 return f"{size_float:.1f} {unit}"
             size_float /= 1024

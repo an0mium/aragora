@@ -33,9 +33,9 @@ def _get_callable_name(func: Callable) -> str:
     Handles functions, methods, lambdas, partials, and other callables
     that may not have __name__.
     """
-    if hasattr(func, '__name__'):
+    if hasattr(func, "__name__"):
         return func.__name__
-    if hasattr(func, '__class__'):
+    if hasattr(func, "__class__"):
         return func.__class__.__name__
     return repr(func)
 
@@ -114,7 +114,9 @@ def _emit_telemetry(telemetry: AgentTelemetry) -> None:
         try:
             collector(telemetry)
         except Exception as e:
-            logger.warning(f"telemetry_collector_error collector={_get_callable_name(collector)} error={e}")
+            logger.warning(
+                f"telemetry_collector_error collector={_get_callable_name(collector)} error={e}"
+            )
 
 
 def _default_prometheus_collector(telemetry: AgentTelemetry) -> None:

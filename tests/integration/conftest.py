@@ -81,9 +81,7 @@ class MockAgent(Agent):
         self._call_count += 1
         return response
 
-    async def critique(
-        self, proposal: str, task: str, context: list | None = None
-    ) -> Critique:
+    async def critique(self, proposal: str, task: str, context: list | None = None) -> Critique:
         if self._delay > 0:
             await asyncio.sleep(self._delay)
         if self._critiques:

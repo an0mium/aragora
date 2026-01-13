@@ -71,6 +71,7 @@ class TestConsensusCleanup:
 
         # Check archive tables exist
         from aragora.storage.schema import get_wal_connection
+
         with get_wal_connection(memory.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(

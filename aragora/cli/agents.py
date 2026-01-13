@@ -198,9 +198,9 @@ def print_usage_hints() -> None:
     """Print usage examples."""
     print("\n" + "=" * 60)
     print("Usage:")
-    print("  aragora ask \"Your question\" --demo")
-    print("  aragora ask \"Your question\" --agents anthropic-api,openai-api")
-    print("  aragora ask \"Your question\" --agents ollama,anthropic-api")
+    print('  aragora ask "Your question" --demo')
+    print('  aragora ask "Your question" --agents anthropic-api,openai-api')
+    print('  aragora ask "Your question" --agents ollama,anthropic-api')
     print("\nTo configure API keys:")
     print("  export ANTHROPIC_API_KEY='your-key'")
     print("  export OPENAI_API_KEY='your-key'")

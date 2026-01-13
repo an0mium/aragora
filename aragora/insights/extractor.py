@@ -19,13 +19,14 @@ import re
 
 class InsightType(Enum):
     """Types of insights that can be extracted."""
-    CONSENSUS = "consensus"           # The final decision and how it was reached
-    DISSENT = "dissent"               # Minority views and their reasoning
-    PATTERN = "pattern"               # Recurring argument patterns
-    CONVERGENCE = "convergence"       # How views converged/diverged over time
+
+    CONSENSUS = "consensus"  # The final decision and how it was reached
+    DISSENT = "dissent"  # Minority views and their reasoning
+    PATTERN = "pattern"  # Recurring argument patterns
+    CONVERGENCE = "convergence"  # How views converged/diverged over time
     AGENT_PERFORMANCE = "agent_perf"  # Individual agent contributions
-    FAILURE_MODE = "failure_mode"     # Why consensus wasn't reached
-    DECISION_PROCESS = "decision"     # How the final decision was made
+    FAILURE_MODE = "failure_mode"  # Why consensus wasn't reached
+    DECISION_PROCESS = "decision"  # How the final decision was made
 
 
 @dataclass
@@ -65,6 +66,7 @@ class Insight:
 @dataclass
 class AgentPerformance:
     """Performance metrics for a single agent in a debate."""
+
     agent_name: str
     proposals_made: int = 0
     critiques_given: int = 0
@@ -151,14 +153,14 @@ class InsightExtractor:
         Returns:
             DebateInsights containing all extracted insights
         """
-        debate_id = getattr(result, 'id', hashlib.sha256(str(result).encode()).hexdigest()[:16])
-        task = getattr(result, 'task', 'Unknown task')
+        debate_id = getattr(result, "id", hashlib.sha256(str(result).encode()).hexdigest()[:16])
+        task = getattr(result, "task", "Unknown task")
 
         insights = DebateInsights(
             debate_id=debate_id,
             task=task[:200] if task else "",
-            consensus_reached=getattr(result, 'consensus_reached', False),
-            duration_seconds=getattr(result, 'duration_seconds', 0),
+            consensus_reached=getattr(result, "consensus_reached", False),
+            duration_seconds=getattr(result, "duration_seconds", 0),
         )
 
         # Extract each type of insight
@@ -183,12 +185,12 @@ class InsightExtractor:
 
     def _extract_consensus_insight(self, result, debate_id: str) -> Optional[Insight]:
         """Extract the consensus decision insight."""
-        if not getattr(result, 'consensus_reached', False):
+        if not getattr(result, "consensus_reached", False):
             return None
 
-        final_answer = getattr(result, 'final_answer', '')
-        confidence = getattr(result, 'confidence', 0.5)
-        strength = getattr(result, 'consensus_strength', 'unknown')
+        final_answer = getattr(result, "final_answer", "")
+        confidence = getattr(result, "confidence", 0.5)
+        strength = getattr(result, "consensus_strength", "unknown")
 
         # Summarize the decision
         summary = final_answer[:500] if final_answer else "No answer recorded"
@@ -198,7 +200,7 @@ class InsightExtractor:
             type=InsightType.CONSENSUS,
             title=f"Consensus Reached ({strength})",
             description=f"The debate reached consensus with {confidence:.0%} confidence. "
-                        f"Decision: {summary}...",
+            f"Decision: {summary}...",
             confidence=confidence,
             debate_id=debate_id,
             agents_involved=self._get_agent_names(result),
@@ -206,18 +208,18 @@ class InsightExtractor:
             metadata={
                 "consensus_strength": strength,
                 "confidence": confidence,
-                "rounds_used": getattr(result, 'rounds_used', 0),
+                "rounds_used": getattr(result, "rounds_used", 0),
             },
         )
 
     def _extract_dissent_insights(self, result, debate_id: str) -> list[Insight]:
         """Extract insights from dissenting views."""
-        dissenting_views = getattr(result, 'dissenting_views', [])
+        dissenting_views = getattr(result, "dissenting_views", [])
         insights = []
 
         for i, view in enumerate(dissenting_views):
             # Parse agent name from view format: "[agent]: content"
-            agent_match = re.match(r'\[([^\]]+)\]:\s*(.+)', view, re.DOTALL)
+            agent_match = re.match(r"\[([^\]]+)\]:\s*(.+)", view, re.DOTALL)
             if agent_match:
                 agent_name = agent_match.group(1)
                 content = agent_match.group(2)
@@ -225,74 +227,80 @@ class InsightExtractor:
                 agent_name = f"agent_{i}"
                 content = view
 
-            insights.append(Insight(
-                id=f"{debate_id}_dissent_{i}",
-                type=InsightType.DISSENT,
-                title=f"Dissent from {agent_name}",
-                description=f"Alternative view: {content[:300]}...",
-                confidence=0.6,  # Lower confidence for dissenting views
-                debate_id=debate_id,
-                agents_involved=[agent_name],
-                evidence=[content[:200]],
-                metadata={"dissent_index": i},
-            ))
+            insights.append(
+                Insight(
+                    id=f"{debate_id}_dissent_{i}",
+                    type=InsightType.DISSENT,
+                    title=f"Dissent from {agent_name}",
+                    description=f"Alternative view: {content[:300]}...",
+                    confidence=0.6,  # Lower confidence for dissenting views
+                    debate_id=debate_id,
+                    agents_involved=[agent_name],
+                    evidence=[content[:200]],
+                    metadata={"dissent_index": i},
+                )
+            )
 
         return insights
 
     def _extract_pattern_insights(self, result, debate_id: str) -> list[Insight]:
         """Extract recurring patterns from critiques."""
-        critiques = getattr(result, 'critiques', [])
+        critiques = getattr(result, "critiques", [])
         insights = []
 
         # Group critiques by issue category
         category_counts: dict[str, list[dict]] = {cat: [] for cat in self.ISSUE_CATEGORIES}
 
         for critique in critiques:
-            issues = getattr(critique, 'issues', [])
+            issues = getattr(critique, "issues", [])
             for issue in issues:
                 category = self._categorize_issue(issue)
                 if category:
-                    category_counts[category].append({
-                        'issue': issue,
-                        'severity': getattr(critique, 'severity', 0.5),
-                        'agent': getattr(critique, 'agent', 'unknown'),
-                    })
+                    category_counts[category].append(
+                        {
+                            "issue": issue,
+                            "severity": getattr(critique, "severity", 0.5),
+                            "agent": getattr(critique, "agent", "unknown"),
+                        }
+                    )
 
         # Create insight for significant patterns (2+ occurrences)
         for category, occurrences in category_counts.items():
             if len(occurrences) >= 2:
-                avg_severity = sum(o['severity'] for o in occurrences) / len(occurrences)
-                agents = list(set(o['agent'] for o in occurrences))
+                avg_severity = sum(o["severity"] for o in occurrences) / len(occurrences)
+                agents = list(set(o["agent"] for o in occurrences))
 
-                insights.append(Insight(
-                    id=f"{debate_id}_pattern_{category}",
-                    type=InsightType.PATTERN,
-                    title=f"Recurring {category.title()} Issues",
-                    description=f"Multiple agents raised {category} concerns "
-                                f"(avg severity: {avg_severity:.1f}). "
-                                f"Issues: {', '.join(o['issue'][:50] for o in occurrences[:3])}",
-                    confidence=min(0.9, 0.5 + len(occurrences) * 0.1),
-                    debate_id=debate_id,
-                    agents_involved=agents,
-                    evidence=[o['issue'] for o in occurrences[:5]],
-                    metadata={
-                        "category": category,
-                        "occurrence_count": len(occurrences),
-                        "avg_severity": avg_severity,
-                    },
-                ))
+                insights.append(
+                    Insight(
+                        id=f"{debate_id}_pattern_{category}",
+                        type=InsightType.PATTERN,
+                        title=f"Recurring {category.title()} Issues",
+                        description=f"Multiple agents raised {category} concerns "
+                        f"(avg severity: {avg_severity:.1f}). "
+                        f"Issues: {', '.join(o['issue'][:50] for o in occurrences[:3])}",
+                        confidence=min(0.9, 0.5 + len(occurrences) * 0.1),
+                        debate_id=debate_id,
+                        agents_involved=agents,
+                        evidence=[o["issue"] for o in occurrences[:5]],
+                        metadata={
+                            "category": category,
+                            "occurrence_count": len(occurrences),
+                            "avg_severity": avg_severity,
+                        },
+                    )
+                )
 
         return insights
 
     def _extract_convergence_insight(self, result, debate_id: str) -> Optional[Insight]:
         """Extract insight about how views converged or diverged."""
-        messages = getattr(result, 'messages', [])
+        messages = getattr(result, "messages", [])
         if len(messages) < 3:
             return None
 
         # Analyze message length trends (proxy for convergence)
-        early_lengths = [len(str(m)) for m in messages[:len(messages)//2]]
-        late_lengths = [len(str(m)) for m in messages[len(messages)//2:]]
+        early_lengths = [len(str(m)) for m in messages[: len(messages) // 2]]
+        late_lengths = [len(str(m)) for m in messages[len(messages) // 2 :]]
 
         avg_early = sum(early_lengths) / len(early_lengths) if early_lengths else 0
         avg_late = sum(late_lengths) / len(late_lengths) if late_lengths else 0
@@ -310,7 +318,7 @@ class InsightExtractor:
             convergence_type = "stable"
             description = "Response patterns remained stable throughout the debate."
 
-        variance = getattr(result, 'consensus_variance', 0)
+        variance = getattr(result, "consensus_variance", 0)
 
         return Insight(
             id=f"{debate_id}_convergence",
@@ -330,11 +338,11 @@ class InsightExtractor:
 
     def _extract_decision_insight(self, result, debate_id: str) -> Optional[Insight]:
         """Extract insight about how the decision was made."""
-        votes = getattr(result, 'votes', [])
+        votes = getattr(result, "votes", [])
         consensus_mode = "unknown"
 
         # Try to detect consensus mode from result
-        if hasattr(result, 'consensus_strength'):
+        if hasattr(result, "consensus_strength"):
             strength = result.consensus_strength
             if strength == "unanimous":
                 consensus_mode = "unanimous"
@@ -347,7 +355,7 @@ class InsightExtractor:
         if votes:
             vote_choices: dict[str, int] = {}
             for v in votes:
-                choice = getattr(v, 'choice', 'unknown')
+                choice = getattr(v, "choice", "unknown")
                 vote_choices[choice] = vote_choices.get(choice, 0) + 1
             vote_summary = ", ".join(f"{c}: {n}" for c, n in vote_choices.items())
 
@@ -356,39 +364,39 @@ class InsightExtractor:
             type=InsightType.DECISION_PROCESS,
             title=f"Decision via {consensus_mode.title()}",
             description=f"Final decision reached through {consensus_mode} mechanism. "
-                        f"Votes: {vote_summary or 'N/A'}. "
-                        f"Rounds used: {getattr(result, 'rounds_used', 'unknown')}.",
+            f"Votes: {vote_summary or 'N/A'}. "
+            f"Rounds used: {getattr(result, 'rounds_used', 'unknown')}.",
             confidence=0.9,
             debate_id=debate_id,
             agents_involved=self._get_agent_names(result),
             metadata={
                 "consensus_mode": consensus_mode,
                 "vote_count": len(votes),
-                "rounds_used": getattr(result, 'rounds_used', 0),
+                "rounds_used": getattr(result, "rounds_used", 0),
             },
         )
 
     def _extract_failure_mode(self, result, debate_id: str) -> Optional[Insight]:
         """Extract insight about why consensus wasn't reached."""
-        votes = getattr(result, 'votes', [])
-        critiques = getattr(result, 'critiques', [])
+        votes = getattr(result, "votes", [])
+        critiques = getattr(result, "critiques", [])
 
         # Analyze failure reasons
         failure_reasons = []
 
         # Check for vote fragmentation
         if votes:
-            unique_choices = set(getattr(v, 'choice', '') for v in votes)
+            unique_choices = set(getattr(v, "choice", "") for v in votes)
             if len(unique_choices) > 2:
                 failure_reasons.append("vote fragmentation (many different choices)")
 
         # Check for high-severity critiques
-        high_severity = [c for c in critiques if getattr(c, 'severity', 0) > 0.7]
+        high_severity = [c for c in critiques if getattr(c, "severity", 0) > 0.7]
         if len(high_severity) > len(critiques) / 2:
             failure_reasons.append("persistent high-severity issues")
 
         # Check for unresolved dissent
-        dissenting = getattr(result, 'dissenting_views', [])
+        dissenting = getattr(result, "dissenting_views", [])
         if len(dissenting) >= 2:
             failure_reasons.append(f"{len(dissenting)} unresolved dissenting views")
 
@@ -399,7 +407,7 @@ class InsightExtractor:
             type=InsightType.FAILURE_MODE,
             title="Consensus Not Reached",
             description=f"The debate failed to reach consensus due to: {reason_str}. "
-                        f"Final confidence: {getattr(result, 'confidence', 0):.0%}.",
+            f"Final confidence: {getattr(result, 'confidence', 0):.0%}.",
             confidence=0.8,
             debate_id=debate_id,
             agents_involved=self._get_agent_names(result),
@@ -414,22 +422,26 @@ class InsightExtractor:
     def _extract_agent_performances(self, result) -> list[AgentPerformance]:
         """Extract performance metrics for each agent."""
         performances = {}
-        final_answer = getattr(result, 'final_answer', '')
+        final_answer = getattr(result, "final_answer", "")
 
         # Count proposals (from messages)
-        messages = getattr(result, 'messages', [])
+        messages = getattr(result, "messages", [])
         for msg in messages:
-            agent = getattr(msg, 'agent', None) or msg.get('agent', 'unknown') if isinstance(msg, dict) else 'unknown'
+            agent = (
+                getattr(msg, "agent", None) or msg.get("agent", "unknown")
+                if isinstance(msg, dict)
+                else "unknown"
+            )
             if agent not in performances:
                 performances[agent] = AgentPerformance(agent_name=agent)
             performances[agent].proposals_made += 1
 
         # Count critiques
-        critiques = getattr(result, 'critiques', [])
+        critiques = getattr(result, "critiques", [])
         for critique in critiques:
-            agent = getattr(critique, 'agent', 'unknown')
-            target = getattr(critique, 'target_agent', 'unknown')
-            severity = getattr(critique, 'severity', 0.5)
+            agent = getattr(critique, "agent", "unknown")
+            target = getattr(critique, "target_agent", "unknown")
+            severity = getattr(critique, "severity", 0.5)
 
             if agent not in performances:
                 performances[agent] = AgentPerformance(agent_name=agent)
@@ -441,26 +453,26 @@ class InsightExtractor:
                 perf = performances[target]
                 n = perf.critiques_received
                 perf.average_critique_severity = (
-                    (perf.average_critique_severity * (n - 1) + severity) / n
-                )
+                    perf.average_critique_severity * (n - 1) + severity
+                ) / n
 
         # Check vote alignment
-        votes = getattr(result, 'votes', [])
+        votes = getattr(result, "votes", [])
         winning_choice = None
         if votes and final_answer:
             # Try to identify winning choice
             vote_counts: dict[str, int] = {}
             for v in votes:
-                choice = getattr(v, 'choice', '')
+                choice = getattr(v, "choice", "")
                 vote_counts[choice] = vote_counts.get(choice, 0) + 1
             if vote_counts:
                 winning_choice = max(vote_counts, key=lambda x: vote_counts.get(x, 0))
 
         for v in votes:
-            agent = getattr(v, 'agent', 'unknown')
-            choice = getattr(v, 'choice', '')
+            agent = getattr(v, "agent", "unknown")
+            choice = getattr(v, "choice", "")
             if agent in performances:
-                performances[agent].vote_aligned_with_consensus = (choice == winning_choice)
+                performances[agent].vote_aligned_with_consensus = choice == winning_choice
 
         # Check if proposal was accepted (agent name in final answer)
         for agent, perf in performances.items():
@@ -486,18 +498,20 @@ class InsightExtractor:
         """Extract all agent names from a result."""
         agents = set()
 
-        for msg in getattr(result, 'messages', []):
-            agent = getattr(msg, 'agent', None) or msg.get('agent') if isinstance(msg, dict) else None
+        for msg in getattr(result, "messages", []):
+            agent = (
+                getattr(msg, "agent", None) or msg.get("agent") if isinstance(msg, dict) else None
+            )
             if agent:
                 agents.add(agent)
 
-        for critique in getattr(result, 'critiques', []):
-            agent = getattr(critique, 'agent', None)
+        for critique in getattr(result, "critiques", []):
+            agent = getattr(critique, "agent", None)
             if agent:
                 agents.add(agent)
 
-        for vote in getattr(result, 'votes', []):
-            agent = getattr(vote, 'agent', None)
+        for vote in getattr(result, "votes", []):
+            agent = getattr(vote, "agent", None)
             if agent:
                 agents.add(agent)
 
@@ -516,11 +530,15 @@ class InsightExtractor:
     def _generate_key_takeaway(self, insights: DebateInsights) -> str:
         """Generate a one-line key takeaway from the insights."""
         if insights.consensus_reached:
-            strength = insights.consensus_insight.metadata.get('consensus_strength', 'unknown') if insights.consensus_insight else 'unknown'
+            strength = (
+                insights.consensus_insight.metadata.get("consensus_strength", "unknown")
+                if insights.consensus_insight
+                else "unknown"
+            )
             return f"Reached {strength} consensus after {insights.duration_seconds:.0f}s"
         else:
             if insights.failure_mode_insight:
-                reasons = insights.failure_mode_insight.metadata.get('failure_reasons', [])
+                reasons = insights.failure_mode_insight.metadata.get("failure_reasons", [])
                 if reasons:
                     return f"No consensus: {reasons[0]}"
             return "Failed to reach consensus"

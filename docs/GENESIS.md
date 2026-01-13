@@ -28,7 +28,7 @@ genome = AgentGenome(
         "collaboration": 0.75
     },
     expertise=["distributed_systems", "databases", "api_design"],
-    base_model="claude-3-opus",
+    base_model="claude-opus-4-5-20251101",
     prompt_template="You are a systems architecture specialist...",
     fitness_score=0.82
 )
@@ -86,7 +86,7 @@ orchestrator = FractalOrchestrator(
 
 result = await orchestrator.run(
     task="Design a distributed cache with strong consistency",
-    agents=[claude, gemini, grok, codex]
+    agents=["anthropic-api", "gemini", "grok", "codex"]
 )
 
 # Access the debate tree
@@ -146,7 +146,7 @@ List all genomes with pagination.
   "genomes": [
     {
       "genome_id": "claude-systems-v3",
-      "base_model": "claude-3-opus",
+      "base_model": "claude-opus-4-5-20251101",
       "fitness_score": 0.92,
       "traits": {"reasoning_depth": 0.95, ...},
       "expertise": ["distributed_systems", "consensus"],

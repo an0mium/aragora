@@ -413,7 +413,9 @@ def trace_debate(debate_id: str) -> Callable[[F], F]:
 
 
 @contextmanager
-def trace_debate_phase(phase_name: str, debate_id: str, round_num: Optional[int] = None) -> Iterator[Any]:
+def trace_debate_phase(
+    phase_name: str, debate_id: str, round_num: Optional[int] = None
+) -> Iterator[Any]:
     """Context manager for tracing a debate phase.
 
     Args:

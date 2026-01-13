@@ -29,7 +29,7 @@ from typing import Any, Callable, Optional
 from enum import Enum
 
 # Git-safe ID pattern: alphanumeric, dash, underscore only (no path traversal or special chars)
-SAFE_CHECKPOINT_ID = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$')
+SAFE_CHECKPOINT_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$")
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,7 @@ from aragora.exceptions import ConfigurationError
 
 class CheckpointStatus(Enum):
     """Status of a checkpoint."""
+
     CREATING = "creating"
     COMPLETE = "complete"
     RESUMING = "resuming"
@@ -49,6 +50,7 @@ class CheckpointStatus(Enum):
 @dataclass
 class AgentState:
     """Serialized state of an agent at checkpoint time."""
+
     agent_name: str
     agent_model: str
     agent_role: str
@@ -65,6 +67,7 @@ class DebateCheckpoint:
     Captures everything needed to continue a debate from
     exactly where it left off.
     """
+
     checkpoint_id: str
     debate_id: str
     task: str
@@ -202,6 +205,7 @@ class DebateCheckpoint:
 @dataclass
 class ResumedDebate:
     """Context for a debate resumed from checkpoint."""
+
     checkpoint: DebateCheckpoint
     original_debate_id: str
     resumed_at: str
@@ -261,7 +265,7 @@ class FileCheckpointStore(CheckpointStore):
         # Remove any path separators and parent directory references
         sanitized = checkpoint_id.replace("/", "_").replace("\\", "_").replace("..", "_")
         # Only allow alphanumeric characters, hyphens, and underscores
-        sanitized = re.sub(r'[^a-zA-Z0-9_-]', '_', sanitized)
+        sanitized = re.sub(r"[^a-zA-Z0-9_-]", "_", sanitized)
         if not sanitized:
             raise ValueError("Invalid checkpoint ID")
         return sanitized
@@ -324,15 +328,24 @@ class FileCheckpointStore(CheckpointStore):
             try:
                 cp = await self.load(path.stem.replace(".json", ""))
                 if cp and (debate_id is None or cp.debate_id == debate_id):
-                    checkpoints.append({
-                        "checkpoint_id": cp.checkpoint_id,
-                        "debate_id": cp.debate_id,
-                        "task": cp.task[:100],
-                        "current_round": cp.current_round,
-                        "created_at": cp.created_at,
-                        "status": cp.status.value,
-                    })
-            except (json.JSONDecodeError, gzip.BadGzipFile, KeyError, ValueError, TypeError, OSError) as e:
+                    checkpoints.append(
+                        {
+                            "checkpoint_id": cp.checkpoint_id,
+                            "debate_id": cp.debate_id,
+                            "task": cp.task[:100],
+                            "current_round": cp.current_round,
+                            "created_at": cp.created_at,
+                            "status": cp.status.value,
+                        }
+                    )
+            except (
+                json.JSONDecodeError,
+                gzip.BadGzipFile,
+                KeyError,
+                ValueError,
+                TypeError,
+                OSError,
+            ) as e:
                 logger.debug(f"Skipping invalid checkpoint file {path}: {e}")
                 continue
 
@@ -364,11 +377,12 @@ class S3CheckpointStore(CheckpointStore):
         if self._client is None:
             try:
                 import boto3
+
                 self._client = boto3.client("s3", region_name=self.region)
             except ImportError:
                 raise ConfigurationError(
                     component="S3CheckpointStore",
-                    reason="boto3 required but not installed. Run: pip install boto3"
+                    reason="boto3 required but not installed. Run: pip install boto3",
                 )
         return self._client
 
@@ -377,6 +391,7 @@ class S3CheckpointStore(CheckpointStore):
 
     async def save(self, checkpoint: DebateCheckpoint) -> str:
         import io
+
         client = self._get_client()
         key = self._get_key(checkpoint.checkpoint_id)
 
@@ -431,14 +446,16 @@ class S3CheckpointStore(CheckpointStore):
                 checkpoint_id = obj["Key"].replace(self.prefix, "").replace(".json.gz", "")
                 cp = await self.load(checkpoint_id)
                 if cp and (debate_id is None or cp.debate_id == debate_id):
-                    checkpoints.append({
-                        "checkpoint_id": cp.checkpoint_id,
-                        "debate_id": cp.debate_id,
-                        "task": cp.task[:100],
-                        "current_round": cp.current_round,
-                        "created_at": cp.created_at,
-                        "status": cp.status.value,
-                    })
+                    checkpoints.append(
+                        {
+                            "checkpoint_id": cp.checkpoint_id,
+                            "debate_id": cp.debate_id,
+                            "task": cp.task[:100],
+                            "current_round": cp.current_round,
+                            "created_at": cp.created_at,
+                            "status": cp.status.value,
+                        }
+                    )
 
                 if len(checkpoints) >= limit:
                     break
@@ -479,7 +496,8 @@ class GitCheckpointStore(CheckpointStore):
         """
         try:
             proc = await asyncio.create_subprocess_exec(
-                "git", *args,
+                "git",
+                *args,
                 cwd=self.repo_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -531,10 +549,14 @@ class GitCheckpointStore(CheckpointStore):
 
         # Try loading from git branch
         branch_name = f"{self.branch_prefix}{checkpoint_id}"
-        success, _ = await self._run_git(["show", f"{branch_name}:.checkpoints/{checkpoint_id}.json"])
+        success, _ = await self._run_git(
+            ["show", f"{branch_name}:.checkpoints/{checkpoint_id}.json"]
+        )
 
         if success:
-            success, content = await self._run_git(["show", f"{branch_name}:.checkpoints/{checkpoint_id}.json"])
+            success, content = await self._run_git(
+                ["show", f"{branch_name}:.checkpoints/{checkpoint_id}.json"]
+            )
             if success:
                 data = json.loads(content)
                 return DebateCheckpoint.from_dict(data)
@@ -556,14 +578,16 @@ class GitCheckpointStore(CheckpointStore):
                     checkpoint_id = branch.replace(self.branch_prefix, "")
                     cp = await self.load(checkpoint_id)
                     if cp and (debate_id is None or cp.debate_id == debate_id):
-                        checkpoints.append({
-                            "checkpoint_id": cp.checkpoint_id,
-                            "debate_id": cp.debate_id,
-                            "task": cp.task[:100],
-                            "current_round": cp.current_round,
-                            "created_at": cp.created_at,
-                            "status": cp.status.value,
-                        })
+                        checkpoints.append(
+                            {
+                                "checkpoint_id": cp.checkpoint_id,
+                                "debate_id": cp.debate_id,
+                                "task": cp.task[:100],
+                                "current_round": cp.current_round,
+                                "created_at": cp.created_at,
+                                "status": cp.status.value,
+                            }
+                        )
 
         return checkpoints[:limit]
 
@@ -587,10 +611,41 @@ class DatabaseCheckpointStore(CheckpointStore):
     - Efficient queries (indexed by debate_id, created_at)
     - Built-in expiry with DELETE queries
     - Concurrent read access
-    - Connection pooling for better performance (Phase 10F)
+    - Connection pooling via SQLiteStore
 
     For distributed deployments, use PostgreSQL with a connection pool
     by passing a PostgreSQL connection string.
+
+    Uses SQLiteStore internally for standardized schema management.
+    """
+
+    SCHEMA_NAME = "checkpoints"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS checkpoints (
+            checkpoint_id TEXT PRIMARY KEY,
+            debate_id TEXT NOT NULL,
+            task TEXT NOT NULL,
+            current_round INTEGER NOT NULL,
+            total_rounds INTEGER NOT NULL,
+            phase TEXT NOT NULL,
+            status TEXT NOT NULL,
+            data BLOB NOT NULL,
+            checksum TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT,
+            compressed INTEGER DEFAULT 1
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_checkpoints_debate_id
+        ON checkpoints(debate_id);
+
+        CREATE INDEX IF NOT EXISTS idx_checkpoints_created_at
+        ON checkpoints(created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_checkpoints_expires_at
+        ON checkpoints(expires_at);
     """
 
     def __init__(
@@ -600,118 +655,39 @@ class DatabaseCheckpointStore(CheckpointStore):
         pool_size: int = 5,
     ):
         """
-        Initialize database checkpoint store with connection pooling.
+        Initialize database checkpoint store.
 
         Args:
             db_path: Path to SQLite database file
             compress: Whether to gzip checkpoint data before storing
-            pool_size: Maximum number of connections to keep in pool (default 5)
+            pool_size: Maximum number of connections (for backward compatibility)
         """
-        import sqlite3
-        import threading
+        from aragora.storage.base_store import SQLiteStore
 
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        # Create SQLiteStore-based database wrapper
+        class _CheckpointDB(SQLiteStore):
+            SCHEMA_NAME = DatabaseCheckpointStore.SCHEMA_NAME
+            SCHEMA_VERSION = DatabaseCheckpointStore.SCHEMA_VERSION
+            INITIAL_SCHEMA = DatabaseCheckpointStore.INITIAL_SCHEMA
+
+        self._db = _CheckpointDB(db_path, timeout=30.0)
         self.compress = compress
-        self._pool_size = pool_size
-        self._pool: list = []
-        self._pool_lock = threading.Lock()
-        self._init_db()
-
-    def _init_db(self) -> None:
-        """Initialize database schema."""
-        import sqlite3
-
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS checkpoints (
-                    checkpoint_id TEXT PRIMARY KEY,
-                    debate_id TEXT NOT NULL,
-                    task TEXT NOT NULL,
-                    current_round INTEGER NOT NULL,
-                    total_rounds INTEGER NOT NULL,
-                    phase TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    data BLOB NOT NULL,
-                    checksum TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    expires_at TEXT,
-                    compressed INTEGER DEFAULT 1
-                )
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_checkpoints_debate_id
-                ON checkpoints(debate_id)
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_checkpoints_created_at
-                ON checkpoints(created_at DESC)
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_checkpoints_expires_at
-                ON checkpoints(expires_at)
-            """)
-            conn.commit()
-
-    def _create_connection(self):
-        """Create a new database connection."""
-        import sqlite3
-        conn = sqlite3.connect(self.db_path, timeout=30.0, check_same_thread=False)
-        # Enable WAL mode for better concurrency
-        conn.execute("PRAGMA journal_mode=WAL")
-        return conn
-
-    def _get_connection(self):
-        """Get a database connection from pool or create new one.
-
-        Connection pooling (Phase 10F) improves performance by reusing
-        connections instead of creating new ones for each operation.
-        """
-        with self._pool_lock:
-            if self._pool:
-                return self._pool.pop()
-        return self._create_connection()
-
-    def _return_connection(self, conn) -> None:
-        """Return a connection to the pool.
-
-        If pool is full, close the connection instead.
-        """
-        with self._pool_lock:
-            if len(self._pool) < self._pool_size:
-                self._pool.append(conn)
-            else:
-                conn.close()
-
-    def close_pool(self) -> None:
-        """Close all pooled connections.
-
-        Call this when shutting down to release resources cleanly.
-        """
-        with self._pool_lock:
-            while self._pool:
-                conn = self._pool.pop()
-                try:
-                    conn.close()
-                except Exception as e:
-                    logger.debug(f"Error closing pooled connection: {e}")
+        self._pool_size = pool_size  # Kept for API compatibility
 
     def get_pool_stats(self) -> dict:
         """Get connection pool statistics.
 
         Returns:
-            Dict with pool_size, available_connections, max_pool_size
+            Dict with pool stats and db_path
         """
-        with self._pool_lock:
-            available = len(self._pool)
         return {
-            "available_connections": available,
+            "available_connections": "managed_by_sqlitestore",
             "max_pool_size": self._pool_size,
-            "db_path": str(self.db_path),
+            "db_path": str(self._db.db_path),
         }
 
     async def save(self, checkpoint: DebateCheckpoint) -> str:
-        """Save checkpoint to database using pooled connection."""
+        """Save checkpoint to database."""
         data = json.dumps(checkpoint.to_dict())
 
         if self.compress:
@@ -721,44 +697,43 @@ class DatabaseCheckpointStore(CheckpointStore):
             data_bytes = data.encode("utf-8")
             compressed = 0
 
-        conn = self._get_connection()
-        try:
-            conn.execute("""
+        with self._db.connection() as conn:
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO checkpoints (
                     checkpoint_id, debate_id, task, current_round, total_rounds,
                     phase, status, data, checksum, created_at, expires_at, compressed
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                checkpoint.checkpoint_id,
-                checkpoint.debate_id,
-                checkpoint.task[:500],  # Truncate for index efficiency
-                checkpoint.current_round,
-                checkpoint.total_rounds,
-                checkpoint.phase,
-                checkpoint.status.value,
-                data_bytes,
-                checkpoint.checksum,
-                checkpoint.created_at,
-                checkpoint.expires_at,
-                compressed,
-            ))
-            conn.commit()
-        finally:
-            self._return_connection(conn)
+            """,
+                (
+                    checkpoint.checkpoint_id,
+                    checkpoint.debate_id,
+                    checkpoint.task[:500],  # Truncate for index efficiency
+                    checkpoint.current_round,
+                    checkpoint.total_rounds,
+                    checkpoint.phase,
+                    checkpoint.status.value,
+                    data_bytes,
+                    checkpoint.checksum,
+                    checkpoint.created_at,
+                    checkpoint.expires_at,
+                    compressed,
+                ),
+            )
 
         return f"db:{checkpoint.checkpoint_id}"
 
     async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
-        """Load checkpoint from database using pooled connection."""
-        conn = self._get_connection()
-        try:
-            cursor = conn.execute("""
+        """Load checkpoint from database."""
+        with self._db.connection() as conn:
+            cursor = conn.execute(
+                """
                 SELECT data, compressed FROM checkpoints
                 WHERE checkpoint_id = ?
-            """, (checkpoint_id,))
+            """,
+                (checkpoint_id,),
+            )
             row = cursor.fetchone()
-        finally:
-            self._return_connection(conn)
 
         if not row:
             return None
@@ -785,89 +760,91 @@ class DatabaseCheckpointStore(CheckpointStore):
         debate_id: Optional[str] = None,
         limit: int = 100,
     ) -> list[dict]:
-        """List available checkpoints using pooled connection."""
-        conn = self._get_connection()
-        try:
+        """List available checkpoints."""
+        with self._db.connection() as conn:
             if debate_id:
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT checkpoint_id, debate_id, task, current_round,
                            created_at, status
                     FROM checkpoints
                     WHERE debate_id = ?
                     ORDER BY created_at DESC
                     LIMIT ?
-                """, (debate_id, limit))
+                """,
+                    (debate_id, limit),
+                )
             else:
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT checkpoint_id, debate_id, task, current_round,
                            created_at, status
                     FROM checkpoints
                     ORDER BY created_at DESC
                     LIMIT ?
-                """, (limit,))
+                """,
+                    (limit,),
+                )
 
             checkpoints = []
             for row in cursor.fetchall():
-                checkpoints.append({
-                    "checkpoint_id": row[0],
-                    "debate_id": row[1],
-                    "task": row[2][:100],
-                    "current_round": row[3],
-                    "created_at": row[4],
-                    "status": row[5],
-                })
-        finally:
-            self._return_connection(conn)
+                checkpoints.append(
+                    {
+                        "checkpoint_id": row[0],
+                        "debate_id": row[1],
+                        "task": row[2][:100],
+                        "current_round": row[3],
+                        "created_at": row[4],
+                        "status": row[5],
+                    }
+                )
 
         return checkpoints
 
     async def delete(self, checkpoint_id: str) -> bool:
-        """Delete a checkpoint from database using pooled connection."""
-        conn = self._get_connection()
-        try:
-            cursor = conn.execute("""
+        """Delete a checkpoint from database."""
+        with self._db.connection() as conn:
+            cursor = conn.execute(
+                """
                 DELETE FROM checkpoints WHERE checkpoint_id = ?
-            """, (checkpoint_id,))
-            conn.commit()
+            """,
+                (checkpoint_id,),
+            )
             return cursor.rowcount > 0
-        finally:
-            self._return_connection(conn)
 
     async def cleanup_expired(self) -> int:
-        """Delete expired checkpoints using pooled connection. Returns count deleted."""
+        """Delete expired checkpoints. Returns count deleted."""
         now = datetime.now().isoformat()
-        conn = self._get_connection()
-        try:
-            cursor = conn.execute("""
+        with self._db.connection() as conn:
+            cursor = conn.execute(
+                """
                 DELETE FROM checkpoints
                 WHERE expires_at IS NOT NULL AND expires_at < ?
-            """, (now,))
-            conn.commit()
+            """,
+                (now,),
+            )
             return cursor.rowcount
-        finally:
-            self._return_connection(conn)
 
     async def get_stats(self) -> dict:
-        """Get checkpoint store statistics including pool stats."""
-        conn = self._get_connection()
-        try:
-            cursor = conn.execute("""
+        """Get checkpoint store statistics."""
+        with self._db.connection() as conn:
+            cursor = conn.execute(
+                """
                 SELECT
                     COUNT(*) as total,
                     COUNT(DISTINCT debate_id) as debates,
                     SUM(LENGTH(data)) as total_bytes
                 FROM checkpoints
-            """)
+            """
+            )
             row = cursor.fetchone()
-        finally:
-            self._return_connection(conn)
 
         pool_stats = self.get_pool_stats()
         return {
             "total_checkpoints": row[0],
             "unique_debates": row[1],
             "total_bytes": row[2] or 0,
-            "db_path": str(self.db_path),
+            "db_path": str(self._db.db_path),
             "pool": pool_stats,
         }
 
@@ -875,6 +852,7 @@ class DatabaseCheckpointStore(CheckpointStore):
 @dataclass
 class CheckpointConfig:
     """Configuration for checkpointing behavior."""
+
     interval_rounds: int = 1  # Checkpoint every N rounds
     interval_seconds: float = 300.0  # Or every N seconds
     max_checkpoints: int = 10  # Keep at most N checkpoints per debate
@@ -944,7 +922,11 @@ class CheckpointManager:
                 "role": m.role,
                 "agent": m.agent,
                 "content": m.content,
-                "timestamp": m.timestamp.isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp),
+                "timestamp": (
+                    m.timestamp.isoformat()
+                    if hasattr(m.timestamp, "isoformat")
+                    else str(m.timestamp)
+                ),
                 "round": m.round,
             }
             for m in messages
@@ -991,9 +973,7 @@ class CheckpointManager:
         # Calculate expiry
         expiry = None
         if self.config.expiry_hours > 0:
-            expiry = (
-                datetime.now() + timedelta(hours=self.config.expiry_hours)
-            ).isoformat()
+            expiry = (datetime.now() + timedelta(hours=self.config.expiry_hours)).isoformat()
 
         checkpoint = DebateCheckpoint(
             checkpoint_id=checkpoint_id,
@@ -1046,7 +1026,11 @@ class CheckpointManager:
                 role=m["role"],
                 agent=m["agent"],
                 content=m["content"],
-                timestamp=datetime.fromisoformat(m["timestamp"]) if isinstance(m["timestamp"], str) else m["timestamp"],
+                timestamp=(
+                    datetime.fromisoformat(m["timestamp"])
+                    if isinstance(m["timestamp"], str)
+                    else m["timestamp"]
+                ),
                 round=m["round"],
             )
             for m in checkpoint.messages
@@ -1130,7 +1114,7 @@ class CheckpointManager:
         checkpoints.sort(key=lambda x: x["created_at"], reverse=True)
 
         # Delete extras
-        for cp in checkpoints[self.config.max_checkpoints:]:
+        for cp in checkpoints[self.config.max_checkpoints :]:
             await self.store.delete(cp["checkpoint_id"])
 
 

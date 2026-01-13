@@ -78,12 +78,16 @@ class TestDebateCreationExportChain:
         assert result.status in ["completed", "consensus_reached"]
 
         # Export to JSON format
-        export_data = result.to_dict() if hasattr(result, "to_dict") else {
-            "task": result.task,
-            "status": result.status,
-            "rounds_completed": result.rounds_completed,
-            "final_answer": result.final_answer,
-        }
+        export_data = (
+            result.to_dict()
+            if hasattr(result, "to_dict")
+            else {
+                "task": result.task,
+                "status": result.status,
+                "rounds_completed": result.rounds_completed,
+                "final_answer": result.final_answer,
+            }
+        )
 
         # Verify export structure
         assert "task" in export_data
@@ -96,9 +100,7 @@ class TestDebateCreationExportChain:
         assert parsed["task"] == simple_environment.task
 
     @pytest.mark.asyncio
-    async def test_debate_result_contains_all_messages(
-        self, mock_agents, simple_environment
-    ):
+    async def test_debate_result_contains_all_messages(self, mock_agents, simple_environment):
         """Verify debate result includes full message history."""
         protocol = DebateProtocol(rounds=2, consensus="majority")
         arena = Arena(simple_environment, mock_agents, protocol)
@@ -141,9 +143,7 @@ class TestDebateStoragePersistence:
         assert result.status in ["completed", "consensus_reached"]
 
     @pytest.mark.asyncio
-    async def test_multiple_debates_isolated(
-        self, mock_agents, temp_db_path
-    ):
+    async def test_multiple_debates_isolated(self, mock_agents, temp_db_path):
         """Multiple debates should not interfere with each other."""
         protocol = DebateProtocol(rounds=1, consensus="majority")
 
@@ -190,9 +190,7 @@ class TestConsensusMemoryLeaderboardChain:
         assert result is not None
 
     @pytest.mark.asyncio
-    async def test_elo_updated_after_debate(
-        self, mock_agents, simple_environment
-    ):
+    async def test_elo_updated_after_debate(self, mock_agents, simple_environment):
         """ELO system should be updated after debate completion."""
         from aragora.ranking.elo import EloSystem
 
@@ -206,8 +204,7 @@ class TestConsensusMemoryLeaderboardChain:
 
             # Get initial ratings
             initial_ratings = {
-                agent.name: elo_system.get_rating(agent.name)
-                for agent in mock_agents
+                agent.name: elo_system.get_rating(agent.name) for agent in mock_agents
             }
 
             # Run debate
@@ -222,16 +219,10 @@ class TestConsensusMemoryLeaderboardChain:
                 elo_system.record_match(winner, loser, draw=False)
 
             # Verify ratings changed
-            final_ratings = {
-                agent.name: elo_system.get_rating(agent.name)
-                for agent in mock_agents
-            }
+            final_ratings = {agent.name: elo_system.get_rating(agent.name) for agent in mock_agents}
 
             # At least one rating should have changed
-            assert any(
-                initial_ratings[name] != final_ratings[name]
-                for name in initial_ratings
-            )
+            assert any(initial_ratings[name] != final_ratings[name] for name in initial_ratings)
 
 
 # =============================================================================
@@ -292,9 +283,7 @@ class TestErrorRecoveryChain:
     """Test error recovery across the system."""
 
     @pytest.mark.asyncio
-    async def test_debate_continues_with_failing_agent(
-        self, simple_environment
-    ):
+    async def test_debate_continues_with_failing_agent(self, simple_environment):
         """Debate should continue if one agent fails."""
         from .conftest import FailingAgent
 
@@ -343,10 +332,7 @@ class TestConcurrentDebates:
     @pytest.mark.asyncio
     async def test_concurrent_debates_isolated(self, mock_agents):
         """Multiple concurrent debates should not interfere."""
-        environments = [
-            Environment(task=f"Task {i}", context=f"Context {i}")
-            for i in range(3)
-        ]
+        environments = [Environment(task=f"Task {i}", context=f"Context {i}") for i in range(3)]
 
         protocol = DebateProtocol(rounds=1, consensus="majority")
 
@@ -355,9 +341,7 @@ class TestConcurrentDebates:
             return await run_debate_to_completion(arena)
 
         # Run all debates concurrently
-        results = await asyncio.gather(
-            *[run_single_debate(env) for env in environments]
-        )
+        results = await asyncio.gather(*[run_single_debate(env) for env in environments])
 
         # All should complete
         assert len(results) == 3
@@ -392,9 +376,7 @@ class TestExportFormats:
     """Test debate export in various formats."""
 
     @pytest.mark.asyncio
-    async def test_export_contains_required_fields(
-        self, mock_agents, simple_environment
-    ):
+    async def test_export_contains_required_fields(self, mock_agents, simple_environment):
         """Exported debate should contain all required fields."""
         protocol = DebateProtocol(rounds=1, consensus="majority")
         arena = Arena(simple_environment, mock_agents, protocol)

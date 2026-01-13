@@ -850,9 +850,11 @@ class TestOIDCProvider:
         provider = OIDCProvider(oidc_config)
 
         # Mock discovery
-        with patch.object(provider, "_discover_endpoints", return_value={
-            "authorization_endpoint": "https://idp.example.com/authorize"
-        }):
+        with patch.object(
+            provider,
+            "_discover_endpoints",
+            return_value={"authorization_endpoint": "https://idp.example.com/authorize"},
+        ):
             url = await provider.get_authorization_url(state="test-state")
 
         assert "https://idp.example.com/authorize" in url
@@ -868,9 +870,11 @@ class TestOIDCProvider:
         oidc_config.use_pkce = True
         provider = OIDCProvider(oidc_config)
 
-        with patch.object(provider, "_discover_endpoints", return_value={
-            "authorization_endpoint": "https://idp.example.com/authorize"
-        }):
+        with patch.object(
+            provider,
+            "_discover_endpoints",
+            return_value={"authorization_endpoint": "https://idp.example.com/authorize"},
+        ):
             url = await provider.get_authorization_url(state="test-state")
 
         assert "code_challenge=" in url
@@ -1114,6 +1118,7 @@ class TestGlobalSSOProvider:
 
         # Import after reset to check state
         from aragora.auth import sso
+
         assert sso._sso_initialized is False
         assert sso._sso_provider is None
 

@@ -106,10 +106,10 @@ def classify_task_complexity(task: str) -> TaskComplexity:
 class StressLevel(Enum):
     """System stress levels."""
 
-    NOMINAL = "nominal"      # Normal operation
-    ELEVATED = "elevated"    # Some pressure, slight adjustments
-    HIGH = "high"            # Significant pressure, major adjustments
-    CRITICAL = "critical"    # Emergency mode, minimal operation
+    NOMINAL = "nominal"  # Normal operation
+    ELEVATED = "elevated"  # Some pressure, slight adjustments
+    HIGH = "high"  # Significant pressure, major adjustments
+    CRITICAL = "critical"  # Emergency mode, minimal operation
 
 
 @dataclass
@@ -219,12 +219,12 @@ class AdaptiveComplexityGovernor:
 
     # Thresholds for stress level transitions (lowered for earlier detection)
     STRESS_THRESHOLDS = {
-        "timeout_rate_elevated": 0.05,   # 5% timeouts -> elevated (was 10%)
-        "timeout_rate_high": 0.15,       # 15% timeouts -> high (was 30%)
-        "timeout_rate_critical": 0.30,   # 30% timeouts -> critical (was 50%)
-        "consecutive_failures": 2,        # Consecutive failures -> escalate
-        "latency_elevated_ms": 15000,    # 15s avg -> elevated (was 30s)
-        "latency_high_ms": 30000,        # 30s avg -> high (was 60s)
+        "timeout_rate_elevated": 0.05,  # 5% timeouts -> elevated (was 10%)
+        "timeout_rate_high": 0.15,  # 15% timeouts -> high (was 30%)
+        "timeout_rate_critical": 0.30,  # 30% timeouts -> critical (was 50%)
+        "consecutive_failures": 2,  # Consecutive failures -> escalate
+        "latency_elevated_ms": 15000,  # 15s avg -> elevated (was 30s)
+        "latency_high_ms": 30000,  # 30s avg -> high (was 60s)
     }
 
     # Constraint presets for each stress level
@@ -332,8 +332,7 @@ class AdaptiveComplexityGovernor:
 
         self._evaluate_stress_level()
         logger.debug(
-            f"governor_record agent={agent_name} success={success} "
-            f"latency_ms={latency_ms:.0f}"
+            f"governor_record agent={agent_name} success={success} " f"latency_ms={latency_ms:.0f}"
         )
 
     def record_agent_timeout(
@@ -375,14 +374,16 @@ class AdaptiveComplexityGovernor:
             agents_participated: Number of agents that participated
             agents_failed: Number of agents that failed
         """
-        self.round_history.append({
-            "round_id": round_id,
-            "timestamp": time.time(),
-            "duration_seconds": duration_seconds,
-            "agents_participated": agents_participated,
-            "agents_failed": agents_failed,
-            "stress_level": self.stress_level.value,
-        })
+        self.round_history.append(
+            {
+                "round_id": round_id,
+                "timestamp": time.time(),
+                "duration_seconds": duration_seconds,
+                "agents_participated": agents_participated,
+                "agents_failed": agents_failed,
+                "stress_level": self.stress_level.value,
+            }
+        )
 
         # Keep history bounded
         if len(self.round_history) > 100:
@@ -418,13 +419,17 @@ class AdaptiveComplexityGovernor:
         elif timeout_rate >= self.STRESS_THRESHOLDS["timeout_rate_high"]:
             new_level = max(new_level, StressLevel.HIGH, key=lambda x: list(StressLevel).index(x))
         elif timeout_rate >= self.STRESS_THRESHOLDS["timeout_rate_elevated"]:
-            new_level = max(new_level, StressLevel.ELEVATED, key=lambda x: list(StressLevel).index(x))
+            new_level = max(
+                new_level, StressLevel.ELEVATED, key=lambda x: list(StressLevel).index(x)
+            )
 
         # Check latency
         if avg_latency >= self.STRESS_THRESHOLDS["latency_high_ms"]:
             new_level = max(new_level, StressLevel.HIGH, key=lambda x: list(StressLevel).index(x))
         elif avg_latency >= self.STRESS_THRESHOLDS["latency_elevated_ms"]:
-            new_level = max(new_level, StressLevel.ELEVATED, key=lambda x: list(StressLevel).index(x))
+            new_level = max(
+                new_level, StressLevel.ELEVATED, key=lambda x: list(StressLevel).index(x)
+            )
 
         # Apply new level if changed
         if new_level != self.stress_level:
@@ -443,9 +448,7 @@ class AdaptiveComplexityGovernor:
         self.current_constraints = self.CONSTRAINT_PRESETS[new_level]
         self.last_adjustment_time = time.time()
 
-        logger.info(
-            f"governor_stress_change old={old_level.value} new={new_level.value}"
-        )
+        logger.info(f"governor_stress_change old={old_level.value} new={new_level.value}")
 
         if self.stress_callback:
             try:
@@ -478,8 +481,7 @@ class AdaptiveComplexityGovernor:
         if metrics.avg_latency_ms > 0:
             # Give 2x the average latency, capped
             timeout = min(
-                base.agent_timeout_seconds * 1.5,
-                max(30, metrics.avg_latency_ms / 1000 * 2)
+                base.agent_timeout_seconds * 1.5, max(30, metrics.avg_latency_ms / 1000 * 2)
             )
 
         # Reduce max tokens for slow agents
@@ -539,9 +541,7 @@ class AdaptiveComplexityGovernor:
             Scaled timeout in seconds
         """
         # Apply task complexity scaling
-        complexity_factor = COMPLEXITY_TIMEOUT_FACTORS.get(
-            self.task_complexity, 1.0
-        )
+        complexity_factor = COMPLEXITY_TIMEOUT_FACTORS.get(self.task_complexity, 1.0)
         scaled = base_timeout * complexity_factor
 
         # Apply stress level constraints (stress reduces available time)

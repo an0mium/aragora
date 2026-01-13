@@ -720,9 +720,10 @@ class TestConvenienceFunctions:
         if prompts_seen:
             prompt = prompts_seen[0]
             # At least one of these should be mentioned
-            assert any(cat in prompt.lower() for cat in [
-                "security", "edge case", "race condition", "resource exhaustion"
-            ])
+            assert any(
+                cat in prompt.lower()
+                for cat in ["security", "edge case", "race condition", "resource exhaustion"]
+            )
 
     @pytest.mark.asyncio
     async def test_redteam_policy(self):

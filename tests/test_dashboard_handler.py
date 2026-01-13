@@ -36,6 +36,7 @@ class TestGetDebatesDashboard:
     def test_response_has_required_sections(self):
         """Response has all required sections."""
         import json
+
         handler = DashboardHandler({})
         result = handler._get_debates_dashboard(None, 10, 24)
         data = json.loads(result.body)
@@ -51,6 +52,7 @@ class TestGetDebatesDashboard:
     def test_summary_has_expected_fields(self):
         """Summary section has expected fields."""
         import json
+
         handler = DashboardHandler({})
         result = handler._get_debates_dashboard(None, 10, 24)
         data = json.loads(result.body)
@@ -64,6 +66,7 @@ class TestGetDebatesDashboard:
     def test_recent_activity_has_period_hours(self):
         """Recent activity includes period hours."""
         import json
+
         handler = DashboardHandler({})
         result = handler._get_debates_dashboard(None, 10, 48)
         data = json.loads(result.body)
@@ -74,6 +77,7 @@ class TestGetDebatesDashboard:
     def test_agent_performance_has_top_performers(self):
         """Agent performance includes top performers list."""
         import json
+
         handler = DashboardHandler({})
         result = handler._get_debates_dashboard(None, 10, 24)
         data = json.loads(result.body)
@@ -85,6 +89,7 @@ class TestGetDebatesDashboard:
     def test_consensus_insights_has_domains(self):
         """Consensus insights includes domains list."""
         import json
+
         handler = DashboardHandler({})
         result = handler._get_debates_dashboard(None, 10, 24)
         data = json.loads(result.body)
@@ -96,6 +101,7 @@ class TestGetDebatesDashboard:
     def test_system_health_has_prometheus_status(self):
         """System health includes prometheus availability."""
         import json
+
         handler = DashboardHandler({})
         result = handler._get_debates_dashboard(None, 10, 24)
         data = json.loads(result.body)
@@ -196,6 +202,7 @@ class TestDashboardParameters:
     def test_hours_parameter_accepted(self):
         """Hours parameter is accepted."""
         import json
+
         handler = DashboardHandler({})
         result = handler.handle("/api/dashboard/debates", {"hours": "72"}, None)
         data = json.loads(result.body)

@@ -31,7 +31,7 @@ DEFAULT_REVIEW_AGENTS = "anthropic-api,openai-api"
 DEFAULT_ROUNDS = 2  # Fast reviews
 MAX_DIFF_SIZE = 50000  # 50KB max diff size
 REVIEWS_DIR = Path.home() / ".aragora" / "reviews"
-SHARE_BASE_URL = "https://live.aragora.ai/reviews"
+SHARE_BASE_URL = "https://aragora.ai/reviews"
 
 
 def generate_review_id(findings: dict, diff_hash: str) -> str:
@@ -145,13 +145,25 @@ def get_demo_findings() -> dict:
             "openai-api": {"anthropic-api": 0.8, "gemini-api": 0.7},
         },
         "critical_issues": [
-            {"agent": "anthropic-api", "issue": "SQL injection in search_users()", "target": "api/users.py:45"},
+            {
+                "agent": "anthropic-api",
+                "issue": "SQL injection in search_users()",
+                "target": "api/users.py:45",
+            },
         ],
         "high_issues": [
-            {"agent": "openai-api", "issue": "Missing CSRF protection on POST endpoints", "target": "api/routes.py"},
+            {
+                "agent": "openai-api",
+                "issue": "Missing CSRF protection on POST endpoints",
+                "target": "api/routes.py",
+            },
         ],
         "medium_issues": [
-            {"agent": "gemini-api", "issue": "Unbounded query results - add pagination", "target": "api/products.py:102"},
+            {
+                "agent": "gemini-api",
+                "issue": "Unbounded query results - add pagination",
+                "target": "api/products.py:102",
+            },
         ],
         "low_issues": [],
         "all_critiques": [],
@@ -178,31 +190,37 @@ def build_review_prompt(diff: str, focus_areas: Optional[list[str]] = None) -> s
 
     focus_instructions = []
     if "security" in focus:
-        focus_instructions.append("""
+        focus_instructions.append(
+            """
 **Security** - Look for:
 - SQL/NoSQL injection, XSS, CSRF
 - Authentication/authorization bypass
 - Secrets/credentials in code
 - Insecure deserialization
-- Path traversal""")
+- Path traversal"""
+        )
 
     if "performance" in focus:
-        focus_instructions.append("""
+        focus_instructions.append(
+            """
 **Performance** - Look for:
 - N+1 query patterns
 - O(n^2) or worse algorithms
 - Memory leaks, unbounded collections
 - Missing pagination
-- Blocking operations in async code""")
+- Blocking operations in async code"""
+        )
 
     if "quality" in focus:
-        focus_instructions.append("""
+        focus_instructions.append(
+            """
 **Code Quality** - Look for:
 - Missing error handling
 - Edge cases not covered
 - Unclear or complex logic
 - Missing input validation
-- Resource cleanup issues""")
+- Resource cleanup issues"""
+        )
 
     focus_text = "\n".join(focus_instructions)
 
@@ -293,7 +311,7 @@ def extract_review_findings(result: DebateResult) -> dict:
     low_issues = []
 
     for critique in result.critiques:
-        severity = critique.severity if hasattr(critique, 'severity') else 0.5
+        severity = critique.severity if hasattr(critique, "severity") else 0.5
         for issue in critique.issues:
             issue_data = {
                 "agent": critique.agent,
@@ -329,7 +347,9 @@ def extract_review_findings(result: DebateResult) -> dict:
 def format_github_comment(result: DebateResult, findings: dict) -> str:
     """Format findings as a GitHub PR comment."""
     agents_used = findings.get("agents_used", [])
-    agent_names = ", ".join(set(a.split("_")[0] for a in agents_used)) if agents_used else "AI agents"
+    agent_names = (
+        ", ".join(set(a.split("_")[0] for a in agents_used)) if agents_used else "AI agents"
+    )
 
     lines = [
         "## AI Red Team Code Review",
@@ -341,11 +361,13 @@ def format_github_comment(result: DebateResult, findings: dict) -> str:
     # Unanimous issues (high confidence)
     unanimous = findings.get("unanimous_critiques", [])
     if unanimous:
-        lines.extend([
-            "### Unanimous Issues",
-            "> All AI models agree - address these first",
-            "",
-        ])
+        lines.extend(
+            [
+                "### Unanimous Issues",
+                "> All AI models agree - address these first",
+                "",
+            ]
+        )
         for issue in unanimous[:5]:  # Limit to top 5
             lines.append(f"- {issue}")
         lines.append("")
@@ -354,10 +376,12 @@ def format_github_comment(result: DebateResult, findings: dict) -> str:
     critical = findings.get("critical_issues", [])
     high = findings.get("high_issues", [])
     if critical or high:
-        lines.extend([
-            "### Critical & High Severity Issues",
-            "",
-        ])
+        lines.extend(
+            [
+                "### Critical & High Severity Issues",
+                "",
+            ]
+        )
         for issue in (critical + high)[:5]:
             severity = "CRITICAL" if issue in critical else "HIGH"
             lines.append(f"- **{severity}**: {issue['issue'][:200]}")
@@ -366,13 +390,15 @@ def format_github_comment(result: DebateResult, findings: dict) -> str:
     # Split opinions
     split = findings.get("split_opinions", [])
     if split:
-        lines.extend([
-            "### Split Opinions",
-            "> Agents disagree - your call on the tradeoff",
-            "",
-            "| Topic | For | Against |",
-            "|-------|-----|---------|",
-        ])
+        lines.extend(
+            [
+                "### Split Opinions",
+                "> Agents disagree - your call on the tradeoff",
+                "",
+                "| Topic | For | Against |",
+                "|-------|-----|---------|",
+            ]
+        )
         for desc, majority, minority in split[:3]:
             topic = desc[:50] + "..." if len(desc) > 50 else desc
             lines.append(f"| {topic} | {', '.join(majority)} | {', '.join(minority)} |")
@@ -381,11 +407,13 @@ def format_github_comment(result: DebateResult, findings: dict) -> str:
     # Risk areas
     risks = findings.get("risk_areas", [])
     if risks:
-        lines.extend([
-            "### Risk Areas",
-            "> Low confidence - manual review recommended",
-            "",
-        ])
+        lines.extend(
+            [
+                "### Risk Areas",
+                "> Low confidence - manual review recommended",
+                "",
+            ]
+        )
         for risk in risks[:3]:
             lines.append(f"- {risk}")
         lines.append("")
@@ -393,19 +421,23 @@ def format_github_comment(result: DebateResult, findings: dict) -> str:
     # Summary if available
     summary = findings.get("final_summary", "")
     if summary and len(summary) > 50:
-        lines.extend([
-            "### Summary",
-            "",
-            summary[:500] + ("..." if len(summary) > 500 else ""),
-            "",
-        ])
+        lines.extend(
+            [
+                "### Summary",
+                "",
+                summary[:500] + ("..." if len(summary) > 500 else ""),
+                "",
+            ]
+        )
 
     # Footer
     agreement = findings.get("agreement_score", 0)
-    lines.extend([
-        "---",
-        f"*Agreement score: {agreement:.0%} | Powered by [Aragora](https://github.com/an0mium/aragora) - AI Red Team*",
-    ])
+    lines.extend(
+        [
+            "---",
+            f"*Agreement score: {agreement:.0%} | Powered by [Aragora](https://github.com/an0mium/aragora) - AI Red Team*",
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -414,13 +446,14 @@ def cmd_review(args: argparse.Namespace) -> int:
     """Handle 'review' command."""
 
     # Demo mode - show sample output without API keys
-    if getattr(args, 'demo', False):
+    if getattr(args, "demo", False):
         print("Running in demo mode (no API calls)...", file=sys.stderr)
         findings = get_demo_findings()
 
         # Create mock result for formatting
         class MockResult:
             pass
+
         result = MockResult()
 
         output_dir = Path(args.output_dir) if args.output_dir else None
@@ -434,6 +467,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             print(comment)
         elif args.output_format == "json":
             import json
+
             output = {
                 "demo_mode": True,
                 "unanimous_critiques": findings["unanimous_critiques"],
@@ -474,6 +508,7 @@ def cmd_review(args: argparse.Namespace) -> int:
         print(f"Fetching PR diff from: {args.pr_url}", file=sys.stderr)
         try:
             import subprocess
+
             # Extract owner/repo/number from URL
             # Supports: https://github.com/owner/repo/pull/123
             parts = args.pr_url.rstrip("/").split("/")
@@ -520,7 +555,10 @@ def cmd_review(args: argparse.Namespace) -> int:
         # Read from stdin
         diff = sys.stdin.read()
     else:
-        print("Error: No diff provided. Use --diff-file, PR URL, or pipe diff to stdin.", file=sys.stderr)
+        print(
+            "Error: No diff provided. Use --diff-file, PR URL, or pipe diff to stdin.",
+            file=sys.stderr,
+        )
         return 1
 
     if not diff.strip():
@@ -534,7 +572,10 @@ def cmd_review(args: argparse.Namespace) -> int:
         available = get_available_agents()
         if not available:
             print("Error: No API keys configured.", file=sys.stderr)
-            print("Set at least one of: ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY", file=sys.stderr)
+            print(
+                "Set at least one of: ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY",
+                file=sys.stderr,
+            )
             print("\nTry demo mode instead: aragora review --demo", file=sys.stderr)
             return 1
         if available != DEFAULT_REVIEW_AGENTS:
@@ -589,6 +630,7 @@ def cmd_review(args: argparse.Namespace) -> int:
 
     elif args.output_format == "json":
         import json
+
         # Convert to JSON-serializable format
         output = {
             "unanimous_critiques": findings["unanimous_critiques"],
@@ -611,6 +653,7 @@ def cmd_review(args: argparse.Namespace) -> int:
         # Use existing static HTML exporter
         try:
             from aragora.export.static_html import StaticHTMLExporter
+
             exporter = StaticHTMLExporter()
             html = exporter.export(result)
             if output_dir:

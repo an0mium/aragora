@@ -46,7 +46,7 @@ class TestEloBasics:
         elo.record_match(
             debate_id="match_1",
             participants=["winner", "loser"],
-            scores={"winner": 1.0, "loser": 0.0}
+            scores={"winner": 1.0, "loser": 0.0},
         )
 
         winner_rating = elo.get_rating("winner")
@@ -62,7 +62,7 @@ class TestEloBasics:
         elo.record_match(
             debate_id="match_draw",
             participants=["agent_a", "agent_b"],
-            scores={"agent_a": 0.5, "agent_b": 0.5}
+            scores={"agent_a": 0.5, "agent_b": 0.5},
         )
 
         rating_a = elo.get_rating("agent_a")
@@ -79,7 +79,7 @@ class TestEloBasics:
             elo.record_match(
                 debate_id=f"match_{i}",
                 participants=["strong", "weak"],
-                scores={"strong": 1.0, "weak": 0.0}
+                scores={"strong": 1.0, "weak": 0.0},
             )
 
         strong_rating = elo.get_rating("strong").elo
@@ -89,7 +89,7 @@ class TestEloBasics:
         elo.record_match(
             debate_id="upset_match",
             participants=["strong", "weak"],
-            scores={"weak": 1.0, "strong": 0.0}
+            scores={"weak": 1.0, "strong": 0.0},
         )
 
         new_weak_rating = elo.get_rating("weak").elo
@@ -108,13 +108,13 @@ class TestDomainRatings:
             debate_id="sec_match",
             participants=["agent_a", "agent_b"],
             scores={"agent_a": 1.0, "agent_b": 0.0},
-            domain="security"
+            domain="security",
         )
         elo.record_match(
             debate_id="perf_match",
             participants=["agent_a", "agent_b"],
             scores={"agent_b": 1.0, "agent_a": 0.0},
-            domain="performance"
+            domain="performance",
         )
 
         # Agent A should be higher in security, lower in performance
@@ -131,13 +131,13 @@ class TestDomainRatings:
             debate_id="sec_match",
             participants=["agent_a", "agent_b"],
             scores={"agent_a": 1.0, "agent_b": 0.0},
-            domain="security"
+            domain="security",
         )
         elo.record_match(
             debate_id="perf_match",
             participants=["agent_a", "agent_b"],
             scores={"agent_a": 1.0, "agent_b": 0.0},
-            domain="performance"
+            domain="performance",
         )
 
         rating = elo.get_rating("agent_a")
@@ -152,12 +152,12 @@ class TestMatchHistory:
         elo.record_match(
             debate_id="match_1",
             participants=["agent_a", "agent_b"],
-            scores={"agent_a": 1.0, "agent_b": 0.0}
+            scores={"agent_a": 1.0, "agent_b": 0.0},
         )
         elo.record_match(
             debate_id="match_2",
             participants=["agent_a", "agent_c"],
-            scores={"agent_c": 1.0, "agent_a": 0.0}
+            scores={"agent_c": 1.0, "agent_a": 0.0},
         )
 
         history = elo.get_recent_matches(limit=10)
@@ -168,17 +168,17 @@ class TestMatchHistory:
         elo.record_match(
             debate_id="match_1",
             participants=["agent_a", "agent_b"],
-            scores={"agent_a": 1.0, "agent_b": 0.0}
+            scores={"agent_a": 1.0, "agent_b": 0.0},
         )
         elo.record_match(
             debate_id="match_2",
             participants=["agent_a", "agent_b"],
-            scores={"agent_a": 1.0, "agent_b": 0.0}
+            scores={"agent_a": 1.0, "agent_b": 0.0},
         )
         elo.record_match(
             debate_id="match_3",
             participants=["agent_a", "agent_b"],
-            scores={"agent_b": 1.0, "agent_a": 0.0}
+            scores={"agent_b": 1.0, "agent_a": 0.0},
         )
 
         h2h = elo.get_head_to_head("agent_a", "agent_b")
@@ -249,7 +249,7 @@ class TestRelationships:
             elo.record_match(
                 debate_id=f"match_{i}",
                 participants=["agent_a", "agent_b"],
-                scores={winner: 1.0, loser: 0.0}
+                scores={winner: 1.0, loser: 0.0},
             )
 
         metrics = elo.compute_relationship_metrics("agent_a", "agent_b")
@@ -266,12 +266,12 @@ class TestRelationships:
             elo.record_match(
                 debate_id=f"rival_match_{i}",
                 participants=["agent_a", "rival_1"],
-                scores={winner: 1.0, loser: 0.0}
+                scores={winner: 1.0, loser: 0.0},
             )
             elo.record_match(
                 debate_id=f"easy_match_{i}",
                 participants=["agent_a", "rival_2"],
-                scores={"agent_a": 1.0, "rival_2": 0.0}  # Always wins
+                scores={"agent_a": 1.0, "rival_2": 0.0},  # Always wins
             )
 
         rivals = elo.get_rivals("agent_a", limit=5)
@@ -296,19 +296,17 @@ class TestLeaderboard:
     def test_leaderboard_ranking(self, elo):
         """Test that leaderboard ranks by rating."""
         elo.record_match(
-            debate_id="match_1",
-            participants=["best", "worst"],
-            scores={"best": 1.0, "worst": 0.0}
+            debate_id="match_1", participants=["best", "worst"], scores={"best": 1.0, "worst": 0.0}
         )
         elo.record_match(
             debate_id="match_2",
             participants=["best", "middle"],
-            scores={"best": 1.0, "middle": 0.0}
+            scores={"best": 1.0, "middle": 0.0},
         )
         elo.record_match(
             debate_id="match_3",
             participants=["middle", "worst"],
-            scores={"middle": 1.0, "worst": 0.0}
+            scores={"middle": 1.0, "worst": 0.0},
         )
 
         leaderboard = elo.get_leaderboard(limit=10)
@@ -325,13 +323,13 @@ class TestLeaderboard:
             debate_id="sec_match",
             participants=["security_pro", "general"],
             scores={"security_pro": 1.0, "general": 0.0},
-            domain="security"
+            domain="security",
         )
         elo.record_match(
             debate_id="perf_match",
             participants=["perf_pro", "general"],
             scores={"perf_pro": 1.0, "general": 0.0},
-            domain="performance"
+            domain="performance",
         )
 
         security_board = elo.get_leaderboard(domain="security", limit=10)
@@ -369,7 +367,7 @@ class TestAtomicWrites:
             elo.record_match(
                 debate_id=f"match_{i}",
                 participants=[agent_a, agent_b],
-                scores={agent_a: 1.0, agent_b: 0.0}
+                scores={agent_a: 1.0, agent_b: 0.0},
             )
 
         # All agents should have valid ratings
@@ -397,7 +395,7 @@ class TestConcurrentAccess:
                     elo.record_match(
                         debate_id=debate_id,
                         participants=[f"agent_{thread_id}", f"opponent_{thread_id}"],
-                        scores={f"agent_{thread_id}": 1.0, f"opponent_{thread_id}": 0.0}
+                        scores={f"agent_{thread_id}": 1.0, f"opponent_{thread_id}": 0.0},
                     )
                     with lock:
                         results.append(debate_id)
@@ -433,7 +431,7 @@ class TestConcurrentAccess:
                     elo.record_match(
                         debate_id=f"rw_match_{i}",
                         participants=["writer_agent", "opponent"],
-                        scores={"writer_agent": 1.0, "opponent": 0.0}
+                        scores={"writer_agent": 1.0, "opponent": 0.0},
                     )
                     time.sleep(0.01)  # Small delay to interleave
             except Exception as e:
@@ -475,7 +473,7 @@ class TestDataConsistency:
             elo.record_match(
                 debate_id=f"conservation_{i}",
                 participants=[winner, loser],
-                scores={winner: 1.0, loser: 0.0}
+                scores={winner: 1.0, loser: 0.0},
             )
 
         final_total = sum(elo.get_rating(a).elo for a in agents)
@@ -494,9 +492,7 @@ class TestDataConsistency:
                 scores = {"agent": 0.5, "opp": 0.5}  # Draw
 
             elo.record_match(
-                debate_id=f"consistency_{i}",
-                participants=["agent", "opp"],
-                scores=scores
+                debate_id=f"consistency_{i}", participants=["agent", "opp"], scores=scores
             )
 
         rating = elo.get_rating("agent")
@@ -510,7 +506,7 @@ class TestDataConsistency:
             elo.record_match(
                 debate_id=f"history_{i}",
                 participants=["agent_x", "agent_y"],
-                scores={"agent_x": 1.0, "agent_y": 0.0}
+                scores={"agent_x": 1.0, "agent_y": 0.0},
             )
 
         history = elo.get_recent_matches(limit=100)
@@ -527,11 +523,7 @@ class TestEdgeCases:
 
     def test_single_participant_ignored(self, elo):
         """Test that matches with single participant are ignored."""
-        result = elo.record_match(
-            debate_id="single",
-            participants=["solo"],
-            scores={"solo": 1.0}
-        )
+        result = elo.record_match(debate_id="single", participants=["solo"], scores={"solo": 1.0})
 
         assert result == {}
         rating = elo.get_rating("solo")
@@ -539,29 +531,21 @@ class TestEdgeCases:
 
     def test_empty_participants_ignored(self, elo):
         """Test that matches with no participants are ignored."""
-        result = elo.record_match(
-            debate_id="empty",
-            participants=[],
-            scores={}
-        )
+        result = elo.record_match(debate_id="empty", participants=[], scores={})
 
         assert result == {}
 
     def test_duplicate_debate_id_ignored(self, elo):
         """Test that recording same debate_id is ignored (prevents double-counting)."""
         result1 = elo.record_match(
-            debate_id="duplicate",
-            participants=["a", "b"],
-            scores={"a": 1.0, "b": 0.0}
+            debate_id="duplicate", participants=["a", "b"], scores={"a": 1.0, "b": 0.0}
         )
         rating_a_first = elo.get_rating("a").elo
         assert result1 != {}  # First call should return ELO changes
 
         # Record same debate again (should be ignored)
         result2 = elo.record_match(
-            debate_id="duplicate",
-            participants=["a", "b"],
-            scores={"a": 1.0, "b": 0.0}
+            debate_id="duplicate", participants=["a", "b"], scores={"a": 1.0, "b": 0.0}
         )
         rating_a_second = elo.get_rating("a").elo
 
@@ -577,7 +561,7 @@ class TestEdgeCases:
             debate_id="low_confidence",
             participants=["a", "b"],
             scores={"a": 1.0, "b": 0.0},
-            confidence_weight=0.0  # Should be clamped to 0.1
+            confidence_weight=0.0,  # Should be clamped to 0.1
         )
 
         # Test with weight above maximum
@@ -585,7 +569,7 @@ class TestEdgeCases:
             debate_id="high_confidence",
             participants=["c", "d"],
             scores={"c": 1.0, "d": 0.0},
-            confidence_weight=2.0  # Should be clamped to 1.0
+            confidence_weight=2.0,  # Should be clamped to 1.0
         )
 
         # Both should have recorded without error
@@ -597,7 +581,7 @@ class TestEdgeCases:
         elo.record_match(
             debate_id="multiway",
             participants=["first", "second", "third"],
-            scores={"first": 1.0, "second": 0.5, "third": 0.0}
+            scores={"first": 1.0, "second": 0.5, "third": 0.0},
         )
 
         # All should have played
@@ -613,9 +597,7 @@ class TestEdgeCases:
     def test_zero_scores_handled(self, elo):
         """Test that zero scores for all agents defaults to draw."""
         elo.record_match(
-            debate_id="zero_scores",
-            participants=["a", "b"],
-            scores={"a": 0.0, "b": 0.0}
+            debate_id="zero_scores", participants=["a", "b"], scores={"a": 0.0, "b": 0.0}
         )
 
         # Both should have played
@@ -628,7 +610,7 @@ class TestEdgeCases:
         elo.record_match(
             debate_id="negative_scores",
             participants=["a", "b"],
-            scores={"a": -1.0, "b": -2.0}  # Both negative, a is "less bad"
+            scores={"a": -1.0, "b": -2.0},  # Both negative, a is "less bad"
         )
 
         # Both should have played
@@ -650,7 +632,7 @@ class TestEloHistory:
             elo.record_match(
                 debate_id=f"history_test_{i}",
                 participants=["tracked", f"opponent_{i}"],
-                scores={"tracked": 1.0, f"opponent_{i}": 0.0}
+                scores={"tracked": 1.0, f"opponent_{i}": 0.0},
             )
 
         history = elo.get_elo_history("tracked", limit=10)
@@ -726,14 +708,18 @@ class TestBatchOperations:
 
     def test_update_relationships_batch_single_update(self, elo):
         """Test batch update with single relationship."""
-        elo.update_relationships_batch([{
-            "agent_a": "alice",
-            "agent_b": "bob",
-            "debate_increment": 1,
-            "agreement_increment": 1,
-            "a_win": 1,
-            "b_win": 0,
-        }])
+        elo.update_relationships_batch(
+            [
+                {
+                    "agent_a": "alice",
+                    "agent_b": "bob",
+                    "debate_increment": 1,
+                    "agreement_increment": 1,
+                    "a_win": 1,
+                    "b_win": 0,
+                }
+            ]
+        )
 
         rel = elo.get_relationship_raw("alice", "bob")
         assert rel is not None
@@ -756,12 +742,16 @@ class TestBatchOperations:
     def test_update_relationships_batch_canonical_ordering(self, elo):
         """Test that batch updates maintain canonical ordering."""
         # Update with b, a order (should be stored as a, b)
-        elo.update_relationships_batch([{
-            "agent_a": "zoe",
-            "agent_b": "alice",
-            "debate_increment": 1,
-            "a_win": 1,  # zoe wins
-        }])
+        elo.update_relationships_batch(
+            [
+                {
+                    "agent_a": "zoe",
+                    "agent_b": "alice",
+                    "debate_increment": 1,
+                    "a_win": 1,  # zoe wins
+                }
+            ]
+        )
 
         # Query with canonical order
         rel = elo.get_relationship_raw("alice", "zoe")
@@ -772,11 +762,13 @@ class TestBatchOperations:
 
     def test_update_relationships_batch_skips_invalid(self, elo):
         """Test that invalid updates are skipped."""
-        elo.update_relationships_batch([
-            {"agent_a": "", "agent_b": "bob", "debate_increment": 1},  # Empty agent_a
-            {"agent_a": "alice", "agent_b": "", "debate_increment": 1},  # Empty agent_b
-            {"agent_a": "charlie", "agent_b": "david", "debate_increment": 1},  # Valid
-        ])
+        elo.update_relationships_batch(
+            [
+                {"agent_a": "", "agent_b": "bob", "debate_increment": 1},  # Empty agent_a
+                {"agent_a": "alice", "agent_b": "", "debate_increment": 1},  # Empty agent_b
+                {"agent_a": "charlie", "agent_b": "david", "debate_increment": 1},  # Valid
+            ]
+        )
 
         # Only charlie-david should be recorded
         assert elo.get_relationship_raw("charlie", "david") is not None
@@ -789,54 +781,52 @@ class TestAgentRatingProperties:
     def test_calibration_accuracy_zero_total(self):
         """Test calibration_accuracy returns 0 when no predictions."""
         from aragora.ranking.elo import AgentRating
+
         rating = AgentRating(agent_name="test")
         assert rating.calibration_accuracy == 0.0
 
     def test_calibration_accuracy_with_predictions(self):
         """Test calibration_accuracy with some correct predictions."""
         from aragora.ranking.elo import AgentRating
-        rating = AgentRating(
-            agent_name="test",
-            calibration_correct=7,
-            calibration_total=10
-        )
+
+        rating = AgentRating(agent_name="test", calibration_correct=7, calibration_total=10)
         assert rating.calibration_accuracy == 0.7
 
     def test_calibration_brier_score_zero_total(self):
         """Test calibration_brier_score returns 1.0 when no predictions."""
         from aragora.ranking.elo import AgentRating
+
         rating = AgentRating(agent_name="test")
         assert rating.calibration_brier_score == 1.0
 
     def test_calibration_brier_score_with_predictions(self):
         """Test calibration_brier_score calculation."""
         from aragora.ranking.elo import AgentRating
-        rating = AgentRating(
-            agent_name="test",
-            calibration_brier_sum=0.5,
-            calibration_total=10
-        )
+
+        rating = AgentRating(agent_name="test", calibration_brier_sum=0.5, calibration_total=10)
         assert rating.calibration_brier_score == 0.05
 
     def test_calibration_score_below_minimum(self):
         """Test calibration_score returns 0 below minimum predictions."""
         from aragora.ranking.elo import AgentRating, CALIBRATION_MIN_COUNT
+
         rating = AgentRating(
             agent_name="test",
             calibration_correct=CALIBRATION_MIN_COUNT - 1,
             calibration_total=CALIBRATION_MIN_COUNT - 1,
-            calibration_brier_sum=0.0
+            calibration_brier_sum=0.0,
         )
         assert rating.calibration_score == 0.0
 
     def test_calibration_score_at_minimum(self):
         """Test calibration_score at minimum predictions."""
         from aragora.ranking.elo import AgentRating, CALIBRATION_MIN_COUNT
+
         rating = AgentRating(
             agent_name="test",
             calibration_correct=CALIBRATION_MIN_COUNT,
             calibration_total=CALIBRATION_MIN_COUNT,
-            calibration_brier_sum=0.0  # Perfect Brier
+            calibration_brier_sum=0.0,  # Perfect Brier
         )
         # confidence = 0.5 at min_count, score = (1 - 0) * 0.5
         assert rating.calibration_score == 0.5
@@ -844,11 +834,12 @@ class TestAgentRatingProperties:
     def test_calibration_score_high_confidence(self):
         """Test calibration_score with high prediction count."""
         from aragora.ranking.elo import AgentRating, CALIBRATION_MIN_COUNT
+
         rating = AgentRating(
             agent_name="test",
             calibration_correct=50,
             calibration_total=50,
-            calibration_brier_sum=0.0  # Perfect
+            calibration_brier_sum=0.0,  # Perfect
         )
         # confidence should be 1.0, score = (1 - 0) * 1.0 = 1.0
         assert rating.calibration_score == pytest.approx(1.0, rel=0.1)
@@ -856,17 +847,15 @@ class TestAgentRatingProperties:
     def test_critique_acceptance_rate_zero_total(self):
         """Test critique_acceptance_rate returns 0 when no critiques."""
         from aragora.ranking.elo import AgentRating
+
         rating = AgentRating(agent_name="test")
         assert rating.critique_acceptance_rate == 0.0
 
     def test_critique_acceptance_rate_with_critiques(self):
         """Test critique_acceptance_rate calculation."""
         from aragora.ranking.elo import AgentRating
-        rating = AgentRating(
-            agent_name="test",
-            critiques_accepted=3,
-            critiques_total=5
-        )
+
+        rating = AgentRating(agent_name="test", critiques_accepted=3, critiques_total=5)
         assert rating.critique_acceptance_rate == 0.6
 
 
@@ -876,27 +865,32 @@ class TestValidation:
     def test_escape_like_pattern_backslash(self):
         """Test escaping backslash in LIKE pattern."""
         from aragora.ranking.elo import _escape_like_pattern
+
         assert _escape_like_pattern("test\\value") == "test\\\\value"
 
     def test_escape_like_pattern_percent(self):
         """Test escaping percent in LIKE pattern."""
         from aragora.ranking.elo import _escape_like_pattern
+
         assert _escape_like_pattern("test%value") == "test\\%value"
 
     def test_escape_like_pattern_underscore(self):
         """Test escaping underscore in LIKE pattern."""
         from aragora.ranking.elo import _escape_like_pattern
+
         assert _escape_like_pattern("test_value") == "test\\_value"
 
     def test_escape_like_pattern_combined(self):
         """Test escaping multiple special characters."""
         from aragora.ranking.elo import _escape_like_pattern
+
         result = _escape_like_pattern("test%_\\end")
         assert result == "test\\%\\_\\\\end"
 
     def test_validate_agent_name_valid(self):
         """Test validation passes for valid names."""
         from aragora.ranking.elo import _validate_agent_name
+
         # Should not raise
         _validate_agent_name("valid_agent")
         _validate_agent_name("a" * 32)  # Exactly max length
@@ -904,6 +898,7 @@ class TestValidation:
     def test_validate_agent_name_too_long(self):
         """Test validation fails for overly long names."""
         from aragora.ranking.elo import _validate_agent_name, MAX_AGENT_NAME_LENGTH
+
         with pytest.raises(ValueError, match="exceeds"):
             _validate_agent_name("a" * (MAX_AGENT_NAME_LENGTH + 1))
 
@@ -969,7 +964,7 @@ class TestCritiqueTracking:
         rating = elo.get_rating("active_critic")
         assert rating.critiques_total == 8
         assert rating.critiques_accepted == 5
-        assert rating.critique_acceptance_rate == 5/8
+        assert rating.critique_acceptance_rate == 5 / 8
 
 
 class TestStatsAndLeaderboard:
@@ -1039,7 +1034,7 @@ class TestTournamentCalibration:
             tournament_id="tourney_1",
             predictor_agent="oracle",
             predicted_winner="favorite",
-            confidence=0.8
+            confidence=0.8,
         )
         history = elo.get_agent_calibration_history("oracle", limit=10)
         assert len(history) == 1
@@ -1176,7 +1171,7 @@ class TestPairwiseEloCalculations:
             participants=["a", "b"],
             scores={"a": 1.0, "b": 0.0},
             ratings=ratings,
-            confidence_weight=1.0
+            confidence_weight=1.0,
         )
         assert "a" in changes
         assert "b" in changes
@@ -1192,7 +1187,7 @@ class TestPairwiseEloCalculations:
             participants=["a", "b"],
             scores={"a": 0.5, "b": 0.5},
             ratings=ratings,
-            confidence_weight=1.0
+            confidence_weight=1.0,
         )
         # Both at 1500, draw - no change expected
         assert abs(changes["a"]) < 0.001
@@ -1205,7 +1200,7 @@ class TestPairwiseEloCalculations:
             participants=["a", "b", "c"],
             scores={"a": 1.0, "b": 0.5, "c": 0.0},
             ratings=ratings,
-            confidence_weight=1.0
+            confidence_weight=1.0,
         )
         # a beat both, should gain most
         assert changes["a"] > changes["b"]
@@ -1219,7 +1214,7 @@ class TestPairwiseEloCalculations:
             participants=["a", "b"],
             scores={"a": 1.0, "b": 0.0},
             ratings=ratings,
-            confidence_weight=1.0
+            confidence_weight=1.0,
         )
 
         # Get fresh ratings for second calculation
@@ -1229,7 +1224,7 @@ class TestPairwiseEloCalculations:
             participants=["c", "d"],
             scores={"c": 1.0, "d": 0.0},
             ratings={"c": ratings2["c"], "d": ratings2["d"]},
-            confidence_weight=0.5
+            confidence_weight=0.5,
         )
 
         # Half confidence should give roughly half changes
@@ -1245,7 +1240,7 @@ class TestPairwiseEloCalculations:
             ratings=ratings,
             winner="a",
             domain="test",
-            debate_id="test_debate"
+            debate_id="test_debate",
         )
 
         assert len(ratings_to_save) == 2
@@ -1268,7 +1263,7 @@ class TestPairwiseEloCalculations:
             ratings=ratings,
             winner=None,  # Draw
             domain=None,
-            debate_id="draw_debate"
+            debate_id="draw_debate",
         )
 
         a_rating = next(r for r in ratings_to_save if r.agent_name == "a")
@@ -1431,9 +1426,7 @@ class TestVerificationEloIntegration:
         # First, lower the agent's ELO
         for _ in range(20):
             elo.record_match(
-                f"loss_{_}",
-                ["low_agent", "winner"],
-                {"low_agent": 0.0, "winner": 1.0}
+                f"loss_{_}", ["low_agent", "winner"], {"low_agent": 0.0, "winner": 1.0}
             )
 
         # Now try to disprove many claims
@@ -1531,9 +1524,9 @@ class TestMigration:
         # The migration should have run during init
         # Verify calibration columns exist by using them
         rating = elo.get_rating("test_agent")
-        assert hasattr(rating, 'calibration_correct')
-        assert hasattr(rating, 'calibration_total')
-        assert hasattr(rating, 'calibration_brier_sum')
+        assert hasattr(rating, "calibration_correct")
+        assert hasattr(rating, "calibration_total")
+        assert hasattr(rating, "calibration_brier_sum")
 
 
 class TestMultiAgentMatches:
@@ -1544,7 +1537,7 @@ class TestMultiAgentMatches:
         elo.record_match(
             debate_id="three_way_1",
             participants=["first", "second", "third"],
-            scores={"first": 1.0, "second": 0.5, "third": 0.0}
+            scores={"first": 1.0, "second": 0.5, "third": 0.0},
         )
 
         # First should have highest ELO (beat both)
@@ -1561,7 +1554,7 @@ class TestMultiAgentMatches:
         elo.record_match(
             debate_id="four_way",
             participants=["p1", "p2", "p3", "p4"],
-            scores={"p1": 1.0, "p2": 0.66, "p3": 0.33, "p4": 0.0}
+            scores={"p1": 1.0, "p2": 0.66, "p3": 0.33, "p4": 0.0},
         )
 
         # All should have played
@@ -1577,7 +1570,7 @@ class TestMultiAgentMatches:
         elo.record_match(
             debate_id="multi_tie",
             participants=["tied_a", "tied_b", "tied_c"],
-            scores={"tied_a": 0.5, "tied_b": 0.5, "tied_c": 0.5}
+            scores={"tied_a": 0.5, "tied_b": 0.5, "tied_c": 0.5},
         )
 
         # All should have played and counted as draws
@@ -1592,7 +1585,7 @@ class TestMultiAgentMatches:
         elo.record_match(
             debate_id="two_winners",
             participants=["winner1", "winner2", "loser1", "loser2"],
-            scores={"winner1": 1.0, "winner2": 1.0, "loser1": 0.0, "loser2": 0.0}
+            scores={"winner1": 1.0, "winner2": 1.0, "loser1": 0.0, "loser2": 0.0},
         )
 
         # Both winners should gain, both losers should lose
@@ -1646,7 +1639,9 @@ class TestCachingEdgeCases:
 
         # Record more matches - should invalidate cache
         for i in range(3):
-            elo.record_match(f"m{i+2}", ["stale_test", f"opp{i}"], {"stale_test": 1.0, f"opp{i}": 0.0})
+            elo.record_match(
+                f"m{i+2}", ["stale_test", f"opp{i}"], {"stale_test": 1.0, f"opp{i}": 0.0}
+            )
 
         # Should reflect new matches
         final_elo = elo.get_rating("stale_test").elo
@@ -1694,11 +1689,7 @@ class TestHeadToHeadComplex:
         for i in range(10):
             winner = "h2h_a" if i % 3 != 0 else "h2h_b"
             loser = "h2h_b" if i % 3 != 0 else "h2h_a"
-            elo.record_match(
-                f"h2h_match_{i}",
-                ["h2h_a", "h2h_b"],
-                {winner: 1.0, loser: 0.0}
-            )
+            elo.record_match(f"h2h_match_{i}", ["h2h_a", "h2h_b"], {winner: 1.0, loser: 0.0})
 
         h2h = elo.get_head_to_head("h2h_a", "h2h_b")
         assert h2h["matches"] == 10
@@ -1744,7 +1735,7 @@ class TestDomainQueries:
                 f"sec_{i}",
                 ["sec_expert", f"sec_opp_{i}"],
                 {"sec_expert": 1.0, f"sec_opp_{i}": 0.0},
-                domain="security"
+                domain="security",
             )
 
         # Performance expert
@@ -1753,7 +1744,7 @@ class TestDomainQueries:
                 f"perf_{i}",
                 ["perf_expert", f"perf_opp_{i}"],
                 {"perf_expert": 1.0, f"perf_opp_{i}": 0.0},
-                domain="performance"
+                domain="performance",
             )
 
         # Security leaderboard should rank sec_expert high

@@ -42,7 +42,9 @@ EloSystem = _imp.get("EloSystem")
 # FlipDetector for position reversal detection
 _imp, FLIP_DETECTOR_AVAILABLE = try_import(
     "aragora.insights.flip_detector",
-    "FlipDetector", "format_flip_for_ui", "format_consistency_for_ui"
+    "FlipDetector",
+    "format_flip_for_ui",
+    "format_consistency_for_ui",
 )
 FlipDetector = _imp.get("FlipDetector")
 format_flip_for_ui = _imp.get("format_flip_for_ui")
@@ -95,21 +97,15 @@ _imp, CONTINUUM_AVAILABLE = try_import("aragora.memory.continuum", "ContinuumMem
 ContinuumMemory = _imp.get("ContinuumMemory")
 
 # PositionLedger for truth-grounded personas
-_imp, POSITION_LEDGER_AVAILABLE = try_import(
-    "aragora.genesis.ledger", "PositionLedger"
-)
+_imp, POSITION_LEDGER_AVAILABLE = try_import("aragora.genesis.ledger", "PositionLedger")
 PositionLedger = _imp.get("PositionLedger")
 
 # MomentDetector for significant agent moments
-_imp, MOMENT_DETECTOR_AVAILABLE = try_import(
-    "aragora.insights.moments", "MomentDetector"
-)
+_imp, MOMENT_DETECTOR_AVAILABLE = try_import("aragora.insights.moments", "MomentDetector")
 MomentDetector = _imp.get("MomentDetector")
 
 # PositionTracker for agent positions
-_imp, POSITION_TRACKER_AVAILABLE = try_import(
-    "aragora.insights.positions", "PositionTracker"
-)
+_imp, POSITION_TRACKER_AVAILABLE = try_import("aragora.insights.positions", "PositionTracker")
 PositionTracker = _imp.get("PositionTracker")
 
 # Broadcast module for podcast generation
@@ -120,9 +116,7 @@ broadcast_debate = _imp1.get("broadcast_debate")
 DebateTrace = _imp2.get("DebateTrace")
 
 # RelationshipTracker for agent network analysis
-_imp, RELATIONSHIP_TRACKER_AVAILABLE = try_import(
-    "aragora.agents.grounded", "RelationshipTracker"
-)
+_imp, RELATIONSHIP_TRACKER_AVAILABLE = try_import("aragora.agents.grounded", "RelationshipTracker")
 RelationshipTracker = _imp.get("RelationshipTracker")
 
 # CritiqueStore for pattern retrieval
@@ -131,8 +125,7 @@ CritiqueStore = _imp.get("CritiqueStore")
 
 # Export module for debate artifact export
 _imp, EXPORT_AVAILABLE = try_import(
-    "aragora.export",
-    "DebateArtifact", "CSVExporter", "DOTExporter", "StaticHTMLExporter"
+    "aragora.export", "DebateArtifact", "CSVExporter", "DOTExporter", "StaticHTMLExporter"
 )
 DebateArtifact = _imp.get("DebateArtifact")
 CSVExporter = _imp.get("CSVExporter")
@@ -148,9 +141,7 @@ _imp, REDTEAM_AVAILABLE = try_import("aragora.modes.redteam", "RedTeamMode")
 RedTeamMode = _imp.get("RedTeamMode")
 
 # PersonaLaboratory for emergent traits
-_imp, LABORATORY_AVAILABLE = try_import(
-    "aragora.agents.laboratory", "PersonaLaboratory"
-)
+_imp, LABORATORY_AVAILABLE = try_import("aragora.agents.laboratory", "PersonaLaboratory")
 PersonaLaboratory = _imp.get("PersonaLaboratory")
 
 # BeliefNetwork for debate cruxes
@@ -161,23 +152,18 @@ BeliefNetwork = _imp.get("BeliefNetwork")
 BeliefPropagationAnalyzer = _imp.get("BeliefPropagationAnalyzer")
 
 # ProvenanceTracker for claim support
-_imp, PROVENANCE_AVAILABLE = try_import(
-    "aragora.reasoning.provenance", "ProvenanceTracker"
-)
+_imp, PROVENANCE_AVAILABLE = try_import("aragora.reasoning.provenance", "ProvenanceTracker")
 ProvenanceTracker = _imp.get("ProvenanceTracker")
 
 # FormalVerificationManager singleton accessor
 _imp, FORMAL_VERIFICATION_AVAILABLE = try_import(
-    "aragora.verification.formal",
-    "FormalVerificationManager", "get_formal_verification_manager"
+    "aragora.verification.formal", "FormalVerificationManager", "get_formal_verification_manager"
 )
 FormalVerificationManager = _imp.get("FormalVerificationManager")
 get_formal_verification_manager = _imp.get("get_formal_verification_manager")
 
 # ImpasseDetector for debate deadlock detection
-_imp, IMPASSE_DETECTOR_AVAILABLE = try_import(
-    "aragora.debate.counterfactual", "ImpasseDetector"
-)
+_imp, IMPASSE_DETECTOR_AVAILABLE = try_import("aragora.debate.counterfactual", "ImpasseDetector")
 ImpasseDetector = _imp.get("ImpasseDetector")
 
 # ConvergenceDetector for semantic position convergence
@@ -195,15 +181,11 @@ AgentProfile = _imp.get("AgentProfile")
 TaskRequirements = _imp.get("TaskRequirements")
 
 # TournamentManager for tournament standings
-_imp, TOURNAMENT_AVAILABLE = try_import(
-    "aragora.tournaments.tournament", "TournamentManager"
-)
+_imp, TOURNAMENT_AVAILABLE = try_import("aragora.tournaments.tournament", "TournamentManager")
 TournamentManager = _imp.get("TournamentManager")
 
 # PromptEvolver for evolution history
-_imp, EVOLUTION_AVAILABLE = try_import(
-    "aragora.evolution.evolver", "PromptEvolver"
-)
+_imp, EVOLUTION_AVAILABLE = try_import("aragora.evolution.evolver", "PromptEvolver")
 PromptEvolver = _imp.get("PromptEvolver")
 
 # MemoryTier enum for ContinuumMemory
@@ -211,15 +193,14 @@ _imp, _mem_tier_avail = try_import("aragora.memory.continuum", "MemoryTier")
 MemoryTier = _imp.get("MemoryTier")
 
 # InsightExtractor for debate insights
-_imp, INSIGHT_EXTRACTOR_AVAILABLE = try_import(
-    "aragora.insights.extractor", "InsightExtractor"
-)
+_imp, INSIGHT_EXTRACTOR_AVAILABLE = try_import("aragora.insights.extractor", "InsightExtractor")
 InsightExtractor = _imp.get("InsightExtractor")
 
 
 # =============================================================================
 # Subsystem Initialization Functions
 # =============================================================================
+
 
 def init_persistence(enable: bool = True) -> Optional[Any]:
     """Initialize Supabase persistence if available and enabled."""
@@ -399,6 +380,7 @@ def init_verification_manager() -> Optional[Any]:
 # Batch Initialization
 # =============================================================================
 
+
 class SubsystemRegistry:
     """
     Registry of initialized subsystems.
@@ -531,7 +513,7 @@ class SubsystemRegistry:
                     lambda: init_moment_detector(
                         elo_system=self.elo_system,
                         position_ledger=self.position_ledger,
-                    )
+                    ),
                 )
 
             # Standalone subsystems (can run in parallel with nothing)
@@ -622,6 +604,7 @@ async def initialize_subsystems_async(
 # Cache Pre-Warming
 # =============================================================================
 
+
 async def prewarm_caches(
     registry: Optional[SubsystemRegistry] = None,
     nomic_dir: Optional[Path] = None,
@@ -675,9 +658,7 @@ async def prewarm_caches(
                 cache.set("leaderboard:top20", leaderboard)
                 return len(leaderboard)
 
-            result["leaderboard_entries"] = await loop.run_in_executor(
-                None, _fetch_leaderboard
-            )
+            result["leaderboard_entries"] = await loop.run_in_executor(None, _fetch_leaderboard)
             logger.debug(f"[prewarm] Cached {result['leaderboard_entries']} leaderboard entries")
 
         except Exception as e:
@@ -699,9 +680,7 @@ async def prewarm_caches(
                         cache.set(f"profile:{agent_name}", profile)
                 return len(profiles)
 
-            result["agent_profiles"] = await loop.run_in_executor(
-                None, _fetch_profiles
-            )
+            result["agent_profiles"] = await loop.run_in_executor(None, _fetch_profiles)
             logger.debug(f"[prewarm] Cached {result['agent_profiles']} agent profiles")
 
         except Exception as e:
@@ -719,18 +698,16 @@ async def prewarm_caches(
                 cache.set("consensus:summary_stats", stats)
                 return True
 
-            result["consensus_stats"] = await loop.run_in_executor(
-                None, _fetch_consensus_stats
-            )
+            result["consensus_stats"] = await loop.run_in_executor(None, _fetch_consensus_stats)
             logger.debug("[prewarm] Cached consensus stats")
 
         except Exception as e:
             logger.debug(f"[prewarm] Consensus stats cache failed: {e}")
 
     total = (
-        result["leaderboard_entries"] +
-        result["agent_profiles"] +
-        (1 if result["consensus_stats"] else 0)
+        result["leaderboard_entries"]
+        + result["agent_profiles"]
+        + (1 if result["consensus_stats"] else 0)
     )
     if total > 0:
         logger.info(f"[prewarm] Pre-warmed {total} cache entries")

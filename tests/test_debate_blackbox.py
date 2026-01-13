@@ -32,6 +32,7 @@ from aragora.debate.blackbox import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def temp_dir():
     """Create a temporary directory for blackbox storage."""
@@ -62,6 +63,7 @@ def cleanup_global_recorders():
 # ============================================================================
 # BlackboxEvent Tests
 # ============================================================================
+
 
 class TestBlackboxEvent:
     """Tests for BlackboxEvent dataclass."""
@@ -112,6 +114,7 @@ class TestBlackboxEvent:
 # BlackboxSnapshot Tests
 # ============================================================================
 
+
 class TestBlackboxSnapshot:
     """Tests for BlackboxSnapshot dataclass."""
 
@@ -152,6 +155,7 @@ class TestBlackboxSnapshot:
 # ============================================================================
 # BlackboxRecorder Initialization Tests
 # ============================================================================
+
 
 class TestBlackboxRecorderInit:
     """Tests for BlackboxRecorder initialization."""
@@ -199,6 +203,7 @@ class TestBlackboxRecorderInit:
 # Event Recording Tests
 # ============================================================================
 
+
 class TestEventRecording:
     """Tests for event recording."""
 
@@ -243,6 +248,7 @@ class TestEventRecording:
 # ============================================================================
 # Snapshot Tests
 # ============================================================================
+
 
 class TestSnapshots:
     """Tests for turn snapshots."""
@@ -295,6 +301,7 @@ class TestSnapshots:
 # Error Logging Tests
 # ============================================================================
 
+
 class TestErrorLogging:
     """Tests for error logging."""
 
@@ -332,6 +339,7 @@ class TestErrorLogging:
 # Agent Failure Tests
 # ============================================================================
 
+
 class TestAgentFailureLogging:
     """Tests for agent failure logging."""
 
@@ -368,6 +376,7 @@ class TestAgentFailureLogging:
 # Recovery Logging Tests
 # ============================================================================
 
+
 class TestRecoveryLogging:
     """Tests for recovery logging."""
 
@@ -395,6 +404,7 @@ class TestRecoveryLogging:
 # Consensus Logging Tests
 # ============================================================================
 
+
 class TestConsensusLogging:
     """Tests for consensus logging."""
 
@@ -415,6 +425,7 @@ class TestConsensusLogging:
 # ============================================================================
 # Session Summary Tests
 # ============================================================================
+
 
 class TestSessionSummary:
     """Tests for session summary generation."""
@@ -448,6 +459,7 @@ class TestSessionSummary:
 # ============================================================================
 # Flush and Close Tests
 # ============================================================================
+
 
 class TestFlushAndClose:
     """Tests for flush and close operations."""
@@ -486,6 +498,7 @@ class TestFlushAndClose:
 # ============================================================================
 # Global Recorder Management Tests
 # ============================================================================
+
 
 class TestGlobalRecorderManagement:
     """Tests for global recorder functions."""

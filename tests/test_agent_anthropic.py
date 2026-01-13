@@ -105,17 +105,16 @@ class TestAnthropicGenerate:
         """Test successful API response."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "content": [{"text": "Hello, world!"}]
-        })
+        mock_response.json = AsyncMock(return_value={"content": [{"text": "Hello, world!"}]})
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.generate("Test prompt")
@@ -129,17 +128,16 @@ class TestAnthropicGenerate:
         # This test verifies the response status is properly checked
         mock_response = MagicMock()
         mock_response.status = 200  # Success status
-        mock_response.json = AsyncMock(return_value={
-            "content": [{"text": "Success"}]
-        })
+        mock_response.json = AsyncMock(return_value={"content": [{"text": "Success"}]})
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await agent.generate("Test prompt")
@@ -162,10 +160,11 @@ class TestAnthropicGenerate:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_anthropic_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_anthropic_response), __aexit__=AsyncMock()
+            )
+        )
 
         # Mock fallback agent via the mixin method
         mock_fallback = AsyncMock()
@@ -195,10 +194,11 @@ class TestAnthropicGenerate:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             with patch.dict("os.environ", {"OPENROUTER_API_KEY": ""}, clear=False):
@@ -218,9 +218,9 @@ class TestAnthropicGenerate:
 
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "content": [{"text": "Response with context"}]
-        })
+        mock_response.json = AsyncMock(
+            return_value={"content": [{"text": "Response with context"}]}
+        )
 
         captured_payload = None
 
@@ -228,8 +228,7 @@ class TestAnthropicGenerate:
             nonlocal captured_payload
             captured_payload = kwargs.get("json", {})
             return MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response),
-                __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
             )
 
         mock_session = MagicMock()
@@ -268,7 +267,7 @@ class TestAnthropicStreaming:
         # Mock SSE response
         sse_data = b'data: {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "Hello"}}\n\n'
         sse_data += b'data: {"type": "content_block_delta", "delta": {"type": "text_delta", "text": " world"}}\n\n'
-        sse_data += b'data: [DONE]\n\n'
+        sse_data += b"data: [DONE]\n\n"
 
         async def mock_iter():
             yield sse_data
@@ -283,14 +282,18 @@ class TestAnthropicStreaming:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         chunks = []
         with patch("aiohttp.ClientSession", return_value=mock_session):
-            with patch("aragora.agents.api_agents.common.iter_chunks_with_timeout", return_value=mock_iter()):
+            with patch(
+                "aragora.agents.api_agents.common.iter_chunks_with_timeout",
+                return_value=mock_iter(),
+            ):
                 async for chunk in agent.generate_stream("Test prompt"):
                     chunks.append(chunk)
 
@@ -306,10 +309,11 @@ class TestAnthropicStreaming:
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
-        mock_session.post = MagicMock(return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock()
-        ))
+        mock_session.post = MagicMock(
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             # Error may raise or return error message depending on decorator

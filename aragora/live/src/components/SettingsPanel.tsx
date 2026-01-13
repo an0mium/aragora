@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useBackend } from '@/components/BackendSelector';
+import { API_BASE_URL } from '@/config';
 
 interface FeatureConfig {
   // Feature toggles
@@ -310,34 +311,44 @@ export function SettingsPanel() {
 
   return (
     <div className="space-y-6">
-      {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-acid-green/20 pb-2 overflow-x-auto">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 font-mono text-sm whitespace-nowrap transition-colors ${
-              activeTab === tab.id
-                ? 'text-acid-green border-b-2 border-acid-green'
-                : 'text-text-muted hover:text-text'
-            }`}
-            aria-selected={activeTab === tab.id}
-            role="tab"
-          >
-            {tab.label}
-          </button>
-        ))}
-        {/* Save Status Indicator */}
-        {featureSaveStatus !== 'idle' && (
-          <span className={`ml-2 text-xs font-mono ${
-            featureSaveStatus === 'saving' ? 'text-acid-cyan' :
-            featureSaveStatus === 'saved' ? 'text-acid-green' :
-            'text-acid-red'
-          }`}>
-            {featureSaveStatus === 'saving' ? '...' :
-             featureSaveStatus === 'saved' ? '✓' : '✗'}
-          </span>
-        )}
+      {/* Tab Navigation - Mobile-optimized with horizontal scroll */}
+      <div className="relative">
+        {/* Scroll shadow indicators */}
+        <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-bg to-transparent pointer-events-none z-10 md:hidden" />
+        <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-bg to-transparent pointer-events-none z-10 md:hidden" />
+
+        <div
+          className="flex gap-1 md:gap-2 border-b border-acid-green/20 pb-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+          role="tablist"
+          aria-label="Settings sections"
+        >
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-2 md:px-4 py-2 font-mono text-xs md:text-sm whitespace-nowrap transition-colors snap-start ${
+                activeTab === tab.id
+                  ? 'text-acid-green border-b-2 border-acid-green'
+                  : 'text-text-muted hover:text-text'
+              }`}
+              aria-selected={activeTab === tab.id}
+              role="tab"
+            >
+              {tab.label}
+            </button>
+          ))}
+          {/* Save Status Indicator */}
+          {featureSaveStatus !== 'idle' && (
+            <span className={`ml-2 text-xs font-mono self-center ${
+              featureSaveStatus === 'saving' ? 'text-acid-cyan' :
+              featureSaveStatus === 'saved' ? 'text-acid-green' :
+              'text-acid-red'
+            }`}>
+              {featureSaveStatus === 'saving' ? '...' :
+               featureSaveStatus === 'saved' ? '✓' : '✗'}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Features Tab */}

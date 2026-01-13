@@ -171,6 +171,7 @@ def require_tracker(func: Callable) -> Callable:
             # tracker is guaranteed non-None
             ...
     """
+
     @wraps(func)
     def wrapper(self, nomic_dir: Optional[Path], *args, **kwargs) -> HandlerResult:
         if not RELATIONSHIP_TRACKER_AVAILABLE:
@@ -179,6 +180,7 @@ def require_tracker(func: Callable) -> Callable:
         if not tracker:
             return error_response("Failed to initialize relationship tracker", 503)
         return func(self, tracker, *args, **kwargs)
+
     return wrapper
 
 
@@ -215,8 +217,8 @@ class RelationshipHandler(BaseHandler):
             return self._get_summary(nomic_dir)
 
         if path == "/api/relationships/graph":
-            min_debates = get_int_param(query_params, 'min_debates', 3)
-            min_score = get_float_param(query_params, 'min_score', 0.0)
+            min_debates = get_int_param(query_params, "min_debates", 3)
+            min_score = get_float_param(query_params, "min_score", 0.0)
             return self._get_graph(nomic_dir, min_debates, min_score)
 
         if path == "/api/relationships/stats":
@@ -224,10 +226,13 @@ class RelationshipHandler(BaseHandler):
 
         # Handle /api/relationship/{agent_a}/{agent_b}
         if path.startswith("/api/relationship/"):
-            params, err = self.extract_path_params(path, [
-                (2, "agent_a", SAFE_AGENT_PATTERN),
-                (3, "agent_b", SAFE_AGENT_PATTERN),
-            ])
+            params, err = self.extract_path_params(
+                path,
+                [
+                    (2, "agent_a", SAFE_AGENT_PATTERN),
+                    (3, "agent_b", SAFE_AGENT_PATTERN),
+                ],
+            )
             if err:
                 return err
             return self._get_pair_detail(nomic_dir, params["agent_a"], params["agent_b"])
@@ -262,12 +267,15 @@ class RelationshipHandler(BaseHandler):
             cursor = conn.cursor()
             if not table_exists(cursor, "agent_relationships"):
                 return []
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT agent_a, agent_b, debate_count, agreement_count,
                        a_wins_over_b, b_wins_over_a
                 FROM agent_relationships
                 WHERE debate_count >= ?
-            """, (min_debates,))
+            """,
+                (min_debates,),
+            )
             return cursor.fetchall()
 
     @require_tracker
@@ -285,39 +293,48 @@ class RelationshipHandler(BaseHandler):
                 cursor = conn.cursor()
 
                 if not table_exists(cursor, "agent_relationships"):
-                    return json_response({
-                        "total_relationships": 0,
-                        "strongest_rivalry": None,
-                        "strongest_alliance": None,
-                        "most_connected_agent": None,
-                        "avg_rivalry_score": 0.0,
-                        "avg_alliance_score": 0.0,
-                    })
+                    return json_response(
+                        {
+                            "total_relationships": 0,
+                            "strongest_rivalry": None,
+                            "strongest_alliance": None,
+                            "most_connected_agent": None,
+                            "avg_rivalry_score": 0.0,
+                            "avg_alliance_score": 0.0,
+                        }
+                    )
 
                 # Safety limit to prevent memory explosion - cap at 10,000 relationships
                 MAX_RELATIONSHIPS = 10000
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT agent_a, agent_b, debate_count, agreement_count,
                            a_wins_over_b, b_wins_over_a
                     FROM agent_relationships
                     WHERE debate_count >= 3
                     ORDER BY debate_count DESC
                     LIMIT ?
-                """, (MAX_RELATIONSHIPS,))
+                """,
+                    (MAX_RELATIONSHIPS,),
+                )
                 rows = cursor.fetchall()
 
                 if len(rows) == MAX_RELATIONSHIPS:
-                    logger.warning(f"Relationship summary hit limit of {MAX_RELATIONSHIPS} - results may be incomplete")
+                    logger.warning(
+                        f"Relationship summary hit limit of {MAX_RELATIONSHIPS} - results may be incomplete"
+                    )
 
             if not rows:
-                return json_response({
-                    "total_relationships": 0,
-                    "strongest_rivalry": None,
-                    "strongest_alliance": None,
-                    "most_connected_agent": None,
-                    "avg_rivalry_score": 0.0,
-                    "avg_alliance_score": 0.0,
-                })
+                return json_response(
+                    {
+                        "total_relationships": 0,
+                        "strongest_rivalry": None,
+                        "strongest_alliance": None,
+                        "most_connected_agent": None,
+                        "avg_rivalry_score": 0.0,
+                        "avg_alliance_score": 0.0,
+                    }
+                )
 
             # Process relationships
             strongest_rivalry = None
@@ -337,40 +354,54 @@ class RelationshipHandler(BaseHandler):
                 agent_relationship_counts[agent_b] = agent_relationship_counts.get(agent_b, 0) + 1
 
                 # Compute scores inline (avoids N+1 query)
-                scores = compute_relationship_scores(
-                    debate_count, agreement_count, a_wins, b_wins
-                )
+                scores = compute_relationship_scores(debate_count, agreement_count, a_wins, b_wins)
 
                 if scores.rivalry_score > 0:
                     rivalry_scores.append(scores.rivalry_score)
                     if scores.rivalry_score > strongest_rivalry_score:
                         strongest_rivalry_score = scores.rivalry_score
-                        strongest_rivalry = {"agents": [agent_a, agent_b], "score": scores.rivalry_score}
+                        strongest_rivalry = {
+                            "agents": [agent_a, agent_b],
+                            "score": scores.rivalry_score,
+                        }
 
                 if scores.alliance_score > 0:
                     alliance_scores.append(scores.alliance_score)
                     if scores.alliance_score > strongest_alliance_score:
                         strongest_alliance_score = scores.alliance_score
-                        strongest_alliance = {"agents": [agent_a, agent_b], "score": scores.alliance_score}
+                        strongest_alliance = {
+                            "agents": [agent_a, agent_b],
+                            "score": scores.alliance_score,
+                        }
 
             # Find most connected agent
             most_connected = None
             if agent_relationship_counts:
-                most_connected_name = max(agent_relationship_counts, key=agent_relationship_counts.get)
+                most_connected_name = max(
+                    agent_relationship_counts, key=agent_relationship_counts.get
+                )
                 most_connected = {
                     "name": most_connected_name,
-                    "relationship_count": agent_relationship_counts[most_connected_name]
+                    "relationship_count": agent_relationship_counts[most_connected_name],
                 }
 
-            logger.info(f"Relationship summary: {len(rows)} relationships, {len(rivalry_scores)} rivalries, {len(alliance_scores)} alliances")
-            return json_response({
-                "total_relationships": len(rows),
-                "strongest_rivalry": strongest_rivalry,
-                "strongest_alliance": strongest_alliance,
-                "most_connected_agent": most_connected,
-                "avg_rivalry_score": sum(rivalry_scores) / len(rivalry_scores) if rivalry_scores else 0.0,
-                "avg_alliance_score": sum(alliance_scores) / len(alliance_scores) if alliance_scores else 0.0,
-            })
+            logger.info(
+                f"Relationship summary: {len(rows)} relationships, {len(rivalry_scores)} rivalries, {len(alliance_scores)} alliances"
+            )
+            return json_response(
+                {
+                    "total_relationships": len(rows),
+                    "strongest_rivalry": strongest_rivalry,
+                    "strongest_alliance": strongest_alliance,
+                    "most_connected_agent": most_connected,
+                    "avg_rivalry_score": (
+                        sum(rivalry_scores) / len(rivalry_scores) if rivalry_scores else 0.0
+                    ),
+                    "avg_alliance_score": (
+                        sum(alliance_scores) / len(alliance_scores) if alliance_scores else 0.0
+                    ),
+                }
+            )
 
         except Exception as e:
             return error_response(_safe_error_message(e, "relationships_summary"), 500)
@@ -383,11 +414,9 @@ class RelationshipHandler(BaseHandler):
         try:
             rows = self._fetch_relationships(tracker, min_debates)
             if not rows:
-                return json_response({
-                    "nodes": [],
-                    "edges": [],
-                    "stats": {"node_count": 0, "edge_count": 0}
-                })
+                return json_response(
+                    {"nodes": [], "edges": [], "stats": {"node_count": 0, "edge_count": 0}}
+                )
 
             # Build nodes and edges
             nodes_data = {}  # agent -> {debate_count, rivals, allies}
@@ -402,9 +431,7 @@ class RelationshipHandler(BaseHandler):
                         nodes_data[agent] = {"debate_count": 0, "rivals": 0, "allies": 0}
 
                 # Compute scores inline (avoids N+1 query)
-                scores = compute_relationship_scores(
-                    debate_count, agreement_count, a_wins, b_wins
-                )
+                scores = compute_relationship_scores(debate_count, agreement_count, a_wins, b_wins)
 
                 # Apply score filter
                 max_score = max(scores.rivalry_score, scores.alliance_score)
@@ -423,14 +450,16 @@ class RelationshipHandler(BaseHandler):
                 nodes_data[agent_a]["debate_count"] += debate_count
                 nodes_data[agent_b]["debate_count"] += debate_count
 
-                edges.append({
-                    "source": agent_a,
-                    "target": agent_b,
-                    "rivalry_score": round(scores.rivalry_score, 3),
-                    "alliance_score": round(scores.alliance_score, 3),
-                    "debate_count": debate_count,
-                    "type": scores.relationship_type,
-                })
+                edges.append(
+                    {
+                        "source": agent_a,
+                        "target": agent_b,
+                        "rivalry_score": round(scores.rivalry_score, 3),
+                        "alliance_score": round(scores.alliance_score, 3),
+                        "debate_count": debate_count,
+                        "type": scores.relationship_type,
+                    }
+                )
 
             # Build nodes list
             nodes = [
@@ -444,11 +473,13 @@ class RelationshipHandler(BaseHandler):
             ]
 
             logger.info(f"Relationship graph: {len(nodes)} nodes, {len(edges)} edges")
-            return json_response({
-                "nodes": nodes,
-                "edges": edges,
-                "stats": {"node_count": len(nodes), "edge_count": len(edges)}
-            })
+            return json_response(
+                {
+                    "nodes": nodes,
+                    "edges": edges,
+                    "stats": {"node_count": len(nodes), "edge_count": len(edges)},
+                }
+            )
 
         except Exception as e:
             return error_response(_safe_error_message(e, "relationships_graph"), 500)
@@ -462,12 +493,14 @@ class RelationshipHandler(BaseHandler):
             rel = tracker.get_relationship(agent_a, agent_b)
 
             if rel.debate_count == 0:
-                return json_response({
-                    "agent_a": agent_a,
-                    "agent_b": agent_b,
-                    "relationship_exists": False,
-                    "message": "No recorded interactions between these agents"
-                })
+                return json_response(
+                    {
+                        "agent_a": agent_a,
+                        "agent_b": agent_b,
+                        "relationship_exists": False,
+                        "message": "No recorded interactions between these agents",
+                    }
+                )
 
             # Compute derived metrics
             agreement_rate = rel.agreement_count / rel.debate_count if rel.debate_count > 0 else 0
@@ -475,44 +508,48 @@ class RelationshipHandler(BaseHandler):
             alliance_score = rel.alliance_score
             rel_type = determine_relationship_type(rivalry_score, alliance_score)
 
-            return json_response({
-                "agent_a": rel.agent_a,
-                "agent_b": rel.agent_b,
-                "relationship_exists": True,
-                "debate_count": rel.debate_count,
-                "agreement_count": rel.agreement_count,
-                "agreement_rate": round(agreement_rate, 3),
-                "rivalry_score": round(rivalry_score, 3),
-                "alliance_score": round(alliance_score, 3),
-                "relationship_type": rel_type,
-                "head_to_head": {
-                    f"{rel.agent_a}_wins": rel.a_wins_over_b,
-                    f"{rel.agent_b}_wins": rel.b_wins_over_a,
-                },
-                "critique_balance": {
-                    f"{rel.agent_a}_to_{rel.agent_b}": rel.critique_count_a_to_b,
-                    f"{rel.agent_b}_to_{rel.agent_a}": rel.critique_count_b_to_a,
-                },
-                "influence": {
-                    f"{rel.agent_a}_on_{rel.agent_b}": round(rel.influence_a_on_b, 3),
-                    f"{rel.agent_b}_on_{rel.agent_a}": round(rel.influence_b_on_a, 3),
-                },
-            })
+            return json_response(
+                {
+                    "agent_a": rel.agent_a,
+                    "agent_b": rel.agent_b,
+                    "relationship_exists": True,
+                    "debate_count": rel.debate_count,
+                    "agreement_count": rel.agreement_count,
+                    "agreement_rate": round(agreement_rate, 3),
+                    "rivalry_score": round(rivalry_score, 3),
+                    "alliance_score": round(alliance_score, 3),
+                    "relationship_type": rel_type,
+                    "head_to_head": {
+                        f"{rel.agent_a}_wins": rel.a_wins_over_b,
+                        f"{rel.agent_b}_wins": rel.b_wins_over_a,
+                    },
+                    "critique_balance": {
+                        f"{rel.agent_a}_to_{rel.agent_b}": rel.critique_count_a_to_b,
+                        f"{rel.agent_b}_to_{rel.agent_a}": rel.critique_count_b_to_a,
+                    },
+                    "influence": {
+                        f"{rel.agent_a}_on_{rel.agent_b}": round(rel.influence_a_on_b, 3),
+                        f"{rel.agent_b}_on_{rel.agent_a}": round(rel.influence_b_on_a, 3),
+                    },
+                }
+            )
 
         except Exception as e:
             return error_response(_safe_error_message(e, "relationship_pair_detail"), 500)
 
     def _empty_stats_response(self) -> HandlerResult:
         """Return empty stats response when no data available."""
-        return json_response({
-            "total_tracked_pairs": 0,
-            "total_debates_tracked": 0,
-            "rivalries": {"count": 0, "avg_score": 0.0},
-            "alliances": {"count": 0, "avg_score": 0.0},
-            "neutral": {"count": 0},
-            "most_debated_pair": None,
-            "highest_agreement_pair": None,
-        })
+        return json_response(
+            {
+                "total_tracked_pairs": 0,
+                "total_debates_tracked": 0,
+                "rivalries": {"count": 0, "avg_score": 0.0},
+                "alliances": {"count": 0, "avg_score": 0.0},
+                "neutral": {"count": 0},
+                "most_debated_pair": None,
+                "highest_agreement_pair": None,
+            }
+        )
 
     @require_tracker
     def _get_stats(self, tracker: "RelationshipTracker") -> HandlerResult:
@@ -548,7 +585,7 @@ class RelationshipHandler(BaseHandler):
                         highest_agreement_rate = agreement_rate
                         highest_agreement = {
                             "agents": [agent_a, agent_b],
-                            "rate": round(agreement_rate, 3)
+                            "rate": round(agreement_rate, 3),
                         }
 
                     # Compute scores inline (avoids N+1 query)
@@ -563,21 +600,27 @@ class RelationshipHandler(BaseHandler):
                     else:
                         neutral_count += 1
 
-            return json_response({
-                "total_tracked_pairs": len(rows),
-                "total_debates_tracked": total_debates,
-                "rivalries": {
-                    "count": len(rivalries),
-                    "avg_score": round(sum(rivalries) / len(rivalries), 3) if rivalries else 0.0
-                },
-                "alliances": {
-                    "count": len(alliances),
-                    "avg_score": round(sum(alliances) / len(alliances), 3) if alliances else 0.0
-                },
-                "neutral": {"count": neutral_count},
-                "most_debated_pair": most_debated,
-                "highest_agreement_pair": highest_agreement,
-            })
+            return json_response(
+                {
+                    "total_tracked_pairs": len(rows),
+                    "total_debates_tracked": total_debates,
+                    "rivalries": {
+                        "count": len(rivalries),
+                        "avg_score": (
+                            round(sum(rivalries) / len(rivalries), 3) if rivalries else 0.0
+                        ),
+                    },
+                    "alliances": {
+                        "count": len(alliances),
+                        "avg_score": (
+                            round(sum(alliances) / len(alliances), 3) if alliances else 0.0
+                        ),
+                    },
+                    "neutral": {"count": neutral_count},
+                    "most_debated_pair": most_debated,
+                    "highest_agreement_pair": highest_agreement,
+                }
+            )
 
         except Exception as e:
             return error_response(_safe_error_message(e, "relationships_stats"), 500)

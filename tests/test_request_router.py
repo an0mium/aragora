@@ -10,6 +10,7 @@ from aragora.server.router import RequestRouter, Route
 @dataclass
 class MockHandlerResult:
     """Mock handler result."""
+
     status_code: int = 200
     body: bytes = b"{}"
     content_type: str = "application/json"
@@ -55,6 +56,7 @@ class TestRoute:
     def test_matches_exact_path(self):
         """Route matches exact path."""
         import re
+
         route = Route(
             pattern=re.compile(r"^/api/test$"),
             handler=MagicMock(),
@@ -67,6 +69,7 @@ class TestRoute:
     def test_no_match_wrong_method(self):
         """Route doesn't match wrong method."""
         import re
+
         route = Route(
             pattern=re.compile(r"^/api/test$"),
             handler=MagicMock(),
@@ -78,6 +81,7 @@ class TestRoute:
     def test_no_match_wrong_path(self):
         """Route doesn't match wrong path."""
         import re
+
         route = Route(
             pattern=re.compile(r"^/api/test$"),
             handler=MagicMock(),
@@ -89,6 +93,7 @@ class TestRoute:
     def test_extracts_path_params(self):
         """Route extracts path parameters."""
         import re
+
         route = Route(
             pattern=re.compile(r"^/api/items/(?P<id>[^/]+)$"),
             handler=MagicMock(),

@@ -32,6 +32,7 @@ from aragora.debate.judge_selector import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_agent():
     """Create a mock agent."""
@@ -86,11 +87,13 @@ def mock_elo_system():
 
     elo.get_rating = Mock(side_effect=get_rating)
     elo.get_ratings_batch = Mock(side_effect=get_ratings_batch)
-    elo.get_leaderboard = Mock(return_value=[
-        Mock(agent="agent_a", elo=1500),
-        Mock(agent="agent_b", elo=1200),
-        Mock(agent="agent_c", elo=1000),
-    ])
+    elo.get_leaderboard = Mock(
+        return_value=[
+            Mock(agent="agent_a", elo=1500),
+            Mock(agent="agent_b", elo=1200),
+            Mock(agent="agent_c", elo=1000),
+        ]
+    )
 
     return elo
 
@@ -116,6 +119,7 @@ def sample_proposals():
 # ============================================================================
 # JudgeScore Tests
 # ============================================================================
+
 
 class TestJudgeScore:
     """Tests for JudgeScore dataclass."""
@@ -143,15 +147,16 @@ class TestJudgeScore:
             composite_score=0.56,
         )
 
-        assert hasattr(score, 'agent_name')
-        assert hasattr(score, 'elo_score')
-        assert hasattr(score, 'calibration_score')
-        assert hasattr(score, 'composite_score')
+        assert hasattr(score, "agent_name")
+        assert hasattr(score, "elo_score")
+        assert hasattr(score, "calibration_score")
+        assert hasattr(score, "composite_score")
 
 
 # ============================================================================
 # JudgeScoringMixin Tests
 # ============================================================================
+
 
 class TestJudgeScoringMixin:
     """Tests for JudgeScoringMixin utility methods."""
@@ -238,6 +243,7 @@ class TestJudgeScoringMixin:
 # LastAgentStrategy Tests
 # ============================================================================
 
+
 class TestLastAgentStrategy:
     """Tests for LastAgentStrategy."""
 
@@ -273,6 +279,7 @@ class TestLastAgentStrategy:
 # ============================================================================
 # RandomStrategy Tests
 # ============================================================================
+
 
 class TestRandomStrategy:
     """Tests for RandomStrategy."""
@@ -313,6 +320,7 @@ class TestRandomStrategy:
 # ============================================================================
 # EloRankedStrategy Tests
 # ============================================================================
+
 
 class TestEloRankedStrategy:
     """Tests for EloRankedStrategy."""
@@ -359,6 +367,7 @@ class TestEloRankedStrategy:
 # CalibratedStrategy Tests
 # ============================================================================
 
+
 class TestCalibratedStrategy:
     """Tests for CalibratedStrategy."""
 
@@ -394,6 +403,7 @@ class TestCalibratedStrategy:
 # ============================================================================
 # CruxAwareStrategy Tests
 # ============================================================================
+
 
 class TestCruxAwareStrategy:
     """Tests for CruxAwareStrategy."""
@@ -441,9 +451,7 @@ class TestCruxAwareStrategy:
         """Test _find_historical_dissenters without consensus memory."""
         strategy = CruxAwareStrategy()
 
-        dissenters = strategy._find_historical_dissenters(
-            [{"claim": "test"}], mock_agents
-        )
+        dissenters = strategy._find_historical_dissenters([{"claim": "test"}], mock_agents)
 
         assert dissenters == []
 
@@ -460,12 +468,14 @@ class TestCruxAwareStrategy:
 # VotedStrategy Tests
 # ============================================================================
 
+
 class TestVotedStrategy:
     """Tests for VotedStrategy."""
 
     @pytest.mark.asyncio
     async def test_agents_vote_for_judge(self, mock_agents):
         """Test agents vote and winner is selected."""
+
         async def mock_generate(agent, prompt, context):
             # All agents vote for agent_b
             return "I think agent_b should be the judge"
@@ -507,6 +517,7 @@ class TestVotedStrategy:
     @pytest.mark.asyncio
     async def test_handles_generate_exception(self, mock_agents):
         """Test handles generation exceptions gracefully."""
+
         async def failing_generate(agent, prompt, context):
             raise RuntimeError("API error")
 
@@ -535,10 +546,12 @@ class TestVotedStrategy:
     @pytest.mark.asyncio
     async def test_sanitize_fn_called(self, mock_agents):
         """Test sanitize function is called on responses."""
+
         async def mock_generate(agent, prompt, context):
             return "RAW: agent_b should judge"
 
         sanitize_calls = []
+
         def mock_sanitize(response, agent_name):
             sanitize_calls.append((response, agent_name))
             return response
@@ -557,6 +570,7 @@ class TestVotedStrategy:
 # ============================================================================
 # JudgeSelector Initialization Tests
 # ============================================================================
+
 
 class TestJudgeSelectorInit:
     """Tests for JudgeSelector initialization."""
@@ -605,6 +619,7 @@ class TestJudgeSelectorInit:
 # JudgeSelector Filter Tests
 # ============================================================================
 
+
 class TestJudgeSelectorFiltering:
     """Tests for agent filtering in JudgeSelector."""
 
@@ -650,6 +665,7 @@ class TestJudgeSelectorFiltering:
 # JudgeSelector Selection Tests
 # ============================================================================
 
+
 class TestJudgeSelectorSelection:
     """Tests for judge selection in JudgeSelector."""
 
@@ -666,7 +682,9 @@ class TestJudgeSelectorSelection:
         assert judge.name == "agent_c"  # Last agent
 
     @pytest.mark.asyncio
-    async def test_select_judge_filters_agents_first(self, mock_agents, mock_circuit_breaker, sample_proposals):
+    async def test_select_judge_filters_agents_first(
+        self, mock_agents, mock_circuit_breaker, sample_proposals
+    ):
         """Test select_judge filters agents before selection."""
         mock_circuit_breaker.is_available.side_effect = lambda name: name != "agent_c"
 
@@ -702,7 +720,9 @@ class TestJudgeSelectorSelection:
         )
 
         # Mock strategy to return None
-        with patch.object(selector._strategies["random"], "select", new_callable=AsyncMock) as mock_select:
+        with patch.object(
+            selector._strategies["random"], "select", new_callable=AsyncMock
+        ) as mock_select:
             mock_select.return_value = None
 
             judge = await selector.select_judge(sample_proposals, [])
@@ -714,11 +734,14 @@ class TestJudgeSelectorSelection:
 # JudgeSelector Candidates Tests
 # ============================================================================
 
+
 class TestJudgeSelectorCandidates:
     """Tests for judge candidate selection."""
 
     @pytest.mark.asyncio
-    async def test_get_judge_candidates_ordered(self, mock_agents, mock_elo_system, sample_proposals):
+    async def test_get_judge_candidates_ordered(
+        self, mock_agents, mock_elo_system, sample_proposals
+    ):
         """Test candidates are ordered by composite score."""
         selector = JudgeSelector(
             agents=mock_agents,
@@ -733,16 +756,16 @@ class TestJudgeSelectorCandidates:
         assert candidates[2].name == "agent_c"
 
     @pytest.mark.asyncio
-    async def test_get_judge_candidates_limited(self, mock_agents, mock_elo_system, sample_proposals):
+    async def test_get_judge_candidates_limited(
+        self, mock_agents, mock_elo_system, sample_proposals
+    ):
         """Test candidates are limited to max_candidates."""
         selector = JudgeSelector(
             agents=mock_agents,
             elo_system=mock_elo_system,
         )
 
-        candidates = await selector.get_judge_candidates(
-            sample_proposals, [], max_candidates=2
-        )
+        candidates = await selector.get_judge_candidates(sample_proposals, [], max_candidates=2)
 
         assert len(candidates) == 2
 
@@ -779,9 +802,7 @@ class TestJudgeSelectorCandidates:
         # Get candidates multiple times - should have some variation
         selections = set()
         for _ in range(10):
-            candidates = await selector.get_judge_candidates(
-                sample_proposals, [], max_candidates=1
-            )
+            candidates = await selector.get_judge_candidates(sample_proposals, [], max_candidates=1)
             if candidates:
                 selections.add(candidates[0].name)
 
@@ -793,6 +814,7 @@ class TestJudgeSelectorCandidates:
 # ============================================================================
 # JudgeSelector Factory Tests
 # ============================================================================
+
 
 class TestJudgeSelectorFactory:
     """Tests for JudgeSelector factory methods."""
@@ -828,6 +850,7 @@ class TestJudgeSelectorFactory:
 # Edge Cases
 # ============================================================================
 
+
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
@@ -855,10 +878,9 @@ class TestEdgeCases:
             agents.append(agent)
 
         # All have same ELO
-        mock_elo_system.get_ratings_batch = Mock(return_value={
-            name: Mock(elo=1000, calibration_score=0.5)
-            for name in ["a", "b", "c"]
-        })
+        mock_elo_system.get_ratings_batch = Mock(
+            return_value={name: Mock(elo=1000, calibration_score=0.5) for name in ["a", "b", "c"]}
+        )
 
         selector = JudgeSelector(
             agents=agents,
@@ -881,4 +903,3 @@ class TestEdgeCases:
         # ELO normalized: (2000 - 1000) / 500 = 2.0
         # Composite: (2.0 * 0.7) + (1.0 * 0.3) = 1.4 + 0.3 = 1.7
         assert score == pytest.approx(1.7)
-

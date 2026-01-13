@@ -94,6 +94,8 @@ class CalibrationBucket:
 class OutcomeTracker:
     """Tracks consensus decision outcomes for calibration and learning.
 
+    Uses SQLiteStore internally for standardized schema management.
+
     Usage:
         tracker = OutcomeTracker()
 
@@ -120,48 +122,50 @@ class OutcomeTracker:
             trickster.config.hollow_detection_threshold *= 0.9
     """
 
+    SCHEMA_NAME = "outcome_tracker"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS outcomes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            debate_id TEXT UNIQUE NOT NULL,
+            consensus_text TEXT,
+            consensus_confidence REAL,
+            implementation_attempted INTEGER,
+            implementation_succeeded INTEGER,
+            tests_passed INTEGER DEFAULT 0,
+            tests_failed INTEGER DEFAULT 0,
+            rollback_triggered INTEGER DEFAULT 0,
+            time_to_failure REAL,
+            failure_reason TEXT,
+            timestamp TEXT,
+            agents_participating TEXT,
+            rounds_completed INTEGER DEFAULT 0,
+            trickster_interventions INTEGER DEFAULT 0,
+            evidence_coverage REAL DEFAULT 0.0
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_outcomes_confidence
+        ON outcomes(consensus_confidence);
+    """
+
     def __init__(self, db_path: Path = DEFAULT_OUTCOMES_DB):
+        from aragora.storage.base_store import SQLiteStore
+
+        # Create SQLiteStore-based database wrapper
+        class _OutcomeDB(SQLiteStore):
+            SCHEMA_NAME = OutcomeTracker.SCHEMA_NAME
+            SCHEMA_VERSION = OutcomeTracker.SCHEMA_VERSION
+            INITIAL_SCHEMA = OutcomeTracker.INITIAL_SCHEMA
+
         self.db_path = Path(db_path)
-        self._init_db()
-
-    def _init_db(self) -> None:
-        """Initialize database schema."""
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS outcomes (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    debate_id TEXT UNIQUE NOT NULL,
-                    consensus_text TEXT,
-                    consensus_confidence REAL,
-                    implementation_attempted INTEGER,
-                    implementation_succeeded INTEGER,
-                    tests_passed INTEGER DEFAULT 0,
-                    tests_failed INTEGER DEFAULT 0,
-                    rollback_triggered INTEGER DEFAULT 0,
-                    time_to_failure REAL,
-                    failure_reason TEXT,
-                    timestamp TEXT,
-                    agents_participating TEXT,
-                    rounds_completed INTEGER DEFAULT 0,
-                    trickster_interventions INTEGER DEFAULT 0,
-                    evidence_coverage REAL DEFAULT 0.0
-                )
-            """)
-
-            # Index for calibration queries
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_outcomes_confidence
-                ON outcomes(consensus_confidence)
-            """)
-
-            conn.commit()
+        self._db = _OutcomeDB(str(db_path), timeout=DB_TIMEOUT_SECONDS)
 
     def record_outcome(self, outcome: ConsensusOutcome) -> None:
         """Record an outcome to the database."""
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
-            conn.execute("""
+        with self._db.connection() as conn:
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO outcomes (
                     debate_id, consensus_text, consensus_confidence,
                     implementation_attempted, implementation_succeeded,
@@ -177,20 +181,23 @@ class OutcomeTracker:
                     :agents_participating, :rounds_completed,
                     :trickster_interventions, :evidence_coverage
                 )
-            """, outcome.to_dict())
+            """,
+                outcome.to_dict(),
+            )
             conn.commit()
 
-        logger.info(f"Recorded outcome for {outcome.debate_id}: "
-                   f"success={outcome.implementation_succeeded}, "
-                   f"confidence={outcome.consensus_confidence:.2f}")
+        logger.info(
+            f"Recorded outcome for {outcome.debate_id}: "
+            f"success={outcome.implementation_succeeded}, "
+            f"confidence={outcome.consensus_confidence:.2f}"
+        )
 
     def get_outcome(self, debate_id: str) -> Optional[ConsensusOutcome]:
         """Get outcome by debate ID."""
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self._db.connection() as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute(
-                "SELECT * FROM outcomes WHERE debate_id = ?",
-                (debate_id,)
+                "SELECT * FROM outcomes WHERE debate_id = ?", (debate_id,)
             ).fetchone()
 
             if row:
@@ -199,11 +206,10 @@ class OutcomeTracker:
 
     def get_recent_outcomes(self, limit: int = 50) -> list[ConsensusOutcome]:
         """Get recent outcomes ordered by timestamp."""
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self._db.connection() as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
-                "SELECT * FROM outcomes ORDER BY timestamp DESC LIMIT ?",
-                (limit,)
+                "SELECT * FROM outcomes ORDER BY timestamp DESC LIMIT ?", (limit,)
             ).fetchall()
 
             return [ConsensusOutcome.from_row(row) for row in rows]
@@ -217,8 +223,9 @@ class OutcomeTracker:
         Returns:
             Dict mapping confidence range (e.g., "0.7-0.8") to success rate
         """
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
-            rows = conn.execute("""
+        with self._db.connection() as conn:
+            rows = conn.execute(
+                """
                 SELECT
                     CAST(consensus_confidence * 10 AS INTEGER) * 0.1 as bucket_start,
                     COUNT(*) as total,
@@ -227,7 +234,8 @@ class OutcomeTracker:
                 WHERE implementation_attempted = 1
                 GROUP BY bucket_start
                 ORDER BY bucket_start
-            """).fetchall()
+            """
+            ).fetchall()
 
             result = {}
             for row in rows:
@@ -253,12 +261,13 @@ class OutcomeTracker:
         bucket_size = 1.0 / num_buckets
         buckets = []
 
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with self._db.connection() as conn:
             for i in range(num_buckets):
                 conf_min = i * bucket_size
                 conf_max = (i + 1) * bucket_size
 
-                row = conn.execute("""
+                row = conn.execute(
+                    """
                     SELECT
                         COUNT(*) as total,
                         SUM(CASE WHEN implementation_succeeded = 1 THEN 1 ELSE 0 END) as successes
@@ -266,17 +275,21 @@ class OutcomeTracker:
                     WHERE implementation_attempted = 1
                       AND consensus_confidence >= ?
                       AND consensus_confidence < ?
-                """, (conf_min, conf_max)).fetchone()
+                """,
+                    (conf_min, conf_max),
+                ).fetchone()
 
                 total = row[0] or 0
                 successes = row[1] or 0
 
-                buckets.append(CalibrationBucket(
-                    confidence_min=conf_min,
-                    confidence_max=conf_max,
-                    total_count=total,
-                    success_count=successes,
-                ))
+                buckets.append(
+                    CalibrationBucket(
+                        confidence_min=conf_min,
+                        confidence_max=conf_max,
+                        total_count=total,
+                        success_count=successes,
+                    )
+                )
 
         return buckets
 
@@ -285,8 +298,9 @@ class OutcomeTracker:
 
         Returns list of dicts with 'reason' and 'count' keys.
         """
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
-            rows = conn.execute("""
+        with self._db.connection() as conn:
+            rows = conn.execute(
+                """
                 SELECT failure_reason, COUNT(*) as count
                 FROM outcomes
                 WHERE implementation_succeeded = 0
@@ -295,14 +309,17 @@ class OutcomeTracker:
                 GROUP BY failure_reason
                 ORDER BY count DESC
                 LIMIT ?
-            """, (limit,)).fetchall()
+            """,
+                (limit,),
+            ).fetchall()
 
             return [{"reason": row[0], "count": row[1]} for row in rows]
 
     def get_overall_stats(self) -> dict:
         """Get overall outcome statistics."""
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
-            row = conn.execute("""
+        with self._db.connection() as conn:
+            row = conn.execute(
+                """
                 SELECT
                     COUNT(*) as total,
                     SUM(CASE WHEN implementation_attempted = 1 THEN 1 ELSE 0 END) as attempted,
@@ -312,7 +329,8 @@ class OutcomeTracker:
                     SUM(tests_passed) as total_tests_passed,
                     SUM(tests_failed) as total_tests_failed
                 FROM outcomes
-            """).fetchone()
+            """
+            ).fetchone()
 
             total = row[0] or 0
             attempted = row[1] or 0
@@ -335,8 +353,9 @@ class OutcomeTracker:
         Returns True if high-confidence (>threshold) debates have
         lower success rate than their confidence suggests.
         """
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
-            row = conn.execute("""
+        with self._db.connection() as conn:
+            row = conn.execute(
+                """
                 SELECT
                     AVG(consensus_confidence) as avg_confidence,
                     AVG(CASE WHEN implementation_succeeded = 1 THEN 1.0 ELSE 0.0 END) as success_rate,
@@ -344,7 +363,9 @@ class OutcomeTracker:
                 FROM outcomes
                 WHERE implementation_attempted = 1
                   AND consensus_confidence >= ?
-            """, (threshold,)).fetchone()
+            """,
+                (threshold,),
+            ).fetchone()
 
             count = row[2] or 0
             if count < 5:  # Need enough samples

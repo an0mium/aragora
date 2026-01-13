@@ -67,7 +67,9 @@ class DebateRoundsPhase:
         check_early_stopping: Optional[Callable] = None,
         inject_challenge: Optional[Callable] = None,  # Callback to inject trickster challenges
         refresh_evidence: Optional[Callable] = None,  # Callback to refresh evidence during rounds
-        checkpoint_callback: Optional[Callable] = None,  # Async callback to save checkpoint after each round
+        checkpoint_callback: Optional[
+            Callable
+        ] = None,  # Async callback to save checkpoint after each round
     ):
         """
         Initialize the debate rounds phase.
@@ -153,15 +155,17 @@ class DebateRoundsPhase:
             if self.event_emitter:
                 from aragora.server.stream.events import StreamEvent, StreamEventType
 
-                self.event_emitter.emit(StreamEvent(
-                    type=StreamEventType.RHETORICAL_OBSERVATION,
-                    loop_id=loop_id,
-                    data={
-                        "agent": agent,
-                        "round_num": round_num,
-                        "observations": [o.to_dict() for o in observations],
-                    },
-                ))
+                self.event_emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.RHETORICAL_OBSERVATION,
+                        loop_id=loop_id,
+                        data={
+                            "agent": agent,
+                            "round_num": round_num,
+                            "observations": [o.to_dict() for o in observations],
+                        },
+                    )
+                )
 
             # Log for debugging
             for obs in observations:
@@ -210,9 +214,7 @@ class DebateRoundsPhase:
                 if self.protocol.asymmetric_stances and self.protocol.rotate_stances:
                     if self._assign_stances:
                         self._assign_stances(round_num)
-                        stances_str = ", ".join(
-                            f"{a.name}:{a.stance}" for a in ctx.agents
-                        )
+                        stances_str = ", ".join(f"{a.name}:{a.stance}" for a in ctx.agents)
                         logger.debug(f"stances_rotated stances={stances_str}")
 
             # Emit round start event
@@ -300,9 +302,7 @@ class DebateRoundsPhase:
             """Generate critique and return (critic, proposal_agent, result_or_error)."""
             logger.debug(f"critique_generating critic={critic.name} target={proposal_agent}")
             # Use complexity-scaled timeout from governor
-            timeout = get_complexity_governor().get_scaled_timeout(
-                float(AGENT_TIMEOUT_SECONDS)
-            )
+            timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
             try:
                 if self._with_timeout:
                     crit_result = await self._with_timeout(
@@ -436,9 +436,7 @@ class DebateRoundsPhase:
             return
 
         # Get critiques for revision
-        agent_critiques = [
-            c for c in result.critiques if c.target_agent == "proposal"
-        ]
+        agent_critiques = [c for c in result.critiques if c.target_agent == "proposal"]
 
         if not agent_critiques:
             return
@@ -460,13 +458,15 @@ class DebateRoundsPhase:
                         timeout_seconds=timeout,
                     )
                 else:
-                    return await self._generate_with_agent(agent, revision_prompt, ctx.context_messages)
+                    return await self._generate_with_agent(
+                        agent, revision_prompt, ctx.context_messages
+                    )
 
         revision_tasks = []
         revision_agents = []
         for agent in ctx.proposers:
             revision_prompt = self._build_revision_prompt(
-                agent, proposals.get(agent.name, ""), agent_critiques[-len(critics):]
+                agent, proposals.get(agent.name, ""), agent_critiques[-len(critics) :]
             )
             revision_tasks.append(generate_revision_bounded(agent, revision_prompt))
             revision_agents.append(agent)
@@ -528,11 +528,13 @@ class DebateRoundsPhase:
 
             # Record position for grounded personas
             if self._record_grounded_position:
-                debate_id = result.id if hasattr(result, 'id') else (ctx.env.task[:50] if ctx.env else "")
+                debate_id = (
+                    result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
+                )
                 self._record_grounded_position(agent.name, revised_str, debate_id, round_num, 0.75)
 
             # Observe rhetorical patterns for audience engagement
-            loop_id = ctx.loop_id if hasattr(ctx, 'loop_id') else ""
+            loop_id = ctx.loop_id if hasattr(ctx, "loop_id") else ""
             self._observe_rhetorical_patterns(agent.name, revised_str, round_num, loop_id)
 
     def _check_convergence(self, ctx: "DebateContext", round_num: int) -> bool:
@@ -640,9 +642,7 @@ class DebateRoundsPhase:
             return
 
         # Compute novelty against prior proposals
-        novelty_result = self.novelty_tracker.compute_novelty(
-            current_proposals, round_num
-        )
+        novelty_result = self.novelty_tracker.compute_novelty(current_proposals, round_num)
 
         # Update context with novelty scores
         for agent, novelty in novelty_result.per_agent_novelty.items():
@@ -684,7 +684,7 @@ class DebateRoundsPhase:
             # Use trickster to generate novelty challenge
             from aragora.debate.trickster import InterventionType
 
-            if hasattr(self.trickster, 'create_novelty_challenge'):
+            if hasattr(self.trickster, "create_novelty_challenge"):
                 intervention = self.trickster.create_novelty_challenge(
                     low_novelty_agents=novelty_result.low_novelty_agents,
                     novelty_scores=novelty_result.per_agent_novelty,
@@ -715,9 +715,7 @@ class DebateRoundsPhase:
                     if self._inject_challenge:
                         self._inject_challenge(intervention.challenge_text, ctx)
 
-    async def _should_terminate(
-        self, ctx: "DebateContext", round_num: int
-    ) -> bool:
+    async def _should_terminate(self, ctx: "DebateContext", round_num: int) -> bool:
         """Check if debate should terminate early."""
         # Judge-based termination
         if self._check_judge_termination:
@@ -737,9 +735,7 @@ class DebateRoundsPhase:
 
         return False
 
-    async def _refresh_evidence_for_round(
-        self, ctx: "DebateContext", round_num: int
-    ) -> None:
+    async def _refresh_evidence_for_round(self, ctx: "DebateContext", round_num: int) -> None:
         """Refresh evidence based on claims made in the current round.
 
         Extracts factual claims from proposals and critiques, then
@@ -768,7 +764,9 @@ class DebateRoundsPhase:
 
             # Add recent critique content
             for critique in self._partial_critiques[-5:]:  # Last 5 critiques
-                critique_text = critique.to_prompt() if hasattr(critique, 'to_prompt') else str(critique)
+                critique_text = (
+                    critique.to_prompt() if hasattr(critique, "to_prompt") else str(critique)
+                )
                 texts_to_analyze.append(critique_text[:1000])
 
             if not texts_to_analyze:
@@ -780,10 +778,7 @@ class DebateRoundsPhase:
             refreshed = await self._refresh_evidence(combined_text, ctx, round_num)
 
             if refreshed:
-                logger.info(
-                    f"evidence_refreshed round={round_num} "
-                    f"new_snippets={refreshed}"
-                )
+                logger.info(f"evidence_refreshed round={round_num} " f"new_snippets={refreshed}")
 
                 # Notify spectator
                 if self._notify_spectator:

@@ -123,7 +123,7 @@ Response:
 {
   "rankings": [
     {
-      "name": "claude",
+      "name": "anthropic-api",
       "elo": 1650,
       "wins": 15,
       "losses": 3,
@@ -138,13 +138,13 @@ Response:
 #### Get Agent Profile
 
 ```bash
-curl http://localhost:8080/api/agent/claude/profile
+curl http://localhost:8080/api/agent/anthropic-api/profile
 ```
 
 Response:
 ```json
 {
-  "name": "claude",
+  "name": "anthropic-api",
   "rating": 1650,
   "rank": 1,
   "wins": 15,
@@ -156,15 +156,15 @@ Response:
 #### Compare Two Agents
 
 ```bash
-curl "http://localhost:8080/api/agent/compare?agents=claude&agents=gpt4"
+curl "http://localhost:8080/api/agent/compare?agents=anthropic-api&agents=openai-api"
 ```
 
 Response:
 ```json
 {
   "agents": [
-    {"name": "claude", "rating": 1650, "wins": 15},
-    {"name": "gpt4", "rating": 1580, "wins": 12}
+    {"name": "anthropic-api", "rating": 1650, "wins": 15},
+    {"name": "openai-api", "rating": 1580, "wins": 12}
   ],
   "head_to_head": {
     "matches": 5,
@@ -177,20 +177,20 @@ Response:
 #### Get Agent Match History
 
 ```bash
-curl http://localhost:8080/api/agent/claude/history?limit=10
+curl http://localhost:8080/api/agent/anthropic-api/history?limit=10
 ```
 
 #### Head-to-Head Statistics
 
 ```bash
-curl http://localhost:8080/api/agent/claude/head-to-head/gpt4
+curl http://localhost:8080/api/agent/anthropic-api/head-to-head/openai-api
 ```
 
 Response:
 ```json
 {
-  "agent1": "claude",
-  "agent2": "gpt4",
+  "agent1": "anthropic-api",
+  "agent2": "openai-api",
   "matches": 5,
   "agent1_wins": 3,
   "agent2_wins": 2
@@ -200,14 +200,14 @@ Response:
 #### Get Agent Network (Rivals & Allies)
 
 ```bash
-curl http://localhost:8080/api/agent/claude/network
+curl http://localhost:8080/api/agent/anthropic-api/network
 ```
 
 Response:
 ```json
 {
-  "agent": "claude",
-  "rivals": [{"name": "gpt4", "matches": 5}],
+  "agent": "anthropic-api",
+  "rivals": [{"name": "openai-api", "matches": 5}],
   "allies": [{"name": "gemini", "matches": 3}]
 }
 ```
@@ -261,7 +261,7 @@ Response:
 {
   "total_flips": 42,
   "by_type": {"contradiction": 15, "refinement": 27},
-  "by_agent": {"claude": 5, "gpt4": 8},
+  "by_agent": {"anthropic-api": 5, "openai-api": 8},
   "recent_24h": 3
 }
 ```
@@ -269,7 +269,7 @@ Response:
 #### Agent-Specific Flips
 
 ```bash
-curl http://localhost:8080/api/agent/claude/flips?limit=10
+curl http://localhost:8080/api/agent/anthropic-api/flips?limit=10
 ```
 
 ---
@@ -312,7 +312,7 @@ if __name__ == "__main__":
         print(f"  {agent['name']}: {agent['elo']} ELO")
 
     # Compare agents
-    result = compare_agents("claude", "gpt4")
+    result = compare_agents("anthropic-api", "openai-api")
     print(f"\nHead-to-head: {result['head_to_head']}")
 ```
 
@@ -325,10 +325,11 @@ import websockets
 
 async def stream_debate(debate_id):
     """Stream live debate events via WebSocket."""
-    uri = f"ws://localhost:8080/ws?debate_id={debate_id}"
+    uri = "ws://localhost:8765/ws"
 
     async with websockets.connect(uri) as ws:
         print(f"Connected to debate: {debate_id}")
+        await ws.send(json.dumps({"type": "subscribe", "debate_id": debate_id}))
 
         async for message in ws:
             event = json.loads(message)

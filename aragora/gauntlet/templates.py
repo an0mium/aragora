@@ -19,6 +19,7 @@ from .config import (
 
 class GauntletTemplate(Enum):
     """Pre-built Gauntlet template identifiers."""
+
     # Core templates
     API_ROBUSTNESS = "api_robustness"
     DECISION_QUALITY = "decision_quality"
@@ -73,7 +74,6 @@ _TEMPLATES: dict[GauntletTemplate, GauntletConfig] = {
         ),
         tags=["api", "robustness", "scalability"],
     ),
-
     GauntletTemplate.DECISION_QUALITY: GauntletConfig(
         name="Decision Quality Gauntlet",
         description="Validate strategic decisions by attacking assumptions and exploring alternatives",
@@ -105,7 +105,6 @@ _TEMPLATES: dict[GauntletTemplate, GauntletConfig] = {
         ),
         tags=["strategy", "decision", "assumptions"],
     ),
-
     GauntletTemplate.COMPLIANCE_AUDIT: GauntletConfig(
         name="Compliance Audit Gauntlet",
         description="Audit decisions and systems for regulatory compliance violations",
@@ -129,7 +128,6 @@ _TEMPLATES: dict[GauntletTemplate, GauntletConfig] = {
         criteria=PassFailCriteria.strict(),
         tags=["compliance", "regulatory", "audit"],
     ),
-
     GauntletTemplate.SECURITY_ASSESSMENT: GauntletConfig(
         name="Security Assessment Gauntlet",
         description="Red-team security analysis with adversarial attack simulation",
@@ -162,7 +160,6 @@ _TEMPLATES: dict[GauntletTemplate, GauntletConfig] = {
         ),
         tags=["security", "red-team", "vulnerability"],
     ),
-
     GauntletTemplate.ARCHITECTURE_REVIEW: GauntletConfig(
         name="Architecture Review Gauntlet",
         description="Comprehensive review of system architecture for scalability and resilience",
@@ -195,7 +192,6 @@ _TEMPLATES: dict[GauntletTemplate, GauntletConfig] = {
         ),
         tags=["architecture", "scalability", "resilience"],
     ),
-
     GauntletTemplate.PROMPT_INJECTION: GauntletConfig(
         name="Prompt Injection Gauntlet",
         description="Test LLM prompts and systems for injection vulnerabilities",
@@ -225,7 +221,6 @@ _TEMPLATES: dict[GauntletTemplate, GauntletConfig] = {
         ),
         tags=["prompt", "injection", "llm-security"],
     ),
-
     GauntletTemplate.FINANCIAL_RISK: GauntletConfig(
         name="Financial Risk Gauntlet",
         description="Assess financial decisions and models for risk exposure",
@@ -250,7 +245,6 @@ _TEMPLATES: dict[GauntletTemplate, GauntletConfig] = {
         criteria=PassFailCriteria.strict(),
         tags=["finance", "risk", "quantitative"],
     ),
-
     GauntletTemplate.GDPR_COMPLIANCE: GauntletConfig(
         name="GDPR Compliance Gauntlet",
         description="Validate data processing for GDPR compliance requirements",
@@ -274,7 +268,6 @@ _TEMPLATES: dict[GauntletTemplate, GauntletConfig] = {
         criteria=PassFailCriteria.strict(),
         tags=["gdpr", "privacy", "eu", "compliance"],
     ),
-
     GauntletTemplate.AI_ACT_COMPLIANCE: GauntletConfig(
         name="EU AI Act Compliance Gauntlet",
         description="Assess AI systems against EU AI Act requirements",
@@ -299,7 +292,6 @@ _TEMPLATES: dict[GauntletTemplate, GauntletConfig] = {
         criteria=PassFailCriteria.strict(),
         tags=["ai-act", "eu", "compliance", "ai-governance"],
     ),
-
     GauntletTemplate.CODE_REVIEW: GauntletConfig(
         name="Code Review Gauntlet",
         description="Adversarial code review for bugs, security issues, and design flaws",
@@ -332,7 +324,6 @@ _TEMPLATES: dict[GauntletTemplate, GauntletConfig] = {
         ),
         tags=["code", "review", "bugs", "security"],
     ),
-
     GauntletTemplate.QUICK_SANITY: GauntletConfig(
         name="Quick Sanity Check",
         description="Fast validation for obvious issues and red flags",
@@ -356,7 +347,6 @@ _TEMPLATES: dict[GauntletTemplate, GauntletConfig] = {
         criteria=PassFailCriteria.lenient(),
         tags=["quick", "sanity", "basic"],
     ),
-
     GauntletTemplate.COMPREHENSIVE: GauntletConfig(
         name="Comprehensive Gauntlet",
         description="Full adversarial validation with all attack vectors enabled",
@@ -431,10 +421,10 @@ def list_templates() -> list[dict]:
             "tags": config.tags,
             "estimated_duration_seconds": config.timeout_seconds,
             "criteria_level": (
-                "strict" if config.criteria.max_critical_findings == 0 and
-                config.criteria.max_high_findings == 0 else
-                "standard" if config.criteria.max_high_findings <= 3 else
-                "lenient"
+                "strict"
+                if config.criteria.max_critical_findings == 0
+                and config.criteria.max_high_findings == 0
+                else "standard" if config.criteria.max_high_findings <= 3 else "lenient"
             ),
         }
         for template, config in _TEMPLATES.items()
@@ -450,11 +440,7 @@ def get_template_by_domain(domain: str) -> list[GauntletTemplate]:
     Returns:
         List of matching template enums
     """
-    return [
-        template
-        for template, config in _TEMPLATES.items()
-        if config.domain == domain
-    ]
+    return [template for template, config in _TEMPLATES.items() if config.domain == domain]
 
 
 def get_template_by_tags(tags: list[str]) -> list[GauntletTemplate]:
@@ -467,8 +453,4 @@ def get_template_by_tags(tags: list[str]) -> list[GauntletTemplate]:
         List of matching template enums
     """
     tag_set = set(tags)
-    return [
-        template
-        for template, config in _TEMPLATES.items()
-        if tag_set & set(config.tags)
-    ]
+    return [template for template, config in _TEMPLATES.items() if tag_set & set(config.tags)]

@@ -31,7 +31,9 @@ logger = logging.getLogger(__name__)
 
 
 # Type for state handlers (async functions returning state and data)
-StateHandler = Callable[[StateContext, Event], "Coroutine[Any, Any, Tuple[NomicState, Dict[str, Any]]]"]
+StateHandler = Callable[
+    [StateContext, Event], "Coroutine[Any, Any, Tuple[NomicState, Dict[str, Any]]]"
+]
 
 
 async def context_handler(
@@ -386,8 +388,10 @@ def create_context_handler(
     Returns:
         Bound handler function
     """
+
     async def handler(context: StateContext, event: Event) -> Tuple[NomicState, Dict[str, Any]]:
         return await context_handler(context, event, context_phase=context_phase)
+
     return handler
 
 
@@ -407,13 +411,16 @@ def create_debate_handler(
     Returns:
         Bound handler function
     """
+
     async def handler(context: StateContext, event: Event) -> Tuple[NomicState, Dict[str, Any]]:
         return await debate_handler(
-            context, event,
+            context,
+            event,
             debate_phase=debate_phase,
             learning_context_builder=learning_context_builder,
             post_debate_hooks=post_debate_hooks,
         )
+
     return handler
 
 
@@ -431,12 +438,15 @@ def create_design_handler(
     Returns:
         Bound handler function
     """
+
     async def handler(context: StateContext, event: Event) -> Tuple[NomicState, Dict[str, Any]]:
         return await design_handler(
-            context, event,
+            context,
+            event,
             design_phase=design_phase,
             belief_context_builder=belief_context_builder,
         )
+
     return handler
 
 
@@ -452,8 +462,10 @@ def create_implement_handler(
     Returns:
         Bound handler function
     """
+
     async def handler(context: StateContext, event: Event) -> Tuple[NomicState, Dict[str, Any]]:
         return await implement_handler(context, event, implement_phase=implement_phase)
+
     return handler
 
 
@@ -469,8 +481,10 @@ def create_verify_handler(
     Returns:
         Bound handler function
     """
+
     async def handler(context: StateContext, event: Event) -> Tuple[NomicState, Dict[str, Any]]:
         return await verify_handler(context, event, verify_phase=verify_phase)
+
     return handler
 
 
@@ -486,8 +500,10 @@ def create_commit_handler(
     Returns:
         Bound handler function
     """
+
     async def handler(context: StateContext, event: Event) -> Tuple[NomicState, Dict[str, Any]]:
         return await commit_handler(context, event, commit_phase=commit_phase)
+
     return handler
 
 

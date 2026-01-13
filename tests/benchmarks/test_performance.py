@@ -37,8 +37,7 @@ class TestDebatePerformance:
         protocol = DebateProtocol(rounds=1, consensus="any")
 
         with patch.object(
-            Arena, "_gather_trending_context",
-            new_callable=AsyncMock, return_value=None
+            Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
         ):
             arena = Arena(benchmark_environment, benchmark_agents, protocol)
 
@@ -56,8 +55,7 @@ class TestDebatePerformance:
         round_times = {}
 
         with patch.object(
-            Arena, "_gather_trending_context",
-            new_callable=AsyncMock, return_value=None
+            Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
         ):
             for num_rounds in [1, 2, 3]:
                 protocol = DebateProtocol(rounds=num_rounds, consensus="any")
@@ -81,8 +79,7 @@ class TestDebatePerformance:
         agent_times = {}
 
         with patch.object(
-            Arena, "_gather_trending_context",
-            new_callable=AsyncMock, return_value=None
+            Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
         ):
             for num_agents in [2, 3, 5]:
                 agents = [BenchmarkAgent(f"agent_{i}") for i in range(num_agents)]
@@ -149,15 +146,17 @@ class TestMemoryPerformance:
 
         # Write some data first
         for i in range(50):
-            store.store(Critique(
-                agent="agent",
-                target_agent="target",
-                target_content=f"content_{i}",
-                issues=[],
-                suggestions=[],
-                severity=0.5,
-                reasoning="reasoning",
-            ))
+            store.store(
+                Critique(
+                    agent="agent",
+                    target_agent="target",
+                    target_content=f"content_{i}",
+                    issues=[],
+                    suggestions=[],
+                    severity=0.5,
+                    reasoning="reasoning",
+                )
+            )
 
         # Measure reads
         start = time.perf_counter()
@@ -236,9 +235,9 @@ class TestConcurrentPerformance:
         num_debates = 5
 
         with patch.object(
-            Arena, "_gather_trending_context",
-            new_callable=AsyncMock, return_value=None
+            Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
         ):
+
             async def run_single_debate(idx: int):
                 agents = [BenchmarkAgent(f"debate{idx}_agent_{i}") for i in range(2)]
                 env = Environment(task=f"Concurrent task {idx}")
@@ -247,9 +246,7 @@ class TestConcurrentPerformance:
                 return await arena.run()
 
             start = time.perf_counter()
-            results = await asyncio.gather(*[
-                run_single_debate(i) for i in range(num_debates)
-            ])
+            results = await asyncio.gather(*[run_single_debate(i) for i in range(num_debates)])
             elapsed = time.perf_counter() - start
 
         # All should complete
@@ -271,15 +268,17 @@ class TestConcurrentPerformance:
 
         async def write_batch(writer_id: int):
             for i in range(writes_per_writer):
-                store.store(Critique(
-                    agent=f"writer_{writer_id}",
-                    target_agent="target",
-                    target_content=f"content_{writer_id}_{i}",
-                    issues=[],
-                    suggestions=[],
-                    severity=0.5,
-                    reasoning="concurrent write",
-                ))
+                store.store(
+                    Critique(
+                        agent=f"writer_{writer_id}",
+                        target_agent="target",
+                        target_content=f"content_{writer_id}_{i}",
+                        issues=[],
+                        suggestions=[],
+                        severity=0.5,
+                        reasoning="concurrent write",
+                    )
+                )
 
         start = time.perf_counter()
         await asyncio.gather(*[write_batch(i) for i in range(num_writers)])
@@ -310,7 +309,11 @@ class TestPerformanceBaselines:
 
         # Measure import time in subprocess for clean measurement
         result = subprocess.run(
-            ["python", "-c", "import time; start=time.perf_counter(); import aragora; print(time.perf_counter()-start)"],
+            [
+                "python",
+                "-c",
+                "import time; start=time.perf_counter(); import aragora; print(time.perf_counter()-start)",
+            ],
             capture_output=True,
             text=True,
             timeout=10,

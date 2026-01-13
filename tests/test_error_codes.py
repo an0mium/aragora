@@ -162,6 +162,7 @@ class TestErrorResponseIntegration:
         result = error_response("Something went wrong", 400)
 
         import json
+
         body = json.loads(result.body)
 
         assert result.status_code == 400
@@ -176,6 +177,7 @@ class TestErrorResponseIntegration:
         )
 
         import json
+
         body = json.loads(result.body)
 
         assert result.status_code == 400
@@ -193,6 +195,7 @@ class TestErrorResponseIntegration:
         )
 
         import json
+
         body = json.loads(result.body)
 
         assert body["error"]["code"] == "INVALID_FIELD"
@@ -209,6 +212,7 @@ class TestErrorResponseIntegration:
         )
 
         import json
+
         body = json.loads(result.body)
 
         assert body["error"]["code"] == "INTERNAL_ERROR"
@@ -224,6 +228,7 @@ class TestErrorResponseIntegration:
         )
 
         import json
+
         body = json.loads(result.body)
 
         assert body["error"]["code"] == "RATE_LIMITED"
@@ -241,6 +246,7 @@ class TestErrorResponseIntegration:
         )
 
         import json
+
         body = json.loads(result.body)
 
         error_obj = body["error"]

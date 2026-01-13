@@ -38,6 +38,7 @@ from aragora.billing.jwt_auth import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture(autouse=True)
 def reset_blacklist():
     """Reset blacklist before each test."""
@@ -56,16 +57,16 @@ def test_secret():
 @pytest.fixture
 def mock_env_secret(test_secret):
     """Mock environment to use test secret."""
-    with patch.dict(os.environ, {
-        "ARAGORA_JWT_SECRET": test_secret,
-        "ARAGORA_ENVIRONMENT": "development"
-    }):
+    with patch.dict(
+        os.environ, {"ARAGORA_JWT_SECRET": test_secret, "ARAGORA_ENVIRONMENT": "development"}
+    ):
         yield test_secret
 
 
 # ============================================================================
 # TokenBlacklist Tests
 # ============================================================================
+
 
 class TestTokenBlacklist:
     """Tests for TokenBlacklist class."""
@@ -178,6 +179,7 @@ class TestTokenBlacklist:
 # JWTPayload Tests
 # ============================================================================
 
+
 class TestJWTPayload:
     """Tests for JWTPayload dataclass."""
 
@@ -191,7 +193,7 @@ class TestJWTPayload:
             role="admin",
             iat=now,
             exp=now + 3600,
-            type="access"
+            type="access",
         )
 
         assert payload.sub == "user-123"
@@ -226,7 +228,7 @@ class TestJWTPayload:
             "role": "admin",
             "iat": 1000,
             "exp": 5000,
-            "type": "refresh"
+            "type": "refresh",
         }
 
         payload = JWTPayload.from_dict(data)
@@ -248,10 +250,7 @@ class TestJWTPayload:
     def test_is_expired_false_for_future(self):
         """Test is_expired returns False for future expiry."""
         now = int(time.time())
-        payload = JWTPayload(
-            sub="user", email="", org_id=None, role="",
-            iat=now, exp=now + 3600
-        )
+        payload = JWTPayload(sub="user", email="", org_id=None, role="", iat=now, exp=now + 3600)
 
         assert payload.is_expired is False
 
@@ -259,18 +258,14 @@ class TestJWTPayload:
         """Test is_expired returns True for past expiry."""
         now = int(time.time())
         payload = JWTPayload(
-            sub="user", email="", org_id=None, role="",
-            iat=now - 7200, exp=now - 3600
+            sub="user", email="", org_id=None, role="", iat=now - 7200, exp=now - 3600
         )
 
         assert payload.is_expired is True
 
     def test_user_id_alias(self):
         """Test user_id is alias for sub."""
-        payload = JWTPayload(
-            sub="user-abc", email="", org_id=None, role="",
-            iat=0, exp=0
-        )
+        payload = JWTPayload(sub="user-abc", email="", org_id=None, role="", iat=0, exp=0)
 
         assert payload.user_id == "user-abc"
         assert payload.user_id == payload.sub
@@ -279,6 +274,7 @@ class TestJWTPayload:
 # ============================================================================
 # Secret Validation Tests
 # ============================================================================
+
 
 class TestSecretValidation:
     """Tests for secret validation functions."""
@@ -302,6 +298,7 @@ class TestSecretValidation:
 # ============================================================================
 # Base64 URL Encoding Tests
 # ============================================================================
+
 
 class TestBase64UrlEncoding:
     """Tests for base64 URL encoding/decoding."""
@@ -331,26 +328,20 @@ class TestBase64UrlEncoding:
 # JWT Generation Tests
 # ============================================================================
 
+
 class TestJWTGeneration:
     """Tests for JWT token generation."""
 
     def test_create_access_token_format(self, mock_env_secret):
         """Test access token has correct JWT format (3 parts)."""
-        token = create_access_token(
-            user_id="user-123",
-            email="test@example.com"
-        )
+        token = create_access_token(user_id="user-123", email="test@example.com")
 
         parts = token.split(".")
         assert len(parts) == 3
 
     def test_create_access_token_decodable(self, mock_env_secret):
         """Test created access token can be decoded."""
-        token = create_access_token(
-            user_id="user-123",
-            email="test@example.com",
-            role="admin"
-        )
+        token = create_access_token(user_id="user-123", email="test@example.com", role="admin")
 
         payload = decode_jwt(token)
 
@@ -362,11 +353,7 @@ class TestJWTGeneration:
 
     def test_create_access_token_with_org(self, mock_env_secret):
         """Test access token includes org_id."""
-        token = create_access_token(
-            user_id="user-123",
-            email="test@example.com",
-            org_id="org-456"
-        )
+        token = create_access_token(user_id="user-123", email="test@example.com", org_id="org-456")
 
         payload = decode_jwt(token)
 
@@ -375,10 +362,7 @@ class TestJWTGeneration:
     def test_create_access_token_default_expiry(self, mock_env_secret):
         """Test access token has default expiry."""
         now = int(time.time())
-        token = create_access_token(
-            user_id="user-123",
-            email="test@example.com"
-        )
+        token = create_access_token(user_id="user-123", email="test@example.com")
 
         payload = decode_jwt(token)
 
@@ -418,15 +402,13 @@ class TestJWTGeneration:
 # JWT Decoding Tests
 # ============================================================================
 
+
 class TestJWTDecoding:
     """Tests for JWT token decoding."""
 
     def test_decode_valid_token(self, mock_env_secret):
         """Test decoding a valid token."""
-        token = create_access_token(
-            user_id="user-123",
-            email="test@example.com"
-        )
+        token = create_access_token(user_id="user-123", email="test@example.com")
 
         payload = decode_jwt(token)
 
@@ -441,9 +423,7 @@ class TestJWTDecoding:
             mock_time.time.return_value = 1000
 
             token = create_access_token(
-                user_id="user-123",
-                email="test@example.com",
-                expiry_hours=1
+                user_id="user-123", email="test@example.com", expiry_hours=1
             )
 
         # Decode at current time (token is expired)
@@ -466,10 +446,7 @@ class TestJWTDecoding:
 
     def test_decode_invalid_signature_returns_none(self, mock_env_secret):
         """Test decoding token with wrong signature returns None."""
-        token = create_access_token(
-            user_id="user-123",
-            email="test@example.com"
-        )
+        token = create_access_token(user_id="user-123", email="test@example.com")
 
         # Tamper with signature
         parts = token.split(".")
@@ -484,6 +461,7 @@ class TestJWTDecoding:
         """Test decoding rejects 'none' algorithm attack."""
         # Create a token with 'none' algorithm (attack vector)
         import json
+
         header = {"alg": "none", "typ": "JWT"}
         payload = {"sub": "attacker", "email": "evil@hack.com", "exp": int(time.time()) + 3600}
 
@@ -507,15 +485,13 @@ class TestJWTDecoding:
 # Token Validation Tests
 # ============================================================================
 
+
 class TestTokenValidation:
     """Tests for token validation."""
 
     def test_validate_access_token_success(self, mock_env_secret):
         """Test validating a valid access token."""
-        token = create_access_token(
-            user_id="user-123",
-            email="test@example.com"
-        )
+        token = create_access_token(user_id="user-123", email="test@example.com")
 
         payload = validate_access_token(token, use_persistent_blacklist=False)
 
@@ -536,6 +512,7 @@ class TestTokenValidation:
 # Integration Tests
 # ============================================================================
 
+
 class TestJWTIntegration:
     """Integration tests for JWT authentication."""
 
@@ -543,10 +520,7 @@ class TestJWTIntegration:
         """Test complete token lifecycle: create, decode, validate."""
         # Create token
         token = create_access_token(
-            user_id="integration-user",
-            email="integration@test.com",
-            org_id="org-123",
-            role="admin"
+            user_id="integration-user", email="integration@test.com", org_id="org-123", role="admin"
         )
 
         # Decode and verify claims
@@ -567,10 +541,7 @@ class TestJWTIntegration:
         blacklist = get_token_blacklist()
 
         # Create token
-        token = create_access_token(
-            user_id="revoke-user",
-            email="revoke@test.com"
-        )
+        token = create_access_token(user_id="revoke-user", email="revoke@test.com")
 
         # Verify token works before revocation
         payload = decode_jwt(token)
@@ -609,6 +580,7 @@ class TestJWTIntegration:
 # ============================================================================
 # Token Version Tests (for logout-all functionality)
 # ============================================================================
+
 
 class TestTokenVersion:
     """Tests for token version (logout-all) functionality."""

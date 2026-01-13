@@ -33,9 +33,9 @@ class TestRhetoricalObserverBasics:
             pytest.skip("RhetoricalObserver module not available")
 
         # Should have these pattern types
-        assert hasattr(RhetoricalPattern, 'CONCESSION')
-        assert hasattr(RhetoricalPattern, 'REBUTTAL')
-        assert hasattr(RhetoricalPattern, 'SYNTHESIS')
+        assert hasattr(RhetoricalPattern, "CONCESSION")
+        assert hasattr(RhetoricalPattern, "REBUTTAL")
+        assert hasattr(RhetoricalPattern, "SYNTHESIS")
 
 
 class TestPatternDetection:
@@ -56,7 +56,7 @@ class TestPatternDetection:
         # Text with concession markers
         text = "You make a good point. I concede that my initial approach had flaws."
 
-        if hasattr(observer, 'detect_patterns'):
+        if hasattr(observer, "detect_patterns"):
             patterns = observer.detect_patterns(text)
             assert RhetoricalPattern.CONCESSION in patterns
 
@@ -75,7 +75,7 @@ class TestPatternDetection:
         # Text with rebuttal markers
         text = "However, I disagree with your conclusion. The evidence shows otherwise."
 
-        if hasattr(observer, 'detect_patterns'):
+        if hasattr(observer, "detect_patterns"):
             patterns = observer.detect_patterns(text)
             assert RhetoricalPattern.REBUTTAL in patterns
 
@@ -94,7 +94,7 @@ class TestPatternDetection:
         # Text with synthesis markers
         text = "Combining both perspectives, we can see that a hybrid approach works best."
 
-        if hasattr(observer, 'detect_patterns'):
+        if hasattr(observer, "detect_patterns"):
             patterns = observer.detect_patterns(text)
             assert RhetoricalPattern.SYNTHESIS in patterns
 
@@ -110,7 +110,7 @@ class TestPatternDetection:
         # Neutral text with no rhetorical markers
         text = "The function returns the sum of two numbers."
 
-        if hasattr(observer, 'detect_patterns'):
+        if hasattr(observer, "detect_patterns"):
             patterns = observer.detect_patterns(text)
             assert len(patterns) == 0
 
@@ -166,7 +166,7 @@ class TestRhetoricalEvents:
         """StreamEventType should include rhetorical observation events."""
         from aragora.server.stream.events import StreamEventType
 
-        assert hasattr(StreamEventType, 'RHETORICAL_OBSERVATION')
+        assert hasattr(StreamEventType, "RHETORICAL_OBSERVATION")
 
     def test_event_data_format(self):
         """Rhetorical observation events should have correct format."""
@@ -180,7 +180,7 @@ class TestRhetoricalEvents:
 
         observer = get_rhetorical_observer()
 
-        if hasattr(observer, 'create_observation_event'):
+        if hasattr(observer, "create_observation_event"):
             event_data = observer.create_observation_event(
                 agent="claude",
                 patterns=[RhetoricalPattern.CONCESSION, RhetoricalPattern.SYNTHESIS],
@@ -204,12 +204,12 @@ class TestRhetoricalAnalysis:
 
         observer = get_rhetorical_observer()
 
-        if hasattr(observer, 'record_observation'):
+        if hasattr(observer, "record_observation"):
             observer.record_observation("claude", ["concession"])
             observer.record_observation("claude", ["rebuttal"])
             observer.record_observation("gpt4", ["synthesis"])
 
-            if hasattr(observer, 'get_agent_patterns'):
+            if hasattr(observer, "get_agent_patterns"):
                 claude_patterns = observer.get_agent_patterns("claude")
                 assert len(claude_patterns) == 2
 
@@ -223,12 +223,12 @@ class TestRhetoricalAnalysis:
         observer = get_rhetorical_observer()
 
         # Record multiple observations
-        if hasattr(observer, 'record_observation'):
+        if hasattr(observer, "record_observation"):
             for _ in range(5):
                 observer.record_observation("claude", ["concession"])
             observer.record_observation("claude", ["rebuttal"])
 
-            if hasattr(observer, 'get_dominant_style'):
+            if hasattr(observer, "get_dominant_style"):
                 style = observer.get_dominant_style("claude")
                 assert style == "concession"
 
@@ -272,7 +272,7 @@ class TestRhetoricalObserverIntegration:
         )
 
         # If phase has method to analyze response
-        if hasattr(phase, '_analyze_rhetorical_patterns'):
+        if hasattr(phase, "_analyze_rhetorical_patterns"):
             phase._analyze_rhetorical_patterns(
                 agent="claude",
                 response="I agree with your synthesis",
@@ -321,7 +321,10 @@ class TestPatternMarkers:
 
         for marker in rebuttal_markers:
             text = f"{marker.capitalize()}, the evidence shows otherwise."
-            assert any(m in text.lower() for m in ["however", "disagree", "contrary", "incorrect", "actually"])
+            assert any(
+                m in text.lower()
+                for m in ["however", "disagree", "contrary", "incorrect", "actually"]
+            )
 
     def test_synthesis_markers(self):
         """Should recognize synthesis markers."""
@@ -335,4 +338,7 @@ class TestPatternMarkers:
 
         for marker in synthesis_markers:
             text = f"I propose {marker} approaches."
-            assert any(m in text.lower() for m in ["combining", "integrating", "best of", "middle", "synthesizing"])
+            assert any(
+                m in text.lower()
+                for m in ["combining", "integrating", "best of", "middle", "synthesizing"]
+            )

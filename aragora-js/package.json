@@ -45,7 +45,7 @@
   "bugs": {
     "url": "https://github.com/aragora/aragora/issues"
   },
-  "homepage": "https://aragora.dev",
+  "homepage": "https://aragora.ai",
   "engines": {
     "node": ">=18.0.0"
   },

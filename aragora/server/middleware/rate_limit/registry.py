@@ -58,16 +58,10 @@ class RateLimiterRegistry:
 
             # Configure default endpoint limits
             self._default_limiter.configure_endpoint("/api/debates", 30, key_type="ip")
-            self._default_limiter.configure_endpoint(
-                "/api/debates/*", 60, key_type="ip"
-            )
-            self._default_limiter.configure_endpoint(
-                "/api/debates/*/fork", 5, key_type="ip"
-            )
+            self._default_limiter.configure_endpoint("/api/debates/*", 60, key_type="ip")
+            self._default_limiter.configure_endpoint("/api/debates/*/fork", 5, key_type="ip")
             self._default_limiter.configure_endpoint("/api/agent/*", 120, key_type="ip")
-            self._default_limiter.configure_endpoint(
-                "/api/leaderboard*", 60, key_type="ip"
-            )
+            self._default_limiter.configure_endpoint("/api/leaderboard*", 60, key_type="ip")
             self._default_limiter.configure_endpoint("/api/pulse/*", 30, key_type="ip")
             self._default_limiter.configure_endpoint(
                 "/api/memory/continuum/cleanup", 2, key_type="ip"

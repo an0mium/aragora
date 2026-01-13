@@ -1,0 +1,270 @@
+---
+# Fluent Bit Configuration for Log Aggregation
+# Collects logs from the aragora container and forwards to Loki/Elasticsearch
+#
+# Prerequisites:
+#   1. A log aggregation backend (Loki, Elasticsearch, Fluentd, etc.)
+#   2. Network access from the cluster to the backend
+#
+# Architecture:
+#   aragora container -> stdout/stderr -> Fluent Bit sidecar -> Loki/ES
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aragora-fluentbit-config
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: logging
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         5
+        Daemon        Off
+        Log_Level     info
+        Parsers_File  parsers.conf
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+        Health_Check  On
+
+    # Tail the application logs from shared volume
+    [INPUT]
+        Name              tail
+        Path              /var/log/aragora/*.log
+        Path_Key          filename
+        Tag               aragora.*
+        Parser            json
+        Refresh_Interval  5
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        DB                /var/log/fluentbit/aragora.db
+
+    # Also capture stdout/stderr from container
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/aragora*.log
+        Tag               kubernetes.*
+        Parser            docker
+        Refresh_Interval  5
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+
+    # Add Kubernetes metadata
+    [FILTER]
+        Name                kubernetes
+        Match               kubernetes.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix     kubernetes.var.log.containers.
+        Merge_Log           On
+        Merge_Log_Key       log_processed
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude Off
+        Labels              On
+        Annotations         Off
+
+    # Add common fields
+    [FILTER]
+        Name          record_modifier
+        Match         *
+        Record        cluster ${CLUSTER_NAME}
+        Record        environment ${ENVIRONMENT}
+        Record        service aragora
+
+    # Parse JSON logs
+    [FILTER]
+        Name          parser
+        Match         aragora.*
+        Key_Name      log
+        Parser        json
+        Reserve_Data  On
+
+    # Detect log level from message
+    [FILTER]
+        Name          lua
+        Match         *
+        Script        /fluent-bit/scripts/detect_level.lua
+        Call          detect_level
+
+    # Output to Loki (recommended for Kubernetes)
+    [OUTPUT]
+        Name          loki
+        Match         *
+        Host          ${LOKI_HOST}
+        Port          ${LOKI_PORT}
+        Labels        job=aragora, app=aragora, namespace=aragora, cluster=${CLUSTER_NAME}
+        Label_keys    $level,$agent,$debate_id
+        Remove_keys   kubernetes_labels
+        Auto_Kubernetes_Labels On
+        Line_format   json
+
+    # Alternative: Output to Elasticsearch
+    # Uncomment if using Elasticsearch instead of Loki
+    # [OUTPUT]
+    #     Name            es
+    #     Match           *
+    #     Host            ${ES_HOST}
+    #     Port            ${ES_PORT}
+    #     Logstash_Format On
+    #     Logstash_Prefix aragora
+    #     Logstash_DateFormat %Y.%m.%d
+    #     Retry_Limit     5
+    #     Replace_Dots    On
+    #     Suppress_Type_Name On
+
+    # Alternative: Output to stdout for debugging
+    # [OUTPUT]
+    #     Name          stdout
+    #     Match         *
+    #     Format        json_lines
+
+  parsers.conf: |
+    [PARSER]
+        Name        json
+        Format      json
+        Time_Key    timestamp
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+        Time_Keep   On
+
+    [PARSER]
+        Name        docker
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+        Time_Keep   On
+
+    [PARSER]
+        Name        aragora_log
+        Format      regex
+        Regex       ^\[(?<timestamp>[^\]]+)\] (?<level>\w+) \[(?<component>[^\]]+)\] (?<message>.*)$
+        Time_Key    timestamp
+        Time_Format %Y-%m-%d %H:%M:%S,%L
+        Time_Keep   On
+
+  detect_level.lua: |
+    -- Detect log level from message content
+    function detect_level(tag, timestamp, record)
+        -- If level already set, return
+        if record["level"] ~= nil then
+            return 2, timestamp, record
+        end
+
+        local msg = record["message"] or record["log"] or ""
+
+        -- Pattern matching for log levels
+        if string.match(msg, "ERROR") or string.match(msg, "error") or string.match(msg, "CRITICAL") then
+            record["level"] = "error"
+        elseif string.match(msg, "WARN") or string.match(msg, "warn") or string.match(msg, "WARNING") then
+            record["level"] = "warning"
+        elseif string.match(msg, "DEBUG") or string.match(msg, "debug") then
+            record["level"] = "debug"
+        else
+            record["level"] = "info"
+        end
+
+        return 2, timestamp, record
+    end
+
+---
+# Fluent Bit Sidecar Patch
+# Apply this patch to add Fluent Bit sidecar to the aragora deployment
+#
+# Usage: kubectl patch deployment aragora -n aragora --patch-file fluentbit-sidecar-patch.yaml
+#
+# This is provided separately so it can be optionally applied
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aragora-fluentbit-sidecar-patch
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: logging
+data:
+  patch.yaml: |
+    spec:
+      template:
+        spec:
+          containers:
+            - name: fluent-bit
+              image: fluent/fluent-bit:2.2
+              imagePullPolicy: IfNotPresent
+              ports:
+                - name: http
+                  containerPort: 2020
+                  protocol: TCP
+              env:
+                - name: CLUSTER_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: ENVIRONMENT
+                  value: "production"
+                - name: LOKI_HOST
+                  value: "loki-gateway.observability.svc.cluster.local"
+                - name: LOKI_PORT
+                  value: "3100"
+                - name: NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "256Mi"
+              volumeMounts:
+                - name: fluentbit-config
+                  mountPath: /fluent-bit/etc/
+                - name: fluent-bit-scripts
+                  mountPath: /fluent-bit/scripts/
+                - name: varlog
+                  mountPath: /var/log
+                - name: fluentbit-state
+                  mountPath: /var/log/fluentbit
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              livenessProbe:
+                httpGet:
+                  path: /api/v1/health
+                  port: http
+                initialDelaySeconds: 10
+                periodSeconds: 30
+              readinessProbe:
+                httpGet:
+                  path: /api/v1/health
+                  port: http
+                initialDelaySeconds: 5
+                periodSeconds: 10
+          volumes:
+            - name: fluentbit-config
+              configMap:
+                name: aragora-fluentbit-config
+                items:
+                  - key: fluent-bit.conf
+                    path: fluent-bit.conf
+                  - key: parsers.conf
+                    path: parsers.conf
+            - name: fluent-bit-scripts
+              configMap:
+                name: aragora-fluentbit-config
+                items:
+                  - key: detect_level.lua
+                    path: detect_level.lua
+            - name: varlog
+              emptyDir: {}
+            - name: fluentbit-state
+              emptyDir: {}

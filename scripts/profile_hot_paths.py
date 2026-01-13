@@ -28,12 +28,14 @@ import statistics
 
 # Ensure imports work
 import sys
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 @dataclass
 class ProfileResult:
     """Result of profiling a function."""
+
     name: str
     iterations: int
     total_time: float
@@ -87,6 +89,7 @@ def profile_function(func, iterations: int = 100, name: str = None) -> ProfileRe
 # Profile Targets
 # ============================================================================
 
+
 def profile_cosine_similarity():
     """Profile cosine similarity computation."""
     from aragora.memory.embeddings import cosine_similarity
@@ -117,7 +120,9 @@ def profile_text_similarity():
     def compute_similarity():
         return analyzer._text_similarity(text1, text2)
 
-    result = profile_function(compute_similarity, iterations=1000, name="text_similarity (word-based)")
+    result = profile_function(
+        compute_similarity, iterations=1000, name="text_similarity (word-based)"
+    )
     print(result)
     return result
 
@@ -129,7 +134,8 @@ def profile_database_operations():
 
         # Create test database
         conn = sqlite3.connect(str(db_path))
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS test_data (
                 id INTEGER PRIMARY KEY,
                 key TEXT,
@@ -137,14 +143,15 @@ def profile_database_operations():
                 score REAL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
         conn.execute("CREATE INDEX idx_key ON test_data(key)")
 
         # Insert test data
         for i in range(1000):
             conn.execute(
                 "INSERT INTO test_data (key, value, score) VALUES (?, ?, ?)",
-                (f"key_{i % 100}", f"value_{i}", i / 1000.0)
+                (f"key_{i % 100}", f"value_{i}", i / 1000.0),
             )
         conn.commit()
 
@@ -153,7 +160,9 @@ def profile_database_operations():
             cursor = conn.execute("SELECT * FROM test_data WHERE key = ?", ("key_50",))
             return list(cursor.fetchall())
 
-        result_read = profile_function(read_by_key, iterations=500, name="SQLite SELECT by key (indexed)")
+        result_read = profile_function(
+            read_by_key, iterations=500, name="SQLite SELECT by key (indexed)"
+        )
         print(result_read)
 
         # Profile aggregation
@@ -161,7 +170,9 @@ def profile_database_operations():
             cursor = conn.execute("SELECT key, AVG(score) FROM test_data GROUP BY key")
             return list(cursor.fetchall())
 
-        result_agg = profile_function(aggregate_scores, iterations=100, name="SQLite GROUP BY aggregation")
+        result_agg = profile_function(
+            aggregate_scores, iterations=100, name="SQLite GROUP BY aggregation"
+        )
         print(result_agg)
 
         conn.close()
@@ -219,7 +230,9 @@ def profile_memory_store_operations():
             patterns = store.retrieve_patterns(limit=10)
             return patterns
 
-        result2 = profile_function(retrieve_patterns, iterations=100, name="CritiqueStore.retrieve_patterns")
+        result2 = profile_function(
+            retrieve_patterns, iterations=100, name="CritiqueStore.retrieve_patterns"
+        )
         print(result2)
         return result2
 
@@ -233,8 +246,12 @@ def profile_meta_critique_analysis():
 
     # Create mock debate result
     messages = [
-        Message(round=i, role="proposer" if i % 2 == 0 else "critic",
-                agent=f"agent-{i % 3}", content=f"Message content for round {i}" * 10)
+        Message(
+            round=i,
+            role="proposer" if i % 2 == 0 else "critic",
+            agent=f"agent-{i % 3}",
+            content=f"Message content for round {i}" * 10,
+        )
         for i in range(20)
     ]
 
@@ -265,7 +282,9 @@ def profile_meta_critique_analysis():
     def analyze_debate():
         return analyzer.analyze(result)
 
-    profile_result = profile_function(analyze_debate, iterations=100, name="MetaCritiqueAnalyzer.analyze")
+    profile_result = profile_function(
+        analyze_debate, iterations=100, name="MetaCritiqueAnalyzer.analyze"
+    )
     print(profile_result)
     return profile_result
 
@@ -335,7 +354,9 @@ def run_all_profiles():
 
         if len(sorted_results) > 1:
             second_slowest = sorted_results[1]
-            print(f"  - Consider caching '{second_slowest.name}' (avg {second_slowest.avg_time*1000:.2f}ms)")
+            print(
+                f"  - Consider caching '{second_slowest.name}' (avg {second_slowest.avg_time*1000:.2f}ms)"
+            )
 
 
 if __name__ == "__main__":

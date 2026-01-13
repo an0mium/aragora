@@ -60,9 +60,7 @@ class SchedulerConfig:
     allowed_categories: List[str] = field(
         default_factory=lambda: ["tech", "ai", "science", "programming"]
     )
-    blocked_categories: List[str] = field(
-        default_factory=lambda: ["politics", "religion"]
-    )
+    blocked_categories: List[str] = field(default_factory=lambda: ["politics", "religion"])
 
     # Deduplication
     dedup_window_hours: int = 24
@@ -391,7 +389,7 @@ class PulseDebateScheduler:
         if not self._debate_creator:
             raise ConfigurationError(
                 component="PulseDebateScheduler",
-                reason="No debate creator set. Call set_debate_creator() first"
+                reason="No debate creator set. Call set_debate_creator() first",
             )
 
         self._state = SchedulerState.RUNNING

@@ -51,6 +51,7 @@ def _get_evidence_linker_class():
     """
     try:
         from aragora.debate.evidence_linker import EvidenceClaimLinker
+
         return EvidenceClaimLinker
     except ImportError as e:
         logger.debug(f"EvidenceClaimLinker not available: {e}")
@@ -120,9 +121,7 @@ class TricksterState:
     """Internal state tracking for the trickster."""
 
     interventions: list[TricksterIntervention] = field(default_factory=list)
-    quality_history: list[dict[str, EvidenceQualityScore]] = field(
-        default_factory=list
-    )
+    quality_history: list[dict[str, EvidenceQualityScore]] = field(default_factory=list)
     last_intervention_round: int = -10
     hollow_alerts: list[HollowConsensusAlert] = field(default_factory=list)
     total_interventions: int = 0
@@ -224,17 +223,13 @@ class EvidencePoweredTrickster:
 
             # Check for evidence gaps (claims without any supporting evidence)
             if cross_analysis.evidence_gaps:
-                intervention = self._create_evidence_gap_intervention(
-                    cross_analysis, round_num
-                )
+                intervention = self._create_evidence_gap_intervention(cross_analysis, round_num)
                 if intervention:
                     return self._record_intervention(intervention, round_num)
 
             # Check for echo chamber (agents citing same limited evidence)
             if cross_analysis.redundancy_score > 0.7:
-                intervention = self._create_echo_chamber_intervention(
-                    cross_analysis, round_num
-                )
+                intervention = self._create_echo_chamber_intervention(cross_analysis, round_num)
                 if intervention:
                     return self._record_intervention(intervention, round_num)
 
@@ -253,24 +248,18 @@ class EvidencePoweredTrickster:
         # Check cooldown
         rounds_since = round_num - self._state.last_intervention_round
         if rounds_since < self.config.intervention_cooldown_rounds:
-            logger.debug(
-                f"trickster_cooldown round={round_num} "
-                f"rounds_since={rounds_since}"
-            )
+            logger.debug(f"trickster_cooldown round={round_num} " f"rounds_since={rounds_since}")
             return None
 
         # Check max interventions
         if self._state.total_interventions >= self.config.max_interventions_total:
             logger.debug(
-                f"trickster_limit round={round_num} "
-                f"total={self._state.total_interventions}"
+                f"trickster_limit round={round_num} " f"total={self._state.total_interventions}"
             )
             return None
 
         # Create intervention
-        intervention = self._create_intervention(
-            alert, quality_scores, round_num, cross_analysis
-        )
+        intervention = self._create_intervention(alert, quality_scores, round_num, cross_analysis)
 
         return self._record_intervention(intervention, round_num)
 
@@ -349,18 +338,20 @@ class EvidencePoweredTrickster:
 
         for gap in cross_analysis.evidence_gaps[:3]:
             agents_str = ", ".join(gap.agents_making_claim)
-            lines.append(f"- **Claim by {agents_str}**: \"{gap.claim[:100]}...\"")
+            lines.append(f'- **Claim by {agents_str}**: "{gap.claim[:100]}..."')
             lines.append("  → No evidence provided by any agent")
             lines.append("")
 
-        lines.extend([
-            "### Required Actions:",
-            "1. Provide specific sources or data supporting these claims",
-            "2. If no evidence exists, reconsider the claim",
-            "3. Distinguish between speculation and supported conclusions",
-            "",
-            "*This challenge was triggered by cross-proposal evidence analysis.*",
-        ])
+        lines.extend(
+            [
+                "### Required Actions:",
+                "1. Provide specific sources or data supporting these claims",
+                "2. If no evidence exists, reconsider the claim",
+                "3. Distinguish between speculation and supported conclusions",
+                "",
+                "*This challenge was triggered by cross-proposal evidence analysis.*",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -431,9 +422,8 @@ class EvidencePoweredTrickster:
             key=lambda x: x[1],
         )
         target_agents = [
-            agent for agent, score in sorted_agents
-            if score < self.config.min_quality_threshold
-        ][:self.config.max_challenges_per_round]
+            agent for agent, score in sorted_agents if score < self.config.min_quality_threshold
+        ][: self.config.max_challenges_per_round]
 
         if not target_agents:
             target_agents = [sorted_agents[0][0]] if sorted_agents else []
@@ -454,9 +444,7 @@ class EvidencePoweredTrickster:
                 evidence_gaps[agent] = gaps
 
         # Build challenge text
-        challenge_text = self._build_challenge(
-            alert, evidence_gaps, target_agents
-        )
+        challenge_text = self._build_challenge(alert, evidence_gaps, target_agents)
 
         # Determine intervention type
         intervention_type = self._select_intervention_type(alert, round_num)
@@ -470,11 +458,13 @@ class EvidencePoweredTrickster:
         }
 
         if cross_analysis:
-            metadata.update({
-                "cross_analysis_redundancy": cross_analysis.redundancy_score,
-                "cross_analysis_corroboration": cross_analysis.evidence_corroboration_score,
-                "cross_analysis_gaps_count": len(cross_analysis.evidence_gaps),
-            })
+            metadata.update(
+                {
+                    "cross_analysis_redundancy": cross_analysis.redundancy_score,
+                    "cross_analysis_corroboration": cross_analysis.evidence_corroboration_score,
+                    "cross_analysis_gaps_count": len(cross_analysis.evidence_gaps),
+                }
+            )
 
         return TricksterIntervention(
             intervention_type=intervention_type,
@@ -516,15 +506,17 @@ class EvidencePoweredTrickster:
                 lines.append(f"- **{agent}**: Missing {gaps_str}")
             lines.append("")
 
-        lines.extend([
-            "### Before Proceeding:",
-            "1. Provide specific citations or data sources",
-            "2. Replace vague language with concrete numbers",
-            "3. Give real examples that demonstrate your points",
-            "4. Explain the logical chain from premise to conclusion",
-            "",
-            "*This challenge was triggered by the Evidence-Powered Trickster system.*",
-        ])
+        lines.extend(
+            [
+                "### Before Proceeding:",
+                "1. Provide specific citations or data sources",
+                "2. Replace vague language with concrete numbers",
+                "3. Give real examples that demonstrate your points",
+                "4. Explain the logical chain from premise to conclusion",
+                "",
+                "*This challenge was triggered by the Evidence-Powered Trickster system.*",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -539,10 +531,7 @@ class EvidencePoweredTrickster:
             return InterventionType.BREAKPOINT
 
         # First intervention -> role assignment if enabled
-        if (
-            self._state.total_interventions == 0
-            and self.config.enable_role_assignment
-        ):
+        if self._state.total_interventions == 0 and self.config.enable_role_assignment:
             return InterventionType.QUALITY_ROLE
 
         # Default -> challenge prompt
@@ -595,8 +584,7 @@ class EvidencePoweredTrickster:
         rounds_since = round_num - self._state.last_intervention_round
         if rounds_since < self.config.intervention_cooldown_rounds:
             logger.debug(
-                f"novelty_challenge_cooldown round={round_num} "
-                f"rounds_since={rounds_since}"
+                f"novelty_challenge_cooldown round={round_num} " f"rounds_since={rounds_since}"
             )
             return None
 
@@ -609,9 +597,7 @@ class EvidencePoweredTrickster:
             return None
 
         # Build challenge text for novelty
-        challenge_text = self._build_novelty_challenge(
-            low_novelty_agents, novelty_scores
-        )
+        challenge_text = self._build_novelty_challenge(low_novelty_agents, novelty_scores)
 
         # Calculate priority based on how low the novelty is
         min_novelty = min(novelty_scores.get(a, 1.0) for a in low_novelty_agents)
@@ -665,20 +651,22 @@ class EvidencePoweredTrickster:
             score = novelty_scores.get(agent, 0.0)
             lines.append(f"- **{agent}**: Novelty {score:.0%} (below threshold)")
 
-        lines.extend([
-            "",
-            "### To Increase Novelty:",
-            "1. Consider angles you haven't explored yet",
-            "2. Challenge assumptions from prior rounds",
-            "3. Introduce new evidence or frameworks",
-            "4. Play devil's advocate to your own position",
-            "5. Think about edge cases or minority viewpoints",
-            "",
-            "**Goal**: Bring fresh ideas that meaningfully differ from what's "
-            "already been said, while still addressing the core question.",
-            "",
-            "*This challenge was triggered by the Novelty Tracking system.*",
-        ])
+        lines.extend(
+            [
+                "",
+                "### To Increase Novelty:",
+                "1. Consider angles you haven't explored yet",
+                "2. Challenge assumptions from prior rounds",
+                "3. Introduce new evidence or frameworks",
+                "4. Play devil's advocate to your own position",
+                "5. Think about edge cases or minority viewpoints",
+                "",
+                "**Goal**: Bring fresh ideas that meaningfully differ from what's "
+                "already been said, while still addressing the core question.",
+                "",
+                "*This challenge was triggered by the Novelty Tracking system.*",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -687,16 +675,12 @@ class EvidencePoweredTrickster:
         avg_quality_per_round = []
         for round_scores in self._state.quality_history:
             if round_scores:
-                avg = sum(s.overall_quality for s in round_scores.values()) / len(
-                    round_scores
-                )
+                avg = sum(s.overall_quality for s in round_scores.values()) / len(round_scores)
                 avg_quality_per_round.append(avg)
 
         return {
             "total_interventions": self._state.total_interventions,
-            "hollow_alerts_detected": sum(
-                1 for a in self._state.hollow_alerts if a.detected
-            ),
+            "hollow_alerts_detected": sum(1 for a in self._state.hollow_alerts if a.detected),
             "avg_quality_per_round": avg_quality_per_round,
             "interventions": [
                 {

@@ -237,9 +237,7 @@ class TestDebateSummary:
     """Tests for debate summary posting."""
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_creates_blocks(
-        self, slack_integration, mock_debate_result
-    ):
+    async def test_post_debate_summary_creates_blocks(self, slack_integration, mock_debate_result):
         """Test that debate summary creates proper blocks."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -358,9 +356,7 @@ class TestConsensusAlert:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_skipped_below_threshold(
-        self, slack_integration
-    ):
+    async def test_send_consensus_alert_skipped_below_threshold(self, slack_integration):
         """Test that low confidence alerts are skipped."""
         result = await slack_integration.send_consensus_alert(
             debate_id="debate-123",
@@ -582,9 +578,7 @@ class TestSlackIntegrationEndToEnd:
         # Send 15 messages (limit is 10)
         results = []
         for i in range(15):
-            result = await slack_integration._send_message(
-                SlackMessage(text=f"Message {i}")
-            )
+            result = await slack_integration._send_message(SlackMessage(text=f"Message {i}"))
             results.append(result)
 
         # First 10 should succeed, last 5 should fail

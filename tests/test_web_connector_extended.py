@@ -208,7 +208,9 @@ class TestHTTPResponses:
         final_response.status_code = 200
         final_response.is_redirect = False  # Important: indicate not a redirect
         final_response.headers = {"content-type": "text/html"}
-        final_response.text = "<html><title>Redirected</title><body><p>Final content</p></body></html>"
+        final_response.text = (
+            "<html><title>Redirected</title><body><p>Final content</p></body></html>"
+        )
         final_response.raise_for_status = MagicMock()
 
         mock_client = AsyncMock()
@@ -230,9 +232,7 @@ class TestHTTPResponses:
         mock_response.status_code = 429
         mock_response.is_redirect = False
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Rate limited",
-            request=MagicMock(),
-            response=mock_response
+            "Rate limited", request=MagicMock(), response=mock_response
         )
 
         mock_client = AsyncMock()
@@ -254,9 +254,7 @@ class TestHTTPResponses:
         mock_response.status_code = 503
         mock_response.is_redirect = False
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Service unavailable",
-            request=MagicMock(),
-            response=mock_response
+            "Service unavailable", request=MagicMock(), response=mock_response
         )
 
         mock_client = AsyncMock()
@@ -277,7 +275,9 @@ class TestHTTPResponses:
         mock_response.is_redirect = False
         mock_response.headers = {"content-type": "text/html; charset=iso-8859-1"}
         # httpx handles encoding internally, so we just test it doesn't crash
-        mock_response.text = "<html><title>Test</title><body>Content with special char: café</body></html>"
+        mock_response.text = (
+            "<html><title>Test</title><body>Content with special char: café</body></html>"
+        )
         mock_response.raise_for_status = MagicMock()
 
         mock_client = AsyncMock()
@@ -377,10 +377,7 @@ class TestConcurrentAndState:
 
         with patch.object(connector, "_get_http_client", AsyncMock(return_value=mock_client)):
             # Launch multiple concurrent fetches for the same URL
-            tasks = [
-                connector.fetch_url("https://example.com/page")
-                for _ in range(5)
-            ]
+            tasks = [connector.fetch_url("https://example.com/page") for _ in range(5)]
             results = await asyncio.gather(*tasks)
 
             # All should succeed
@@ -399,9 +396,9 @@ class TestConcurrentAndState:
         # Search should recover gracefully and not crash
         with patch("aragora.connectors.web.DDGS_AVAILABLE", True):
             with patch("aragora.connectors.web.DDGS") as mock_ddgs:
-                mock_ddgs.return_value.text.return_value = iter([
-                    {"title": "Result", "body": "Body", "href": "https://example.com"}
-                ])
+                mock_ddgs.return_value.text.return_value = iter(
+                    [{"title": "Result", "body": "Body", "href": "https://example.com"}]
+                )
 
                 results = await connector.search(query)
 

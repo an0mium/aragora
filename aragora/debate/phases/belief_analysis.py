@@ -31,6 +31,7 @@ def _load_belief_classes():
                 BeliefNetwork as BN,
                 BeliefPropagationAnalyzer as BPA,
             )
+
             _BeliefNetwork = BN
             _BeliefPropagationAnalyzer = BPA
         except ImportError:
@@ -116,7 +117,7 @@ class DebateBeliefAnalyzer:
                     )
                     claim_count += 1
 
-            result.network_size = len(network.nodes) if hasattr(network, 'nodes') else 0
+            result.network_size = len(network.nodes) if hasattr(network, "nodes") else 0
 
             if result.network_size > 0:
                 # Run belief propagation
@@ -167,9 +168,9 @@ class DebateBeliefAnalyzer:
             analyzer = BPA()
 
             # Add claims to analyzer
-            for claim in claims[:self.max_claims]:
-                claim_id = getattr(claim, 'claim_id', str(hash(claim.statement[:50])))
-                confidence = getattr(claim, 'confidence', 0.5)
+            for claim in claims[: self.max_claims]:
+                claim_id = getattr(claim, "claim_id", str(hash(claim.statement[:50])))
+                confidence = getattr(claim, "confidence", 0.5)
                 analyzer.add_claim(
                     claim_id=claim_id,
                     statement=claim.statement,
@@ -184,8 +185,8 @@ class DebateBeliefAnalyzer:
             if cruxes:
                 logger.debug(f"belief_cruxes_identified count={len(cruxes)}")
                 for crux in cruxes[:3]:
-                    claim_preview = crux.get('claim', 'unknown')[:60]
-                    uncertainty = crux.get('uncertainty', 0)
+                    claim_preview = crux.get("claim", "unknown")[:60]
+                    uncertainty = crux.get("uncertainty", 0)
                     logger.debug(f"belief_crux claim={claim_preview} uncertainty={uncertainty:.2f}")
 
         except Exception as e:

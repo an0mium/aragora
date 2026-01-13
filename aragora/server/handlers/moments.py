@@ -80,12 +80,12 @@ class MomentsHandler(BaseHandler):
             return self._get_summary()
 
         if path == "/api/moments/timeline":
-            limit = get_int_param(query_params, 'limit', 50)
-            offset = get_int_param(query_params, 'offset', 0)
+            limit = get_int_param(query_params, "limit", 50)
+            offset = get_int_param(query_params, "offset", 0)
             return self._get_timeline(max(1, min(limit, 200)), max(0, offset))
 
         if path == "/api/moments/trending":
-            limit = get_int_param(query_params, 'limit', 10)
+            limit = get_int_param(query_params, "limit", 10)
             return self._get_trending(max(1, min(limit, 50)))
 
         # Handle /api/moments/by-type/{type}
@@ -96,9 +96,9 @@ class MomentsHandler(BaseHandler):
             if moment_type not in VALID_MOMENT_TYPES:
                 return error_response(
                     f"Invalid moment type: {moment_type}. Valid types: {', '.join(sorted(VALID_MOMENT_TYPES))}",
-                    400
+                    400,
                 )
-            limit = get_int_param(query_params, 'limit', 50)
+            limit = get_int_param(query_params, "limit", 50)
             return self._get_by_type(moment_type, max(1, min(limit, 200)))
 
         return None
@@ -115,7 +115,7 @@ class MomentsHandler(BaseHandler):
 
         all_moments = []
         # Access the internal cache to get all moments
-        if hasattr(detector, '_moment_cache'):
+        if hasattr(detector, "_moment_cache"):
             for agent_name, moments in detector._moment_cache.items():
                 all_moments.extend(moments)
 
@@ -132,7 +132,7 @@ class MomentsHandler(BaseHandler):
             "debate_id": moment.debate_id,
             "other_agents": moment.other_agents or [],
             "metadata": moment.metadata or {},
-            "created_at": moment.created_at if hasattr(moment, 'created_at') else None,
+            "created_at": moment.created_at if hasattr(moment, "created_at") else None,
         }
 
     def _get_summary(self) -> HandlerResult:
@@ -162,19 +162,25 @@ class MomentsHandler(BaseHandler):
             # Most significant moment
             most_significant = None
             if all_moments:
-                sorted_moments = sorted(all_moments, key=lambda m: m.significance_score, reverse=True)
+                sorted_moments = sorted(
+                    all_moments, key=lambda m: m.significance_score, reverse=True
+                )
                 most_significant = self._moment_to_dict(sorted_moments[0])
 
             # Recent moments (last 5)
-            recent = sorted(all_moments, key=lambda m: getattr(m, 'created_at', '') or '', reverse=True)[:5]
+            recent = sorted(
+                all_moments, key=lambda m: getattr(m, "created_at", "") or "", reverse=True
+            )[:5]
 
-            return json_response({
-                "total_moments": len(all_moments),
-                "by_type": by_type,
-                "by_agent": by_agent,
-                "most_significant": most_significant,
-                "recent": [self._moment_to_dict(m) for m in recent],
-            })
+            return json_response(
+                {
+                    "total_moments": len(all_moments),
+                    "by_type": by_type,
+                    "by_agent": by_agent,
+                    "most_significant": most_significant,
+                    "recent": [self._moment_to_dict(m) for m in recent],
+                }
+            )
         except Exception as e:
             return error_response(_safe_error_message(e, "moments summary"), 500)
 
@@ -192,21 +198,21 @@ class MomentsHandler(BaseHandler):
 
             # Sort by created_at descending (most recent first)
             sorted_moments = sorted(
-                all_moments,
-                key=lambda m: getattr(m, 'created_at', '') or '',
-                reverse=True
+                all_moments, key=lambda m: getattr(m, "created_at", "") or "", reverse=True
             )
 
             # Apply pagination
-            paginated = sorted_moments[offset:offset + limit]
+            paginated = sorted_moments[offset : offset + limit]
 
-            return json_response({
-                "moments": [self._moment_to_dict(m) for m in paginated],
-                "total": len(all_moments),
-                "limit": limit,
-                "offset": offset,
-                "has_more": offset + limit < len(all_moments),
-            })
+            return json_response(
+                {
+                    "moments": [self._moment_to_dict(m) for m in paginated],
+                    "total": len(all_moments),
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": offset + limit < len(all_moments),
+                }
+            )
         except Exception as e:
             return error_response(_safe_error_message(e, "moments timeline"), 500)
 
@@ -223,16 +229,16 @@ class MomentsHandler(BaseHandler):
             all_moments = self._get_all_moments()
 
             # Sort by significance descending
-            sorted_moments = sorted(
-                all_moments,
-                key=lambda m: m.significance_score,
-                reverse=True
-            )[:limit]
+            sorted_moments = sorted(all_moments, key=lambda m: m.significance_score, reverse=True)[
+                :limit
+            ]
 
-            return json_response({
-                "trending": [self._moment_to_dict(m) for m in sorted_moments],
-                "count": len(sorted_moments),
-            })
+            return json_response(
+                {
+                    "trending": [self._moment_to_dict(m) for m in sorted_moments],
+                    "count": len(sorted_moments),
+                }
+            )
         except Exception as e:
             return error_response(_safe_error_message(e, "moments trending"), 500)
 
@@ -252,17 +258,17 @@ class MomentsHandler(BaseHandler):
             filtered = [m for m in all_moments if m.moment_type == moment_type]
 
             # Sort by significance descending
-            sorted_moments = sorted(
-                filtered,
-                key=lambda m: m.significance_score,
-                reverse=True
-            )[:limit]
+            sorted_moments = sorted(filtered, key=lambda m: m.significance_score, reverse=True)[
+                :limit
+            ]
 
-            return json_response({
-                "type": moment_type,
-                "moments": [self._moment_to_dict(m) for m in sorted_moments],
-                "total": len(filtered),
-                "limit": limit,
-            })
+            return json_response(
+                {
+                    "type": moment_type,
+                    "moments": [self._moment_to_dict(m) for m in sorted_moments],
+                    "total": len(filtered),
+                    "limit": limit,
+                }
+            )
         except Exception as e:
             return error_response(_safe_error_message(e, f"moments by type {moment_type}"), 500)

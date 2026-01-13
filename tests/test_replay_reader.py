@@ -3,6 +3,7 @@ import time
 from aragora.replay.reader import ReplayReader
 from aragora.replay.recorder import ReplayRecorder
 
+
 def test_reader_bundle(tmp_path):
     # Create test data using the recorder
     session_dir = tmp_path / "test"

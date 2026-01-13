@@ -242,6 +242,51 @@ const EvidenceVisualizerPanel = dynamic(() => import('@/components/EvidenceVisua
   loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
 });
 
+const BatchDebatePanel = dynamic(() => import('@/components/BatchDebatePanel').then(m => ({ default: m.BatchDebatePanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const SettingsPanel = dynamic(() => import('@/components/SettingsPanel').then(m => ({ default: m.SettingsPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const ApiExplorerPanel = dynamic(() => import('@/components/ApiExplorerPanel').then(m => ({ default: m.ApiExplorerPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const CheckpointPanel = dynamic(() => import('@/components/CheckpointPanel').then(m => ({ default: m.CheckpointPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const ProofVisualizerPanel = dynamic(() => import('@/components/ProofVisualizerPanel').then(m => ({ default: m.ProofVisualizerPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const EvolutionPanel = dynamic(() => import('@/components/EvolutionPanel').then(m => ({ default: m.EvolutionPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const PulseSchedulerControlPanel = dynamic(() => import('@/components/PulseSchedulerControlPanel').then(m => ({ default: m.PulseSchedulerControlPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const EvidencePanel = dynamic(() => import('@/components/EvidencePanel').then(m => ({ default: m.EvidencePanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const BroadcastPanel = dynamic(() => import('@/components/broadcast/BroadcastPanel').then(m => ({ default: m.BroadcastPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
 type ViewMode = 'tabs' | 'stream' | 'deep-audit';
 type SiteMode = 'landing' | 'dashboard' | 'loading';
 
@@ -261,17 +306,21 @@ export default function Home() {
 
   const { events, connected, nomicState: wsNomicState, activeLoops, selectedLoopId, selectLoop, sendMessage, onAck, onError } = useNomicStream(wsUrl);
 
-  // Domain detection - show landing page on aragora.ai, dashboard on live.aragora.ai
+  // Domain detection - show dashboard on aragora.ai, landing on www.aragora.ai
   const [siteMode, setSiteMode] = useState<SiteMode>('loading');
+  // Only show ASCII art in header on aragora.ai
+  const [showHeaderAscii, setShowHeaderAscii] = useState(false);
 
   useEffect(() => {
     const hostname = window.location.hostname;
-    // Show landing page on aragora.ai (but not live.aragora.ai or localhost)
-    if (hostname === 'aragora.ai' || hostname === 'www.aragora.ai') {
+    // Show landing page on www.aragora.ai; dashboard elsewhere.
+    if (hostname === 'www.aragora.ai') {
       setSiteMode('landing');
     } else {
       setSiteMode('dashboard');
     }
+    // Show ASCII art only on aragora.ai
+    setShowHeaderAscii(hostname === 'aragora.ai');
   }, []);
 
   // Handle debate started from landing page - navigate to debate viewer
@@ -323,8 +372,9 @@ export default function Home() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportDebateId, setExportDebateId] = useState<string | null>(null);
 
-  // Track current debate for impasse detection
+  // Track current debate for impasse detection and broadcast
   const [currentDebateId, setCurrentDebateId] = useState<string | null>(null);
+  const [debateTitle, setDebateTitle] = useState<string | null>(null);
 
   // Check if boot was shown before (session storage)
   useEffect(() => {
@@ -389,13 +439,19 @@ export default function Home() {
   // Derive current phase from state or latest phase event
   const currentPhase = nomicState?.phase || 'idle';
 
-  // Track current debate ID from events
+  // Track current debate ID and title from events
   useEffect(() => {
     const debateEvent = events.find(
       (e) => e.type === 'debate_start' || (e.data && 'debate_id' in e.data)
     );
     if (debateEvent?.data && 'debate_id' in debateEvent.data) {
       setCurrentDebateId(debateEvent.data.debate_id as string);
+      // Extract title from event data if available
+      const eventData = debateEvent.data as Record<string, unknown>;
+      const title = eventData.title || eventData.topic || eventData.question;
+      if (typeof title === 'string') {
+        setDebateTitle(title);
+      }
     }
   }, [events]);
 
@@ -457,7 +513,7 @@ export default function Home() {
     );
   }
 
-  // Landing page for aragora.ai
+  // Landing page for www.aragora.ai
   if (siteMode === 'landing') {
     return (
       <LandingPage
@@ -468,7 +524,7 @@ export default function Home() {
     );
   }
 
-  // Dashboard for live.aragora.ai and localhost
+  // Dashboard for aragora.ai, localhost, and other hosts
   return (
     <FeaturesProvider apiBase={apiBase}>
       {/* Boot Sequence */}
@@ -498,8 +554,8 @@ export default function Home() {
         <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 py-2 sm:py-3">
             <div className="flex items-center justify-between gap-2">
-              {/* ASCII Logo */}
-              <AsciiBannerCompact connected={connected} />
+              {/* ASCII Logo - only show art on aragora.ai */}
+              <AsciiBannerCompact connected={connected} showAsciiArt={showHeaderAscii} />
 
               {/* Mobile: Minimal controls */}
               <div className="flex items-center gap-1 sm:gap-2 lg:gap-3">
@@ -743,6 +799,16 @@ export default function Home() {
               <PanelErrorBoundary panelName="Learning Evolution">
                 <LearningEvolution />
               </PanelErrorBoundary>
+              <FeatureGuard featureId="evolution">
+                <PanelErrorBoundary panelName="Prompt Evolution">
+                  <EvolutionPanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
+              {currentDebateId && (
+                <PanelErrorBoundary panelName="Evidence">
+                  <EvidencePanel debateId={currentDebateId} />
+                </PanelErrorBoundary>
+              )}
             </CollapsibleSection>
 
             {/* Section 5: System Tools */}
@@ -775,6 +841,19 @@ export default function Home() {
               <PanelErrorBoundary panelName="Breakpoints">
                 <BreakpointsPanel apiBase={apiBase} />
               </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Batch Debates">
+                <BatchDebatePanel />
+              </PanelErrorBoundary>
+              <FeatureGuard featureId="pulse">
+                <PanelErrorBoundary panelName="Pulse Scheduler">
+                  <PulseSchedulerControlPanel />
+                </PanelErrorBoundary>
+              </FeatureGuard>
+              {currentDebateId && debateTitle && (
+                <PanelErrorBoundary panelName="Broadcast">
+                  <BroadcastPanel debateId={currentDebateId} debateTitle={debateTitle} />
+                </PanelErrorBoundary>
+              )}
             </CollapsibleSection>
 
             {/* Section 6: Advanced/Debug */}
@@ -804,6 +883,18 @@ export default function Home() {
                   <ImpasseDetectionPanel debateId={currentDebateId} apiBase={apiBase} />
                 </PanelErrorBoundary>
               )}
+              <PanelErrorBoundary panelName="API Explorer">
+                <ApiExplorerPanel />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Checkpoints">
+                <CheckpointPanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} debateId={currentDebateId || undefined} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Proof Visualizer">
+                <ProofVisualizerPanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} debateId={currentDebateId || undefined} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Settings">
+                <SettingsPanel />
+              </PanelErrorBoundary>
             </CollapsibleSection>
           </div>
         </div>

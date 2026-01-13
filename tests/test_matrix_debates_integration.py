@@ -17,6 +17,7 @@ from unittest.mock import Mock, AsyncMock, patch
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_agents():
     """Create mock agents for debates."""
@@ -37,10 +38,12 @@ def mock_storage():
     storage = Mock()
     storage.get_matrix_debate = AsyncMock(return_value=None)
     storage.get_matrix_scenarios = AsyncMock(return_value=[])
-    storage.get_matrix_conclusions = AsyncMock(return_value={
-        "universal": [],
-        "conditional": [],
-    })
+    storage.get_matrix_conclusions = AsyncMock(
+        return_value={
+            "universal": [],
+            "conditional": [],
+        }
+    )
     return storage
 
 
@@ -123,6 +126,7 @@ def sample_results():
 # Handler Route Tests
 # ============================================================================
 
+
 class TestMatrixDebatesHandlerRoutes:
     """Tests for MatrixDebatesHandler route recognition."""
 
@@ -155,6 +159,7 @@ class TestMatrixDebatesHandlerRoutes:
 # GET Endpoint Tests
 # ============================================================================
 
+
 class TestMatrixDebatesGetEndpoints:
     """Tests for GET endpoints."""
 
@@ -181,11 +186,13 @@ class TestMatrixDebatesGetEndpoints:
             from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
 
             # Configure storage to return a debate
-            mock_storage.get_matrix_debate = AsyncMock(return_value={
-                "matrix_id": "test-123",
-                "task": "Test task",
-                "scenario_count": 3,
-            })
+            mock_storage.get_matrix_debate = AsyncMock(
+                return_value={
+                    "matrix_id": "test-123",
+                    "task": "Test task",
+                    "scenario_count": 3,
+                }
+            )
             mock_handler.storage = mock_storage
 
             handler = MatrixDebatesHandler({})
@@ -251,6 +258,7 @@ class TestMatrixDebatesGetEndpoints:
 # ============================================================================
 # POST Endpoint Tests
 # ============================================================================
+
 
 class TestMatrixDebatesPostEndpoint:
     """Tests for POST /api/debates/matrix endpoint."""
@@ -319,6 +327,7 @@ class TestMatrixDebatesPostEndpoint:
 # ============================================================================
 # Utility Method Tests
 # ============================================================================
+
 
 class TestMatrixDebatesUtilities:
     """Tests for utility methods."""
@@ -448,6 +457,7 @@ class TestMatrixDebatesUtilities:
 # Agent Loading Tests
 # ============================================================================
 
+
 class TestAgentLoading:
     """Tests for agent loading functionality."""
 
@@ -459,7 +469,9 @@ class TestAgentLoading:
 
             handler = MatrixDebatesHandler({})
 
-            with patch("aragora.server.handlers.matrix_debates.MatrixDebatesHandler._load_agents") as mock_load:
+            with patch(
+                "aragora.server.handlers.matrix_debates.MatrixDebatesHandler._load_agents"
+            ) as mock_load:
                 mock_agent1 = Mock()
                 mock_agent1.name = "claude"
                 mock_agent2 = Mock()
@@ -496,6 +508,7 @@ class TestAgentLoading:
 # Handle GET Routing Tests
 # ============================================================================
 
+
 class TestHandleGetRouting:
     """Tests for GET request routing via internal methods."""
 
@@ -505,10 +518,12 @@ class TestHandleGetRouting:
         try:
             from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
 
-            mock_storage.get_matrix_debate = AsyncMock(return_value={
-                "matrix_id": "abc-123",
-                "task": "Test",
-            })
+            mock_storage.get_matrix_debate = AsyncMock(
+                return_value={
+                    "matrix_id": "abc-123",
+                    "task": "Test",
+                }
+            )
             mock_handler.storage = mock_storage
 
             handler = MatrixDebatesHandler({})
@@ -528,10 +543,12 @@ class TestHandleGetRouting:
         try:
             from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
 
-            mock_storage.get_matrix_scenarios = AsyncMock(return_value=[
-                {"name": "Scenario 1"},
-                {"name": "Scenario 2"},
-            ])
+            mock_storage.get_matrix_scenarios = AsyncMock(
+                return_value=[
+                    {"name": "Scenario 1"},
+                    {"name": "Scenario 2"},
+                ]
+            )
             mock_handler.storage = mock_storage
 
             handler = MatrixDebatesHandler({})
@@ -551,10 +568,12 @@ class TestHandleGetRouting:
         try:
             from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
 
-            mock_storage.get_matrix_conclusions = AsyncMock(return_value={
-                "universal": ["All scenarios agree"],
-                "conditional": [{"condition": "When X", "conclusion": "Y"}],
-            })
+            mock_storage.get_matrix_conclusions = AsyncMock(
+                return_value={
+                    "universal": ["All scenarios agree"],
+                    "conditional": [{"condition": "When X", "conclusion": "Y"}],
+                }
+            )
             mock_handler.storage = mock_storage
 
             handler = MatrixDebatesHandler({})
@@ -573,6 +592,7 @@ class TestHandleGetRouting:
 # ============================================================================
 # Fallback Implementation Tests
 # ============================================================================
+
 
 class TestMatrixDebateFallback:
     """Tests for fallback implementation when MatrixDebateRunner unavailable."""
@@ -594,13 +614,15 @@ class TestMatrixDebateFallback:
                 # Mock Arena to track scenario runs
                 with patch("aragora.debate.orchestrator.Arena") as mock_arena_class:
                     mock_arena = Mock()
-                    mock_arena.run = AsyncMock(return_value=Mock(
-                        winner="claude",
-                        final_answer="Test answer",
-                        confidence=0.8,
-                        consensus_reached=True,
-                        rounds_used=2,
-                    ))
+                    mock_arena.run = AsyncMock(
+                        return_value=Mock(
+                            winner="claude",
+                            final_answer="Test answer",
+                            confidence=0.8,
+                            consensus_reached=True,
+                            rounds_used=2,
+                        )
+                    )
                     mock_arena_class.return_value = mock_arena
 
                     result = await handler._run_matrix_debate_fallback(

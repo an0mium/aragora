@@ -144,11 +144,11 @@ async def run_gauntlet_tool(
     runner = GauntletRunner(config)
     result = await runner.run(content)
 
-    vulnerabilities = getattr(result, 'vulnerabilities', [])
+    vulnerabilities = getattr(result, "vulnerabilities", [])
 
     return {
-        "verdict": result.verdict.value if hasattr(result, 'verdict') else "unknown",
-        "risk_score": getattr(result, 'risk_score', 0),
+        "verdict": result.verdict.value if hasattr(result, "verdict") else "unknown",
+        "risk_score": getattr(result, "risk_score", 0),
         "vulnerabilities_count": len(vulnerabilities),
         "vulnerabilities": [
             {
@@ -210,6 +210,7 @@ async def get_debate_tool(debate_id: str) -> Dict[str, Any]:
     # Try to load from storage
     try:
         from aragora.server.storage import get_debates_db
+
         db = get_debates_db()
         if db:
             debate = db.get(debate_id)
@@ -248,6 +249,7 @@ async def search_debates_tool(
 
     try:
         from aragora.server.storage import get_debates_db
+
         db = get_debates_db()
         if db and hasattr(db, "search"):
             results = db.search(
@@ -316,6 +318,7 @@ async def get_agent_history_tool(
     # Get ELO rating
     try:
         from aragora.ranking.elo import ELOSystem
+
         elo = ELOSystem()
         rating = elo.get_rating(agent_name)
         if rating:
@@ -327,16 +330,19 @@ async def get_agent_history_tool(
     # Get performance stats from storage
     try:
         from aragora.server.storage import get_debates_db
+
         db = get_debates_db()
         if db and hasattr(db, "get_agent_stats"):
             stats = db.get_agent_stats(agent_name)
             if stats:
-                result.update({
-                    "total_debates": stats.get("total_debates", 0),
-                    "consensus_rate": stats.get("consensus_rate", 0.0),
-                    "win_rate": stats.get("win_rate", 0.0),
-                    "avg_confidence": stats.get("avg_confidence", 0.0),
-                })
+                result.update(
+                    {
+                        "total_debates": stats.get("total_debates", 0),
+                        "consensus_rate": stats.get("consensus_rate", 0.0),
+                        "win_rate": stats.get("win_rate", 0.0),
+                        "avg_confidence": stats.get("avg_confidence", 0.0),
+                    }
+                )
 
         # Get recent debates if requested
         if include_debates and db and hasattr(db, "search"):
@@ -376,6 +382,7 @@ async def get_consensus_proofs_tool(
 
     try:
         from aragora.server.storage import get_proofs_db
+
         proofs_db = get_proofs_db()
         if proofs_db:
             proofs = proofs_db.list(
@@ -390,6 +397,7 @@ async def get_consensus_proofs_tool(
     if not proofs and debate_id:
         try:
             from aragora.server.storage import get_debates_db
+
             db = get_debates_db()
             if db:
                 debate = db.get(debate_id)
@@ -452,14 +460,16 @@ async def list_trending_topics_tool(
             score = selector.score_topic(topic)
 
             if score >= min_score:
-                topics.append({
-                    "topic": topic.topic,
-                    "platform": topic.platform,
-                    "category": topic.category,
-                    "score": round(score, 3),
-                    "volume": topic.volume,
-                    "debate_potential": "high" if score > 0.7 else "medium",
-                })
+                topics.append(
+                    {
+                        "topic": topic.topic,
+                        "platform": topic.platform,
+                        "category": topic.category,
+                        "score": round(score, 3),
+                        "volume": topic.volume,
+                        "debate_potential": "high" if score > 0.7 else "medium",
+                    }
+                )
 
         topics.sort(key=lambda x: x["score"], reverse=True)
         topics = topics[:limit]
@@ -479,6 +489,7 @@ async def list_trending_topics_tool(
 
 
 # === Memory Tools ===
+
 
 async def query_memory_tool(
     query: str,
@@ -522,13 +533,15 @@ async def query_memory_tool(
         )
 
         for m in results:
-            memories.append({
-                "id": m.id,
-                "tier": m.tier.name.lower(),
-                "content": m.content[:500] + "..." if len(m.content) > 500 else m.content,
-                "importance": round(m.importance, 3),
-                "created_at": str(m.created_at) if hasattr(m, "created_at") else None,
-            })
+            memories.append(
+                {
+                    "id": m.id,
+                    "tier": m.tier.name.lower(),
+                    "content": m.content[:500] + "..." if len(m.content) > 500 else m.content,
+                    "importance": round(m.importance, 3),
+                    "created_at": str(m.created_at) if hasattr(m, "created_at") else None,
+                }
+            )
 
     except ImportError:
         logger.warning("Continuum memory not available")
@@ -636,6 +649,7 @@ async def get_memory_pressure_tool() -> Dict[str, Any]:
 
 # === Fork Tools ===
 
+
 async def fork_debate_tool(
     debate_id: str,
     branch_point: int = -1,
@@ -711,12 +725,14 @@ async def get_forks_tool(
             all_debates = db.list(limit=100)
             for d in all_debates:
                 if d.get("parent_debate_id") == debate_id:
-                    forks.append({
-                        "branch_id": d.get("id"),
-                        "task": d.get("task", ""),
-                        "branch_point": d.get("branch_point", 0),
-                        "created_at": d.get("created_at", ""),
-                    })
+                    forks.append(
+                        {
+                            "branch_id": d.get("id"),
+                            "task": d.get("task", ""),
+                            "branch_point": d.get("branch_point", 0),
+                            "created_at": d.get("created_at", ""),
+                        }
+                    )
 
         return {
             "parent_debate_id": debate_id,
@@ -729,6 +745,7 @@ async def get_forks_tool(
 
 
 # === Genesis Tools ===
+
 
 async def get_agent_lineage_tool(
     agent_name: str,
@@ -818,6 +835,7 @@ async def breed_agents_tool(
 
 
 # === Checkpoint Tools ===
+
 
 async def create_checkpoint_tool(
     debate_id: str,
@@ -992,6 +1010,7 @@ async def delete_checkpoint_tool(
 
 # === Verification Tools ===
 
+
 async def verify_consensus_tool(
     debate_id: str,
     backend: str = "z3",
@@ -1016,6 +1035,7 @@ async def verify_consensus_tool(
 
         # Get debate data
         from aragora.server.storage import get_debates_db
+
         db = get_debates_db()
         if not db:
             return {"error": "Storage not available"}
@@ -1037,7 +1057,9 @@ async def verify_consensus_tool(
 
         return {
             "debate_id": debate_id,
-            "status": result.status.value if hasattr(result.status, "value") else str(result.status),
+            "status": (
+                result.status.value if hasattr(result.status, "value") else str(result.status)
+            ),
             "is_verified": result.is_verified,
             "language": result.language.value if hasattr(result.language, "value") else backend,
             "formal_statement": result.formal_statement,
@@ -1074,9 +1096,11 @@ async def generate_proof_tool(
     try:
         if output_format == "lean4":
             from aragora.verification.formal import LeanBackend
+
             backend = LeanBackend()
         else:
             from aragora.verification.formal import Z3Backend
+
             backend = Z3Backend()
 
         formal_statement = await backend.translate(claim, context)
@@ -1096,6 +1120,7 @@ async def generate_proof_tool(
 
 
 # === Evidence Tools ===
+
 
 async def search_evidence_tool(
     query: str,
@@ -1132,15 +1157,17 @@ async def search_evidence_tool(
         )
 
         for e in evidence:
-            results.append({
-                "id": e.id,
-                "title": e.title,
-                "source": e.source,
-                "url": e.url,
-                "snippet": e.snippet[:300] if e.snippet else "",
-                "score": e.relevance_score,
-                "published": str(e.published_at) if e.published_at else None,
-            })
+            results.append(
+                {
+                    "id": e.id,
+                    "title": e.title,
+                    "source": e.source,
+                    "url": e.url,
+                    "snippet": e.snippet[:300] if e.snippet else "",
+                    "score": e.relevance_score,
+                    "published": str(e.published_at) if e.published_at else None,
+                }
+            )
 
     except ImportError:
         logger.warning("Evidence collector not available")

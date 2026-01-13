@@ -8,8 +8,9 @@ import { IndividualAgentTab } from './IndividualAgentTab';
 import type { AgentTabsProps, AgentData, TimelineMessage, PositionEntry, MatchHistoryEntry } from './types';
 import { ALL_AGENTS_TAB } from './types';
 import { logger } from '@/utils/logger';
+import { API_BASE_URL } from '@/config';
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps) {
   const [selectedAgent, setSelectedAgent] = useState<string>(ALL_AGENTS_TAB);

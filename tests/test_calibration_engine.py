@@ -38,7 +38,8 @@ def create_test_db(db_path: Path) -> None:
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         # Create calibration_predictions table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS calibration_predictions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 tournament_id TEXT NOT NULL,
@@ -48,9 +49,11 @@ def create_test_db(db_path: Path) -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(tournament_id, predictor_agent)
             )
-        """)
+        """
+        )
         # Create domain_calibration table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS domain_calibration (
                 agent_name TEXT NOT NULL,
                 domain TEXT NOT NULL,
@@ -60,9 +63,11 @@ def create_test_db(db_path: Path) -> None:
                 updated_at TIMESTAMP,
                 PRIMARY KEY (agent_name, domain)
             )
-        """)
+        """
+        )
         # Create calibration_buckets table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS calibration_buckets (
                 agent_name TEXT NOT NULL,
                 domain TEXT NOT NULL,
@@ -72,7 +77,8 @@ def create_test_db(db_path: Path) -> None:
                 brier_sum REAL DEFAULT 0.0,
                 PRIMARY KEY (agent_name, domain, bucket_key)
             )
-        """)
+        """
+        )
         conn.commit()
 
 
@@ -356,7 +362,10 @@ class TestDomainCalibrationEngine:
 
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT total_predictions, total_correct FROM domain_calibration WHERE agent_name = ?", ("claude",))
+            cursor.execute(
+                "SELECT total_predictions, total_correct FROM domain_calibration WHERE agent_name = ?",
+                ("claude",),
+            )
             row = cursor.fetchone()
 
         assert row[0] == 3  # total_predictions
@@ -382,7 +391,7 @@ class TestDomainCalibrationEngine:
 
         assert stats["total"] == 3
         assert stats["correct"] == 2
-        assert stats["accuracy"] == pytest.approx(2/3)
+        assert stats["accuracy"] == pytest.approx(2 / 3)
         assert "security" in stats["domains"]
         assert "performance" in stats["domains"]
         assert stats["domains"]["security"]["predictions"] == 2

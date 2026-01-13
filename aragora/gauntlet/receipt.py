@@ -111,14 +111,17 @@ class DecisionReceipt:
 
     def _calculate_hash(self) -> str:
         """Calculate content-addressable hash."""
-        content = json.dumps({
-            "receipt_id": self.receipt_id,
-            "gauntlet_id": self.gauntlet_id,
-            "input_hash": self.input_hash,
-            "risk_summary": self.risk_summary,
-            "verdict": self.verdict,
-            "confidence": self.confidence,
-        }, sort_keys=True)
+        content = json.dumps(
+            {
+                "receipt_id": self.receipt_id,
+                "gauntlet_id": self.gauntlet_id,
+                "input_hash": self.input_hash,
+                "risk_summary": self.risk_summary,
+                "verdict": self.verdict,
+                "confidence": self.confidence,
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(content.encode()).hexdigest()
 
     def verify_integrity(self) -> bool:
@@ -137,31 +140,37 @@ class DecisionReceipt:
         # Add attack events
         for vuln in result.vulnerabilities:
             if vuln.source == "red_team":
-                provenance.append(ProvenanceRecord(
-                    timestamp=vuln.created_at,
-                    event_type="attack",
-                    agent=vuln.agent_name,
-                    description=f"[{vuln.severity.value}] {vuln.title[:50]}",
-                    evidence_hash=hashlib.sha256(vuln.description.encode()).hexdigest()[:16],
-                ))
+                provenance.append(
+                    ProvenanceRecord(
+                        timestamp=vuln.created_at,
+                        event_type="attack",
+                        agent=vuln.agent_name,
+                        description=f"[{vuln.severity.value}] {vuln.title[:50]}",
+                        evidence_hash=hashlib.sha256(vuln.description.encode()).hexdigest()[:16],
+                    )
+                )
 
         # Add probe events
         for vuln in result.vulnerabilities:
             if vuln.source == "capability_probe":
-                provenance.append(ProvenanceRecord(
-                    timestamp=vuln.created_at,
-                    event_type="probe",
-                    agent=vuln.agent_name,
-                    description=f"[{vuln.category}] {vuln.title[:50]}",
-                    evidence_hash=hashlib.sha256(vuln.description.encode()).hexdigest()[:16],
-                ))
+                provenance.append(
+                    ProvenanceRecord(
+                        timestamp=vuln.created_at,
+                        event_type="probe",
+                        agent=vuln.agent_name,
+                        description=f"[{vuln.category}] {vuln.title[:50]}",
+                        evidence_hash=hashlib.sha256(vuln.description.encode()).hexdigest()[:16],
+                    )
+                )
 
         # Add verdict event
-        provenance.append(ProvenanceRecord(
-            timestamp=result.completed_at,
-            event_type="verdict",
-            description=f"Verdict: {result.verdict.value} ({result.confidence:.1%} confidence)",
-        ))
+        provenance.append(
+            ProvenanceRecord(
+                timestamp=result.completed_at,
+                event_type="verdict",
+                description=f"Verdict: {result.verdict.value} ({result.confidence:.1%} confidence)",
+            )
+        )
 
         # Build consensus proof
         consensus = ConsensusProof(
@@ -214,19 +223,23 @@ class DecisionReceipt:
 
         provenance = []
         for finding in findings:
-            provenance.append(ProvenanceRecord(
-                timestamp=getattr(finding, "timestamp", ""),
-                event_type="finding",
-                agent=None,
-                description=f"[{finding.severity_level}] {finding.title[:50]}",
-                evidence_hash=hashlib.sha256(finding.description.encode()).hexdigest()[:16],
-            ))
+            provenance.append(
+                ProvenanceRecord(
+                    timestamp=getattr(finding, "timestamp", ""),
+                    event_type="finding",
+                    agent=None,
+                    description=f"[{finding.severity_level}] {finding.title[:50]}",
+                    evidence_hash=hashlib.sha256(finding.description.encode()).hexdigest()[:16],
+                )
+            )
 
-        provenance.append(ProvenanceRecord(
-            timestamp=getattr(result, "created_at", ""),
-            event_type="verdict",
-            description=f"Verdict: {result.verdict.value} ({result.confidence:.1%} confidence)",
-        ))
+        provenance.append(
+            ProvenanceRecord(
+                timestamp=getattr(result, "created_at", ""),
+                event_type="verdict",
+                description=f"Verdict: {result.verdict.value} ({result.confidence:.1%} confidence)",
+            )
+        )
 
         dissenting = []
         for dissent in getattr(result, "dissenting_views", []):
@@ -240,7 +253,8 @@ class DecisionReceipt:
                 dissenting.append(str(dissent))
 
         dissenting_agents = [
-            getattr(d, "agent", "") for d in getattr(result, "dissenting_views", [])
+            getattr(d, "agent", "")
+            for d in getattr(result, "dissenting_views", [])
             if getattr(d, "agent", None)
         ]
 
@@ -284,7 +298,9 @@ class DecisionReceipt:
             gauntlet_id=result.gauntlet_id,
             timestamp=getattr(result, "created_at", ""),
             input_summary=result.input_summary,
-            input_hash=input_hash or getattr(result, "input_hash", "") or getattr(result, "checksum", ""),
+            input_hash=input_hash
+            or getattr(result, "input_hash", "")
+            or getattr(result, "checksum", ""),
             risk_summary={
                 "critical": critical,
                 "high": high,
@@ -440,8 +456,8 @@ class DecisionReceipt:
                 mitigation_html = f"<p><em>Mitigation: {escape(str(mitigation))}</em></p>"
 
             findings_html += (
-                f"<div class=\"finding\" style=\"border-left: 4px solid {severity_color};\">"
-                f"<strong style=\"color: {severity_color};\">[{severity}]</strong> {title}"
+                f'<div class="finding" style="border-left: 4px solid {severity_color};">'
+                f'<strong style="color: {severity_color};">[{severity}]</strong> {title}'
                 f"<p>{description}</p>"
                 f"{mitigation_html}"
                 "</div>"

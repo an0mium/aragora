@@ -31,6 +31,7 @@ from aragora.server.handlers import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def temp_consensus_db():
     """Create a temporary consensus database with test data."""
@@ -41,7 +42,8 @@ def temp_consensus_db():
     cursor = conn.cursor()
 
     # Create tables
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS consensus (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             topic TEXT NOT NULL,
@@ -52,9 +54,11 @@ def temp_consensus_db():
             participating_agents TEXT,
             timestamp TEXT DEFAULT CURRENT_TIMESTAMP
         )
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS dissent (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             debate_id INTEGER,
@@ -63,49 +67,62 @@ def temp_consensus_db():
             timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (debate_id) REFERENCES consensus(id)
         )
-    """)
+    """
+    )
 
     # Insert test data
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO consensus (topic, conclusion, confidence, strength, domain, participating_agents)
         VALUES
             ('AI Safety', 'Alignment is critical', 0.95, 'strong', 'technology', '["claude", "gpt4"]'),
             ('Climate Change', 'Action needed urgently', 0.85, 'strong', 'environment', '["claude", "gemini"]'),
             ('Code Reviews', 'Essential for quality', 0.75, 'moderate', 'software', '["claude", "grok"]'),
             ('Testing Strategy', 'Unit tests are valuable', 0.60, 'weak', 'software', '["gemini"]')
-    """)
+    """
+    )
 
     # Insert test dissents
-    dissent_data = json.dumps({
-        "agent_id": "grok",
-        "content": "I disagree with the majority view",
-        "confidence": 0.7,
-        "reasoning": "There are edge cases to consider",
-        "debate_id": "debate-1",
-        "dissent_type": "minority_opinion",
-        "metadata": {"domain": "technology"},
-        "timestamp": datetime.now().isoformat(),
-    })
-    cursor.execute("""
+    dissent_data = json.dumps(
+        {
+            "agent_id": "grok",
+            "content": "I disagree with the majority view",
+            "confidence": 0.7,
+            "reasoning": "There are edge cases to consider",
+            "debate_id": "debate-1",
+            "dissent_type": "minority_opinion",
+            "metadata": {"domain": "technology"},
+            "timestamp": datetime.now().isoformat(),
+        }
+    )
+    cursor.execute(
+        """
         INSERT INTO dissent (debate_id, data, dissent_type)
         VALUES (1, ?, 'minority_opinion')
-    """, (dissent_data,))
+    """,
+        (dissent_data,),
+    )
 
-    risk_warning = json.dumps({
-        "agent_id": "claude",
-        "content": "This approach has security risks",
-        "confidence": 0.8,
-        "reasoning": "SQL injection possible",
-        "debate_id": "debate-2",
-        "dissent_type": "risk_warning",
-        "metadata": {"domain": "security"},
-        "timestamp": datetime.now().isoformat(),
-        "rebuttal": "Use parameterized queries",
-    })
-    cursor.execute("""
+    risk_warning = json.dumps(
+        {
+            "agent_id": "claude",
+            "content": "This approach has security risks",
+            "confidence": 0.8,
+            "reasoning": "SQL injection possible",
+            "debate_id": "debate-2",
+            "dissent_type": "risk_warning",
+            "metadata": {"domain": "security"},
+            "timestamp": datetime.now().isoformat(),
+            "rebuttal": "Use parameterized queries",
+        }
+    )
+    cursor.execute(
+        """
         INSERT INTO dissent (debate_id, data, dissent_type)
         VALUES (2, ?, 'risk_warning')
-    """, (risk_warning,))
+    """,
+        (risk_warning,),
+    )
 
     conn.commit()
     conn.close()
@@ -145,6 +162,7 @@ def consensus_handler(mock_consensus_memory, temp_consensus_db):
 # ============================================================================
 # Route Matching Tests
 # ============================================================================
+
 
 class TestConsensusHandlerRouting:
     """Tests for route matching."""
@@ -188,6 +206,7 @@ class TestConsensusHandlerRouting:
 # Similar Debates Endpoint Tests
 # ============================================================================
 
+
 class TestSimilarDebatesEndpoint:
     """Tests for /api/consensus/similar endpoint."""
 
@@ -209,8 +228,8 @@ class TestSimilarDebatesEndpoint:
         result = consensus_handler.handle("/api/consensus/similar", {"topic": long_topic}, None)
         assert result.status_code == 400
 
-    @patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', True)
-    @patch('aragora.server.handlers.consensus.ConsensusMemory')
+    @patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True)
+    @patch("aragora.server.handlers.consensus.ConsensusMemory")
     def test_similar_returns_results(self, mock_cm_class, consensus_handler):
         """Should return similar debates when available."""
         # Setup mock
@@ -232,9 +251,7 @@ class TestSimilarDebatesEndpoint:
         mock_cm_class.return_value = mock_instance
 
         result = consensus_handler.handle(
-            "/api/consensus/similar",
-            {"topic": "AI alignment", "limit": "5"},
-            None
+            "/api/consensus/similar", {"topic": "AI alignment", "limit": "5"}, None
         )
 
         assert result.status_code == 200
@@ -246,11 +263,9 @@ class TestSimilarDebatesEndpoint:
     def test_similar_limit_capped_at_20(self, consensus_handler):
         """Should cap limit at 20."""
         # This tests the parameter processing; actual query would need consensus memory
-        with patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', False):
+        with patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", False):
             result = consensus_handler.handle(
-                "/api/consensus/similar",
-                {"topic": "test", "limit": "100"},
-                None
+                "/api/consensus/similar", {"topic": "test", "limit": "100"}, None
             )
             # Should return 503 since memory not available, but limit would be capped
             assert result.status_code == 503
@@ -260,11 +275,12 @@ class TestSimilarDebatesEndpoint:
 # Settled Topics Endpoint Tests
 # ============================================================================
 
+
 class TestSettledTopicsEndpoint:
     """Tests for /api/consensus/settled endpoint."""
 
-    @patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', True)
-    @patch('aragora.server.handlers.consensus.ConsensusMemory')
+    @patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True)
+    @patch("aragora.server.handlers.consensus.ConsensusMemory")
     def test_settled_returns_high_confidence_topics(self, mock_cm_class, temp_consensus_db):
         """Should return topics with high confidence."""
         mock_instance = Mock()
@@ -281,8 +297,8 @@ class TestSettledTopicsEndpoint:
         assert data["count"] == 2
         assert all(t["confidence"] >= 0.8 for t in data["topics"])
 
-    @patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', True)
-    @patch('aragora.server.handlers.consensus.ConsensusMemory')
+    @patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True)
+    @patch("aragora.server.handlers.consensus.ConsensusMemory")
     def test_settled_default_confidence(self, mock_cm_class, temp_consensus_db):
         """Should use 0.8 as default min_confidence."""
         mock_instance = Mock()
@@ -296,8 +312,8 @@ class TestSettledTopicsEndpoint:
         data = json.loads(result.body)
         assert data["min_confidence"] == 0.8
 
-    @patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', True)
-    @patch('aragora.server.handlers.consensus.ConsensusMemory')
+    @patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True)
+    @patch("aragora.server.handlers.consensus.ConsensusMemory")
     def test_settled_confidence_clamped(self, mock_cm_class, temp_consensus_db):
         """Should clamp confidence between 0 and 1."""
         mock_instance = Mock()
@@ -321,11 +337,12 @@ class TestSettledTopicsEndpoint:
 # Stats Endpoint Tests
 # ============================================================================
 
+
 class TestStatsEndpoint:
     """Tests for /api/consensus/stats endpoint."""
 
-    @patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', True)
-    @patch('aragora.server.handlers.consensus.ConsensusMemory')
+    @patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True)
+    @patch("aragora.server.handlers.consensus.ConsensusMemory")
     def test_stats_returns_structure(self, mock_cm_class, temp_consensus_db):
         """Should return stats structure."""
         mock_instance = Mock()
@@ -374,11 +391,12 @@ class TestStatsEndpoint:
 # Dissents Endpoint Tests
 # ============================================================================
 
+
 class TestDissentsEndpoint:
     """Tests for /api/consensus/dissents endpoint."""
 
-    @patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', True)
-    @patch('aragora.server.handlers.consensus.ConsensusMemory')
+    @patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True)
+    @patch("aragora.server.handlers.consensus.ConsensusMemory")
     def test_dissents_returns_list(self, mock_cm_class, temp_consensus_db):
         """Should return list of dissents."""
         mock_instance = Mock()
@@ -393,8 +411,8 @@ class TestDissentsEndpoint:
         assert "dissents" in data
         assert isinstance(data["dissents"], list)
 
-    @patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', True)
-    @patch('aragora.server.handlers.consensus.ConsensusMemory')
+    @patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True)
+    @patch("aragora.server.handlers.consensus.ConsensusMemory")
     def test_dissents_limit_capped(self, mock_cm_class, temp_consensus_db):
         """Should cap limit at 50."""
         mock_instance = Mock()
@@ -406,8 +424,8 @@ class TestDissentsEndpoint:
         result = handler.handle("/api/consensus/dissents", {"limit": "100"}, None)
         assert result.status_code == 200
 
-    @patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', True)
-    @patch('aragora.server.handlers.consensus.ConsensusMemory')
+    @patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True)
+    @patch("aragora.server.handlers.consensus.ConsensusMemory")
     def test_dissents_topic_truncated(self, mock_cm_class, temp_consensus_db):
         """Should truncate topic to 500 chars."""
         mock_instance = Mock()
@@ -425,11 +443,12 @@ class TestDissentsEndpoint:
 # Contrarian Views Endpoint Tests
 # ============================================================================
 
+
 class TestContrarianViewsEndpoint:
     """Tests for /api/consensus/contrarian-views endpoint."""
 
-    @patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', True)
-    @patch('aragora.server.handlers.consensus.ConsensusMemory')
+    @patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True)
+    @patch("aragora.server.handlers.consensus.ConsensusMemory")
     def test_contrarian_views_returns_list(self, mock_cm_class, temp_consensus_db):
         """Should return list of contrarian views."""
         mock_instance = Mock()
@@ -449,11 +468,12 @@ class TestContrarianViewsEndpoint:
 # Risk Warnings Endpoint Tests
 # ============================================================================
 
+
 class TestRiskWarningsEndpoint:
     """Tests for /api/consensus/risk-warnings endpoint."""
 
-    @patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', True)
-    @patch('aragora.server.handlers.consensus.ConsensusMemory')
+    @patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True)
+    @patch("aragora.server.handlers.consensus.ConsensusMemory")
     def test_risk_warnings_returns_list(self, mock_cm_class, temp_consensus_db):
         """Should return list of risk warnings."""
         mock_instance = Mock()
@@ -471,9 +491,10 @@ class TestRiskWarningsEndpoint:
     def test_risk_warnings_unavailable_returns_503(self):
         """Should return 503 when consensus memory unavailable."""
         from aragora.server.handlers.base import clear_cache
+
         clear_cache()  # Clear TTL cache from previous test
 
-        with patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', False):
+        with patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", False):
             handler = ConsensusHandler({})
             result = handler.handle("/api/consensus/risk-warnings", {}, None)
             assert result.status_code == 503
@@ -483,11 +504,12 @@ class TestRiskWarningsEndpoint:
 # Domain History Endpoint Tests
 # ============================================================================
 
+
 class TestDomainHistoryEndpoint:
     """Tests for /api/consensus/domain/:domain endpoint."""
 
-    @patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', True)
-    @patch('aragora.server.handlers.consensus.ConsensusMemory')
+    @patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True)
+    @patch("aragora.server.handlers.consensus.ConsensusMemory")
     def test_domain_history_returns_structure(self, mock_cm_class):
         """Should return domain history structure."""
         mock_instance = Mock()
@@ -503,8 +525,8 @@ class TestDomainHistoryEndpoint:
         assert "history" in data
         assert "count" in data
 
-    @patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', True)
-    @patch('aragora.server.handlers.consensus.ConsensusMemory')
+    @patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True)
+    @patch("aragora.server.handlers.consensus.ConsensusMemory")
     def test_domain_history_limit_capped(self, mock_cm_class):
         """Should cap limit at 200."""
         mock_instance = Mock()
@@ -517,7 +539,7 @@ class TestDomainHistoryEndpoint:
 
     def test_domain_history_unavailable_returns_503(self):
         """Should return 503 when consensus memory unavailable."""
-        with patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', False):
+        with patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", False):
             handler = ConsensusHandler({})
             result = handler.handle("/api/consensus/domain/test", {}, None)
             assert result.status_code == 503
@@ -526,6 +548,7 @@ class TestDomainHistoryEndpoint:
 # ============================================================================
 # Error Handling Tests
 # ============================================================================
+
 
 class TestConsensusErrorHandling:
     """Tests for error handling."""

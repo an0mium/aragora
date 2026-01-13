@@ -288,9 +288,7 @@ class TestNoneConsensus:
     """Tests for 'none' consensus mode."""
 
     @pytest.mark.asyncio
-    async def test_none_consensus_combines_proposals(
-        self, consensus_phase, mock_context
-    ):
+    async def test_none_consensus_combines_proposals(self, consensus_phase, mock_context):
         """Test none mode combines all proposals."""
         await consensus_phase._handle_none_consensus(mock_context)
 
@@ -328,9 +326,7 @@ class TestMajorityConsensus:
     """Tests for 'majority' consensus mode."""
 
     @pytest.mark.asyncio
-    async def test_majority_consensus_with_clear_winner(
-        self, mock_context, mock_agents
-    ):
+    async def test_majority_consensus_with_clear_winner(self, mock_context, mock_agents):
         """Test majority consensus with clear winner."""
         from aragora.debate.phases.consensus_phase import (
             ConsensusPhase,
@@ -422,11 +418,7 @@ class TestUnanimousConsensus:
 
         async def mock_vote(agent, proposals, task):
             idx = mock_agents.index(agent) if agent in mock_agents else 0
-            return MockVote(
-                agent=agent.name,
-                choice=vote_choices[idx],
-                confidence=0.8
-            )
+            return MockVote(agent=agent.name, choice=vote_choices[idx], confidence=0.8)
 
         deps = ConsensusDependencies(protocol=protocol)
         callbacks = ConsensusCallbacks(vote_with_agent=mock_vote)
@@ -645,9 +637,7 @@ class TestVoteCollectionWithErrors:
     """Tests for vote collection with error tracking."""
 
     @pytest.mark.asyncio
-    async def test_collect_votes_with_errors_tracking(
-        self, mock_context, mock_agents
-    ):
+    async def test_collect_votes_with_errors_tracking(self, mock_context, mock_agents):
         """Test vote collection tracks errors for unanimity mode."""
         from aragora.debate.phases.consensus_phase import (
             ConsensusPhase,
@@ -747,9 +737,7 @@ class TestVoteWeighting:
             ConsensusDependencies,
         )
 
-        deps = ConsensusDependencies(
-            agent_weights={"claude": 1.5, "gpt4": 0.8}
-        )
+        deps = ConsensusDependencies(agent_weights={"claude": 1.5, "gpt4": 0.8})
         phase = ConsensusPhase(deps=deps)
 
         mock_context.agents = mock_agents
@@ -769,9 +757,7 @@ class TestVoteWeighting:
         choice_mapping = {"proposal_a": "proposal_a", "proposal_b": "proposal_b"}
         weight_cache = {"claude": 1.5, "gpt4": 1.0, "gemini": 0.5}
 
-        counts, total = consensus_phase._count_weighted_votes(
-            votes, choice_mapping, weight_cache
-        )
+        counts, total = consensus_phase._count_weighted_votes(votes, choice_mapping, weight_cache)
 
         assert counts["proposal_a"] == 2.5  # 1.5 + 1.0
         assert counts["proposal_b"] == 0.5
@@ -807,9 +793,7 @@ class TestUserVotes:
         total_weighted = 3.0
         choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
 
-        new_counts, new_total = phase._add_user_votes(
-            vote_counts, total_weighted, choice_mapping
-        )
+        new_counts, new_total = phase._add_user_votes(vote_counts, total_weighted, choice_mapping)
 
         # User votes should be added
         assert new_counts["claude"] > 2.0
@@ -826,16 +810,12 @@ class TestChoiceNormalization:
 
     def test_normalize_exact_match(self, consensus_phase, mock_agents, mock_proposals):
         """Test normalization with exact match."""
-        result = consensus_phase._normalize_choice_to_agent(
-            "claude", mock_agents, mock_proposals
-        )
+        result = consensus_phase._normalize_choice_to_agent("claude", mock_agents, mock_proposals)
         assert result == "claude"
 
     def test_normalize_case_insensitive(self, consensus_phase, mock_agents, mock_proposals):
         """Test normalization is case-insensitive."""
-        result = consensus_phase._normalize_choice_to_agent(
-            "CLAUDE", mock_agents, mock_proposals
-        )
+        result = consensus_phase._normalize_choice_to_agent("CLAUDE", mock_agents, mock_proposals)
         assert result == "claude"
 
     def test_normalize_prefix_match(self, consensus_phase):
@@ -843,9 +823,7 @@ class TestChoiceNormalization:
         agents = [MockAgent("claude-visionary")]
         # Use proposals without "claude" key to test agent prefix matching
         proposals = {"gemini": "Gemini proposal", "gpt4": "GPT-4 proposal"}
-        result = consensus_phase._normalize_choice_to_agent(
-            "claude", agents, proposals
-        )
+        result = consensus_phase._normalize_choice_to_agent("claude", agents, proposals)
         assert result == "claude-visionary"
 
     def test_normalize_no_match(self, consensus_phase, mock_agents, mock_proposals):
@@ -857,9 +835,7 @@ class TestChoiceNormalization:
 
     def test_normalize_empty_choice(self, consensus_phase, mock_agents, mock_proposals):
         """Test normalization with empty choice."""
-        result = consensus_phase._normalize_choice_to_agent(
-            "", mock_agents, mock_proposals
-        )
+        result = consensus_phase._normalize_choice_to_agent("", mock_agents, mock_proposals)
         assert result == ""
 
 
@@ -887,13 +863,11 @@ class TestWinnerDetermination:
         total_votes = 3.0
         choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
 
-        phase._determine_majority_winner(
-            mock_context, vote_counts, total_votes, choice_mapping
-        )
+        phase._determine_majority_winner(mock_context, vote_counts, total_votes, choice_mapping)
 
         assert mock_context.result.winner == "claude"
         assert mock_context.result.consensus_reached is True
-        assert mock_context.result.confidence == pytest.approx(2/3, rel=0.01)
+        assert mock_context.result.confidence == pytest.approx(2 / 3, rel=0.01)
 
     def test_determine_majority_winner_no_votes(self, mock_context, mock_agents):
         """Test winner determination with empty vote counts."""
@@ -910,9 +884,7 @@ class TestWinnerDetermination:
         total_votes = 0.0
         choice_mapping = {}
 
-        phase._determine_majority_winner(
-            mock_context, vote_counts, total_votes, choice_mapping
-        )
+        phase._determine_majority_winner(mock_context, vote_counts, total_votes, choice_mapping)
 
         assert mock_context.result.consensus_reached is False
         assert mock_context.result.confidence == 0.5
@@ -1052,9 +1024,7 @@ class TestCalibrationAdjustment:
     def test_apply_calibration_no_tracker(self, consensus_phase):
         """Test calibration does nothing without tracker."""
         votes = [MockVote("agent1", "claude", 0.8)]
-        result = consensus_phase._apply_calibration_to_votes(
-            votes, MockDebateContext()
-        )
+        result = consensus_phase._apply_calibration_to_votes(votes, MockDebateContext())
         assert result == votes
 
     def test_apply_calibration_exception_handling(self):
@@ -1257,9 +1227,7 @@ class TestConsensusStrength:
         total_votes = 9.5
         choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
 
-        phase._determine_majority_winner(
-            mock_context, vote_counts, total_votes, choice_mapping
-        )
+        phase._determine_majority_winner(mock_context, vote_counts, total_votes, choice_mapping)
 
         # Variance should be low
         assert mock_context.result.consensus_strength in ["strong", "medium"]
@@ -1280,9 +1248,7 @@ class TestConsensusStrength:
         total_votes = 3.0
         choice_mapping = {"claude": "claude"}
 
-        phase._determine_majority_winner(
-            mock_context, vote_counts, total_votes, choice_mapping
-        )
+        phase._determine_majority_winner(mock_context, vote_counts, total_votes, choice_mapping)
 
         assert mock_context.result.consensus_strength == "unanimous"
         assert mock_context.result.consensus_variance == 0.0
@@ -1312,9 +1278,7 @@ class TestDissentingViews:
         total_votes = 3.0
         choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
 
-        phase._determine_majority_winner(
-            mock_context, vote_counts, total_votes, choice_mapping
-        )
+        phase._determine_majority_winner(mock_context, vote_counts, total_votes, choice_mapping)
 
         # gpt4 and gemini should be in dissenting views
         assert len(mock_context.result.dissenting_views) == 2
@@ -1358,9 +1322,7 @@ class TestEloUpdateFromVerification:
         deps = ConsensusDependencies(elo_system=mock_elo)
         phase = ConsensusPhase(deps=deps)
 
-        mock_context.result.verification_results = {
-            "claude": {"verified": 2, "disproven": 0}
-        }
+        mock_context.result.verification_results = {"claude": {"verified": 2, "disproven": 0}}
 
         await phase._update_elo_from_verification(mock_context)
 

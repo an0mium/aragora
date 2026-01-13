@@ -39,6 +39,7 @@ from aragora.agents.grounded import (
 # Position Tests
 # ============================================================================
 
+
 class TestPosition:
     """Tests for Position data class."""
 
@@ -116,6 +117,7 @@ class TestPosition:
 # CalibrationBucket Tests
 # ============================================================================
 
+
 class TestCalibrationBucket:
     """Tests for CalibrationBucket data class."""
 
@@ -164,6 +166,7 @@ class TestCalibrationBucket:
 # DomainCalibration Tests
 # ============================================================================
 
+
 class TestDomainCalibration:
     """Tests for DomainCalibration data class."""
 
@@ -198,6 +201,7 @@ class TestDomainCalibration:
 # ============================================================================
 # AgentRelationship Tests
 # ============================================================================
+
 
 class TestAgentRelationship:
     """Tests for AgentRelationship data class."""
@@ -284,6 +288,7 @@ class TestAgentRelationship:
 # GroundedPersona Tests
 # ============================================================================
 
+
 class TestGroundedPersona:
     """Tests for GroundedPersona data class."""
 
@@ -334,6 +339,7 @@ class TestGroundedPersona:
 # SignificantMoment Tests
 # ============================================================================
 
+
 class TestSignificantMoment:
     """Tests for SignificantMoment data class."""
 
@@ -374,6 +380,7 @@ class TestSignificantMoment:
 # ============================================================================
 # PositionLedger Tests
 # ============================================================================
+
 
 class TestPositionLedger:
     """Tests for PositionLedger with SQLite."""
@@ -501,6 +508,7 @@ class TestPositionLedger:
 # RelationshipTracker Tests
 # ============================================================================
 
+
 class TestRelationshipTracker:
     """Tests for RelationshipTracker with SQLite."""
 
@@ -543,15 +551,9 @@ class TestRelationshipTracker:
     def test_get_all_relationships(self, tracker):
         """Test getting all relationships for an agent."""
         # Create some relationships
-        tracker.update_from_debate(
-            "d1", ["claude", "gemini"], None, {}, []
-        )
-        tracker.update_from_debate(
-            "d2", ["claude", "gpt"], None, {}, []
-        )
-        tracker.update_from_debate(
-            "d3", ["gemini", "gpt"], None, {}, []
-        )
+        tracker.update_from_debate("d1", ["claude", "gemini"], None, {}, [])
+        tracker.update_from_debate("d2", ["claude", "gpt"], None, {}, [])
+        tracker.update_from_debate("d3", ["gemini", "gpt"], None, {}, [])
 
         rels = tracker.get_all_relationships("claude")
 
@@ -604,6 +606,7 @@ class TestRelationshipTracker:
 # ============================================================================
 # PersonaSynthesizer Tests
 # ============================================================================
+
 
 class TestPersonaSynthesizer:
     """Tests for PersonaSynthesizer prompt generation."""
@@ -712,6 +715,7 @@ class TestPersonaSynthesizer:
 # MomentDetector Tests
 # ============================================================================
 
+
 class TestMomentDetector:
     """Tests for MomentDetector narrative detection."""
 
@@ -728,7 +732,9 @@ class TestMomentDetector:
         elo_system = Mock()
         winner_rating = Mock(elo=1400)
         loser_rating = Mock(elo=1600)
-        elo_system.get_rating.side_effect = lambda x: winner_rating if x == "underdog" else loser_rating
+        elo_system.get_rating.side_effect = lambda x: (
+            winner_rating if x == "underdog" else loser_rating
+        )
 
         detector = MomentDetector(elo_system=elo_system)
         moment = detector.detect_upset_victory("underdog", "favorite", "d1")
@@ -742,7 +748,9 @@ class TestMomentDetector:
         elo_system = Mock()
         winner_rating = Mock(elo=1600)
         loser_rating = Mock(elo=1500)
-        elo_system.get_rating.side_effect = lambda x: winner_rating if x == "favorite" else loser_rating
+        elo_system.get_rating.side_effect = lambda x: (
+            winner_rating if x == "favorite" else loser_rating
+        )
 
         detector = MomentDetector(elo_system=elo_system)
         moment = detector.detect_upset_victory("favorite", "underdog", "d1")

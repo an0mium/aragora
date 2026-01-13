@@ -128,7 +128,9 @@ class TestTokenBlacklistConcurrency:
         def revoke_new(batch_id):
             try:
                 for i in range(50):
-                    jti = hashlib.sha256(f"{test_prefix}new-{batch_id}-{i}".encode()).hexdigest()[:32]
+                    jti = hashlib.sha256(f"{test_prefix}new-{batch_id}-{i}".encode()).hexdigest()[
+                        :32
+                    ]
                     blacklist.revoke(jti, future_expiry)
                     time.sleep(0.001)
             except Exception as e:
@@ -318,7 +320,10 @@ class TestLogoutAllAtomicity:
         # Revoke JTIs for multiple "users"
         user_jtis = {}
         for user_id in range(10):
-            jtis = [hashlib.sha256(f"{test_prefix}user-{user_id}-{i}".encode()).hexdigest()[:32] for i in range(5)]
+            jtis = [
+                hashlib.sha256(f"{test_prefix}user-{user_id}-{i}".encode()).hexdigest()[:32]
+                for i in range(5)
+            ]
             user_jtis[user_id] = jtis
             for jti in jtis:
                 blacklist.revoke(jti, future_expiry)
@@ -341,7 +346,10 @@ class TestLogoutAllAtomicity:
 
         def revoke_user_jtis(user_id):
             try:
-                jtis = [hashlib.sha256(f"{test_prefix}user-{user_id}-{i}".encode()).hexdigest()[:32] for i in range(20)]
+                jtis = [
+                    hashlib.sha256(f"{test_prefix}user-{user_id}-{i}".encode()).hexdigest()[:32]
+                    for i in range(20)
+                ]
                 for jti in jtis:
                     blacklist.revoke(jti, future_expiry)
                 # Verify all in blacklist

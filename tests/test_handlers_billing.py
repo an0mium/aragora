@@ -28,6 +28,7 @@ from aragora.server.handlers.billing import BillingHandler
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_user():
     """Create a mock user object."""
@@ -38,10 +39,12 @@ def mock_user():
     user.org_id = "org-456"
     user.role = "member"
     user.is_active = True
-    user.to_dict = Mock(return_value={
-        "id": "user-123",
-        "email": "test@example.com",
-    })
+    user.to_dict = Mock(
+        return_value={
+            "id": "user-123",
+            "email": "test@example.com",
+        }
+    )
     return user
 
 
@@ -53,10 +56,12 @@ def mock_org():
     limits.users_per_org = 10
     limits.api_access = True
     limits.all_agents = True
-    limits.to_dict = Mock(return_value={
-        "debates_per_month": 100,
-        "users_per_org": 10,
-    })
+    limits.to_dict = Mock(
+        return_value={
+            "debates_per_month": 100,
+            "users_per_org": 10,
+        }
+    )
 
     org = Mock()
     org.id = "org-456"
@@ -68,10 +73,12 @@ def mock_org():
     org.billing_cycle_start = datetime(2026, 1, 1)
     org.stripe_customer_id = "cus_123"
     org.stripe_subscription_id = None
-    org.to_dict = Mock(return_value={
-        "id": "org-456",
-        "name": "Test Org",
-    })
+    org.to_dict = Mock(
+        return_value={
+            "id": "org-456",
+            "name": "Test Org",
+        }
+    )
     return org
 
 
@@ -120,6 +127,7 @@ def billing_handler(mock_user_store, mock_usage_tracker):
 # Route Tests
 # ============================================================================
 
+
 class TestBillingHandlerRoutes:
     """Tests for BillingHandler routing."""
 
@@ -165,14 +173,13 @@ class TestBillingHandlerRoutes:
 # Plans Endpoint Tests
 # ============================================================================
 
+
 class TestGetPlans:
     """Tests for get plans endpoint."""
 
     @patch("aragora.server.handlers.billing.TIER_LIMITS")
     @patch("aragora.server.handlers.billing.SubscriptionTier")
-    def test_get_plans_returns_all_tiers(
-        self, mock_tier_enum, mock_limits, billing_handler
-    ):
+    def test_get_plans_returns_all_tiers(self, mock_tier_enum, mock_limits, billing_handler):
         """Test that all subscription tiers are returned."""
         # Mock the tier enum
         mock_free = Mock(value="free", name="FREE")
@@ -202,10 +209,12 @@ class TestGetPlans:
         mock_pro_limits.audit_logs = True
         mock_pro_limits.priority_support = False
 
-        mock_limits.__getitem__ = Mock(side_effect=lambda x: {
-            mock_free: mock_free_limits,
-            mock_pro: mock_pro_limits,
-        }[x])
+        mock_limits.__getitem__ = Mock(
+            side_effect=lambda x: {
+                mock_free: mock_free_limits,
+                mock_pro: mock_pro_limits,
+            }[x]
+        )
 
         result = billing_handler._get_plans()
 
@@ -219,13 +228,12 @@ class TestGetPlans:
 # Usage Endpoint Tests
 # ============================================================================
 
+
 class TestGetUsage:
     """Tests for get usage endpoint."""
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_get_usage_success(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_get_usage_success(self, mock_extract, billing_handler, mock_handler):
         """Test successful usage retrieval."""
         mock_extract.return_value = Mock(
             is_authenticated=True,
@@ -242,9 +250,7 @@ class TestGetUsage:
         assert "debates_remaining" in data["usage"]
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_get_usage_with_token_tracking(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_get_usage_with_token_tracking(self, mock_extract, billing_handler, mock_handler):
         """Test usage includes token tracking data."""
         mock_extract.return_value = Mock(
             is_authenticated=True,
@@ -259,9 +265,7 @@ class TestGetUsage:
         assert data["usage"]["estimated_cost_usd"] == 2.50
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_get_usage_not_authenticated(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_get_usage_not_authenticated(self, mock_extract, billing_handler, mock_handler):
         """Test usage requires authentication."""
         mock_extract.return_value = Mock(is_authenticated=False)
 
@@ -284,13 +288,12 @@ class TestGetUsage:
 # Subscription Endpoint Tests
 # ============================================================================
 
+
 class TestGetSubscription:
     """Tests for get subscription endpoint."""
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_get_subscription_success(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_get_subscription_success(self, mock_extract, billing_handler, mock_handler):
         """Test successful subscription retrieval."""
         mock_extract.return_value = Mock(
             is_authenticated=True,
@@ -323,9 +326,7 @@ class TestGetSubscription:
         assert data["subscription"]["tier"] == "free"
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_get_subscription_not_authenticated(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_get_subscription_not_authenticated(self, mock_extract, billing_handler, mock_handler):
         """Test subscription requires authentication."""
         mock_extract.return_value = Mock(is_authenticated=False)
 
@@ -338,6 +339,7 @@ class TestGetSubscription:
 # Checkout Endpoint Tests
 # ============================================================================
 
+
 class TestCreateCheckout:
     """Tests for create checkout session endpoint."""
 
@@ -345,8 +347,7 @@ class TestCreateCheckout:
     @patch("aragora.server.handlers.billing.SubscriptionTier")
     @patch("aragora.server.handlers.billing.extract_user_from_request")
     def test_create_checkout_success(
-        self, mock_extract, mock_tier_enum, mock_stripe,
-        billing_handler, mock_handler
+        self, mock_extract, mock_tier_enum, mock_stripe, billing_handler, mock_handler
     ):
         """Test successful checkout session creation."""
         mock_extract.return_value = Mock(
@@ -358,17 +359,21 @@ class TestCreateCheckout:
 
         mock_session = Mock()
         mock_session.id = "cs_123"
-        mock_session.to_dict = Mock(return_value={
-            "id": "cs_123",
-            "url": "https://checkout.stripe.com/...",
-        })
+        mock_session.to_dict = Mock(
+            return_value={
+                "id": "cs_123",
+                "url": "https://checkout.stripe.com/...",
+            }
+        )
         mock_stripe.return_value.create_checkout_session.return_value = mock_session
 
-        billing_handler.read_json_body = Mock(return_value={
-            "tier": "pro",
-            "success_url": "https://app.example.com/success",
-            "cancel_url": "https://app.example.com/cancel",
-        })
+        billing_handler.read_json_body = Mock(
+            return_value={
+                "tier": "pro",
+                "success_url": "https://app.example.com/success",
+                "cancel_url": "https://app.example.com/cancel",
+            }
+        )
 
         result = billing_handler._create_checkout(mock_handler)
 
@@ -377,19 +382,19 @@ class TestCreateCheckout:
         assert "checkout" in data
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_create_checkout_missing_tier(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_create_checkout_missing_tier(self, mock_extract, billing_handler, mock_handler):
         """Test checkout without tier."""
         mock_extract.return_value = Mock(
             is_authenticated=True,
             user_id="user-123",
         )
 
-        billing_handler.read_json_body = Mock(return_value={
-            "success_url": "https://app.example.com/success",
-            "cancel_url": "https://app.example.com/cancel",
-        })
+        billing_handler.read_json_body = Mock(
+            return_value={
+                "success_url": "https://app.example.com/success",
+                "cancel_url": "https://app.example.com/cancel",
+            }
+        )
 
         result = billing_handler._create_checkout(mock_handler)
 
@@ -398,18 +403,18 @@ class TestCreateCheckout:
         assert "tier" in data["error"].lower()
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_create_checkout_missing_urls(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_create_checkout_missing_urls(self, mock_extract, billing_handler, mock_handler):
         """Test checkout without success/cancel URLs."""
         mock_extract.return_value = Mock(
             is_authenticated=True,
             user_id="user-123",
         )
 
-        billing_handler.read_json_body = Mock(return_value={
-            "tier": "pro",
-        })
+        billing_handler.read_json_body = Mock(
+            return_value={
+                "tier": "pro",
+            }
+        )
 
         result = billing_handler._create_checkout(mock_handler)
 
@@ -418,9 +423,7 @@ class TestCreateCheckout:
         assert "url" in data["error"].lower()
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_create_checkout_not_authenticated(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_create_checkout_not_authenticated(self, mock_extract, billing_handler, mock_handler):
         """Test checkout requires authentication."""
         mock_extract.return_value = Mock(is_authenticated=False)
 
@@ -444,11 +447,13 @@ class TestCreateCheckout:
         mock_tier_enum.return_value = free_tier
         mock_tier_enum.FREE = free_tier
 
-        billing_handler.read_json_body = Mock(return_value={
-            "tier": "free",
-            "success_url": "https://app.example.com/success",
-            "cancel_url": "https://app.example.com/cancel",
-        })
+        billing_handler.read_json_body = Mock(
+            return_value={
+                "tier": "free",
+                "success_url": "https://app.example.com/success",
+                "cancel_url": "https://app.example.com/cancel",
+            }
+        )
 
         result = billing_handler._create_checkout(mock_handler)
 
@@ -461,13 +466,12 @@ class TestCreateCheckout:
 # Portal Endpoint Tests
 # ============================================================================
 
+
 class TestCreatePortal:
     """Tests for create billing portal endpoint."""
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_create_portal_missing_return_url(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_create_portal_missing_return_url(self, mock_extract, billing_handler, mock_handler):
         """Test portal requires return URL."""
         mock_extract.return_value = Mock(
             is_authenticated=True,
@@ -483,9 +487,7 @@ class TestCreatePortal:
         assert "url" in data["error"].lower()
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_create_portal_not_authenticated(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_create_portal_not_authenticated(self, mock_extract, billing_handler, mock_handler):
         """Test portal requires authentication."""
         mock_extract.return_value = Mock(is_authenticated=False)
 
@@ -498,13 +500,12 @@ class TestCreatePortal:
 # Cancel/Resume Tests
 # ============================================================================
 
+
 class TestCancelSubscription:
     """Tests for cancel subscription endpoint."""
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_cancel_not_authenticated(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_cancel_not_authenticated(self, mock_extract, billing_handler, mock_handler):
         """Test cancel requires authentication."""
         mock_extract.return_value = Mock(is_authenticated=False)
 
@@ -512,9 +513,7 @@ class TestCancelSubscription:
         mock_handler.command = "POST"
         billing_handler.read_json_body = Mock(return_value={})
 
-        result = billing_handler.handle(
-            "/api/billing/cancel", {}, mock_handler, "POST"
-        )
+        result = billing_handler.handle("/api/billing/cancel", {}, mock_handler, "POST")
 
         assert result.status_code == 401
 
@@ -523,18 +522,14 @@ class TestResumeSubscription:
     """Tests for resume subscription endpoint."""
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_resume_not_authenticated(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_resume_not_authenticated(self, mock_extract, billing_handler, mock_handler):
         """Test resume requires authentication."""
         mock_extract.return_value = Mock(is_authenticated=False)
 
         mock_handler.command = "POST"
         billing_handler.read_json_body = Mock(return_value={})
 
-        result = billing_handler.handle(
-            "/api/billing/resume", {}, mock_handler, "POST"
-        )
+        result = billing_handler.handle("/api/billing/resume", {}, mock_handler, "POST")
 
         assert result.status_code == 401
 
@@ -542,6 +537,7 @@ class TestResumeSubscription:
 # ============================================================================
 # Webhook Tests
 # ============================================================================
+
 
 class TestStripeWebhook:
     """Tests for Stripe webhook handling."""
@@ -554,6 +550,7 @@ class TestStripeWebhook:
 # ============================================================================
 # Security Tests
 # ============================================================================
+
 
 class TestSecurityMeasures:
     """Tests for security measures in billing handler."""
@@ -579,14 +576,15 @@ class TestSecurityMeasures:
 
                 result = billing_handler.handle(path, {}, mock_handler, method)
 
-                assert result.status_code == 401, \
-                    f"Endpoint {path} should require authentication"
+                assert result.status_code == 401, f"Endpoint {path} should require authentication"
 
     def test_plans_endpoint_public(self, billing_handler):
         """Test that plans endpoint is publicly accessible."""
         # Plans should not require authentication
-        with patch("aragora.server.handlers.billing.TIER_LIMITS") as mock_limits, \
-             patch("aragora.server.handlers.billing.SubscriptionTier") as mock_tier:
+        with (
+            patch("aragora.server.handlers.billing.TIER_LIMITS") as mock_limits,
+            patch("aragora.server.handlers.billing.SubscriptionTier") as mock_tier,
+        ):
             mock_tier.__iter__ = Mock(return_value=iter([]))
             result = billing_handler._get_plans()
 
@@ -597,13 +595,12 @@ class TestSecurityMeasures:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestErrorHandling:
     """Tests for error handling in billing handler."""
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_invalid_json_body(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_invalid_json_body(self, mock_extract, billing_handler, mock_handler):
         """Test handling of invalid JSON body."""
         mock_extract.return_value = Mock(
             is_authenticated=True,
@@ -619,9 +616,7 @@ class TestErrorHandling:
         assert "JSON" in data["error"]
 
     @patch("aragora.server.handlers.billing.extract_user_from_request")
-    def test_user_not_found(
-        self, mock_extract, billing_handler, mock_handler, mock_user_store
-    ):
+    def test_user_not_found(self, mock_extract, billing_handler, mock_handler, mock_user_store):
         """Test handling when user not found."""
         mock_extract.return_value = Mock(
             is_authenticated=True,
@@ -638,6 +633,7 @@ class TestErrorHandling:
 # Stripe Exception Handling Tests
 # ============================================================================
 
+
 class TestStripeExceptionHandling:
     """Tests for Stripe exception handling in billing handler.
 
@@ -651,8 +647,7 @@ class TestStripeExceptionHandling:
     @patch("aragora.server.handlers.billing.get_stripe_client")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_get_subscription_handles_stripe_error(
-        self, mock_extract, mock_stripe,
-        billing_handler, mock_handler, mock_org
+        self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
         """Test _get_subscription gracefully handles StripeError."""
         from aragora.billing.stripe_client import StripeError
@@ -679,8 +674,7 @@ class TestStripeExceptionHandling:
     @patch("aragora.server.handlers.billing.get_stripe_client")
     @patch("aragora.server.handlers.billing.extract_user_from_request")
     def test_get_invoices_handles_stripe_config_error(
-        self, mock_extract, mock_stripe,
-        billing_handler, mock_handler, mock_org
+        self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
         """Test _get_invoices returns 503 on StripeConfigError."""
         from aragora.billing.stripe_client import StripeConfigError
@@ -709,8 +703,7 @@ class TestStripeExceptionHandling:
     @patch("aragora.server.handlers.billing.get_stripe_client")
     @patch("aragora.server.handlers.billing.extract_user_from_request")
     def test_get_invoices_handles_stripe_api_error(
-        self, mock_extract, mock_stripe,
-        billing_handler, mock_handler, mock_org
+        self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
         """Test _get_invoices returns 502 on StripeAPIError."""
         from aragora.billing.stripe_client import StripeAPIError
@@ -723,7 +716,9 @@ class TestStripeExceptionHandling:
         mock_extract.return_value = user_ctx
         mock_org.stripe_customer_id = "cus_123"
 
-        mock_stripe.return_value.list_invoices.side_effect = StripeAPIError("API error", code="api_error")
+        mock_stripe.return_value.list_invoices.side_effect = StripeAPIError(
+            "API error", code="api_error"
+        )
 
         with patch("aragora.server.handlers.billing.get_string_param", return_value="10"):
             result = billing_handler._get_invoices(mock_handler)
@@ -735,8 +730,7 @@ class TestStripeExceptionHandling:
     @patch("aragora.server.handlers.billing.get_stripe_client")
     @patch("aragora.server.handlers.billing.extract_user_from_request")
     def test_get_invoices_handles_generic_stripe_error(
-        self, mock_extract, mock_stripe,
-        billing_handler, mock_handler, mock_org
+        self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
         """Test _get_invoices returns 500 on generic StripeError."""
         from aragora.billing.stripe_client import StripeError
@@ -761,8 +755,7 @@ class TestStripeExceptionHandling:
     @patch("aragora.server.handlers.billing.get_stripe_client")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_cancel_subscription_handles_stripe_config_error(
-        self, mock_extract, mock_stripe,
-        billing_handler, mock_handler, mock_org
+        self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
         """Test _cancel_subscription returns 503 on StripeConfigError."""
         from aragora.billing.stripe_client import StripeConfigError
@@ -775,7 +768,9 @@ class TestStripeExceptionHandling:
         mock_extract.return_value = user_ctx
         mock_org.stripe_subscription_id = "sub_123"
 
-        mock_stripe.return_value.cancel_subscription.side_effect = StripeConfigError("Not configured")
+        mock_stripe.return_value.cancel_subscription.side_effect = StripeConfigError(
+            "Not configured"
+        )
 
         result = billing_handler._cancel_subscription(mock_handler, user=user_ctx)
 
@@ -786,8 +781,7 @@ class TestStripeExceptionHandling:
     @patch("aragora.server.handlers.billing.get_stripe_client")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_cancel_subscription_handles_stripe_api_error(
-        self, mock_extract, mock_stripe,
-        billing_handler, mock_handler, mock_org
+        self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
         """Test _cancel_subscription returns 502 on StripeAPIError."""
         from aragora.billing.stripe_client import StripeAPIError
@@ -800,7 +794,9 @@ class TestStripeExceptionHandling:
         mock_extract.return_value = user_ctx
         mock_org.stripe_subscription_id = "sub_123"
 
-        mock_stripe.return_value.cancel_subscription.side_effect = StripeAPIError("Subscription not found", code="resource_missing")
+        mock_stripe.return_value.cancel_subscription.side_effect = StripeAPIError(
+            "Subscription not found", code="resource_missing"
+        )
 
         result = billing_handler._cancel_subscription(mock_handler, user=user_ctx)
 
@@ -811,8 +807,7 @@ class TestStripeExceptionHandling:
     @patch("aragora.server.handlers.billing.get_stripe_client")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_resume_subscription_handles_stripe_config_error(
-        self, mock_extract, mock_stripe,
-        billing_handler, mock_handler, mock_org
+        self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
         """Test _resume_subscription returns 503 on StripeConfigError."""
         from aragora.billing.stripe_client import StripeConfigError
@@ -825,7 +820,9 @@ class TestStripeExceptionHandling:
         mock_extract.return_value = user_ctx
         mock_org.stripe_subscription_id = "sub_123"
 
-        mock_stripe.return_value.resume_subscription.side_effect = StripeConfigError("Not configured")
+        mock_stripe.return_value.resume_subscription.side_effect = StripeConfigError(
+            "Not configured"
+        )
 
         result = billing_handler._resume_subscription(mock_handler, user=user_ctx)
 
@@ -836,8 +833,7 @@ class TestStripeExceptionHandling:
     @patch("aragora.server.handlers.billing.get_stripe_client")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_resume_subscription_handles_stripe_api_error(
-        self, mock_extract, mock_stripe,
-        billing_handler, mock_handler, mock_org
+        self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
         """Test _resume_subscription returns 502 on StripeAPIError."""
         from aragora.billing.stripe_client import StripeAPIError
@@ -850,7 +846,9 @@ class TestStripeExceptionHandling:
         mock_extract.return_value = user_ctx
         mock_org.stripe_subscription_id = "sub_123"
 
-        mock_stripe.return_value.resume_subscription.side_effect = StripeAPIError("Cannot resume", code="subscription_status_invalid")
+        mock_stripe.return_value.resume_subscription.side_effect = StripeAPIError(
+            "Cannot resume", code="subscription_status_invalid"
+        )
 
         result = billing_handler._resume_subscription(mock_handler, user=user_ctx)
 
@@ -861,8 +859,7 @@ class TestStripeExceptionHandling:
     @patch("aragora.server.handlers.billing.get_stripe_client")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_resume_subscription_handles_generic_stripe_error(
-        self, mock_extract, mock_stripe,
-        billing_handler, mock_handler, mock_org
+        self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
         """Test _resume_subscription returns 500 on generic StripeError."""
         from aragora.billing.stripe_client import StripeError

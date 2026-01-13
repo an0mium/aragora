@@ -2,6 +2,8 @@
 
 This guide covers different ways to install and run Aragora.
 
+If you want the shortest path to a first debate, start at [docs/START_HERE.md](docs/START_HERE.md).
+
 ## Quick Start (Local Development)
 
 ### Prerequisites

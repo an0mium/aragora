@@ -21,6 +21,7 @@ from aragora.debate.phases.debate_rounds import DebateRoundsPhase
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str
     role: Optional[str] = None
     stance: Optional[str] = None
@@ -29,6 +30,7 @@ class MockAgent:
 @dataclass
 class MockProtocol:
     """Mock protocol for testing."""
+
     rounds: int = 3
     asymmetric_stances: bool = False
     rotate_stances: bool = False
@@ -37,12 +39,14 @@ class MockProtocol:
 @dataclass
 class MockEnvironment:
     """Mock environment for testing."""
+
     task: str = "Test debate task"
 
 
 @dataclass
 class MockResult:
     """Mock debate result for testing."""
+
     critiques: list = field(default_factory=list)
     messages: list = field(default_factory=list)
     rounds_used: int = 0
@@ -55,6 +59,7 @@ class MockResult:
 @dataclass
 class MockCritique:
     """Mock critique for testing."""
+
     issues: list = field(default_factory=list)
     severity: float = 5.0
     target_agent: str = "proposal"
@@ -66,6 +71,7 @@ class MockCritique:
 @dataclass
 class MockConvergence:
     """Mock convergence result for testing."""
+
     converged: bool = False
     status: str = "in_progress"
     avg_similarity: float = 0.7
@@ -232,18 +238,14 @@ class TestGetCritics:
         assert len(critics) == 2
         assert critics == agents
 
-    def test_filters_through_circuit_breaker(
-        self, protocol, agents, mock_circuit_breaker
-    ):
+    def test_filters_through_circuit_breaker(self, protocol, agents, mock_circuit_breaker):
         """Should filter critics through circuit breaker."""
         # Circuit breaker removes agent2
         mock_circuit_breaker.filter_available_agents.side_effect = lambda a: [
             x for x in a if x.name != "agent2"
         ]
 
-        phase = DebateRoundsPhase(
-            protocol=protocol, circuit_breaker=mock_circuit_breaker
-        )
+        phase = DebateRoundsPhase(protocol=protocol, circuit_breaker=mock_circuit_breaker)
         ctx = MockDebateContext(agents=agents)
 
         critics = phase._get_critics(ctx)
@@ -251,15 +253,11 @@ class TestGetCritics:
         assert len(critics) == 1
         assert critics[0].name == "agent3"
 
-    def test_handles_circuit_breaker_error(
-        self, protocol, agents, mock_circuit_breaker, caplog
-    ):
+    def test_handles_circuit_breaker_error(self, protocol, agents, mock_circuit_breaker, caplog):
         """Should handle circuit breaker errors gracefully."""
         mock_circuit_breaker.filter_available_agents.side_effect = Exception("CB error")
 
-        phase = DebateRoundsPhase(
-            protocol=protocol, circuit_breaker=mock_circuit_breaker
-        )
+        phase = DebateRoundsPhase(protocol=protocol, circuit_breaker=mock_circuit_breaker)
         ctx = MockDebateContext(agents=agents)
 
         with caplog.at_level("ERROR"):
@@ -289,9 +287,7 @@ class TestCheckConvergence:
 
         assert result is False
 
-    def test_returns_false_on_first_round(
-        self, protocol, agents, mock_convergence_detector
-    ):
+    def test_returns_false_on_first_round(self, protocol, agents, mock_convergence_detector):
         """Should return False on first round (no previous responses)."""
         phase = DebateRoundsPhase(
             protocol=protocol,
@@ -308,9 +304,7 @@ class TestCheckConvergence:
         # Should NOT call detector on first round
         mock_convergence_detector.check_convergence.assert_not_called()
 
-    def test_returns_true_when_converged(
-        self, protocol, agents, mock_convergence_detector
-    ):
+    def test_returns_true_when_converged(self, protocol, agents, mock_convergence_detector):
         """Should return True when convergence detected."""
         mock_convergence_detector.check_convergence.return_value = MockConvergence(
             converged=True,
@@ -334,9 +328,7 @@ class TestCheckConvergence:
 
         assert result is True
 
-    def test_returns_false_when_not_converged(
-        self, protocol, agents, mock_convergence_detector
-    ):
+    def test_returns_false_when_not_converged(self, protocol, agents, mock_convergence_detector):
         """Should return False when not converged."""
         mock_convergence_detector.check_convergence.return_value = MockConvergence(
             converged=False,
@@ -389,9 +381,7 @@ class TestCheckConvergence:
         assert result.convergence_status == "improving"
         assert result.convergence_similarity == 0.75
 
-    def test_calls_convergence_hook(
-        self, protocol, agents, mock_convergence_detector
-    ):
+    def test_calls_convergence_hook(self, protocol, agents, mock_convergence_detector):
         """Should call on_convergence_check hook."""
         mock_convergence_detector.check_convergence.return_value = MockConvergence(
             converged=False,
@@ -638,9 +628,7 @@ class TestExecute:
         mock_recorder.record_phase_change.assert_called_with("round_1_start")
 
     @pytest.mark.asyncio
-    async def test_execute_breaks_on_convergence(
-        self, protocol, agents, mock_convergence_detector
-    ):
+    async def test_execute_breaks_on_convergence(self, protocol, agents, mock_convergence_detector):
         """Should break loop when converged."""
         protocol.rounds = 5
         mock_convergence_detector.check_convergence.return_value = MockConvergence(
@@ -773,9 +761,7 @@ class TestCritiquePhase:
         assert result.critiques[0].severity == 6.5
 
     @pytest.mark.asyncio
-    async def test_records_circuit_breaker_success(
-        self, protocol, agents, mock_circuit_breaker
-    ):
+    async def test_records_circuit_breaker_success(self, protocol, agents, mock_circuit_breaker):
         """Should record success in circuit breaker."""
         critique_fn = AsyncMock(return_value=MockCritique())
 
@@ -797,9 +783,7 @@ class TestCritiquePhase:
         mock_circuit_breaker.record_success.assert_called()
 
     @pytest.mark.asyncio
-    async def test_records_circuit_breaker_failure(
-        self, protocol, agents, mock_circuit_breaker
-    ):
+    async def test_records_circuit_breaker_failure(self, protocol, agents, mock_circuit_breaker):
         """Should record failure in circuit breaker on error."""
         critique_fn = AsyncMock(side_effect=Exception("API error"))
 
@@ -874,9 +858,7 @@ class TestRevisionPhase:
         assert ctx.proposals["agent1"] == "revised proposal"
 
     @pytest.mark.asyncio
-    async def test_handles_revision_errors(
-        self, protocol, agents, mock_circuit_breaker, caplog
-    ):
+    async def test_handles_revision_errors(self, protocol, agents, mock_circuit_breaker, caplog):
         """Should handle revision errors gracefully."""
         generate_fn = AsyncMock(side_effect=Exception("API error"))
         build_prompt_fn = MagicMock(return_value="prompt")

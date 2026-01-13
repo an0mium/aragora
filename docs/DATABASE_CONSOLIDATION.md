@@ -1,5 +1,7 @@
 # Database Consolidation Analysis
 
+> **Note**: This is a historical document. The migration has been completed. For current database architecture, see [DATABASE.md](./DATABASE.md).
+
 **Status:** Implementation Complete
 **Date:** 2026-01-05 (Updated: 2026-01-07)
 **Purpose:** Analyze database overlap and recommend consolidation strategy

@@ -285,11 +285,13 @@ class RequestRouter:
         """
         routes_info = []
         for route in self._routes:
-            routes_info.append({
-                "pattern": route.pattern.pattern,
-                "methods": list(route.methods),
-                "handler": route.name,
-            })
+            routes_info.append(
+                {
+                    "pattern": route.pattern.pattern,
+                    "methods": list(route.methods),
+                    "handler": route.name,
+                }
+            )
         return routes_info
 
     def get_handler_for_path(self, path: str, method: str = "GET") -> Optional["BaseHandler"]:

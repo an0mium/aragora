@@ -41,19 +41,19 @@ def elo_system(temp_db_dir):
         debate_id="test-debate-1",
         participants=["claude", "gpt-4"],
         scores={"claude": 1.0, "gpt-4": 0.0},  # claude wins
-        domain="general"
+        domain="general",
     )
     elo.record_match(
         debate_id="test-debate-2",
         participants=["claude", "gemini"],
         scores={"claude": 0.0, "gemini": 1.0},  # gemini wins
-        domain="general"
+        domain="general",
     )
     elo.record_match(
         debate_id="test-debate-3",
         participants=["gpt-4", "gemini"],
         scores={"gpt-4": 0.5, "gemini": 0.5},  # Draw
-        domain="coding"
+        domain="coding",
     )
 
     return elo
@@ -101,7 +101,7 @@ class TestEloSystemIntegration:
             debate_id="test-debate-new",
             participants=["claude", "gpt-4"],
             scores={"claude": 0.0, "gpt-4": 1.0},
-            domain="general"
+            domain="general",
         )
 
         # Verify ELO updated
@@ -137,7 +137,7 @@ class TestCrossModuleIntegration:
             debate_id="cross-test-1",
             participants=["claude", "gpt-4"],
             scores={"claude": 1.0, "gpt-4": 0.0},  # claude wins
-            domain="philosophy"
+            domain="philosophy",
         )
 
         updated_claude = elo_system.get_rating("claude", use_cache=False)
@@ -160,7 +160,7 @@ class TestCrossModuleIntegration:
             debate_id="draw-test-1",
             participants=["claude", "gpt-4"],
             scores={"claude": 0.5, "gpt-4": 0.5},  # Draw
-            domain="ethics"
+            domain="ethics",
         )
 
         updated_claude = elo_system.get_rating("claude", use_cache=False)
@@ -174,12 +174,14 @@ class TestCrossModuleIntegration:
         """Domain-specific ELO is tracked separately from global."""
         # Record multiple matches in specific domain
         for i in range(3):
-            scores = {"claude": 1.0, "gemini": 0.0} if i % 2 == 0 else {"claude": 0.0, "gemini": 1.0}
+            scores = (
+                {"claude": 1.0, "gemini": 0.0} if i % 2 == 0 else {"claude": 0.0, "gemini": 1.0}
+            )
             elo_system.record_match(
                 debate_id=f"domain-test-{i}",
                 participants=["claude", "gemini"],
                 scores=scores,
-                domain="mathematics"
+                domain="mathematics",
             )
 
         rating = elo_system.get_rating("claude")
@@ -221,7 +223,7 @@ class TestConcurrentAccessIntegration:
                 debate_id=f"concurrent-{i}",
                 participants=["claude", "gpt-4"],
                 scores=scores,
-                domain="general"
+                domain="general",
             )
 
         # Final read should reflect updates
@@ -238,7 +240,7 @@ class TestConcurrentAccessIntegration:
             debate_id="new-agent-test",
             participants=["new-agent-1", "claude"],
             scores={"new-agent-1": 0.0, "claude": 1.0},
-            domain="general"
+            domain="general",
         )
 
         # New agent should be in leaderboard
@@ -266,7 +268,7 @@ class TestDatabaseConsistency:
             debate_id="persist-test",
             participants=["persist-agent", "claude"],
             scores={"persist-agent": 1.0, "claude": 0.0},
-            domain="general"
+            domain="general",
         )
         rating1 = elo1.get_rating("persist-agent", use_cache=False)
 
@@ -290,7 +292,7 @@ class TestDatabaseConsistency:
                 debate_id=f"history-{i}",
                 participants=["agent-a", "agent-b"],
                 scores={"agent-a": 1.0, "agent-b": 0.0},
-                domain="test"
+                domain="test",
             )
 
         rating1 = elo1.get_rating("agent-a", use_cache=False)

@@ -172,7 +172,9 @@ class OrganizationStore:
                 return self._row_to_org(row)
         return None
 
-    def get_organization_by_stripe_customer(self, stripe_customer_id: str) -> Optional[Organization]:
+    def get_organization_by_stripe_customer(
+        self, stripe_customer_id: str
+    ) -> Optional[Organization]:
         """Get organization by Stripe customer ID."""
         with self._transaction() as cursor:
             cursor.execute(
@@ -262,7 +264,7 @@ class OrganizationStore:
             return self._external_update_user(user_id, org_id=org_id, role=role)
         raise ConfigurationError(
             component="OrganizationStore",
-            reason="update_user callback required for add_user_to_org"
+            reason="update_user callback required for add_user_to_org",
         )
 
     def remove_user_from_org(self, user_id: str) -> bool:
@@ -271,7 +273,7 @@ class OrganizationStore:
             return self._external_update_user(user_id, org_id=None, role="member")
         raise ConfigurationError(
             component="OrganizationStore",
-            reason="update_user callback required for remove_user_from_org"
+            reason="update_user callback required for remove_user_from_org",
         )
 
     def get_org_members(self, org_id: str) -> list[User]:
@@ -279,7 +281,7 @@ class OrganizationStore:
         if not self._external_row_to_user:
             raise ConfigurationError(
                 component="OrganizationStore",
-                reason="row_to_user callback required for get_org_members"
+                reason="row_to_user callback required for get_org_members",
             )
 
         with self._transaction() as cursor:
@@ -463,7 +465,11 @@ class OrganizationStore:
             created_at=datetime.fromisoformat(row["created_at"]),
             expires_at=datetime.fromisoformat(row["expires_at"]) if row["expires_at"] else None,
             accepted_by=row["accepted_by"] if "accepted_by" in row.keys() else None,
-            accepted_at=datetime.fromisoformat(row["accepted_at"]) if ("accepted_at" in row.keys() and row["accepted_at"]) else None,
+            accepted_at=(
+                datetime.fromisoformat(row["accepted_at"])
+                if ("accepted_at" in row.keys() and row["accepted_at"])
+                else None
+            ),
         )
 
     def close(self) -> None:

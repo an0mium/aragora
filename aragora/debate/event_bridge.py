@@ -181,11 +181,14 @@ class EventEmitterBridge:
 
         try:
             from aragora.server.stream import StreamEvent, StreamEventType
-            self.event_emitter.emit(StreamEvent(  # type: ignore[call-arg]
-                type=StreamEventType.MOMENT_DETECTED,
-                data=moment.to_dict(),
-                debate_id=self.loop_id or "unknown",
-            ))
+
+            self.event_emitter.emit(
+                StreamEvent(  # type: ignore[call-arg]
+                    type=StreamEventType.MOMENT_DETECTED,
+                    data=moment.to_dict(),
+                    debate_id=self.loop_id or "unknown",
+                )
+            )
             logger.debug("Emitted moment event: %s for %s", moment.moment_type, moment.agent_name)
         except Exception as e:
             logger.warning("Failed to emit moment event: %s", e)

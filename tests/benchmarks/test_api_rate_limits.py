@@ -32,9 +32,7 @@ class TokenBucketRateLimiter:
         with self._lock:
             now = time.monotonic()
             elapsed = now - self.last_refill
-            self.tokens = min(
-                self.burst_size, self.tokens + elapsed * self.rate_per_second
-            )
+            self.tokens = min(self.burst_size, self.tokens + elapsed * self.rate_per_second)
             self.last_refill = now
 
             if self.tokens >= tokens:
@@ -311,9 +309,7 @@ class TestEndpointRateLimiting:
         """Test performance of endpoint-specific rate limiting."""
         num_endpoints = 10
         limiters = {
-            f"/api/endpoint-{i}": TokenBucketRateLimiter(
-                rate_per_second=100, burst_size=100
-            )
+            f"/api/endpoint-{i}": TokenBucketRateLimiter(rate_per_second=100, burst_size=100)
             for i in range(num_endpoints)
         }
 
@@ -496,9 +492,7 @@ class TestRateLimitMemory:
         size_full = sys.getsizeof(limiter.requests)
 
         # Wait for window to slide (simulate)
-        limiter.requests = [
-            t for t in limiter.requests if t > time.time() - 60
-        ]
+        limiter.requests = [t for t in limiter.requests if t > time.time() - 60]
 
         # Add more (should evict old)
         for _ in range(500):
@@ -516,9 +510,7 @@ class TestRateLimitMemory:
 
         limiters = []
         for i in range(10000):
-            limiters.append(
-                TokenBucketRateLimiter(rate_per_second=100, burst_size=10)
-            )
+            limiters.append(TokenBucketRateLimiter(rate_per_second=100, burst_size=10))
 
         # Each limiter should be small
         sample_size = sys.getsizeof(limiters[0])

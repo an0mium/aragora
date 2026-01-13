@@ -578,7 +578,7 @@ class TestBillingHandler:
 
         data = json.loads(result.body)
         assert "plans" in data
-        assert len(data["plans"]) == 4  # FREE, STARTER, PROFESSIONAL, ENTERPRISE
+        assert len(data["plans"]) == 5  # FREE, STARTER, PROFESSIONAL, ENTERPRISE, ENTERPRISE_PLUS
 
         # Check plan structure
         starter = next(p for p in data["plans"] if p["id"] == "starter")
@@ -621,9 +621,7 @@ class TestStripeClient:
         assert result == "email=test@example.com"
 
         # Nested data
-        result = client._encode_form_data(
-            {"metadata": {"user_id": "123", "org_id": "456"}}
-        )
+        result = client._encode_form_data({"metadata": {"user_id": "123", "org_id": "456"}})
         assert "metadata[user_id]=123" in result
         assert "metadata[org_id]=456" in result
 

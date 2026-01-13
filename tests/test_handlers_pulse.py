@@ -17,6 +17,7 @@ from aragora.server.handlers.pulse import PulseHandler
 @dataclass
 class MockTrendingTopic:
     """Mock trending topic object."""
+
     topic: str
     platform: str
     volume: int
@@ -66,9 +67,9 @@ class TestTrendingEndpoint:
 
     def test_returns_503_without_pulse_module(self, handler):
         """Returns 503 when pulse module not available."""
-        with patch.dict('sys.modules', {'aragora.pulse.ingestor': None}):
+        with patch.dict("sys.modules", {"aragora.pulse.ingestor": None}):
             # Force ImportError by patching
-            with patch.object(handler, '_get_trending_topics') as mock_method:
+            with patch.object(handler, "_get_trending_topics") as mock_method:
                 mock_method.return_value = handler.handle.__self__
                 result = handler._get_trending_topics(10)
 
@@ -77,15 +78,16 @@ class TestTrendingEndpoint:
 
     def test_respects_limit_parameter(self, handler):
         """Respects the limit query parameter."""
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = Mock()
                         mock_manager.ingestors = {"hackernews": Mock()}
 
                         async def mock_fetch(*args, **kwargs):
                             return []
+
                         mock_manager.get_trending_topics = AsyncMock(return_value=[])
                         mock_pm.return_value = mock_manager
 
@@ -97,13 +99,15 @@ class TestTrendingEndpoint:
     def test_caps_limit_at_50(self, handler):
         """Caps limit at maximum of 50."""
         # Use proper mocking without sys.modules manipulation
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm_class:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm_class:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = MagicMock()
                         mock_manager.ingestors = {}
-                        mock_manager.add_ingestor = lambda name, ing: mock_manager.ingestors.update({name: ing})
+                        mock_manager.add_ingestor = lambda name, ing: mock_manager.ingestors.update(
+                            {name: ing}
+                        )
                         mock_manager.get_trending_topics = AsyncMock(return_value=[])
                         mock_pm_class.return_value = mock_manager
 
@@ -116,7 +120,7 @@ class TestTrendingEndpoint:
                             call_kwargs = mock_manager.get_trending_topics.call_args
                             if call_kwargs and call_kwargs.kwargs:
                                 # Check limit_per_platform was passed as 50 (capped from 100)
-                                assert call_kwargs.kwargs.get('limit_per_platform', 50) <= 50
+                                assert call_kwargs.kwargs.get("limit_per_platform", 50) <= 50
 
     def test_trending_response_structure(self, handler):
         """Returns proper response structure when successful."""
@@ -125,10 +129,10 @@ class TestTrendingEndpoint:
             MockTrendingTopic("New framework", "reddit", 50),
         ]
 
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm_class:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm_class:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = Mock()
                         mock_manager.ingestors = {"hackernews": Mock(), "reddit": Mock()}
                         mock_manager.get_trending_topics = AsyncMock(return_value=topics)
@@ -149,10 +153,10 @@ class TestTrendingEndpoint:
             MockTrendingTopic("Low volume", "reddit", 100),
         ]
 
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm_class:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm_class:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = Mock()
                         mock_manager.ingestors = {"hackernews": Mock()}
                         mock_manager.get_trending_topics = AsyncMock(return_value=topics)
@@ -170,21 +174,26 @@ class TestTrendingEndpoint:
 
     def test_handles_empty_topics(self, handler):
         """Handles empty topic list gracefully."""
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm_class:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm_class:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = MagicMock()
                         # Ensure ingestors dict properly tracks added ingestors
                         mock_manager.ingestors = {}
-                        mock_manager.add_ingestor = lambda name, ing: mock_manager.ingestors.update({name: ing})
+                        mock_manager.add_ingestor = lambda name, ing: mock_manager.ingestors.update(
+                            {name: ing}
+                        )
                         mock_manager.get_trending_topics = AsyncMock(return_value=[])
                         mock_pm_class.return_value = mock_manager
 
                         result = handler._get_trending_topics(10)
 
                         # Should either succeed with empty list or fail gracefully
-                        assert result.status_code in (200, 500), f"Unexpected status: {result.status_code}"
+                        assert result.status_code in (
+                            200,
+                            500,
+                        ), f"Unexpected status: {result.status_code}"
                         if result.status_code == 200:
                             data = json.loads(result.body)
                             assert data["count"] == 0
@@ -194,10 +203,10 @@ class TestTrendingEndpoint:
 
     def test_handles_fetch_exception(self, handler):
         """Returns 500 on fetch exception."""
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm_class:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm_class:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = Mock()
                         mock_manager.get_trending_topics = AsyncMock(
                             side_effect=Exception("Network error")
@@ -217,10 +226,10 @@ class TestSuggestEndpoint:
     def test_returns_503_without_pulse_module(self, handler):
         """Returns 503 when pulse module not available."""
         # Mock the pulse module to avoid real API calls
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = MagicMock()
                         mock_manager.ingestors = {}
                         mock_manager.get_trending_topics = MagicMock(return_value=[])
@@ -233,11 +242,7 @@ class TestSuggestEndpoint:
 
     def test_validates_category_parameter(self, handler):
         """Validates category parameter for security."""
-        result = handler.handle(
-            "/api/pulse/suggest",
-            {"category": ["../../../etc/passwd"]},
-            None
-        )
+        result = handler.handle("/api/pulse/suggest", {"category": ["../../../etc/passwd"]}, None)
 
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -246,10 +251,10 @@ class TestSuggestEndpoint:
     def test_accepts_valid_category(self, handler):
         """Accepts valid category parameter."""
         # Mock the pulse module to avoid real API calls
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = MagicMock()
                         mock_manager.ingestors = {}
                         mock_manager.get_trending_topics = MagicMock(return_value=[])
@@ -257,9 +262,7 @@ class TestSuggestEndpoint:
                         mock_pm.return_value = mock_manager
 
                         result = handler.handle(
-                            "/api/pulse/suggest",
-                            {"category": ["technology"]},
-                            None
+                            "/api/pulse/suggest", {"category": ["technology"]}, None
                         )
 
                         # Should either succeed or fail for other reasons
@@ -273,10 +276,10 @@ class TestSuggestEndpoint:
         """Returns proper response structure when successful."""
         topic = MockTrendingTopic("AI ethics debate", "hackernews", 500)
 
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm_class:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm_class:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = Mock()
                         mock_manager.get_trending_topics = AsyncMock(return_value=[topic])
                         mock_manager.select_topic_for_debate.return_value = topic
@@ -292,10 +295,10 @@ class TestSuggestEndpoint:
 
     def test_returns_404_when_no_suitable_topics(self, handler):
         """Returns 404 when no suitable topics found."""
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm_class:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm_class:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = Mock()
                         mock_manager.get_trending_topics = AsyncMock(return_value=[])
                         mock_manager.select_topic_for_debate.return_value = None
@@ -310,10 +313,10 @@ class TestSuggestEndpoint:
 
     def test_handles_suggest_exception(self, handler):
         """Returns 500 on suggestion exception."""
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm_class:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm_class:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = Mock()
                         # Mock select_topic_for_debate to raise exception
                         # (this is called after get_trending_topics succeeds)
@@ -336,10 +339,10 @@ class TestErrorHandling:
     def test_import_error_handled_trending(self, handler):
         """Handles ImportError gracefully for trending endpoint."""
         # Mock the pulse module to avoid real API calls
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = MagicMock()
                         mock_manager.ingestors = {}
                         mock_manager.get_trending_topics = MagicMock(return_value=[])
@@ -354,10 +357,10 @@ class TestErrorHandling:
     def test_import_error_handled_suggest(self, handler):
         """Handles ImportError gracefully for suggest endpoint."""
         # Mock the pulse module to avoid real API calls
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = MagicMock()
                         mock_manager.ingestors = {}
                         mock_manager.get_trending_topics = MagicMock(return_value=[])
@@ -375,10 +378,10 @@ class TestErrorHandling:
         # This tests the concurrent.futures fallback
         topics = [MockTrendingTopic("Test", "hackernews", 100)]
 
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm_class:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm_class:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = Mock()
                         mock_manager.ingestors = {}
                         mock_manager.get_trending_topics = AsyncMock(return_value=topics)
@@ -397,10 +400,10 @@ class TestTopicMapping:
         """Maps platform field to source for frontend."""
         topics = [MockTrendingTopic("Test topic", "hackernews", 100)]
 
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm_class:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm_class:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = Mock()
                         mock_manager.ingestors = {"hackernews": Mock()}
                         mock_manager.get_trending_topics = AsyncMock(return_value=topics)
@@ -419,10 +422,10 @@ class TestTopicMapping:
         """Includes both raw volume and normalized score."""
         topics = [MockTrendingTopic("Test topic", "reddit", 500)]
 
-        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm_class:
-            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
-                with patch('aragora.pulse.ingestor.RedditIngestor'):
-                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm_class:
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
+                with patch("aragora.pulse.ingestor.RedditIngestor"):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = Mock()
                         mock_manager.ingestors = {"reddit": Mock()}
                         mock_manager.get_trending_topics = AsyncMock(return_value=topics)

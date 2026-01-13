@@ -206,7 +206,7 @@ class TestAutotunerBudgetEnforcement(unittest.TestCase):
         tuner.start()
 
         # Simulate time passage
-        with patch.object(tuner, '_start_time', datetime.now() - timedelta(seconds=61)):
+        with patch.object(tuner, "_start_time", datetime.now() - timedelta(seconds=61)):
             decision = tuner.should_continue()
 
         self.assertFalse(decision.should_continue)

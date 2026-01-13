@@ -41,22 +41,26 @@ def db(temp_db_path):
 
     # Create a test table
     with database.connection() as conn:
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS test_items (
                 id INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
                 value REAL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS predictions (
                 id TEXT PRIMARY KEY,
                 agent_name TEXT NOT NULL,
                 confidence REAL NOT NULL,
                 outcome INTEGER
             )
-        """)
+        """
+        )
 
     return database
 
@@ -106,8 +110,7 @@ class TestConnectionContextManager:
     def test_connection_auto_commits(self, db):
         """Should auto-commit on successful exit."""
         with db.connection() as conn:
-            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                        ("test", 1.0))
+            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)", ("test", 1.0))
 
         # Verify data persisted
         with db.connection() as conn:
@@ -120,8 +123,7 @@ class TestConnectionContextManager:
         """Should rollback on exception."""
         try:
             with db.connection() as conn:
-                conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                            ("test", 1.0))
+                conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)", ("test", 1.0))
                 raise ValueError("Test error")
         except ValueError:
             pass
@@ -139,10 +141,8 @@ class TestTransactionContextManager:
     def test_transaction_commits_on_success(self, db):
         """Should commit transaction on success."""
         with db.transaction() as conn:
-            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                        ("test1", 1.0))
-            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                        ("test2", 2.0))
+            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)", ("test1", 1.0))
+            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)", ("test2", 2.0))
 
         # Both should be persisted
         with db.connection() as conn:
@@ -154,8 +154,7 @@ class TestTransactionContextManager:
         """Should rollback entire transaction on exception."""
         try:
             with db.transaction() as conn:
-                conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                            ("test1", 1.0))
+                conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)", ("test1", 1.0))
                 raise ValueError("Test error after insert")
         except ValueError:
             pass
@@ -169,12 +168,9 @@ class TestTransactionContextManager:
     def test_nested_operations_in_transaction(self, db):
         """Transaction should handle multiple operations atomically."""
         with db.transaction() as conn:
-            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                        ("item1", 10.0))
-            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                        ("item2", 20.0))
-            conn.execute("UPDATE test_items SET value = value * 2 WHERE name = ?",
-                        ("item1",))
+            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)", ("item1", 10.0))
+            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)", ("item2", 20.0))
+            conn.execute("UPDATE test_items SET value = value * 2 WHERE name = ?", ("item1",))
 
         with db.connection() as conn:
             cursor = conn.execute("SELECT name, value FROM test_items ORDER BY name")
@@ -190,8 +186,7 @@ class TestFetchOne:
     def test_fetch_one_returns_tuple(self, db):
         """Should return single row as tuple."""
         with db.connection() as conn:
-            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                        ("test", 42.0))
+            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)", ("test", 42.0))
 
         row = db.fetch_one("SELECT name, value FROM test_items WHERE name = ?", ("test",))
 
@@ -219,10 +214,8 @@ class TestFetchAll:
     def test_fetch_all_returns_list(self, db):
         """Should return list of tuples."""
         with db.connection() as conn:
-            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                        ("test1", 1.0))
-            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                        ("test2", 2.0))
+            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)", ("test1", 1.0))
+            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)", ("test2", 2.0))
 
         rows = db.fetch_all("SELECT name, value FROM test_items ORDER BY name")
 
@@ -239,10 +232,8 @@ class TestFetchAll:
     def test_fetch_all_with_filtering(self, db):
         """Should apply WHERE clause correctly."""
         with db.connection() as conn:
-            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                        ("low", 10.0))
-            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                        ("high", 100.0))
+            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)", ("low", 10.0))
+            conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)", ("high", 100.0))
 
         rows = db.fetch_all("SELECT name FROM test_items WHERE value > ?", (50,))
 
@@ -255,10 +246,7 @@ class TestExecuteWrite:
 
     def test_execute_write_inserts_data(self, db):
         """Should successfully insert data."""
-        db.execute_write(
-            "INSERT INTO test_items (name, value) VALUES (?, ?)",
-            ("write_test", 99.0)
-        )
+        db.execute_write("INSERT INTO test_items (name, value) VALUES (?, ?)", ("write_test", 99.0))
 
         row = db.fetch_one("SELECT value FROM test_items WHERE name = ?", ("write_test",))
         assert row is not None
@@ -266,18 +254,15 @@ class TestExecuteWrite:
 
     def test_execute_write_updates_data(self, db):
         """Should successfully update data."""
-        db.execute_write("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                        ("item", 10.0))
-        db.execute_write("UPDATE test_items SET value = ? WHERE name = ?",
-                        (20.0, "item"))
+        db.execute_write("INSERT INTO test_items (name, value) VALUES (?, ?)", ("item", 10.0))
+        db.execute_write("UPDATE test_items SET value = ? WHERE name = ?", (20.0, "item"))
 
         row = db.fetch_one("SELECT value FROM test_items WHERE name = ?", ("item",))
         assert row[0] == 20.0
 
     def test_execute_write_deletes_data(self, db):
         """Should successfully delete data."""
-        db.execute_write("INSERT INTO test_items (name, value) VALUES (?, ?)",
-                        ("to_delete", 1.0))
+        db.execute_write("INSERT INTO test_items (name, value) VALUES (?, ?)", ("to_delete", 1.0))
         db.execute_write("DELETE FROM test_items WHERE name = ?", ("to_delete",))
 
         row = db.fetch_one("SELECT * FROM test_items WHERE name = ?", ("to_delete",))
@@ -295,10 +280,7 @@ class TestExecuteMany:
             ("item3", 3.0),
         ]
 
-        db.executemany(
-            "INSERT INTO test_items (name, value) VALUES (?, ?)",
-            params
-        )
+        db.executemany("INSERT INTO test_items (name, value) VALUES (?, ?)", params)
 
         rows = db.fetch_all("SELECT name, value FROM test_items ORDER BY name")
         assert len(rows) == 3
@@ -320,8 +302,7 @@ class TestThreadSafety:
         # Insert test data
         for i in range(10):
             db.execute_write(
-                "INSERT INTO test_items (name, value) VALUES (?, ?)",
-                (f"item{i}", float(i))
+                "INSERT INTO test_items (name, value) VALUES (?, ?)", (f"item{i}", float(i))
             )
 
         results = []
@@ -352,7 +333,7 @@ class TestThreadSafety:
             try:
                 db.execute_write(
                     "INSERT INTO test_items (name, value) VALUES (?, ?)",
-                    (f"thread_{thread_id}", float(thread_id))
+                    (f"thread_{thread_id}", float(thread_id)),
                 )
             except Exception as e:
                 errors.append(str(e))
@@ -377,7 +358,7 @@ class TestPredictionSchema:
         """Should insert prediction records."""
         db.execute_write(
             "INSERT INTO predictions (id, agent_name, confidence, outcome) VALUES (?, ?, ?, ?)",
-            ("pred-001", "claude", 0.85, None)
+            ("pred-001", "claude", 0.85, None),
         )
 
         row = db.fetch_one("SELECT * FROM predictions WHERE id = ?", ("pred-001",))
@@ -391,12 +372,9 @@ class TestPredictionSchema:
         """Should update prediction with outcome."""
         db.execute_write(
             "INSERT INTO predictions (id, agent_name, confidence) VALUES (?, ?, ?)",
-            ("pred-002", "gpt4", 0.75)
+            ("pred-002", "gpt4", 0.75),
         )
-        db.execute_write(
-            "UPDATE predictions SET outcome = ? WHERE id = ?",
-            (1, "pred-002")
-        )
+        db.execute_write("UPDATE predictions SET outcome = ? WHERE id = ?", (1, "pred-002"))
 
         row = db.fetch_one("SELECT outcome FROM predictions WHERE id = ?", ("pred-002",))
         assert row[0] == 1
@@ -410,12 +388,11 @@ class TestPredictionSchema:
         ]
         db.executemany(
             "INSERT INTO predictions (id, agent_name, confidence, outcome) VALUES (?, ?, ?, ?)",
-            params
+            params,
         )
 
         rows = db.fetch_all(
-            "SELECT id, confidence FROM predictions WHERE agent_name = ? ORDER BY id",
-            ("claude",)
+            "SELECT id, confidence FROM predictions WHERE agent_name = ? ORDER BY id", ("claude",)
         )
 
         assert len(rows) == 2
@@ -435,13 +412,13 @@ class TestErrorHandling:
         """Should raise error for constraint violations."""
         db.execute_write(
             "INSERT INTO predictions (id, agent_name, confidence) VALUES (?, ?, ?)",
-            ("dup", "test", 0.5)
+            ("dup", "test", 0.5),
         )
 
         with pytest.raises(sqlite3.IntegrityError):
             db.execute_write(
                 "INSERT INTO predictions (id, agent_name, confidence) VALUES (?, ?, ?)",
-                ("dup", "test", 0.5)  # Duplicate primary key
+                ("dup", "test", 0.5),  # Duplicate primary key
             )
 
     def test_type_mismatch_handled(self, db):
@@ -449,7 +426,7 @@ class TestErrorHandling:
         # SQLite is flexible with types, this should work
         db.execute_write(
             "INSERT INTO test_items (name, value) VALUES (?, ?)",
-            ("text_as_value", "not_a_number")  # String where REAL expected
+            ("text_as_value", "not_a_number"),  # String where REAL expected
         )
 
         row = db.fetch_one("SELECT value FROM test_items WHERE name = ?", ("text_as_value",))

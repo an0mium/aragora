@@ -209,18 +209,12 @@ class EloRepository(BaseRepository[RatingEntity]):
             )
 
             # Indexes
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_matches_winner ON matches(winner)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_matches_created ON matches(created_at)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_winner ON matches(winner)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_created ON matches(created_at)")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_elo_history_agent ON elo_history(agent_name)"
             )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_ratings_elo ON ratings(elo DESC)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_ratings_elo ON ratings(elo DESC)")
 
             conn.commit()
 
@@ -271,9 +265,9 @@ class EloRepository(BaseRepository[RatingEntity]):
             "calibration_correct": entity.calibration_correct,
             "calibration_total": entity.calibration_total,
             "calibration_brier_sum": entity.calibration_brier_sum,
-            "updated_at": entity.updated_at.isoformat()
-            if entity.updated_at
-            else datetime.now().isoformat(),
+            "updated_at": (
+                entity.updated_at.isoformat() if entity.updated_at else datetime.now().isoformat()
+            ),
         }
 
     def get(self, entity_id: str) -> Optional[RatingEntity]:
@@ -292,9 +286,7 @@ class EloRepository(BaseRepository[RatingEntity]):
         )
         return self._to_entity(row) if row else None
 
-    def get_rating(
-        self, agent_name: str, use_cache: bool = True
-    ) -> RatingEntity:
+    def get_rating(self, agent_name: str, use_cache: bool = True) -> RatingEntity:
         """
         Get or create rating for an agent.
 
@@ -610,9 +602,7 @@ class EloRepository(BaseRepository[RatingEntity]):
 
         return [self._match_to_dict(row) for row in rows]
 
-    def get_head_to_head(
-        self, agent_a: str, agent_b: str
-    ) -> Dict[str, Any]:
+    def get_head_to_head(self, agent_a: str, agent_b: str) -> Dict[str, Any]:
         """
         Get head-to-head statistics between two agents.
 
@@ -678,10 +668,7 @@ class EloRepository(BaseRepository[RatingEntity]):
             (agent_name, limit),
         )
 
-        return [
-            (row["elo"], row["created_at"], row["debate_id"])
-            for row in rows
-        ]
+        return [(row["elo"], row["created_at"], row["debate_id"]) for row in rows]
 
     def get_agent_stats(self, agent_name: str) -> Dict[str, Any]:
         """
@@ -715,8 +702,7 @@ class EloRepository(BaseRepository[RatingEntity]):
                 for m in recent_matches
             ],
             "elo_history": [
-                {"elo": elo, "timestamp": ts, "debate_id": did}
-                for elo, ts, did in elo_history
+                {"elo": elo, "timestamp": ts, "debate_id": did} for elo, ts, did in elo_history
             ],
         }
 

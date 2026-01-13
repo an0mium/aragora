@@ -28,7 +28,7 @@ class TestArgumentCartographer:
             role="proposer",
             round_num=1,
         )
-        
+
         assert node_id in cart.nodes
         assert cart.nodes[node_id].node_type == NodeType.PROPOSAL
         assert cart.nodes[node_id].agent == "claude-visionary"
@@ -37,7 +37,7 @@ class TestArgumentCartographer:
     def test_add_critique_creates_edge(self):
         """A critique should link to the proposal."""
         cart = ArgumentCartographer()
-        
+
         # Add proposal
         cart.update_from_message(
             agent="claude-visionary",
@@ -45,7 +45,7 @@ class TestArgumentCartographer:
             role="proposer",
             round_num=1,
         )
-        
+
         # Add critique
         cart.update_from_message(
             agent="codex-engineer",
@@ -53,10 +53,10 @@ class TestArgumentCartographer:
             role="critic",
             round_num=1,
         )
-        
+
         assert len(cart.nodes) == 2
         assert len(cart.edges) >= 1
-        
+
         # Find the critique->proposal edge
         refute_edges = [e for e in cart.edges if e.relation == EdgeRelation.REFUTES]
         assert len(refute_edges) >= 1
@@ -65,16 +65,16 @@ class TestArgumentCartographer:
         """Mermaid export should produce valid syntax."""
         cart = ArgumentCartographer()
         cart.set_debate_context("test-123", "Test Topic")
-        
+
         cart.update_from_message(
             agent="agent1",
             content="Proposal content",
             role="proposer",
             round_num=1,
         )
-        
+
         mermaid = cart.export_mermaid()
-        
+
         assert mermaid.startswith("graph TD")
         assert "classDef proposal" in mermaid
         assert "subgraph Round_1" in mermaid
@@ -83,17 +83,18 @@ class TestArgumentCartographer:
         """JSON export should have correct structure."""
         cart = ArgumentCartographer()
         cart.set_debate_context("test-123", "Test Topic")
-        
+
         cart.update_from_message(
             agent="agent1",
             content="Content",
             role="proposer",
             round_num=1,
         )
-        
+
         import json
+
         data = json.loads(cart.export_json())
-        
+
         assert "nodes" in data
         assert "edges" in data
         assert "metadata" in data
@@ -125,16 +126,16 @@ class TestArgumentCartographer:
     def test_sanitize_special_characters(self):
         """Special characters should be sanitized for Mermaid."""
         cart = ArgumentCartographer()
-        
+
         cart.update_from_message(
             agent="agent",
             content='Content with "quotes" and [brackets] and <angles>',
             role="proposer",
             round_num=1,
         )
-        
+
         mermaid = cart.export_mermaid()
-        
+
         # Should not contain raw problematic characters
         assert '"quotes"' not in mermaid or "'" in mermaid  # Quotes converted
         assert "[brackets]" not in mermaid  # Brackets converted
@@ -142,10 +143,10 @@ class TestArgumentCartographer:
     def test_vote_links_to_proposal(self):
         """Votes should link to the round's proposal."""
         cart = ArgumentCartographer()
-        
+
         cart.update_from_message("proposer", "My proposal", "proposer", 1)
         cart.update_from_vote("voter1", "approve", 1)
-        
+
         assert len(cart.edges) >= 1
         vote_edges = [e for e in cart.edges if e.relation == EdgeRelation.RESPONDS_TO]
         assert len(vote_edges) >= 1
@@ -153,15 +154,15 @@ class TestArgumentCartographer:
     def test_consensus_links_to_votes(self):
         """Consensus should link to all votes."""
         cart = ArgumentCartographer()
-        
+
         cart.update_from_message("proposer", "Proposal", "proposer", 1)
         cart.update_from_vote("v1", "approve", 1)
         cart.update_from_vote("v2", "approve", 1)
         cart.update_from_consensus("approved", 1, {"approve": 2})
-        
+
         consensus_nodes = [n for n in cart.nodes.values() if n.node_type == NodeType.CONSENSUS]
         assert len(consensus_nodes) == 1
-        
+
         # Votes should link to consensus
         support_edges = [e for e in cart.edges if e.relation == EdgeRelation.SUPPORTS]
         assert len(support_edges) >= 2

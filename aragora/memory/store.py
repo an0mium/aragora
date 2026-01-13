@@ -174,9 +174,7 @@ class AgentReputation:
             return 0.5  # Neutral for new agents
         acceptance = self.proposals_accepted / self.proposals_made
         critique_quality = (
-            self.critiques_valuable / self.critiques_given
-            if self.critiques_given > 0
-            else 0.5
+            self.critiques_valuable / self.critiques_given if self.critiques_given > 0 else 0.5
         )
         # Weight: 60% proposal acceptance, 40% critique quality
         return 0.6 * acceptance + 0.4 * critique_quality
@@ -640,7 +638,9 @@ class CritiqueStore(SQLiteStore):
             (surprise, issue_type, pattern_id),
         )
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_CRITIQUE_PATTERNS, key_prefix="critique_patterns", skip_first=False)
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_CRITIQUE_PATTERNS, key_prefix="critique_patterns", skip_first=False
+    )
     def retrieve_patterns(
         self,
         issue_type: Optional[str] = None,
@@ -714,14 +714,16 @@ class CritiqueStore(SQLiteStore):
             cursor = conn.cursor()
 
             # Consolidated query: All counts and averages in one query using subqueries
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     (SELECT COUNT(*) FROM debates) as total_debates,
                     (SELECT COUNT(*) FROM debates WHERE consensus_reached = 1) as consensus_debates,
                     (SELECT COUNT(*) FROM critiques) as total_critiques,
                     (SELECT COUNT(*) FROM patterns) as total_patterns,
                     (SELECT AVG(confidence) FROM debates WHERE consensus_reached = 1) as avg_confidence
-            """)
+            """
+            )
             row = cursor.fetchone()
 
             stats = {
@@ -738,9 +740,7 @@ class CritiqueStore(SQLiteStore):
 
             return stats
 
-    def export_for_training(
-        self, limit: int = 1000, offset: int = 0
-    ) -> list[dict]:
+    def export_for_training(self, limit: int = 1000, offset: int = 0) -> list[dict]:
         """Export successful patterns for potential fine-tuning.
 
         Args:
@@ -781,7 +781,9 @@ class CritiqueStore(SQLiteStore):
     # Agent Reputation Tracking
     # =========================================================================
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_AGENT_REPUTATION, key_prefix="agent_reputation", skip_first=False)
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_AGENT_REPUTATION, key_prefix="agent_reputation", skip_first=False
+    )
     def get_reputation(self, agent_name: str) -> Optional[AgentReputation]:
         """Get reputation for an agent."""
         with self.connection() as conn:
@@ -870,9 +872,7 @@ class CritiqueStore(SQLiteStore):
                 else:
                     acceptance = proposals_accepted / proposals_made
                     critique_quality = (
-                        critiques_valuable / critiques_given
-                        if critiques_given > 0
-                        else 0.5
+                        critiques_valuable / critiques_given if critiques_given > 0 else 0.5
                     )
                     score = 0.6 * acceptance + 0.4 * critique_quality
 
@@ -953,13 +953,13 @@ class CritiqueStore(SQLiteStore):
                     change_types.append("critique_given")
                 if critique_valuable:
                     change_types.append("critique_valuable")
-                logger.debug(
-                    f"[reputation] Updated {agent_name}: {', '.join(change_types)}"
-                )
+                logger.debug(f"[reputation] Updated {agent_name}: {', '.join(change_types)}")
 
             conn.commit()
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_ALL_REPUTATIONS, key_prefix="all_reputations", skip_first=False)
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_ALL_REPUTATIONS, key_prefix="all_reputations", skip_first=False
+    )
     def get_all_reputations(self, limit: int = 500) -> list[AgentReputation]:
         """Get agent reputations, ordered by score.
 

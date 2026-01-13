@@ -87,6 +87,7 @@ class TestEmbeddingCacheConcurrency:
 
         # Set up provider to return different values for different inputs
         call_count = [0]
+
         async def varying_embed(content):
             call_count[0] += 1
             return [0.1 * call_count[0]] * 256
@@ -280,7 +281,15 @@ class TestDatabaseIntegrity:
                 INSERT INTO memories (id, agent_name, memory_type, content, importance, metadata, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                ("bad-meta", "agent", "observation", "Test", 0.5, "not valid json", datetime.now().isoformat()),
+                (
+                    "bad-meta",
+                    "agent",
+                    "observation",
+                    "Test",
+                    0.5,
+                    "not valid json",
+                    datetime.now().isoformat(),
+                ),
             )
             conn.commit()
 
@@ -310,7 +319,14 @@ class TestDatabaseIntegrity:
                     INSERT INTO memories (id, agent_name, memory_type, content, importance, created_at)
                     VALUES (?, ?, ?, ?, ?, ?)
                     """,
-                    (existing_id, "agent", "observation", "Duplicate", 0.5, datetime.now().isoformat()),
+                    (
+                        existing_id,
+                        "agent",
+                        "observation",
+                        "Duplicate",
+                        0.5,
+                        datetime.now().isoformat(),
+                    ),
                 )
 
     def test_missing_reflection_schedule_entry(self, temp_db):

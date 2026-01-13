@@ -116,9 +116,7 @@ class TestModelConfigFromAgent(unittest.TestCase):
         config = ModelConfig.from_agent(agent)
 
         # Hash should be first 16 chars of SHA-256
-        expected_hash = hashlib.sha256(
-            "You are a helpful assistant.".encode()
-        ).hexdigest()[:16]
+        expected_hash = hashlib.sha256("You are a helpful assistant.".encode()).hexdigest()[:16]
         self.assertEqual(config.system_prompt_hash, expected_hash)
 
     def test_from_agent_no_system_prompt_attr(self):
@@ -181,10 +179,7 @@ class TestDebateMetadataHashing(unittest.TestCase):
 
     def test_task_hash_generated(self):
         """Should generate task hash on creation."""
-        meta = DebateMetadata(
-            debate_id="test",
-            task="Implement a rate limiter"
-        )
+        meta = DebateMetadata(debate_id="test", task="Implement a rate limiter")
         self.assertTrue(len(meta.task_hash) == 16)  # First 16 chars of SHA-256
 
     def test_task_hash_consistent(self):
@@ -201,10 +196,7 @@ class TestDebateMetadataHashing(unittest.TestCase):
 
     def test_context_hash_generated(self):
         """Should generate context hash."""
-        meta = DebateMetadata(
-            debate_id="test",
-            context="Some additional context"
-        )
+        meta = DebateMetadata(debate_id="test", context="Some additional context")
         self.assertTrue(len(meta.context_hash) == 16)
 
     def test_config_hash_includes_agents(self):
@@ -524,8 +516,7 @@ class TestMetadataStore(unittest.TestCase):
             self.store.store(meta)
 
         results = self.store.find_by_task(
-            DebateMetadata(debate_id="query", task="Same task").task_hash,
-            limit=3
+            DebateMetadata(debate_id="query", task="Same task").task_hash, limit=3
         )
         self.assertEqual(len(results), 3)
 

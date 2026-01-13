@@ -250,9 +250,7 @@ class VotingPhase:
 
         return normalized
 
-    def compute_vote_distribution(
-        self, votes: list["Vote"]
-    ) -> dict[str, dict[str, Any]]:
+    def compute_vote_distribution(self, votes: list["Vote"]) -> dict[str, dict[str, Any]]:
         """Compute vote distribution statistics.
 
         Args:
@@ -275,7 +273,9 @@ class VotingPhase:
         for choice, count in choice_counts.items():
             choice_votes = [v for v in votes if v.choice == choice]
             confidences = [
-                v.confidence for v in choice_votes if hasattr(v, "confidence") and v.confidence is not None
+                v.confidence
+                for v in choice_votes
+                if hasattr(v, "confidence") and v.confidence is not None
             ]
 
             distribution[choice] = {
@@ -308,9 +308,7 @@ class VotingPhase:
             return None
 
         # Sort by count descending
-        sorted_choices = sorted(
-            distribution.items(), key=lambda x: x[1]["count"], reverse=True
-        )
+        sorted_choices = sorted(distribution.items(), key=lambda x: x[1]["count"], reverse=True)
 
         if len(sorted_choices) == 0:
             return None
@@ -409,9 +407,7 @@ class VotingPhase:
             result.confidence = count / total_weighted
 
             # Calculate consensus strength
-            strength_info = self.compute_consensus_strength(
-                vote_counts, total_weighted
-            )
+            strength_info = self.compute_consensus_strength(vote_counts, total_weighted)
             result.consensus_strength = strength_info["strength"]
             result.consensus_variance = strength_info["variance"]
 
@@ -507,10 +503,7 @@ class VotingPhase:
                 result.consensus_reached = True
                 result.consensus_strength = "unanimous"
                 result.consensus_variance = 0.0
-                logger.info(
-                    f"consensus_unanimous winner={winner} "
-                    f"votes={count}/{total_voters}"
-                )
+                logger.info(f"consensus_unanimous winner={winner} " f"votes={count}/{total_voters}")
             else:
                 result.consensus_reached = False
                 result.consensus_strength = "none"

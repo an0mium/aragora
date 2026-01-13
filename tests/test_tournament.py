@@ -43,7 +43,7 @@ from aragora.core import Agent, DebateResult, Environment, Message, Critique
 @pytest.fixture
 def temp_db():
     """Create a temporary database file."""
-    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         yield f.name
     try:
         os.unlink(f.name)
@@ -504,9 +504,7 @@ class TestTournamentInit:
         cursor = conn.cursor()
 
         # Check tournaments table exists
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='tournaments'"
-        )
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tournaments'")
         assert cursor.fetchone() is not None
 
         # Check tournament_matches table exists
@@ -656,9 +654,7 @@ class TestMatchScoring:
 
     def test_calculate_scores_null_result(self, tournament_with_db):
         """Test score calculation with null result."""
-        scores = tournament_with_db._calculate_match_scores(
-            None, ["agent-a", "agent-b"]
-        )
+        scores = tournament_with_db._calculate_match_scores(None, ["agent-a", "agent-b"])
         assert scores == {"agent-a": 0.0, "agent-b": 0.0}
 
 
@@ -750,6 +746,7 @@ class TestTournamentRun:
     @pytest.mark.asyncio
     async def test_run_tournament(self, tournament_with_db, mock_debate_result):
         """Test running a tournament."""
+
         async def mock_run_debate(env, agents):
             return mock_debate_result
 
@@ -762,6 +759,7 @@ class TestTournamentRun:
     @pytest.mark.asyncio
     async def test_run_sets_timestamps(self, tournament_with_db, mock_debate_result):
         """Test run sets started_at and completed_at."""
+
         async def mock_run_debate(env, agents):
             return mock_debate_result
 
@@ -773,6 +771,7 @@ class TestTournamentRun:
     @pytest.mark.asyncio
     async def test_run_determines_champion(self, tournament_with_db, mock_debate_result):
         """Test champion determination."""
+
         async def mock_run_debate(env, agents):
             return mock_debate_result
 
@@ -784,6 +783,7 @@ class TestTournamentRun:
     @pytest.mark.asyncio
     async def test_run_saves_to_db(self, tournament_with_db, mock_debate_result):
         """Test tournament is saved to database."""
+
         async def mock_run_debate(env, agents):
             return mock_debate_result
 
@@ -794,7 +794,7 @@ class TestTournamentRun:
         cursor = conn.cursor()
         cursor.execute(
             "SELECT tournament_id FROM tournaments WHERE tournament_id = ?",
-            (tournament_with_db.tournament_id,)
+            (tournament_with_db.tournament_id,),
         )
         row = cursor.fetchone()
         conn.close()
@@ -804,6 +804,7 @@ class TestTournamentRun:
     @pytest.mark.asyncio
     async def test_run_parallel(self, tournament_with_db, mock_debate_result):
         """Test parallel match execution."""
+
         async def mock_run_debate(env, agents):
             await asyncio.sleep(0.01)  # Small delay
             return mock_debate_result
@@ -897,17 +898,25 @@ class TestTournamentManager:
         assert manager.db_path == Path(temp_db)
 
     def test_get_tournament_no_db(self):
-        """Test get_tournament when database doesn't exist."""
-        manager = TournamentManager("/nonexistent/path.db")
-        result = manager.get_tournament()
-        assert result is None
+        """Test get_tournament with a fresh empty database."""
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            temp_path = f.name
+        try:
+            os.unlink(temp_path)  # Delete so it starts fresh
+            manager = TournamentManager(temp_path)
+            result = manager.get_tournament()
+            assert result is None
+        finally:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
 
     def test_get_tournament_empty_db(self, temp_db):
         """Test get_tournament with empty database."""
         # Create empty database with schema
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE tournaments (
                 tournament_id TEXT PRIMARY KEY,
                 name TEXT,
@@ -916,7 +925,8 @@ class TestTournamentManager:
                 started_at TEXT,
                 completed_at TEXT
             )
-        """)
+        """
+        )
         conn.commit()
         conn.close()
 
@@ -929,7 +939,8 @@ class TestTournamentManager:
         # Create database with tournament
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE tournaments (
                 tournament_id TEXT PRIMARY KEY,
                 name TEXT,
@@ -938,10 +949,14 @@ class TestTournamentManager:
                 started_at TEXT,
                 completed_at TEXT
             )
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
             INSERT INTO tournaments VALUES (?, ?, ?, ?, ?, ?)
-        """, ("tourn-001", "Test", "round_robin", "agent-a", "2024-01-15", "2024-01-16"))
+        """,
+            ("tourn-001", "Test", "round_robin", "agent-a", "2024-01-15", "2024-01-16"),
+        )
         conn.commit()
         conn.close()
 
@@ -954,29 +969,40 @@ class TestTournamentManager:
         assert result["champion"] == "agent-a"
 
     def test_get_current_standings_no_db(self):
-        """Test get_current_standings when database doesn't exist."""
-        manager = TournamentManager("/nonexistent/path.db")
-        result = manager.get_current_standings()
-        assert result == []
+        """Test get_current_standings with a fresh empty database."""
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            temp_path = f.name
+        try:
+            os.unlink(temp_path)  # Delete so it starts fresh
+            manager = TournamentManager(temp_path)
+            result = manager.get_current_standings()
+            assert result == []
+        finally:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
 
     def test_get_current_standings_with_data(self, temp_db):
         """Test get_current_standings with standings data."""
         # Create database with standings
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE tournaments (
                 tournament_id TEXT PRIMARY KEY,
                 standings TEXT
             )
-        """)
-        standings_json = json.dumps({
-            "agent-a": {"wins": 3, "losses": 1, "draws": 0, "points": 9, "total_score": 2.5},
-            "agent-b": {"wins": 1, "losses": 3, "draws": 0, "points": 3, "total_score": 1.5},
-        })
+        """
+        )
+        standings_json = json.dumps(
+            {
+                "agent-a": {"wins": 3, "losses": 1, "draws": 0, "points": 9, "total_score": 2.5},
+                "agent-b": {"wins": 1, "losses": 3, "draws": 0, "points": 3, "total_score": 1.5},
+            }
+        )
         cursor.execute(
             "INSERT INTO tournaments (tournament_id, standings) VALUES (?, ?)",
-            ("tourn-001", standings_json)
+            ("tourn-001", standings_json),
         )
         conn.commit()
         conn.close()
@@ -989,17 +1015,25 @@ class TestTournamentManager:
         assert standings[0].points == 9
 
     def test_get_matches_no_db(self):
-        """Test get_matches when database doesn't exist."""
-        manager = TournamentManager("/nonexistent/path.db")
-        result = manager.get_matches()
-        assert result == []
+        """Test get_matches with a fresh empty database."""
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            temp_path = f.name
+        try:
+            os.unlink(temp_path)  # Delete so it starts fresh
+            manager = TournamentManager(temp_path)
+            result = manager.get_matches()
+            assert result == []
+        finally:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
 
     def test_get_matches_with_data(self, temp_db):
         """Test get_matches with match data."""
         # Create database with matches
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE tournament_matches (
                 match_id TEXT PRIMARY KEY,
                 round_num INTEGER,
@@ -1010,17 +1044,23 @@ class TestTournamentManager:
                 started_at TEXT,
                 completed_at TEXT
             )
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
             INSERT INTO tournament_matches VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            "match-001", 0,
-            json.dumps(["agent-a", "agent-b"]),
-            "task-1",
-            json.dumps({"agent-a": 0.8, "agent-b": 0.4}),
-            "agent-a",
-            "2024-01-15", "2024-01-15"
-        ))
+        """,
+            (
+                "match-001",
+                0,
+                json.dumps(["agent-a", "agent-b"]),
+                "task-1",
+                json.dumps({"agent-a": 0.8, "agent-b": 0.4}),
+                "agent-a",
+                "2024-01-15",
+                "2024-01-15",
+            ),
+        )
         conn.commit()
         conn.close()
 
@@ -1036,7 +1076,8 @@ class TestTournamentManager:
         # Create database with multiple matches
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE tournament_matches (
                 match_id TEXT PRIMARY KEY,
                 round_num INTEGER,
@@ -1047,15 +1088,24 @@ class TestTournamentManager:
                 started_at TEXT,
                 completed_at TEXT
             )
-        """)
+        """
+        )
         for i in range(5):
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO tournament_matches VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                f"match-{i:03d}", i,
-                json.dumps(["agent-a", "agent-b"]),
-                "task-1", "{}", None, None, None
-            ))
+            """,
+                (
+                    f"match-{i:03d}",
+                    i,
+                    json.dumps(["agent-a", "agent-b"]),
+                    "task-1",
+                    "{}",
+                    None,
+                    None,
+                    None,
+                ),
+            )
         conn.commit()
         conn.close()
 
@@ -1065,23 +1115,32 @@ class TestTournamentManager:
         assert len(matches) == 3
 
     def test_get_match_summary_no_db(self):
-        """Test get_match_summary when database doesn't exist."""
-        manager = TournamentManager("/nonexistent/path.db")
-        result = manager.get_match_summary()
-        assert result == {"total_matches": 0, "decided_matches": 0, "max_round": 0}
+        """Test get_match_summary with a fresh empty database."""
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            temp_path = f.name
+        try:
+            os.unlink(temp_path)  # Delete so it starts fresh
+            manager = TournamentManager(temp_path)
+            result = manager.get_match_summary()
+            assert result == {"total_matches": 0, "decided_matches": 0, "max_round": 0}
+        finally:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
 
     def test_get_match_summary_with_data(self, temp_db):
         """Test get_match_summary with match data."""
         # Create database with matches
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE tournament_matches (
                 match_id TEXT PRIMARY KEY,
                 round_num INTEGER,
                 winner TEXT
             )
-        """)
+        """
+        )
         cursor.execute("INSERT INTO tournament_matches VALUES (?, ?, ?)", ("m1", 0, "agent-a"))
         cursor.execute("INSERT INTO tournament_matches VALUES (?, ?, ?)", ("m2", 0, None))
         cursor.execute("INSERT INTO tournament_matches VALUES (?, ?, ?)", ("m3", 1, "agent-b"))
@@ -1105,7 +1164,9 @@ class TestTournamentIntegration:
     """Integration tests for the tournament system."""
 
     @pytest.mark.asyncio
-    async def test_full_round_robin_tournament(self, temp_db, mock_agents, sample_tasks, mock_debate_result):
+    async def test_full_round_robin_tournament(
+        self, temp_db, mock_agents, sample_tasks, mock_debate_result
+    ):
         """Test full round-robin tournament workflow."""
         tournament = Tournament(
             name="Integration Test",
@@ -1126,7 +1187,9 @@ class TestTournamentIntegration:
         assert len(result.standings) == 4
 
     @pytest.mark.asyncio
-    async def test_full_free_for_all_tournament(self, temp_db, mock_agents, sample_tasks, mock_debate_result):
+    async def test_full_free_for_all_tournament(
+        self, temp_db, mock_agents, sample_tasks, mock_debate_result
+    ):
         """Test full free-for-all tournament workflow."""
         tournament = Tournament(
             name="FFA Test",
@@ -1144,7 +1207,9 @@ class TestTournamentIntegration:
         assert result.format == TournamentFormat.FREE_FOR_ALL
         assert len(result.matches) == len(sample_tasks)
 
-    def test_manager_reads_tournament_data(self, temp_db, mock_agents, sample_tasks, mock_debate_result):
+    def test_manager_reads_tournament_data(
+        self, temp_db, mock_agents, sample_tasks, mock_debate_result
+    ):
         """Test TournamentManager can read tournament data after run."""
         # Create and save tournament data
         tournament = Tournament(

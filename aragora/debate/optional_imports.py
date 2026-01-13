@@ -58,40 +58,32 @@ class OptionalImports:
     def get_position_tracker(cls) -> Optional[Type["PositionTracker"]]:
         """Get PositionTracker class for truth-grounded personas."""
         return cls._get_cached(
-            "position_tracker",
-            "aragora.agents.truth_grounding",
-            "PositionTracker"
+            "position_tracker", "aragora.agents.truth_grounding", "PositionTracker"
         )
 
     @classmethod
     def get_calibration_tracker(cls) -> Optional[Type["CalibrationTracker"]]:
         """Get CalibrationTracker class for prediction accuracy."""
         return cls._get_cached(
-            "calibration_tracker",
-            "aragora.agents.calibration",
-            "CalibrationTracker"
+            "calibration_tracker", "aragora.agents.calibration", "CalibrationTracker"
         )
 
     @classmethod
     def get_belief_network(cls) -> Optional[Type["BeliefNetwork"]]:
         """Get BeliefNetwork class for belief propagation."""
-        return cls._get_cached(
-            "belief_network",
-            "aragora.reasoning.belief",
-            "BeliefNetwork"
-        )
+        return cls._get_cached("belief_network", "aragora.reasoning.belief", "BeliefNetwork")
 
     @classmethod
     def get_belief_propagation_analyzer(cls) -> Optional[Type["BeliefPropagationAnalyzer"]]:
         """Get BeliefPropagationAnalyzer class."""
         return cls._get_cached(
-            "belief_propagation_analyzer",
-            "aragora.reasoning.belief",
-            "BeliefPropagationAnalyzer"
+            "belief_propagation_analyzer", "aragora.reasoning.belief", "BeliefPropagationAnalyzer"
         )
 
     @classmethod
-    def get_belief_analyzer(cls) -> tuple[Optional[Type["BeliefNetwork"]], Optional[Type["BeliefPropagationAnalyzer"]]]:
+    def get_belief_analyzer(
+        cls,
+    ) -> tuple[Optional[Type["BeliefNetwork"]], Optional[Type["BeliefPropagationAnalyzer"]]]:
         """Get both belief analysis classes as a tuple.
 
         Returns:
@@ -103,45 +95,29 @@ class OptionalImports:
     def get_citation_extractor(cls) -> Optional[Type["CitationExtractor"]]:
         """Get CitationExtractor class for evidence citations."""
         return cls._get_cached(
-            "citation_extractor",
-            "aragora.reasoning.citations",
-            "CitationExtractor"
+            "citation_extractor", "aragora.reasoning.citations", "CitationExtractor"
         )
 
     @classmethod
     def get_insight_extractor(cls) -> Optional[Type["InsightExtractor"]]:
         """Get InsightExtractor class for debate learnings."""
-        return cls._get_cached(
-            "insight_extractor",
-            "aragora.insights",
-            "InsightExtractor"
-        )
+        return cls._get_cached("insight_extractor", "aragora.insights", "InsightExtractor")
 
     @classmethod
     def get_insight_store(cls) -> Optional[Type["InsightStore"]]:
         """Get InsightStore class for storing insights."""
-        return cls._get_cached(
-            "insight_store",
-            "aragora.insights",
-            "InsightStore"
-        )
+        return cls._get_cached("insight_store", "aragora.insights", "InsightStore")
 
     @classmethod
     def get_critique_store(cls) -> Optional[Type["CritiqueStore"]]:
         """Get CritiqueStore class for critique patterns."""
-        return cls._get_cached(
-            "critique_store",
-            "aragora.memory.store",
-            "CritiqueStore"
-        )
+        return cls._get_cached("critique_store", "aragora.memory.store", "CritiqueStore")
 
     @classmethod
     def get_argument_cartographer(cls) -> Optional[Type["ArgumentCartographer"]]:
         """Get ArgumentCartographer class for graph visualization."""
         return cls._get_cached(
-            "argument_cartographer",
-            "aragora.visualization.mapper",
-            "ArgumentCartographer"
+            "argument_cartographer", "aragora.visualization.mapper", "ArgumentCartographer"
         )
 
     @classmethod

@@ -100,6 +100,7 @@ class TestMigrationDataclass:
 
     def test_migration_with_function(self):
         """Test creating migration with Python function."""
+
         def up_fn(backend):
             backend.execute_write("CREATE TABLE test (id INTEGER)")
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 
 interface OperationalMode {
   name: string;
@@ -14,7 +15,7 @@ interface OperationalModesPanelProps {
   onModeSelect?: (mode: OperationalMode) => void;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 const CATEGORY_COLORS: Record<string, string> = {
   operational: 'text-blue-400 bg-blue-400/10 border-blue-400/30',

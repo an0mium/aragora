@@ -118,13 +118,15 @@ class AgentsHandler(BaseHandler):
 
         # List all agents
         if path == "/api/agents":
-            include_stats = get_string_param(query_params, 'include_stats', 'false').lower() == 'true'
+            include_stats = (
+                get_string_param(query_params, "include_stats", "false").lower() == "true"
+            )
             return self._list_agents(include_stats)
 
         # Leaderboard endpoints
         if path in ("/api/leaderboard", "/api/rankings"):
-            limit = get_int_param(query_params, 'limit', 20)
-            domain = get_string_param(query_params, 'domain')
+            limit = get_int_param(query_params, "limit", 20)
+            domain = get_string_param(query_params, "domain")
             if domain:
                 is_valid, err = validate_path_segment(domain, "domain", SAFE_ID_PATTERN)
                 if not is_valid:
@@ -134,8 +136,8 @@ class AgentsHandler(BaseHandler):
         # Note: /api/calibration/leaderboard now handled by CalibrationHandler
 
         if path == "/api/matches/recent":
-            limit = get_int_param(query_params, 'limit', 10)
-            loop_id = get_string_param(query_params, 'loop_id')
+            limit = get_int_param(query_params, "limit", 10)
+            loop_id = get_string_param(query_params, "loop_id")
             if loop_id:
                 is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
                 if not is_valid:
@@ -144,7 +146,7 @@ class AgentsHandler(BaseHandler):
 
         # Agent comparison
         if path == "/api/agent/compare":
-            agents = query_params.get('agents', [])
+            agents = query_params.get("agents", [])
             if isinstance(agents, str):
                 agents = [agents]
             return self._compare_agents(agents)
@@ -155,7 +157,7 @@ class AgentsHandler(BaseHandler):
 
         # Flip endpoints (not per-agent)
         if path == "/api/flips/recent":
-            limit = get_int_param(query_params, 'limit', 20)
+            limit = get_int_param(query_params, "limit", 20)
             return self._get_recent_flips(limit)
 
         if path == "/api/flips/summary":
@@ -195,19 +197,21 @@ class AgentsHandler(BaseHandler):
 
         return None
 
-    def _dispatch_agent_endpoint(self, agent: str, endpoint: str, params: dict) -> Optional[HandlerResult]:
+    def _dispatch_agent_endpoint(
+        self, agent: str, endpoint: str, params: dict
+    ) -> Optional[HandlerResult]:
         """Dispatch to specific agent endpoint handler."""
         handlers = {
             "profile": lambda: self._get_profile(agent),
-            "history": lambda: self._get_history(agent, get_int_param(params, 'limit', 30)),
-            "calibration": lambda: self._get_calibration(agent, params.get('domain')),
+            "history": lambda: self._get_history(agent, get_int_param(params, "limit", 30)),
+            "calibration": lambda: self._get_calibration(agent, params.get("domain")),
             "consistency": lambda: self._get_consistency(agent),
-            "flips": lambda: self._get_agent_flips(agent, get_int_param(params, 'limit', 20)),
+            "flips": lambda: self._get_agent_flips(agent, get_int_param(params, "limit", 20)),
             "network": lambda: self._get_network(agent),
-            "rivals": lambda: self._get_rivals(agent, get_int_param(params, 'limit', 5)),
-            "allies": lambda: self._get_allies(agent, get_int_param(params, 'limit', 5)),
-            "moments": lambda: self._get_moments(agent, get_int_param(params, 'limit', 10)),
-            "positions": lambda: self._get_positions(agent, get_int_param(params, 'limit', 20)),
+            "rivals": lambda: self._get_rivals(agent, get_int_param(params, "limit", 5)),
+            "allies": lambda: self._get_allies(agent, get_int_param(params, "limit", 5)),
+            "moments": lambda: self._get_moments(agent, get_int_param(params, "limit", 10)),
+            "positions": lambda: self._get_positions(agent, get_int_param(params, "limit", 20)),
             "domains": lambda: self._get_domains(agent),
             "performance": lambda: self._get_performance(agent),
         }
@@ -241,13 +245,15 @@ class AgentsHandler(BaseHandler):
                     agent_dict = agent_to_dict(agent)
                     name = agent_dict.get("name", "")
                     if include_stats:
-                        agents.append({
-                            "name": name,
-                            "elo": agent_dict.get("elo", 1500),
-                            "matches": agent_dict.get("matches", 0),
-                            "wins": agent_dict.get("wins", 0),
-                            "losses": agent_dict.get("losses", 0),
-                        })
+                        agents.append(
+                            {
+                                "name": name,
+                                "elo": agent_dict.get("elo", 1500),
+                                "matches": agent_dict.get("matches", 0),
+                                "wins": agent_dict.get("wins", 0),
+                                "losses": agent_dict.get("losses", 0),
+                            }
+                        )
                     else:
                         agents.append({"name": name})
             except Exception as e:
@@ -256,12 +262,15 @@ class AgentsHandler(BaseHandler):
         # Fallback to known agent types if no ELO data
         if not agents:
             from aragora.agents.cli_agents import AGENT_TYPES  # type: ignore[attr-defined]
+
             agents = [{"name": name} for name in AGENT_TYPES.keys()]
 
-        return json_response({
-            "agents": agents,
-            "total": len(agents),
-        })
+        return json_response(
+            {
+                "agents": agents,
+                "total": len(agents),
+            }
+        )
 
     @rate_limit(rpm=10, limiter_name="local_agents")
     @handle_errors("list local agents")
@@ -273,21 +282,26 @@ class AgentsHandler(BaseHandler):
         """
         try:
             from aragora.agents.registry import AgentRegistry
+
             local_agents = AgentRegistry.detect_local_agents()
 
-            return json_response({
-                "servers": local_agents,
-                "total": len(local_agents),
-                "available_count": sum(1 for a in local_agents if a.get("available", False)),
-            })
+            return json_response(
+                {
+                    "servers": local_agents,
+                    "total": len(local_agents),
+                    "available_count": sum(1 for a in local_agents if a.get("available", False)),
+                }
+            )
         except Exception as e:
             logger.warning(f"Could not detect local LLMs: {e}")
-            return json_response({
-                "servers": [],
-                "total": 0,
-                "available_count": 0,
-                "error": str(e),
-            })
+            return json_response(
+                {
+                    "servers": [],
+                    "total": 0,
+                    "available_count": 0,
+                    "error": str(e),
+                }
+            )
 
     @rate_limit(rpm=10, limiter_name="local_status")
     @handle_errors("get local status")
@@ -299,28 +313,33 @@ class AgentsHandler(BaseHandler):
         """
         try:
             from aragora.agents.registry import AgentRegistry
+
             status = AgentRegistry.get_local_status()
 
-            return json_response({
-                "available": status.get("any_available", False),
-                "total_models": status.get("total_models", 0),
-                "recommended": {
-                    "server": status.get("recommended_server"),
-                    "model": status.get("recommended_model"),
-                },
-                "available_agents": status.get("available_agents", []),
-                "servers": status.get("servers", []),
-            })
+            return json_response(
+                {
+                    "available": status.get("any_available", False),
+                    "total_models": status.get("total_models", 0),
+                    "recommended": {
+                        "server": status.get("recommended_server"),
+                        "model": status.get("recommended_model"),
+                    },
+                    "available_agents": status.get("available_agents", []),
+                    "servers": status.get("servers", []),
+                }
+            )
         except Exception as e:
             logger.warning(f"Could not get local LLM status: {e}")
-            return json_response({
-                "available": False,
-                "total_models": 0,
-                "recommended": {"server": None, "model": None},
-                "available_agents": [],
-                "servers": [],
-                "error": str(e),
-            })
+            return json_response(
+                {
+                    "available": False,
+                    "total_models": 0,
+                    "recommended": {"server": None, "model": None},
+                    "available_agents": [],
+                    "servers": [],
+                    "error": str(e),
+                }
+            )
 
     @rate_limit(rpm=30, limiter_name="leaderboard")
     def _get_leaderboard(self, limit: int, domain: Optional[str]) -> HandlerResult:
@@ -340,6 +359,7 @@ class AgentsHandler(BaseHandler):
             consistency_map = {}
             try:
                 from aragora.insights.flip_detector import FlipDetector
+
                 nomic_dir = self.get_nomic_dir()
                 if nomic_dir:
                     detector = FlipDetector(str(get_db_path(DatabaseType.POSITIONS, nomic_dir)))
@@ -359,17 +379,25 @@ class AgentsHandler(BaseHandler):
                                 consistency = 1.0 - (score.total_flips / total_positions)
                                 consistency_map[agent_name] = {
                                     "consistency": round(consistency, 3),
-                                    "consistency_class": "high" if consistency >= 0.8 else "medium" if consistency >= 0.6 else "low"
+                                    "consistency_class": (
+                                        "high"
+                                        if consistency >= 0.8
+                                        else "medium" if consistency >= 0.6 else "low"
+                                    ),
                                 }
                         except Exception as e:
                             # Fallback: set default consistency for all agents
-                            logger.warning("Consistency detection failed, using fallback: %s: %s", type(e).__name__, e)
+                            logger.warning(
+                                "Consistency detection failed, using fallback: %s: %s",
+                                type(e).__name__,
+                                e,
+                            )
                             for name in agent_names:
                                 consistency_map[name] = {
                                     "consistency": 1.0,
                                     "consistency_class": "high",
                                     "degraded": True,
-                                    "degraded_reason": "Consistency detection unavailable"
+                                    "degraded_reason": "Consistency detection unavailable",
                                 }
             except ImportError:
                 # FlipDetector not available - set degraded flag so clients know
@@ -381,7 +409,7 @@ class AgentsHandler(BaseHandler):
                             "consistency": None,
                             "consistency_class": "unknown",
                             "degraded": True,
-                            "degraded_reason": "FlipDetector module not available"
+                            "degraded_reason": "FlipDetector module not available",
                         }
 
             # Enhance rankings with consistency data
@@ -423,7 +451,7 @@ class AgentsHandler(BaseHandler):
 
         try:
             # Use cached matches from JSON snapshot (avoids SQLite locking)
-            if hasattr(elo, 'get_cached_recent_matches'):
+            if hasattr(elo, "get_cached_recent_matches"):
                 matches = elo.get_cached_recent_matches(limit=min(limit, 50))
             else:
                 matches = elo.get_recent_matches(limit=min(limit, 50))
@@ -448,12 +476,14 @@ class AgentsHandler(BaseHandler):
             profiles = []
             for agent in limited_agents:
                 rating = ratings_map.get(agent)
-                stats = elo.get_agent_stats(agent) if hasattr(elo, 'get_agent_stats') else {}
-                profiles.append({
-                    "name": agent,
-                    "rating": rating,
-                    **stats,
-                })
+                stats = elo.get_agent_stats(agent) if hasattr(elo, "get_agent_stats") else {}
+                profiles.append(
+                    {
+                        "name": agent,
+                        "rating": rating,
+                        **stats,
+                    }
+                )
 
             # Get head-to-head if exactly 2 agents
             head_to_head = None
@@ -462,12 +492,20 @@ class AgentsHandler(BaseHandler):
                     h2h = elo.get_head_to_head(agents[0], agents[1])
                     head_to_head = h2h
                 except Exception as e:
-                    logger.warning("Head-to-head lookup failed for %s vs %s: %s: %s", agents[0], agents[1], type(e).__name__, e)
+                    logger.warning(
+                        "Head-to-head lookup failed for %s vs %s: %s: %s",
+                        agents[0],
+                        agents[1],
+                        type(e).__name__,
+                        e,
+                    )
 
-            return json_response({
-                "agents": profiles,
-                "head_to_head": head_to_head,
-            })
+            return json_response(
+                {
+                    "agents": profiles,
+                    "head_to_head": head_to_head,
+                }
+            )
         except Exception as e:
             return error_response(safe_error_message(e, "comparison"), 500)
 
@@ -481,17 +519,19 @@ class AgentsHandler(BaseHandler):
 
         rating = elo.get_rating(agent)
         stats: dict[str, Any] = {}
-        if hasattr(elo, 'get_agent_stats'):
+        if hasattr(elo, "get_agent_stats"):
             stats = elo.get_agent_stats(agent) or {}
 
-        return json_response({
-            "name": agent,
-            "rating": rating,
-            "rank": stats.get("rank"),
-            "wins": stats.get("wins", 0),
-            "losses": stats.get("losses", 0),
-            "win_rate": stats.get("win_rate", 0.0),
-        })
+        return json_response(
+            {
+                "name": agent,
+                "rating": rating,
+                "rank": stats.get("rank"),
+                "wins": stats.get("wins", 0),
+                "losses": stats.get("losses", 0),
+                "win_rate": stats.get("win_rate", 0.0),
+            }
+        )
 
     @handle_errors("agent history")
     def _get_history(self, agent: str, limit: int) -> HandlerResult:
@@ -510,7 +550,7 @@ class AgentsHandler(BaseHandler):
         if not elo:
             return error_response("ELO system not available", 503)
 
-        if hasattr(elo, 'get_calibration'):
+        if hasattr(elo, "get_calibration"):
             calibration = elo.get_calibration(agent, domain=domain)
         else:
             calibration = {"agent": agent, "score": 0.5}
@@ -520,6 +560,7 @@ class AgentsHandler(BaseHandler):
     def _get_consistency(self, agent: str) -> HandlerResult:
         """Get agent consistency score."""
         from aragora.insights.flip_detector import FlipDetector
+
         nomic_dir = self.get_nomic_dir()
         if nomic_dir:
             detector = FlipDetector(str(get_db_path(DatabaseType.POSITIONS, nomic_dir)))
@@ -534,13 +575,15 @@ class AgentsHandler(BaseHandler):
         if not elo:
             return error_response("ELO system not available", 503)
 
-        rivals = elo.get_rivals(agent, limit=5) if hasattr(elo, 'get_rivals') else []
-        allies = elo.get_allies(agent, limit=5) if hasattr(elo, 'get_allies') else []
-        return json_response({
-            "agent": agent,
-            "rivals": rivals,
-            "allies": allies,
-        })
+        rivals = elo.get_rivals(agent, limit=5) if hasattr(elo, "get_rivals") else []
+        allies = elo.get_allies(agent, limit=5) if hasattr(elo, "get_allies") else []
+        return json_response(
+            {
+                "agent": agent,
+                "rivals": rivals,
+                "allies": allies,
+            }
+        )
 
     @handle_errors("agent rivals")
     def _get_rivals(self, agent: str, limit: int) -> HandlerResult:
@@ -549,7 +592,7 @@ class AgentsHandler(BaseHandler):
         if not elo:
             return error_response("ELO system not available", 503)
 
-        rivals = elo.get_rivals(agent, limit=limit) if hasattr(elo, 'get_rivals') else []
+        rivals = elo.get_rivals(agent, limit=limit) if hasattr(elo, "get_rivals") else []
         return json_response({"agent": agent, "rivals": rivals})
 
     @handle_errors("agent allies")
@@ -559,13 +602,14 @@ class AgentsHandler(BaseHandler):
         if not elo:
             return error_response("ELO system not available", 503)
 
-        allies = elo.get_allies(agent, limit=limit) if hasattr(elo, 'get_allies') else []
+        allies = elo.get_allies(agent, limit=limit) if hasattr(elo, "get_allies") else []
         return json_response({"agent": agent, "allies": allies})
 
     @handle_errors("agent moments")
     def _get_moments(self, agent: str, limit: int) -> HandlerResult:
         """Get agent's significant moments."""
         from aragora.agents.grounded import MomentDetector
+
         elo = self.get_elo_system()
         if elo:
             detector = MomentDetector(elo_system=elo)
@@ -578,7 +622,11 @@ class AgentsHandler(BaseHandler):
                     "agent_name": m.agent_name,
                     "description": m.description,
                     "significance_score": m.significance_score,
-                    "timestamp": getattr(m, 'timestamp', None).isoformat() if getattr(m, 'timestamp', None) else None,
+                    "timestamp": (
+                        getattr(m, "timestamp", None).isoformat()
+                        if getattr(m, "timestamp", None)
+                        else None
+                    ),
                     "debate_id": m.debate_id,
                 }
                 for m in moments
@@ -590,6 +638,7 @@ class AgentsHandler(BaseHandler):
     def _get_positions(self, agent: str, limit: int) -> HandlerResult:
         """Get agent's position history."""
         from aragora.agents.grounded import PositionLedger
+
         nomic_dir = self.get_nomic_dir()
         if nomic_dir:
             ledger = PositionLedger(str(get_db_path(DatabaseType.POSITIONS, nomic_dir)))
@@ -611,14 +660,10 @@ class AgentsHandler(BaseHandler):
         rating = elo.get_rating(agent)
 
         # Extract domain ELOs from rating
-        domain_elos = rating.domain_elos if hasattr(rating, 'domain_elos') else {}
+        domain_elos = rating.domain_elos if hasattr(rating, "domain_elos") else {}
 
         # Sort domains by ELO descending
-        sorted_domains = sorted(
-            domain_elos.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
+        sorted_domains = sorted(domain_elos.items(), key=lambda x: x[1], reverse=True)
 
         domains = [
             {
@@ -629,12 +674,14 @@ class AgentsHandler(BaseHandler):
             for domain, elo_score in sorted_domains
         ]
 
-        return json_response({
-            "agent": agent,
-            "overall_elo": rating.elo,
-            "domains": domains,
-            "domain_count": len(domains),
-        })
+        return json_response(
+            {
+                "agent": agent,
+                "overall_elo": rating.elo,
+                "domains": domains,
+                "domain_count": len(domains),
+            }
+        )
 
     @handle_errors("agent performance")
     def _get_performance(self, agent: str) -> HandlerResult:
@@ -653,38 +700,44 @@ class AgentsHandler(BaseHandler):
         win_rate = rating.wins / total_games if total_games > 0 else 0.0
 
         # Get recent match history for trend analysis
-        recent_matches = elo.get_agent_history(agent, limit=20) if hasattr(elo, 'get_agent_history') else []
+        recent_matches = (
+            elo.get_agent_history(agent, limit=20) if hasattr(elo, "get_agent_history") else []
+        )
 
         # Calculate recent win rate (last 10 matches)
-        recent_wins = sum(1 for m in recent_matches[:10] if m.get('result') == 'win')
+        recent_wins = sum(1 for m in recent_matches[:10] if m.get("result") == "win")
         recent_total = min(10, len(recent_matches))
         recent_win_rate = recent_wins / recent_total if recent_total > 0 else 0.0
 
         # Calculate ELO trend from history
-        elo_history = elo.get_elo_history(agent, limit=20) if hasattr(elo, 'get_elo_history') else []
+        elo_history = (
+            elo.get_elo_history(agent, limit=20) if hasattr(elo, "get_elo_history") else []
+        )
         elo_trend = 0.0
         if len(elo_history) >= 2:
             elo_trend = elo_history[0][1] - elo_history[-1][1]  # Most recent minus oldest
 
-        return json_response({
-            "agent": agent,
-            "elo": rating.elo,
-            "total_games": total_games,
-            "wins": rating.wins,
-            "losses": rating.losses,
-            "draws": rating.draws,
-            "win_rate": round(win_rate, 3),
-            "recent_win_rate": round(recent_win_rate, 3),
-            "elo_trend": round(elo_trend, 1),
-            "critiques_accepted": rating.critiques_accepted,
-            "critiques_total": rating.critiques_total,
-            "critique_acceptance_rate": round(rating.critique_acceptance_rate, 3),
-            "calibration": {
-                "accuracy": round(rating.calibration_accuracy, 3),
-                "brier_score": round(rating.calibration_brier_score, 3),
-                "prediction_count": rating.calibration_total,
-            },
-        })
+        return json_response(
+            {
+                "agent": agent,
+                "elo": rating.elo,
+                "total_games": total_games,
+                "wins": rating.wins,
+                "losses": rating.losses,
+                "draws": rating.draws,
+                "win_rate": round(win_rate, 3),
+                "recent_win_rate": round(recent_win_rate, 3),
+                "elo_trend": round(elo_trend, 1),
+                "critiques_accepted": rating.critiques_accepted,
+                "critiques_total": rating.critiques_total,
+                "critique_acceptance_rate": round(rating.critique_acceptance_rate, 3),
+                "calibration": {
+                    "accuracy": round(rating.calibration_accuracy, 3),
+                    "brier_score": round(rating.calibration_brier_score, 3),
+                    "prediction_count": rating.calibration_total,
+                },
+            }
+        )
 
     @ttl_cache(ttl_seconds=CACHE_TTL_AGENT_H2H, key_prefix="agent_h2h", skip_first=True)
     @handle_errors("head-to-head stats")
@@ -694,15 +747,17 @@ class AgentsHandler(BaseHandler):
         if not elo:
             return error_response("ELO system not available", 503)
 
-        if hasattr(elo, 'get_head_to_head'):
+        if hasattr(elo, "get_head_to_head"):
             stats = elo.get_head_to_head(agent, opponent)
         else:
             stats = {"matches": 0, "agent1_wins": 0, "agent2_wins": 0}
-        return json_response({
-            "agent1": agent,
-            "agent2": opponent,
-            **stats,
-        })
+        return json_response(
+            {
+                "agent1": agent,
+                "agent2": opponent,
+                **stats,
+            }
+        )
 
     @handle_errors("opponent briefing")
     def _get_opponent_briefing(self, agent: str, opponent: str) -> HandlerResult:
@@ -717,6 +772,7 @@ class AgentsHandler(BaseHandler):
         if nomic_dir:
             try:
                 from aragora.agents.grounded import PositionLedger
+
                 db_path = get_db_path(DatabaseType.POSITIONS, nomic_dir)
                 if db_path.exists():
                     position_ledger = PositionLedger(str(db_path))
@@ -727,6 +783,7 @@ class AgentsHandler(BaseHandler):
         calibration_tracker = None
         try:
             from aragora.ranking.calibration import CalibrationTracker
+
             calibration_tracker = CalibrationTracker()
         except ImportError:
             pass
@@ -739,18 +796,22 @@ class AgentsHandler(BaseHandler):
         briefing = synthesizer.get_opponent_briefing(agent, opponent)
 
         if briefing:
-            return json_response({
-                "agent": agent,
-                "opponent": opponent,
-                "briefing": briefing,
-            })
+            return json_response(
+                {
+                    "agent": agent,
+                    "opponent": opponent,
+                    "briefing": briefing,
+                }
+            )
         else:
-            return json_response({
-                "agent": agent,
-                "opponent": opponent,
-                "briefing": None,
-                "message": "No opponent data available"
-            })
+            return json_response(
+                {
+                    "agent": agent,
+                    "opponent": opponent,
+                    "briefing": None,
+                    "message": "No opponent data available",
+                }
+            )
 
     # ==================== Flip Detector Endpoints ====================
 
@@ -759,58 +820,76 @@ class AgentsHandler(BaseHandler):
     def _get_agent_flips(self, agent: str, limit: int) -> HandlerResult:
         """Get recent position flips for an agent."""
         from aragora.insights.flip_detector import FlipDetector
+
         nomic_dir = self.get_nomic_dir()
         if nomic_dir:
             detector = FlipDetector(str(get_db_path(DatabaseType.POSITIONS, nomic_dir)))
             flips = detector.detect_flips_for_agent(agent, lookback_positions=min(limit, 100))
             consistency = detector.get_agent_consistency(agent)
-            return json_response({
+            return json_response(
+                {
+                    "agent": agent,
+                    "flips": [f.to_dict() for f in flips],
+                    "consistency": consistency.to_dict(),
+                    "count": len(flips),
+                }
+            )
+        return json_response(
+            {
                 "agent": agent,
-                "flips": [f.to_dict() for f in flips],
-                "consistency": consistency.to_dict(),
-                "count": len(flips),
-            })
-        return json_response({
-            "agent": agent,
-            "flips": [],
-            "consistency": {"agent_name": agent, "total_positions": 0, "total_flips": 0, "consistency_score": 1.0},
-            "count": 0,
-        })
+                "flips": [],
+                "consistency": {
+                    "agent_name": agent,
+                    "total_positions": 0,
+                    "total_flips": 0,
+                    "consistency_score": 1.0,
+                },
+                "count": 0,
+            }
+        )
 
     @ttl_cache(ttl_seconds=CACHE_TTL_FLIPS_RECENT, key_prefix="flips_recent", skip_first=True)
     @handle_errors("recent flips")
     def _get_recent_flips(self, limit: int) -> HandlerResult:
         """Get recent flips across all agents."""
         from aragora.insights.flip_detector import FlipDetector
+
         nomic_dir = self.get_nomic_dir()
         if nomic_dir:
             detector = FlipDetector(str(get_db_path(DatabaseType.POSITIONS, nomic_dir)))
             flips = detector.get_recent_flips(limit=min(limit, 100))
             summary = detector.get_flip_summary()
-            return json_response({
-                "flips": [f.to_dict() for f in flips],
-                "summary": summary,
-                "count": len(flips),
-            })
-        return json_response({
-            "flips": [],
-            "summary": {"total_flips": 0, "by_type": {}, "by_agent": {}, "recent_24h": 0},
-            "count": 0,
-        })
+            return json_response(
+                {
+                    "flips": [f.to_dict() for f in flips],
+                    "summary": summary,
+                    "count": len(flips),
+                }
+            )
+        return json_response(
+            {
+                "flips": [],
+                "summary": {"total_flips": 0, "by_type": {}, "by_agent": {}, "recent_24h": 0},
+                "count": 0,
+            }
+        )
 
     @ttl_cache(ttl_seconds=CACHE_TTL_FLIPS_SUMMARY, key_prefix="flips_summary", skip_first=True)
     @handle_errors("flip summary")
     def _get_flip_summary(self) -> HandlerResult:
         """Get flip summary for dashboard."""
         from aragora.insights.flip_detector import FlipDetector
+
         nomic_dir = self.get_nomic_dir()
         if nomic_dir:
             detector = FlipDetector(str(get_db_path(DatabaseType.POSITIONS, nomic_dir)))
             summary = detector.get_flip_summary()
             return json_response(summary)
-        return json_response({
-            "total_flips": 0,
-            "by_type": {},
-            "by_agent": {},
-            "recent_24h": 0,
-        })
+        return json_response(
+            {
+                "total_flips": 0,
+                "by_type": {},
+                "by_agent": {},
+                "recent_24h": 0,
+            }
+        )

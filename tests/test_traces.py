@@ -1,4 +1,5 @@
 """Tests for the Debate Tracing and Replay module."""
+
 import pytest
 import tempfile
 import sqlite3
@@ -501,9 +502,7 @@ class TestInitDb:
         DebateTracer("d-001", "Test", ["a1"], db_path=str(temp_db))
         with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='traces'"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='traces'")
             assert cursor.fetchone() is not None
 
     def test_creates_trace_events_table(self, temp_db):

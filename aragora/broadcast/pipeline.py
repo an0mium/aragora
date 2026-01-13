@@ -306,13 +306,15 @@ class BroadcastPipeline:
         for agent in agents:
             lines.append(f"- {agent}")
 
-        lines.extend([
-            "",
-            "## Summary",
-            f"This debate featured {len(agents)} AI agents discussing: {trace.task}",
-            "",
-            f"Total rounds: {len([e for e in trace.events if e.event_type.value == 'round_start'])}",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Summary",
+                f"This debate featured {len(agents)} AI agents discussing: {trace.task}",
+                "",
+                f"Total rounds: {len([e for e in trace.events if e.event_type.value == 'round_start'])}",
+            ]
+        )
 
         return "\n".join(lines)
 

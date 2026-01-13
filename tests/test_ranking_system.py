@@ -571,9 +571,7 @@ class TestCaching:
 
         # Modify directly in DB (bypass cache)
         with elo_system._db.connection() as conn:
-            conn.execute(
-                "UPDATE ratings SET elo = 2000 WHERE agent_name = 'cache-test'"
-            )
+            conn.execute("UPDATE ratings SET elo = 2000 WHERE agent_name = 'cache-test'")
             conn.commit()
 
         # Clear cache
@@ -584,9 +582,7 @@ class TestCaching:
 
         # Find the updated agent
         if lb3:
-            updated_agent = next(
-                (a for a in lb3 if a.agent_name == "cache-test"), None
-            )
+            updated_agent = next((a for a in lb3 if a.agent_name == "cache-test"), None)
             if updated_agent:
                 assert updated_agent.elo == 2000
 

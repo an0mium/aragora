@@ -221,22 +221,17 @@ class CapabilityProber:
             )
         if high > 0:
             recommendations.append(
-                f"HIGH: {high} high-severity issues. "
-                "Agent may flip-flop without justification."
+                f"HIGH: {high} high-severity issues. " "Agent may flip-flop without justification."
             )
         if medium > 0:
             recommendations.append(
-                f"MEDIUM: {medium} medium issues. "
-                "Agent may lack persistence or calibration."
+                f"MEDIUM: {medium} medium issues. " "Agent may lack persistence or calibration."
             )
 
         # Calculate ELO penalty
         penalty = (
-            critical * 30 +
-            high * 15 +
-            medium * 5 +
-            low * 1
-        ) * self.elo_penalty_multiplier / 10
+            (critical * 30 + high * 15 + medium * 5 + low * 1) * self.elo_penalty_multiplier / 10
+        )
 
         return VulnerabilityReport(
             report_id=f"report-{uuid.uuid4().hex[:8]}",
@@ -299,8 +294,8 @@ class ProbeBeforePromote:
         report = await self.prober.probe_agent(agent, run_agent_fn)
 
         approved = (
-            report.vulnerability_rate <= self.max_vulnerability_rate and
-            report.critical_count <= self.max_critical
+            report.vulnerability_rate <= self.max_vulnerability_rate
+            and report.critical_count <= self.max_critical
         )
 
         if approved:

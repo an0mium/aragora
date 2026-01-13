@@ -139,8 +139,7 @@ class ServerLifecycleManager:
             return
 
         in_progress = [
-            d_id for d_id, d in active_debates.items()
-            if d.get("status") == "in_progress"
+            d_id for d_id, d in active_debates.items() if d.get("status") == "in_progress"
         ]
         if not in_progress:
             return
@@ -148,17 +147,19 @@ class ServerLifecycleManager:
         logger.info(f"Waiting for {len(in_progress)} in-flight debate(s)")
         wait_start = time.time()
 
+        sleep_interval = 0.2
         while time.time() - wait_start < timeout:
             active_debates = self._get_active_debates()
             still_running = sum(
-                1 for d_id in in_progress
-                if d_id in active_debates and
-                active_debates.get(d_id, {}).get("status") == "in_progress"
+                1
+                for d_id in in_progress
+                if d_id in active_debates
+                and active_debates.get(d_id, {}).get("status") == "in_progress"
             )
             if still_running == 0:
                 logger.info("All in-flight debates completed")
                 return
-            await asyncio.sleep(1)
+            await asyncio.sleep(sleep_interval)
 
         logger.warning(f"Shutdown timeout reached with debates still running")
 
@@ -166,6 +167,7 @@ class ServerLifecycleManager:
         """Persist circuit breaker states."""
         try:
             from aragora.resilience import persist_all_circuit_breakers
+
             count = persist_all_circuit_breakers()
             if count > 0:
                 logger.info(f"Persisted {count} circuit breaker state(s)")
@@ -176,6 +178,7 @@ class ServerLifecycleManager:
         """Stop background task manager."""
         try:
             from aragora.server.background import get_background_manager
+
             background_mgr = get_background_manager()
             background_mgr.stop()
             logger.info("Background tasks stopped")
@@ -185,6 +188,7 @@ class ServerLifecycleManager:
         # Stop pulse scheduler if running
         try:
             from aragora.server.handlers.pulse import get_pulse_scheduler
+
             scheduler = get_pulse_scheduler()
             if scheduler and scheduler.state.value != "stopped":
                 await scheduler.stop(graceful=True)
@@ -207,6 +211,7 @@ class ServerLifecycleManager:
         """Close shared HTTP connector."""
         try:
             from aragora.agents.api_agents.common import close_shared_connector
+
             await close_shared_connector()
             logger.info("Shared HTTP connector closed")
         except (ImportError, OSError, RuntimeError) as e:
@@ -216,6 +221,7 @@ class ServerLifecycleManager:
         """Close database connections."""
         try:
             from aragora.storage.schema import DatabaseManager
+
             DatabaseManager.clear_instances()
             logger.info("Database connections closed")
         except (ImportError, sqlite3.Error) as e:

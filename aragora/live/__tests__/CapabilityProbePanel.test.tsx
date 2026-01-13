@@ -69,6 +69,22 @@ function setupSuccessfulFetch() {
   });
 }
 
+const waitForAgentSelection = async () => {
+  await waitFor(() => {
+    expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
+  });
+};
+const expandPanel = async () => {
+  fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+  await waitForAgentSelection();
+};
+const expandPanelWithoutSelection = async () => {
+  fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+  await waitFor(() => {
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+  });
+};
+
 describe('CapabilityProbePanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -76,7 +92,7 @@ describe('CapabilityProbePanel', () => {
 
   describe('Initial State', () => {
     it('shows collapsed view by default', async () => {
-      setupSuccessfulFetch();
+      mockFetch.mockImplementation(() => new Promise(() => {}));
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
       expect(screen.getByText(/CAPABILITY_PROBES/)).toBeInTheDocument();
@@ -91,6 +107,8 @@ describe('CapabilityProbePanel', () => {
         const calls = mockFetch.mock.calls.map((call: string[]) => call[0]);
         expect(calls.some((url: string) => url.includes('/api/leaderboard'))).toBe(true);
       });
+
+      await expandPanel();
     });
   });
 
@@ -99,7 +117,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByText('[COLLAPSE]')).toBeInTheDocument();
@@ -111,7 +129,7 @@ describe('CapabilityProbePanel', () => {
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
       // Expand first
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
       await waitFor(() => {
         expect(screen.getByText('[COLLAPSE]')).toBeInTheDocument();
       });
@@ -128,7 +146,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByText('Target Agent')).toBeInTheDocument();
@@ -139,7 +157,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         const select = screen.getByRole('combobox');
@@ -147,21 +165,15 @@ describe('CapabilityProbePanel', () => {
       });
 
       // First agent should be auto-selected
-      await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
-      });
     });
 
     it('allows selecting different agents', async () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       // Wait for agents to load and first one to be selected
-      await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
-      });
 
       fireEvent.change(screen.getByRole('combobox'), { target: { value: 'gpt-4' } });
 
@@ -176,7 +188,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByText('Contradiction')).toBeInTheDocument();
@@ -193,7 +205,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         // Check that the buttons have the selected class
@@ -208,7 +220,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByText('Sycophancy')).toBeInTheDocument();
@@ -226,7 +238,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByText('Contradiction')).toBeInTheDocument();
@@ -246,7 +258,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByText(/Probes per Type/)).toBeInTheDocument();
@@ -257,7 +269,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         const input = screen.getByRole('spinbutton');
@@ -269,7 +281,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByRole('spinbutton')).toBeInTheDocument();
@@ -286,7 +298,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByText('Run Capability Probes')).toBeInTheDocument();
@@ -297,7 +309,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
@@ -335,7 +347,7 @@ describe('CapabilityProbePanel', () => {
 
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
@@ -361,7 +373,7 @@ describe('CapabilityProbePanel', () => {
 
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanelWithoutSelection();
 
       await waitFor(() => {
         expect(screen.getByText('Run Capability Probes')).toBeDisabled();
@@ -374,7 +386,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
@@ -394,7 +406,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
@@ -412,7 +424,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
@@ -430,7 +442,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
@@ -447,7 +459,7 @@ describe('CapabilityProbePanel', () => {
       setupSuccessfulFetch();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
@@ -488,7 +500,7 @@ describe('CapabilityProbePanel', () => {
 
       render(<CapabilityProbePanel apiBase="http://localhost:8080" />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
@@ -508,7 +520,7 @@ describe('CapabilityProbePanel', () => {
       const onComplete = jest.fn();
       render(<CapabilityProbePanel apiBase="http://localhost:8080" onComplete={onComplete} />);
 
-      fireEvent.click(screen.getByText(/CAPABILITY_PROBES/));
+      await expandPanel();
 
       await waitFor(() => {
         expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');

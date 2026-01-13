@@ -13,14 +13,11 @@ import hashlib
 import json
 import logging
 import sqlite3
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Generator, Optional
-
-from aragora.config import DB_TIMEOUT_SECONDS
+from typing import Optional
 from aragora.genesis.database import GenesisDatabase
 
 logger = logging.getLogger(__name__)
@@ -42,8 +39,8 @@ class GenesisEventType(Enum):
     # Debate events
     DEBATE_START = "debate_start"
     DEBATE_END = "debate_end"
-    DEBATE_SPAWN = "debate_spawn"      # Sub-debate created
-    DEBATE_MERGE = "debate_merge"      # Sub-debate resolved
+    DEBATE_SPAWN = "debate_spawn"  # Sub-debate created
+    DEBATE_MERGE = "debate_merge"  # Sub-debate resolved
 
     # Consensus events
     CONSENSUS_REACHED = "consensus_reached"
@@ -52,11 +49,11 @@ class GenesisEventType(Enum):
     TENSION_UNRESOLVED = "tension_unresolved"
 
     # Agent evolution events
-    AGENT_BIRTH = "agent_birth"        # New genome created
-    AGENT_DEATH = "agent_death"        # Genome culled from population
+    AGENT_BIRTH = "agent_birth"  # New genome created
+    AGENT_DEATH = "agent_death"  # Genome culled from population
     AGENT_MUTATION = "agent_mutation"  # Genome mutated
     AGENT_CROSSOVER = "agent_crossover"  # Two genomes bred
-    FITNESS_UPDATE = "fitness_update"   # Fitness score changed
+    FITNESS_UPDATE = "fitness_update"  # Fitness score changed
 
     # Population events
     POPULATION_CREATED = "population_created"
@@ -81,13 +78,16 @@ class GenesisEvent:
 
     def _compute_hash(self) -> str:
         """Compute content hash from event data."""
-        content = json.dumps({
-            "event_id": self.event_id,
-            "event_type": self.event_type.value,
-            "timestamp": self.timestamp.isoformat(),
-            "parent_event_id": self.parent_event_id,
-            "data": self.data,
-        }, sort_keys=True)
+        content = json.dumps(
+            {
+                "event_id": self.event_id,
+                "event_type": self.event_type.value,
+                "timestamp": self.timestamp.isoformat(),
+                "parent_event_id": self.parent_event_id,
+                "data": self.data,
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(content.encode()).hexdigest()
 
     def to_dict(self) -> dict:
@@ -151,11 +151,9 @@ class FractalTree:
                 "tension": node.get("tension"),
                 "success": node.get("success"),
                 "depth": node.get("depth", 0),
-                "children": [
-                    build_subtree(child_id)
-                    for child_id in node.get("children", [])
-                ],
+                "children": [build_subtree(child_id) for child_id in node.get("children", [])],
             }
+
         return build_subtree(self.root_id)
 
 
@@ -168,69 +166,37 @@ class GenesisLedger:
 
     def __init__(self, db_path: str = ".nomic/genesis.db"):
         self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.db = GenesisDatabase(db_path)
         self.provenance = ProvenanceChain(chain_id="genesis-ledger")
         self._events: list[GenesisEvent] = []
-        self._init_db()
-
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection with guaranteed cleanup."""
-        with self.db.connection() as conn:
-            yield conn
-
-    def _init_db(self) -> None:
-        """Initialize database tables."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS genesis_events (
-                    event_id TEXT PRIMARY KEY,
-                    event_type TEXT NOT NULL,
-                    timestamp TEXT NOT NULL,
-                    parent_event_id TEXT,
-                    content_hash TEXT NOT NULL,
-                    data TEXT,
-                    FOREIGN KEY (parent_event_id) REFERENCES genesis_events(event_id)
-                )
-            """)
-
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_events_type
-                ON genesis_events(event_type)
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_events_timestamp
-                ON genesis_events(timestamp)
-            """)
-
-            conn.commit()
 
     def _generate_event_id(self) -> str:
         """Generate a unique event ID."""
         import uuid
+
         return str(uuid.uuid4())[:12]
 
     def _record_event(self, event: GenesisEvent) -> None:
         """Record an event to database and memory."""
         self._events.append(event)
 
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO genesis_events (event_id, event_type, timestamp, parent_event_id, content_hash, data)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                event.event_id,
-                event.event_type.value,
-                event.timestamp.isoformat(),
-                event.parent_event_id,
-                event.content_hash,
-                json.dumps(event.data),
-            ))
+            """,
+                (
+                    event.event_id,
+                    event.event_type.value,
+                    event.timestamp.isoformat(),
+                    event.parent_event_id,
+                    event.content_hash,
+                    json.dumps(event.data),
+                ),
+            )
 
             conn.commit()
 
@@ -432,6 +398,7 @@ class GenesisLedger:
     def get_lineage(self, genome_id: str) -> list[dict]:
         """Get the full lineage (ancestry) of a genome."""
         from aragora.genesis.genome import GenomeStore
+
         store = GenomeStore(str(self.db_path))
 
         lineage = []
@@ -439,13 +406,15 @@ class GenesisLedger:
 
         visited = set()
         while current and current.genome_id not in visited:
-            lineage.append({
-                "genome_id": current.genome_id,
-                "name": current.name,
-                "generation": current.generation,
-                "fitness_score": current.fitness_score,
-                "parent_genomes": current.parent_genomes,
-            })
+            lineage.append(
+                {
+                    "genome_id": current.genome_id,
+                    "name": current.name,
+                    "generation": current.generation,
+                    "fitness_score": current.fitness_score,
+                    "parent_genomes": current.parent_genomes,
+                }
+            )
             visited.add(current.genome_id)
 
             if current.parent_genomes:
@@ -459,15 +428,17 @@ class GenesisLedger:
         """Get the fractal tree structure for a debate."""
         tree = FractalTree(root_id=root_debate_id)
 
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             # Get all spawn events
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT data FROM genesis_events
                 WHERE event_type IN ('debate_spawn', 'debate_merge', 'debate_start')
                 ORDER BY timestamp
-            """)
+            """
+            )
 
             for (data_json,) in cursor.fetchall():
                 try:
@@ -497,15 +468,18 @@ class GenesisLedger:
 
     def get_events_by_type(self, event_type: GenesisEventType) -> list[GenesisEvent]:
         """Get all events of a specific type."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT event_id, event_type, timestamp, parent_event_id, content_hash, data
                 FROM genesis_events
                 WHERE event_type = ?
                 ORDER BY timestamp
-            """, (event_type.value,))
+            """,
+                (event_type.value,),
+            )
 
             events = []
             for row in cursor.fetchall():
@@ -514,14 +488,16 @@ class GenesisLedger:
                 except json.JSONDecodeError as e:
                     logger.warning(f"Skipping event with corrupted data: {e}")
                     continue
-                events.append(GenesisEvent(
-                    event_id=row[0],
-                    event_type=GenesisEventType(row[1]),
-                    timestamp=datetime.fromisoformat(row[2]),
-                    parent_event_id=row[3],
-                    content_hash=row[4],
-                    data=data,
-                ))
+                events.append(
+                    GenesisEvent(
+                        event_id=row[0],
+                        event_type=GenesisEventType(row[1]),
+                        timestamp=datetime.fromisoformat(row[2]),
+                        parent_event_id=row[3],
+                        content_hash=row[4],
+                        data=data,
+                    )
+                )
 
         return events
 
@@ -530,15 +506,18 @@ class GenesisLedger:
         if not debate_id:
             return None
 
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT event_id FROM genesis_events
                 WHERE data LIKE ?
                 ORDER BY timestamp DESC
                 LIMIT 1
-            """, (f'%"debate_id": "{debate_id}"%',))
+            """,
+                (f'%"debate_id": "{debate_id}"%',),
+            )
 
             row = cursor.fetchone()
 
@@ -580,7 +559,7 @@ class GenesisLedger:
 
     def _export_json(self, include_lineage: bool) -> str:
         """Export as JSON."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute("SELECT * FROM genesis_events ORDER BY timestamp")
@@ -617,7 +596,7 @@ class GenesisLedger:
             "",
         ]
 
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute("SELECT * FROM genesis_events ORDER BY timestamp")

@@ -36,10 +36,18 @@ from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 from .base import (
-    BaseHandler, HandlerResult, json_response, error_response,
-    get_int_param, get_string_param, get_clamped_int_param,
-    validate_path_segment, SAFE_ID_PATTERN,
-    ttl_cache, safe_error_message, handle_errors,
+    BaseHandler,
+    HandlerResult,
+    json_response,
+    error_response,
+    get_int_param,
+    get_string_param,
+    get_clamped_int_param,
+    validate_path_segment,
+    SAFE_ID_PATTERN,
+    ttl_cache,
+    safe_error_message,
+    handle_errors,
 )
 from .utils.rate_limit import rate_limit
 from aragora.billing.jwt_auth import extract_user_from_request
@@ -49,6 +57,9 @@ from aragora.exceptions import StorageError, DatabaseError
 CACHE_TTL_NOMIC_STATE = 10  # Short TTL for state (changes frequently)
 CACHE_TTL_HISTORY = 60  # History queries
 CACHE_TTL_OPENAPI = 3600  # OpenAPI spec (rarely changes)
+
+# Server start time for uptime tracking
+_SERVER_START_TIME = time.time()
 
 
 class SystemHandler(BaseHandler):
@@ -116,9 +127,9 @@ class SystemHandler(BaseHandler):
             return None
 
         # Try JWT/API key auth first
-        user_store = getattr(self.__class__, 'user_store', None)
+        user_store = getattr(self.__class__, "user_store", None)
         if user_store is None:
-            user_store = self.ctx.get('user_store')
+            user_store = self.ctx.get("user_store")
 
         user_ctx = extract_user_from_request(handler, user_store)
         if user_ctx.is_authenticated:
@@ -126,8 +137,10 @@ class SystemHandler(BaseHandler):
 
         # Fall back to legacy API token
         if auth_config.api_token:
-            auth_header = handler.headers.get('Authorization', '') if hasattr(handler, 'headers') else ''
-            token = auth_header[7:] if auth_header.startswith('Bearer ') else None
+            auth_header = (
+                handler.headers.get("Authorization", "") if hasattr(handler, "headers") else ""
+            )
+            token = auth_header[7:] if auth_header.startswith("Bearer ") else None
             if token and auth_config.validate_token(token):
                 return None
 
@@ -137,12 +150,10 @@ class SystemHandler(BaseHandler):
         """Route system requests to appropriate methods."""
         # Debug endpoint for testing
         if path == "/api/debug/test":
-            method = getattr(handler, 'command', 'GET')
-            return json_response({
-                "status": "ok",
-                "method": method,
-                "message": "Modular handler works"
-            })
+            method = getattr(handler, "command", "GET")
+            return json_response(
+                {"status": "ok", "method": method, "message": "Modular handler works"}
+            )
 
         # Kubernetes-standard health probes
         if path == "/healthz":
@@ -167,11 +178,11 @@ class SystemHandler(BaseHandler):
             return self._get_nomic_health()
 
         if path == "/api/nomic/log":
-            lines = get_int_param(query_params, 'lines', 100)
+            lines = get_int_param(query_params, "lines", 100)
             return self._get_nomic_log(max(1, min(lines, 1000)))
 
         if path == "/api/nomic/risk-register":
-            limit = get_int_param(query_params, 'limit', 50)
+            limit = get_int_param(query_params, "limit", 50)
             return self._get_risk_register(max(1, min(limit, 200)))
 
         if path == "/api/modes":
@@ -182,12 +193,12 @@ class SystemHandler(BaseHandler):
             auth_error = self._check_history_auth(handler)
             if auth_error:
                 return auth_error
-            loop_id = get_string_param(query_params, 'loop_id')
+            loop_id = get_string_param(query_params, "loop_id")
             if loop_id:
                 is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
-            limit = get_clamped_int_param(query_params, 'limit', 50, 1, 200)
+            limit = get_clamped_int_param(query_params, "limit", 50, 1, 200)
             return self._get_history_cycles(handler, loop_id, limit)
 
         if path == "/api/history/events":
@@ -195,12 +206,12 @@ class SystemHandler(BaseHandler):
             auth_error = self._check_history_auth(handler)
             if auth_error:
                 return auth_error
-            loop_id = get_string_param(query_params, 'loop_id')
+            loop_id = get_string_param(query_params, "loop_id")
             if loop_id:
                 is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
-            limit = get_clamped_int_param(query_params, 'limit', 100, 1, 500)
+            limit = get_clamped_int_param(query_params, "limit", 100, 1, 500)
             return self._get_history_events(handler, loop_id, limit)
 
         if path == "/api/history/debates":
@@ -208,12 +219,12 @@ class SystemHandler(BaseHandler):
             auth_error = self._check_history_auth(handler)
             if auth_error:
                 return auth_error
-            loop_id = get_string_param(query_params, 'loop_id')
+            loop_id = get_string_param(query_params, "loop_id")
             if loop_id:
                 is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
-            limit = get_clamped_int_param(query_params, 'limit', 50, 1, 200)
+            limit = get_clamped_int_param(query_params, "limit", 50, 1, 200)
             return self._get_history_debates(handler, loop_id, limit)
 
         if path == "/api/history/summary":
@@ -221,7 +232,7 @@ class SystemHandler(BaseHandler):
             auth_error = self._check_history_auth(handler)
             if auth_error:
                 return auth_error
-            loop_id = get_string_param(query_params, 'loop_id')
+            loop_id = get_string_param(query_params, "loop_id")
             if loop_id:
                 is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
                 if not is_valid:
@@ -229,9 +240,11 @@ class SystemHandler(BaseHandler):
             return self._get_history_summary(handler, loop_id)
 
         if path == "/api/system/maintenance":
-            task = get_string_param(query_params, 'task', 'status')
-            if task not in ('status', 'vacuum', 'analyze', 'checkpoint', 'full'):
-                return error_response("Invalid task. Use: status, vacuum, analyze, checkpoint, full", 400)
+            task = get_string_param(query_params, "task", "status")
+            if task not in ("status", "vacuum", "analyze", "checkpoint", "full"):
+                return error_response(
+                    "Invalid task. Use: status, vacuum, analyze, checkpoint, full", 400
+                )
             return self._run_maintenance(task)
 
         if path in ("/api/openapi", "/api/openapi.json"):
@@ -399,22 +412,70 @@ class SystemHandler(BaseHandler):
         ws_manager = self.ctx.get("ws_manager")
         if ws_manager is not None:
             try:
-                client_count = len(getattr(ws_manager, 'clients', []))
+                client_count = len(getattr(ws_manager, "clients", []))
                 checks["websocket"] = {"healthy": True, "active_clients": client_count}
             except (AttributeError, TypeError) as e:
-                checks["websocket"] = {"healthy": False, "error": f"{type(e).__name__}: {str(e)[:80]}"}
+                checks["websocket"] = {
+                    "healthy": False,
+                    "error": f"{type(e).__name__}: {str(e)[:80]}",
+                }
         else:
             # WebSocket runs as separate aiohttp service - check via different mechanism
             checks["websocket"] = {"healthy": True, "note": "Managed by separate aiohttp server"}
 
-        # Calculate response time
+        # Check circuit breaker status
+        try:
+            from aragora.resilience import get_circuit_breaker_metrics
+
+            cb_metrics = get_circuit_breaker_metrics()
+            checks["circuit_breakers"] = {
+                "healthy": cb_metrics.get("summary", {}).get("open_count", 0) < 3,
+                "open": cb_metrics.get("summary", {}).get("open_count", 0),
+                "half_open": cb_metrics.get("summary", {}).get("half_open_count", 0),
+                "closed": cb_metrics.get("summary", {}).get("closed_count", 0),
+            }
+            if checks["circuit_breakers"]["open"] >= 3:
+                all_healthy = False
+        except ImportError:
+            checks["circuit_breakers"] = {"healthy": True, "status": "module_not_available"}
+        except Exception as e:
+            checks["circuit_breakers"] = {"healthy": True, "error": str(e)[:80]}
+
+        # Check rate limiter status
+        try:
+            from aragora.server.auth import auth_config
+
+            rl_stats = auth_config.get_rate_limit_stats()
+            checks["rate_limiters"] = {
+                "healthy": True,
+                "active_ips": rl_stats.get("ip_entries", 0),
+                "active_tokens": rl_stats.get("token_entries", 0),
+                "revoked_tokens": rl_stats.get("revoked_tokens", 0),
+            }
+        except ImportError:
+            checks["rate_limiters"] = {"healthy": True, "status": "module_not_available"}
+        except Exception as e:
+            checks["rate_limiters"] = {"healthy": True, "error": str(e)[:80]}
+
+        # Calculate response time and uptime
         response_time_ms = round((time.time() - start_time) * 1000, 2)
+        uptime_seconds = int(time.time() - _SERVER_START_TIME)
 
         status_code = 200 if all_healthy else 503
+
+        # Get version from package
+        try:
+            from aragora import __version__
+
+            version = __version__
+        except (ImportError, AttributeError):
+            version = "unknown"
+
         health = {
             "status": "healthy" if all_healthy else "degraded",
+            "version": version,
+            "uptime_seconds": uptime_seconds,
             "checks": checks,
-            "version": "1.0.0",
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "response_time_ms": response_time_ms,
         }
@@ -432,7 +493,9 @@ class SystemHandler(BaseHandler):
         try:
             # Try to use nomic_dir first, then fall back to temp dir
             nomic_dir = self.get_nomic_dir()
-            test_dir = nomic_dir if nomic_dir and nomic_dir.exists() else Path(tempfile.gettempdir())
+            test_dir = (
+                nomic_dir if nomic_dir and nomic_dir.exists() else Path(tempfile.gettempdir())
+            )
 
             test_file = test_dir / f".health_check_{os.getpid()}"
             try:
@@ -467,6 +530,7 @@ class SystemHandler(BaseHandler):
 
         try:
             import redis
+
             client = redis.from_url(redis_url, socket_timeout=2.0)
             ping_start = time.time()
             pong = client.ping()
@@ -480,7 +544,11 @@ class SystemHandler(BaseHandler):
         except ImportError:
             return {"healthy": True, "configured": True, "warning": "redis package not installed"}
         except Exception as e:
-            return {"healthy": False, "configured": True, "error": f"{type(e).__name__}: {str(e)[:80]}"}
+            return {
+                "healthy": False,
+                "configured": True,
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
 
     def _check_ai_providers_health(self) -> Dict[str, Any]:
         """Check AI provider API key availability.
@@ -544,6 +612,7 @@ class SystemHandler(BaseHandler):
         # Add observer metrics if available
         try:
             from aragora.monitoring.simple_observer import SimpleObserver
+
             log_path = str(nomic_dir / "system_health.log") if nomic_dir else "system_health.log"
             observer = SimpleObserver(log_file=log_path)
             observer_report = observer.get_report()
@@ -576,6 +645,7 @@ class SystemHandler(BaseHandler):
         try:
             if nomic_dir:
                 from aragora.maintenance import DatabaseMaintenance
+
                 maintenance = DatabaseMaintenance(nomic_dir)
                 health["maintenance"] = maintenance.get_stats()
         except ImportError:
@@ -586,6 +656,7 @@ class SystemHandler(BaseHandler):
         # Add memory stats if available
         try:
             import psutil
+
             process = psutil.Process()
             health["memory"] = {
                 "rss_mb": round(process.memory_info().rss / (1024 * 1024), 2),
@@ -599,6 +670,7 @@ class SystemHandler(BaseHandler):
         # Add HTTP connector status (for API agent calls)
         try:
             from aragora.agents.api_agents.common import get_shared_connector
+
             connector = get_shared_connector()
             health["http_connector"] = {
                 "status": "healthy" if not connector.closed else "closed",
@@ -613,11 +685,15 @@ class SystemHandler(BaseHandler):
         except ImportError:
             health["http_connector"] = {"status": "unavailable", "reason": "module not found"}
         except (AttributeError, RuntimeError) as e:
-            health["http_connector"] = {"status": "error", "error": f"{type(e).__name__}: {str(e)[:80]}"}
+            health["http_connector"] = {
+                "status": "error",
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
 
         # Add export cache status
         try:
             from aragora.visualization.exporter import _export_cache, _export_cache_lock
+
             with _export_cache_lock:
                 cache_size = len(_export_cache)
             health["export_cache"] = {
@@ -627,11 +703,15 @@ class SystemHandler(BaseHandler):
         except ImportError:
             health["export_cache"] = {"status": "unavailable"}
         except (RuntimeError, AttributeError) as e:
-            health["export_cache"] = {"status": "error", "error": f"{type(e).__name__}: {str(e)[:80]}"}
+            health["export_cache"] = {
+                "status": "error",
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
 
         # Add handler cache status
         try:
             from aragora.server.handlers.cache import get_cache_stats
+
             cache_stats = get_cache_stats()
             health["handler_cache"] = {
                 "status": "healthy",
@@ -640,7 +720,10 @@ class SystemHandler(BaseHandler):
         except ImportError:
             health["handler_cache"] = {"status": "unavailable"}
         except (RuntimeError, AttributeError, KeyError) as e:
-            health["handler_cache"] = {"status": "error", "error": f"{type(e).__name__}: {str(e)[:80]}"}
+            health["handler_cache"] = {
+                "status": "error",
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
 
         return json_response(health)
 
@@ -693,6 +776,7 @@ class SystemHandler(BaseHandler):
         # 3. Supabase
         try:
             from aragora.persistence.supabase_client import get_supabase_client
+
             client = get_supabase_client()
             if client is not None:
                 # Try a simple query to verify connectivity
@@ -717,10 +801,11 @@ class SystemHandler(BaseHandler):
 
         # 4. User Store
         try:
-            user_store = getattr(self.__class__, 'user_store', None) or self.ctx.get('user_store')
+            user_store = getattr(self.__class__, "user_store", None) or self.ctx.get("user_store")
             if user_store is not None:
                 # Verify database connectivity
                 from aragora.storage.user_store import UserStore
+
                 if isinstance(user_store, UserStore):
                     # Try a simple query
                     user_store.get_user_by_email("__health_check_nonexistent__")
@@ -734,6 +819,7 @@ class SystemHandler(BaseHandler):
         # 5. Billing System
         try:
             from aragora.billing.stripe_client import StripeClient
+
             stripe_client = StripeClient()
             if stripe_client.is_configured():
                 checks["billing"] = {"healthy": True, "status": "configured"}
@@ -818,15 +904,18 @@ class SystemHandler(BaseHandler):
         elif warnings:
             status = "healthy_with_warnings"
 
-        return json_response({
-            "status": status,
-            "healthy": all_healthy,
-            "checks": checks,
-            "warnings": warnings,
-            "response_time_ms": response_time_ms,
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-            "version": "1.0.0",
-        }, status=200 if all_healthy else 503)
+        return json_response(
+            {
+                "status": status,
+                "healthy": all_healthy,
+                "checks": checks,
+                "warnings": warnings,
+                "response_time_ms": response_time_ms,
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "version": "1.0.0",
+            },
+            status=200 if all_healthy else 503,
+        )
 
     def _get_nomic_state(self) -> HandlerResult:
         """Get current nomic loop state."""
@@ -864,11 +953,13 @@ class SystemHandler(BaseHandler):
                 all_lines = f.readlines()
 
             recent = all_lines[-lines:] if len(all_lines) > lines else all_lines
-            return json_response({
-                "lines": [line.rstrip() for line in recent],
-                "total": len(all_lines),
-                "showing": len(recent),
-            })
+            return json_response(
+                {
+                    "lines": [line.rstrip() for line in recent],
+                    "total": len(all_lines),
+                    "showing": len(recent),
+                }
+            )
         except (OSError, PermissionError, UnicodeDecodeError) as e:
             logger.error("Failed to read nomic log: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "read log"), 500)
@@ -890,14 +981,16 @@ class SystemHandler(BaseHandler):
 
         state_file = nomic_dir / "nomic_state.json"
         if not state_file.exists():
-            return json_response({
-                "status": "not_running",
-                "cycle": 0,
-                "phase": None,
-                "last_activity": None,
-                "stall_duration_seconds": None,
-                "warnings": [],
-            })
+            return json_response(
+                {
+                    "status": "not_running",
+                    "cycle": 0,
+                    "phase": None,
+                    "last_activity": None,
+                    "stall_duration_seconds": None,
+                    "warnings": [],
+                }
+            )
 
         try:
             with open(state_file) as f:
@@ -931,26 +1024,32 @@ class SystemHandler(BaseHandler):
             if stalled:
                 warnings.append(f"No activity for {stall_duration // 60} minutes")
 
-            return json_response({
-                "status": "stalled" if stalled else "healthy",
-                "cycle": state.get("cycle", 0),
-                "phase": state.get("phase", "unknown"),
-                "last_activity": last_update,
-                "stall_duration_seconds": stall_duration,
-                "warnings": warnings,
-            })
+            return json_response(
+                {
+                    "status": "stalled" if stalled else "healthy",
+                    "cycle": state.get("cycle", 0),
+                    "phase": state.get("phase", "unknown"),
+                    "last_activity": last_update,
+                    "stall_duration_seconds": stall_duration,
+                    "warnings": warnings,
+                }
+            )
         except json.JSONDecodeError as e:
-            return json_response({
-                "status": "error",
-                "error": f"Invalid state file: {e}",
-                "cycle": 0,
-            })
+            return json_response(
+                {
+                    "status": "error",
+                    "error": f"Invalid state file: {e}",
+                    "cycle": 0,
+                }
+            )
         except (OSError, PermissionError) as e:
-            return json_response({
-                "status": "error",
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
-                "cycle": 0,
-            })
+            return json_response(
+                {
+                    "status": "error",
+                    "error": f"{type(e).__name__}: {str(e)[:80]}",
+                    "cycle": 0,
+                }
+            )
 
     def _get_risk_register(self, limit: int) -> HandlerResult:
         """Get risk register entries.
@@ -970,12 +1069,14 @@ class SystemHandler(BaseHandler):
 
         risk_file = nomic_dir / "risk_register.jsonl"
         if not risk_file.exists():
-            return json_response({
-                "risks": [],
-                "total": 0,
-                "critical_count": 0,
-                "high_count": 0,
-            })
+            return json_response(
+                {
+                    "risks": [],
+                    "total": 0,
+                    "critical_count": 0,
+                    "high_count": 0,
+                }
+            )
 
         try:
             risks = []
@@ -995,12 +1096,14 @@ class SystemHandler(BaseHandler):
             # Return most recent entries (last N)
             recent_risks = risks[-limit:] if len(risks) > limit else risks
 
-            return json_response({
-                "risks": list(reversed(recent_risks)),  # Most recent first
-                "total": len(risks),
-                "critical_count": critical,
-                "high_count": high,
-            })
+            return json_response(
+                {
+                    "risks": list(reversed(recent_risks)),  # Most recent first
+                    "total": len(risks),
+                    "critical_count": critical,
+                    "high_count": high,
+                }
+            )
         except (OSError, PermissionError, UnicodeDecodeError) as e:
             logger.error("Failed to read risk register: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "read risk register"), 500)
@@ -1022,27 +1125,27 @@ class SystemHandler(BaseHandler):
         # Add custom modes from nomic directory
         try:
             from aragora.modes.custom import CustomModeLoader
+
             nomic_dir = self.get_nomic_dir()
             if nomic_dir:
                 loader = CustomModeLoader([str(nomic_dir / "modes")])
                 custom_modes = loader.load_all()
                 for mode in custom_modes:
-                    modes.append({
-                        "slug": getattr(mode, 'name', '').lower().replace(" ", "-"),
-                        "name": getattr(mode, 'name', ''),
-                        "type": "custom",
-                        "description": getattr(mode, 'description', ''),
-                    })
+                    modes.append(
+                        {
+                            "slug": getattr(mode, "name", "").lower().replace(" ", "-"),
+                            "name": getattr(mode, "name", ""),
+                            "type": "custom",
+                            "description": getattr(mode, "description", ""),
+                        }
+                    )
         except (ImportError, OSError, AttributeError, ValueError) as e:
             logger.debug(f"Could not load custom modes: {type(e).__name__}: {e}")
 
         return json_response({"modes": modes, "total": len(modes)})
 
     def _load_filtered_json(
-        self,
-        file_path: Path,
-        loop_id: Optional[str] = None,
-        limit: int = 100
+        self, file_path: Path, loop_id: Optional[str] = None, limit: int = 100
     ) -> list:
         """Load JSON file with optional filtering and early termination.
 
@@ -1122,13 +1225,13 @@ class SystemHandler(BaseHandler):
             # Filter with early termination
             debates = []
             for d in debate_metadata:
-                item = d.__dict__ if hasattr(d, '__dict__') else d
+                item = d.__dict__ if hasattr(d, "__dict__") else d
                 if item.get("loop_id") == loop_id:
                     debates.append(item)
                     if len(debates) >= limit:
                         break
         else:
-            debates = [d.__dict__ if hasattr(d, '__dict__') else d for d in debate_metadata[:limit]]
+            debates = [d.__dict__ if hasattr(d, "__dict__") else d for d in debate_metadata[:limit]]
 
         return json_response({"debates": debates})
 
@@ -1208,7 +1311,9 @@ class SystemHandler(BaseHandler):
         except ImportError:
             return error_response("Maintenance module not available", 503)
         except (StorageError, DatabaseError) as e:
-            logger.error("Database error during maintenance '%s': %s: %s", task, type(e).__name__, e)
+            logger.error(
+                "Database error during maintenance '%s': %s: %s", task, type(e).__name__, e
+            )
             return error_response(f"Database error during maintenance task '{task}'", 500)
         except OSError as e:
             logger.error("Filesystem error during maintenance '%s': %s", task, e)
@@ -1234,7 +1339,7 @@ class SystemHandler(BaseHandler):
             return HandlerResult(
                 status_code=200,
                 content_type=content_type,
-                body=content.encode('utf-8') if isinstance(content, str) else content,
+                body=content.encode("utf-8") if isinstance(content, str) else content,
             )
         except ImportError:
             return error_response("OpenAPI module not available", 503)
@@ -1316,13 +1421,15 @@ class SystemHandler(BaseHandler):
 
         stats = auth_config.get_rate_limit_stats()
 
-        return json_response({
-            "enabled": auth_config.enabled,
-            "rate_limit_per_minute": auth_config.rate_limit_per_minute,
-            "ip_rate_limit_per_minute": auth_config.ip_rate_limit_per_minute,
-            "token_ttl_seconds": auth_config.token_ttl,
-            "stats": stats,
-        })
+        return json_response(
+            {
+                "enabled": auth_config.enabled,
+                "rate_limit_per_minute": auth_config.rate_limit_per_minute,
+                "ip_rate_limit_per_minute": auth_config.ip_rate_limit_per_minute,
+                "token_ttl_seconds": auth_config.token_ttl,
+                "stats": stats,
+            }
+        )
 
     def _revoke_token(self, handler) -> HandlerResult:
         """Revoke a token to invalidate it immediately.
@@ -1354,6 +1461,7 @@ class SystemHandler(BaseHandler):
         # Also persist revocation for multi-instance consistency
         try:
             from aragora.billing.jwt_auth import revoke_token_persistent
+
             persistent_ok = revoke_token_persistent(token)
             if not persistent_ok:
                 logger.warning("Token revoked in-memory but persistent revocation failed")
@@ -1363,10 +1471,12 @@ class SystemHandler(BaseHandler):
         if success:
             logger.info("Token revoked: reason=%s", reason or "not specified")
 
-        return json_response({
-            "success": success,
-            "revoked_count": auth_config.get_revocation_count(),
-        })
+        return json_response(
+            {
+                "success": success,
+                "revoked_count": auth_config.get_revocation_count(),
+            }
+        )
 
     def _get_prometheus_metrics(self) -> HandlerResult:
         """Get Prometheus-format metrics.

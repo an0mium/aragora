@@ -32,7 +32,7 @@ class BlackboxEvent:
 
     timestamp: float
     event_type: str  # turn, error, consensus, agent_failure, recovery
-    component: str   # orchestrator, agent, consensus, etc.
+    component: str  # orchestrator, agent, consensus, etc.
     data: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -105,7 +105,7 @@ class BlackboxRecorder:
             "start_time": self.start_time,
         }
         meta_path = self.session_path / "meta.json"
-        with open(meta_path, 'w') as f:
+        with open(meta_path, "w") as f:
             json.dump(metadata, f, indent=2)
 
     def record_event(
@@ -168,7 +168,7 @@ class BlackboxRecorder:
         # Write snapshot to disk atomically
         snapshot_path = self.session_path / f"turn_{turn_id:04d}.json"
         try:
-            with open(snapshot_path, 'w') as f:
+            with open(snapshot_path, "w") as f:
                 json.dump(snapshot.to_dict(), f, indent=2)
             logger.debug(f"blackbox_snapshot turn={turn_id}")
         except Exception as e:
@@ -208,7 +208,7 @@ class BlackboxRecorder:
         # Also write to error log file
         error_log = self.session_path / "errors.log"
         try:
-            with open(error_log, 'a') as f:
+            with open(error_log, "a") as f:
                 f.write(f"[{datetime.now().isoformat()}] {component}: {error}\n")
         except Exception as e:
             # Don't fail on logging failure, but note it
@@ -312,7 +312,7 @@ class BlackboxRecorder:
 
         events_path = self.session_path / "events.jsonl"
         try:
-            with open(events_path, 'a') as f:
+            with open(events_path, "a") as f:
                 for event in self.events:
                     f.write(json.dumps(event.to_dict()) + "\n")
             logger.debug(f"blackbox_flush events={len(self.events)}")
@@ -328,10 +328,7 @@ class BlackboxRecorder:
 
     def get_agent_failure_rate(self, agent_name: str) -> float:
         """Calculate failure rate for an agent."""
-        agent_events = [
-            e for e in self.events
-            if e.component == agent_name
-        ]
+        agent_events = [e for e in self.events if e.component == agent_name]
         if not agent_events:
             return 0.0
 
@@ -362,7 +359,7 @@ class BlackboxRecorder:
         # Write final summary
         summary_path = self.session_path / "summary.json"
         try:
-            with open(summary_path, 'w') as f:
+            with open(summary_path, "w") as f:
                 json.dump(self.get_session_summary(), f, indent=2)
         except Exception as e:
             logger.error(f"blackbox_close_failed error={e}")

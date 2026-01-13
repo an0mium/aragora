@@ -139,8 +139,7 @@ class ArenaExtensions:
                     output_tokens=total_output,
                 )
                 logger.info(
-                    "usage_recorded input=%d output=%d total=%d "
-                    "for debate %s (org=%s)",
+                    "usage_recorded input=%d output=%d total=%d " "for debate %s (org=%s)",
                     total_input,
                     total_output,
                     total_input + total_output,

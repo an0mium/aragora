@@ -55,7 +55,9 @@ class DashboardHandler(BaseHandler):
             return self._get_quality_metrics()
         return None
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="dashboard_debates", skip_first=True)
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="dashboard_debates", skip_first=True
+    )
     def _get_debates_dashboard(
         self, domain: Optional[str], limit: int, hours: int
     ) -> HandlerResult:
@@ -70,10 +72,7 @@ class DashboardHandler(BaseHandler):
             Aggregated dashboard metrics from all available subsystems
         """
         request_start = time.perf_counter()
-        logger.debug(
-            "Dashboard request: domain=%s, limit=%d, hours=%d",
-            domain, limit, hours
-        )
+        logger.debug("Dashboard request: domain=%s, limit=%d, hours=%d", domain, limit, hours)
 
         result: dict[str, Any] = {
             "summary": {},
@@ -119,8 +118,7 @@ class DashboardHandler(BaseHandler):
         summary = result.get("summary", {})
         total_debates = summary.get("total_debates", 0) if isinstance(summary, dict) else 0
         logger.debug(
-            "Dashboard response: elapsed=%.3fs, total_debates=%d",
-            request_elapsed, total_debates
+            "Dashboard response: elapsed=%.3fs, total_debates=%d", request_elapsed, total_debates
         )
         return json_response(result)
 
@@ -143,7 +141,9 @@ class DashboardHandler(BaseHandler):
         start_time = time.perf_counter()
         logger.debug(
             "Starting single-pass processing: debates=%d, domain=%s, hours=%d",
-            len(debates), domain, hours
+            len(debates),
+            domain,
+            hours,
         )
 
         # Initialize summary metrics
@@ -208,9 +208,7 @@ class DashboardHandler(BaseHandler):
                 created_at = d.get("created_at")
                 if created_at:
                     try:
-                        dt = datetime.fromisoformat(
-                            created_at.replace("Z", "+00:00")
-                        )
+                        dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
                         if dt.replace(tzinfo=None) > cutoff:
                             recent_count += 1
                             if d.get("consensus_reached"):
@@ -238,18 +236,14 @@ class DashboardHandler(BaseHandler):
             if total > 0:
                 summary["consensus_rate"] = round(consensus_count / total, 3)
             if confidences:
-                summary["avg_confidence"] = round(
-                    sum(confidences) / len(confidences), 3
-                )
+                summary["avg_confidence"] = round(sum(confidences) / len(confidences), 3)
 
             # Build activity
             activity["debates_last_period"] = recent_count
             activity["consensus_last_period"] = recent_consensus
             activity["domains_active"] = list(domain_counts.keys())[:10]
             if domain_counts:
-                activity["most_active_domain"] = max(
-                    domain_counts, key=domain_counts.get
-                )
+                activity["most_active_domain"] = max(domain_counts, key=domain_counts.get)
 
             # Build patterns
             patterns["disagreement_stats"]["with_disagreements"] = with_disagreement
@@ -263,9 +257,10 @@ class DashboardHandler(BaseHandler):
         elapsed = time.perf_counter() - start_time
         logger.debug(
             "Completed single-pass processing: elapsed=%.3fs, total=%d, consensus=%d, recent=%d",
-            elapsed, summary.get("total_debates", 0),
+            elapsed,
+            summary.get("total_debates", 0),
             summary.get("consensus_reached", 0),
-            activity.get("debates_last_period", 0)
+            activity.get("debates_last_period", 0),
         )
         return summary, activity, patterns
 
@@ -281,13 +276,15 @@ class DashboardHandler(BaseHandler):
         try:
             with storage.db.connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT
                         COUNT(*) as total,
                         SUM(CASE WHEN consensus_reached THEN 1 ELSE 0 END) as consensus_count,
                         AVG(confidence) as avg_conf
                     FROM debates
-                """)
+                """
+                )
                 row = cursor.fetchone()
                 if row:
                     total = row[0] or 0
@@ -318,13 +315,16 @@ class DashboardHandler(BaseHandler):
 
             with storage.db.connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT
                         COUNT(*) as recent_total,
                         SUM(CASE WHEN consensus_reached THEN 1 ELSE 0 END) as recent_consensus
                     FROM debates
                     WHERE created_at >= ?
-                """, (cutoff,))
+                """,
+                    (cutoff,),
+                )
                 row = cursor.fetchone()
                 if row:
                     activity["debates_last_period"] = row[0] or 0
@@ -348,24 +348,16 @@ class DashboardHandler(BaseHandler):
         try:
             if debates:
                 total = len(debates)
-                consensus_count = sum(
-                    1 for d in debates if d.get("consensus_reached")
-                )
+                consensus_count = sum(1 for d in debates if d.get("consensus_reached"))
                 summary["total_debates"] = total
                 summary["consensus_reached"] = consensus_count
                 if total > 0:
                     summary["consensus_rate"] = round(consensus_count / total, 3)
 
                     # Average confidence
-                    confidences = [
-                        d.get("confidence", 0.5)
-                        for d in debates
-                        if d.get("confidence")
-                    ]
+                    confidences = [d.get("confidence", 0.5) for d in debates if d.get("confidence")]
                     if confidences:
-                        summary["avg_confidence"] = round(
-                            sum(confidences) / len(confidences), 3
-                        )
+                        summary["avg_confidence"] = round(sum(confidences) / len(confidences), 3)
         except Exception as e:
             logger.warning("Summary metrics error: %s: %s", type(e).__name__, e)
 
@@ -394,9 +386,7 @@ class DashboardHandler(BaseHandler):
                     if created_at:
                         # Parse ISO timestamp
                         try:
-                            dt = datetime.fromisoformat(
-                                created_at.replace("Z", "+00:00")
-                            )
+                            dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
                             if dt.replace(tzinfo=None) > cutoff:
                                 recent.append(d)
                                 d_domain = d.get("domain", "general")
@@ -411,9 +401,7 @@ class DashboardHandler(BaseHandler):
                 activity["domains_active"] = list(domain_counts.keys())[:10]
 
                 if domain_counts:
-                    activity["most_active_domain"] = max(
-                        domain_counts, key=domain_counts.get
-                    )
+                    activity["most_active_domain"] = max(domain_counts, key=domain_counts.get)
         except Exception as e:
             logger.warning("Recent activity error: %s: %s", type(e).__name__, e)
 
@@ -431,7 +419,7 @@ class DashboardHandler(BaseHandler):
             elo = self.get_elo_system()
             if elo:
                 # Get all ratings in a single batch query (N+1 optimization)
-                ratings = elo.get_all_ratings() if hasattr(elo, 'get_all_ratings') else []
+                ratings = elo.get_all_ratings() if hasattr(elo, "get_all_ratings") else []
                 all_ratings = [
                     {
                         "name": rating.agent_name,
@@ -533,9 +521,7 @@ class DashboardHandler(BaseHandler):
             # Get high confidence count from DB
             with get_wal_connection(memory.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT COUNT(*) FROM consensus WHERE confidence >= 0.7"
-                )
+                cursor.execute("SELECT COUNT(*) FROM consensus WHERE confidence >= 0.7")
                 row = cursor.fetchone()
                 insights["high_confidence_count"] = row[0] if row else 0
 
@@ -700,7 +686,7 @@ class DashboardHandler(BaseHandler):
                                 "predictions": s.total_predictions,
                                 "accuracy": round(s.accuracy, 3),
                                 "brier_score": round(s.brier_score, 3),
-                                "ece": round(s.ece, 3) if hasattr(s, 'ece') else None,
+                                "ece": round(s.ece, 3) if hasattr(s, "ece") else None,
                             }
                             for domain, s in domain_data.items()
                         }

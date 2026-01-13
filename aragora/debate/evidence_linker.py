@@ -45,7 +45,9 @@ try:
     np = _np
     EMBEDDINGS_AVAILABLE = True
 except Exception as e:
-    logger.debug(f"sentence-transformers not available: {e}. Using heuristic claim-evidence linking")
+    logger.debug(
+        f"sentence-transformers not available: {e}. Using heuristic claim-evidence linking"
+    )
 
 
 # Claim detection patterns
@@ -376,12 +378,8 @@ class EvidenceClaimLinker:
     def _compute_keyword_overlap(self, claim: str, evidence: str) -> float:
         """Compute keyword overlap as fallback for semantic similarity."""
         # Extract keywords (alphanumeric tokens > 3 chars)
-        claim_words = set(
-            w.lower() for w in re.findall(r"\b\w{4,}\b", claim)
-        )
-        evidence_words = set(
-            w.lower() for w in re.findall(r"\b\w{4,}\b", evidence)
-        )
+        claim_words = set(w.lower() for w in re.findall(r"\b\w{4,}\b", claim))
+        evidence_words = set(w.lower() for w in re.findall(r"\b\w{4,}\b", evidence))
 
         if not claim_words or not evidence_words:
             return 0.3  # Neutral if no meaningful words

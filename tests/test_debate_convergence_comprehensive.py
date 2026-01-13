@@ -252,8 +252,7 @@ class TestJaccardBackendThreadSafety:
             try:
                 for i in range(100):
                     sim = backend.compute_similarity(
-                        f"thread test text {i % 10}",
-                        f"another test text {i % 10}"
+                        f"thread test text {i % 10}", f"another test text {i % 10}"
                     )
                     results.append(sim)
             except Exception as e:
@@ -338,7 +337,7 @@ class TestTFIDFBackendImportError:
 
     def test_import_error_message(self):
         """Import error provides helpful message."""
-        with patch.dict('sys.modules', {'sklearn': None, 'sklearn.feature_extraction.text': None}):
+        with patch.dict("sys.modules", {"sklearn": None, "sklearn.feature_extraction.text": None}):
             # This test verifies the ImportError is raised with helpful message
             # when sklearn is not available
             pass  # Backend already handles this gracefully
@@ -840,9 +839,7 @@ class TestConvergenceDetector:
 
         # First: build up consecutive count
         text = "identical response"
-        detector.check_convergence(
-            {"agent1": text}, {"agent1": text}, round_number=2
-        )
+        detector.check_convergence({"agent1": text}, {"agent1": text}, round_number=2)
         assert detector.consecutive_stable_count == 1
 
         # Second: diverging response resets count

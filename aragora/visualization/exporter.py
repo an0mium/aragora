@@ -141,7 +141,7 @@ def generate_standalone_html(cartographer: ArgumentCartographer) -> str:
     """Generate a standalone HTML file with embedded Mermaid diagram."""
     mermaid_code = cartographer.export_mermaid()
     stats = cartographer.get_statistics()
-    
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>

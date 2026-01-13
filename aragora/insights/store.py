@@ -179,13 +179,18 @@ class InsightStore(SQLiteStore):
                     insights.duration_seconds,
                     insights.total_insights,
                     insights.key_takeaway,
-                    json.dumps([{
-                        "agent": p.agent_name,
-                        "proposals": p.proposals_made,
-                        "accepted": p.proposal_accepted,
-                        "score": p.contribution_score,
-                    } for p in insights.agent_performances]),
-                )
+                    json.dumps(
+                        [
+                            {
+                                "agent": p.agent_name,
+                                "proposals": p.proposals_made,
+                                "accepted": p.proposal_accepted,
+                                "score": p.contribution_score,
+                            }
+                            for p in insights.agent_performances
+                        ]
+                    ),
+                ),
             )
 
             # Store all insights in batch
@@ -214,7 +219,7 @@ class InsightStore(SQLiteStore):
                                 json.dumps(insight.metadata),
                             )
                             for insight in all_insights
-                        ]
+                        ],
                     )
                     stored_count = len(all_insights)
                 except Exception as e:
@@ -243,7 +248,7 @@ class InsightStore(SQLiteStore):
                             perf.contribution_score,
                         )
                         for perf in insights.agent_performances
-                    ]
+                    ],
                 )
 
             # Update pattern clusters in batch
@@ -261,18 +266,18 @@ class InsightStore(SQLiteStore):
                     """,
                     [
                         (
-                            insight.metadata.get('category', 'general'),
+                            insight.metadata.get("category", "general"),
                             insight.title,
-                            insight.metadata.get('avg_severity', 0.5),
+                            insight.metadata.get("avg_severity", 0.5),
                             json.dumps([insights.debate_id]),
                             insight.created_at,
                             insight.created_at,
-                            insight.metadata.get('avg_severity', 0.5),
+                            insight.metadata.get("avg_severity", 0.5),
                             insights.debate_id,
                             insight.created_at,
                         )
                         for insight in insights.pattern_insights
-                    ]
+                    ],
                 )
 
             conn.commit()
@@ -355,9 +360,7 @@ class InsightStore(SQLiteStore):
         Returns:
             List of matching insights
         """
-        rows = await asyncio.to_thread(
-            self._sync_search, query, insight_type, agent, limit
-        )
+        rows = await asyncio.to_thread(self._sync_search, query, insight_type, agent, limit)
         return [self._row_to_insight(row) for row in rows]
 
     def _sync_get_common_patterns(
@@ -426,7 +429,7 @@ class InsightStore(SQLiteStore):
                 FROM agent_performance_history
                 WHERE agent_name = ?
                 """,
-                (agent_name,)
+                (agent_name,),
             )
             return cursor.fetchone()
 
@@ -495,8 +498,7 @@ class InsightStore(SQLiteStore):
         with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                f"SELECT {INSIGHT_COLUMNS} FROM insights ORDER BY created_at DESC LIMIT ?",
-                (limit,)
+                f"SELECT {INSIGHT_COLUMNS} FROM insights ORDER BY created_at DESC LIMIT ?", (limit,)
             )
             return cursor.fetchall()
 
@@ -569,7 +571,8 @@ class InsightStore(SQLiteStore):
     def _ensure_wisdom_table(self) -> None:
         """Ensure the wisdom_submissions table exists."""
         with self.connection() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS wisdom_submissions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     loop_id TEXT NOT NULL,
@@ -579,11 +582,14 @@ class InsightStore(SQLiteStore):
                     used INTEGER DEFAULT 0,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_wisdom_loop_id
                 ON wisdom_submissions(loop_id, used)
-            """)
+            """
+            )
             conn.commit()
 
     def add_wisdom_submission(self, loop_id: str, wisdom_data: dict) -> int:
@@ -608,21 +614,23 @@ class InsightStore(SQLiteStore):
                 """,
                 (
                     loop_id,
-                    wisdom_data.get('text', '')[:280],  # Character limit
-                    wisdom_data.get('submitter_id', 'anonymous'),
-                    json.dumps(wisdom_data.get('context_tags', [])),
-                )
+                    wisdom_data.get("text", "")[:280],  # Character limit
+                    wisdom_data.get("submitter_id", "anonymous"),
+                    json.dumps(wisdom_data.get("context_tags", [])),
+                ),
             )
             wisdom_id = cursor.lastrowid
             conn.commit()
 
             # Log to flight recorder for debugging
-            self._log_wisdom_event({
-                'type': 'wisdom_submitted',
-                'loop_id': loop_id,
-                'wisdom_id': wisdom_id,
-                'timestamp': datetime.now().isoformat(),
-            })
+            self._log_wisdom_event(
+                {
+                    "type": "wisdom_submitted",
+                    "loop_id": loop_id,
+                    "wisdom_id": wisdom_id,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
             logger.info(f"[wisdom] Added submission {wisdom_id} for loop {loop_id}")
             return wisdom_id
@@ -650,16 +658,16 @@ class InsightStore(SQLiteStore):
                 ORDER BY created_at DESC
                 LIMIT ?
                 """,
-                (loop_id, limit)
+                (loop_id, limit),
             )
 
             return [
                 {
-                    'id': row[0],
-                    'text': row[1],
-                    'submitter_id': row[2],
-                    'context_tags': safe_json_loads(row[3], []),
-                    'created_at': row[4],
+                    "id": row[0],
+                    "text": row[1],
+                    "submitter_id": row[2],
+                    "context_tags": safe_json_loads(row[3], []),
+                    "created_at": row[4],
                 }
                 for row in cursor.fetchall()
             ]
@@ -669,24 +677,23 @@ class InsightStore(SQLiteStore):
         self._ensure_wisdom_table()
 
         with self.connection() as conn:
-            conn.execute(
-                "UPDATE wisdom_submissions SET used = 1 WHERE id = ?",
-                (wisdom_id,)
-            )
+            conn.execute("UPDATE wisdom_submissions SET used = 1 WHERE id = ?", (wisdom_id,))
             conn.commit()
 
-        self._log_wisdom_event({
-            'type': 'wisdom_used',
-            'wisdom_id': wisdom_id,
-            'timestamp': datetime.now().isoformat(),
-        })
+        self._log_wisdom_event(
+            {
+                "type": "wisdom_used",
+                "wisdom_id": wisdom_id,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
     def _log_wisdom_event(self, event_data: dict) -> None:
         """Flight recorder: log wisdom events for replay/debugging."""
         try:
             event_log = self.db_path.parent / "wisdom_events.jsonl"
-            with open(event_log, 'a') as f:
-                f.write(json.dumps(event_data) + '\n')
+            with open(event_log, "a") as f:
+                f.write(json.dumps(event_data) + "\n")
         except Exception as e:
             # Never crash main loop due to logging, but note the failure
             logger.warning(f"Failed to log wisdom event: {e}")
@@ -719,11 +726,13 @@ class InsightStore(SQLiteStore):
                     OR title LIKE ? ESCAPE '\\'
                     OR description LIKE ? ESCAPE '\\'
                 )"""
-                params.extend([
-                    f'%"{escaped_domain}"%',
-                    f'%{escaped_domain}%',
-                    f'%{escaped_domain}%',
-                ])
+                params.extend(
+                    [
+                        f'%"{escaped_domain}"%',
+                        f"%{escaped_domain}%",
+                        f"%{escaped_domain}%",
+                    ]
+                )
 
             sql += " ORDER BY confidence DESC, created_at DESC LIMIT ?"
             params.append(limit)
@@ -767,7 +776,8 @@ class InsightStore(SQLiteStore):
             cursor = conn.cursor()
 
             # Ensure usage tracking table exists
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS insight_usage (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     insight_id TEXT NOT NULL,
@@ -776,7 +786,8 @@ class InsightStore(SQLiteStore):
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(insight_id, debate_id)
                 )
-            """)
+            """
+            )
 
             # Record the usage
             cursor.execute(
@@ -785,7 +796,7 @@ class InsightStore(SQLiteStore):
                 (insight_id, debate_id, was_successful, created_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (insight_id, debate_id, 1 if was_successful else 0, datetime.now().isoformat())
+                (insight_id, debate_id, 1 if was_successful else 0, datetime.now().isoformat()),
             )
 
             # Update insight confidence based on usage success
@@ -797,7 +808,7 @@ class InsightStore(SQLiteStore):
                 SET confidence = MIN(0.99, MAX(0.1, confidence + ?))
                 WHERE id = ?
                 """,
-                (adjustment, insight_id)
+                (adjustment, insight_id),
             )
 
             conn.commit()
@@ -840,7 +851,7 @@ class InsightStore(SQLiteStore):
                 FROM insight_usage
                 WHERE insight_id = ?
                 """,
-                (insight_id,)
+                (insight_id,),
             )
             row = cursor.fetchone()
 

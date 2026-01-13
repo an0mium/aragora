@@ -248,9 +248,7 @@ class TestTierRetrieval:
 
     def test_retrieve_from_multiple_tiers(self, populated_memory):
         """Can retrieve from multiple tiers."""
-        results = populated_memory.retrieve(
-            tiers=[MemoryTier.FAST, MemoryTier.MEDIUM]
-        )
+        results = populated_memory.retrieve(tiers=[MemoryTier.FAST, MemoryTier.MEDIUM])
         assert len(results) >= 2
         tiers = {entry.tier for entry in results}
         assert MemoryTier.FAST in tiers or MemoryTier.MEDIUM in tiers
@@ -647,10 +645,10 @@ class TestPromotionDemotionSuccess:
         )
 
         # Mock TierManager to approve promotion
-        with patch.object(memory_system._tier_manager, 'should_promote', return_value=True):
-            with patch.object(memory_system._tier_manager, 'get_next_tier') as mock_next:
+        with patch.object(memory_system._tier_manager, "should_promote", return_value=True):
+            with patch.object(memory_system._tier_manager, "get_next_tier") as mock_next:
                 mock_next.return_value = MemoryTier.MEDIUM
-                with patch.object(memory_system._tier_manager, 'record_promotion'):
+                with patch.object(memory_system._tier_manager, "record_promotion"):
                     result = memory_system.promote("promote_success")
 
         assert result == MemoryTier.MEDIUM
@@ -670,10 +668,10 @@ class TestPromotionDemotionSuccess:
         )
 
         # Mock TierManager to approve demotion
-        with patch.object(memory_system._tier_manager, 'should_demote', return_value=True):
-            with patch.object(memory_system._tier_manager, 'get_next_tier') as mock_next:
+        with patch.object(memory_system._tier_manager, "should_demote", return_value=True):
+            with patch.object(memory_system._tier_manager, "get_next_tier") as mock_next:
                 mock_next.return_value = MemoryTier.SLOW
-                with patch.object(memory_system._tier_manager, 'record_demotion'):
+                with patch.object(memory_system._tier_manager, "record_demotion"):
                     result = memory_system.demote("demote_success")
 
         assert result == MemoryTier.SLOW
@@ -691,8 +689,8 @@ class TestPromotionDemotionSuccess:
             importance=0.9,
         )
 
-        with patch.object(memory_system._tier_manager, 'should_promote', return_value=True):
-            with patch.object(memory_system._tier_manager, 'get_next_tier', return_value=None):
+        with patch.object(memory_system._tier_manager, "should_promote", return_value=True):
+            with patch.object(memory_system._tier_manager, "get_next_tier", return_value=None):
                 result = memory_system.promote("at_fastest")
 
         assert result is None
@@ -706,8 +704,8 @@ class TestPromotionDemotionSuccess:
             importance=0.1,
         )
 
-        with patch.object(memory_system._tier_manager, 'should_demote', return_value=True):
-            with patch.object(memory_system._tier_manager, 'get_next_tier', return_value=None):
+        with patch.object(memory_system._tier_manager, "should_demote", return_value=True):
+            with patch.object(memory_system._tier_manager, "get_next_tier", return_value=None):
                 result = memory_system.demote("at_slowest")
 
         assert result is None
@@ -724,9 +722,7 @@ class TestBatchOperations:
     def test_promote_batch_empty_list(self, memory_system):
         """Batch promotion with empty list returns 0."""
         result = memory_system._promote_batch(
-            from_tier=MemoryTier.SLOW,
-            to_tier=MemoryTier.MEDIUM,
-            ids=[]
+            from_tier=MemoryTier.SLOW, to_tier=MemoryTier.MEDIUM, ids=[]
         )
         assert result == 0
 
@@ -743,9 +739,7 @@ class TestBatchOperations:
 
         ids = [f"batch_promo_{i}" for i in range(5)]
         result = memory_system._promote_batch(
-            from_tier=MemoryTier.SLOW,
-            to_tier=MemoryTier.MEDIUM,
-            ids=ids
+            from_tier=MemoryTier.SLOW, to_tier=MemoryTier.MEDIUM, ids=ids
         )
 
         # At least some should be promoted
@@ -754,9 +748,7 @@ class TestBatchOperations:
     def test_demote_batch_empty_list(self, memory_system):
         """Batch demotion with empty list returns 0."""
         result = memory_system._demote_batch(
-            from_tier=MemoryTier.MEDIUM,
-            to_tier=MemoryTier.SLOW,
-            ids=[]
+            from_tier=MemoryTier.MEDIUM, to_tier=MemoryTier.SLOW, ids=[]
         )
         assert result == 0
 
@@ -773,9 +765,7 @@ class TestBatchOperations:
 
         ids = [f"batch_demo_{i}" for i in range(5)]
         result = memory_system._demote_batch(
-            from_tier=MemoryTier.MEDIUM,
-            to_tier=MemoryTier.SLOW,
-            ids=ids
+            from_tier=MemoryTier.MEDIUM, to_tier=MemoryTier.SLOW, ids=ids
         )
 
         # At least some should be demoted

@@ -150,9 +150,9 @@ class TestSignPayload:
         """Test signing payload with secret."""
         secret = "my-secret"
         body = b'{"type": "test"}'
-        
+
         signature = sign_payload(secret, body)
-        
+
         assert signature.startswith("sha256=")
         # Verify the signature
         expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
@@ -165,14 +165,14 @@ class TestSignPayload:
 
     def test_sign_none_secret(self):
         """Test signing handles None secret gracefully."""
-        signature = sign_payload(None, b'test')
+        signature = sign_payload(None, b"test")
         assert signature == ""
 
     def test_sign_different_payloads(self):
         """Test different payloads produce different signatures."""
         secret = "secret"
-        sig1 = sign_payload(secret, b'payload1')
-        sig2 = sign_payload(secret, b'payload2')
+        sig1 = sign_payload(secret, b"payload1")
+        sig2 = sign_payload(secret, b"payload2")
         assert sig1 != sig2
 
     def test_sign_same_payload_same_signature(self):
@@ -189,30 +189,32 @@ class TestLoadWebhookConfigs:
 
     def test_load_from_inline_json(self):
         """Test loading from ARAGORA_WEBHOOKS env var."""
-        inline_config = json.dumps([
-            {"name": "hook1", "url": "https://example.com/1"},
-            {"name": "hook2", "url": "https://example.com/2"},
-        ])
-        
+        inline_config = json.dumps(
+            [
+                {"name": "hook1", "url": "https://example.com/1"},
+                {"name": "hook2", "url": "https://example.com/2"},
+            ]
+        )
+
         with patch.dict(os.environ, {"ARAGORA_WEBHOOKS": inline_config}):
             configs = load_webhook_configs()
-        
+
         assert len(configs) == 2
         assert configs[0].name == "hook1"
         assert configs[1].name == "hook2"
 
     def test_load_from_file(self):
         """Test loading from ARAGORA_WEBHOOKS_CONFIG file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump([{"name": "file-hook", "url": "https://example.com/file"}], f)
             config_path = f.name
-        
+
         try:
             with patch.dict(os.environ, {"ARAGORA_WEBHOOKS_CONFIG": config_path}, clear=False):
                 # Clear inline config
                 os.environ.pop("ARAGORA_WEBHOOKS", None)
                 configs = load_webhook_configs()
-            
+
             assert len(configs) == 1
             assert configs[0].name == "file-hook"
         finally:
@@ -224,20 +226,22 @@ class TestLoadWebhookConfigs:
             os.environ.pop("ARAGORA_WEBHOOKS", None)
             os.environ.pop("ARAGORA_WEBHOOKS_CONFIG", None)
             configs = load_webhook_configs()
-        
+
         assert configs == []
 
     def test_load_skips_invalid_configs(self):
         """Test invalid configs are skipped."""
-        inline_config = json.dumps([
-            {"name": "valid", "url": "https://example.com"},
-            {"name": "", "url": "https://example.com"},  # Invalid - empty name
-            {"url": "https://example.com"},  # Invalid - missing name
-        ])
-        
+        inline_config = json.dumps(
+            [
+                {"name": "valid", "url": "https://example.com"},
+                {"name": "", "url": "https://example.com"},  # Invalid - empty name
+                {"url": "https://example.com"},  # Invalid - missing name
+            ]
+        )
+
         with patch.dict(os.environ, {"ARAGORA_WEBHOOKS": inline_config}):
             configs = load_webhook_configs()
-        
+
         assert len(configs) == 1
         assert configs[0].name == "valid"
 
@@ -245,14 +249,14 @@ class TestLoadWebhookConfigs:
         """Test handles malformed JSON gracefully."""
         with patch.dict(os.environ, {"ARAGORA_WEBHOOKS": "not json {"}):
             configs = load_webhook_configs()
-        
+
         assert configs == []
 
     def test_load_handles_non_array_json(self):
         """Test handles non-array JSON."""
         with patch.dict(os.environ, {"ARAGORA_WEBHOOKS": '{"name": "test"}'}):
             configs = load_webhook_configs()
-        
+
         assert configs == []
 
     def test_load_handles_missing_file(self):
@@ -260,7 +264,7 @@ class TestLoadWebhookConfigs:
         with patch.dict(os.environ, {"ARAGORA_WEBHOOKS_CONFIG": "/nonexistent/file.json"}):
             os.environ.pop("ARAGORA_WEBHOOKS", None)
             configs = load_webhook_configs()
-        
+
         assert configs == []
 
 
@@ -295,10 +299,10 @@ class TestWebhookDispatcher:
     def test_dispatcher_start_stop(self, sample_configs):
         """Test starting and stopping dispatcher."""
         dispatcher = WebhookDispatcher(sample_configs)
-        
+
         dispatcher.start()
         assert dispatcher.is_running
-        
+
         dispatcher.stop(timeout=1.0)
         assert not dispatcher.is_running
 
@@ -307,14 +311,14 @@ class TestWebhookDispatcher:
         dispatcher = WebhookDispatcher(sample_configs)
         dispatcher.start()
         dispatcher.stop(timeout=1.0)
-        
+
         result = dispatcher.enqueue({"type": "debate_start"})
         assert result is False
 
     def test_enqueue_without_start(self, sample_configs):
         """Test enqueue works before start (queues but doesn't deliver)."""
         dispatcher = WebhookDispatcher(sample_configs)
-        
+
         # Should be able to enqueue
         result = dispatcher.enqueue({"type": "debate_start"})
         # Won't deliver without start, but enqueue might succeed
@@ -324,7 +328,7 @@ class TestWebhookDispatcher:
     def test_stats_tracking(self, sample_configs):
         """Test dispatcher tracks statistics."""
         dispatcher = WebhookDispatcher(sample_configs, queue_max_size=10)
-        
+
         with dispatcher._stats_lock:
             assert dispatcher._drop_count == 0
             assert dispatcher._delivery_count == 0
@@ -351,6 +355,7 @@ class TestAragoraJSONEncoder:
     def test_encode_datetime(self):
         """Test encoding datetime to ISO string."""
         from datetime import datetime
+
         dt = datetime(2024, 1, 15, 12, 30, 45)
         data = {"timestamp": dt}
         result = json.dumps(data, cls=AragoraJSONEncoder)
@@ -359,10 +364,11 @@ class TestAragoraJSONEncoder:
 
     def test_encode_object_with_to_dict(self):
         """Test encoding object with to_dict method."""
+
         class MyObj:
             def to_dict(self):
                 return {"key": "value"}
-        
+
         data = {"obj": MyObj()}
         result = json.dumps(data, cls=AragoraJSONEncoder)
         parsed = json.loads(result)
@@ -370,10 +376,11 @@ class TestAragoraJSONEncoder:
 
     def test_encode_fallback_to_string(self):
         """Test fallback to string for unknown types."""
+
         class CustomType:
             def __str__(self):
                 return "custom-string"
-        
+
         data = {"custom": CustomType()}
         result = json.dumps(data, cls=AragoraJSONEncoder)
         parsed = json.loads(result)

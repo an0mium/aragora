@@ -88,24 +88,30 @@ class TestRecoveryAction:
 class TestIsRateLimit:
     """Tests for ErrorClassifier.is_rate_limit."""
 
-    @pytest.mark.parametrize("message", [
-        "rate limit exceeded",
-        "Rate Limit Error",
-        "error 429: too many requests",
-        "quota exceeded for model",
-        "resource_exhausted: quota limit",
-        "billing issue - payment required",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "rate limit exceeded",
+            "Rate Limit Error",
+            "error 429: too many requests",
+            "quota exceeded for model",
+            "resource_exhausted: quota limit",
+            "billing issue - payment required",
+        ],
+    )
     def test_recognizes_rate_limit_patterns(self, message):
         """Should recognize rate limit patterns."""
         assert ErrorClassifier.is_rate_limit(message) is True
 
-    @pytest.mark.parametrize("message", [
-        "invalid input",
-        "model not found",
-        "authentication failed",
-        "network timeout",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "invalid input",
+            "model not found",
+            "authentication failed",
+            "network timeout",
+        ],
+    )
     def test_rejects_non_rate_limit_messages(self, message):
         """Should not match non-rate-limit messages."""
         assert ErrorClassifier.is_rate_limit(message) is False
@@ -119,22 +125,28 @@ class TestIsRateLimit:
 class TestIsNetworkError:
     """Tests for ErrorClassifier.is_network_error."""
 
-    @pytest.mark.parametrize("message", [
-        "503 service unavailable",
-        "connection refused",
-        "connection timed out",
-        "server overloaded",
-        "DNS resolution failed",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "503 service unavailable",
+            "connection refused",
+            "connection timed out",
+            "server overloaded",
+            "DNS resolution failed",
+        ],
+    )
     def test_recognizes_network_patterns(self, message):
         """Should recognize network error patterns."""
         assert ErrorClassifier.is_network_error(message) is True
 
-    @pytest.mark.parametrize("message", [
-        "invalid API key",
-        "model not found",
-        "rate limit exceeded",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "invalid API key",
+            "model not found",
+            "rate limit exceeded",
+        ],
+    )
     def test_rejects_non_network_messages(self, message):
         """Should not match non-network messages."""
         assert ErrorClassifier.is_network_error(message) is False
@@ -148,20 +160,26 @@ class TestIsNetworkError:
 class TestIsCLIError:
     """Tests for ErrorClassifier.is_cli_error."""
 
-    @pytest.mark.parametrize("message", [
-        "command not found",
-        "no such file or directory",
-        "permission denied",
-        "broken pipe",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "command not found",
+            "no such file or directory",
+            "permission denied",
+            "broken pipe",
+        ],
+    )
     def test_recognizes_cli_patterns(self, message):
         """Should recognize CLI error patterns."""
         assert ErrorClassifier.is_cli_error(message) is True
 
-    @pytest.mark.parametrize("message", [
-        "invalid API key",
-        "network timeout",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "invalid API key",
+            "network timeout",
+        ],
+    )
     def test_rejects_non_cli_messages(self, message):
         """Should not match non-CLI messages."""
         assert ErrorClassifier.is_cli_error(message) is False
@@ -175,22 +193,28 @@ class TestIsCLIError:
 class TestIsAuthError:
     """Tests for ErrorClassifier.is_auth_error."""
 
-    @pytest.mark.parametrize("message", [
-        "authentication failed",
-        "invalid API key",
-        "401 unauthorized",
-        "403 forbidden",
-        "permission denied",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "authentication failed",
+            "invalid API key",
+            "401 unauthorized",
+            "403 forbidden",
+            "permission denied",
+        ],
+    )
     def test_recognizes_auth_patterns(self, message):
         """Should recognize auth error patterns."""
         assert ErrorClassifier.is_auth_error(message) is True
 
-    @pytest.mark.parametrize("message", [
-        "model not found",
-        "network timeout",
-        "rate limit exceeded",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "model not found",
+            "network timeout",
+            "rate limit exceeded",
+        ],
+    )
     def test_rejects_non_auth_messages(self, message):
         """Should not match non-auth messages."""
         assert ErrorClassifier.is_auth_error(message) is False
@@ -204,20 +228,26 @@ class TestIsAuthError:
 class TestIsValidationError:
     """Tests for ErrorClassifier.is_validation_error."""
 
-    @pytest.mark.parametrize("message", [
-        "context length exceeded",
-        "context_length error",
-        "max_tokens exceeded",
-        "invalid input format",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "context length exceeded",
+            "context_length error",
+            "max_tokens exceeded",
+            "invalid input format",
+        ],
+    )
     def test_recognizes_validation_patterns(self, message):
         """Should recognize validation error patterns."""
         assert ErrorClassifier.is_validation_error(message) is True
 
-    @pytest.mark.parametrize("message", [
-        "model not found",
-        "network timeout",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "model not found",
+            "network timeout",
+        ],
+    )
     def test_rejects_non_validation_messages(self, message):
         """Should not match non-validation messages."""
         assert ErrorClassifier.is_validation_error(message) is False
@@ -231,19 +261,25 @@ class TestIsValidationError:
 class TestIsModelError:
     """Tests for ErrorClassifier.is_model_error."""
 
-    @pytest.mark.parametrize("message", [
-        "model not found",
-        "model unavailable",
-        "404 model does not exist",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "model not found",
+            "model unavailable",
+            "404 model does not exist",
+        ],
+    )
     def test_recognizes_model_patterns(self, message):
         """Should recognize model error patterns."""
         assert ErrorClassifier.is_model_error(message) is True
 
-    @pytest.mark.parametrize("message", [
-        "network timeout",
-        "rate limit exceeded",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "network timeout",
+            "rate limit exceeded",
+        ],
+    )
     def test_rejects_non_model_messages(self, message):
         """Should not match non-model messages."""
         assert ErrorClassifier.is_model_error(message) is False
@@ -257,21 +293,27 @@ class TestIsModelError:
 class TestIsContentPolicyError:
     """Tests for ErrorClassifier.is_content_policy_error."""
 
-    @pytest.mark.parametrize("message", [
-        "content policy violation",
-        "safety filter triggered",
-        "content blocked by moderation",
-        "harmful content detected",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "content policy violation",
+            "safety filter triggered",
+            "content blocked by moderation",
+            "harmful content detected",
+        ],
+    )
     def test_recognizes_content_policy_patterns(self, message):
         """Should recognize content policy error patterns."""
         assert ErrorClassifier.is_content_policy_error(message) is True
 
-    @pytest.mark.parametrize("message", [
-        "network timeout",
-        "rate limit exceeded",
-        "model not found",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "network timeout",
+            "rate limit exceeded",
+            "model not found",
+        ],
+    )
     def test_rejects_non_content_policy_messages(self, message):
         """Should not match non-content-policy messages."""
         assert ErrorClassifier.is_content_policy_error(message) is False
@@ -476,6 +518,7 @@ class TestClassifyCLIError:
     def test_classifies_not_found(self):
         """Should return CLIAgentError for command not found."""
         from aragora.agents.errors.exceptions import CLINotFoundError
+
         error = classify_cli_error(
             returncode=127,
             stdout="",

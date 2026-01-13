@@ -8,12 +8,61 @@
 // Enums
 // =============================================================================
 
+/**
+ * Debate status values.
+ *
+ * Canonical values: pending, running, completed, failed, cancelled, paused
+ * Legacy values (still supported): created, in_progress, active, concluded
+ */
 export enum DebateStatus {
-  CREATED = 'created',
-  IN_PROGRESS = 'in_progress',
+  // Canonical SDK values
+  PENDING = 'pending',
+  RUNNING = 'running',
+  STARTING = 'starting',
   COMPLETED = 'completed',
   FAILED = 'failed',
   CANCELLED = 'cancelled',
+  PAUSED = 'paused',
+
+  // Legacy values (kept for backwards compatibility)
+  CREATED = 'created',
+  IN_PROGRESS = 'in_progress',
+}
+
+/**
+ * Map of legacy server status values to canonical SDK statuses.
+ * Use normalizeStatus() to convert server responses.
+ */
+export const LEGACY_STATUS_MAP: Record<string, DebateStatus> = {
+  active: DebateStatus.RUNNING,
+  concluded: DebateStatus.COMPLETED,
+  archived: DebateStatus.COMPLETED,
+  created: DebateStatus.PENDING,
+  in_progress: DebateStatus.RUNNING,
+  starting: DebateStatus.PENDING,
+};
+
+/**
+ * Normalize a status value from the server to a canonical SDK status.
+ *
+ * @param status - Status string from server response
+ * @returns Canonical DebateStatus value
+ *
+ * @example
+ * ```typescript
+ * const status = normalizeStatus('active'); // Returns DebateStatus.RUNNING
+ * const status2 = normalizeStatus('running'); // Returns DebateStatus.RUNNING
+ * ```
+ */
+export function normalizeStatus(status: string | DebateStatus): DebateStatus {
+  const statusStr = String(status);
+  // Check if it's a legacy value that needs mapping
+  const mapped = LEGACY_STATUS_MAP[statusStr];
+  if (mapped !== undefined) {
+    return mapped;
+  }
+  // Return as-is if it's already a valid enum value
+  return statusStr as DebateStatus;
 }
 
 export enum VerificationStatus {
@@ -38,10 +87,38 @@ export enum GauntletPersona {
 
 export interface ConsensusResult {
   reached: boolean;
+  /** Final answer/conclusion from the debate */
   conclusion?: string;
+  /** Alias for conclusion (for SDK compatibility) */
+  final_answer?: string;
+  /** Agreement level (0-1), alias: agreement */
   confidence: number;
+  /** Alias for confidence (for SDK compatibility) */
+  agreement?: number;
   supporting_agents: string[];
   dissenting_agents?: string[];
+}
+
+/**
+ * Normalize a consensus result from the server, ensuring both field variants are present.
+ *
+ * @param consensus - Raw consensus result from server
+ * @returns Normalized consensus with both field aliases populated
+ */
+export function normalizeConsensusResult(
+  consensus: ConsensusResult | undefined
+): ConsensusResult | undefined {
+  if (!consensus) return undefined;
+
+  return {
+    ...consensus,
+    // Ensure both confidence and agreement are present
+    confidence: consensus.confidence ?? consensus.agreement ?? 0,
+    agreement: consensus.agreement ?? consensus.confidence ?? 0,
+    // Ensure both conclusion and final_answer are present
+    conclusion: consensus.conclusion ?? consensus.final_answer,
+    final_answer: consensus.final_answer ?? consensus.conclusion,
+  };
 }
 
 export interface DebateMessage {
@@ -69,30 +146,115 @@ export interface DebateCritique {
 // Debate Types
 // =============================================================================
 
+/**
+ * Request to create a new debate.
+ *
+ * @example
+ * ```typescript
+ * const request: DebateCreateRequest = {
+ *   task: 'Should we adopt TypeScript for our backend?',
+ *   agents: ['anthropic-api', 'openai-api'],
+ *   max_rounds: 5,
+ *   consensus_threshold: 0.7,
+ * };
+ * ```
+ */
 export interface DebateCreateRequest {
+  /**
+   * The topic or question to debate.
+   * Should be a clear, specific question or task for the agents to discuss.
+   */
   task: string;
+
+  /**
+   * Agent identifiers to participate in the debate.
+   * Available agents: 'anthropic-api', 'openai-api', 'gemini-api', 'mistral-api', 'grok-api'
+   * If not specified, default agents will be selected.
+   */
   agents?: string[];
+
+  /**
+   * Maximum number of debate rounds (default: 5).
+   * Each round consists of proposals, critiques, and revisions.
+   */
   max_rounds?: number;
+
+  /**
+   * Threshold for consensus detection (0.0-1.0, default: 0.7).
+   * Higher values require stronger agreement between agents.
+   */
   consensus_threshold?: number;
+
+  /**
+   * Enable voting mechanism for human participation.
+   * When true, breakpoints may be created for user input.
+   */
   enable_voting?: boolean;
+
+  /**
+   * Additional context to provide to all agents.
+   * Useful for domain-specific knowledge or constraints.
+   */
   context?: string;
 }
 
+/**
+ * Response from creating a new debate.
+ */
 export interface DebateCreateResponse {
+  /** Unique identifier for the created debate */
   debate_id: string;
+
+  /** Initial status of the debate (typically 'created' or 'in_progress') */
   status: string;
+
+  /** Echo of the task that was submitted */
   task: string;
 }
 
+/**
+ * Complete debate object with all rounds, messages, and results.
+ *
+ * @example
+ * ```typescript
+ * const debate = await client.debates.get('debate-123');
+ * if (debate.status === DebateStatus.COMPLETED) {
+ *   console.log('Consensus:', debate.consensus?.conclusion);
+ *   for (const round of debate.rounds) {
+ *     console.log(`Round ${round.round_number}:`, round.messages.length, 'messages');
+ *   }
+ * }
+ * ```
+ */
 export interface Debate {
+  /** Optional alias for debate_id used in some API responses */
+  id?: string;
+
+  /** Unique debate identifier */
   debate_id: string;
+
+  /** The topic or question being debated */
   task: string;
+
+  /** Current status of the debate */
   status: DebateStatus;
+
+  /** List of agent identifiers participating in the debate */
   agents: string[];
+
+  /** Completed debate rounds with messages and critiques */
   rounds: DebateRound[];
+
+  /** Consensus result if debate reached agreement */
   consensus?: ConsensusResult;
+
+  /** ISO 8601 timestamp when the debate was created */
   created_at?: string;
+
+  /** ISO 8601 timestamp when the debate completed (if finished) */
   completed_at?: string;
+
+  /** Additional metadata attached to the debate */
   metadata?: Record<string, unknown>;
 }
 
@@ -387,17 +549,81 @@ export interface WebSocketOptions {
 // Client Types
 // =============================================================================
 
+export interface RetryOptions {
+  /** Maximum number of retry attempts (default: 3) */
+  maxRetries?: number;
+  /** Initial delay in milliseconds (default: 1000) */
+  initialDelay?: number;
+  /** Maximum delay in milliseconds (default: 30000) */
+  maxDelay?: number;
+  /** Multiplier for exponential backoff (default: 2) */
+  backoffMultiplier?: number;
+  /** Whether to add jitter to delays (default: true) */
+  jitter?: boolean;
+}
+
+/**
+ * Configuration options for the Aragora client.
+ *
+ * @example
+ * ```typescript
+ * // Basic configuration
+ * const client = new AragoraClient({
+ *   baseUrl: 'https://api.aragora.ai',
+ *   apiKey: process.env.ARAGORA_API_KEY,
+ * });
+ *
+ * // Advanced configuration with retry options
+ * const client = new AragoraClient({
+ *   baseUrl: 'https://api.aragora.ai',
+ *   apiKey: process.env.ARAGORA_API_KEY,
+ *   timeout: 60000,
+ *   retry: {
+ *     maxRetries: 5,
+ *     initialDelay: 2000,
+ *   },
+ * });
+ * ```
+ */
 export interface AragoraClientOptions {
+  /**
+   * Base URL of the Aragora API server.
+   * For local development: 'http://localhost:8080'
+   * For production: 'https://api.aragora.ai'
+   */
   baseUrl: string;
+
+  /**
+   * API key for authentication.
+   * Obtain from your Aragora dashboard or via client.auth.createApiKey()
+   */
   apiKey?: string;
+
+  /**
+   * Default request timeout in milliseconds (default: 30000).
+   * Can be overridden per-request via RequestOptions.
+   */
   timeout?: number;
+
+  /**
+   * Additional headers to include with every request.
+   * Useful for custom tracking or proxy authentication.
+   */
   headers?: Record<string, string>;
+
+  /**
+   * Retry configuration for failed requests.
+   * By default, retries 3 times with exponential backoff.
+   */
+  retry?: RetryOptions;
 }
 
 export interface RequestOptions {
   timeout?: number;
   headers?: Record<string, string>;
   signal?: AbortSignal;
+  /** Override retry settings for this request */
+  retry?: RetryOptions | false;
 }
 
 export interface ApiError {

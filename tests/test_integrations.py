@@ -86,9 +86,7 @@ class TestSlackMessage:
 
     def test_message_with_blocks(self):
         """Test message with Block Kit blocks."""
-        blocks = [
-            {"type": "section", "text": {"type": "mrkdwn", "text": "*Bold*"}}
-        ]
+        blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": "*Bold*"}}]
         msg = SlackMessage(text="Fallback", blocks=blocks)
         config = SlackConfig(webhook_url="https://hooks.slack.com/test")
         payload = msg.to_payload(config)
@@ -162,9 +160,7 @@ class TestSlackIntegrationAsync:
         """Test successful consensus alert send."""
         integration = SlackIntegration(config)
 
-        with patch.object(
-            integration, "_send_message", new_callable=AsyncMock
-        ) as mock_send:
+        with patch.object(integration, "_send_message", new_callable=AsyncMock) as mock_send:
             mock_send.return_value = True
             result = await integration.send_consensus_alert(
                 debate_id="test-123",
@@ -241,9 +237,7 @@ class TestDiscordEmbed:
             url="https://example.com",
             timestamp="2024-01-15T12:00:00Z",
             footer={"text": "Footer text"},
-            fields=[
-                {"name": "Field 1", "value": "Value 1", "inline": True}
-            ],
+            fields=[{"name": "Field 1", "value": "Value 1", "inline": True}],
         )
         data = embed.to_dict()
         assert data["title"] == "Test Title"
@@ -332,9 +326,7 @@ class TestDiscordIntegrationAsync:
         """Test successful debate start send."""
         integration = DiscordIntegration(config)
 
-        with patch.object(
-            integration, "_send_webhook", new_callable=AsyncMock
-        ) as mock_send:
+        with patch.object(integration, "_send_webhook", new_callable=AsyncMock) as mock_send:
             mock_send.return_value = True
             result = await integration.send_debate_start(
                 debate_id="test-123",
@@ -350,9 +342,7 @@ class TestDiscordIntegrationAsync:
         """Test sending consensus notification."""
         integration = DiscordIntegration(config)
 
-        with patch.object(
-            integration, "_send_webhook", new_callable=AsyncMock
-        ) as mock_send:
+        with patch.object(integration, "_send_webhook", new_callable=AsyncMock) as mock_send:
             mock_send.return_value = True
             result = await integration.send_consensus_reached(
                 debate_id="test-123",
@@ -367,9 +357,7 @@ class TestDiscordIntegrationAsync:
         """Test sending no-consensus notification."""
         integration = DiscordIntegration(config)
 
-        with patch.object(
-            integration, "_send_webhook", new_callable=AsyncMock
-        ) as mock_send:
+        with patch.object(integration, "_send_webhook", new_callable=AsyncMock) as mock_send:
             mock_send.return_value = True
             result = await integration.send_no_consensus(
                 debate_id="test-123",
@@ -383,9 +371,7 @@ class TestDiscordIntegrationAsync:
         """Test sending error notification."""
         integration = DiscordIntegration(config)
 
-        with patch.object(
-            integration, "_send_webhook", new_callable=AsyncMock
-        ) as mock_send:
+        with patch.object(integration, "_send_webhook", new_callable=AsyncMock) as mock_send:
             mock_send.return_value = True
             result = await integration.send_error(
                 error_type="AgentTimeout",
@@ -400,9 +386,7 @@ class TestDiscordIntegrationAsync:
         """Test sending round summary."""
         integration = DiscordIntegration(config)
 
-        with patch.object(
-            integration, "_send_webhook", new_callable=AsyncMock
-        ) as mock_send:
+        with patch.object(integration, "_send_webhook", new_callable=AsyncMock) as mock_send:
             mock_send.return_value = True
             result = await integration.send_round_summary(
                 debate_id="test-123",
@@ -458,15 +442,18 @@ class TestDiscordWebhookManager:
         manager.register("hook2", config2)
 
         # Mock the send methods
-        with patch.object(
-            manager._integrations["hook1"],
-            "send_debate_start",
-            new_callable=AsyncMock,
-        ) as mock1, patch.object(
-            manager._integrations["hook2"],
-            "send_debate_start",
-            new_callable=AsyncMock,
-        ) as mock2:
+        with (
+            patch.object(
+                manager._integrations["hook1"],
+                "send_debate_start",
+                new_callable=AsyncMock,
+            ) as mock1,
+            patch.object(
+                manager._integrations["hook2"],
+                "send_debate_start",
+                new_callable=AsyncMock,
+            ) as mock2,
+        ):
             mock1.return_value = True
             mock2.return_value = True
 
@@ -502,9 +489,7 @@ class TestCreateDiscordIntegration:
 
     def test_create_with_minimal_args(self):
         """Test creating integration with minimal arguments."""
-        integration = create_discord_integration(
-            webhook_url="https://discord.com/test"
-        )
+        integration = create_discord_integration(webhook_url="https://discord.com/test")
         assert integration.config.webhook_url == "https://discord.com/test"
 
     def test_create_with_kwargs(self):

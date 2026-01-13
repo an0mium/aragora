@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { useAuth } from '@/context/AuthContext';
+import { API_BASE_URL } from '@/config';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const API_BASE = API_BASE_URL;
 
 interface PlanFeature {
   text: string;
@@ -77,7 +78,7 @@ const plans: Plan[] = [
   {
     id: 'enterprise',
     name: 'ENTERPRISE',
-    price: 299,
+    price: 999,
     period: 'month',
     description: 'For organizations with custom needs',
     cta: 'Contact Sales',
@@ -88,6 +89,22 @@ const plans: Plan[] = [
       { text: 'Custom integrations', included: true },
       { text: 'Dedicated support', included: true },
       { text: 'SLA guarantee', included: true },
+    ],
+  },
+  {
+    id: 'enterprise_plus',
+    name: 'ENTERPRISE+',
+    price: 5000,
+    period: 'month',
+    description: 'Premium tier with dedicated infrastructure',
+    cta: 'Contact Sales',
+    features: [
+      { text: 'Everything in Enterprise', included: true },
+      { text: 'Dedicated infrastructure', included: true },
+      { text: 'Custom model training', included: true },
+      { text: 'Private model deployment', included: true },
+      { text: 'SOC2 / HIPAA compliance', included: true },
+      { text: 'Token-based API billing', included: true },
     ],
   },
 ];
@@ -104,8 +121,11 @@ export default function PricingPage() {
     }
 
     if (planId === 'free') return;
-    if (planId === 'enterprise') {
-      window.location.href = 'mailto:sales@aragora.ai?subject=Enterprise%20Inquiry';
+    if (planId === 'enterprise' || planId === 'enterprise_plus') {
+      const subject = planId === 'enterprise_plus'
+        ? 'Enterprise+ Inquiry'
+        : 'Enterprise Inquiry';
+      window.location.href = `mailto:sales@aragora.ai?subject=${encodeURIComponent(subject)}`;
       return;
     }
 
@@ -201,7 +221,7 @@ export default function PricingPage() {
 
         {/* Pricing Grid */}
         <section className="pb-16 px-4">
-          <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             {plans.map((plan) => (
               <div
                 key={plan.id}

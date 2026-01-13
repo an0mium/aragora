@@ -5,6 +5,7 @@ import { RoleBadge } from '../RoleBadge';
 import { AgentRelationships } from '../AgentRelationships';
 import { getConfidenceColor } from '@/utils/colors';
 import type { AgentData, PositionEntry, MatchHistoryEntry } from './types';
+import { API_BASE_URL } from '@/config';
 
 interface IndividualAgentTabProps {
   currentAgent: AgentData;
@@ -21,7 +22,7 @@ interface IndividualAgentTabProps {
   apiBase?: string;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 export function IndividualAgentTab({
   currentAgent,

@@ -46,8 +46,21 @@ class TestFlipDetectorBatch:
                     original_debate_id, new_debate_id, original_position_id, new_position_id,
                     similarity_score, flip_type, domain)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                ("flip1", "agent_a", "Claim 1", "Claim 1 changed", 0.9, 0.3,
-                 "debate1", "debate2", "pos1", "pos2", 0.8, "contradiction", "science"),
+                (
+                    "flip1",
+                    "agent_a",
+                    "Claim 1",
+                    "Claim 1 changed",
+                    0.9,
+                    0.3,
+                    "debate1",
+                    "debate2",
+                    "pos1",
+                    "pos2",
+                    0.8,
+                    "contradiction",
+                    "science",
+                ),
             )
             conn.commit()
         return detector

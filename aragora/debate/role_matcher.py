@@ -146,15 +146,14 @@ class RoleMatcher:
 
         # Identify cold-start agents
         cold_start = [
-            name for name in agent_names
+            name
+            for name in agent_names
             if calibrations.get(name) is None
             or calibrations[name].total_predictions < self.config.min_predictions_for_calibration
         ]
 
         if self.config.strategy == "calibration":
-            return self._calibration_strategy(
-                agent_names, round_num, calibrations, cold_start
-            )
+            return self._calibration_strategy(agent_names, round_num, calibrations, cold_start)
         else:  # hybrid
             return self._hybrid_strategy(
                 agent_names, round_num, calibrations, personas, debate_domain, cold_start
@@ -293,8 +292,7 @@ class RoleMatcher:
     ) -> CognitiveRole:
         """Select a role based on calibration metrics."""
         is_well_calibrated = (
-            cal.brier_score < self.config.brier_threshold
-            and cal.ece < self.config.ece_threshold
+            cal.brier_score < self.config.brier_threshold and cal.ece < self.config.ece_threshold
         )
 
         # Priority order based on calibration status
@@ -373,8 +371,7 @@ class RoleMatcher:
     ) -> float:
         """Compute affinity between calibration state and role."""
         is_well_calibrated = (
-            cal.brier_score < self.config.brier_threshold
-            and cal.ece < self.config.ece_threshold
+            cal.brier_score < self.config.brier_threshold and cal.ece < self.config.ece_threshold
         )
 
         # Role-specific affinities
@@ -449,10 +446,7 @@ class RoleMatcher:
 
         # Softmax selection
         max_score = max(available.values())
-        exp_scores = {
-            r: math.exp((s - max_score) / temperature)
-            for r, s in available.items()
-        }
+        exp_scores = {r: math.exp((s - max_score) / temperature) for r, s in available.items()}
         total = sum(exp_scores.values())
 
         if total == 0:

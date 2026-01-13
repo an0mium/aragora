@@ -49,16 +49,20 @@ def mock_twitter_connector():
     """Create mock Twitter connector."""
     connector = MagicMock()
     connector.is_configured = True
-    connector.post_tweet = AsyncMock(return_value={
-        "success": True,
-        "tweet_id": "12345",
-        "url": "https://twitter.com/user/status/12345",
-    })
-    connector.post_thread = AsyncMock(return_value={
-        "success": True,
-        "thread_ids": ["12345", "12346", "12347"],
-        "url": "https://twitter.com/user/status/12345",
-    })
+    connector.post_tweet = AsyncMock(
+        return_value={
+            "success": True,
+            "tweet_id": "12345",
+            "url": "https://twitter.com/user/status/12345",
+        }
+    )
+    connector.post_thread = AsyncMock(
+        return_value={
+            "success": True,
+            "thread_ids": ["12345", "12346", "12347"],
+            "url": "https://twitter.com/user/status/12345",
+        }
+    )
     return connector
 
 
@@ -75,11 +79,13 @@ def mock_youtube_connector():
     connector.rate_limiter.remaining_quota = 9500
     connector.circuit_breaker = MagicMock()
     connector.circuit_breaker.is_open = False
-    connector.upload = AsyncMock(return_value={
-        "success": True,
-        "video_id": "abc123",
-        "url": "https://youtube.com/watch?v=abc123",
-    })
+    connector.upload = AsyncMock(
+        return_value={
+            "success": True,
+            "video_id": "abc123",
+            "url": "https://youtube.com/watch?v=abc123",
+        }
+    )
     return connector
 
 
@@ -102,8 +108,13 @@ def mock_video_generator():
 
 
 @pytest.fixture
-def handler_ctx(mock_storage, mock_twitter_connector, mock_youtube_connector,
-                mock_audio_store, mock_video_generator):
+def handler_ctx(
+    mock_storage,
+    mock_twitter_connector,
+    mock_youtube_connector,
+    mock_audio_store,
+    mock_video_generator,
+):
     """Create handler context with all mocks."""
     return {
         "storage": mock_storage,
@@ -127,7 +138,7 @@ def mock_http_handler():
     handler.headers = {"Host": "localhost:8080"}
     handler.client_address = ("127.0.0.1", 12345)
     handler.rfile = MagicMock()
-    handler.rfile.read.return_value = b'{}'
+    handler.rfile.read.return_value = b"{}"
     return handler
 
 
@@ -139,17 +150,17 @@ def mock_http_handler():
 class TestTwitterPublishing:
     """Tests for Twitter publishing functionality."""
 
-    def test_publish_twitter_success(self, social_handler, mock_http_handler, mock_storage, mock_twitter_connector):
+    def test_publish_twitter_success(
+        self, social_handler, mock_http_handler, mock_storage, mock_twitter_connector
+    ):
         """Successful Twitter publish returns tweet details."""
         with patch("aragora.connectors.twitter_poster.DebateContentFormatter") as MockFormatter:
             mock_formatter = MockFormatter.return_value
             mock_formatter.format_single_tweet.return_value = "Test tweet content"
 
-            with patch.object(social_handler, 'read_json_body', return_value={}):
+            with patch.object(social_handler, "read_json_body", return_value={}):
                 result = social_handler.handle_post(
-                    "/api/debates/test-debate-123/publish/twitter",
-                    {},
-                    mock_http_handler
+                    "/api/debates/test-debate-123/publish/twitter", {}, mock_http_handler
                 )
 
         assert result is not None
@@ -163,11 +174,9 @@ class TestTwitterPublishing:
         handler_ctx["twitter_connector"].is_configured = False
         handler = SocialMediaHandler(server_context=handler_ctx)
 
-        with patch.object(handler, 'read_json_body', return_value={}):
+        with patch.object(handler, "read_json_body", return_value={}):
             result = handler.handle_post(
-                "/api/debates/test-debate-123/publish/twitter",
-                {},
-                mock_http_handler
+                "/api/debates/test-debate-123/publish/twitter", {}, mock_http_handler
             )
 
         assert result is not None
@@ -180,9 +189,7 @@ class TestTwitterPublishing:
         handler = SocialMediaHandler(server_context={"storage": MagicMock()})
 
         result = handler.handle_post(
-            "/api/debates/test-debate-123/publish/twitter",
-            {},
-            mock_http_handler
+            "/api/debates/test-debate-123/publish/twitter", {}, mock_http_handler
         )
 
         assert result is not None
@@ -196,11 +203,9 @@ class TestTwitterPublishing:
         handler_ctx["storage"].get_debate_by_slug.return_value = None
         handler = SocialMediaHandler(server_context=handler_ctx)
 
-        with patch.object(handler, 'read_json_body', return_value={}):
+        with patch.object(handler, "read_json_body", return_value={}):
             result = handler.handle_post(
-                "/api/debates/nonexistent/publish/twitter",
-                {},
-                mock_http_handler
+                "/api/debates/nonexistent/publish/twitter", {}, mock_http_handler
             )
 
         assert result is not None
@@ -211,27 +216,25 @@ class TestTwitterPublishing:
         handler_ctx["storage"] = None
         handler = SocialMediaHandler(server_context=handler_ctx)
 
-        with patch.object(handler, 'read_json_body', return_value={}):
+        with patch.object(handler, "read_json_body", return_value={}):
             result = handler.handle_post(
-                "/api/debates/test-123/publish/twitter",
-                {},
-                mock_http_handler
+                "/api/debates/test-123/publish/twitter", {}, mock_http_handler
             )
 
         assert result is not None
         assert result.status_code == 503
 
-    def test_publish_twitter_thread_mode(self, social_handler, mock_http_handler, mock_twitter_connector):
+    def test_publish_twitter_thread_mode(
+        self, social_handler, mock_http_handler, mock_twitter_connector
+    ):
         """Thread mode publishes as Twitter thread."""
         with patch("aragora.connectors.twitter_poster.DebateContentFormatter") as MockFormatter:
             mock_formatter = MockFormatter.return_value
             mock_formatter.format_as_thread.return_value = ["Tweet 1", "Tweet 2", "Tweet 3"]
 
-            with patch.object(social_handler, 'read_json_body', return_value={"thread_mode": True}):
+            with patch.object(social_handler, "read_json_body", return_value={"thread_mode": True}):
                 result = social_handler.handle_post(
-                    "/api/debates/test-debate-123/publish/twitter",
-                    {},
-                    mock_http_handler
+                    "/api/debates/test-debate-123/publish/twitter", {}, mock_http_handler
                 )
 
         assert result is not None
@@ -242,11 +245,9 @@ class TestTwitterPublishing:
 
     def test_publish_twitter_invalid_json_body(self, social_handler, mock_http_handler):
         """Returns 400 for invalid JSON body."""
-        with patch.object(social_handler, 'read_json_body', return_value=None):
+        with patch.object(social_handler, "read_json_body", return_value=None):
             result = social_handler.handle_post(
-                "/api/debates/test-debate-123/publish/twitter",
-                {},
-                mock_http_handler
+                "/api/debates/test-debate-123/publish/twitter", {}, mock_http_handler
             )
 
         assert result is not None
@@ -254,22 +255,24 @@ class TestTwitterPublishing:
         body = json.loads(result.body)
         assert "invalid json" in body["error"].lower()
 
-    def test_publish_twitter_api_error(self, social_handler, mock_http_handler, mock_twitter_connector):
+    def test_publish_twitter_api_error(
+        self, social_handler, mock_http_handler, mock_twitter_connector
+    ):
         """Handles Twitter API errors gracefully."""
-        mock_twitter_connector.post_tweet = AsyncMock(return_value={
-            "success": False,
-            "error": "Rate limit exceeded",
-        })
+        mock_twitter_connector.post_tweet = AsyncMock(
+            return_value={
+                "success": False,
+                "error": "Rate limit exceeded",
+            }
+        )
 
         with patch("aragora.connectors.twitter_poster.DebateContentFormatter") as MockFormatter:
             mock_formatter = MockFormatter.return_value
             mock_formatter.format_single_tweet.return_value = "Test tweet"
 
-            with patch.object(social_handler, 'read_json_body', return_value={}):
+            with patch.object(social_handler, "read_json_body", return_value={}):
                 result = social_handler.handle_post(
-                    "/api/debates/test-debate-123/publish/twitter",
-                    {},
-                    mock_http_handler
+                    "/api/debates/test-debate-123/publish/twitter", {}, mock_http_handler
                 )
 
         assert result is not None
@@ -283,17 +286,17 @@ class TestTwitterPublishing:
         with patch("aragora.connectors.twitter_poster.DebateContentFormatter") as MockFormatter:
             MockFormatter.side_effect = ImportError("Module not found")
 
-            with patch.object(social_handler, 'read_json_body', return_value={}):
+            with patch.object(social_handler, "read_json_body", return_value={}):
                 result = social_handler.handle_post(
-                    "/api/debates/test-debate-123/publish/twitter",
-                    {},
-                    mock_http_handler
+                    "/api/debates/test-debate-123/publish/twitter", {}, mock_http_handler
                 )
 
         assert result is not None
         assert result.status_code == 500
 
-    def test_publish_twitter_with_audio_link(self, social_handler, mock_http_handler, mock_audio_store):
+    def test_publish_twitter_with_audio_link(
+        self, social_handler, mock_http_handler, mock_audio_store
+    ):
         """Includes audio link when audio exists."""
         mock_audio_store.exists.return_value = True
 
@@ -301,11 +304,11 @@ class TestTwitterPublishing:
             mock_formatter = MockFormatter.return_value
             mock_formatter.format_single_tweet.return_value = "Test tweet"
 
-            with patch.object(social_handler, 'read_json_body', return_value={"include_audio_link": True}):
+            with patch.object(
+                social_handler, "read_json_body", return_value={"include_audio_link": True}
+            ):
                 result = social_handler.handle_post(
-                    "/api/debates/test-debate-123/publish/twitter",
-                    {},
-                    mock_http_handler
+                    "/api/debates/test-debate-123/publish/twitter", {}, mock_http_handler
                 )
 
         assert result is not None
@@ -321,14 +324,14 @@ class TestTwitterPublishing:
 class TestYouTubePublishing:
     """Tests for YouTube publishing functionality."""
 
-    def test_publish_youtube_success(self, social_handler, mock_http_handler, mock_youtube_connector):
+    def test_publish_youtube_success(
+        self, social_handler, mock_http_handler, mock_youtube_connector
+    ):
         """Successful YouTube publish returns video details."""
         with patch("aragora.connectors.youtube_uploader.YouTubeVideoMetadata"):
-            with patch.object(social_handler, 'read_json_body', return_value={}):
+            with patch.object(social_handler, "read_json_body", return_value={}):
                 result = social_handler.handle_post(
-                    "/api/debates/test-debate-123/publish/youtube",
-                    {},
-                    mock_http_handler
+                    "/api/debates/test-debate-123/publish/youtube", {}, mock_http_handler
                 )
 
         assert result is not None
@@ -342,11 +345,9 @@ class TestYouTubePublishing:
         handler_ctx["youtube_connector"].is_configured = False
         handler = SocialMediaHandler(server_context=handler_ctx)
 
-        with patch.object(handler, 'read_json_body', return_value={}):
+        with patch.object(handler, "read_json_body", return_value={}):
             result = handler.handle_post(
-                "/api/debates/test-debate-123/publish/youtube",
-                {},
-                mock_http_handler
+                "/api/debates/test-debate-123/publish/youtube", {}, mock_http_handler
             )
 
         assert result is not None
@@ -359,9 +360,7 @@ class TestYouTubePublishing:
         handler = SocialMediaHandler(server_context={"storage": MagicMock()})
 
         result = handler.handle_post(
-            "/api/debates/test-debate-123/publish/youtube",
-            {},
-            mock_http_handler
+            "/api/debates/test-debate-123/publish/youtube", {}, mock_http_handler
         )
 
         assert result is not None
@@ -375,11 +374,9 @@ class TestYouTubePublishing:
         handler_ctx["storage"].get_debate_by_slug.return_value = None
         handler = SocialMediaHandler(server_context=handler_ctx)
 
-        with patch.object(handler, 'read_json_body', return_value={}):
+        with patch.object(handler, "read_json_body", return_value={}):
             result = handler.handle_post(
-                "/api/debates/nonexistent/publish/youtube",
-                {},
-                mock_http_handler
+                "/api/debates/nonexistent/publish/youtube", {}, mock_http_handler
             )
 
         assert result is not None
@@ -391,11 +388,9 @@ class TestYouTubePublishing:
         handler_ctx["youtube_connector"].rate_limiter.remaining_quota = 0
         handler = SocialMediaHandler(server_context=handler_ctx)
 
-        with patch.object(handler, 'read_json_body', return_value={}):
+        with patch.object(handler, "read_json_body", return_value={}):
             result = handler.handle_post(
-                "/api/debates/test-debate-123/publish/youtube",
-                {},
-                mock_http_handler
+                "/api/debates/test-debate-123/publish/youtube", {}, mock_http_handler
             )
 
         assert result is not None
@@ -408,11 +403,9 @@ class TestYouTubePublishing:
         handler_ctx["audio_store"].exists.return_value = False
         handler = SocialMediaHandler(server_context=handler_ctx)
 
-        with patch.object(handler, 'read_json_body', return_value={}):
+        with patch.object(handler, "read_json_body", return_value={}):
             result = handler.handle_post(
-                "/api/debates/test-debate-123/publish/youtube",
-                {},
-                mock_http_handler
+                "/api/debates/test-debate-123/publish/youtube", {}, mock_http_handler
             )
 
         assert result is not None
@@ -426,11 +419,9 @@ class TestYouTubePublishing:
         handler = SocialMediaHandler(server_context=handler_ctx)
 
         with patch("aragora.connectors.youtube_uploader.YouTubeVideoMetadata"):
-            with patch.object(handler, 'read_json_body', return_value={}):
+            with patch.object(handler, "read_json_body", return_value={}):
                 result = handler.handle_post(
-                    "/api/debates/test-debate-123/publish/youtube",
-                    {},
-                    mock_http_handler
+                    "/api/debates/test-debate-123/publish/youtube", {}, mock_http_handler
                 )
 
         assert result is not None
@@ -448,11 +439,9 @@ class TestYouTubePublishing:
         }
 
         with patch("aragora.connectors.youtube_uploader.YouTubeVideoMetadata") as MockMetadata:
-            with patch.object(social_handler, 'read_json_body', return_value=custom_options):
+            with patch.object(social_handler, "read_json_body", return_value=custom_options):
                 result = social_handler.handle_post(
-                    "/api/debates/test-debate-123/publish/youtube",
-                    {},
-                    mock_http_handler
+                    "/api/debates/test-debate-123/publish/youtube", {}, mock_http_handler
                 )
 
         # Verify metadata was created with custom values
@@ -465,11 +454,9 @@ class TestYouTubePublishing:
 
     def test_publish_youtube_invalid_json_body(self, social_handler, mock_http_handler):
         """Returns 400 for invalid JSON body."""
-        with patch.object(social_handler, 'read_json_body', return_value=None):
+        with patch.object(social_handler, "read_json_body", return_value=None):
             result = social_handler.handle_post(
-                "/api/debates/test-debate-123/publish/youtube",
-                {},
-                mock_http_handler
+                "/api/debates/test-debate-123/publish/youtube", {}, mock_http_handler
             )
 
         assert result is not None
@@ -477,19 +464,21 @@ class TestYouTubePublishing:
         body = json.loads(result.body)
         assert "invalid json" in body["error"].lower()
 
-    def test_publish_youtube_upload_failure(self, social_handler, mock_http_handler, mock_youtube_connector):
+    def test_publish_youtube_upload_failure(
+        self, social_handler, mock_http_handler, mock_youtube_connector
+    ):
         """Handles upload failures gracefully."""
-        mock_youtube_connector.upload = AsyncMock(return_value={
-            "success": False,
-            "error": "Upload failed: API error",
-        })
+        mock_youtube_connector.upload = AsyncMock(
+            return_value={
+                "success": False,
+                "error": "Upload failed: API error",
+            }
+        )
 
         with patch("aragora.connectors.youtube_uploader.YouTubeVideoMetadata"):
-            with patch.object(social_handler, 'read_json_body', return_value={}):
+            with patch.object(social_handler, "read_json_body", return_value={}):
                 result = social_handler.handle_post(
-                    "/api/debates/test-debate-123/publish/youtube",
-                    {},
-                    mock_http_handler
+                    "/api/debates/test-debate-123/publish/youtube", {}, mock_http_handler
                 )
 
         assert result is not None
@@ -497,17 +486,17 @@ class TestYouTubePublishing:
         body = json.loads(result.body)
         assert body["success"] is False
 
-    def test_publish_youtube_waveform_fallback(self, handler_ctx, mock_http_handler, mock_video_generator):
+    def test_publish_youtube_waveform_fallback(
+        self, handler_ctx, mock_http_handler, mock_video_generator
+    ):
         """Falls back to static video when waveform generation fails."""
         mock_video_generator.generate_waveform_video.side_effect = Exception("FFmpeg not found")
         handler = SocialMediaHandler(server_context=handler_ctx)
 
         with patch("aragora.connectors.youtube_uploader.YouTubeVideoMetadata"):
-            with patch.object(handler, 'read_json_body', return_value={}):
+            with patch.object(handler, "read_json_body", return_value={}):
                 result = handler.handle_post(
-                    "/api/debates/test-debate-123/publish/youtube",
-                    {},
-                    mock_http_handler
+                    "/api/debates/test-debate-123/publish/youtube", {}, mock_http_handler
                 )
 
         assert result is not None
@@ -577,12 +566,8 @@ class TestConnectorConfiguration:
         handler_ctx["twitter_connector"].is_configured = False
         handler = SocialMediaHandler(server_context=handler_ctx)
 
-        with patch.object(handler, 'read_json_body', return_value={}):
-            result = handler.handle_post(
-                "/api/debates/test/publish/twitter",
-                {},
-                mock_http_handler
-            )
+        with patch.object(handler, "read_json_body", return_value={}):
+            result = handler.handle_post("/api/debates/test/publish/twitter", {}, mock_http_handler)
 
         body = json.loads(result.body)
         assert "hint" in body
@@ -593,12 +578,8 @@ class TestConnectorConfiguration:
         handler_ctx["youtube_connector"].is_configured = False
         handler = SocialMediaHandler(server_context=handler_ctx)
 
-        with patch.object(handler, 'read_json_body', return_value={}):
-            result = handler.handle_post(
-                "/api/debates/test/publish/youtube",
-                {},
-                mock_http_handler
-            )
+        with patch.object(handler, "read_json_body", return_value={}):
+            result = handler.handle_post("/api/debates/test/publish/youtube", {}, mock_http_handler)
 
         body = json.loads(result.body)
         assert "hint" in body
@@ -619,11 +600,9 @@ class TestPostBodyParsing:
             mock_formatter = MockFormatter.return_value
             mock_formatter.format_single_tweet.return_value = "Tweet"
 
-            with patch.object(social_handler, 'read_json_body', return_value={}):
+            with patch.object(social_handler, "read_json_body", return_value={}):
                 result = social_handler.handle_post(
-                    "/api/debates/test-debate-123/publish/twitter",
-                    {},
-                    mock_http_handler
+                    "/api/debates/test-debate-123/publish/twitter", {}, mock_http_handler
                 )
 
         assert result is not None
@@ -636,9 +615,7 @@ class TestPostBodyParsing:
             mock_formatter.format_single_tweet.return_value = "Tweet"
 
             result = social_handler.handle_post(
-                "/api/debates/test-debate-123/publish/twitter",
-                {},
-                None  # No HTTP handler
+                "/api/debates/test-debate-123/publish/twitter", {}, None  # No HTTP handler
             )
 
         # Should still work with empty options
@@ -694,9 +671,7 @@ class TestDebateIdValidation:
 
         for invalid_id in invalid_ids:
             result = social_handler.handle_post(
-                f"/api/debates/{invalid_id}/publish/twitter",
-                {},
-                mock_http_handler
+                f"/api/debates/{invalid_id}/publish/twitter", {}, mock_http_handler
             )
 
             # Should be rejected with 400
@@ -712,16 +687,17 @@ class TestDebateIdValidation:
         ]
 
         for valid_id in valid_ids:
-            with patch.object(social_handler, 'read_json_body', return_value={}):
+            with patch.object(social_handler, "read_json_body", return_value={}):
                 result = social_handler.handle_post(
-                    f"/api/debates/{valid_id}/publish/twitter",
-                    {},
-                    mock_http_handler
+                    f"/api/debates/{valid_id}/publish/twitter", {}, mock_http_handler
                 )
 
             # Should proceed (may return 404 if debate not found, but not 400)
             if result:
-                assert result.status_code != 400 or "not found" in json.loads(result.body).get("error", "").lower() == False
+                assert (
+                    result.status_code != 400
+                    or "not found" in json.loads(result.body).get("error", "").lower() == False
+                )
 
 
 # =============================================================================
@@ -738,11 +714,9 @@ class TestPublishingResponseFormat:
             mock_formatter = MockFormatter.return_value
             mock_formatter.format_single_tweet.return_value = "Tweet"
 
-            with patch.object(social_handler, 'read_json_body', return_value={}):
+            with patch.object(social_handler, "read_json_body", return_value={}):
                 result = social_handler.handle_post(
-                    "/api/debates/test-debate-123/publish/twitter",
-                    {},
-                    mock_http_handler
+                    "/api/debates/test-debate-123/publish/twitter", {}, mock_http_handler
                 )
 
         body = json.loads(result.body)
@@ -754,11 +728,9 @@ class TestPublishingResponseFormat:
     def test_youtube_success_response_structure(self, social_handler, mock_http_handler):
         """YouTube success response has expected fields."""
         with patch("aragora.connectors.youtube_uploader.YouTubeVideoMetadata"):
-            with patch.object(social_handler, 'read_json_body', return_value={}):
+            with patch.object(social_handler, "read_json_body", return_value={}):
                 result = social_handler.handle_post(
-                    "/api/debates/test-debate-123/publish/youtube",
-                    {},
-                    mock_http_handler
+                    "/api/debates/test-debate-123/publish/youtube", {}, mock_http_handler
                 )
 
         body = json.loads(result.body)
@@ -773,12 +745,8 @@ class TestPublishingResponseFormat:
         handler_ctx["twitter_connector"].is_configured = False
         handler = SocialMediaHandler(server_context=handler_ctx)
 
-        with patch.object(handler, 'read_json_body', return_value={}):
-            result = handler.handle_post(
-                "/api/debates/test/publish/twitter",
-                {},
-                mock_http_handler
-            )
+        with patch.object(handler, "read_json_body", return_value={}):
+            result = handler.handle_post("/api/debates/test/publish/twitter", {}, mock_http_handler)
 
         body = json.loads(result.body)
         assert "error" in body

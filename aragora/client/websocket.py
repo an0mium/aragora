@@ -38,6 +38,7 @@ MAX_EVENT_QUEUE_SIZE = 1000  # Prevent unbounded memory growth from event floodi
 
 class DebateEventType(str, Enum):
     """Types of debate events."""
+
     DEBATE_START = "debate_start"
     ROUND_START = "round_start"
     ROUND_END = "round_end"
@@ -54,6 +55,7 @@ class DebateEventType(str, Enum):
 @dataclass
 class DebateEvent:
     """A debate event from WebSocket stream."""
+
     type: DebateEventType
     debate_id: str
     timestamp: str
@@ -79,6 +81,7 @@ class DebateEvent:
 @dataclass
 class WebSocketOptions:
     """Options for WebSocket connection."""
+
     reconnect: bool = True
     reconnect_interval: float = 1.0
     max_reconnect_attempts: int = 5
@@ -142,12 +145,7 @@ class DebateStream:
 
     def _build_url(self, base_url: str, debate_id: str) -> str:
         """Build WebSocket URL."""
-        ws_url = (
-            base_url
-            .replace("http://", "ws://")
-            .replace("https://", "wss://")
-            .rstrip("/")
-        )
+        ws_url = base_url.replace("http://", "ws://").replace("https://", "wss://").rstrip("/")
         return f"{ws_url}/ws/debates/{debate_id}"
 
     async def connect(self) -> None:
@@ -160,9 +158,7 @@ class DebateStream:
         try:
             import websockets
         except ImportError:
-            raise ImportError(
-                "websockets package required. Install with: pip install websockets"
-            )
+            raise ImportError("websockets package required. Install with: pip install websockets")
 
         try:
             self._ws = await asyncio.wait_for(

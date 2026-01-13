@@ -44,20 +44,20 @@ class SpectatorEvents:
 # Icon and color mappings for visual styling
 # Format: (emoji_icon, ansi_color_code)
 EVENT_STYLES: Dict[str, Tuple[str, str]] = {
-    SpectatorEvents.DEBATE_START: ("🎬", "\033[95m"),   # Magenta
+    SpectatorEvents.DEBATE_START: ("🎬", "\033[95m"),  # Magenta
     SpectatorEvents.DEBATE_END: ("🏁", "\033[95m"),
-    SpectatorEvents.ROUND_START: ("⏱️", "\033[96m"),    # Cyan
+    SpectatorEvents.ROUND_START: ("⏱️", "\033[96m"),  # Cyan
     SpectatorEvents.ROUND_END: ("✓", "\033[96m"),
-    SpectatorEvents.PROPOSAL: ("💡", "\033[94m"),       # Blue
-    SpectatorEvents.CRITIQUE: ("🔍", "\033[91m"),       # Red
+    SpectatorEvents.PROPOSAL: ("💡", "\033[94m"),  # Blue
+    SpectatorEvents.CRITIQUE: ("🔍", "\033[91m"),  # Red
     SpectatorEvents.REFINE: ("✨", "\033[94m"),
-    SpectatorEvents.VOTE: ("🗳️", "\033[93m"),          # Yellow
+    SpectatorEvents.VOTE: ("🗳️", "\033[93m"),  # Yellow
     SpectatorEvents.JUDGE: ("⚖️", "\033[93m"),
-    SpectatorEvents.CONSENSUS: ("🤝", "\033[92m"),      # Green
+    SpectatorEvents.CONSENSUS: ("🤝", "\033[92m"),  # Green
     SpectatorEvents.CONVERGENCE: ("📊", "\033[92m"),
     SpectatorEvents.CONVERGED: ("🎉", "\033[92m"),
     SpectatorEvents.MEMORY_RECALL: ("🧠", "\033[94m"),  # Blue - memory retrieval
-    SpectatorEvents.BREAKPOINT: ("⚠️", "\033[33m"),    # Yellow/orange - needs attention
+    SpectatorEvents.BREAKPOINT: ("⚠️", "\033[33m"),  # Yellow/orange - needs attention
     SpectatorEvents.BREAKPOINT_RESOLVED: ("✅", "\033[32m"),  # Green - resolved
     SpectatorEvents.SYSTEM: ("⚙️", "\033[0m"),
     SpectatorEvents.ERROR: ("❌", "\033[91m"),

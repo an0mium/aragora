@@ -274,18 +274,26 @@ class TestBackendSelection:
         """Test that default backend is SQLite."""
         # Reset global backend
         import aragora.storage.token_blacklist_store as module
+
         original = module._blacklist_backend
         module._blacklist_backend = None
 
         try:
-            with patch.dict(os.environ, {
-                "ARAGORA_BLACKLIST_BACKEND": "sqlite",
-                "ARAGORA_DATA_DIR": str(tmp_path),
-            }):
+            with patch.dict(
+                os.environ,
+                {
+                    "ARAGORA_BLACKLIST_BACKEND": "sqlite",
+                    "ARAGORA_DATA_DIR": str(tmp_path),
+                },
+            ):
                 # Force reimport of DATA_DIR
                 with patch.object(module, "get_blacklist_backend") as mock:
                     # Call actual implementation
-                    mock.side_effect = lambda: module.get_blacklist_backend.__wrapped__() if hasattr(module.get_blacklist_backend, '__wrapped__') else SQLiteBlacklist(tmp_path / "token_blacklist.db")
+                    mock.side_effect = lambda: (
+                        module.get_blacklist_backend.__wrapped__()
+                        if hasattr(module.get_blacklist_backend, "__wrapped__")
+                        else SQLiteBlacklist(tmp_path / "token_blacklist.db")
+                    )
                     backend = SQLiteBlacklist(tmp_path / "test.db")
                     assert isinstance(backend, SQLiteBlacklist)
         finally:
@@ -294,6 +302,7 @@ class TestBackendSelection:
     def test_memory_backend_selection(self):
         """Test selecting in-memory backend."""
         import aragora.storage.token_blacklist_store as module
+
         original = module._blacklist_backend
         module._blacklist_backend = None
 
@@ -307,6 +316,7 @@ class TestBackendSelection:
     def test_set_custom_backend(self):
         """Test setting a custom backend."""
         import aragora.storage.token_blacklist_store as module
+
         original = module._blacklist_backend
 
         try:
@@ -369,15 +379,19 @@ class TestRedisBlacklist:
     def test_redis_backend_fallback(self, tmp_path):
         """Test fallback to SQLite when Redis unavailable."""
         import aragora.storage.token_blacklist_store as module
+
         original = module._blacklist_backend
         module._blacklist_backend = None
 
         try:
-            with patch.dict(os.environ, {
-                "ARAGORA_BLACKLIST_BACKEND": "redis",
-                "ARAGORA_REDIS_URL": "redis://nonexistent:6379/0",
-                "ARAGORA_DATA_DIR": str(tmp_path),
-            }):
+            with patch.dict(
+                os.environ,
+                {
+                    "ARAGORA_BLACKLIST_BACKEND": "redis",
+                    "ARAGORA_REDIS_URL": "redis://nonexistent:6379/0",
+                    "ARAGORA_DATA_DIR": str(tmp_path),
+                },
+            ):
                 backend = get_blacklist_backend()
                 # Should fall back to SQLite due to connection failure
                 assert isinstance(backend, SQLiteBlacklist)
@@ -441,6 +455,7 @@ class TestBlacklistIntegration:
 
             # Random lookups should be fast
             import random
+
             for _ in range(100):
                 token = f"volume_token_{random.randint(0, 999)}"
                 assert blacklist.contains(token) is True

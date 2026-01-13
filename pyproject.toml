@@ -134,8 +134,18 @@ target-version = ["py310", "py311", "py312"]
 
 [tool.ruff]
 line-length = 100
-select = ["E", "F", "I", "N", "W"]
+select = ["E", "F", "I", "N", "W", "T201"]  # T201 = print statement found
 ignore = ["E501"]
+
+[tool.ruff.per-file-ignores]
+# Allow print statements in CLI modules, migrations, and scripts
+"aragora/cli/*" = ["T201"]
+"aragora/migrations/*" = ["T201"]
+"aragora/db/migrate.py" = ["T201"]
+"aragora/persistence/migrations/*" = ["T201"]
+"aragora/training/exporters/*" = ["T201"]  # CLI export tools
+"scripts/*" = ["T201"]
+"tests/*" = ["T201"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -189,6 +199,11 @@ module = [
     "aragora.debate.autonomic_executor",
     "aragora.debate.sanitization",
     "aragora.resilience",
+    # Added strict - clean modules (Jan 2026)
+    "aragora.debate.termination_checker",
+    "aragora.debate.team_selector",
+    "aragora.debate.convergence",
+    "aragora.exceptions",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -206,17 +221,25 @@ module = [
     "aragora.debate.protocol",
     "aragora.debate.roles",
     "aragora.templates",
-    "aragora.exceptions",
 ]
 check_untyped_defs = true
 
-# Allow untyped for complex modules (can be tightened later)
+# Moderate-strict for complex modules (check untyped defs)
 [[tool.mypy.overrides]]
 module = [
     "aragora.debate.orchestrator",
-    "aragora.agents.api_agents",
-    "aragora.agents.cli_agents",
+    "aragora.agents.api_agents.*",
     "aragora.memory.continuum",
+    "aragora.memory.consensus",
+    "aragora.memory.streams",
+]
+disallow_untyped_defs = false
+check_untyped_defs = true
+
+# Allow untyped for deprecated modules
+[[tool.mypy.overrides]]
+module = [
+    "aragora.agents.cli_agents",
 ]
 disallow_untyped_defs = false
 check_untyped_defs = false

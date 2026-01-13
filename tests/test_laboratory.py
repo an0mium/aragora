@@ -35,6 +35,7 @@ from aragora.agents.personas import Persona, PersonaManager, PERSONALITY_TRAITS,
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def temp_dir():
     """Create temporary directory for test databases."""
@@ -97,6 +98,7 @@ def sample_experiment(sample_persona):
 # ============================================================================
 # PersonaExperiment Tests
 # ============================================================================
+
 
 class TestPersonaExperiment:
     """Tests for PersonaExperiment data class."""
@@ -175,6 +177,7 @@ class TestPersonaExperiment:
 # EmergentTrait Tests
 # ============================================================================
 
+
 class TestEmergentTrait:
     """Tests for EmergentTrait data class."""
 
@@ -214,6 +217,7 @@ class TestEmergentTrait:
 # TraitTransfer Tests
 # ============================================================================
 
+
 class TestTraitTransfer:
     """Tests for TraitTransfer data class."""
 
@@ -249,6 +253,7 @@ class TestTraitTransfer:
 # PersonaLaboratory Initialization Tests
 # ============================================================================
 
+
 class TestPersonaLaboratoryInit:
     """Tests for PersonaLaboratory initialization."""
 
@@ -261,28 +266,36 @@ class TestPersonaLaboratoryInit:
         """Test experiments table is created."""
         with sqlite3.connect(lab_db) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='experiments'")
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='experiments'"
+            )
             assert cursor.fetchone() is not None
 
     def test_creates_emergent_traits_table(self, lab, lab_db):
         """Test emergent_traits table is created."""
         with sqlite3.connect(lab_db) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='emergent_traits'")
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='emergent_traits'"
+            )
             assert cursor.fetchone() is not None
 
     def test_creates_trait_transfers_table(self, lab, lab_db):
         """Test trait_transfers table is created."""
         with sqlite3.connect(lab_db) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='trait_transfers'")
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='trait_transfers'"
+            )
             assert cursor.fetchone() is not None
 
     def test_creates_evolution_history_table(self, lab, lab_db):
         """Test evolution_history table is created."""
         with sqlite3.connect(lab_db) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='evolution_history'")
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='evolution_history'"
+            )
             assert cursor.fetchone() is not None
 
     def test_idempotent_init(self, persona_manager, lab_db):
@@ -295,6 +308,7 @@ class TestPersonaLaboratoryInit:
 # ============================================================================
 # A/B Experiment Tests
 # ============================================================================
+
 
 class TestExperimentCreation:
     """Tests for experiment creation."""
@@ -350,7 +364,10 @@ class TestExperimentCreation:
 
         with sqlite3.connect(lab_db) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT experiment_id FROM experiments WHERE experiment_id = ?", (exp.experiment_id,))
+            cursor.execute(
+                "SELECT experiment_id FROM experiments WHERE experiment_id = ?",
+                (exp.experiment_id,),
+            )
             assert cursor.fetchone() is not None
 
 
@@ -492,6 +509,7 @@ class TestExperimentConclusion:
 # Emergent Trait Detection Tests
 # ============================================================================
 
+
 class TestEmergentTraitDetection:
     """Tests for emergent trait detection."""
 
@@ -512,11 +530,11 @@ class TestEmergentTraitDetection:
             cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO emergent_traits (trait_name, source_agents, confidence) VALUES (?, ?, ?)",
-                ("high_conf", "[]", 0.9)
+                ("high_conf", "[]", 0.9),
             )
             cursor.execute(
                 "INSERT INTO emergent_traits (trait_name, source_agents, confidence) VALUES (?, ?, ?)",
-                ("low_conf", "[]", 0.3)
+                ("low_conf", "[]", 0.3),
             )
             conn.commit()
 
@@ -530,15 +548,15 @@ class TestEmergentTraitDetection:
             cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO emergent_traits (trait_name, source_agents, confidence) VALUES (?, ?, ?)",
-                ("medium", "[]", 0.6)
+                ("medium", "[]", 0.6),
             )
             cursor.execute(
                 "INSERT INTO emergent_traits (trait_name, source_agents, confidence) VALUES (?, ?, ?)",
-                ("high", "[]", 0.9)
+                ("high", "[]", 0.9),
             )
             cursor.execute(
                 "INSERT INTO emergent_traits (trait_name, source_agents, confidence) VALUES (?, ?, ?)",
-                ("low", "[]", 0.5)
+                ("low", "[]", 0.5),
             )
             conn.commit()
 
@@ -549,6 +567,7 @@ class TestEmergentTraitDetection:
 # ============================================================================
 # Cross-Pollination Tests
 # ============================================================================
+
 
 class TestCrossPollination:
     """Tests for trait cross-pollination."""
@@ -654,6 +673,7 @@ class TestCrossPollinationSuggestions:
 # Persona Mutation Tests
 # ============================================================================
 
+
 class TestPersonaMutation:
     """Tests for persona mutation."""
 
@@ -681,9 +701,9 @@ class TestPersonaMutation:
 
         # With 100% mutation rate, something should change
         changed = (
-            result.traits != ["thorough"] or
-            result.expertise.get("security") != 0.5 or
-            len(result.expertise) > 1
+            result.traits != ["thorough"]
+            or result.expertise.get("security") != 0.5
+            or len(result.expertise) > 1
         )
         assert changed
 
@@ -703,6 +723,7 @@ class TestPersonaMutation:
 # ============================================================================
 # Evolution History Tests
 # ============================================================================
+
 
 class TestEvolutionHistory:
     """Tests for evolution history tracking."""
@@ -759,6 +780,7 @@ class TestEvolutionHistory:
 # ============================================================================
 # Lab Statistics Tests
 # ============================================================================
+
 
 class TestLabStats:
     """Tests for laboratory statistics."""

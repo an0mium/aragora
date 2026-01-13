@@ -8,14 +8,10 @@ Provides:
 
 import json
 import random
-import sqlite3
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Generator, Optional
-
-from aragora.config import DB_TIMEOUT_SECONDS
+from typing import Optional
 from aragora.agents.personas import EXPERTISE_DOMAINS, PERSONALITY_TRAITS
 from aragora.genesis.database import GenesisDatabase
 from aragora.genesis.genome import AgentGenome, GenomeStore, generate_genome_id
@@ -71,10 +67,9 @@ class GenomeBreeder:
     inspired by evolutionary algorithms.
     """
 
-    def __init__(self,
-                 mutation_rate: float = 0.1,
-                 crossover_ratio: float = 0.5,
-                 elite_ratio: float = 0.2):
+    def __init__(
+        self, mutation_rate: float = 0.1, crossover_ratio: float = 0.5, elite_ratio: float = 0.2
+    ):
         """
         Args:
             mutation_rate: Probability of mutating each trait/expertise
@@ -85,11 +80,13 @@ class GenomeBreeder:
         self.crossover_ratio = crossover_ratio
         self.elite_ratio = elite_ratio
 
-    def crossover(self,
-                  parent_a: AgentGenome,
-                  parent_b: AgentGenome,
-                  name: Optional[str] = None,
-                  debate_id: Optional[str] = None) -> AgentGenome:
+    def crossover(
+        self,
+        parent_a: AgentGenome,
+        parent_b: AgentGenome,
+        name: Optional[str] = None,
+        debate_id: Optional[str] = None,
+    ) -> AgentGenome:
         """
         Blend two parent genomes into a child.
 
@@ -102,10 +99,7 @@ class GenomeBreeder:
         for trait in all_traits:
             val_a = parent_a.traits.get(trait, 0)
             val_b = parent_b.traits.get(trait, 0)
-            child_traits[trait] = (
-                self.crossover_ratio * val_a +
-                (1 - self.crossover_ratio) * val_b
-            )
+            child_traits[trait] = self.crossover_ratio * val_a + (1 - self.crossover_ratio) * val_b
 
         # Blend expertise (weighted average)
         all_domains = set(parent_a.expertise.keys()) | set(parent_b.expertise.keys())
@@ -114,8 +108,7 @@ class GenomeBreeder:
             val_a = parent_a.expertise.get(domain, 0)
             val_b = parent_b.expertise.get(domain, 0)
             child_expertise[domain] = (
-                self.crossover_ratio * val_a +
-                (1 - self.crossover_ratio) * val_b
+                self.crossover_ratio * val_a + (1 - self.crossover_ratio) * val_b
             )
 
         # Model preference: random selection from parents
@@ -123,10 +116,7 @@ class GenomeBreeder:
 
         # Generate name if not provided
         if not name:
-            parent_names = [
-                parent_a.name.split("-")[0],
-                parent_b.name.split("-")[0]
-            ]
+            parent_names = [parent_a.name.split("-")[0], parent_b.name.split("-")[0]]
             name = f"{parent_names[0]}-{parent_names[1]}-gen{max(parent_a.generation, parent_b.generation) + 1}"
 
         # New generation is max of parents + 1
@@ -134,9 +124,7 @@ class GenomeBreeder:
 
         return AgentGenome(
             genome_id=generate_genome_id(
-                child_traits,
-                child_expertise,
-                [parent_a.genome_id, parent_b.genome_id]
+                child_traits, child_expertise, [parent_a.genome_id, parent_b.genome_id]
             ),
             name=name,
             traits=child_traits,
@@ -195,9 +183,7 @@ class GenomeBreeder:
 
         return AgentGenome(
             genome_id=generate_genome_id(
-                new_traits,
-                new_expertise,
-                genome.parent_genomes + ["mutated"]
+                new_traits, new_expertise, genome.parent_genomes + ["mutated"]
             ),
             name=f"{genome.name}-mut",
             traits=new_traits,
@@ -209,10 +195,9 @@ class GenomeBreeder:
             birth_debate_id=genome.birth_debate_id,
         )
 
-    def spawn_specialist(self,
-                         domain: str,
-                         parent_pool: list[AgentGenome],
-                         debate_id: Optional[str] = None) -> AgentGenome:
+    def spawn_specialist(
+        self, domain: str, parent_pool: list[AgentGenome], debate_id: Optional[str] = None
+    ) -> AgentGenome:
         """
         Create a domain-specialized agent from best-fit parents.
 
@@ -223,11 +208,7 @@ class GenomeBreeder:
             raise ValueError("Cannot spawn specialist from empty parent pool")
 
         # Sort by expertise in target domain
-        sorted_parents = sorted(
-            parent_pool,
-            key=lambda g: g.expertise.get(domain, 0),
-            reverse=True
-        )
+        sorted_parents = sorted(parent_pool, key=lambda g: g.expertise.get(domain, 0), reverse=True)
 
         # Take top 2 (or 1 if only 1 available)
         if len(sorted_parents) >= 2:
@@ -246,11 +227,9 @@ class GenomeBreeder:
 
         return child
 
-    def natural_selection(self,
-                          population: Population,
-                          keep_top_n: int = 4,
-                          breed_n: int = 2,
-                          mutate_n: int = 1) -> Population:
+    def natural_selection(
+        self, population: Population, keep_top_n: int = 4, breed_n: int = 2, mutate_n: int = 1
+    ) -> Population:
         """
         Apply natural selection to evolve a population.
 
@@ -263,11 +242,7 @@ class GenomeBreeder:
             return population
 
         # Sort by fitness
-        sorted_genomes = sorted(
-            population.genomes,
-            key=lambda g: g.fitness_score,
-            reverse=True
-        )
+        sorted_genomes = sorted(population.genomes, key=lambda g: g.fitness_score, reverse=True)
 
         # Keep elites
         n_elite = min(keep_top_n, len(sorted_genomes))
@@ -277,7 +252,7 @@ class GenomeBreeder:
         if len(sorted_genomes) >= 2:
             for _ in range(breed_n):
                 # Tournament selection (pick 2 from top half)
-                top_half = sorted_genomes[:max(2, len(sorted_genomes) // 2)]
+                top_half = sorted_genomes[: max(2, len(sorted_genomes) // 2)]
                 parents = random.sample(top_half, 2)
                 child = self.crossover(parents[0], parents[1])
                 new_genomes.append(child)
@@ -285,7 +260,7 @@ class GenomeBreeder:
         # Add mutations
         for _ in range(mutate_n):
             if sorted_genomes:
-                parent = random.choice(sorted_genomes[:max(1, len(sorted_genomes) // 2)])
+                parent = random.choice(sorted_genomes[: max(1, len(sorted_genomes) // 2)])
                 mutant = self.mutate(parent)
                 new_genomes.append(mutant)
 
@@ -296,9 +271,7 @@ class GenomeBreeder:
             debate_history=population.debate_history.copy(),
         )
 
-    def protect_endangered(self,
-                           population: Population,
-                           min_similarity: float = 0.3) -> Population:
+    def protect_endangered(self, population: Population, min_similarity: float = 0.3) -> Population:
         """
         Preserve rare trait combinations for genetic diversity.
 
@@ -345,50 +318,16 @@ class PopulationManager:
     - Domain-specific agent selection
     """
 
-    def __init__(self,
-                 db_path: str = ".nomic/genesis.db",
-                 max_population_size: int = 8):
+    def __init__(self, db_path: str = ".nomic/genesis.db", max_population_size: int = 8):
         self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.db = GenesisDatabase(db_path)
         self.max_population_size = max_population_size
         self.genome_store = GenomeStore(db_path)
         self.breeder = GenomeBreeder()
-        self._init_db()
 
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection with guaranteed cleanup."""
-        with self.db.connection() as conn:
-            yield conn
-
-    def _init_db(self) -> None:
-        """Initialize population tables."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS populations (
-                    population_id TEXT PRIMARY KEY,
-                    genome_ids TEXT,
-                    generation INTEGER DEFAULT 0,
-                    created_at TEXT,
-                    debate_history TEXT
-                )
-            """)
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS active_population (
-                    id INTEGER PRIMARY KEY CHECK (id = 1),
-                    population_id TEXT
-                )
-            """)
-
-            conn.commit()
-
-    def get_or_create_population(self,
-                                  base_agents: list[str],
-                                  population_id: Optional[str] = None) -> Population:
+    def get_or_create_population(
+        self, base_agents: list[str], population_id: Optional[str] = None
+    ) -> Population:
         """
         Load existing population or create from base agents.
 
@@ -415,6 +354,7 @@ class PopulationManager:
                 persona = DEFAULT_PERSONAS[agent_name]
             else:
                 from aragora.agents.personas import Persona
+
                 persona = Persona(agent_name=agent_name)
 
             genome = AgentGenome.from_persona(persona, model=agent_name)
@@ -432,11 +372,13 @@ class PopulationManager:
 
         return population
 
-    def update_fitness(self,
-                       genome_id: str,
-                       consensus_win: bool = False,
-                       critique_accepted: bool = False,
-                       prediction_correct: bool = False) -> None:
+    def update_fitness(
+        self,
+        genome_id: str,
+        consensus_win: bool = False,
+        critique_accepted: bool = False,
+        prediction_correct: bool = False,
+    ) -> None:
         """Update genome fitness based on debate outcome."""
         genome = self.genome_store.get(genome_id)
         if genome:
@@ -469,11 +411,9 @@ class PopulationManager:
 
         # Enforce population cap
         if len(evolved.genomes) > self.max_population_size:
-            evolved.genomes = sorted(
-                evolved.genomes,
-                key=lambda g: g.fitness_score,
-                reverse=True
-            )[:self.max_population_size]
+            evolved.genomes = sorted(evolved.genomes, key=lambda g: g.fitness_score, reverse=True)[
+                : self.max_population_size
+            ]
 
         # Save all genomes
         for genome in evolved.genomes:
@@ -490,17 +430,14 @@ class PopulationManager:
 
         # Sort by domain expertise, then by fitness
         sorted_genomes = sorted(
-            all_genomes,
-            key=lambda g: (g.expertise.get(domain, 0), g.fitness_score),
-            reverse=True
+            all_genomes, key=lambda g: (g.expertise.get(domain, 0), g.fitness_score), reverse=True
         )
 
         return sorted_genomes[:n]
 
-    def spawn_specialist_for_debate(self,
-                                     domain: str,
-                                     population: Population,
-                                     debate_id: str) -> AgentGenome:
+    def spawn_specialist_for_debate(
+        self, domain: str, population: Population, debate_id: str
+    ) -> AgentGenome:
         """Spawn a domain specialist for a specific debate."""
         specialist = self.breeder.spawn_specialist(
             domain=domain,
@@ -517,7 +454,7 @@ class PopulationManager:
 
     def _get_active_population_id(self) -> Optional[str]:
         """Get the currently active population ID."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute("SELECT population_id FROM active_population WHERE id = 1")
@@ -527,26 +464,26 @@ class PopulationManager:
 
     def _set_active_population(self, population_id: str) -> None:
         """Set the active population."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO active_population (id, population_id)
                 VALUES (1, ?)
                 ON CONFLICT(id) DO UPDATE SET population_id = excluded.population_id
-            """, (population_id,))
+            """,
+                (population_id,),
+            )
 
             conn.commit()
 
     def _load_population(self, population_id: str) -> Optional[Population]:
         """Load a population from database."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute(
-                "SELECT * FROM populations WHERE population_id = ?",
-                (population_id,)
-            )
+            cursor.execute("SELECT * FROM populations WHERE population_id = ?", (population_id,))
             row = cursor.fetchone()
 
         if not row:
@@ -566,24 +503,27 @@ class PopulationManager:
 
     def _save_population(self, population: Population) -> None:
         """Save a population to database."""
-        with self._get_connection() as conn:
+        with self.db.connection() as conn:
             cursor = conn.cursor()
 
             genome_ids = [g.genome_id for g in population.genomes]
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO populations (population_id, genome_ids, generation, created_at, debate_history)
                 VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(population_id) DO UPDATE SET
                     genome_ids = excluded.genome_ids,
                     generation = excluded.generation,
                     debate_history = excluded.debate_history
-            """, (
-                population.population_id,
-                json.dumps(genome_ids),
-                population.generation,
-                population.created_at.isoformat(),
-                json.dumps(population.debate_history),
-            ))
+            """,
+                (
+                    population.population_id,
+                    json.dumps(genome_ids),
+                    population.generation,
+                    population.created_at.isoformat(),
+                    json.dumps(population.debate_history),
+                ),
+            )
 
             conn.commit()

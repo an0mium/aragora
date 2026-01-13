@@ -166,10 +166,13 @@ class EvidenceGrounder:
         if total_weight == 0:
             return GroundingResult(citations=top_citations, grounding_score=0.3)
 
-        weighted_score = sum(
-            self.QUALITY_SCORES.get(e.quality.value, 0.3) * e.relevance_score
-            for e in top_citations
-        ) / total_weight
+        weighted_score = (
+            sum(
+                self.QUALITY_SCORES.get(e.quality.value, 0.3) * e.relevance_score
+                for e in top_citations
+            )
+            / total_weight
+        )
 
         return GroundingResult(citations=top_citations, grounding_score=weighted_score)
 
@@ -309,20 +312,24 @@ class EvidenceGrounder:
 
                     if proof_result and proof_result.status == FormalProofStatus.PROOF_FOUND:
                         claim.grounding_score = 1.0  # Formally verified
-                        claim.citations.append({  # type: ignore[arg-type]
-                            "type": "formal_proof",
-                            "prover": proof_result.language.value,
-                            "verified": True,
-                        })
+                        claim.citations.append(
+                            {  # type: ignore[arg-type]
+                                "type": "formal_proof",
+                                "prover": proof_result.language.value,
+                                "verified": True,
+                            }
+                        )
                         verified_count += 1
                     elif proof_result and proof_result.status == FormalProofStatus.PROOF_FAILED:
                         claim.grounding_score = 0.0  # Disproven
-                        claim.citations.append({  # type: ignore[arg-type]
-                            "type": "formal_proof",
-                            "prover": proof_result.language.value,
-                            "verified": False,
-                            "counterexample": proof_result.proof_text,
-                        })
+                        claim.citations.append(
+                            {  # type: ignore[arg-type]
+                                "type": "formal_proof",
+                                "prover": proof_result.language.value,
+                                "verified": False,
+                                "counterexample": proof_result.proof_text,
+                            }
+                        )
                         disproven_count += 1
 
                 except Exception as e:

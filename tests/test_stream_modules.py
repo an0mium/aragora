@@ -39,6 +39,7 @@ from aragora.server.stream.state_manager import (
 # Tests for events.py
 # =============================================================================
 
+
 class TestStreamEventType:
     """Tests for StreamEventType enum."""
 
@@ -195,6 +196,7 @@ class TestAudienceMessage:
 # Tests for emitter.py
 # =============================================================================
 
+
 class TestNormalizeIntensity:
     """Tests for normalize_intensity utility function."""
 
@@ -320,9 +322,15 @@ class TestAudienceInbox:
     def test_get_summary_vote_counts(self):
         """Should count votes by choice."""
         inbox = AudienceInbox()
-        inbox.put(AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 5}))
-        inbox.put(AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 8}))
-        inbox.put(AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "B", "intensity": 3}))
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 5})
+        )
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 8})
+        )
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "B", "intensity": 3})
+        )
 
         summary = inbox.get_summary()
         assert summary["votes"] == {"A": 2, "B": 1}
@@ -333,9 +341,13 @@ class TestAudienceInbox:
         """Should calculate weighted votes based on intensity."""
         inbox = AudienceInbox()
         # High intensity vote (10 -> weight 2.0)
-        inbox.put(AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 10}))
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 10})
+        )
         # Low intensity vote (1 -> weight 0.5)
-        inbox.put(AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "B", "intensity": 1}))
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "B", "intensity": 1})
+        )
 
         summary = inbox.get_summary()
         assert summary["weighted_votes"]["A"] == pytest.approx(2.0, rel=0.1)
@@ -344,9 +356,15 @@ class TestAudienceInbox:
     def test_get_summary_histograms(self):
         """Should build per-choice intensity histograms."""
         inbox = AudienceInbox()
-        inbox.put(AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 5}))
-        inbox.put(AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 5}))
-        inbox.put(AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 10}))
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 5})
+        )
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 5})
+        )
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 10})
+        )
 
         summary = inbox.get_summary()
         assert summary["histograms"]["A"][5] == 2
@@ -355,9 +373,15 @@ class TestAudienceInbox:
     def test_get_summary_conviction_distribution(self):
         """Should track global conviction distribution."""
         inbox = AudienceInbox()
-        inbox.put(AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 5}))
-        inbox.put(AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "B", "intensity": 5}))
-        inbox.put(AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 10}))
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 5})
+        )
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "B", "intensity": 5})
+        )
+        inbox.put(
+            AudienceMessage(type="vote", loop_id="loop1", payload={"choice": "A", "intensity": 10})
+        )
 
         summary = inbox.get_summary()
         assert summary["conviction_distribution"][5] == 2
@@ -570,6 +594,7 @@ class TestSyncEventEmitter:
 # =============================================================================
 # Tests for state_manager.py
 # =============================================================================
+
 
 class TestBoundedDebateDict:
     """Tests for BoundedDebateDict with eviction."""

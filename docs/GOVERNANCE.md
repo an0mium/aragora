@@ -245,7 +245,7 @@ cat .nomic/audit.log
 
 ### Monitoring Dashboard
 
-The live dashboard (`https://live.aragora.ai`) shows:
+The live dashboard (`https://aragora.ai`) shows:
 - Current nomic cycle status
 - Pending approvals
 - Risk budget utilization
@@ -260,7 +260,7 @@ All nomic loop actions are logged:
   "timestamp": "2026-01-09T21:45:00Z",
   "cycle_id": "nomic-cycle-42",
   "phase": "implement",
-  "agent": "claude",
+  "agent": "anthropic-api",
   "action": "write_file",
   "file": "aragora/debate/trickster.py",
   "risk_cost": 8.0,

@@ -21,8 +21,10 @@ from aragora.server.handlers.breakpoints import BreakpointsHandler
 # Test Fixtures
 # ============================================================================
 
+
 class MockTrigger(Enum):
     """Mock trigger enum for testing."""
+
     LOW_CONFIDENCE = "low_confidence"
     SAFETY_CONCERN = "safety_concern"
     USER_REQUEST = "user_request"
@@ -83,6 +85,7 @@ def handler_with_manager(mock_breakpoint_manager):
 # Route Recognition Tests
 # ============================================================================
 
+
 class TestBreakpointsRouting:
     """Tests for breakpoints route recognition."""
 
@@ -114,6 +117,7 @@ class TestBreakpointsRouting:
 # ============================================================================
 # GET /api/breakpoints/pending Tests
 # ============================================================================
+
 
 class TestGetPendingBreakpoints:
     """Tests for listing pending breakpoints."""
@@ -176,7 +180,9 @@ class TestGetPendingBreakpoints:
         data = json.loads(result.body)
         assert "error" in data
 
-    def test_pending_breakpoint_without_snapshot(self, handler_with_manager, mock_breakpoint_manager):
+    def test_pending_breakpoint_without_snapshot(
+        self, handler_with_manager, mock_breakpoint_manager
+    ):
         """Test breakpoint without snapshot is handled."""
         bp = Mock()
         bp.breakpoint_id = "bp-no-snapshot"
@@ -197,6 +203,7 @@ class TestGetPendingBreakpoints:
 # ============================================================================
 # GET /api/breakpoints/{id}/status Tests
 # ============================================================================
+
 
 class TestGetBreakpointStatus:
     """Tests for getting breakpoint status."""
@@ -261,6 +268,7 @@ class TestGetBreakpointStatus:
 # POST /api/breakpoints/{id}/resolve Tests
 # ============================================================================
 
+
 class TestResolveBreakpoint:
     """Tests for resolving breakpoints."""
 
@@ -271,9 +279,7 @@ class TestResolveBreakpoint:
             "message": "Looks fine, proceed",
         }
 
-        result = handler_with_manager.handle_post(
-            "/api/breakpoints/bp-001/resolve", body, None
-        )
+        result = handler_with_manager.handle_post("/api/breakpoints/bp-001/resolve", body, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -287,9 +293,7 @@ class TestResolveBreakpoint:
             "message": "Safety concerns identified",
         }
 
-        result = handler_with_manager.handle_post(
-            "/api/breakpoints/bp-001/resolve", body, None
-        )
+        result = handler_with_manager.handle_post("/api/breakpoints/bp-001/resolve", body, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -303,9 +307,7 @@ class TestResolveBreakpoint:
             "redirect_task": "Focus on AI safety implications",
         }
 
-        result = handler_with_manager.handle_post(
-            "/api/breakpoints/bp-001/resolve", body, None
-        )
+        result = handler_with_manager.handle_post("/api/breakpoints/bp-001/resolve", body, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -318,9 +320,7 @@ class TestResolveBreakpoint:
             "message": "Consider this perspective: ...",
         }
 
-        result = handler_with_manager.handle_post(
-            "/api/breakpoints/bp-001/resolve", body, None
-        )
+        result = handler_with_manager.handle_post("/api/breakpoints/bp-001/resolve", body, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -330,9 +330,7 @@ class TestResolveBreakpoint:
         """Test 400 when action is missing."""
         body = {"message": "Some message"}
 
-        result = handler_with_manager.handle_post(
-            "/api/breakpoints/bp-001/resolve", body, None
-        )
+        result = handler_with_manager.handle_post("/api/breakpoints/bp-001/resolve", body, None)
 
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -342,9 +340,7 @@ class TestResolveBreakpoint:
         """Test 400 for invalid action."""
         body = {"action": "invalid_action"}
 
-        result = handler_with_manager.handle_post(
-            "/api/breakpoints/bp-001/resolve", body, None
-        )
+        result = handler_with_manager.handle_post("/api/breakpoints/bp-001/resolve", body, None)
 
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -377,9 +373,7 @@ class TestResolveBreakpoint:
             "reviewer_id": "human_reviewer_1",
         }
 
-        handler_with_manager.handle_post(
-            "/api/breakpoints/bp-001/resolve", body, None
-        )
+        handler_with_manager.handle_post("/api/breakpoints/bp-001/resolve", body, None)
 
         # Verify resolve_breakpoint was called
         assert mock_breakpoint_manager.resolve_breakpoint.called
@@ -399,6 +393,7 @@ class TestResolveBreakpoint:
 # ============================================================================
 # Input Validation Tests
 # ============================================================================
+
 
 class TestBreakpointsValidation:
     """Tests for input validation."""
@@ -433,6 +428,7 @@ class TestBreakpointsValidation:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestBreakpointsErrorHandling:
     """Tests for error handling scenarios."""
 
@@ -449,9 +445,7 @@ class TestBreakpointsErrorHandling:
         mock_breakpoint_manager.resolve_breakpoint.side_effect = Exception("Unexpected error")
 
         body = {"action": "continue", "message": "ok"}
-        result = handler_with_manager.handle_post(
-            "/api/breakpoints/bp-001/resolve", body, None
-        )
+        result = handler_with_manager.handle_post("/api/breakpoints/bp-001/resolve", body, None)
 
         assert result.status_code == 500
         data = json.loads(result.body)
@@ -461,6 +455,7 @@ class TestBreakpointsErrorHandling:
 # ============================================================================
 # Integration Pattern Tests
 # ============================================================================
+
 
 class TestBreakpointsIntegration:
     """Tests for breakpoint workflow patterns."""
@@ -481,13 +476,13 @@ class TestBreakpointsIntegration:
         )
         assert resolve_result.status_code == 200
 
-    def test_status_check_after_resolve(self, handler_with_manager, mock_breakpoint, mock_breakpoint_manager):
+    def test_status_check_after_resolve(
+        self, handler_with_manager, mock_breakpoint, mock_breakpoint_manager
+    ):
         """Test checking status after resolution."""
         # First resolve
         body = {"action": "abort", "message": "Stopping debate"}
-        handler_with_manager.handle_post(
-            "/api/breakpoints/bp-001/resolve", body, None
-        )
+        handler_with_manager.handle_post("/api/breakpoints/bp-001/resolve", body, None)
 
         # Update mock to reflect resolved state
         mock_breakpoint.status = "resolved"
@@ -499,7 +494,9 @@ class TestBreakpointsIntegration:
 
         assert data["status"] == "resolved"
 
-    def test_multiple_pending_breakpoints(self, handler_with_manager, mock_breakpoint_manager, mock_snapshot):
+    def test_multiple_pending_breakpoints(
+        self, handler_with_manager, mock_breakpoint_manager, mock_snapshot
+    ):
         """Test handling multiple pending breakpoints."""
         bp1 = Mock()
         bp1.breakpoint_id = "bp-001"

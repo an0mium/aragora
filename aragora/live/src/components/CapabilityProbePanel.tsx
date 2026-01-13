@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { withErrorBoundary } from './PanelErrorBoundary';
 import { fetchWithRetry } from '@/utils/retry';
+import { API_BASE_URL } from '@/config';
 
 interface ProbeResult {
   probe_id: string;
@@ -30,7 +32,7 @@ interface CapabilityProbePanelProps {
   onComplete?: (report: ProbeReport) => void;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 const PROBE_TYPES = [
   {
@@ -77,7 +79,7 @@ const PROBE_TYPES = [
   },
 ];
 
-export function CapabilityProbePanel({
+function CapabilityProbePanelComponent({
   apiBase = DEFAULT_API_BASE,
   onComplete,
 }: CapabilityProbePanelProps) {
@@ -369,4 +371,6 @@ export function CapabilityProbePanel({
   );
 }
 
+// Wrap with error boundary for graceful error handling
+export const CapabilityProbePanel = withErrorBoundary(CapabilityProbePanelComponent, 'Capability Probe');
 export default CapabilityProbePanel;

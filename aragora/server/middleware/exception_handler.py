@@ -70,7 +70,6 @@ EXCEPTION_STATUS_MAP: dict[str, int] = {
     "BrokenPipeError": 502,
     "OSError": 500,
     "RuntimeError": 500,
-
     # === Aragora validation errors (400 Bad Request) ===
     "ValidationError": 400,
     "InputValidationError": 400,
@@ -82,7 +81,6 @@ EXCEPTION_STATUS_MAP: dict[str, int] = {
     "ModeConfigurationError": 400,
     "ConvergenceThresholdError": 400,
     "CacheKeyError": 400,
-
     # === Aragora not found errors (404 Not Found) ===
     "DebateNotFoundError": 404,
     "AgentNotFoundError": 404,
@@ -90,17 +88,14 @@ EXCEPTION_STATUS_MAP: dict[str, int] = {
     "ModeNotFoundError": 404,
     "PluginNotFoundError": 404,
     "CheckpointNotFoundError": 404,
-
     # === Aragora authentication/authorization (401/403) ===
     "AuthenticationError": 401,
     "AuthError": 401,
     "TokenExpiredError": 401,
     "APIKeyError": 401,
     "AuthorizationError": 403,
-
     # === Aragora rate limiting (429 Too Many Requests) ===
     "RateLimitExceededError": 429,
-
     # === Aragora storage/database errors (500/503) ===
     "StorageError": 500,
     "DatabaseError": 500,
@@ -111,13 +106,11 @@ EXCEPTION_STATUS_MAP: dict[str, int] = {
     "CheckpointCorruptedError": 500,
     "CacheError": 500,
     "CacheCapacityError": 507,  # Insufficient Storage
-
     # === Aragora agent errors ===
     "AgentTimeoutError": 504,
     "AgentRateLimitError": 429,
     "AgentConnectionError": 502,
     "AgentCircuitOpenError": 503,
-
     # === Aragora debate errors ===
     "DebateError": 500,
     "ConsensusError": 500,
@@ -125,7 +118,6 @@ EXCEPTION_STATUS_MAP: dict[str, int] = {
     "EarlyStopError": 200,  # Not really an error, graceful termination
     "RoundLimitExceededError": 200,  # Graceful limit reached
     "PhaseExecutionError": 500,
-
     # === Aragora verification/convergence errors ===
     "VerificationError": 500,
     "VerificationTimeoutError": 504,
@@ -133,24 +125,20 @@ EXCEPTION_STATUS_MAP: dict[str, int] = {
     "ConvergenceBackendError": 503,
     "Z3NotAvailableError": 503,
     "EmbeddingError": 503,
-
     # === Aragora streaming errors ===
     "StreamingError": 500,
     "StreamConnectionError": 502,
     "StreamTimeoutError": 504,
     "WebSocketError": 502,
-
     # === Aragora plugin/memory errors ===
     "PluginError": 500,
     "PluginExecutionError": 500,
     "MemoryError": 500,
     "TierTransitionError": 500,
-
     # === Aragora Nomic loop errors ===
     "NomicError": 500,
     "NomicCycleError": 500,
     "NomicStateError": 500,
-
     # === SQLite errors (mapped to service unavailable) ===
     "sqlite3.OperationalError": 503,
     "OperationalError": 503,
@@ -372,9 +360,7 @@ async def async_exception_handler(
         yield ctx
     except Exception as exc:
         ctx.exception = exc
-        ctx.error = build_error_response(
-            exc, context, ctx.trace_id, default_status
-        )
+        ctx.error = build_error_response(exc, context, ctx.trace_id, default_status)
 
         duration_ms = round((time.time() - ctx.start_time) * 1000, 2)
         log_msg = (
@@ -428,6 +414,7 @@ def handle_exceptions(
         def get_leaderboard(self, query_params):
             ...
     """
+
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -478,6 +465,7 @@ def async_handle_exceptions(
         async def generate_response(self, prompt):
             ...
     """
+
     def decorator(func: F) -> F:
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:

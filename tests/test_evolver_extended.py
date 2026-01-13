@@ -112,6 +112,7 @@ class TestRefineStrategyAPI:
     def test_refine_api_timeout_fallback_to_append(self, evolver, mock_agent, sample_patterns):
         """Should fall back to APPEND on API timeout."""
         import requests as req
+
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}, clear=False):
             with patch("requests.Session.post") as mock_post:
                 mock_post.side_effect = req.exceptions.Timeout("Connection timed out")
@@ -169,9 +170,7 @@ class TestRefineStrategyAPI:
             with patch("requests.Session.post") as mock_post:
                 mock_response = Mock()
                 mock_response.status_code = 200
-                mock_response.json.return_value = {
-                    "content": [{"text": "Refined"}]
-                }
+                mock_response.json.return_value = {"content": [{"text": "Refined"}]}
                 mock_post.return_value = mock_response
 
                 evolver._evolve_refine(mock_agent.system_prompt, many_patterns)
@@ -181,7 +180,9 @@ class TestRefineStrategyAPI:
                 request_body = call_args[1]["json"]
                 message_content = request_body["messages"][0]["content"]
                 # Count pattern lines (each starts with "- ")
-                pattern_lines = [line for line in message_content.split("\n") if line.startswith("- ")]
+                pattern_lines = [
+                    line for line in message_content.split("\n") if line.startswith("- ")
+                ]
                 assert len(pattern_lines) <= 5
 
     def test_refine_response_content_extraction(self, evolver, mock_agent, sample_patterns):
@@ -217,9 +218,7 @@ class TestPatternFormat:
             with patch("requests.Session.post") as mock_post:
                 mock_response = Mock()
                 mock_response.status_code = 200
-                mock_response.json.return_value = {
-                    "content": [{"text": "Refined"}]
-                }
+                mock_response.json.return_value = {"content": [{"text": "Refined"}]}
                 mock_post.return_value = mock_response
 
                 evolver._evolve_refine(mock_agent.system_prompt, patterns)
@@ -311,9 +310,7 @@ class TestStrategySelection:
         evolver = PromptEvolver(db_path=temp_db, strategy=EvolutionStrategy.HYBRID)
         # Make the prompt long enough that append would exceed 2000
         mock_agent.system_prompt = "a" * 1950
-        patterns = [
-            {"type": "test", "text": "Pattern that when appended exceeds 2000 chars" * 3}
-        ]
+        patterns = [{"type": "test", "text": "Pattern that when appended exceeds 2000 chars" * 3}]
 
         with patch.dict(os.environ, {}, clear=True):
             # No API keys, so refine falls back to append anyway
@@ -559,7 +556,7 @@ class TestPerformanceMetrics:
         version = evolver.get_prompt_version("claude", 1)
         assert version.debates_count == 3
         # Consensus rate: 2/3 = 0.666...
-        assert abs(version.consensus_rate - 2/3) < 0.01
+        assert abs(version.consensus_rate - 2 / 3) < 0.01
 
     def test_performance_score_from_confidence(self, evolver):
         """Performance score should come from debate confidence."""
@@ -637,9 +634,7 @@ class TestDatabaseEdgeCases:
 
         with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = {row[0] for row in cursor.fetchall()}
 
         assert "prompt_versions" in tables
@@ -663,9 +658,7 @@ class TestDatabaseEdgeCases:
 
     def test_pattern_source_debate_id(self, evolver):
         """Patterns should store source debate ID."""
-        patterns = [
-            {"type": "test", "text": "Pattern", "source_debate": "debate-123"}
-        ]
+        patterns = [{"type": "test", "text": "Pattern", "source_debate": "debate-123"}]
         evolver.store_patterns(patterns)
 
         with sqlite3.connect(evolver.db_path) as conn:

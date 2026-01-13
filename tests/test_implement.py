@@ -35,6 +35,7 @@ from aragora.implement.checkpoint import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def sample_task():
     """Create sample ImplementTask."""
@@ -94,8 +95,10 @@ def sample_progress(sample_plan, sample_result):
 @pytest.fixture
 def executor(tmp_path):
     """Create HybridExecutor with mocked agents."""
-    with patch("aragora.implement.executor.ClaudeAgent") as mock_claude, \
-         patch("aragora.implement.executor.CodexAgent") as mock_codex:
+    with (
+        patch("aragora.implement.executor.ClaudeAgent") as mock_claude,
+        patch("aragora.implement.executor.CodexAgent") as mock_codex,
+    ):
         # Setup Claude mock
         claude_instance = MagicMock()
         claude_instance.generate = AsyncMock(return_value="Done")
@@ -113,6 +116,7 @@ def executor(tmp_path):
 # =============================================================================
 # ImplementTask Dataclass Tests
 # =============================================================================
+
 
 class TestImplementTask:
     """Tests for ImplementTask dataclass."""
@@ -171,6 +175,7 @@ class TestImplementTask:
 # ImplementPlan Dataclass Tests
 # =============================================================================
 
+
 class TestImplementPlan:
     """Tests for ImplementPlan dataclass."""
 
@@ -214,6 +219,7 @@ class TestImplementPlan:
 # TaskResult Dataclass Tests
 # =============================================================================
 
+
 class TestTaskResult:
     """Tests for TaskResult dataclass."""
 
@@ -252,6 +258,7 @@ class TestTaskResult:
 # =============================================================================
 # ImplementProgress Dataclass Tests
 # =============================================================================
+
 
 class TestImplementProgress:
     """Tests for ImplementProgress dataclass."""
@@ -294,13 +301,16 @@ class TestImplementProgress:
 # HybridExecutor Initialization Tests
 # =============================================================================
 
+
 class TestHybridExecutorInit:
     """Tests for HybridExecutor initialization."""
 
     def test_default_config(self, tmp_path):
         """Default config should have correct values."""
-        with patch("aragora.implement.executor.ClaudeAgent"), \
-             patch("aragora.implement.executor.CodexAgent"):
+        with (
+            patch("aragora.implement.executor.ClaudeAgent"),
+            patch("aragora.implement.executor.CodexAgent"),
+        ):
             exec_ = HybridExecutor(repo_path=tmp_path)
 
             assert exec_.claude_timeout == 1200
@@ -309,8 +319,10 @@ class TestHybridExecutorInit:
 
     def test_custom_config(self, tmp_path):
         """Custom config should be accepted."""
-        with patch("aragora.implement.executor.ClaudeAgent"), \
-             patch("aragora.implement.executor.CodexAgent"):
+        with (
+            patch("aragora.implement.executor.ClaudeAgent"),
+            patch("aragora.implement.executor.CodexAgent"),
+        ):
             exec_ = HybridExecutor(
                 repo_path=tmp_path,
                 claude_timeout=600,
@@ -324,8 +336,10 @@ class TestHybridExecutorInit:
 
     def test_lazy_agent_creation(self, tmp_path):
         """Agents should be created lazily."""
-        with patch("aragora.implement.executor.ClaudeAgent") as mock_claude, \
-             patch("aragora.implement.executor.CodexAgent") as mock_codex:
+        with (
+            patch("aragora.implement.executor.ClaudeAgent") as mock_claude,
+            patch("aragora.implement.executor.CodexAgent") as mock_codex,
+        ):
             exec_ = HybridExecutor(repo_path=tmp_path)
 
             # Agents not created yet
@@ -342,8 +356,10 @@ class TestHybridExecutorInit:
 
     def test_repo_path_stored(self, tmp_path):
         """Repo path should be stored."""
-        with patch("aragora.implement.executor.ClaudeAgent"), \
-             patch("aragora.implement.executor.CodexAgent"):
+        with (
+            patch("aragora.implement.executor.ClaudeAgent"),
+            patch("aragora.implement.executor.CodexAgent"),
+        ):
             exec_ = HybridExecutor(repo_path=tmp_path)
 
             assert exec_.repo_path == tmp_path
@@ -352,6 +368,7 @@ class TestHybridExecutorInit:
 # =============================================================================
 # _select_agent Method Tests
 # =============================================================================
+
 
 class TestSelectAgent:
     """Tests for HybridExecutor._select_agent method."""
@@ -373,6 +390,7 @@ class TestSelectAgent:
 # =============================================================================
 # _get_task_timeout Method Tests
 # =============================================================================
+
 
 class TestGetTaskTimeout:
     """Tests for HybridExecutor._get_task_timeout method."""
@@ -434,6 +452,7 @@ class TestGetTaskTimeout:
 # _build_prompt Method Tests
 # =============================================================================
 
+
 class TestBuildPrompt:
     """Tests for HybridExecutor._build_prompt method."""
 
@@ -461,6 +480,7 @@ class TestBuildPrompt:
 # =============================================================================
 # execute_task Method Tests
 # =============================================================================
+
 
 class TestExecuteTask:
     """Tests for HybridExecutor.execute_task method."""
@@ -549,6 +569,7 @@ class TestExecuteTask:
 # execute_task_with_retry Method Tests
 # =============================================================================
 
+
 class TestExecuteTaskWithRetry:
     """Tests for HybridExecutor.execute_task_with_retry method."""
 
@@ -601,6 +622,7 @@ class TestExecuteTaskWithRetry:
 # =============================================================================
 # execute_plan Method Tests
 # =============================================================================
+
 
 class TestExecutePlan:
     """Tests for HybridExecutor.execute_plan method."""
@@ -688,6 +710,7 @@ class TestExecutePlan:
 # execute_plan_parallel Method Tests
 # =============================================================================
 
+
 class TestExecutePlanParallel:
     """Tests for HybridExecutor.execute_plan_parallel method."""
 
@@ -707,7 +730,13 @@ class TestExecutePlanParallel:
         """Should respect max_parallel limit."""
         # Create independent tasks
         tasks = [
-            ImplementTask(id=f"task-{i}", description=f"Task {i}", files=[], complexity="simple", dependencies=[])
+            ImplementTask(
+                id=f"task-{i}",
+                description=f"Task {i}",
+                files=[],
+                complexity="simple",
+                dependencies=[],
+            )
             for i in range(5)
         ]
 
@@ -722,6 +751,7 @@ class TestExecutePlanParallel:
 # =============================================================================
 # extract_json Function Tests
 # =============================================================================
+
 
 class TestExtractJson:
     """Tests for extract_json function."""
@@ -782,6 +812,7 @@ Done."""
 # validate_plan Function Tests
 # =============================================================================
 
+
 class TestValidatePlan:
     """Tests for validate_plan function."""
 
@@ -823,25 +854,31 @@ class TestValidatePlan:
 
     def test_invalid_complexity_error(self):
         """Should error on invalid complexity."""
-        errors = validate_plan({
-            "tasks": [{
-                "id": "1",
-                "description": "Test",
-                "files": [],
-                "complexity": "invalid",
-            }]
-        })
+        errors = validate_plan(
+            {
+                "tasks": [
+                    {
+                        "id": "1",
+                        "description": "Test",
+                        "files": [],
+                        "complexity": "invalid",
+                    }
+                ]
+            }
+        )
 
         assert any("complexity" in e.lower() for e in errors)
 
     def test_duplicate_task_id_error(self):
         """Should error on duplicate task ID."""
-        errors = validate_plan({
-            "tasks": [
-                {"id": "1", "description": "A", "files": [], "complexity": "simple"},
-                {"id": "1", "description": "B", "files": [], "complexity": "simple"},
-            ]
-        })
+        errors = validate_plan(
+            {
+                "tasks": [
+                    {"id": "1", "description": "A", "files": [], "complexity": "simple"},
+                    {"id": "1", "description": "B", "files": [], "complexity": "simple"},
+                ]
+            }
+        )
 
         assert any("duplicate" in e.lower() for e in errors)
 
@@ -850,21 +887,26 @@ class TestValidatePlan:
 # generate_implement_plan Function Tests
 # =============================================================================
 
+
 class TestGenerateImplementPlan:
     """Tests for generate_implement_plan function."""
 
     @pytest.mark.asyncio
     async def test_generates_plan(self, tmp_path):
         """Should generate plan from design (mocked)."""
-        response = json.dumps({
-            "tasks": [{
-                "id": "task-1",
-                "description": "Add feature",
-                "files": ["src/feature.py"],
-                "complexity": "simple",
-                "dependencies": [],
-            }]
-        })
+        response = json.dumps(
+            {
+                "tasks": [
+                    {
+                        "id": "task-1",
+                        "description": "Add feature",
+                        "files": ["src/feature.py"],
+                        "complexity": "simple",
+                        "dependencies": [],
+                    }
+                ]
+            }
+        )
 
         with patch("aragora.implement.planner.GeminiCLIAgent") as mock_gemini:
             mock_agent = MagicMock()
@@ -906,14 +948,18 @@ class TestGenerateImplementPlan:
     @pytest.mark.asyncio
     async def test_returns_implement_plan(self, tmp_path):
         """Should return ImplementPlan with tasks."""
-        response = json.dumps({
-            "tasks": [{
-                "id": "t1",
-                "description": "Task",
-                "files": ["a.py"],
-                "complexity": "moderate",
-            }]
-        })
+        response = json.dumps(
+            {
+                "tasks": [
+                    {
+                        "id": "t1",
+                        "description": "Task",
+                        "files": ["a.py"],
+                        "complexity": "moderate",
+                    }
+                ]
+            }
+        )
 
         with patch("aragora.implement.planner.GeminiCLIAgent") as mock_gemini:
             mock_agent = MagicMock()
@@ -929,6 +975,7 @@ class TestGenerateImplementPlan:
 # =============================================================================
 # decompose_failed_task Function Tests
 # =============================================================================
+
 
 class TestDecomposeFailedTask:
     """Tests for decompose_failed_task function."""
@@ -968,12 +1015,24 @@ class TestDecomposeFailedTask:
     @pytest.mark.asyncio
     async def test_successful_decomposition(self, complex_task, tmp_path):
         """Successful decomposition should return subtasks."""
-        response = json.dumps({
-            "subtasks": [
-                {"id": "task-complex-a", "description": "Part A", "files": ["a.py"], "complexity": "simple"},
-                {"id": "task-complex-b", "description": "Part B", "files": ["b.py"], "complexity": "simple"},
-            ]
-        })
+        response = json.dumps(
+            {
+                "subtasks": [
+                    {
+                        "id": "task-complex-a",
+                        "description": "Part A",
+                        "files": ["a.py"],
+                        "complexity": "simple",
+                    },
+                    {
+                        "id": "task-complex-b",
+                        "description": "Part B",
+                        "files": ["b.py"],
+                        "complexity": "simple",
+                    },
+                ]
+            }
+        )
 
         with patch("aragora.implement.planner.DECOMPOSE_FAILED", True):
             with patch("aragora.implement.planner.GeminiCLIAgent") as mock_gemini:
@@ -990,6 +1049,7 @@ class TestDecomposeFailedTask:
 # =============================================================================
 # create_single_task_plan Function Tests
 # =============================================================================
+
 
 class TestCreateSingleTaskPlan:
     """Tests for create_single_task_plan function."""
@@ -1013,6 +1073,7 @@ class TestCreateSingleTaskPlan:
 # =============================================================================
 # Checkpoint Function Tests
 # =============================================================================
+
 
 class TestCheckpointFunctions:
     """Tests for checkpoint functions."""
@@ -1088,6 +1149,7 @@ class TestCheckpointFunctions:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases."""

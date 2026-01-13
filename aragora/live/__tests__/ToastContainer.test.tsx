@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ToastContainer } from '@/components/ToastContainer';
 import type { Toast } from '@/hooks/useToast';
@@ -102,7 +102,9 @@ describe('ToastContainer', () => {
       fireEvent.click(closeButton);
 
       // Wait for animation timeout
-      jest.advanceTimersByTime(200);
+      act(() => {
+        jest.advanceTimersByTime(200);
+      });
 
       expect(mockOnRemove).toHaveBeenCalledWith('toast-1');
     });
@@ -126,8 +128,8 @@ describe('ToastContainer', () => {
 
       render(<ToastContainer toasts={toasts} onRemove={mockOnRemove} />);
 
-      const container = screen.getByText('Test message').closest('.fixed');
-      expect(container).toBeInTheDocument();
+      const container = screen.getByRole('region', { name: /notifications/i });
+      expect(container).toHaveClass('fixed');
     });
   });
 
@@ -140,11 +142,13 @@ describe('ToastContainer', () => {
       render(<ToastContainer toasts={toasts} onRemove={mockOnRemove} />);
 
       // Advance to just before exit animation (3000 - 300 = 2700ms)
-      jest.advanceTimersByTime(2700);
+      act(() => {
+        jest.advanceTimersByTime(2700);
+      });
 
       // The component should start exit animation
-      const toastElement = screen.getByText('Test message').closest('div');
-      expect(toastElement).toHaveClass('transition-all');
+      const toastElement = screen.getByRole('status');
+      expect(toastElement).toHaveClass('opacity-0');
     });
   });
 });

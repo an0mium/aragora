@@ -178,9 +178,7 @@ class TestPersonaManagerInit:
         PersonaManager(db_path=db_path)
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='personas'"
-        )
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='personas'")
         assert cursor.fetchone() is not None
         conn.close()
 
@@ -243,16 +241,12 @@ class TestPersonaCRUD:
 
     def test_create_persona_with_traits(self, manager):
         """Should create persona with valid traits."""
-        persona = manager.create_persona(
-            "test-agent", traits=["thorough", "pragmatic"]
-        )
+        persona = manager.create_persona("test-agent", traits=["thorough", "pragmatic"])
         assert persona.traits == ["thorough", "pragmatic"]
 
     def test_create_persona_with_expertise(self, manager):
         """Should create persona with valid expertise."""
-        persona = manager.create_persona(
-            "test-agent", expertise={"security": 0.8, "testing": 0.6}
-        )
+        persona = manager.create_persona("test-agent", expertise={"security": 0.8, "testing": 0.6})
         assert persona.expertise == {"security": 0.8, "testing": 0.6}
 
     def test_create_persona_validates_traits(self, manager):
@@ -276,16 +270,12 @@ class TestPersonaCRUD:
 
     def test_create_persona_clamps_expertise_values_high(self, manager):
         """Should clamp expertise values above 1.0."""
-        persona = manager.create_persona(
-            "test-agent", expertise={"security": 1.5}
-        )
+        persona = manager.create_persona("test-agent", expertise={"security": 1.5})
         assert persona.expertise["security"] == 1.0
 
     def test_create_persona_clamps_expertise_values_low(self, manager):
         """Should clamp expertise values below 0.0."""
-        persona = manager.create_persona(
-            "test-agent", expertise={"security": -0.5}
-        )
+        persona = manager.create_persona("test-agent", expertise={"security": -0.5})
         assert persona.expertise["security"] == 0.0
 
     def test_create_persona_upsert(self, manager):
@@ -326,9 +316,7 @@ class TestPerformanceRecording:
 
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT agent_name, domain, success FROM performance_history"
-        )
+        cursor.execute("SELECT agent_name, domain, success FROM performance_history")
         row = cursor.fetchone()
         conn.close()
 

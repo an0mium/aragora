@@ -32,11 +32,18 @@ class TestPluginCapabilities:
     def test_all_capabilities_exist(self):
         """Test that expected capabilities exist."""
         expected = [
-            "CODE_ANALYSIS", "LINT", "SECURITY_SCAN", "TYPE_CHECK",
-            "TEST_RUNNER", "BENCHMARK", "FORMATTER",
-            "EVIDENCE_FETCH", "DOCUMENTATION",
-            "FORMAL_VERIFY", "PROPERTY_CHECK",
-            "CUSTOM"
+            "CODE_ANALYSIS",
+            "LINT",
+            "SECURITY_SCAN",
+            "TYPE_CHECK",
+            "TEST_RUNNER",
+            "BENCHMARK",
+            "FORMATTER",
+            "EVIDENCE_FETCH",
+            "DOCUMENTATION",
+            "FORMAL_VERIFY",
+            "PROPERTY_CHECK",
+            "CUSTOM",
         ]
         actual = [c.name for c in PluginCapability]
         for cap in expected:
@@ -54,10 +61,14 @@ class TestPluginRequirements:
     def test_all_requirements_exist(self):
         """Test that expected requirements exist."""
         expected = [
-            "READ_FILES", "WRITE_FILES",
-            "RUN_COMMANDS", "NETWORK",
-            "HIGH_MEMORY", "LONG_RUNNING",
-            "PYTHON_PACKAGES", "SYSTEM_TOOLS"
+            "READ_FILES",
+            "WRITE_FILES",
+            "RUN_COMMANDS",
+            "NETWORK",
+            "HIGH_MEMORY",
+            "LONG_RUNNING",
+            "PYTHON_PACKAGES",
+            "SYSTEM_TOOLS",
         ]
         actual = [r.name for r in PluginRequirement]
         for req in expected:

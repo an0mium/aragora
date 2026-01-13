@@ -38,6 +38,7 @@ from aragora.server.handlers.auth import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_user():
     """Create a mock user object."""
@@ -50,13 +51,15 @@ def mock_user():
     user.is_active = True
     user.mfa_enabled = False  # Explicitly disable MFA for tests
     user.verify_password = Mock(return_value=True)
-    user.to_dict = Mock(return_value={
-        "id": "user-123",
-        "email": "test@example.com",
-        "name": "Test User",
-        "org_id": "org-456",
-        "role": "member",
-    })
+    user.to_dict = Mock(
+        return_value={
+            "id": "user-123",
+            "email": "test@example.com",
+            "name": "Test User",
+            "org_id": "org-456",
+            "role": "member",
+        }
+    )
     return user
 
 
@@ -94,6 +97,7 @@ def auth_handler(mock_user_store):
 def clear_rate_limiters():
     """Clear rate limiters before each test to avoid rate limit pollution."""
     from aragora.server.handlers.utils.rate_limit import _limiters
+
     # Reset internal buckets of all existing limiters
     for limiter in _limiters.values():
         limiter._buckets.clear()
@@ -105,6 +109,7 @@ def clear_rate_limiters():
 # ============================================================================
 # Email Validation Tests
 # ============================================================================
+
 
 class TestEmailValidation:
     """Tests for email validation function."""
@@ -150,6 +155,7 @@ class TestEmailValidation:
 # Password Validation Tests
 # ============================================================================
 
+
 class TestPasswordValidation:
     """Tests for password validation function."""
 
@@ -192,6 +198,7 @@ class TestPasswordValidation:
 # AuthHandler Route Tests
 # ============================================================================
 
+
 class TestAuthHandlerRoutes:
     """Tests for AuthHandler routing."""
 
@@ -233,6 +240,7 @@ class TestAuthHandlerRoutes:
 # Registration Tests
 # ============================================================================
 
+
 class TestRegistration:
     """Tests for user registration endpoint."""
 
@@ -246,11 +254,13 @@ class TestRegistration:
         mock_tokens.return_value = Mock(to_dict=lambda: {"access_token": "token"})
 
         # Setup request body
-        auth_handler.read_json_body = Mock(return_value={
-            "email": "new@example.com",
-            "password": "SecurePass123!",
-            "name": "New User",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "email": "new@example.com",
+                "password": "SecurePass123!",
+                "name": "New User",
+            }
+        )
 
         result = auth_handler._handle_register(mock_handler)
 
@@ -269,10 +279,12 @@ class TestRegistration:
 
     def test_register_invalid_email(self, auth_handler, mock_handler):
         """Test registration with invalid email."""
-        auth_handler.read_json_body = Mock(return_value={
-            "email": "invalid-email",
-            "password": "SecurePass123!",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "email": "invalid-email",
+                "password": "SecurePass123!",
+            }
+        )
 
         result = auth_handler._handle_register(mock_handler)
 
@@ -280,24 +292,26 @@ class TestRegistration:
 
     def test_register_weak_password(self, auth_handler, mock_handler):
         """Test registration with weak password."""
-        auth_handler.read_json_body = Mock(return_value={
-            "email": "user@example.com",
-            "password": "weak",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "email": "user@example.com",
+                "password": "weak",
+            }
+        )
 
         result = auth_handler._handle_register(mock_handler)
 
         assert result.status_code == 400
 
-    def test_register_duplicate_email(
-        self, auth_handler, mock_handler, mock_user_store, mock_user
-    ):
+    def test_register_duplicate_email(self, auth_handler, mock_handler, mock_user_store, mock_user):
         """Test registration with existing email."""
         mock_user_store.get_user_by_email.return_value = mock_user
-        auth_handler.read_json_body = Mock(return_value={
-            "email": "existing@example.com",
-            "password": "SecurePass123!",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "email": "existing@example.com",
+                "password": "SecurePass123!",
+            }
+        )
 
         result = auth_handler._handle_register(mock_handler)
 
@@ -308,10 +322,12 @@ class TestRegistration:
     def test_register_user_store_unavailable(self, mock_handler):
         """Test registration when user store is unavailable."""
         handler = AuthHandler({})  # No user_store
-        handler.read_json_body = Mock(return_value={
-            "email": "user@example.com",
-            "password": "SecurePass123!",
-        })
+        handler.read_json_body = Mock(
+            return_value={
+                "email": "user@example.com",
+                "password": "SecurePass123!",
+            }
+        )
 
         result = handler._handle_register(mock_handler)
 
@@ -321,6 +337,7 @@ class TestRegistration:
 # ============================================================================
 # Login Tests
 # ============================================================================
+
 
 class TestLogin:
     """Tests for user login endpoint."""
@@ -333,10 +350,12 @@ class TestLogin:
         mock_tokens.return_value = Mock(to_dict=lambda: {"access_token": "token"})
         mock_user_store.get_user_by_email.return_value = mock_user
 
-        auth_handler.read_json_body = Mock(return_value={
-            "email": "test@example.com",
-            "password": "correct_password",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "email": "test@example.com",
+                "password": "correct_password",
+            }
+        )
 
         result = auth_handler._handle_login(mock_handler)
 
@@ -363,16 +382,16 @@ class TestLogin:
         data = json.loads(result.body)
         assert "required" in data["error"].lower()
 
-    def test_login_user_not_found(
-        self, auth_handler, mock_handler, mock_user_store
-    ):
+    def test_login_user_not_found(self, auth_handler, mock_handler, mock_user_store):
         """Test login with non-existent user."""
         mock_user_store.get_user_by_email.return_value = None
 
-        auth_handler.read_json_body = Mock(return_value={
-            "email": "unknown@example.com",
-            "password": "password123",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "email": "unknown@example.com",
+                "password": "password123",
+            }
+        )
 
         result = auth_handler._handle_login(mock_handler)
 
@@ -381,33 +400,33 @@ class TestLogin:
         # Should not reveal if user exists
         assert "Invalid email or password" in data["error"]
 
-    def test_login_wrong_password(
-        self, auth_handler, mock_handler, mock_user_store, mock_user
-    ):
+    def test_login_wrong_password(self, auth_handler, mock_handler, mock_user_store, mock_user):
         """Test login with wrong password."""
         mock_user.verify_password.return_value = False
         mock_user_store.get_user_by_email.return_value = mock_user
 
-        auth_handler.read_json_body = Mock(return_value={
-            "email": "test@example.com",
-            "password": "wrong_password",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "email": "test@example.com",
+                "password": "wrong_password",
+            }
+        )
 
         result = auth_handler._handle_login(mock_handler)
 
         assert result.status_code == 401
 
-    def test_login_disabled_account(
-        self, auth_handler, mock_handler, mock_user_store, mock_user
-    ):
+    def test_login_disabled_account(self, auth_handler, mock_handler, mock_user_store, mock_user):
         """Test login with disabled account."""
         mock_user.is_active = False
         mock_user_store.get_user_by_email.return_value = mock_user
 
-        auth_handler.read_json_body = Mock(return_value={
-            "email": "test@example.com",
-            "password": "password",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "email": "test@example.com",
+                "password": "password",
+            }
+        )
 
         result = auth_handler._handle_login(mock_handler)
 
@@ -419,6 +438,7 @@ class TestLogin:
 # ============================================================================
 # Token Refresh Tests
 # ============================================================================
+
 
 class TestTokenRefresh:
     """Tests for token refresh endpoint."""
@@ -432,9 +452,11 @@ class TestTokenRefresh:
         mock_validate.return_value = Mock(user_id="user-123")
         mock_tokens.return_value = Mock(to_dict=lambda: {"access_token": "new_token"})
 
-        auth_handler.read_json_body = Mock(return_value={
-            "refresh_token": "valid_refresh_token",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "refresh_token": "valid_refresh_token",
+            }
+        )
 
         result = auth_handler._handle_refresh(mock_handler)
 
@@ -455,9 +477,11 @@ class TestTokenRefresh:
         """Test refresh with invalid token."""
         mock_validate.return_value = None
 
-        auth_handler.read_json_body = Mock(return_value={
-            "refresh_token": "invalid_token",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "refresh_token": "invalid_token",
+            }
+        )
 
         result = auth_handler._handle_refresh(mock_handler)
 
@@ -471,9 +495,11 @@ class TestTokenRefresh:
         mock_validate.return_value = Mock(user_id="deleted-user")
         mock_user_store.get_user_by_id.return_value = None
 
-        auth_handler.read_json_body = Mock(return_value={
-            "refresh_token": "valid_token",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "refresh_token": "valid_token",
+            }
+        )
 
         result = auth_handler._handle_refresh(mock_handler)
 
@@ -487,9 +513,11 @@ class TestTokenRefresh:
         mock_validate.return_value = Mock(user_id="user-123")
         mock_user.is_active = False
 
-        auth_handler.read_json_body = Mock(return_value={
-            "refresh_token": "valid_token",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "refresh_token": "valid_token",
+            }
+        )
 
         result = auth_handler._handle_refresh(mock_handler)
 
@@ -499,6 +527,7 @@ class TestTokenRefresh:
 # ============================================================================
 # Logout Tests
 # ============================================================================
+
 
 class TestLogout:
     """Tests for logout endpoint."""
@@ -531,6 +560,7 @@ class TestLogout:
 # Get User Info Tests
 # ============================================================================
 
+
 class TestGetMe:
     """Tests for get current user endpoint."""
 
@@ -560,9 +590,7 @@ class TestGetMe:
         assert result.status_code == 401
 
     @patch("aragora.server.handlers.auth.extract_user_from_request")
-    def test_get_me_user_not_found(
-        self, mock_extract, auth_handler, mock_handler, mock_user_store
-    ):
+    def test_get_me_user_not_found(self, mock_extract, auth_handler, mock_handler, mock_user_store):
         """Test get user info when user deleted."""
         mock_extract.return_value = Mock(
             is_authenticated=True,
@@ -579,6 +607,7 @@ class TestGetMe:
 # Security Tests
 # ============================================================================
 
+
 class TestSecurityMeasures:
     """Tests for security measures in auth handler."""
 
@@ -588,19 +617,23 @@ class TestSecurityMeasures:
         """Test that login doesn't reveal if email exists."""
         # Test with non-existent email
         mock_user_store.get_user_by_email.return_value = None
-        auth_handler.read_json_body = Mock(return_value={
-            "email": "unknown@example.com",
-            "password": "password123",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "email": "unknown@example.com",
+                "password": "password123",
+            }
+        )
         result1 = auth_handler._handle_login(mock_handler)
 
         # Test with wrong password
         mock_user.verify_password.return_value = False
         mock_user_store.get_user_by_email.return_value = mock_user
-        auth_handler.read_json_body = Mock(return_value={
-            "email": "test@example.com",
-            "password": "wrong_password",
-        })
+        auth_handler.read_json_body = Mock(
+            return_value={
+                "email": "test@example.com",
+                "password": "wrong_password",
+            }
+        )
         result2 = auth_handler._handle_login(mock_handler)
 
         # Both should return same status and similar error
@@ -610,9 +643,7 @@ class TestSecurityMeasures:
         # Error messages should be identical
         assert data1["error"] == data2["error"]
 
-    def test_password_not_in_response(
-        self, auth_handler, mock_handler, mock_user_store, mock_user
-    ):
+    def test_password_not_in_response(self, auth_handler, mock_handler, mock_user_store, mock_user):
         """Test that password is never included in responses."""
         mock_user.to_dict.return_value = {
             "id": "user-123",
@@ -623,10 +654,12 @@ class TestSecurityMeasures:
 
         with patch("aragora.billing.jwt_auth.create_token_pair") as mock_tokens:
             mock_tokens.return_value = Mock(to_dict=lambda: {"access_token": "token"})
-            auth_handler.read_json_body = Mock(return_value={
-                "email": "test@example.com",
-                "password": "password",
-            })
+            auth_handler.read_json_body = Mock(
+                return_value={
+                    "email": "test@example.com",
+                    "password": "password",
+                }
+            )
 
             result = auth_handler._handle_login(mock_handler)
 

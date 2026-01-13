@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 # =============================================================================
 
+
 def _parse_csv(value: Optional[str]) -> Optional[list[str]]:
     if not value:
         return None
@@ -144,15 +145,21 @@ class TTSConfig:
 
         return cls(
             backend_priority=parsed_backend or cls().backend_priority,
-            elevenlabs_api_key=os.getenv("ARAGORA_ELEVENLABS_API_KEY") or os.getenv("ELEVENLABS_API_KEY"),
-            elevenlabs_model=os.getenv("ARAGORA_ELEVENLABS_MODEL_ID", os.getenv("ELEVENLABS_MODEL", "eleven_multilingual_v2")),
+            elevenlabs_api_key=os.getenv("ARAGORA_ELEVENLABS_API_KEY")
+            or os.getenv("ELEVENLABS_API_KEY"),
+            elevenlabs_model=os.getenv(
+                "ARAGORA_ELEVENLABS_MODEL_ID",
+                os.getenv("ELEVENLABS_MODEL", "eleven_multilingual_v2"),
+            ),
             elevenlabs_voice_map=voice_map,
             elevenlabs_default_voice_id=(
                 os.getenv("ARAGORA_ELEVENLABS_VOICE_ID")
                 or os.getenv("ARAGORA_ELEVENLABS_DEFAULT_VOICE_ID")
                 or os.getenv("ELEVENLABS_VOICE_ID")
             ),
-            xtts_model_path=os.getenv("ARAGORA_XTTS_MODEL_PATH") or os.getenv("ARAGORA_XTTS_MODEL") or os.getenv("XTTS_MODEL_PATH"),
+            xtts_model_path=os.getenv("ARAGORA_XTTS_MODEL_PATH")
+            or os.getenv("ARAGORA_XTTS_MODEL")
+            or os.getenv("XTTS_MODEL_PATH"),
             xtts_device=os.getenv("ARAGORA_XTTS_DEVICE", os.getenv("XTTS_DEVICE", "auto")),
             xtts_language=os.getenv("ARAGORA_XTTS_LANGUAGE", os.getenv("XTTS_LANGUAGE", "en")),
             xtts_speaker_wav=os.getenv("ARAGORA_XTTS_SPEAKER_WAV") or os.getenv("XTTS_SPEAKER_WAV"),
@@ -166,11 +173,12 @@ class TTSConfig:
             polly_text_type=os.getenv("ARAGORA_POLLY_TEXT_TYPE", "text"),
             polly_voice_map=polly_voice_map,
             polly_default_voice_id=(
-                os.getenv("ARAGORA_POLLY_VOICE_ID")
-                or os.getenv("ARAGORA_POLLY_DEFAULT_VOICE_ID")
+                os.getenv("ARAGORA_POLLY_VOICE_ID") or os.getenv("ARAGORA_POLLY_DEFAULT_VOICE_ID")
             ),
             polly_lexicons=polly_lexicons,
-            cache_dir=Path(os.getenv("ARAGORA_TTS_CACHE_DIR", os.getenv("TTS_CACHE_DIR", ".cache/tts"))),
+            cache_dir=Path(
+                os.getenv("ARAGORA_TTS_CACHE_DIR", os.getenv("TTS_CACHE_DIR", ".cache/tts"))
+            ),
         )
 
 
@@ -182,7 +190,7 @@ class TTSConfig:
 ELEVENLABS_VOICES: Dict[str, str] = {
     # Character voices (diverse, expressive)
     "claude-visionary": "pNInz6obpgDQGcFmaJgB",  # Adam - deep, authoritative
-    "codex-engineer": "VR6AewLTigWG4xSOukaG",   # Arnold - technical
+    "codex-engineer": "VR6AewLTigWG4xSOukaG",  # Arnold - technical
     "gemini-visionary": "EXAVITQu4vr4xnSDxMaL",  # Bella - warm, expressive
     "grok-lateral-thinker": "TxGEqnHWrfWFTfGW9XjX",  # Josh - energetic
     "narrator": "21m00Tcm4TlvDq8ikWAM",  # Rachel - clear narrator
@@ -225,6 +233,7 @@ POLLY_VOICES: Dict[str, str] = {
 # Base Backend Interface
 # =============================================================================
 
+
 class TTSBackend(ABC):
     """Abstract base class for TTS backends."""
 
@@ -266,6 +275,7 @@ class TTSBackend(ABC):
 # ElevenLabs Backend
 # =============================================================================
 
+
 class ElevenLabsBackend(TTSBackend):
     """
     ElevenLabs TTS backend.
@@ -293,6 +303,7 @@ class ElevenLabsBackend(TTSBackend):
 
         try:
             import elevenlabs
+
             return True
         except ImportError:
             return False
@@ -302,11 +313,12 @@ class ElevenLabsBackend(TTSBackend):
         if self._client is None:
             try:
                 from elevenlabs.client import ElevenLabs
+
                 self._client = ElevenLabs(api_key=self.config.elevenlabs_api_key)
             except ImportError:
                 raise ConfigurationError(
                     component="ElevenLabsTTS",
-                    reason="elevenlabs package not installed. Run: pip install elevenlabs"
+                    reason="elevenlabs package not installed. Run: pip install elevenlabs",
                 )
         return self._client
 
@@ -371,6 +383,7 @@ class ElevenLabsBackend(TTSBackend):
 # Coqui XTTS Backend
 # =============================================================================
 
+
 class XTTSBackend(TTSBackend):
     """
     Coqui XTTS v2 TTS backend.
@@ -397,6 +410,7 @@ class XTTSBackend(TTSBackend):
         try:
             import torch
             from TTS.api import TTS
+
             return True
         except ImportError:
             return False
@@ -410,6 +424,7 @@ class XTTSBackend(TTSBackend):
         if device == "auto":
             try:
                 import torch
+
                 self._device = "cuda" if torch.cuda.is_available() else "cpu"
             except ImportError:
                 self._device = "cpu"
@@ -428,7 +443,9 @@ class XTTSBackend(TTSBackend):
                 logger.info(f"Loading XTTS model on {device}...")
 
                 # Use XTTS v2 model
-                model_name = self.config.xtts_model_path or "tts_models/multilingual/multi-dataset/xtts_v2"
+                model_name = (
+                    self.config.xtts_model_path or "tts_models/multilingual/multi-dataset/xtts_v2"
+                )
                 self._model = TTS(model_name).to(device)
 
                 logger.info("XTTS model loaded successfully")
@@ -517,6 +534,7 @@ class XTTSBackend(TTSBackend):
 # Edge-TTS Backend
 # =============================================================================
 
+
 class EdgeTTSBackend(TTSBackend):
     """
     Edge-TTS backend (Microsoft Azure neural voices).
@@ -577,9 +595,12 @@ class EdgeTTSBackend(TTSBackend):
                 output_path = Path(tempfile.gettempdir()) / f"edge_{voice}_{text_hash}.mp3"
 
             full_cmd = cmd + [
-                "--voice", voice_id,
-                "--text", text,
-                "--write-media", str(output_path),
+                "--voice",
+                voice_id,
+                "--text",
+                text,
+                "--write-media",
+                str(output_path),
             ]
 
             process = await asyncio.create_subprocess_exec(
@@ -589,9 +610,7 @@ class EdgeTTSBackend(TTSBackend):
             )
 
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), timeout=timeout
-                )
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
@@ -614,6 +633,7 @@ class EdgeTTSBackend(TTSBackend):
 # =============================================================================
 # Amazon Polly Backend
 # =============================================================================
+
 
 class PollyBackend(TTSBackend):
     """
@@ -650,11 +670,11 @@ class PollyBackend(TTSBackend):
         if self._client is None:
             try:
                 import boto3
+
                 self._client = boto3.client("polly", region_name=self.config.polly_region)
             except Exception as e:
                 raise ExternalServiceError(
-                    service="Amazon Polly",
-                    reason=f"Failed to initialize client: {e}"
+                    service="Amazon Polly", reason=f"Failed to initialize client: {e}"
                 ) from e
         return self._client
 
@@ -727,6 +747,7 @@ class PollyBackend(TTSBackend):
 # pyttsx3 Backend (Offline Fallback)
 # =============================================================================
 
+
 class Pyttsx3Backend(TTSBackend):
     """
     pyttsx3 offline TTS backend.
@@ -744,6 +765,7 @@ class Pyttsx3Backend(TTSBackend):
         """Check if pyttsx3 is available."""
         try:
             import pyttsx3
+
             return True
         except ImportError:
             return False
@@ -830,8 +852,7 @@ def get_tts_backend(
 
         if not backend.is_available():
             raise ConfigurationError(
-                component="TTSBackend",
-                reason=f"Backend '{backend_name}' is not available"
+                component="TTSBackend", reason=f"Backend '{backend_name}' is not available"
             )
 
         return backend
@@ -850,7 +871,7 @@ def get_tts_backend(
 
     raise ConfigurationError(
         component="TTSBackend",
-        reason="No TTS backends available. Install at least one: elevenlabs, boto3, edge-tts, or pyttsx3"
+        reason="No TTS backends available. Install at least one: elevenlabs, boto3, edge-tts, or pyttsx3",
     )
 
 

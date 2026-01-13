@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GauntletPhase:
     """Gauntlet execution phase."""
+
     INIT = "init"
     RISK_ASSESSMENT = "risk_assessment"
     REDTEAM = "redteam"

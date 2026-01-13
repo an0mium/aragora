@@ -1,4 +1,5 @@
 """Tests for the Scenario Matrix module."""
+
 import pytest
 import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
@@ -86,6 +87,7 @@ def scenario_result_full():
 @pytest.fixture
 def mock_debate_func():
     """Create mock async debate function."""
+
     async def _debate(task, context):
         result = MagicMock()
         result.final_answer = "Use microservices for scalability"
@@ -95,22 +97,27 @@ def mock_debate_func():
         result.dissenting_views = []
         result.rounds = 3
         return result
+
     return _debate
 
 
 @pytest.fixture
 def mock_debate_func_minimal():
     """Create mock debate function with minimal attributes."""
+
     async def _debate(task, context):
         return "Simple string result"
+
     return _debate
 
 
 @pytest.fixture
 def mock_debate_func_failing():
     """Create mock debate function that raises exception."""
+
     async def _debate(task, context):
         raise ValueError("Debate failed!")
+
     return _debate
 
 
@@ -624,12 +631,27 @@ class TestScenarioMatrixInit:
     def test_get_scenarios_sorted_by_priority(self):
         """Should return scenarios sorted by priority descending."""
         matrix = ScenarioMatrix("Test")
-        s1 = Scenario(id="s1", name="Low", scenario_type=ScenarioType.SCALE,
-                     description="Low priority", priority=1)
-        s2 = Scenario(id="s2", name="High", scenario_type=ScenarioType.SCALE,
-                     description="High priority", priority=10)
-        s3 = Scenario(id="s3", name="Mid", scenario_type=ScenarioType.SCALE,
-                     description="Mid priority", priority=5)
+        s1 = Scenario(
+            id="s1",
+            name="Low",
+            scenario_type=ScenarioType.SCALE,
+            description="Low priority",
+            priority=1,
+        )
+        s2 = Scenario(
+            id="s2",
+            name="High",
+            scenario_type=ScenarioType.SCALE,
+            description="High priority",
+            priority=10,
+        )
+        s3 = Scenario(
+            id="s3",
+            name="Mid",
+            scenario_type=ScenarioType.SCALE,
+            description="Mid priority",
+            priority=5,
+        )
         matrix.add_scenario(s1).add_scenario(s2).add_scenario(s3)
 
         sorted_scenarios = matrix.get_scenarios()
@@ -785,8 +807,7 @@ class TestGenerateSensitivity:
         for v in variations:
             # Each variation should differ from baseline in exactly one param
             baseline = [s for s in matrix.scenarios if s.is_baseline][0]
-            diffs = sum(1 for k in ["a", "b"]
-                       if v.parameters[k] != baseline.parameters[k])
+            diffs = sum(1 for k in ["a", "b"] if v.parameters[k] != baseline.parameters[k])
             assert diffs == 1
 
     def test_fluent_return(self):
@@ -930,15 +951,19 @@ class TestComparePair:
     def test_matching_conclusions(self, comparator):
         """Should detect matching conclusions."""
         result_a = ScenarioResult(
-            scenario_id="a", scenario_name="A",
+            scenario_id="a",
+            scenario_name="A",
             conclusion="Use microservices for the system",
-            confidence=0.8, consensus_reached=True,
+            confidence=0.8,
+            consensus_reached=True,
             key_claims=["Scalability", "Flexibility"],
         )
         result_b = ScenarioResult(
-            scenario_id="b", scenario_name="B",
+            scenario_id="b",
+            scenario_name="B",
             conclusion="Use microservices for the system",
-            confidence=0.85, consensus_reached=True,
+            confidence=0.85,
+            consensus_reached=True,
             key_claims=["Scalability", "Maintainability"],
         )
         comparison = comparator.compare_pair(result_a, result_b)
@@ -947,14 +972,18 @@ class TestComparePair:
     def test_different_conclusions(self, comparator):
         """Should detect different conclusions."""
         result_a = ScenarioResult(
-            scenario_id="a", scenario_name="A",
+            scenario_id="a",
+            scenario_name="A",
             conclusion="Use microservices for enterprise scale",
-            confidence=0.8, consensus_reached=True,
+            confidence=0.8,
+            consensus_reached=True,
         )
         result_b = ScenarioResult(
-            scenario_id="b", scenario_name="B",
+            scenario_id="b",
+            scenario_name="B",
             conclusion="Use monolith for simplicity",
-            confidence=0.75, consensus_reached=True,
+            confidence=0.75,
+            consensus_reached=True,
         )
         comparison = comparator.compare_pair(result_a, result_b)
         assert comparison.conclusions_match is False
@@ -962,13 +991,19 @@ class TestComparePair:
     def test_shared_claims_extraction(self, comparator):
         """Should extract shared claims."""
         result_a = ScenarioResult(
-            scenario_id="a", scenario_name="A",
-            conclusion="A", confidence=0.8, consensus_reached=True,
+            scenario_id="a",
+            scenario_name="A",
+            conclusion="A",
+            confidence=0.8,
+            consensus_reached=True,
             key_claims=["Cloud native", "Scalable", "Cost effective"],
         )
         result_b = ScenarioResult(
-            scenario_id="b", scenario_name="B",
-            conclusion="B", confidence=0.8, consensus_reached=True,
+            scenario_id="b",
+            scenario_name="B",
+            conclusion="B",
+            confidence=0.8,
+            consensus_reached=True,
             key_claims=["Cloud native", "Scalable", "Fast deployment"],
         )
         comparison = comparator.compare_pair(result_a, result_b)
@@ -979,13 +1014,19 @@ class TestComparePair:
     def test_unique_claims_extraction(self, comparator):
         """Should extract unique claims for each scenario."""
         result_a = ScenarioResult(
-            scenario_id="a", scenario_name="A",
-            conclusion="A", confidence=0.8, consensus_reached=True,
+            scenario_id="a",
+            scenario_name="A",
+            conclusion="A",
+            confidence=0.8,
+            consensus_reached=True,
             key_claims=["Claim A only", "Shared claim"],
         )
         result_b = ScenarioResult(
-            scenario_id="b", scenario_name="B",
-            conclusion="B", confidence=0.8, consensus_reached=True,
+            scenario_id="b",
+            scenario_name="B",
+            conclusion="B",
+            confidence=0.8,
+            consensus_reached=True,
             key_claims=["Claim B only", "Shared claim"],
         )
         comparison = comparator.compare_pair(result_a, result_b)
@@ -995,13 +1036,19 @@ class TestComparePair:
     def test_jaccard_similarity_calculation(self, comparator):
         """Should calculate Jaccard similarity correctly."""
         result_a = ScenarioResult(
-            scenario_id="a", scenario_name="A",
-            conclusion="Same", confidence=0.8, consensus_reached=True,
+            scenario_id="a",
+            scenario_name="A",
+            conclusion="Same",
+            confidence=0.8,
+            consensus_reached=True,
             key_claims=["A", "B", "C"],
         )
         result_b = ScenarioResult(
-            scenario_id="b", scenario_name="B",
-            conclusion="Same", confidence=0.8, consensus_reached=True,
+            scenario_id="b",
+            scenario_name="B",
+            conclusion="Same",
+            confidence=0.8,
+            consensus_reached=True,
             key_claims=["A", "B", "D"],
         )
         comparison = comparator.compare_pair(result_a, result_b)
@@ -1012,12 +1059,18 @@ class TestComparePair:
     def test_confidence_difference_detection(self, comparator):
         """Should detect large confidence differences."""
         result_a = ScenarioResult(
-            scenario_id="a", scenario_name="A",
-            conclusion="X", confidence=0.9, consensus_reached=True,
+            scenario_id="a",
+            scenario_name="A",
+            conclusion="X",
+            confidence=0.9,
+            consensus_reached=True,
         )
         result_b = ScenarioResult(
-            scenario_id="b", scenario_name="B",
-            conclusion="Y", confidence=0.5, consensus_reached=True,
+            scenario_id="b",
+            scenario_name="B",
+            conclusion="Y",
+            confidence=0.5,
+            consensus_reached=True,
         )
         comparison = comparator.compare_pair(result_a, result_b)
         # 0.4 difference > 0.2 threshold
@@ -1026,15 +1079,19 @@ class TestComparePair:
     def test_empty_claims_handling(self, comparator):
         """Should handle empty claims lists."""
         result_a = ScenarioResult(
-            scenario_id="a", scenario_name="A",
+            scenario_id="a",
+            scenario_name="A",
             conclusion="Same conclusion here",
-            confidence=0.8, consensus_reached=True,
+            confidence=0.8,
+            consensus_reached=True,
             key_claims=[],
         )
         result_b = ScenarioResult(
-            scenario_id="b", scenario_name="B",
+            scenario_id="b",
+            scenario_name="B",
             conclusion="Same conclusion here",
-            confidence=0.8, consensus_reached=True,
+            confidence=0.8,
+            consensus_reached=True,
             key_claims=[],
         )
         comparison = comparator.compare_pair(result_a, result_b)
@@ -1045,15 +1102,19 @@ class TestComparePair:
     def test_key_differences_limit(self, comparator):
         """Should limit key differences."""
         result_a = ScenarioResult(
-            scenario_id="a", scenario_name="A",
+            scenario_id="a",
+            scenario_name="A",
             conclusion="Totally different approach X",
-            confidence=0.9, consensus_reached=True,
+            confidence=0.9,
+            consensus_reached=True,
             key_claims=["A1", "A2", "A3", "A4", "A5"],
         )
         result_b = ScenarioResult(
-            scenario_id="b", scenario_name="B",
+            scenario_id="b",
+            scenario_name="B",
             conclusion="Completely different method Y",
-            confidence=0.2, consensus_reached=False,
+            confidence=0.2,
+            consensus_reached=False,
             key_claims=["B1", "B2", "B3", "B4", "B5"],
         )
         comparison = comparator.compare_pair(result_a, result_b)
@@ -1078,9 +1139,11 @@ class TestAnalyzeMatrix:
         """Should detect consistent outcome when all match."""
         results = [
             ScenarioResult(
-                scenario_id=f"s-{i}", scenario_name=f"Scenario {i}",
+                scenario_id=f"s-{i}",
+                scenario_name=f"Scenario {i}",
                 conclusion="Use microservices architecture",
-                confidence=0.8, consensus_reached=True,
+                confidence=0.8,
+                consensus_reached=True,
                 key_claims=["Scalable", "Flexible"],
             )
             for i in range(3)
@@ -1093,21 +1156,27 @@ class TestAnalyzeMatrix:
         """Should detect divergent outcome when none match."""
         results = [
             ScenarioResult(
-                scenario_id="s-1", scenario_name="S1",
+                scenario_id="s-1",
+                scenario_name="S1",
                 conclusion="Use microservices",
-                confidence=0.8, consensus_reached=True,
+                confidence=0.8,
+                consensus_reached=True,
                 key_claims=["A"],
             ),
             ScenarioResult(
-                scenario_id="s-2", scenario_name="S2",
+                scenario_id="s-2",
+                scenario_name="S2",
                 conclusion="Use monolith",
-                confidence=0.8, consensus_reached=True,
+                confidence=0.8,
+                consensus_reached=True,
                 key_claims=["B"],
             ),
             ScenarioResult(
-                scenario_id="s-3", scenario_name="S3",
+                scenario_id="s-3",
+                scenario_name="S3",
                 conclusion="Use serverless",
-                confidence=0.8, consensus_reached=True,
+                confidence=0.8,
+                consensus_reached=True,
                 key_claims=["C"],
             ),
         ]
@@ -1120,15 +1189,19 @@ class TestAnalyzeMatrix:
         """Should detect conditional outcome with partial matches."""
         results = [
             ScenarioResult(
-                scenario_id="s-1", scenario_name="S1",
+                scenario_id="s-1",
+                scenario_name="S1",
                 conclusion="Use microservices for scalability",
-                confidence=0.8, consensus_reached=True,
+                confidence=0.8,
+                consensus_reached=True,
                 key_claims=["Scalable"],
             ),
             ScenarioResult(
-                scenario_id="s-2", scenario_name="S2",
+                scenario_id="s-2",
+                scenario_name="S2",
                 conclusion="Use microservices for flexibility",
-                confidence=0.8, consensus_reached=True,
+                confidence=0.8,
+                consensus_reached=True,
                 key_claims=["Flexible"],
             ),
         ]
@@ -1142,15 +1215,19 @@ class TestAnalyzeMatrix:
         """Should detect inconclusive with low similarity."""
         results = [
             ScenarioResult(
-                scenario_id="s-1", scenario_name="S1",
+                scenario_id="s-1",
+                scenario_name="S1",
                 conclusion="First approach works best",
-                confidence=0.5, consensus_reached=False,
+                confidence=0.5,
+                consensus_reached=False,
                 key_claims=["A", "B"],
             ),
             ScenarioResult(
-                scenario_id="s-2", scenario_name="S2",
+                scenario_id="s-2",
+                scenario_name="S2",
                 conclusion="Second method preferred",
-                confidence=0.6, consensus_reached=False,
+                confidence=0.6,
+                consensus_reached=False,
                 key_claims=["C", "D"],
             ),
         ]
@@ -1163,13 +1240,19 @@ class TestAnalyzeMatrix:
         """Should find claims present in all scenarios."""
         results = [
             ScenarioResult(
-                scenario_id="s-1", scenario_name="S1",
-                conclusion="A", confidence=0.8, consensus_reached=True,
+                scenario_id="s-1",
+                scenario_name="S1",
+                conclusion="A",
+                confidence=0.8,
+                consensus_reached=True,
                 key_claims=["Universal claim", "Unique A"],
             ),
             ScenarioResult(
-                scenario_id="s-2", scenario_name="S2",
-                conclusion="B", confidence=0.8, consensus_reached=True,
+                scenario_id="s-2",
+                scenario_name="S2",
+                conclusion="B",
+                confidence=0.8,
+                consensus_reached=True,
                 key_claims=["Universal claim", "Unique B"],
             ),
         ]
@@ -1180,23 +1263,35 @@ class TestAnalyzeMatrix:
     def test_conditional_patterns_by_param(self, comparator, matrix_result):
         """Should group claims by parameter values."""
         s1 = Scenario(
-            id="s-1", name="Small", scenario_type=ScenarioType.SCALE,
-            description="Small scale", parameters={"scale": "small"},
+            id="s-1",
+            name="Small",
+            scenario_type=ScenarioType.SCALE,
+            description="Small scale",
+            parameters={"scale": "small"},
         )
         s2 = Scenario(
-            id="s-2", name="Large", scenario_type=ScenarioType.SCALE,
-            description="Large scale", parameters={"scale": "large"},
+            id="s-2",
+            name="Large",
+            scenario_type=ScenarioType.SCALE,
+            description="Large scale",
+            parameters={"scale": "large"},
         )
         matrix_result.scenarios = [s1, s2]
         matrix_result.results = [
             ScenarioResult(
-                scenario_id="s-1", scenario_name="Small",
-                conclusion="Simple", confidence=0.8, consensus_reached=True,
+                scenario_id="s-1",
+                scenario_name="Small",
+                conclusion="Simple",
+                confidence=0.8,
+                consensus_reached=True,
                 key_claims=["Simple deployment"],
             ),
             ScenarioResult(
-                scenario_id="s-2", scenario_name="Large",
-                conclusion="Complex", confidence=0.8, consensus_reached=True,
+                scenario_id="s-2",
+                scenario_name="Large",
+                conclusion="Complex",
+                confidence=0.8,
+                consensus_reached=True,
                 key_claims=["Distributed system"],
             ),
         ]
@@ -1208,8 +1303,11 @@ class TestAnalyzeMatrix:
         """Should create correct number of pairwise comparisons."""
         results = [
             ScenarioResult(
-                scenario_id=f"s-{i}", scenario_name=f"S{i}",
-                conclusion=f"Conclusion {i}", confidence=0.8, consensus_reached=True,
+                scenario_id=f"s-{i}",
+                scenario_name=f"S{i}",
+                conclusion=f"Conclusion {i}",
+                confidence=0.8,
+                consensus_reached=True,
             )
             for i in range(4)
         ]
@@ -1245,13 +1343,19 @@ class TestGenerateSummary:
         """Should list universal conclusions."""
         results = [
             ScenarioResult(
-                scenario_id="s-1", scenario_name="S1",
-                conclusion="A", confidence=0.8, consensus_reached=True,
+                scenario_id="s-1",
+                scenario_name="S1",
+                conclusion="A",
+                confidence=0.8,
+                consensus_reached=True,
                 key_claims=["Shared insight", "A only"],
             ),
             ScenarioResult(
-                scenario_id="s-2", scenario_name="S2",
-                conclusion="A", confidence=0.8, consensus_reached=True,
+                scenario_id="s-2",
+                scenario_name="S2",
+                conclusion="A",
+                confidence=0.8,
+                consensus_reached=True,
                 key_claims=["Shared insight", "B only"],
             ),
         ]
@@ -1262,15 +1366,20 @@ class TestGenerateSummary:
     def test_conditional_patterns_listed(self, comparator, matrix_result):
         """Should list conditional patterns when present."""
         s1 = Scenario(
-            id="s-1", name="Low Risk", scenario_type=ScenarioType.RISK_TOLERANCE,
-            description="Low risk", parameters={"risk": "low"},
+            id="s-1",
+            name="Low Risk",
+            scenario_type=ScenarioType.RISK_TOLERANCE,
+            description="Low risk",
+            parameters={"risk": "low"},
         )
         matrix_result.scenarios = [s1]
         matrix_result.results = [
             ScenarioResult(
-                scenario_id="s-1", scenario_name="Low Risk",
+                scenario_id="s-1",
+                scenario_name="Low Risk",
                 conclusion="Conservative approach",
-                confidence=0.9, consensus_reached=True,
+                confidence=0.9,
+                consensus_reached=True,
                 key_claims=["Safety first"],
             ),
         ]
@@ -1281,8 +1390,11 @@ class TestGenerateSummary:
         """Should handle many scenario results."""
         results = [
             ScenarioResult(
-                scenario_id=f"s-{i}", scenario_name=f"Scenario {i}",
-                conclusion=f"Conclusion {i}", confidence=0.8, consensus_reached=True,
+                scenario_id=f"s-{i}",
+                scenario_name=f"Scenario {i}",
+                conclusion=f"Conclusion {i}",
+                confidence=0.8,
+                consensus_reached=True,
             )
             for i in range(10)
         ]
@@ -1296,9 +1408,11 @@ class TestGenerateSummary:
         long_conclusion = "A" * 500
         matrix_result.results = [
             ScenarioResult(
-                scenario_id="s-1", scenario_name="S1",
+                scenario_id="s-1",
+                scenario_name="S1",
                 conclusion=long_conclusion,
-                confidence=0.8, consensus_reached=True,
+                confidence=0.8,
+                consensus_reached=True,
             ),
         ]
         summary = comparator.generate_summary(matrix_result)
@@ -1343,9 +1457,7 @@ class TestRunScenarioDebate:
     async def test_applies_scenario_to_context(self, runner, scenario):
         """Should apply scenario modifications to context."""
         scenario.context_additions = "Extra info."
-        result = await runner._run_scenario_debate(
-            "Test task", scenario, "Base context"
-        )
+        result = await runner._run_scenario_debate("Test task", scenario, "Base context")
         # The scenario was applied (check via debate_func call)
         assert result.scenario_id == scenario.id
 
@@ -1374,9 +1486,7 @@ class TestRunScenarioDebate:
     @pytest.mark.asyncio
     async def test_extracts_result_attributes(self, runner, scenario):
         """Should extract attributes from debate result."""
-        result = await runner._run_scenario_debate(
-            "Test task", scenario, "Context"
-        )
+        result = await runner._run_scenario_debate("Test task", scenario, "Context")
         assert result.conclusion == "Use microservices for scalability"
         assert result.confidence == 0.8
         assert result.consensus_reached is True
@@ -1386,9 +1496,7 @@ class TestRunScenarioDebate:
     async def test_uses_default_values(self, mock_debate_func_minimal, scenario):
         """Should use defaults when attributes missing."""
         runner = MatrixDebateRunner(mock_debate_func_minimal)
-        result = await runner._run_scenario_debate(
-            "Test task", scenario, "Context"
-        )
+        result = await runner._run_scenario_debate("Test task", scenario, "Context")
         # Should have fallback values
         assert result.confidence == 0.5  # default
         assert result.consensus_reached is True  # default
@@ -1397,18 +1505,14 @@ class TestRunScenarioDebate:
     @pytest.mark.asyncio
     async def test_calculates_duration(self, runner, scenario):
         """Should calculate duration in seconds."""
-        result = await runner._run_scenario_debate(
-            "Test task", scenario, "Context"
-        )
+        result = await runner._run_scenario_debate("Test task", scenario, "Context")
         assert result.duration_seconds >= 0
 
     @pytest.mark.asyncio
     async def test_handles_exception(self, mock_debate_func_failing, scenario):
         """Should handle exceptions gracefully."""
         runner = MatrixDebateRunner(mock_debate_func_failing)
-        result = await runner._run_scenario_debate(
-            "Test task", scenario, "Context"
-        )
+        result = await runner._run_scenario_debate("Test task", scenario, "Context")
         assert "Error:" in result.conclusion
         assert result.confidence == 0.0
         assert result.consensus_reached is False
@@ -1417,9 +1521,7 @@ class TestRunScenarioDebate:
     async def test_error_result_structure(self, mock_debate_func_failing, scenario):
         """Should include error in metadata."""
         runner = MatrixDebateRunner(mock_debate_func_failing)
-        result = await runner._run_scenario_debate(
-            "Test task", scenario, "Context"
-        )
+        result = await runner._run_scenario_debate("Test task", scenario, "Context")
         assert "error" in result.metadata
         assert "Debate failed!" in result.metadata["error"]
 
@@ -1457,10 +1559,14 @@ class TestRunMatrix:
         runner = MatrixDebateRunner(mock_debate_func, max_parallel=3)
         matrix = ScenarioMatrix("Test")
         for i in range(5):
-            matrix.add_scenario(Scenario(
-                id=f"s-{i}", name=f"Scenario {i}",
-                scenario_type=ScenarioType.SCALE, description=f"Desc {i}",
-            ))
+            matrix.add_scenario(
+                Scenario(
+                    id=f"s-{i}",
+                    name=f"Scenario {i}",
+                    scenario_type=ScenarioType.SCALE,
+                    description=f"Desc {i}",
+                )
+            )
         result = await runner.run_matrix("Task", matrix, "Context")
         assert len(result.results) == 5
 
@@ -1486,10 +1592,14 @@ class TestRunMatrix:
         runner = MatrixDebateRunner(mixed_debate, max_parallel=3)
         matrix = ScenarioMatrix("Test")
         for i in range(3):
-            matrix.add_scenario(Scenario(
-                id=f"s-{i}", name=f"S{i}",
-                scenario_type=ScenarioType.SCALE, description=f"D{i}",
-            ))
+            matrix.add_scenario(
+                Scenario(
+                    id=f"s-{i}",
+                    name=f"S{i}",
+                    scenario_type=ScenarioType.SCALE,
+                    description=f"D{i}",
+                )
+            )
         result = await runner.run_matrix("Task", matrix, "Context")
         # Should complete without crashing, may have error results
         assert len(result.results) >= 2
@@ -1504,8 +1614,7 @@ class TestRunMatrix:
 
         matrix = ScenarioMatrix("Test")
         matrix.add_scenario(scenario)
-        await runner.run_matrix("Task", matrix, "Context",
-                               on_scenario_complete=on_complete)
+        await runner.run_matrix("Task", matrix, "Context", on_scenario_complete=on_complete)
         assert len(completed) == 1
         assert completed[0].scenario_id == scenario.id
 
@@ -1513,12 +1622,18 @@ class TestRunMatrix:
     async def test_finds_baseline_scenario(self, runner):
         """Should identify baseline scenario."""
         baseline = Scenario(
-            id="baseline", name="Baseline", scenario_type=ScenarioType.SCALE,
-            description="Baseline", is_baseline=True,
+            id="baseline",
+            name="Baseline",
+            scenario_type=ScenarioType.SCALE,
+            description="Baseline",
+            is_baseline=True,
         )
         other = Scenario(
-            id="other", name="Other", scenario_type=ScenarioType.SCALE,
-            description="Other", is_baseline=False,
+            id="other",
+            name="Other",
+            scenario_type=ScenarioType.SCALE,
+            description="Other",
+            is_baseline=False,
         )
         matrix = ScenarioMatrix("Test")
         matrix.add_scenario(baseline).add_scenario(other)
@@ -1530,10 +1645,14 @@ class TestRunMatrix:
         """Should analyze outcomes after completion."""
         matrix = ScenarioMatrix("Test")
         for i in range(2):
-            matrix.add_scenario(Scenario(
-                id=f"s-{i}", name=f"S{i}",
-                scenario_type=ScenarioType.SCALE, description=f"D{i}",
-            ))
+            matrix.add_scenario(
+                Scenario(
+                    id=f"s-{i}",
+                    name=f"S{i}",
+                    scenario_type=ScenarioType.SCALE,
+                    description=f"D{i}",
+                )
+            )
         result = await runner.run_matrix("Task", matrix, "Context")
         # Should have outcome category set
         assert result.outcome_category is not None

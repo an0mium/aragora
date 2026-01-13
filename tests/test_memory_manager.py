@@ -161,7 +161,9 @@ class TestStoreEvidence:
         manager = MemoryManager(continuum_memory=mock_continuum)
 
         snippets = [
-            MagicMock(content=f"Evidence {i} with enough content to pass", source="web", relevance=0.5)
+            MagicMock(
+                content=f"Evidence {i} with enough content to pass", source="web", relevance=0.5
+            )
             for i in range(15)
         ]
 
@@ -241,10 +243,12 @@ class TestFetchHistoricalContext:
     async def test_formats_historical_context(self):
         """Formats historical context with similarity scores."""
         mock_embeddings = MagicMock()
-        mock_embeddings.find_similar_debates = AsyncMock(return_value=[
-            ("debate-1", "Previous debate about X", 0.85),
-            ("debate-2", "Another related debate", 0.72),
-        ])
+        mock_embeddings.find_similar_debates = AsyncMock(
+            return_value=[
+                ("debate-1", "Previous debate about X", 0.85),
+                ("debate-2", "Another related debate", 0.72),
+            ]
+        )
         manager = MemoryManager(debate_embeddings=mock_embeddings)
 
         result = await manager.fetch_historical_context("test task")

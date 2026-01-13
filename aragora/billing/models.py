@@ -22,6 +22,7 @@ from aragora.exceptions import ConfigurationError
 # Try to import bcrypt for secure password hashing
 try:
     import bcrypt
+
     HAS_BCRYPT = True
 except ImportError:
     HAS_BCRYPT = False
@@ -37,8 +38,10 @@ BCRYPT_ROUNDS = 12  # Cost factor for bcrypt
 # Security: Allow SHA-256 fallback only when explicitly enabled
 # Set ARAGORA_ALLOW_INSECURE_PASSWORDS=1 for testing (NOT for production)
 # Note: bcrypt is a required dependency, so fallback should never be needed
-ALLOW_INSECURE_PASSWORDS = (
-    os.environ.get("ARAGORA_ALLOW_INSECURE_PASSWORDS", "").lower() in ("1", "true", "yes")
+ALLOW_INSECURE_PASSWORDS = os.environ.get("ARAGORA_ALLOW_INSECURE_PASSWORDS", "").lower() in (
+    "1",
+    "true",
+    "yes",
 )
 
 
@@ -49,6 +52,7 @@ class SubscriptionTier(Enum):
     STARTER = "starter"
     PROFESSIONAL = "professional"
     ENTERPRISE = "enterprise"
+    ENTERPRISE_PLUS = "enterprise_plus"
 
 
 @dataclass
@@ -65,6 +69,15 @@ class TierLimits:
     priority_support: bool
     price_monthly_cents: int  # Price in cents
 
+    # Enterprise+ features
+    dedicated_infrastructure: bool = False
+    sla_guarantee: bool = False
+    custom_model_training: bool = False
+    private_model_deployment: bool = False
+    compliance_certifications: bool = False  # SOC2, HIPAA-ready
+    unlimited_api_calls: bool = False
+    token_based_billing: bool = False
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -77,6 +90,13 @@ class TierLimits:
             "audit_logs": self.audit_logs,
             "priority_support": self.priority_support,
             "price_monthly_cents": self.price_monthly_cents,
+            "dedicated_infrastructure": self.dedicated_infrastructure,
+            "sla_guarantee": self.sla_guarantee,
+            "custom_model_training": self.custom_model_training,
+            "private_model_deployment": self.private_model_deployment,
+            "compliance_certifications": self.compliance_certifications,
+            "unlimited_api_calls": self.unlimited_api_calls,
+            "token_based_billing": self.token_based_billing,
         }
 
 
@@ -125,6 +145,25 @@ TIER_LIMITS: dict[SubscriptionTier, TierLimits] = {
         audit_logs=True,
         priority_support=True,
         price_monthly_cents=99900,  # $999 base
+    ),
+    SubscriptionTier.ENTERPRISE_PLUS: TierLimits(
+        debates_per_month=999999,  # Unlimited
+        users_per_org=999999,
+        api_access=True,
+        all_agents=True,
+        custom_agents=True,
+        sso_enabled=True,
+        audit_logs=True,
+        priority_support=True,
+        price_monthly_cents=500000,  # $5,000 base
+        # Enterprise+ exclusive features
+        dedicated_infrastructure=True,
+        sla_guarantee=True,
+        custom_model_training=True,
+        private_model_deployment=True,
+        compliance_certifications=True,
+        unlimited_api_calls=True,
+        token_based_billing=True,
     ),
 }
 
@@ -184,8 +223,8 @@ def hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]:
         raise ConfigurationError(
             component="Password Hashing",
             reason="bcrypt is required for secure password hashing but is not installed. "
-                   "Install it with: pip install bcrypt. "
-                   "For development/testing only, set ARAGORA_ALLOW_INSECURE_PASSWORDS=1"
+            "Install it with: pip install bcrypt. "
+            "For development/testing only, set ARAGORA_ALLOW_INSECURE_PASSWORDS=1",
         )
 
 
@@ -210,7 +249,7 @@ def verify_password(password: str, password_hash: str, salt: str) -> bool:
         if not HAS_BCRYPT:
             logger.error("Cannot verify bcrypt hash: bcrypt not installed")
             return False
-        stored_hash = password_hash[len(HASH_VERSION_BCRYPT):].encode("utf-8")
+        stored_hash = password_hash[len(HASH_VERSION_BCRYPT) :].encode("utf-8")
         try:
             return bcrypt.checkpw(password.encode("utf-8"), stored_hash)
         except Exception as e:
@@ -219,7 +258,7 @@ def verify_password(password: str, password_hash: str, salt: str) -> bool:
 
     elif password_hash.startswith(HASH_VERSION_SHA256):
         # Prefixed SHA-256
-        actual_hash = password_hash[len(HASH_VERSION_SHA256):]
+        actual_hash = password_hash[len(HASH_VERSION_SHA256) :]
         computed_hash, _ = _hash_password_sha256(password, salt)
         return secrets.compare_digest(computed_hash, actual_hash)
 
@@ -646,8 +685,14 @@ class Subscription:
             stripe_price_id=data.get("stripe_price_id"),
             cancel_at_period_end=data.get("cancel_at_period_end", False),
         )
-        for field_name in ["current_period_start", "current_period_end", "trial_start",
-                          "trial_end", "created_at", "updated_at"]:
+        for field_name in [
+            "current_period_start",
+            "current_period_end",
+            "trial_start",
+            "trial_end",
+            "created_at",
+            "updated_at",
+        ]:
             if field_name in data and data[field_name]:
                 value = data[field_name]
                 if isinstance(value, str):
@@ -673,9 +718,7 @@ class OrganizationInvitation:
     invited_by: Optional[str] = None  # User ID of inviter
     status: str = "pending"  # pending, accepted, expired, revoked
     created_at: datetime = field(default_factory=datetime.utcnow)
-    expires_at: datetime = field(
-        default_factory=lambda: datetime.utcnow() + timedelta(days=7)
-    )
+    expires_at: datetime = field(default_factory=lambda: datetime.utcnow() + timedelta(days=7))
     accepted_by: Optional[str] = None  # User ID who accepted the invitation
     accepted_at: Optional[datetime] = None
 
@@ -755,6 +798,7 @@ class OrganizationInvitation:
 def generate_slug(name: str) -> str:
     """Generate URL-friendly slug from name."""
     import re
+
     slug = name.lower()
     slug = re.sub(r"[^a-z0-9\s-]", "", slug)
     slug = re.sub(r"[\s_]+", "-", slug)

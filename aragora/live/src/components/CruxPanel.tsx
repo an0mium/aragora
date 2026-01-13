@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 
 interface Crux {
   claim_id: string;
@@ -29,7 +30,7 @@ interface CruxPanelProps {
   apiBase?: string;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BASE }: CruxPanelProps) {
   const [debateId, setDebateId] = useState(initialDebateId || '');

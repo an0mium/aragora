@@ -31,7 +31,6 @@ _DEV_ORIGINS: Set[str] = {
 _PROD_ORIGINS: Set[str] = {
     "https://aragora.ai",
     "https://www.aragora.ai",
-    "https://live.aragora.ai",
     "https://api.aragora.ai",
 }
 

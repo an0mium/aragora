@@ -286,9 +286,7 @@ class TestUsageTrackerInit:
         tracker = UsageTracker(db_path=db_path)
 
         with sqlite3.connect(str(db_path)) as conn:
-            cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='index'"
-            )
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='index'")
             indexes = [row[0] for row in cursor.fetchall()]
             assert "idx_usage_org_created" in indexes
             assert "idx_usage_user_created" in indexes

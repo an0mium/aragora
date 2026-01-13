@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TranslationResult:
     """Result of a natural language to Lean translation."""
+
     success: bool
     lean_code: Optional[str] = None
     error_message: str = ""
@@ -245,7 +246,7 @@ If the claim is UNTRANSLATABLE to Lean 4, return exactly:
                     headers = {
                         "Authorization": f"Bearer {self.api_key}",
                         "Content-Type": "application/json",
-                        "HTTP-Referer": "https://aragora.dev",
+                        "HTTP-Referer": "https://aragora.ai",
                         "X-Title": "Aragora Formal Verification",
                     }
 

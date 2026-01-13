@@ -22,29 +22,34 @@ logger = logging.getLogger(__name__)
 REQUEST_ID_HEADER = "X-Request-ID"
 
 # Sensitive headers to mask in logs
-SENSITIVE_HEADERS = frozenset({
-    "authorization",
-    "x-api-key",
-    "cookie",
-    "set-cookie",
-    "x-auth-token",
-})
+SENSITIVE_HEADERS = frozenset(
+    {
+        "authorization",
+        "x-api-key",
+        "cookie",
+        "set-cookie",
+        "x-auth-token",
+    }
+)
 
 # Sensitive query parameters to mask
-SENSITIVE_PARAMS = frozenset({
-    "token",
-    "api_key",
-    "apikey",
-    "password",
-    "secret",
-    "access_token",
-    "refresh_token",
-})
+SENSITIVE_PARAMS = frozenset(
+    {
+        "token",
+        "api_key",
+        "apikey",
+        "password",
+        "secret",
+        "access_token",
+        "refresh_token",
+    }
+)
 
 
 @dataclass
 class RequestContext:
     """Context for a single request."""
+
     request_id: str
     method: str
     path: str
@@ -238,12 +243,14 @@ def request_logging(
         def handle_fast_endpoint(request):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         """Create a logging wrapper for the given handler function.
 
         Detects whether the handler is async or sync and returns the appropriate
         wrapper. Both wrappers provide identical logging behavior.
         """
+
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             """Async wrapper that logs request start, completion, and errors.
@@ -350,6 +357,7 @@ def request_logging(
 
         # Return appropriate wrapper based on function type
         import asyncio
+
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         return sync_wrapper
@@ -392,6 +400,7 @@ def _extract_ip(request: Any) -> str:
 
 # Context variable for accessing current request ID
 import contextvars
+
 _current_request_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
     "current_request_id", default=None
 )

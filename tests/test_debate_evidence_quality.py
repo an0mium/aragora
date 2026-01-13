@@ -26,6 +26,7 @@ from aragora.debate.evidence_quality import (
 # EvidenceType Enum Tests
 # ============================================================================
 
+
 class TestEvidenceType:
     """Tests for EvidenceType enum."""
 
@@ -66,6 +67,7 @@ class TestEvidenceType:
 # ============================================================================
 # EvidenceMarker Tests
 # ============================================================================
+
 
 class TestEvidenceMarker:
     """Tests for EvidenceMarker dataclass."""
@@ -111,6 +113,7 @@ class TestEvidenceMarker:
 # ============================================================================
 # EvidenceQualityScore Tests
 # ============================================================================
+
 
 class TestEvidenceQualityScore:
     """Tests for EvidenceQualityScore dataclass."""
@@ -188,6 +191,7 @@ class TestEvidenceQualityScore:
 # EvidenceQualityAnalyzer Initialization Tests
 # ============================================================================
 
+
 class TestEvidenceQualityAnalyzerInit:
     """Tests for EvidenceQualityAnalyzer initialization."""
 
@@ -216,6 +220,7 @@ class TestEvidenceQualityAnalyzerInit:
 # EvidenceQualityAnalyzer Pattern Detection Tests
 # ============================================================================
 
+
 class TestEvidencePatternDetection:
     """Tests for evidence pattern detection."""
 
@@ -230,8 +235,7 @@ class TestEvidencePatternDetection:
         score = analyzer.analyze(text, "test", 1)
 
         citation_markers = [
-            m for m in score.evidence_markers
-            if m.evidence_type == EvidenceType.CITATION
+            m for m in score.evidence_markers if m.evidence_type == EvidenceType.CITATION
         ]
         assert len(citation_markers) >= 2
 
@@ -241,8 +245,7 @@ class TestEvidencePatternDetection:
         score = analyzer.analyze(text, "test", 1)
 
         citation_markers = [
-            m for m in score.evidence_markers
-            if m.evidence_type == EvidenceType.CITATION
+            m for m in score.evidence_markers if m.evidence_type == EvidenceType.CITATION
         ]
         assert len(citation_markers) >= 1
 
@@ -252,8 +255,7 @@ class TestEvidencePatternDetection:
         score = analyzer.analyze(text, "test", 1)
 
         citation_markers = [
-            m for m in score.evidence_markers
-            if m.evidence_type == EvidenceType.CITATION
+            m for m in score.evidence_markers if m.evidence_type == EvidenceType.CITATION
         ]
         assert len(citation_markers) >= 1
 
@@ -262,10 +264,7 @@ class TestEvidencePatternDetection:
         text = "Performance improved by 45% after optimization."
         score = analyzer.analyze(text, "test", 1)
 
-        data_markers = [
-            m for m in score.evidence_markers
-            if m.evidence_type == EvidenceType.DATA
-        ]
+        data_markers = [m for m in score.evidence_markers if m.evidence_type == EvidenceType.DATA]
         assert len(data_markers) >= 1
 
     def test_detect_data_currency(self, analyzer):
@@ -273,10 +272,7 @@ class TestEvidencePatternDetection:
         text = "The cost was reduced to $1,500 per unit."
         score = analyzer.analyze(text, "test", 1)
 
-        data_markers = [
-            m for m in score.evidence_markers
-            if m.evidence_type == EvidenceType.DATA
-        ]
+        data_markers = [m for m in score.evidence_markers if m.evidence_type == EvidenceType.DATA]
         assert len(data_markers) >= 1
 
     def test_detect_data_metrics(self, analyzer):
@@ -284,10 +280,7 @@ class TestEvidencePatternDetection:
         text = "Response time improved from 500ms to 100ms, using 2GB memory."
         score = analyzer.analyze(text, "test", 1)
 
-        data_markers = [
-            m for m in score.evidence_markers
-            if m.evidence_type == EvidenceType.DATA
-        ]
+        data_markers = [m for m in score.evidence_markers if m.evidence_type == EvidenceType.DATA]
         assert len(data_markers) >= 2
 
     def test_detect_example_for_example(self, analyzer):
@@ -296,8 +289,7 @@ class TestEvidencePatternDetection:
         score = analyzer.analyze(text, "test", 1)
 
         example_markers = [
-            m for m in score.evidence_markers
-            if m.evidence_type == EvidenceType.EXAMPLE
+            m for m in score.evidence_markers if m.evidence_type == EvidenceType.EXAMPLE
         ]
         assert len(example_markers) >= 1
 
@@ -307,8 +299,7 @@ class TestEvidencePatternDetection:
         score = analyzer.analyze(text, "test", 1)
 
         example_markers = [
-            m for m in score.evidence_markers
-            if m.evidence_type == EvidenceType.EXAMPLE
+            m for m in score.evidence_markers if m.evidence_type == EvidenceType.EXAMPLE
         ]
         assert len(example_markers) >= 1
 
@@ -316,6 +307,7 @@ class TestEvidencePatternDetection:
 # ============================================================================
 # EvidenceQualityAnalyzer Scoring Tests
 # ============================================================================
+
 
 class TestEvidenceScoring:
     """Tests for evidence quality scoring."""
@@ -432,6 +424,7 @@ class TestEvidenceScoring:
 # EvidenceQualityAnalyzer Batch Analysis Tests
 # ============================================================================
 
+
 class TestEvidenceBatchAnalysis:
     """Tests for batch analysis of responses."""
 
@@ -466,6 +459,7 @@ class TestEvidenceBatchAnalysis:
 # ============================================================================
 # HollowConsensusAlert Tests
 # ============================================================================
+
 
 class TestHollowConsensusAlert:
     """Tests for HollowConsensusAlert dataclass."""
@@ -520,6 +514,7 @@ class TestHollowConsensusAlert:
 # HollowConsensusDetector Initialization Tests
 # ============================================================================
 
+
 class TestHollowConsensusDetectorInit:
     """Tests for HollowConsensusDetector initialization."""
 
@@ -545,6 +540,7 @@ class TestHollowConsensusDetectorInit:
 # ============================================================================
 # HollowConsensusDetector Check Tests
 # ============================================================================
+
 
 class TestHollowConsensusDetectorCheck:
     """Tests for hollow consensus detection."""
@@ -624,6 +620,7 @@ class TestHollowConsensusDetectorCheck:
 # HollowConsensusDetector Challenge Generation Tests
 # ============================================================================
 
+
 class TestHollowConsensusDetectorChallenges:
     """Tests for challenge generation."""
 
@@ -641,7 +638,8 @@ class TestHollowConsensusDetectorChallenges:
         alert = detector.check(responses, convergence_similarity=0.8, round_num=1)
 
         citation_challenges = [
-            c for c in alert.recommended_challenges
+            c
+            for c in alert.recommended_challenges
             if "sources" in c.lower() or "citation" in c.lower() or "reference" in c.lower()
         ]
         # May or may not generate depending on detection threshold
@@ -658,7 +656,8 @@ class TestHollowConsensusDetectorChallenges:
 
         # Check for challenge mentioning vague language or specifics
         vague_challenges = [
-            c for c in alert.recommended_challenges
+            c
+            for c in alert.recommended_challenges
             if "vague" in c.lower() or "specific" in c.lower()
         ]
         assert isinstance(alert.recommended_challenges, list)
@@ -679,6 +678,7 @@ class TestHollowConsensusDetectorChallenges:
 # ============================================================================
 # Edge Cases and Integration Tests
 # ============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
@@ -724,8 +724,10 @@ class TestEdgeCases:
         """Test analyzing very long response."""
         analyzer = EvidenceQualityAnalyzer()
         # Generate a long text with evidence markers
-        text = ("According to [1], the improvement was 25%. " * 100 +
-                "Therefore, this approach works well. " * 50)
+        text = (
+            "According to [1], the improvement was 25%. " * 100
+            + "Therefore, this approach works well. " * 50
+        )
         score = analyzer.analyze(text, "test", 1)
 
         assert score.evidence_markers is not None
@@ -741,4 +743,3 @@ class TestEdgeCases:
         alert = detector.check(responses, convergence_similarity=0.99, round_num=1)
 
         assert 0.0 <= alert.severity <= 1.0
-

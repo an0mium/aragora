@@ -44,9 +44,7 @@ class AgentRelationship:
             return 0.0
         disagreement_rate = 1 - (self.agreement_count / self.debate_count)
         total_wins = self.a_wins_over_b + self.b_wins_over_a
-        competitiveness = (
-            1 - abs(self.a_wins_over_b - self.b_wins_over_a) / max(total_wins, 1)
-        )
+        competitiveness = 1 - abs(self.a_wins_over_b - self.b_wins_over_a) / max(total_wins, 1)
         frequency_factor = min(1.0, self.debate_count / 20)
         return disagreement_rate * competitiveness * frequency_factor
 
@@ -108,7 +106,8 @@ class RelationshipTracker:
     def _init_tables(self) -> None:
         """Add agent_relationships table if not exists."""
         with self._get_connection() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS agent_relationships (
                     agent_a TEXT NOT NULL,
                     agent_b TEXT NOT NULL,
@@ -126,7 +125,8 @@ class RelationshipTracker:
                     PRIMARY KEY (agent_a, agent_b),
                     CHECK (agent_a < agent_b)
                 )
-            """)
+            """
+            )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_relationships_a ON agent_relationships(agent_a)"
             )
@@ -154,7 +154,7 @@ class RelationshipTracker:
         with self._get_connection() as conn:
             # Update relationships for each pair
             for i, agent_a in enumerate(participants):
-                for agent_b in participants[i + 1:]:
+                for agent_b in participants[i + 1 :]:
                     canonical_a, canonical_b = self._canonical_pair(agent_a, agent_b)
                     is_swapped = canonical_a != agent_a
 
@@ -221,11 +221,17 @@ class RelationshipTracker:
                 if not critic or not target or critic == target:
                     # Log why critique was dropped for debugging
                     if not critic:
-                        logger.debug(f"Critique dropped: missing critic field in debate {debate_id}")
+                        logger.debug(
+                            f"Critique dropped: missing critic field in debate {debate_id}"
+                        )
                     elif not target:
-                        logger.debug(f"Critique dropped: missing target field in debate {debate_id}")
+                        logger.debug(
+                            f"Critique dropped: missing target field in debate {debate_id}"
+                        )
                     elif critic == target:
-                        logger.debug(f"Critique dropped: self-critique by {critic} in debate {debate_id}")
+                        logger.debug(
+                            f"Critique dropped: self-critique by {critic} in debate {debate_id}"
+                        )
                     continue
 
                 canonical_a, canonical_b = self._canonical_pair(critic, target)
@@ -335,9 +341,7 @@ class RelationshipTracker:
         allies.sort(key=lambda x: x[1], reverse=True)
         return allies[:limit]
 
-    def get_influence_network(
-        self, agent_name: str
-    ) -> dict[str, list[tuple[str, float]]]:
+    def get_influence_network(self, agent_name: str) -> dict[str, list[tuple[str, float]]]:
         """Get who this agent influences and who influences them."""
         relationships = self.get_all_relationships(agent_name)
 

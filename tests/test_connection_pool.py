@@ -131,8 +131,7 @@ class TestConnectionPool:
                 for _ in range(10):
                     with pool.connection() as conn:
                         conn.execute(
-                            "INSERT INTO test (value) VALUES (?)",
-                            (f"worker_{worker_id}",)
+                            "INSERT INTO test (value) VALUES (?)", (f"worker_{worker_id}",)
                         )
                         time.sleep(0.001)  # Small delay to increase contention
                 results.append(worker_id)

@@ -1,0 +1,292 @@
+# Prometheus AlertManager rules for Aragora
+#
+# SLO Targets (from aragora/observability/slo.py):
+# - API Availability: 99.9% (3 nines)
+# - p99 Latency: <500ms
+# - Debate Success Rate: >95%
+#
+# Install: Copy to /etc/prometheus/rules/ and reload Prometheus
+# Reference: https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/
+
+groups:
+  - name: aragora.slo
+    interval: 30s
+    rules:
+      # Availability SLO - 99.9%
+      - alert: AragoraAvailabilitySLOBreach
+        expr: |
+          (
+            sum(rate(aragora_requests_total{status=~"5.."}[5m])) /
+            sum(rate(aragora_requests_total[5m]))
+          ) > 0.001
+        for: 5m
+        labels:
+          severity: critical
+          slo: availability
+        annotations:
+          summary: "API availability below 99.9% SLO"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes. SLO target is 0.1%."
+          runbook_url: "https://docs.aragora.ai/runbook/availability"
+
+      - alert: AragoraAvailabilitySLOWarning
+        expr: |
+          (
+            sum(rate(aragora_requests_total{status=~"5.."}[15m])) /
+            sum(rate(aragora_requests_total[15m]))
+          ) > 0.0005
+        for: 10m
+        labels:
+          severity: warning
+          slo: availability
+        annotations:
+          summary: "API availability trending toward SLO breach"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 15 minutes."
+
+      # Latency SLO - p99 < 500ms
+      - alert: AragoraLatencySLOBreach
+        expr: |
+          histogram_quantile(0.99, sum(rate(aragora_request_latency_seconds_bucket[5m])) by (le))
+          > 0.5
+        for: 5m
+        labels:
+          severity: critical
+          slo: latency
+        annotations:
+          summary: "p99 latency exceeds 500ms SLO"
+          description: "p99 latency is {{ $value | humanizeDuration }}. SLO target is 500ms."
+          runbook_url: "https://docs.aragora.ai/runbook/latency"
+
+      - alert: AragoraLatencySLOWarning
+        expr: |
+          histogram_quantile(0.99, sum(rate(aragora_request_latency_seconds_bucket[5m])) by (le))
+          > 0.4
+        for: 10m
+        labels:
+          severity: warning
+          slo: latency
+        annotations:
+          summary: "p99 latency approaching SLO threshold"
+          description: "p99 latency is {{ $value | humanizeDuration }}. Warning threshold is 400ms."
+
+      # Debate Success Rate SLO - >95%
+      - alert: AragoraDebateSuccessSLOBreach
+        expr: |
+          (
+            sum(rate(aragora_debate_duration_seconds_count{outcome="error"}[1h])) /
+            sum(rate(aragora_debate_duration_seconds_count[1h]))
+          ) > 0.05
+        for: 30m
+        labels:
+          severity: critical
+          slo: debate_success
+        annotations:
+          summary: "Debate success rate below 95% SLO"
+          description: "Debate failure rate is {{ $value | humanizePercentage }} over the last hour."
+          runbook_url: "https://docs.aragora.ai/runbook/debate-failures"
+
+  - name: aragora.infrastructure
+    interval: 30s
+    rules:
+      # Database connectivity
+      - alert: AragoraDatabaseDown
+        expr: aragora_slo_compliance{slo_name="database"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database connectivity lost"
+          description: "Unable to connect to database for over 1 minute."
+
+      # Circuit breaker alerts
+      - alert: AragoraAgentCircuitOpen
+        expr: |
+          sum(aragora_circuit_breaker_state{state="open"}) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: agents
+        annotations:
+          summary: "Agent circuit breaker is open"
+          description: "One or more agent circuit breakers have been open for 5+ minutes."
+
+      - alert: AragoraManyCircuitsOpen
+        expr: |
+          sum(aragora_circuit_breaker_state{state="open"}) >= 3
+        for: 2m
+        labels:
+          severity: critical
+          component: agents
+        annotations:
+          summary: "Multiple agent circuit breakers open"
+          description: "{{ $value }} circuit breakers are open. This may indicate widespread API issues."
+
+      # WebSocket connection issues
+      - alert: AragoraWebSocketConnectionsDrop
+        expr: |
+          delta(aragora_websocket_connections[5m]) < -10
+        for: 2m
+        labels:
+          severity: warning
+          component: websocket
+        annotations:
+          summary: "Significant drop in WebSocket connections"
+          description: "WebSocket connections dropped by {{ $value }} in the last 5 minutes."
+
+      # Memory pressure
+      - alert: AragoraHighMemoryUsage
+        expr: |
+          process_resident_memory_bytes / 1024 / 1024 > 2000
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage detected"
+          description: "Process is using {{ $value | humanize }}MB of memory."
+
+      # Rate limiting triggered frequently
+      - alert: AragoraHighRateLimitRate
+        expr: |
+          sum(rate(aragora_requests_total{status="429"}[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: rate_limit
+        annotations:
+          summary: "High rate of 429 responses"
+          description: "{{ $value | humanize }}/s requests are being rate limited."
+
+  - name: aragora.agents
+    interval: 30s
+    rules:
+      # Agent call latency
+      - alert: AragoraAgentLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum(rate(aragora_agent_latency_seconds_bucket[5m])) by (le, agent))
+          > 30
+        for: 10m
+        labels:
+          severity: warning
+          component: agents
+        annotations:
+          summary: "Agent {{ $labels.agent }} has high latency"
+          description: "p95 latency for {{ $labels.agent }} is {{ $value | humanizeDuration }}."
+
+      # Agent error rate
+      - alert: AragoraAgentErrorRateHigh
+        expr: |
+          (
+            sum(rate(aragora_agent_calls_total{status="error"}[5m])) by (agent) /
+            sum(rate(aragora_agent_calls_total[5m])) by (agent)
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: agents
+        annotations:
+          summary: "Agent {{ $labels.agent }} has high error rate"
+          description: "Error rate for {{ $labels.agent }} is {{ $value | humanizePercentage }}."
+
+      # No agent calls (possible outage)
+      - alert: AragoraNoAgentCalls
+        expr: |
+          sum(rate(aragora_agent_calls_total[10m])) == 0
+        for: 15m
+        labels:
+          severity: warning
+          component: agents
+        annotations:
+          summary: "No agent calls detected"
+          description: "No agent API calls have been made in the last 15 minutes."
+
+  - name: aragora.debates
+    interval: 60s
+    rules:
+      # Long-running debates
+      - alert: AragoraDebateRunningTooLong
+        expr: |
+          aragora_active_debates > 0 and time() - aragora_debate_start_timestamp > 600
+        for: 1m
+        labels:
+          severity: warning
+          component: debates
+        annotations:
+          summary: "Debate running for over 10 minutes"
+          description: "A debate has been running for over 10 minutes. This may indicate a stuck debate."
+
+      # Debate throughput drop
+      - alert: AragoraDebateThroughputDrop
+        expr: |
+          sum(rate(aragora_debate_duration_seconds_count[1h])) < 0.1
+          and sum(rate(aragora_debate_duration_seconds_count[1h] offset 1h)) > 1
+        for: 30m
+        labels:
+          severity: warning
+          component: debates
+        annotations:
+          summary: "Debate throughput has dropped significantly"
+          description: "Debate completion rate has dropped compared to the previous hour."
+
+      # Consensus rate degradation
+      - alert: AragoraConsensusRateLow
+        expr: |
+          aragora_consensus_rate < 0.5
+        for: 1h
+        labels:
+          severity: info
+          component: debates
+        annotations:
+          summary: "Consensus rate below 50%"
+          description: "The consensus rate is {{ $value | humanizePercentage }}. This may indicate difficult topics or agent disagreement."
+
+  - name: aragora.error_budget
+    interval: 60s
+    rules:
+      # Error budget burn rate alerts (Multi-window, Multi-burn-rate)
+      # Fast burn: 14.4x burn rate over 1 hour exhausts 30-day budget in 2 days
+      - alert: AragoraErrorBudgetFastBurn
+        expr: |
+          aragora_slo_burn_rate > 14.4
+        for: 2m
+        labels:
+          severity: critical
+          slo: error_budget
+        annotations:
+          summary: "Error budget burning too fast"
+          description: "Error budget burn rate is {{ $value }}x. At this rate, the monthly budget will be exhausted in {{ 30 / $value | humanize }} days."
+
+      # Slow burn: 1x burn rate means budget will be exactly exhausted
+      - alert: AragoraErrorBudgetSlowBurn
+        expr: |
+          aragora_slo_burn_rate > 1
+        for: 1h
+        labels:
+          severity: warning
+          slo: error_budget
+        annotations:
+          summary: "Error budget burn rate elevated"
+          description: "Error budget burn rate is {{ $value }}x normal. Budget remaining: {{ aragora_slo_error_budget_remaining }}%"
+
+      # Low error budget remaining
+      - alert: AragoraErrorBudgetLow
+        expr: |
+          aragora_slo_error_budget_remaining < 25
+        for: 5m
+        labels:
+          severity: warning
+          slo: error_budget
+        annotations:
+          summary: "Error budget running low"
+          description: "Only {{ $value }}% of error budget remains for this period."
+
+      - alert: AragoraErrorBudgetCritical
+        expr: |
+          aragora_slo_error_budget_remaining < 10
+        for: 5m
+        labels:
+          severity: critical
+          slo: error_budget
+        annotations:
+          summary: "Error budget critically low"
+          description: "Only {{ $value }}% of error budget remains. Immediate action required."

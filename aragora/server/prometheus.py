@@ -26,6 +26,7 @@ try:
         CONTENT_TYPE_LATEST,
         REGISTRY,
     )
+
     PROMETHEUS_AVAILABLE = True
 except ImportError:
     PROMETHEUS_AVAILABLE = False
@@ -231,6 +232,7 @@ if PROMETHEUS_AVAILABLE:
 # Fallback Implementation (when prometheus_client not available)
 # ============================================================================
 
+
 @dataclass
 class SimpleMetrics:
     """Simple metrics storage when prometheus_client is not available."""
@@ -240,7 +242,9 @@ class SimpleMetrics:
     histograms: Dict[str, list] = field(default_factory=dict)
     info: Dict[str, Dict[str, str]] = field(default_factory=dict)
 
-    def inc_counter(self, name: str, labels: Dict[str, str] | None = None, value: float = 1) -> None:
+    def inc_counter(
+        self, name: str, labels: Dict[str, str] | None = None, value: float = 1
+    ) -> None:
         key = self._make_key(name, labels)
         self.counters[key] = self.counters.get(key, 0) + value
 
@@ -248,7 +252,9 @@ class SimpleMetrics:
         key = self._make_key(name, labels)
         self.gauges[key] = value
 
-    def observe_histogram(self, name: str, value: float, labels: Dict[str, str] | None = None) -> None:
+    def observe_histogram(
+        self, name: str, value: float, labels: Dict[str, str] | None = None
+    ) -> None:
         key = self._make_key(name, labels)
         if key not in self.histograms:
             self.histograms[key] = []
@@ -297,6 +303,7 @@ _simple_metrics = SimpleMetrics()
 # Public API
 # ============================================================================
 
+
 def get_metrics_output() -> tuple[str, str]:
     """
     Get metrics in Prometheus format.
@@ -325,6 +332,7 @@ def get_prometheus_metrics() -> str:
 # Recording Functions
 # ============================================================================
 
+
 def record_debate_completed(
     duration_seconds: float,
     rounds_used: int,
@@ -333,7 +341,9 @@ def record_debate_completed(
 ) -> None:
     """Record a completed debate."""
     if PROMETHEUS_AVAILABLE:
-        DEBATE_DURATION.labels(outcome=outcome, agent_count=str(agent_count)).observe(duration_seconds)
+        DEBATE_DURATION.labels(outcome=outcome, agent_count=str(agent_count)).observe(
+            duration_seconds
+        )
         DEBATE_ROUNDS.labels(outcome=outcome).observe(rounds_used)
         DEBATES_TOTAL.labels(outcome=outcome).inc()
     else:
@@ -366,7 +376,9 @@ def record_tokens_used(model: str, input_tokens: int, output_tokens: int) -> Non
 def record_agent_generation(agent_type: str, model: str, duration_seconds: float) -> None:
     """Record agent generation time."""
     if PROMETHEUS_AVAILABLE:
-        AGENT_GENERATION_DURATION.labels(agent_type=agent_type, model=model).observe(duration_seconds)
+        AGENT_GENERATION_DURATION.labels(agent_type=agent_type, model=model).observe(
+            duration_seconds
+        )
     else:
         _simple_metrics.observe_histogram(
             "aragora_agent_generation_seconds",
@@ -401,12 +413,10 @@ def set_circuit_breaker_state(agent_type: str, state: int) -> None:
 def record_http_request(method: str, endpoint: str, status: int, duration_seconds: float) -> None:
     """Record an HTTP request."""
     if PROMETHEUS_AVAILABLE:
-        HTTP_REQUEST_DURATION.labels(
-            method=method, endpoint=endpoint, status=str(status)
-        ).observe(duration_seconds)
-        HTTP_REQUESTS_TOTAL.labels(
-            method=method, endpoint=endpoint, status=str(status)
-        ).inc()
+        HTTP_REQUEST_DURATION.labels(method=method, endpoint=endpoint, status=str(status)).observe(
+            duration_seconds
+        )
+        HTTP_REQUESTS_TOTAL.labels(method=method, endpoint=endpoint, status=str(status)).inc()
     else:
         _simple_metrics.observe_histogram(
             "aragora_http_request_duration_seconds",
@@ -481,17 +491,22 @@ def record_cache_miss(cache_name: str) -> None:
 def set_server_info(version: str, python_version: str, start_time: float) -> None:
     """Set server information."""
     if PROMETHEUS_AVAILABLE:
-        ARAGORA_INFO.info({
-            "version": version,
-            "python_version": python_version,
-            "start_time": str(int(start_time)),
-        })
+        ARAGORA_INFO.info(
+            {
+                "version": version,
+                "python_version": python_version,
+                "start_time": str(int(start_time)),
+            }
+        )
     else:
-        _simple_metrics.set_info("aragora", {
-            "version": version,
-            "python_version": python_version,
-            "start_time": str(int(start_time)),
-        })
+        _simple_metrics.set_info(
+            "aragora",
+            {
+                "version": version,
+                "python_version": python_version,
+                "start_time": str(int(start_time)),
+            },
+        )
 
 
 def record_db_query(operation: str, table: str, duration_seconds: float) -> None:
@@ -596,6 +611,7 @@ def record_memory_operation(operation: str) -> None:
 # Decorators for Easy Instrumentation
 # ============================================================================
 
+
 def timed_http_request(endpoint: str) -> Callable[[Callable], Callable]:
     """Decorator to time HTTP request handlers.
 
@@ -605,6 +621,7 @@ def timed_http_request(endpoint: str) -> Callable[[Callable], Callable]:
     Returns:
         Decorator function that wraps handlers with timing instrumentation.
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -619,7 +636,9 @@ def timed_http_request(endpoint: str) -> Callable[[Callable], Callable]:
             finally:
                 duration = time.perf_counter() - start
                 record_http_request("GET", endpoint, status, duration)
+
         return wrapper
+
     return decorator
 
 
@@ -633,6 +652,7 @@ def timed_agent_generation(agent_type: str, model: str) -> Callable[[Callable], 
     Returns:
         Async decorator function that wraps generators with timing instrumentation.
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -646,7 +666,9 @@ def timed_agent_generation(agent_type: str, model: str) -> Callable[[Callable], 
             finally:
                 duration = time.perf_counter() - start
                 record_agent_generation(agent_type, model, duration)
+
         return wrapper
+
     return decorator
 
 
@@ -665,6 +687,7 @@ def timed_db_query(operation: str, table: str) -> Callable[[Callable], Callable]
         def list_debates(self, limit: int):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -678,7 +701,9 @@ def timed_db_query(operation: str, table: str) -> Callable[[Callable], Callable]
             finally:
                 duration = time.perf_counter() - start
                 record_db_query(operation, table, duration)
+
         return wrapper
+
     return decorator
 
 
@@ -697,6 +722,7 @@ def timed_db_query_async(operation: str, table: str) -> Callable[[Callable], Cal
         async def list_debates(self, limit: int):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -710,13 +736,16 @@ def timed_db_query_async(operation: str, table: str) -> Callable[[Callable], Cal
             finally:
                 duration = time.perf_counter() - start
                 record_db_query(operation, table, duration)
+
         return wrapper
+
     return decorator
 
 
 # ============================================================================
 # Nomic Loop Phase Metrics
 # ============================================================================
+
 
 def record_nomic_phase(
     phase: str,
@@ -806,6 +835,7 @@ def timed_nomic_phase(phase: str) -> Callable[[Callable], Callable]:
         async def execute(self) -> DebateResult:
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -823,5 +853,7 @@ def timed_nomic_phase(phase: str) -> Callable[[Callable], Callable]:
             finally:
                 duration = time.perf_counter() - start
                 record_nomic_phase(phase, outcome, duration)
+
         return wrapper
+
     return decorator

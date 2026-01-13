@@ -14,6 +14,7 @@ from aragora.core import Environment
 @dataclass
 class MockEvidenceSnippet:
     """Mock evidence snippet for testing."""
+
     id: str = "test-snippet"
     source: str = "web"
     title: str = "Test Article"
@@ -30,6 +31,7 @@ class MockEvidenceSnippet:
 @dataclass
 class MockEvidencePack:
     """Mock evidence pack for testing."""
+
     topic_keywords: list = None
     snippets: list = None
     search_timestamp: str = ""
@@ -140,9 +142,7 @@ class TestPromptBuilderEvidence:
 
     def test_format_evidence_with_snippets(self, protocol, env, sample_evidence_pack):
         """Test format_evidence_for_prompt with evidence."""
-        builder = PromptBuilder(
-            protocol=protocol, env=env, evidence_pack=sample_evidence_pack
-        )
+        builder = PromptBuilder(protocol=protocol, env=env, evidence_pack=sample_evidence_pack)
 
         result = builder.format_evidence_for_prompt()
 
@@ -153,9 +153,7 @@ class TestPromptBuilderEvidence:
 
     def test_format_evidence_includes_titles(self, protocol, env, sample_evidence_pack):
         """Test evidence formatting includes titles."""
-        builder = PromptBuilder(
-            protocol=protocol, env=env, evidence_pack=sample_evidence_pack
-        )
+        builder = PromptBuilder(protocol=protocol, env=env, evidence_pack=sample_evidence_pack)
 
         result = builder.format_evidence_for_prompt()
 
@@ -164,9 +162,7 @@ class TestPromptBuilderEvidence:
 
     def test_format_evidence_includes_sources(self, protocol, env, sample_evidence_pack):
         """Test evidence formatting includes sources."""
-        builder = PromptBuilder(
-            protocol=protocol, env=env, evidence_pack=sample_evidence_pack
-        )
+        builder = PromptBuilder(protocol=protocol, env=env, evidence_pack=sample_evidence_pack)
 
         result = builder.format_evidence_for_prompt()
 
@@ -176,9 +172,7 @@ class TestPromptBuilderEvidence:
 
     def test_format_evidence_includes_reliability(self, protocol, env, sample_evidence_pack):
         """Test evidence formatting includes reliability scores."""
-        builder = PromptBuilder(
-            protocol=protocol, env=env, evidence_pack=sample_evidence_pack
-        )
+        builder = PromptBuilder(protocol=protocol, env=env, evidence_pack=sample_evidence_pack)
 
         result = builder.format_evidence_for_prompt()
 
@@ -187,9 +181,7 @@ class TestPromptBuilderEvidence:
 
     def test_format_evidence_includes_urls(self, protocol, env, sample_evidence_pack):
         """Test evidence formatting includes URLs."""
-        builder = PromptBuilder(
-            protocol=protocol, env=env, evidence_pack=sample_evidence_pack
-        )
+        builder = PromptBuilder(protocol=protocol, env=env, evidence_pack=sample_evidence_pack)
 
         result = builder.format_evidence_for_prompt()
 
@@ -198,20 +190,18 @@ class TestPromptBuilderEvidence:
 
     def test_format_evidence_includes_snippet_content(self, protocol, env, sample_evidence_pack):
         """Test evidence formatting includes snippet content."""
-        builder = PromptBuilder(
-            protocol=protocol, env=env, evidence_pack=sample_evidence_pack
-        )
+        builder = PromptBuilder(protocol=protocol, env=env, evidence_pack=sample_evidence_pack)
 
         result = builder.format_evidence_for_prompt()
 
         assert "alignment" in result.lower()
         assert ">" in result  # Blockquote marker
 
-    def test_format_evidence_includes_citation_instruction(self, protocol, env, sample_evidence_pack):
+    def test_format_evidence_includes_citation_instruction(
+        self, protocol, env, sample_evidence_pack
+    ):
         """Test evidence formatting includes citation instructions."""
-        builder = PromptBuilder(
-            protocol=protocol, env=env, evidence_pack=sample_evidence_pack
-        )
+        builder = PromptBuilder(protocol=protocol, env=env, evidence_pack=sample_evidence_pack)
 
         result = builder.format_evidence_for_prompt()
 
@@ -219,9 +209,7 @@ class TestPromptBuilderEvidence:
 
     def test_format_evidence_respects_max_snippets(self, protocol, env, sample_evidence_pack):
         """Test format_evidence_for_prompt respects max_snippets parameter."""
-        builder = PromptBuilder(
-            protocol=protocol, env=env, evidence_pack=sample_evidence_pack
-        )
+        builder = PromptBuilder(protocol=protocol, env=env, evidence_pack=sample_evidence_pack)
 
         result = builder.format_evidence_for_prompt(max_snippets=2)
 
@@ -319,7 +307,9 @@ class TestRevisionPromptEvidence:
         critique.to_prompt = MagicMock(return_value="Critique: Your argument lacks evidence.")
         return critique
 
-    def test_revision_prompt_includes_evidence(self, builder_with_evidence, mock_agent, mock_critique):
+    def test_revision_prompt_includes_evidence(
+        self, builder_with_evidence, mock_agent, mock_critique
+    ):
         """Test build_revision_prompt includes evidence section."""
         prompt = builder_with_evidence.build_revision_prompt(
             mock_agent, "Original proposal", [mock_critique]
@@ -328,7 +318,9 @@ class TestRevisionPromptEvidence:
         assert "## AVAILABLE EVIDENCE" in prompt
         assert "[EVID-1]" in prompt
 
-    def test_revision_prompt_citation_instruction(self, builder_with_evidence, mock_agent, mock_critique):
+    def test_revision_prompt_citation_instruction(
+        self, builder_with_evidence, mock_agent, mock_critique
+    ):
         """Test revision prompt includes citation instructions."""
         prompt = builder_with_evidence.build_revision_prompt(
             mock_agent, "Original proposal", [mock_critique]
@@ -371,9 +363,7 @@ class TestJudgePromptEvidence:
     def test_judge_prompt_includes_evidence(self, builder_with_evidence, mock_critique):
         """Test build_judge_prompt includes evidence section."""
         proposals = {"agent1": "Proposal 1", "agent2": "Proposal 2"}
-        prompt = builder_with_evidence.build_judge_prompt(
-            proposals, "Test task", [mock_critique]
-        )
+        prompt = builder_with_evidence.build_judge_prompt(proposals, "Test task", [mock_critique])
 
         assert "## AVAILABLE EVIDENCE" in prompt
         assert "[EVID-1]" in prompt
@@ -381,9 +371,7 @@ class TestJudgePromptEvidence:
     def test_judge_prompt_citation_instruction(self, builder_with_evidence, mock_critique):
         """Test judge prompt includes citation instruction."""
         proposals = {"agent1": "Proposal 1", "agent2": "Proposal 2"}
-        prompt = builder_with_evidence.build_judge_prompt(
-            proposals, "Test task", [mock_critique]
-        )
+        prompt = builder_with_evidence.build_judge_prompt(proposals, "Test task", [mock_critique])
 
         assert "EVID-N" in prompt or "Reference evidence" in prompt
 
@@ -449,7 +437,7 @@ class TestEvidenceEdgeCases:
             snippets=[
                 MockEvidenceSnippet(
                     title='Title with "quotes" and <tags>',
-                    snippet="Content with special chars: & < > \"",
+                    snippet='Content with special chars: & < > "',
                     reliability_score=0.8,
                 )
             ]

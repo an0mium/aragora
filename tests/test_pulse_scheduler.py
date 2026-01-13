@@ -294,6 +294,7 @@ class TestSchedulerStateMachine:
     async def test_start_without_creator_raises(self, scheduler):
         """Test that start() without debate creator raises."""
         from aragora.exceptions import ConfigurationError
+
         with pytest.raises(ConfigurationError, match="No debate creator"):
             await scheduler.start()
 
@@ -441,9 +442,7 @@ class TestSchedulerDebateCreation:
     """Tests for debate creation flow."""
 
     @pytest.mark.asyncio
-    async def test_poll_creates_debate_for_good_topic(
-        self, scheduler, mock_pulse_manager
-    ):
+    async def test_poll_creates_debate_for_good_topic(self, scheduler, mock_pulse_manager):
         """Test that polling creates debates for suitable topics."""
         # Set up trending topics
         mock_pulse_manager.get_trending_topics.return_value = [
@@ -532,9 +531,7 @@ class TestSchedulerDebateCreation:
         assert scheduler.metrics.debates_failed == 1
 
     @pytest.mark.asyncio
-    async def test_poll_handles_creator_returning_none(
-        self, scheduler, mock_pulse_manager
-    ):
+    async def test_poll_handles_creator_returning_none(self, scheduler, mock_pulse_manager):
         """Test handling when creator returns None."""
         mock_pulse_manager.get_trending_topics.return_value = [
             make_topic(topic="Good topic for debate", volume=200),
@@ -588,6 +585,7 @@ class TestSchedulerIntegration:
     @pytest.mark.asyncio
     async def test_graceful_stop_timeout(self, scheduler, mock_pulse_manager):
         """Test graceful stop with timeout."""
+
         # Create a slow debate creator
         async def slow_creator(*args):
             await asyncio.sleep(10)

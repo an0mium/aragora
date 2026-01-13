@@ -37,12 +37,18 @@ class MockAudioStore:
         self._files[debate_id] = content
         path = self.storage_dir / f"{debate_id}.mp3"
         path.write_bytes(content)
-        self._metadata.append({
-            "debate_id": debate_id,
-            "duration_seconds": metadata.get("duration_seconds", 60) if metadata else 60,
-            "file_size_bytes": len(content),
-            "generated_at": metadata.get("generated_at", "2026-01-01T00:00:00Z") if metadata else "2026-01-01T00:00:00Z",
-        })
+        self._metadata.append(
+            {
+                "debate_id": debate_id,
+                "duration_seconds": metadata.get("duration_seconds", 60) if metadata else 60,
+                "file_size_bytes": len(content),
+                "generated_at": (
+                    metadata.get("generated_at", "2026-01-01T00:00:00Z")
+                    if metadata
+                    else "2026-01-01T00:00:00Z"
+                ),
+            }
+        )
 
     def list_all(self) -> list[dict]:
         """List all audio files."""
@@ -216,6 +222,7 @@ class TestPodcastEpisodes:
         assert result is not None
         assert result.status_code == 200
         import json
+
         data = json.loads(result.body)
         assert data["episodes"] == []
         assert data["count"] == 0
@@ -223,10 +230,13 @@ class TestPodcastEpisodes:
     def test_get_episodes_with_audio(self, audio_handler, audio_store, storage):
         """Should return episodes with audio."""
         audio_store.add_audio("debate-001", b"content", {"duration_seconds": 120})
-        storage.add_debate("debate-001", {
-            "task": "Test Debate",
-            "agents": ["claude", "gpt"],
-        })
+        storage.add_debate(
+            "debate-001",
+            {
+                "task": "Test Debate",
+                "agents": ["claude", "gpt"],
+            },
+        )
 
         mock_handler = Mock()
         mock_handler.headers = {"Host": "localhost:8080"}
@@ -236,6 +246,7 @@ class TestPodcastEpisodes:
         assert result is not None
         assert result.status_code == 200
         import json
+
         data = json.loads(result.body)
         assert len(data["episodes"]) == 1
         assert data["episodes"][0]["debate_id"] == "debate-001"
@@ -256,6 +267,7 @@ class TestPodcastEpisodes:
 
         assert result is not None
         import json
+
         data = json.loads(result.body)
         assert len(data["episodes"]) == 2
 
@@ -293,11 +305,14 @@ class TestPodcastFeed:
     def test_get_feed_with_episodes(self, audio_handler, audio_store, storage):
         """Should include episodes in RSS feed or graceful error."""
         audio_store.add_audio("feed-debate", b"content", {"duration_seconds": 300})
-        storage.add_debate("feed-debate", {
-            "task": "Important AI Discussion",
-            "agents": ["claude", "gpt"],
-            "created_at": "2026-01-01T00:00:00Z",
-        })
+        storage.add_debate(
+            "feed-debate",
+            {
+                "task": "Important AI Discussion",
+                "agents": ["claude", "gpt"],
+                "created_at": "2026-01-01T00:00:00Z",
+            },
+        )
 
         mock_handler = Mock()
         mock_handler.headers = {"Host": "example.com"}
@@ -350,6 +365,7 @@ class TestSchemeDetection:
         result = audio_handler.handle("/api/podcast/episodes", {}, mock_handler)
 
         import json
+
         data = json.loads(result.body)
         assert data["episodes"][0]["audio_url"].startswith("https://")
 
@@ -364,5 +380,6 @@ class TestSchemeDetection:
         result = audio_handler.handle("/api/podcast/episodes", {}, mock_handler)
 
         import json
+
         data = json.loads(result.body)
         assert data["episodes"][0]["audio_url"].startswith("http://")

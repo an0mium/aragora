@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Try to import optional dependencies
 try:
     import httpx
+
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
@@ -115,6 +116,7 @@ class TwitterConnector(BaseConnector):
     async def _rate_limit(self) -> None:
         """Enforce rate limiting between requests."""
         import time
+
         now = time.time()
         elapsed = now - self._last_request_time
         if elapsed < self.rate_limit_delay:

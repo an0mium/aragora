@@ -87,7 +87,7 @@ class ResilientConnection:
 
     def _calculate_delay(self, attempt: int) -> float:
         """Calculate delay for exponential backoff."""
-        delay = self.base_delay * (2 ** attempt)
+        delay = self.base_delay * (2**attempt)
         return min(delay, self.max_delay)
 
     @contextmanager
@@ -123,9 +123,7 @@ class ResilientConnection:
                         logger.debug(f"Rollback failed during error recovery: {rollback_err}")
 
                 if not is_transient_error(e) or attempt >= self.max_retries:
-                    logger.error(
-                        f"Database error after {attempt + 1} attempts: {e}"
-                    )
+                    logger.error(f"Database error after {attempt + 1} attempts: {e}")
                     raise
 
                 delay = self._calculate_delay(attempt)
@@ -210,6 +208,7 @@ def with_retry(
             with sqlite3.connect(db_path) as conn:
                 conn.execute("INSERT INTO records (data) VALUES (?)", (json.dumps(data),))
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
         def wrapper(*args, **kwargs) -> T:
@@ -227,7 +226,7 @@ def with_retry(
                         )
                         raise
 
-                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    delay = min(base_delay * (2**attempt), max_delay)
                     logger.warning(
                         f"Transient error in {func.__name__} (attempt {attempt + 1}/{max_retries + 1}): {e}. "
                         f"Retrying in {delay:.2f}s"
@@ -237,11 +236,10 @@ def with_retry(
             # Should not reach here
             if last_error:
                 raise last_error
-            raise InfrastructureError(
-                "Unexpected retry loop exit in database resilience layer"
-            )
+            raise InfrastructureError("Unexpected retry loop exit in database resilience layer")
 
         return wrapper
+
     return decorator
 
 
@@ -303,12 +301,10 @@ def atomic_transaction(
                     logger.debug(f"Rollback failed in atomic_transaction: {rollback_err}")
 
             if not is_transient_error(e) or attempt >= max_retries:
-                logger.error(
-                    f"Atomic transaction failed after {attempt + 1} attempts: {e}"
-                )
+                logger.error(f"Atomic transaction failed after {attempt + 1} attempts: {e}")
                 raise
 
-            delay = min(base_delay * (2 ** attempt), max_delay)
+            delay = min(base_delay * (2**attempt), max_delay)
             logger.warning(
                 f"Transient error in atomic transaction (attempt {attempt + 1}/{max_retries + 1}): {e}. "
                 f"Retrying in {delay:.2f}s"
@@ -478,8 +474,8 @@ class ConnectionPool:
                 "connections_closed": self._connections_closed,
                 "health_check_failures": self._health_check_failures,
                 "reuse_rate": (
-                    self._connections_reused /
-                    (self._connections_created + self._connections_reused)
+                    self._connections_reused
+                    / (self._connections_created + self._connections_reused)
                     if (self._connections_created + self._connections_reused) > 0
                     else 0.0
                 ),

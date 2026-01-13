@@ -35,9 +35,11 @@ from aragora.core import Critique, Vote
 # Test Fixtures
 # ============================================================================
 
+
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str = "mock-agent"
     model: str = "mock-model"
 
@@ -118,6 +120,7 @@ class FlakeyAgent(MockAgent):
 # AirlockMetrics Tests
 # ============================================================================
 
+
 class TestAirlockMetrics:
     """Tests for AirlockMetrics dataclass."""
 
@@ -153,10 +156,7 @@ class TestAirlockMetrics:
 
     def test_avg_latency_calculation(self):
         """Test average latency calculation."""
-        metrics = AirlockMetrics(
-            successful_calls=5,
-            total_latency_ms=500.0
-        )
+        metrics = AirlockMetrics(successful_calls=5, total_latency_ms=500.0)
         assert metrics.avg_latency_ms == 100.0
 
     def test_to_dict_format(self):
@@ -167,7 +167,7 @@ class TestAirlockMetrics:
             timeout_errors=1,
             sanitization_applied=3,
             fallback_responses=2,
-            total_latency_ms=800.0
+            total_latency_ms=800.0,
         )
         result = metrics.to_dict()
 
@@ -184,6 +184,7 @@ class TestAirlockMetrics:
 # AirlockConfig Tests
 # ============================================================================
 
+
 class TestAirlockConfig:
     """Tests for AirlockConfig dataclass."""
 
@@ -196,11 +197,7 @@ class TestAirlockConfig:
 
     def test_custom_timeouts(self):
         """Test custom timeout values."""
-        config = AirlockConfig(
-            generate_timeout=60.0,
-            critique_timeout=45.0,
-            vote_timeout=30.0
-        )
+        config = AirlockConfig(generate_timeout=60.0, critique_timeout=45.0, vote_timeout=30.0)
         assert config.generate_timeout == 60.0
         assert config.critique_timeout == 45.0
         assert config.vote_timeout == 30.0
@@ -233,6 +230,7 @@ class TestAirlockConfig:
 # ============================================================================
 # AirlockProxy Basic Tests
 # ============================================================================
+
 
 class TestAirlockProxyBasic:
     """Basic tests for AirlockProxy class."""
@@ -281,6 +279,7 @@ class TestAirlockProxyBasic:
 # AirlockProxy Generate Tests
 # ============================================================================
 
+
 class TestAirlockProxyGenerate:
     """Tests for AirlockProxy.generate() method."""
 
@@ -313,11 +312,7 @@ class TestAirlockProxyGenerate:
     async def test_generate_timeout_raises_without_fallback(self):
         """Test generate timeout raises when fallback disabled."""
         agent = SlowAgent(name="slow", delay=10.0)
-        config = AirlockConfig(
-            generate_timeout=0.1,
-            max_retries=0,
-            fallback_on_timeout=False
-        )
+        config = AirlockConfig(generate_timeout=0.1, max_retries=0, fallback_on_timeout=False)
         proxy = AirlockProxy(agent, config)
 
         with pytest.raises(asyncio.TimeoutError):
@@ -359,6 +354,7 @@ class TestAirlockProxyGenerate:
 # ============================================================================
 # AirlockProxy Retry Tests
 # ============================================================================
+
 
 class TestAirlockProxyRetry:
     """Tests for retry behavior."""
@@ -407,6 +403,7 @@ class TestAirlockProxyRetry:
 # AirlockProxy Critique Tests
 # ============================================================================
 
+
 class TestAirlockProxyCritique:
     """Tests for AirlockProxy.critique() method."""
 
@@ -438,6 +435,7 @@ class TestAirlockProxyCritique:
 # ============================================================================
 # AirlockProxy Vote Tests
 # ============================================================================
+
 
 class TestAirlockProxyVote:
     """Tests for AirlockProxy.vote() method."""
@@ -472,6 +470,7 @@ class TestAirlockProxyVote:
 # ============================================================================
 # Response Sanitization Tests
 # ============================================================================
+
 
 class TestResponseSanitization:
     """Tests for response sanitization."""
@@ -534,17 +533,17 @@ class TestResponseSanitization:
         agent = MockAgent(name="test")
         proxy = AirlockProxy(agent)
 
-        content = 'The array is: [1, 2, 3] done.'
+        content = "The array is: [1, 2, 3] done."
         result = proxy._sanitize_response(content)
 
-        assert result == '[1, 2, 3]'
+        assert result == "[1, 2, 3]"
 
     def test_invalid_json_not_extracted(self):
         """Test invalid JSON is not extracted."""
         agent = MockAgent(name="test")
         proxy = AirlockProxy(agent)
 
-        content = 'Invalid: {not valid json}'
+        content = "Invalid: {not valid json}"
         result = proxy._sanitize_response(content)
 
         # Should return original (stripped) since JSON is invalid
@@ -553,10 +552,7 @@ class TestResponseSanitization:
     def test_sanitization_disabled(self):
         """Test sanitization can be disabled."""
         agent = MockAgent(name="test")
-        config = AirlockConfig(
-            extract_json=False,
-            strip_markdown_fences=False
-        )
+        config = AirlockConfig(extract_json=False, strip_markdown_fences=False)
         proxy = AirlockProxy(agent, config)
 
         content = '```json\n{"key": "value"}\n```'
@@ -586,6 +582,7 @@ class TestResponseSanitization:
 # ============================================================================
 # Fallback Generator Tests
 # ============================================================================
+
 
 class TestFallbackGenerators:
     """Tests for fallback response generators."""
@@ -642,6 +639,7 @@ class TestFallbackGenerators:
 # ============================================================================
 # Convenience Function Tests
 # ============================================================================
+
 
 class TestConvenienceFunctions:
     """Tests for wrap_agent and wrap_agents functions."""
@@ -710,6 +708,7 @@ class TestConvenienceFunctions:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestAirlockIntegration:
     """Integration tests for airlock functionality."""

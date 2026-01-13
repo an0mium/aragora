@@ -23,6 +23,7 @@ from unittest.mock import MagicMock
 # Round 27: Logger Import Tests
 # ============================================================================
 
+
 class TestLoggerImports:
     """Test that modules with logger usage have proper imports."""
 
@@ -31,7 +32,7 @@ class TestLoggerImports:
         from aragora.debate import meta
 
         # Module should have logger attribute
-        assert hasattr(meta, 'logger')
+        assert hasattr(meta, "logger")
         # Logger should be a Logger instance
         assert isinstance(meta.logger, logging.Logger)
 
@@ -40,7 +41,7 @@ class TestLoggerImports:
         from aragora.genesis import ledger
 
         # Module should have logger attribute
-        assert hasattr(ledger, 'logger')
+        assert hasattr(ledger, "logger")
         # Logger should be a Logger instance
         assert isinstance(ledger.logger, logging.Logger)
 
@@ -56,6 +57,7 @@ class TestLoggerImports:
 # ============================================================================
 # Round 23: Division by Zero Guard Tests
 # ============================================================================
+
 
 class TestDivisionByZeroGuards:
     """Test division by zero guards added in Round 23."""
@@ -100,6 +102,7 @@ class TestDivisionByZeroGuards:
 # Round 22: Empty List Guard Tests
 # ============================================================================
 
+
 class TestEmptyListGuards:
     """Test empty list guards added in Round 22."""
 
@@ -124,6 +127,7 @@ class TestEmptyListGuards:
 # Round 24: Silent Data Loss Prevention Tests
 # ============================================================================
 
+
 class TestSilentDataLossPrevention:
     """Test silent data loss prevention in audio mixing (Round 24)."""
 
@@ -138,6 +142,7 @@ class TestSilentDataLossPrevention:
 # ============================================================================
 # Round 25: ThreadPoolExecutor Race Condition Tests
 # ============================================================================
+
 
 class TestThreadPoolExecutorRaceCondition:
     """Test ThreadPoolExecutor race condition fixes (Round 25).
@@ -155,25 +160,30 @@ class TestThreadPoolExecutorRaceCondition:
 # Module Import Smoke Tests
 # ============================================================================
 
+
 class TestModuleImports:
     """Smoke tests to verify modules can be imported without errors."""
 
     def test_import_debate_meta(self):
         """Test debate.meta module imports cleanly."""
         from aragora.debate import meta
+
         assert meta is not None
 
     def test_import_genesis_ledger(self):
         """Test genesis.ledger module imports cleanly."""
         from aragora.genesis import ledger
+
         assert ledger is not None
 
     def test_import_broadcast_mixer(self):
         """Test broadcast.mixer module imports cleanly."""
         from aragora.broadcast import mixer
+
         assert mixer is not None
 
     def test_import_uncertainty_estimator(self):
         """Test uncertainty.estimator module imports cleanly."""
         from aragora.uncertainty import estimator
+
         assert estimator is not None

@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 # Safe pattern for checkpoint identifiers (alphanumeric, hyphens, underscores)
-_SAFE_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+_SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 def _sanitize_checkpoint_id(value: str, param_name: str) -> str:
@@ -218,13 +218,15 @@ def list_checkpoints(checkpoint_dir: str) -> List[Dict[str, Any]]:
             meta = data.get("_checkpoint_meta", {})
             context = data.get("context", {})
 
-            checkpoints.append({
-                "path": str(filepath),
-                "cycle_id": meta.get("cycle_id", "unknown"),
-                "saved_at": meta.get("saved_at"),
-                "state": context.get("current_state", "unknown"),
-                "size_bytes": filepath.stat().st_size,
-            })
+            checkpoints.append(
+                {
+                    "path": str(filepath),
+                    "cycle_id": meta.get("cycle_id", "unknown"),
+                    "saved_at": meta.get("saved_at"),
+                    "state": context.get("current_state", "unknown"),
+                    "size_bytes": filepath.stat().st_size,
+                }
+            )
         except Exception as e:
             logger.warning(f"Could not read checkpoint {filepath}: {e}")
 
@@ -384,38 +386,46 @@ class CheckpointManager:
         checkpoints = self.list_all()
 
         if not checkpoints:
-            return [{
-                "option": "start_fresh",
-                "description": "No checkpoints found. Start a new cycle.",
-                "recommended": True,
-            }]
+            return [
+                {
+                    "option": "start_fresh",
+                    "description": "No checkpoints found. Start a new cycle.",
+                    "recommended": True,
+                }
+            ]
 
         options = []
 
         # Latest checkpoint
         latest = checkpoints[0]
-        options.append({
-            "option": "resume_latest",
-            "description": f"Resume from {latest['state']} (cycle {latest['cycle_id']})",
-            "checkpoint_path": latest["path"],
-            "recommended": True,
-        })
+        options.append(
+            {
+                "option": "resume_latest",
+                "description": f"Resume from {latest['state']} (cycle {latest['cycle_id']})",
+                "checkpoint_path": latest["path"],
+                "recommended": True,
+            }
+        )
 
         # Previous checkpoints (up to 3 more)
         for i, cp in enumerate(checkpoints[1:4], start=1):
-            options.append({
-                "option": f"resume_older_{i}",
-                "description": f"Resume from {cp['state']} (cycle {cp['cycle_id']})",
-                "checkpoint_path": cp["path"],
-                "recommended": False,
-            })
+            options.append(
+                {
+                    "option": f"resume_older_{i}",
+                    "description": f"Resume from {cp['state']} (cycle {cp['cycle_id']})",
+                    "checkpoint_path": cp["path"],
+                    "recommended": False,
+                }
+            )
 
         # Start fresh option
-        options.append({
-            "option": "start_fresh",
-            "description": "Discard checkpoints and start a new cycle",
-            "recommended": False,
-        })
+        options.append(
+            {
+                "option": "start_fresh",
+                "description": "Discard checkpoints and start a new cycle",
+                "recommended": False,
+            }
+        )
 
         return options
 

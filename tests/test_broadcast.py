@@ -34,7 +34,7 @@ class TestScriptGen:
                     timestamp="2026-01-01T00:00:00",
                     agent="agent1",
                     content={"text": "Hello from agent1"},
-                    round_num=1
+                    round_num=1,
                 ),
                 TraceEvent(
                     event_id="2",
@@ -42,9 +42,9 @@ class TestScriptGen:
                     timestamp="2026-01-01T00:00:01",
                     agent="agent2",
                     content={"text": "Response from agent2"},
-                    round_num=1
-                )
-            ]
+                    round_num=1,
+                ),
+            ],
         )
 
         segments = generate_script(trace)
@@ -83,18 +83,18 @@ class TestAudioEngine:
         assert audio_files == []
 
     @pytest.mark.asyncio
-    @patch('aragora.broadcast.audio_engine._generate_edge_tts')
+    @patch("aragora.broadcast.audio_engine._generate_edge_tts")
     async def test_generate_audio_with_mock(self, mock_tts):
         """Test audio generation with mocked TTS."""
+
         # Mock that creates the file and returns True
         async def mock_edge_tts(text, voice, output_path):
             output_path.write_text("dummy audio content")
             return True
+
         mock_tts.side_effect = mock_edge_tts
 
-        segments = [
-            ScriptSegment(speaker="agent1", text="Test text")
-        ]
+        segments = [ScriptSegment(speaker="agent1", text="Test text")]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -115,7 +115,7 @@ class TestMixer:
             assert not result
             assert not output.exists()
 
-    @patch('aragora.broadcast.mixer.PYDUB_AVAILABLE', False)
+    @patch("aragora.broadcast.mixer.PYDUB_AVAILABLE", False)
     def test_mix_audio_no_pydub(self):
         """Test mixing when pydub is not available."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -153,13 +153,15 @@ class TestMixer:
 
 # Integration test
 @pytest.mark.asyncio
-@patch('aragora.broadcast.audio_engine._generate_edge_tts')
+@patch("aragora.broadcast.audio_engine._generate_edge_tts")
 async def test_full_pipeline_mock(mock_tts):
     """Test the full broadcast pipeline with mocks."""
+
     # Mock TTS that creates the file
     async def mock_edge_tts(text, voice, output_path):
         output_path.write_text("dummy audio content")
         return True
+
     mock_tts.side_effect = mock_edge_tts
 
     # Create mock trace
@@ -176,9 +178,9 @@ async def test_full_pipeline_mock(mock_tts):
                 timestamp="2026-01-01T00:00:00",
                 agent="claude-visionary",
                 content={"text": "This is a test message"},
-                round_num=1
+                round_num=1,
             )
-        ]
+        ],
     )
 
     with tempfile.TemporaryDirectory() as temp_dir:

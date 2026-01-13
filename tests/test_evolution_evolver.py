@@ -472,12 +472,11 @@ class TestEvolutionStrategies:
 
         # Many patterns would make it exceed 2000
         patterns = [
-            {"type": "issue_identification", "text": "Pattern " + str(i) * 20}
-            for i in range(10)
+            {"type": "issue_identification", "text": "Pattern " + str(i) * 20} for i in range(10)
         ]
 
         # Mock the refine method to verify it's called
-        with patch.object(evolver, '_evolve_refine') as mock_refine:
+        with patch.object(evolver, "_evolve_refine") as mock_refine:
             mock_refine.return_value = "Refined prompt"
             new_prompt = evolver.evolve_prompt(
                 long_agent,
@@ -518,9 +517,7 @@ class TestRefineStrategy:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "content": [{"text": "Refined prompt from Claude"}]
-        }
+        mock_response.json.return_value = {"content": [{"text": "Refined prompt from Claude"}]}
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}, clear=False):
             with patch("requests.Session.post", return_value=mock_response):

@@ -137,11 +137,11 @@ env:
 
 | Agent | Model | Best For |
 |-------|-------|----------|
-| `anthropic-api` | Claude 3.5 Sonnet | Security analysis, nuanced review |
-| `openai-api` | GPT-4 | Code quality, performance |
-| `mistral-api` | Mistral Large | European compliance, fast |
-| `gemini` | Gemini Pro | Architecture, scalability |
-| `openrouter` | Various (fallback) | Cost-effective fallback |
+| `anthropic-api` | claude-opus-4-5-20251101 | Security analysis, nuanced review |
+| `openai-api` | gpt-5.2 | Code quality, performance |
+| `mistral-api` | mistral-large-2512 | European compliance, fast |
+| `gemini` | gemini-3-pro-preview | Architecture, scalability |
+| `openrouter` | model parameter | Cost-effective fallback |
 
 ### Scheduled Audits
 

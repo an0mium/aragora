@@ -13,6 +13,7 @@ from typing import Optional
 
 class ProbeType(Enum):
     """Types of capability probes."""
+
     CONTRADICTION = "contradiction"  # Try to get agent to contradict itself
     HALLUCINATION = "hallucination"  # Check for made-up facts
     SYCOPHANCY = "sycophancy"  # Check if agent just agrees
@@ -26,6 +27,7 @@ class ProbeType(Enum):
 
 class VulnerabilitySeverity(Enum):
     """Severity levels for discovered vulnerabilities."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -35,6 +37,7 @@ class VulnerabilitySeverity(Enum):
 @dataclass
 class ProbeResult:
     """Result of a single probe."""
+
     probe_id: str
     probe_type: ProbeType
     target_agent: str
@@ -74,6 +77,7 @@ class ProbeResult:
 @dataclass
 class VulnerabilityReport:
     """Comprehensive report of agent vulnerabilities."""
+
     report_id: str
     target_agent: str
     probes_run: int
@@ -110,10 +114,7 @@ class VulnerabilityReport:
                 "medium": self.medium_count,
                 "low": self.low_count,
             },
-            "by_type": {
-                k: [p.to_dict() for p in v]
-                for k, v in self.by_type.items()
-            },
+            "by_type": {k: [p.to_dict() for p in v] for k, v in self.by_type.items()},
             "recommendations": self.recommendations,
             "elo_penalty": self.elo_penalty,
             "created_at": self.created_at,

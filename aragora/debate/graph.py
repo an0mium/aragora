@@ -27,6 +27,7 @@ import uuid
 
 class NodeType(Enum):
     """Type of debate graph node."""
+
     ROOT = "root"
     PROPOSAL = "proposal"
     CRITIQUE = "critique"
@@ -39,6 +40,7 @@ class NodeType(Enum):
 
 class BranchReason(Enum):
     """Why a branch was created."""
+
     HIGH_DISAGREEMENT = "high_disagreement"
     ALTERNATIVE_APPROACH = "alternative_approach"
     COUNTERFACTUAL_EXPLORATION = "counterfactual_exploration"
@@ -49,6 +51,7 @@ class BranchReason(Enum):
 
 class MergeStrategy(Enum):
     """How to merge branches back together."""
+
     BEST_PATH = "best_path"  # Pick the winning branch
     SYNTHESIS = "synthesis"  # Combine insights from all branches
     VOTE = "vote"  # Agents vote on best outcome
@@ -59,6 +62,7 @@ class MergeStrategy(Enum):
 @dataclass
 class DebateNode:
     """A node in the debate graph."""
+
     id: str
     node_type: NodeType
     agent_id: str
@@ -126,6 +130,7 @@ class DebateNode:
 @dataclass
 class Branch:
     """A branch in the debate graph."""
+
     id: str
     name: str
     reason: BranchReason
@@ -180,6 +185,7 @@ class Branch:
 @dataclass
 class MergeResult:
     """Result of merging branches."""
+
     merged_node_id: str
     source_branch_ids: list[str]
     strategy: MergeStrategy
@@ -207,8 +213,8 @@ class BranchPolicy:
 
     # Thresholds
     disagreement_threshold: float = 0.6  # Branch if disagreement > this
-    uncertainty_threshold: float = 0.7   # Branch if uncertainty > this
-    min_alternative_score: float = 0.3   # Min score for alternative to branch
+    uncertainty_threshold: float = 0.7  # Branch if uncertainty > this
+    min_alternative_score: float = 0.3  # Min score for alternative to branch
 
     # Limits
     max_branches: int = 4
@@ -585,7 +591,7 @@ class DebateGraph:
         active = self.get_active_branches()
 
         for i, branch_a in enumerate(active):
-            for branch_b in active[i+1:]:
+            for branch_b in active[i + 1 :]:
                 nodes_a = self.get_branch_nodes(branch_a.id)
                 nodes_b = self.get_branch_nodes(branch_b.id)
 
@@ -642,16 +648,10 @@ class DebateGraph:
         graph.created_at = datetime.fromisoformat(data["created_at"])
 
         # Load nodes
-        graph.nodes = {
-            nid: DebateNode.from_dict(ndata)
-            for nid, ndata in data["nodes"].items()
-        }
+        graph.nodes = {nid: DebateNode.from_dict(ndata) for nid, ndata in data["nodes"].items()}
 
         # Load branches
-        graph.branches = {
-            bid: Branch.from_dict(bdata)
-            for bid, bdata in data["branches"].items()
-        }
+        graph.branches = {bid: Branch.from_dict(bdata) for bid, bdata in data["branches"].items()}
 
         return graph
 
@@ -725,10 +725,7 @@ class GraphReplayBuilder:
             "active_branches": len(self.graph.get_active_branches()),
             "merges": len(self.graph.merge_history),
             "branch_reasons": {
-                reason.value: sum(
-                    1 for b in self.graph.branches.values()
-                    if b.reason == reason
-                )
+                reason.value: sum(1 for b in self.graph.branches.values() if b.reason == reason)
                 for reason in BranchReason
             },
             "agents": list(set(n.agent_id for n in self.graph.nodes.values())),
@@ -752,6 +749,7 @@ class GraphDebateOrchestrator:
         """Emit a graph debate event via WebSocket."""
         try:
             from aragora.server.stream import StreamEvent, StreamEventType
+
             type_map = {
                 "node": StreamEventType.GRAPH_NODE_ADDED,
                 "branch": StreamEventType.GRAPH_BRANCH_CREATED,
@@ -759,11 +757,13 @@ class GraphDebateOrchestrator:
             }
             stream_type = type_map.get(event_type)
             if stream_type and event_emitter:
-                event_emitter.emit(StreamEvent(  # type: ignore[call-arg]
-                    type=stream_type,
-                    data=data,
-                    debate_id=debate_id,
-                ))
+                event_emitter.emit(
+                    StreamEvent(  # type: ignore[call-arg]
+                        type=stream_type,
+                        data=data,
+                        debate_id=debate_id,
+                    )
+                )
         except Exception as e:
             logger.debug(f"Stream event emission failed (non-critical): {e}")
 
@@ -897,7 +897,7 @@ class GraphDebateOrchestrator:
                     # Add first node to new branch
                     divergent_agent = next(
                         (r[0] for r in responses if r[1] == alternative),
-                        responses[0][0] if responses else "unknown"
+                        responses[0][0] if responses else "unknown",
                     )
                     branch_node = self.graph.add_node(
                         node_type=NodeType.COUNTERFACTUAL,
@@ -1000,7 +1000,9 @@ class GraphDebateOrchestrator:
             prompt_parts.append("Provide your initial analysis and position on this topic.")
         else:
             prompt_parts.append(f"Previous response: {current_content[:500]}")
-            prompt_parts.append("Critique or build upon this response. State your confidence (0-100%).")
+            prompt_parts.append(
+                "Critique or build upon this response. State your confidence (0-100%)."
+            )
 
         if branch_hypothesis:
             prompt_parts.append(f"Explore this alternative view: {branch_hypothesis}")

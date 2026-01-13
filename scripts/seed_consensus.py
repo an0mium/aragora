@@ -17,12 +17,13 @@ from datetime import datetime
 from pathlib import Path
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
 # Try to import aragora modules
 try:
     from aragora.memory.consensus import ConsensusMemory
+
     CONSENSUS_AVAILABLE = True
 except ImportError:
     CONSENSUS_AVAILABLE = False
@@ -47,10 +48,12 @@ def load_debate_files(nomic_dir: Path) -> list[dict]:
                 with open(f) as fp:
                     data = json.load(fp)
                     if data.get("final_answer") or data.get("consensus"):
-                        debates.append({
-                            "source": str(f),
-                            "data": data,
-                        })
+                        debates.append(
+                            {
+                                "source": str(f),
+                                "data": data,
+                            }
+                        )
                         logger.info(f"Loaded: {f.name}")
             except Exception as e:
                 logger.warning(f"Failed to load {f}: {e}")
@@ -70,11 +73,13 @@ def load_debate_files(nomic_dir: Path) -> list[dict]:
                             # Extract debate events
                             for event in events:
                                 if event.get("type") == "debate_end":
-                                    debates.append({
-                                        "source": str(events_file),
-                                        "data": event.get("data", {}),
-                                        "cycle": cycle_dir.name,
-                                    })
+                                    debates.append(
+                                        {
+                                            "source": str(events_file),
+                                            "data": event.get("data", {}),
+                                            "cycle": cycle_dir.name,
+                                        }
+                                    )
                     except Exception as e:
                         logger.warning(f"Failed to load {events_file}: {e}")
 
@@ -108,8 +113,10 @@ def seed_consensus_memory(debates: list[dict], db_path: Path):
     else:
         # Create minimal SQLite database
         import sqlite3
+
         conn = sqlite3.connect(db_path)
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS consensus (
                 id TEXT PRIMARY KEY,
                 topic TEXT NOT NULL,
@@ -120,8 +127,10 @@ def seed_consensus_memory(debates: list[dict], db_path: Path):
                 participants TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS dissent (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 consensus_id TEXT,
@@ -130,7 +139,8 @@ def seed_consensus_memory(debates: list[dict], db_path: Path):
                 confidence REAL,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_consensus_topic ON consensus(topic)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_consensus_domain ON consensus(domain)")
         conn.commit()
@@ -165,6 +175,7 @@ def seed_consensus_memory(debates: list[dict], db_path: Path):
         if CONSENSUS_AVAILABLE:
             try:
                 from aragora.memory.consensus import ConsensusStrength
+
                 # Map confidence to strength enum
                 if confidence >= 0.8:
                     strength_enum = ConsensusStrength.STRONG
@@ -193,8 +204,15 @@ def seed_consensus_memory(debates: list[dict], db_path: Path):
                     """INSERT OR REPLACE INTO consensus
                        (id, topic, conclusion, confidence, strength, domain, participants)
                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                    (debate_id, topic, conclusion[:5000], confidence, strength,
-                     "architecture", json.dumps(participants))
+                    (
+                        debate_id,
+                        topic,
+                        conclusion[:5000],
+                        confidence,
+                        strength,
+                        "architecture",
+                        json.dumps(participants),
+                    ),
                 )
                 seeded += 1
             except Exception as e:

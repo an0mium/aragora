@@ -20,7 +20,7 @@ export default function AboutPage() {
             </Link>
             <div className="flex items-center gap-4">
               <Link
-                href="https://live.aragora.ai"
+                href="https://aragora.ai"
                 className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
               >
                 [LIVE DASHBOARD]
@@ -50,7 +50,7 @@ export default function AboutPage() {
             </div>
             <div className="flex justify-center gap-4 flex-wrap">
               <Link
-                href="https://live.aragora.ai"
+                href="https://aragora.ai"
                 className="px-6 py-2 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors"
               >
                 Watch Live
@@ -61,7 +61,7 @@ export default function AboutPage() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                PyPI v0.7.0
+                PyPI v0.8.0
               </a>
               <a
                 href="https://github.com/aragora"
@@ -268,7 +268,7 @@ $ aragora nomic --cycles 3  # Run self-improvement loop
               {'═'.repeat(40)}
             </div>
             <div className="flex justify-center gap-6 mb-6">
-              <Link href="https://live.aragora.ai" className="text-acid-cyan hover:text-acid-green transition-colors">
+              <Link href="https://aragora.ai" className="text-acid-cyan hover:text-acid-green transition-colors">
                 Watch Live
               </Link>
               <a href="https://github.com/aragora" className="text-acid-cyan hover:text-acid-green transition-colors" target="_blank" rel="noopener noreferrer">

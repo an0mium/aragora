@@ -63,6 +63,7 @@ from aragora.debate.extensions import ArenaExtensions
 # Optional evolution import for prompt self-improvement
 try:
     from aragora.evolution.evolver import PromptEvolver
+
     PROMPT_EVOLVER_AVAILABLE = True
 except ImportError:
     PromptEvolver = None
@@ -122,7 +123,9 @@ class Arena:
         debate_embeddings=None,  # DebateEmbeddingsDatabase for historical context
         insight_store=None,  # Optional InsightStore for extracting learnings from debates
         recorder=None,  # Optional ReplayRecorder for debate recording
-        agent_weights: dict[str, float] | None = None,  # Optional reliability weights from capability probing
+        agent_weights: (
+            dict[str, float] | None
+        ) = None,  # Optional reliability weights from capability probing
         position_tracker=None,  # Optional PositionTracker for truth-grounded personas
         position_ledger=None,  # Optional PositionLedger for grounded personas
         enable_position_ledger: bool = False,  # Auto-create PositionLedger if True
@@ -438,6 +441,7 @@ class Arena:
         # Wrap agents with airlock protection if enabled
         if use_airlock:
             from aragora.agents.airlock import wrap_agents, AirlockConfig
+
             airlock_cfg = airlock_config or AirlockConfig()
             self.agents = wrap_agents(self.agents, airlock_cfg)
             logger.debug(f"[airlock] Wrapped {len(self.agents)} agents with resilience layer")
@@ -464,6 +468,7 @@ class Arena:
             self.performance_monitor = performance_monitor
         elif enable_performance_monitor:
             from aragora.agents.performance_monitor import AgentPerformanceMonitor
+
             self.performance_monitor = AgentPerformanceMonitor()
         else:
             self.performance_monitor = None
@@ -501,9 +506,8 @@ class Arena:
             self.checkpoint_manager = checkpoint_manager
         elif enable_checkpointing:
             from aragora.debate.checkpoint import CheckpointManager, DatabaseCheckpointStore
-            self.checkpoint_manager = CheckpointManager(
-                store=DatabaseCheckpointStore()
-            )
+
+            self.checkpoint_manager = CheckpointManager(store=DatabaseCheckpointStore())
             logger.debug("[checkpoint] Auto-created CheckpointManager with database store")
         else:
             self.checkpoint_manager = None
@@ -618,6 +622,7 @@ class Arena:
         """
         try:
             from aragora.agents.positions import PositionLedger
+
             self.position_ledger = PositionLedger()
             logger.debug("Auto-initialized PositionLedger for position tracking")
         except ImportError:
@@ -629,6 +634,7 @@ class Arena:
         """Auto-initialize CalibrationTracker when enable_calibration is True."""
         try:
             from aragora.agents.calibration import CalibrationTracker
+
             self.calibration_tracker = CalibrationTracker()
             logger.debug("Auto-initialized CalibrationTracker for prediction calibration")
         except ImportError:
@@ -644,6 +650,7 @@ class Arena:
         """
         try:
             from aragora.memory.consensus import DissentRetriever
+
             self.dissent_retriever = DissentRetriever(self.consensus_memory)
             logger.debug("Auto-initialized DissentRetriever for historical minority views")
         except ImportError:
@@ -655,6 +662,7 @@ class Arena:
         """Auto-initialize MomentDetector when elo_system is available."""
         try:
             from aragora.agents.grounded import MomentDetector as MD
+
             self.moment_detector = MD(
                 elo_system=self.elo_system,
                 position_ledger=self.position_ledger,
@@ -712,9 +720,11 @@ class Arena:
         self.roles_manager = RolesManager(
             agents=self.agents,
             protocol=self.protocol,
-            prompt_builder=self.prompt_builder if hasattr(self, 'prompt_builder') else None,
-            calibration_tracker=self.calibration_tracker if hasattr(self, 'calibration_tracker') else None,
-            persona_manager=self.persona_manager if hasattr(self, 'persona_manager') else None,
+            prompt_builder=self.prompt_builder if hasattr(self, "prompt_builder") else None,
+            calibration_tracker=(
+                self.calibration_tracker if hasattr(self, "calibration_tracker") else None
+            ),
+            persona_manager=self.persona_manager if hasattr(self, "persona_manager") else None,
         )
 
         # Expose internal state for backwards compatibility
@@ -769,14 +779,10 @@ class Arena:
     def _init_termination_checker(self) -> None:
         """Initialize the termination checker for early debate termination."""
 
-        async def generate_fn(
-            agent: Agent, prompt: str, ctx: list[Message]
-        ) -> str:
+        async def generate_fn(agent: Agent, prompt: str, ctx: list[Message]) -> str:
             return await self.autonomic.generate(agent, prompt, ctx)
 
-        async def select_judge_fn(
-            proposals: dict[str, str], context: list[Message]
-        ) -> Agent:
+        async def select_judge_fn(proposals: dict[str, str], context: list[Message]) -> Agent:
             return await self._select_judge(proposals, context)
 
         self.termination_checker = TerminationChecker(
@@ -839,7 +845,7 @@ class Arena:
     def _store_debate_outcome_as_memory(self, result: "DebateResult") -> None:
         """Store debate outcome in ContinuumMemory for future retrieval."""
         # Extract belief cruxes from result if set by AnalyticsPhase
-        belief_cruxes = getattr(result, 'belief_cruxes', None)
+        belief_cruxes = getattr(result, "belief_cruxes", None)
         if belief_cruxes:
             belief_cruxes = [str(c) for c in belief_cruxes[:10]]
         self.memory_manager.store_debate_outcome(result, self.env.task, belief_cruxes=belief_cruxes)
@@ -941,7 +947,9 @@ class Arena:
         scorer = JudgeScoringMixin(self.elo_system)
         return scorer.compute_composite_score(agent_name)
 
-    def _select_critics_for_proposal(self, proposal_agent: str, all_critics: list[Agent]) -> list[Agent]:
+    def _select_critics_for_proposal(
+        self, proposal_agent: str, all_critics: list[Agent]
+    ) -> list[Agent]:
         """Select which critics should critique the given proposal based on topology.
 
         Delegates to TopologySelector for cleaner topology strategy implementation.
@@ -973,16 +981,25 @@ class Arena:
         self.event_bridge.emit_moment(moment)
 
     def _record_grounded_position(
-        self, agent_name: str, content: str, debate_id: str, round_num: int,
-        confidence: float = 0.7, domain: Optional[str] = None,
+        self,
+        agent_name: str,
+        content: str,
+        debate_id: str,
+        round_num: int,
+        confidence: float = 0.7,
+        domain: Optional[str] = None,
     ):
         """Record a position to the grounded persona ledger."""
         if not self.position_ledger:
             return
         try:
             self.position_ledger.record_position(
-                agent_name=agent_name, claim=content[:1000], confidence=confidence,
-                debate_id=debate_id, round_num=round_num, domain=domain,
+                agent_name=agent_name,
+                claim=content[:1000],
+                confidence=confidence,
+                debate_id=debate_id,
+                round_num=round_num,
+                domain=domain,
             )
         except (AttributeError, TypeError, ValueError) as e:
             # Expected parameter or state errors
@@ -991,7 +1008,9 @@ class Arena:
             # Unexpected error - log type for debugging
             logger.warning(f"Position ledger error (type={type(e).__name__}): {e}")
 
-    def _update_agent_relationships(self, debate_id: str, participants: list[str], winner: Optional[str], votes: list):
+    def _update_agent_relationships(
+        self, debate_id: str, participants: list[str], winner: Optional[str], votes: list
+    ):
         """Update agent relationships after debate completion.
 
         Uses batch update for O(1) database connections instead of O(n²) for n participants.
@@ -999,22 +1018,30 @@ class Arena:
         if not self.elo_system:
             return
         try:
-            vote_choices = {v.agent: v.choice for v in votes if hasattr(v, 'agent') and hasattr(v, 'choice')}
+            vote_choices = {
+                v.agent: v.choice for v in votes if hasattr(v, "agent") and hasattr(v, "choice")
+            }
             # Build batch of relationship updates
             updates = []
             for i, agent_a in enumerate(participants):
-                for agent_b in participants[i + 1:]:
-                    agreed = agent_a in vote_choices and agent_b in vote_choices and vote_choices[agent_a] == vote_choices[agent_b]
+                for agent_b in participants[i + 1 :]:
+                    agreed = (
+                        agent_a in vote_choices
+                        and agent_b in vote_choices
+                        and vote_choices[agent_a] == vote_choices[agent_b]
+                    )
                     a_win = 1 if winner == agent_a else 0
                     b_win = 1 if winner == agent_b else 0
-                    updates.append({
-                        "agent_a": agent_a,
-                        "agent_b": agent_b,
-                        "debate_increment": 1,
-                        "agreement_increment": 1 if agreed else 0,
-                        "a_win": a_win,
-                        "b_win": b_win,
-                    })
+                    updates.append(
+                        {
+                            "agent_a": agent_a,
+                            "agent_b": agent_b,
+                            "debate_increment": 1,
+                            "agreement_increment": 1 if agreed else 0,
+                            "a_win": a_win,
+                            "b_win": b_win,
+                        }
+                    )
             # Single transaction for all updates
             self.elo_system.update_relationships_batch(updates)
         except (AttributeError, TypeError, KeyError) as e:
@@ -1124,7 +1151,7 @@ class Arena:
             evidence_store_callback=self._store_evidence_in_memory,
         )
 
-        if updated_pack and hasattr(self, 'prompt_builder') and self.prompt_builder:
+        if updated_pack and hasattr(self, "prompt_builder") and self.prompt_builder:
             self._research_evidence_pack = updated_pack
             self.evidence_grounder.set_evidence_pack(updated_pack)
             self.prompt_builder.set_evidence_pack(updated_pack)
@@ -1182,7 +1209,7 @@ class Arena:
                 critiques=ctx.result.critiques,
                 votes=ctx.result.votes,
                 agents=self.agents,
-                current_consensus=getattr(ctx.result, 'final_answer', None),
+                current_consensus=getattr(ctx.result, "final_answer", None),
             )
             logger.debug(f"[checkpoint] Saved checkpoint after round {round_num}")
         except (IOError, OSError, TypeError, ValueError, RuntimeError) as e:
@@ -1222,8 +1249,8 @@ class Arena:
         # Cancel any pending arena-related asyncio tasks
         try:
             for task in asyncio.all_tasks():
-                task_name = task.get_name() if hasattr(task, 'get_name') else ""
-                if task_name and task_name.startswith(('arena_', 'debate_')):
+                task_name = task.get_name() if hasattr(task, "get_name") else ""
+                if task_name and task_name.startswith(("arena_", "debate_")):
                     task.cancel()
                     try:
                         await asyncio.wait_for(
@@ -1240,7 +1267,7 @@ class Arena:
         self._research_context_cache = None
 
         # Close checkpoint manager if we created it
-        if self.checkpoint_manager and hasattr(self.checkpoint_manager, 'close'):
+        if self.checkpoint_manager and hasattr(self.checkpoint_manager, "close"):
             try:
                 close_result = self.checkpoint_manager.close()
                 if asyncio.iscoroutine(close_result):
@@ -1263,18 +1290,18 @@ class Arena:
                 # Use wait_for for Python 3.10 compatibility (asyncio.timeout is 3.11+)
                 return await asyncio.wait_for(
                     self._run_inner(correlation_id=correlation_id),
-                    timeout=self.protocol.timeout_seconds
+                    timeout=self.protocol.timeout_seconds,
                 )
             except asyncio.TimeoutError:
                 logger.warning(f"debate_timeout timeout_seconds={self.protocol.timeout_seconds}")
                 # Return partial result with timeout indicator
                 return DebateResult(
                     task=self.env.task,
-                    messages=getattr(self, '_partial_messages', []),
-                    critiques=getattr(self, '_partial_critiques', []),
+                    messages=getattr(self, "_partial_messages", []),
+                    critiques=getattr(self, "_partial_critiques", []),
                     votes=[],
                     dissenting_views=[],
-                    rounds_used=getattr(self, '_partial_rounds', 0),
+                    rounds_used=getattr(self, "_partial_rounds", 0),
                 )
         return await self._run_inner(correlation_id=correlation_id)
 
@@ -1349,15 +1376,18 @@ class Arena:
 
         with tracer.start_as_current_span("debate") as span:
             # Add debate attributes to span
-            add_span_attributes(span, {
-                "debate.id": debate_id,
-                "debate.correlation_id": correlation_id,
-                "debate.domain": domain,
-                "debate.complexity": task_complexity.value,
-                "debate.agent_count": len(self.agents),
-                "debate.agents": ",".join(a.name for a in self.agents),
-                "debate.task_length": len(self.env.task),
-            })
+            add_span_attributes(
+                span,
+                {
+                    "debate.id": debate_id,
+                    "debate.correlation_id": correlation_id,
+                    "debate.domain": domain,
+                    "debate.complexity": task_complexity.value,
+                    "debate.agent_count": len(self.agents),
+                    "debate.agents": ",".join(a.name for a in self.agents),
+                    "debate.task_length": len(self.env.task),
+                },
+            )
 
             try:
                 # Phase 0: Context Initialization
@@ -1376,7 +1406,9 @@ class Arena:
                 # Phase 3: Consensus Resolution
                 with trace_debate_phase("consensus", debate_id) as phase_span:
                     await self.consensus_phase.execute(ctx)
-                    phase_span.set_attribute("debate.consensus_reached", ctx.result.consensus_reached)
+                    phase_span.set_attribute(
+                        "debate.consensus_reached", ctx.result.consensus_reached
+                    )
 
                 # Phases 4-6: Analytics
                 with trace_debate_phase("analytics", debate_id) as phase_span:
@@ -1413,17 +1445,20 @@ class Arena:
                 duration = time.perf_counter() - debate_start_time
 
                 # Get consensus info from result
-                consensus_reached = getattr(ctx.result, 'consensus_reached', False)
-                confidence = getattr(ctx.result, 'confidence', 0.0)
+                consensus_reached = getattr(ctx.result, "consensus_reached", False)
+                confidence = getattr(ctx.result, "confidence", 0.0)
 
                 # Add final attributes to span
-                add_span_attributes(span, {
-                    "debate.status": debate_status,
-                    "debate.duration_seconds": duration,
-                    "debate.consensus_reached": consensus_reached,
-                    "debate.confidence": confidence,
-                    "debate.message_count": len(ctx.result.messages) if ctx.result else 0,
-                })
+                add_span_attributes(
+                    span,
+                    {
+                        "debate.status": debate_status,
+                        "debate.duration_seconds": duration,
+                        "debate.consensus_reached": consensus_reached,
+                        "debate.confidence": confidence,
+                        "debate.message_count": len(ctx.result.messages) if ctx.result else 0,
+                    },
+                )
 
                 track_debate_outcome(
                     status=debate_status,
@@ -1436,8 +1471,9 @@ class Arena:
                 # Track circuit breaker state
                 if self.circuit_breaker:
                     open_count = sum(
-                        1 for state in getattr(self.circuit_breaker, '_agent_states', {}).values()
-                        if getattr(state, 'is_open', False)
+                        1
+                        for state in getattr(self.circuit_breaker, "_agent_states", {}).values()
+                        if getattr(state, "is_open", False)
                     )
                     track_circuit_breaker_state(open_count)
 
@@ -1491,9 +1527,7 @@ class Arena:
         Returns:
             Tuple of (should_continue: bool, reason: str)
         """
-        return await self.termination_checker.check_judge_termination(
-            round_num, proposals, context
-        )
+        return await self.termination_checker.check_judge_termination(round_num, proposals, context)
 
     async def _check_early_stopping(
         self, round_num: int, proposals: dict[str, str], context: list[Message]
@@ -1504,9 +1538,7 @@ class Arena:
 
         Returns True if debate should continue, False if it should stop.
         """
-        return await self.termination_checker.check_early_stopping(
-            round_num, proposals, context
-        )
+        return await self.termination_checker.check_early_stopping(round_num, proposals, context)
 
     async def _select_judge(self, proposals: dict[str, str], context: list[Message]) -> Agent:
         """Select judge based on protocol.judge_selection setting.
@@ -1515,9 +1547,8 @@ class Arena:
             selector = JudgeSelector.from_protocol(protocol, agents, elo_system, ...)
             judge = await selector.select_judge(proposals, context)
         """
-        async def generate_wrapper(
-            agent: Agent, prompt: str, ctx: list[Message]
-        ) -> str:
+
+        async def generate_wrapper(agent: Agent, prompt: str, ctx: list[Message]) -> str:
             return await agent.generate(prompt, ctx)
 
         selector = JudgeSelector(
@@ -1525,7 +1556,9 @@ class Arena:
             elo_system=self.elo_system,
             judge_selection=self.protocol.judge_selection,
             generate_fn=generate_wrapper,
-            build_vote_prompt_fn=lambda candidates, props: self.prompt_builder.build_judge_vote_prompt(candidates, props),
+            build_vote_prompt_fn=lambda candidates, props: self.prompt_builder.build_judge_vote_prompt(
+                candidates, props
+            ),
             sanitize_fn=OutputSanitizer.sanitize_agent_output,
             consensus_memory=self.consensus_memory,
         )
@@ -1546,8 +1579,14 @@ class Arena:
 
             lines = ["## SUCCESSFUL PATTERNS (from past debates)"]
             for p in patterns:
-                issue_preview = p.issue_text[:100] + "..." if len(p.issue_text) > 100 else p.issue_text
-                fix_preview = p.suggestion_text[:80] + "..." if len(p.suggestion_text) > 80 else p.suggestion_text
+                issue_preview = (
+                    p.issue_text[:100] + "..." if len(p.issue_text) > 100 else p.issue_text
+                )
+                fix_preview = (
+                    p.suggestion_text[:80] + "..."
+                    if len(p.suggestion_text) > 80
+                    else p.suggestion_text
+                )
                 lines.append(f"- **{p.issue_type}**: {issue_preview}")
                 if fix_preview:
                     lines.append(f"  Fix: {fix_preview} ({p.success_count} successes)")
@@ -1562,7 +1601,7 @@ class Arena:
 
         # Use role matcher if available (calibration-based)
         if self.role_matcher:
-            debate_domain = getattr(self, 'current_domain', None)
+            debate_domain = getattr(self, "current_domain", None)
             result = self.role_matcher.match_roles(
                 agent_names=agent_names,
                 round_num=round_num,
@@ -1572,8 +1611,7 @@ class Arena:
 
             if result.assignments:
                 roles_str = ", ".join(
-                    f"{name}: {assign.role.value}"
-                    for name, assign in result.assignments.items()
+                    f"{name}: {assign.role.value}" for name, assign in result.assignments.items()
                 )
                 logger.debug(
                     f"role_assignments round={round_num} strategy={result.strategy_used} "
@@ -1619,6 +1657,7 @@ class Arena:
             # Try default persona based on agent type (e.g., "claude_proposer" -> "claude")
             agent_type = agent.name.split("_")[0].lower()
             from aragora.agents.personas import DEFAULT_PERSONAS
+
             if agent_type in DEFAULT_PERSONAS:
                 # DEFAULT_PERSONAS contains Persona objects directly
                 persona = DEFAULT_PERSONAS[agent_type]
@@ -1710,12 +1749,14 @@ class Arena:
 
             # Create debate snapshot for breakpoint evaluation
             snapshot = DebateSnapshot(
-                debate_id=self.env.debate_id if hasattr(self.env, 'debate_id') else "",
+                debate_id=self.env.debate_id if hasattr(self.env, "debate_id") else "",
                 task=self.env.task,
                 current_round=round_num,
                 total_rounds=self.protocol.rounds,
                 latest_messages=[],  # Would need message history
-                active_proposals=list(proposals.values()) if isinstance(proposals, dict) else proposals,
+                active_proposals=(
+                    list(proposals.values()) if isinstance(proposals, dict) else proposals
+                ),
                 open_critiques=[],
                 current_consensus=None,
                 confidence=confidence,
@@ -1758,7 +1799,7 @@ class Arena:
                     if guidance.action == "abort":
                         raise EarlyStopError(
                             reason=f"Debate aborted by human: {guidance.reasoning}",
-                            round_stopped=round_num
+                            round_stopped=round_num,
                         )
 
                     return guidance.reasoning or guidance.decision
@@ -1792,8 +1833,7 @@ class Arena:
 
         # Compute audience section if enabled and suggestions exist
         if not (
-            self.protocol.audience_injection in ("summary", "inject")
-            and self.user_suggestions
+            self.protocol.audience_injection in ("summary", "inject") and self.user_suggestions
         ):
             return ""
 
@@ -1815,9 +1855,7 @@ class Arena:
         audience_section = self._prepare_audience_context(emit_event=True)
         return self.prompt_builder.build_proposal_prompt(agent, audience_section)
 
-    def _build_revision_prompt(
-        self, agent: Agent, original: str, critiques: list[Critique]
-    ) -> str:
+    def _build_revision_prompt(self, agent: Agent, original: str, critiques: list[Critique]) -> str:
         """Build the revision prompt including critiques."""
         audience_section = self._prepare_audience_context(emit_event=False)
         return self.prompt_builder.build_revision_prompt(

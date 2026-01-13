@@ -320,9 +320,7 @@ class TestAuthentication:
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(HAS_SAML_LIB, reason="Testing simplified parser")
-    async def test_authenticate_success(
-        self, provider: SAMLProvider, sample_saml_response: str
-    ):
+    async def test_authenticate_success(self, provider: SAMLProvider, sample_saml_response: str):
         """Successful authentication returns user."""
         user = await provider.authenticate(saml_response=sample_saml_response)
 
@@ -351,7 +349,10 @@ class TestAuthentication:
         invalid_response = base64.b64encode(b"not valid xml").decode("ascii")
         with pytest.raises(SSOAuthenticationError) as exc_info:
             await provider.authenticate(saml_response=invalid_response)
-        assert "Invalid SAML response" in str(exc_info.value) or "failed" in str(exc_info.value).lower()
+        assert (
+            "Invalid SAML response" in str(exc_info.value)
+            or "failed" in str(exc_info.value).lower()
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(HAS_SAML_LIB, reason="Testing simplified parser")
@@ -416,7 +417,9 @@ class TestAttributeMapping:
     def test_map_full_uri_attribute(self, provider: SAMLProvider):
         """Full URI attributes (Azure AD style) are correctly mapped."""
         attributes = {
-            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress": ["test@example.com"]
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress": [
+                "test@example.com"
+            ]
         }
         result = provider._map_attributes(attributes)
         assert result.get("email") == "test@example.com"
@@ -445,6 +448,7 @@ class TestStateManagement:
     def test_validate_valid_state(self, provider: SAMLProvider):
         """Valid state passes validation."""
         import time
+
         provider._state_store["valid-state"] = time.time()
         assert provider.validate_state("valid-state") is True
 
@@ -455,6 +459,7 @@ class TestStateManagement:
     def test_validate_expired_state(self, provider: SAMLProvider):
         """Expired state fails validation."""
         import time
+
         provider._state_store["expired-state"] = time.time() - 1000  # Old timestamp
         # State validation uses a 10-minute window by default
         provider.config.session_duration_seconds = 100  # Short timeout for test

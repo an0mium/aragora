@@ -29,6 +29,7 @@ from aragora.server.handlers.genesis import _genesis_limiter
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture(autouse=True)
 def clear_rate_limits():
     """Clear rate limits before and after each test."""
@@ -48,7 +49,8 @@ def temp_genesis_db():
         cursor = conn.cursor()
 
         # Create genesis_events table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS genesis_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 event_id TEXT UNIQUE NOT NULL,
@@ -58,10 +60,12 @@ def temp_genesis_db():
                 content_hash TEXT,
                 data TEXT
             )
-        """)
+        """
+        )
 
         # Create genomes table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS genomes (
                 id TEXT PRIMARY KEY,
                 agent TEXT NOT NULL,
@@ -71,32 +75,62 @@ def temp_genesis_db():
                 generation INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         # Insert test events
         test_events = [
-            ("evt-001", "agent_birth", datetime.now().isoformat(), None, "hash001",
-             json.dumps({"agent": "claude", "generation": 1})),
-            ("evt-002", "agent_birth", datetime.now().isoformat(), "evt-001", "hash002",
-             json.dumps({"agent": "gemini", "generation": 1})),
-            ("evt-003", "fitness_update", datetime.now().isoformat(), "evt-002", "hash003",
-             json.dumps({"agent": "claude", "change": 0.1})),
-            ("evt-004", "agent_death", datetime.now().isoformat(), "evt-003", "hash004",
-             json.dumps({"agent": "old-agent", "reason": "low_fitness"})),
+            (
+                "evt-001",
+                "agent_birth",
+                datetime.now().isoformat(),
+                None,
+                "hash001",
+                json.dumps({"agent": "claude", "generation": 1}),
+            ),
+            (
+                "evt-002",
+                "agent_birth",
+                datetime.now().isoformat(),
+                "evt-001",
+                "hash002",
+                json.dumps({"agent": "gemini", "generation": 1}),
+            ),
+            (
+                "evt-003",
+                "fitness_update",
+                datetime.now().isoformat(),
+                "evt-002",
+                "hash003",
+                json.dumps({"agent": "claude", "change": 0.1}),
+            ),
+            (
+                "evt-004",
+                "agent_death",
+                datetime.now().isoformat(),
+                "evt-003",
+                "hash004",
+                json.dumps({"agent": "old-agent", "reason": "low_fitness"}),
+            ),
         ]
 
-        cursor.executemany("""
+        cursor.executemany(
+            """
             INSERT INTO genesis_events (event_id, event_type, timestamp, parent_event_id, content_hash, data)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, test_events)
+        """,
+            test_events,
+        )
 
         # Insert test genomes
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO genomes (id, agent, traits, lineage, fitness_score, generation)
             VALUES
                 ('genome-001', 'claude', '{"analytical": 0.9}', '[]', 0.85, 1),
                 ('genome-002', 'gemini', '{"creative": 0.8}', '["genome-001"]', 0.75, 2)
-        """)
+        """
+        )
 
         conn.commit()
         conn.close()
@@ -114,6 +148,7 @@ def genesis_handler(temp_genesis_db):
 # ============================================================================
 # Route Matching Tests
 # ============================================================================
+
 
 class TestGenesisHandlerRouting:
     """Tests for route matching."""
@@ -147,20 +182,25 @@ class TestGenesisHandlerRouting:
 # Stats Endpoint Tests
 # ============================================================================
 
+
 class TestGenesisStatsEndpoint:
     """Tests for /api/genesis/stats endpoint."""
 
-    @patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', True)
-    @patch('aragora.server.handlers.genesis.GenesisLedger')
-    @patch('aragora.server.handlers.genesis.GenesisEventType')
+    @patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True)
+    @patch("aragora.server.handlers.genesis.GenesisLedger")
+    @patch("aragora.server.handlers.genesis.GenesisEventType")
     def test_stats_returns_structure(self, mock_event_type, mock_ledger_class, genesis_handler):
         """Should return stats structure."""
         # Setup mock event types
-        mock_event_type.__iter__ = Mock(return_value=iter([
-            Mock(value="agent_birth"),
-            Mock(value="agent_death"),
-            Mock(value="fitness_update"),
-        ]))
+        mock_event_type.__iter__ = Mock(
+            return_value=iter(
+                [
+                    Mock(value="agent_birth"),
+                    Mock(value="agent_death"),
+                    Mock(value="fitness_update"),
+                ]
+            )
+        )
 
         # Setup mock ledger
         mock_ledger = Mock()
@@ -183,7 +223,7 @@ class TestGenesisStatsEndpoint:
 
     def test_stats_unavailable_returns_503(self):
         """Should return 503 when genesis not available."""
-        with patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', False):
+        with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", False):
             handler = GenesisHandler({})
             result = handler.handle("/api/genesis/stats", {}, None)
             assert result.status_code == 503
@@ -193,16 +233,17 @@ class TestGenesisStatsEndpoint:
 # Events Endpoint Tests
 # ============================================================================
 
+
 class TestGenesisEventsEndpoint:
     """Tests for /api/genesis/events endpoint."""
 
-    @patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', True)
+    @patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True)
     def test_events_returns_list(self, temp_genesis_db):
         """Should return list of events from database."""
         handler = GenesisHandler({"nomic_dir": temp_genesis_db})
 
         # Bypass the ledger and use direct DB access
-        with patch('aragora.server.handlers.genesis.GenesisLedger'):
+        with patch("aragora.server.handlers.genesis.GenesisLedger"):
             result = handler.handle("/api/genesis/events", {}, None)
 
         assert result.status_code == 200
@@ -211,20 +252,20 @@ class TestGenesisEventsEndpoint:
         assert "count" in data
         assert isinstance(data["events"], list)
 
-    @patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', True)
+    @patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True)
     def test_events_limit_capped(self, temp_genesis_db):
         """Should cap limit at 100."""
         handler = GenesisHandler({"nomic_dir": temp_genesis_db})
 
-        with patch('aragora.server.handlers.genesis.GenesisLedger'):
+        with patch("aragora.server.handlers.genesis.GenesisLedger"):
             result = handler.handle("/api/genesis/events", {"limit": "500"}, None)
 
         # Should process without error (limit capped internally)
         assert result.status_code == 200
 
-    @patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', True)
-    @patch('aragora.server.handlers.genesis.GenesisLedger')
-    @patch('aragora.server.handlers.genesis.GenesisEventType')
+    @patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True)
+    @patch("aragora.server.handlers.genesis.GenesisLedger")
+    @patch("aragora.server.handlers.genesis.GenesisEventType")
     def test_events_filter_by_type(self, mock_event_type, mock_ledger_class, genesis_handler):
         """Should filter events by type."""
         mock_etype = Mock()
@@ -237,27 +278,19 @@ class TestGenesisEventsEndpoint:
         mock_ledger.get_events_by_type.return_value = [mock_event]
         mock_ledger_class.return_value = mock_ledger
 
-        result = genesis_handler.handle(
-            "/api/genesis/events",
-            {"event_type": "agent_birth"},
-            None
-        )
+        result = genesis_handler.handle("/api/genesis/events", {"event_type": "agent_birth"}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["filter"] == "agent_birth"
 
-    @patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', True)
-    @patch('aragora.server.handlers.genesis.GenesisEventType')
+    @patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True)
+    @patch("aragora.server.handlers.genesis.GenesisEventType")
     def test_events_invalid_type_returns_400(self, mock_event_type, genesis_handler):
         """Should return 400 for invalid event type."""
         mock_event_type.side_effect = ValueError("Unknown event type")
 
-        result = genesis_handler.handle(
-            "/api/genesis/events",
-            {"event_type": "invalid_type"},
-            None
-        )
+        result = genesis_handler.handle("/api/genesis/events", {"event_type": "invalid_type"}, None)
 
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -265,7 +298,7 @@ class TestGenesisEventsEndpoint:
 
     def test_events_unavailable_returns_503(self):
         """Should return 503 when genesis not available."""
-        with patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', False):
+        with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", False):
             handler = GenesisHandler({})
             result = handler.handle("/api/genesis/events", {}, None)
             assert result.status_code == 503
@@ -275,11 +308,12 @@ class TestGenesisEventsEndpoint:
 # Lineage Endpoint Tests
 # ============================================================================
 
+
 class TestGenesisLineageEndpoint:
     """Tests for /api/genesis/lineage/:genome_id endpoint."""
 
-    @patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', True)
-    @patch('aragora.server.handlers.genesis.GenesisLedger')
+    @patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True)
+    @patch("aragora.server.handlers.genesis.GenesisLedger")
     def test_lineage_returns_structure(self, mock_ledger_class, genesis_handler):
         """Should return lineage structure."""
         mock_ledger = Mock()
@@ -294,8 +328,8 @@ class TestGenesisLineageEndpoint:
         assert "lineage" in data
         assert "generations" in data
 
-    @patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', True)
-    @patch('aragora.server.handlers.genesis.GenesisLedger')
+    @patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True)
+    @patch("aragora.server.handlers.genesis.GenesisLedger")
     def test_lineage_not_found_returns_404(self, mock_ledger_class, genesis_handler):
         """Should return 404 for unknown genome."""
         mock_ledger = Mock()
@@ -320,7 +354,7 @@ class TestGenesisLineageEndpoint:
 
     def test_lineage_unavailable_returns_503(self):
         """Should return 503 when genesis not available."""
-        with patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', False):
+        with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", False):
             handler = GenesisHandler({})
             result = handler.handle("/api/genesis/lineage/test", {}, None)
             assert result.status_code == 503
@@ -330,11 +364,12 @@ class TestGenesisLineageEndpoint:
 # Tree Endpoint Tests
 # ============================================================================
 
+
 class TestGenesisTreeEndpoint:
     """Tests for /api/genesis/tree/:debate_id endpoint."""
 
-    @patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', True)
-    @patch('aragora.server.handlers.genesis.GenesisLedger')
+    @patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True)
+    @patch("aragora.server.handlers.genesis.GenesisLedger")
     def test_tree_returns_structure(self, mock_ledger_class, genesis_handler):
         """Should return tree structure."""
         mock_ledger = Mock()
@@ -363,7 +398,7 @@ class TestGenesisTreeEndpoint:
 
     def test_tree_unavailable_returns_503(self):
         """Should return 503 when genesis not available."""
-        with patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', False):
+        with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", False):
             handler = GenesisHandler({})
             result = handler.handle("/api/genesis/tree/test", {}, None)
             assert result.status_code == 503
@@ -373,11 +408,12 @@ class TestGenesisTreeEndpoint:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestGenesisErrorHandling:
     """Tests for error handling."""
 
-    @patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', True)
-    @patch('aragora.server.handlers.genesis.GenesisLedger')
+    @patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True)
+    @patch("aragora.server.handlers.genesis.GenesisLedger")
     def test_database_error_returns_500(self, mock_ledger_class, genesis_handler):
         """Should return 500 on database errors."""
         mock_ledger_class.side_effect = Exception("Database error")
@@ -390,7 +426,7 @@ class TestGenesisErrorHandling:
 
     def test_all_endpoints_unavailable_returns_503(self):
         """All endpoints should return 503 when genesis not available."""
-        with patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', False):
+        with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", False):
             handler = GenesisHandler({})
 
             endpoints = [
@@ -408,6 +444,7 @@ class TestGenesisErrorHandling:
 # ============================================================================
 # Security Tests
 # ============================================================================
+
 
 class TestGenesisSecurity:
     """Tests for security measures."""
@@ -442,7 +479,7 @@ class TestGenesisSecurity:
 
     def test_accepts_valid_ids(self, genesis_handler):
         """Should accept valid IDs with alphanumeric, dash, underscore, dot."""
-        with patch('aragora.server.handlers.genesis.GENESIS_AVAILABLE', False):
+        with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", False):
             valid_ids = [
                 "genome-001",
                 "genome_v2",

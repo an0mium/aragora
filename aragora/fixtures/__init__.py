@@ -74,7 +74,9 @@ def get_demo_statistics() -> dict:
         "total_records": len(records),
         "domains": domains,
         "by_strength": strengths,
-        "avg_confidence": sum(r.get("confidence", 0) for r in records) / len(records) if records else 0,
+        "avg_confidence": (
+            sum(r.get("confidence", 0) for r in records) / len(records) if records else 0
+        ),
     }
 
 
@@ -107,6 +109,7 @@ def load_demo_consensus(consensus_memory: Optional["ConsensusMemory"] = None) ->
     if consensus_memory is None:
         try:
             from aragora.memory.consensus import ConsensusMemory
+
             consensus_memory = ConsensusMemory()
         except ImportError:
             logger.warning("ConsensusMemory not available")
@@ -140,7 +143,9 @@ def load_demo_consensus(consensus_memory: Optional["ConsensusMemory"] = None) ->
                     "moderate": ConsensusStrength.MODERATE,
                     "weak": ConsensusStrength.WEAK,
                 }
-                strength = strength_map.get(demo.get("strength", "medium"), ConsensusStrength.MODERATE)
+                strength = strength_map.get(
+                    demo.get("strength", "medium"), ConsensusStrength.MODERATE
+                )
 
                 logger.debug(f"Seeding demo {i+1}: {demo['topic'][:50]}...")
                 consensus_memory.store_consensus(
@@ -155,7 +160,9 @@ def load_demo_consensus(consensus_memory: Optional["ConsensusMemory"] = None) ->
                 seeded += 1
                 logger.debug(f"Successfully seeded demo {i+1}")
             except Exception as e:
-                logger.warning(f"Failed to seed demo {i+1} '{demo.get('topic', 'unknown')[:30]}': {e}")
+                logger.warning(
+                    f"Failed to seed demo {i+1} '{demo.get('topic', 'unknown')[:30]}': {e}"
+                )
 
         logger.info(f"Seeded {seeded}/{len(demos)} demo consensus records")
 

@@ -527,6 +527,7 @@ class TestAgentRegistryCaching:
         registry._CACHE_MAX_SIZE = 3
 
         try:
+
             @AgentRegistry.register("evict-agent")
             class EvictAgent:
                 def __init__(self, name, role):

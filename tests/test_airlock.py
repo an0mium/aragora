@@ -429,7 +429,7 @@ class TestAirlockProxySanitization:
 
     async def test_sanitize_handles_json_array(self, mock_agent, config):
         """Test JSON array extraction."""
-        mock_agent.generate_response = 'List: [1, 2, 3] end'
+        mock_agent.generate_response = "List: [1, 2, 3] end"
         proxy = AirlockProxy(mock_agent, config)
 
         result = await proxy.generate("prompt")
@@ -437,7 +437,7 @@ class TestAirlockProxySanitization:
 
     async def test_sanitize_invalid_json_preserved(self, mock_agent, config):
         """Test that invalid JSON doesn't break sanitization."""
-        mock_agent.generate_response = 'This has {broken: json} here'
+        mock_agent.generate_response = "This has {broken: json} here"
         proxy = AirlockProxy(mock_agent, config)
 
         result = await proxy.generate("prompt")

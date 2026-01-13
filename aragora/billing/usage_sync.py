@@ -178,12 +178,14 @@ class UsageSyncService:
                 records.extend(org_records)
             except Exception as e:
                 logger.error(f"Error syncing org {org_id}: {e}")
-                records.append(UsageSyncRecord(
-                    org_id=org_id,
-                    sync_type="error",
-                    success=False,
-                    error=str(e),
-                ))
+                records.append(
+                    UsageSyncRecord(
+                        org_id=org_id,
+                        sync_type="error",
+                        success=False,
+                        error=str(e),
+                    )
+                )
         return records
 
     def sync_org(self, config: OrgBillingConfig) -> list[UsageSyncRecord]:
@@ -308,16 +310,13 @@ class UsageSyncService:
             record.success = True
 
             logger.info(
-                f"Reported {sync_type} usage for org {config.org_id}: "
-                f"quantity={quantity}"
+                f"Reported {sync_type} usage for org {config.org_id}: " f"quantity={quantity}"
             )
 
         except StripeAPIError as e:
             record.success = False
             record.error = str(e)
-            logger.error(
-                f"Failed to report {sync_type} usage for org {config.org_id}: {e}"
-            )
+            logger.error(f"Failed to report {sync_type} usage for org {config.org_id}: {e}")
 
         return record
 
@@ -330,7 +329,7 @@ class UsageSyncService:
         """Add a sync record to history (with size limit)."""
         self._sync_history.append(record)
         if len(self._sync_history) > self._max_history:
-            self._sync_history = self._sync_history[-self._max_history:]
+            self._sync_history = self._sync_history[-self._max_history :]
 
     def get_sync_history(
         self,
@@ -378,9 +377,11 @@ class UsageSyncService:
         """
         return {
             "org_id": org_id,
-            "last_sync": self._last_sync.get(org_id, datetime.min).isoformat()
-            if org_id in self._last_sync
-            else None,
+            "last_sync": (
+                self._last_sync.get(org_id, datetime.min).isoformat()
+                if org_id in self._last_sync
+                else None
+            ),
             "synced_tokens_in": self._synced_tokens_in.get(org_id, 0),
             "synced_tokens_out": self._synced_tokens_out.get(org_id, 0),
             "synced_debates": self._synced_debates.get(org_id, 0),

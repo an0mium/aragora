@@ -96,7 +96,18 @@ class TestCreateGauntletParser:
 
     def test_parser_profile_choices(self, parser):
         """--profile accepts valid choices."""
-        for choice in ["default", "quick", "thorough", "code", "policy", "gdpr", "hipaa", "ai_act", "security", "sox"]:
+        for choice in [
+            "default",
+            "quick",
+            "thorough",
+            "code",
+            "policy",
+            "gdpr",
+            "hipaa",
+            "ai_act",
+            "security",
+            "sox",
+        ]:
             args = parser.parse_args(["gauntlet", "in.md", "--profile", choice])
             assert args.profile == choice
 
@@ -120,7 +131,9 @@ class TestCreateGauntletParser:
 
     def test_parser_boolean_flags(self, parser):
         """Boolean flags work correctly."""
-        args = parser.parse_args(["gauntlet", "in.md", "--verify", "--no-redteam", "--no-probing", "--no-audit"])
+        args = parser.parse_args(
+            ["gauntlet", "in.md", "--verify", "--no-redteam", "--no-probing", "--no-audit"]
+        )
         assert args.verify is True
         assert args.no_redteam is True
         assert args.no_probing is True
@@ -283,4 +296,3 @@ class TestCmdGauntletAgentCreation:
         assert "No agents could be created" in captured.out
         # Should not see "Running stress-test"
         assert "Running stress-test" not in captured.out
-

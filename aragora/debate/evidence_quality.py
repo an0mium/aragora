@@ -191,9 +191,7 @@ class EvidenceQualityAnalyzer:
         self._data_re = [re.compile(p, re.IGNORECASE) for p in DATA_PATTERNS]
         self._example_re = [re.compile(p, re.IGNORECASE) for p in EXAMPLE_PATTERNS]
         self._specific_re = [re.compile(p, re.IGNORECASE) for p in SPECIFIC_INDICATORS]
-        self._reasoning_re = [
-            re.compile(rf"\b{p}\b", re.IGNORECASE) for p in REASONING_CONNECTORS
-        ]
+        self._reasoning_re = [re.compile(rf"\b{p}\b", re.IGNORECASE) for p in REASONING_CONNECTORS]
 
     def analyze(
         self,
@@ -255,8 +253,7 @@ class EvidenceQualityAnalyzer:
             Dict of agent name to EvidenceQualityScore
         """
         return {
-            agent: self.analyze(response, agent, round_num)
-            for agent, response in responses.items()
+            agent: self.analyze(response, agent, round_num) for agent, response in responses.items()
         }
 
     def _detect_evidence(self, text: str) -> list[EvidenceMarker]:
@@ -301,9 +298,7 @@ class EvidenceQualityAnalyzer:
 
         return markers
 
-    def _compute_citation_density(
-        self, text: str, score: EvidenceQualityScore
-    ) -> float:
+    def _compute_citation_density(self, text: str, score: EvidenceQualityScore) -> float:
         """Compute fraction of text with citation backing."""
         # Estimate claims (sentences that make assertions)
         sentences = re.split(r"[.!?]+", text)
@@ -335,9 +330,7 @@ class EvidenceQualityAnalyzer:
         score.vague_phrase_count = vague_count
 
         # Count specific indicators
-        specific_count = sum(
-            len(pattern.findall(text)) for pattern in self._specific_re
-        )
+        specific_count = sum(len(pattern.findall(text)) for pattern in self._specific_re)
         score.specific_phrase_count = specific_count
 
         total = vague_count + specific_count
@@ -358,9 +351,7 @@ class EvidenceQualityAnalyzer:
 
     def _compute_reasoning_chain(self, text: str) -> float:
         """Compute logical reasoning coherence."""
-        connector_count = sum(
-            len(pattern.findall(text)) for pattern in self._reasoning_re
-        )
+        connector_count = sum(len(pattern.findall(text)) for pattern in self._reasoning_re)
 
         # Normalize: expect ~3-5 connectors per 500 words
         word_count = len(text.split())
@@ -464,9 +455,7 @@ class HollowConsensusDetector:
 
         # Analyze evidence quality for all agents
         quality_scores = self.analyzer.analyze_batch(responses, round_num)
-        agent_quality = {
-            agent: score.overall_quality for agent, score in quality_scores.items()
-        }
+        agent_quality = {agent: score.overall_quality for agent, score in quality_scores.items()}
 
         # Compute aggregate metrics
         qualities = list(agent_quality.values())
@@ -553,9 +542,7 @@ class HollowConsensusDetector:
 
         # Generic challenges for low citation density
         low_citation_agents = [
-            agent
-            for agent, score in quality_scores.items()
-            if score.citation_density < 0.2
+            agent for agent, score in quality_scores.items() if score.citation_density < 0.2
         ]
         if low_citation_agents:
             challenges.append(
@@ -566,9 +553,7 @@ class HollowConsensusDetector:
 
         # Challenge vague language
         vague_agents = [
-            agent
-            for agent, score in quality_scores.items()
-            if score.specificity_score < 0.3
+            agent for agent, score in quality_scores.items() if score.specificity_score < 0.3
         ]
         if vague_agents:
             challenges.append(
@@ -579,9 +564,7 @@ class HollowConsensusDetector:
 
         # Challenge reasoning gaps
         weak_reasoning = [
-            agent
-            for agent, score in quality_scores.items()
-            if score.logical_chain_score < 0.3
+            agent for agent, score in quality_scores.items() if score.logical_chain_score < 0.3
         ]
         if weak_reasoning:
             challenges.append(

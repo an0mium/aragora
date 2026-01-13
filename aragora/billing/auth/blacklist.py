@@ -88,6 +88,7 @@ class TokenBlacklist:
             True if token was valid and revoked, False otherwise
         """
         from .tokens import decode_jwt
+
         payload = decode_jwt(token)
         if payload is None:
             return False
@@ -168,6 +169,7 @@ def get_persistent_blacklist():
         BlacklistBackend instance (SQLite, Redis, or in-memory)
     """
     from aragora.storage.token_blacklist_store import get_blacklist_backend
+
     return get_blacklist_backend()
 
 
@@ -182,6 +184,7 @@ def revoke_token_persistent(token: str) -> bool:
         True if token was valid and revoked, False otherwise
     """
     from .tokens import decode_jwt
+
     payload = decode_jwt(token)
     if payload is None:
         return False

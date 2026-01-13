@@ -20,6 +20,7 @@ from aragora.debate.sanitization import OutputSanitizer
 # Output Sanitization Tests
 # ============================================================================
 
+
 class TestOutputSanitizerAgentOutput:
     """Tests for OutputSanitizer.sanitize_agent_output()."""
 
@@ -127,6 +128,7 @@ class TestOutputSanitizerPrompt:
 # Timeout Mechanism Tests
 # ============================================================================
 
+
 class TestTimeoutMechanism:
     """Tests for _with_timeout() method in Arena."""
 
@@ -147,6 +149,7 @@ class TestTimeoutMechanism:
     @pytest.mark.asyncio
     async def test_timeout_success(self, mock_arena, mock_circuit_breaker):
         """Successful completion should return result without timeout."""
+
         async def fast_coro():
             return "result"
 
@@ -158,6 +161,7 @@ class TestTimeoutMechanism:
     @pytest.mark.asyncio
     async def test_timeout_triggers_on_slow_agent(self, mock_arena, mock_circuit_breaker):
         """Slow agent should trigger timeout and record failure."""
+
         async def slow_coro():
             await asyncio.sleep(10)  # Simulate slow agent
             return "never reached"
@@ -168,6 +172,7 @@ class TestTimeoutMechanism:
     @pytest.mark.asyncio
     async def test_timeout_does_not_block_other_agents(self):
         """Timed out agent should not block other agents."""
+
         async def slow_agent():
             await asyncio.sleep(10)
             return "slow"
@@ -191,6 +196,7 @@ class TestTimeoutMechanism:
 # ============================================================================
 # Error Containment Tests
 # ============================================================================
+
 
 class TestErrorContainment:
     """Tests for _generate_with_agent() error containment."""
@@ -267,6 +273,7 @@ class TestErrorContainment:
 # WebSocket Loop ID Binding Tests
 # ============================================================================
 
+
 class TestWebSocketLoopIdBinding:
     """Tests for WebSocket loop_id binding and recovery."""
 
@@ -287,7 +294,7 @@ class TestWebSocketLoopIdBinding:
 
         # Simulate recovery (stream.py line 2637)
         data = {}  # No loop_id in message
-        loop_id = data.get("loop_id") or getattr(ws, '_bound_loop_id', "")
+        loop_id = data.get("loop_id") or getattr(ws, "_bound_loop_id", "")
 
         assert loop_id == "recovered-loop-456"
 
@@ -297,7 +304,7 @@ class TestWebSocketLoopIdBinding:
 
         # Simulate recovery with fallback
         data = {}
-        loop_id = data.get("loop_id") or getattr(ws, '_bound_loop_id', "")
+        loop_id = data.get("loop_id") or getattr(ws, "_bound_loop_id", "")
 
         assert loop_id == ""
 
@@ -308,7 +315,7 @@ class TestWebSocketLoopIdBinding:
 
         # Simulate recovery with message containing loop_id
         data = {"loop_id": "new-message-loop"}
-        loop_id = data.get("loop_id") or getattr(ws, '_bound_loop_id', "")
+        loop_id = data.get("loop_id") or getattr(ws, "_bound_loop_id", "")
 
         assert loop_id == "new-message-loop"
 
@@ -316,6 +323,7 @@ class TestWebSocketLoopIdBinding:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestProprioceptiveIntegration:
     """Integration tests for the full proprioceptive layer."""
@@ -365,5 +373,5 @@ class TestProprioceptiveIntegration:
         # Subsequent messages can recover it
         for _ in range(5):
             data = {}
-            recovered = data.get("loop_id") or getattr(ws, '_bound_loop_id', "")
+            recovered = data.get("loop_id") or getattr(ws, "_bound_loop_id", "")
             assert recovered == "persistent-loop"

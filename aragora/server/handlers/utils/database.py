@@ -32,6 +32,7 @@ def get_db_connection(db_path: str) -> Generator[sqlite3.Connection, None, None]
             rows = cursor.fetchall()
     """
     from aragora.storage.schema import DatabaseManager
+
     manager = DatabaseManager.get_instance(db_path, DB_TIMEOUT_SECONDS)
     with manager.fresh_connection() as conn:
         yield conn
@@ -53,10 +54,7 @@ def table_exists(cursor: sqlite3.Cursor, table_name: str) -> bool:
             if not table_exists(cursor, "agent_relationships"):
                 return json_response({"error": "Table not found"})
     """
-    cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-        (table_name,)
-    )
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
     return cursor.fetchone() is not None
 
 

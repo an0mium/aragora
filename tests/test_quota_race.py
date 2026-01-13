@@ -40,10 +40,7 @@ class TestQuotaCheckAtomicity:
 
         # Fire 50 concurrent requests
         with ThreadPoolExecutor(max_workers=50) as executor:
-            futures = [
-                executor.submit(check_and_increment, f"req-{i}")
-                for i in range(50)
-            ]
+            futures = [executor.submit(check_and_increment, f"req-{i}") for i in range(50)]
             for f in as_completed(futures):
                 f.result()
 
@@ -68,10 +65,7 @@ class TestQuotaCheckAtomicity:
                 return True
             return False
 
-        threads = [
-            threading.Thread(target=check_and_increment_unsafe)
-            for _ in range(50)
-        ]
+        threads = [threading.Thread(target=check_and_increment_unsafe) for _ in range(50)]
         for t in threads:
             t.start()
         for t in threads:
@@ -119,8 +113,9 @@ class TestQuotaCheckAtomicity:
         # Verify each org's quota was respected
         for org_id, quota in org_quotas.items():
             accepted = [r for r in results[org_id] if r[0] == "accepted"]
-            assert len(accepted) == quota["limit"], \
-                f"{org_id}: expected {quota['limit']} accepted, got {len(accepted)}"
+            assert (
+                len(accepted) == quota["limit"]
+            ), f"{org_id}: expected {quota['limit']} accepted, got {len(accepted)}"
 
 
 class TestQuotaIncrementResilience:
@@ -159,9 +154,7 @@ class TestQuotaIncrementResilience:
             futures = []
             for i in range(15):
                 should_fail = i < 5  # First 5 requests will fail
-                futures.append(
-                    executor.submit(make_request, f"req-{i}", should_fail)
-                )
+                futures.append(executor.submit(make_request, f"req-{i}", should_fail))
             for f in as_completed(futures):
                 f.result()
 
@@ -198,10 +191,7 @@ class TestQuotaIncrementResilience:
         # 5 successful operations, 5 that fail and roll back
         results = []
         for i in range(10):
-            success, reason = check_increment_and_operate(
-                f"req-{i}",
-                operation_fails=(i % 2 == 0)
-            )
+            success, reason = check_increment_and_operate(f"req-{i}", operation_fails=(i % 2 == 0))
             results.append((f"req-{i}", success, reason))
 
         # 5 successful (odd indices)
@@ -302,8 +292,9 @@ class TestQuotaConcurrentReads:
         # All snapshots should be internally consistent
         for snap in snapshots:
             # used + reserved should equal limit
-            assert snap["used"] + snap["reserved"] == snap["limit"], \
-                f"Inconsistent snapshot: {snap}"
+            assert (
+                snap["used"] + snap["reserved"] == snap["limit"]
+            ), f"Inconsistent snapshot: {snap}"
 
 
 class TestQuotaEdgeCases:

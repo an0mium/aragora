@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 
 interface CycleSummary {
   cycle: number;
@@ -30,7 +31,7 @@ interface LearningDashboardProps {
   apiBase?: string;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 export function LearningDashboard({ apiBase = DEFAULT_API_BASE }: LearningDashboardProps) {
   const [cycles, setCycles] = useState<CycleSummary[]>([]);

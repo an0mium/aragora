@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Try to import optional dependencies
 try:
     import httpx
+
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
@@ -107,6 +108,7 @@ class WikipediaConnector(BaseConnector):
     async def _rate_limit(self) -> None:
         """Enforce rate limiting between requests."""
         import time
+
         now = time.time()
         elapsed = now - self._last_request_time
         if elapsed < self.rate_limit_delay:
@@ -171,7 +173,11 @@ class WikipediaConnector(BaseConnector):
 
                 # Get description if available
                 description = descriptions[i] if i < len(descriptions) else ""
-                url = urls[i] if i < len(urls) else f"https://{self.language}.wikipedia.org/wiki/{quote_plus(title.replace(' ', '_'))}"
+                url = (
+                    urls[i]
+                    if i < len(urls)
+                    else f"https://{self.language}.wikipedia.org/wiki/{quote_plus(title.replace(' ', '_'))}"
+                )
 
                 # If include_summary and description is empty, fetch summary
                 content = description
@@ -289,7 +295,11 @@ class WikipediaConnector(BaseConnector):
             page_id = data.get("pageid", 0)
 
             # Generate evidence ID
-            evidence_id = f"wiki:{page_id}" if page_id else f"wiki:{hashlib.md5(title.encode()).hexdigest()[:12]}"
+            evidence_id = (
+                f"wiki:{page_id}"
+                if page_id
+                else f"wiki:{hashlib.md5(title.encode()).hexdigest()[:12]}"
+            )
 
             # Get URL
             url = data.get("content_urls", {}).get("desktop", {}).get("page", "")

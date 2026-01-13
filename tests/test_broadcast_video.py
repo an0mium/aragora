@@ -225,7 +225,7 @@ class TestGenerateThumbnail:
         assert output_path.exists()
         # Check PNG signature
         data = output_path.read_bytes()
-        assert data[:8] == b'\x89PNG\r\n\x1a\n'
+        assert data[:8] == b"\x89PNG\r\n\x1a\n"
 
     @pytest.mark.asyncio
     async def test_generate_thumbnail_with_imagemagick(self, tmp_path):
@@ -1011,6 +1011,7 @@ class TestResolutionConstants:
     def test_default_resolution_values(self):
         """DEFAULT_RESOLUTION is Full HD."""
         from aragora.broadcast.video_gen import DEFAULT_RESOLUTION
+
         assert DEFAULT_RESOLUTION == (1920, 1080)
 
 

@@ -203,8 +203,10 @@ class OpenRouterAgent(APIAgent):
                 limiter.release_on_error()
                 last_error = str(e)
                 if attempt < max_retries - 1:
-                    wait_time = base_delay * (2 ** attempt)
-                    logger.warning(f"OpenRouter connection error, waiting {wait_time:.0f}s before retry: {e}")
+                    wait_time = base_delay * (2**attempt)
+                    logger.warning(
+                        f"OpenRouter connection error, waiting {wait_time:.0f}s before retry: {e}"
+                    )
                     await asyncio.sleep(wait_time)
                     continue
                 raise AgentConnectionError(
@@ -219,7 +221,9 @@ class OpenRouterAgent(APIAgent):
             agent_name=self.name,
         )
 
-    async def generate_stream(self, prompt: str, context: list[Message] | None = None) -> AsyncGenerator[str, None]:
+    async def generate_stream(
+        self, prompt: str, context: list[Message] | None = None
+    ) -> AsyncGenerator[str, None]:
         """Stream tokens from OpenRouter API with rate limiting and retry.
 
         Yields chunks of text as they arrive from the API using SSE.
@@ -323,8 +327,10 @@ class OpenRouterAgent(APIAgent):
                 limiter.release_on_error()
                 last_error = str(e)
                 if attempt < max_retries - 1:
-                    wait_time = base_delay * (2 ** attempt)
-                    logger.warning(f"OpenRouter streaming connection error, waiting {wait_time:.0f}s before retry: {e}")
+                    wait_time = base_delay * (2**attempt)
+                    logger.warning(
+                        f"OpenRouter streaming connection error, waiting {wait_time:.0f}s before retry: {e}"
+                    )
                     await asyncio.sleep(wait_time)
                     continue
                 raise AgentConnectionError(
@@ -333,7 +339,9 @@ class OpenRouterAgent(APIAgent):
                     cause=e,
                 )
 
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
+    async def critique(
+        self, proposal: str, task: str, context: list[Message] | None = None
+    ) -> Critique:
         """Critique a proposal using OpenRouter API."""
         critique_prompt = f"""Critically analyze this proposal:
 
@@ -412,7 +420,9 @@ class DeepSeekReasonerAgent(OpenRouterAgent):
 class DeepSeekV3Agent(OpenRouterAgent):
     """DeepSeek V3.2 via OpenRouter - integrated thinking + tool-use, GPT-5 class reasoning."""
 
-    def __init__(self, name: str = "deepseek-v3", role: str = "analyst", system_prompt: str | None = None):
+    def __init__(
+        self, name: str = "deepseek-v3", role: str = "analyst", system_prompt: str | None = None
+    ):
         super().__init__(
             name=name,
             role=role,
@@ -618,9 +628,7 @@ class KimiAgent(APIAgent):
                 if response.status != 200:
                     error_text = await response.text()
                     raise ExternalServiceError(
-                        service="Kimi API",
-                        reason=error_text,
-                        status_code=response.status
+                        service="Kimi API", reason=error_text, status_code=response.status
                     )
 
                 data = await response.json()

@@ -85,7 +85,9 @@ class AnalyticsHandler(BaseHandler):
 
         return None
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_disagreement", skip_first=True)
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_disagreement", skip_first=True
+    )
     @handle_errors("disagreement stats retrieval")
     def _get_disagreement_stats(self) -> HandlerResult:
         """Get statistics about debate disagreements."""
@@ -114,7 +116,9 @@ class AnalyticsHandler(BaseHandler):
                 dtype = result.get("uncertainty_metrics", {}).get("disagreement_type", "unknown")
                 stats["disagreement_types"][dtype] = stats["disagreement_types"].get(dtype, 0) + 1
 
-        logger.info(f"Disagreement stats: {stats['total_debates']} debates, {stats['with_disagreements']} with disagreements")
+        logger.info(
+            f"Disagreement stats: {stats['total_debates']} debates, {stats['with_disagreements']} with disagreements"
+        )
         return json_response({"stats": stats})
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_roles", skip_first=True)
@@ -139,7 +143,9 @@ class AnalyticsHandler(BaseHandler):
                 role = msg.get("cognitive_role", msg.get("role", "unknown"))
                 stats["role_assignments"][role] = stats["role_assignments"].get(role, 0) + 1
 
-        logger.info(f"Role rotation stats: {len(stats['role_assignments'])} roles across {stats['total_debates']} debates")
+        logger.info(
+            f"Role rotation stats: {len(stats['role_assignments'])} roles across {stats['total_debates']} debates"
+        )
         return json_response({"stats": stats})
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_early_stop", skip_first=True)
@@ -173,10 +179,14 @@ class AnalyticsHandler(BaseHandler):
         if debates:
             stats["average_rounds"] = total_rounds / len(debates)
 
-        logger.info(f"Early stop stats: {stats['early_stopped']}/{stats['total_debates']} early stopped")
+        logger.info(
+            f"Early stop stats: {stats['early_stopped']}/{stats['total_debates']} early stopped"
+        )
         return json_response({"stats": stats})
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_consensus_quality", skip_first=True)
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_consensus_quality", skip_first=True
+    )
     @handle_errors("consensus quality stats retrieval")
     def _get_consensus_quality(self) -> HandlerResult:
         """Get consensus quality monitoring metrics.
@@ -207,12 +217,14 @@ class AnalyticsHandler(BaseHandler):
             debate_id = debate.get("id", "")
             timestamp = debate.get("timestamp", "")
 
-            confidence_history.append({
-                "debate_id": debate_id[:8] if debate_id else "",
-                "confidence": confidence,
-                "consensus_reached": consensus,
-                "timestamp": timestamp,
-            })
+            confidence_history.append(
+                {
+                    "debate_id": debate_id[:8] if debate_id else "",
+                    "confidence": confidence,
+                    "consensus_reached": consensus,
+                    "timestamp": timestamp,
+                }
+            )
 
             if consensus:
                 consensus_reached_count += 1
@@ -220,17 +232,19 @@ class AnalyticsHandler(BaseHandler):
         # Calculate metrics
         total_debates = len(debates)
         if total_debates == 0:
-            return json_response({
-                "stats": {
-                    "total_debates": 0,
-                    "confidence_history": [],
-                    "trend": "insufficient_data",
-                    "average_confidence": 0.0,
-                    "consensus_rate": 0.0,
-                },
-                "quality_score": 0,
-                "alert": None,
-            })
+            return json_response(
+                {
+                    "stats": {
+                        "total_debates": 0,
+                        "confidence_history": [],
+                        "trend": "insufficient_data",
+                        "average_confidence": 0.0,
+                        "consensus_rate": 0.0,
+                    },
+                    "quality_score": 0,
+                    "alert": None,
+                }
+            )
 
         confidences = [h["confidence"] for h in confidence_history]
         average_confidence = sum(confidences) / len(confidences)
@@ -253,11 +267,9 @@ class AnalyticsHandler(BaseHandler):
         # Calculate quality score (0-100)
         # Weight: 50% average confidence, 30% consensus rate, 20% trend bonus
         trend_bonus = 10 if trend == "improving" else (-10 if trend == "declining" else 0)
-        quality_score = min(100, max(0, int(
-            average_confidence * 50 +
-            consensus_rate * 30 +
-            20 + trend_bonus
-        )))
+        quality_score = min(
+            100, max(0, int(average_confidence * 50 + consensus_rate * 30 + 20 + trend_bonus))
+        )
 
         # Generate alert if quality is low
         alert = None
@@ -277,20 +289,24 @@ class AnalyticsHandler(BaseHandler):
                 "message": "Declining consensus trend detected. Monitor closely.",
             }
 
-        return json_response({
-            "stats": {
-                "total_debates": total_debates,
-                "confidence_history": confidence_history[:20],  # Last 20 for UI
-                "trend": trend,
-                "average_confidence": round(average_confidence, 3),
-                "consensus_rate": round(consensus_rate, 3),
-                "consensus_reached_count": consensus_reached_count,
-            },
-            "quality_score": quality_score,
-            "alert": alert,
-        })
+        return json_response(
+            {
+                "stats": {
+                    "total_debates": total_debates,
+                    "confidence_history": confidence_history[:20],  # Last 20 for UI
+                    "trend": trend,
+                    "average_confidence": round(average_confidence, 3),
+                    "consensus_rate": round(consensus_rate, 3),
+                    "consensus_reached_count": consensus_reached_count,
+                },
+                "quality_score": quality_score,
+                "alert": alert,
+            }
+        )
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS_RANKING, key_prefix="analytics_ranking", skip_first=True)
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_ANALYTICS_RANKING, key_prefix="analytics_ranking", skip_first=True
+    )
     @handle_errors("ranking stats retrieval")
     def _get_ranking_stats(self) -> HandlerResult:
         """Get ranking system statistics."""
@@ -303,7 +319,9 @@ class AnalyticsHandler(BaseHandler):
         stats = {
             "total_agents": len(leaderboard),
             "total_matches": sum(a.total_debates for a in leaderboard) if leaderboard else 0,
-            "avg_elo": sum(a.elo_rating for a in leaderboard) / len(leaderboard) if leaderboard else 1500,
+            "avg_elo": (
+                sum(a.elo_rating for a in leaderboard) / len(leaderboard) if leaderboard else 1500
+            ),
             "top_agent": leaderboard[0].agent_name if leaderboard else None,
             "elo_range": {
                 "min": min(a.elo_rating for a in leaderboard) if leaderboard else 1500,
@@ -313,7 +331,9 @@ class AnalyticsHandler(BaseHandler):
 
         return json_response({"stats": stats})
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS_DEBATES, key_prefix="analytics_debates", skip_first=True)
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_ANALYTICS_DEBATES, key_prefix="analytics_debates", skip_first=True
+    )
     def _get_cached_debates(self, limit: int = 100) -> list:
         """Cached helper for retrieving debates."""
         storage = self.get_storage()
@@ -325,7 +345,9 @@ class AnalyticsHandler(BaseHandler):
             logger.warning("Failed to list debates for analytics: %s: %s", type(e).__name__, e)
             return []
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS_MEMORY, key_prefix="analytics_memory", skip_first=True)
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_ANALYTICS_MEMORY, key_prefix="analytics_memory", skip_first=True
+    )
     @handle_errors("memory stats retrieval")
     def _get_memory_stats(self) -> HandlerResult:
         """Get memory system statistics."""

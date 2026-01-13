@@ -72,7 +72,7 @@ class TestJSONInputValidation:
             b"not json",
             b"{invalid}",
             b"{'single': 'quotes'}",
-            b"{\"unclosed\": ",
+            b'{"unclosed": ',
             b"[1, 2, 3,]",  # Trailing comma
             b"",
         ]
@@ -133,13 +133,17 @@ class TestStringInputValidation:
         def sanitize_for_display(text: str) -> str:
             return html.escape(text)
 
-        assert sanitize_for_display("<script>alert(1)</script>") == "&lt;script&gt;alert(1)&lt;/script&gt;"
+        assert (
+            sanitize_for_display("<script>alert(1)</script>")
+            == "&lt;script&gt;alert(1)&lt;/script&gt;"
+        )
         assert sanitize_for_display("<img onerror=alert(1)>") == "&lt;img onerror=alert(1)&gt;"
         assert sanitize_for_display("normal text") == "normal text"
         assert sanitize_for_display("a < b && c > d") == "a &lt; b &amp;&amp; c &gt; d"
 
     def test_strip_control_characters(self):
         """Control characters should be stripped from input."""
+
         def strip_control_chars(text: str) -> str:
             # Allow newlines and tabs, strip other control chars
             allowed = {"\n", "\r", "\t"}
@@ -230,6 +234,7 @@ class TestURLInputValidation:
 
     def test_reject_javascript_urls(self):
         """JavaScript URLs should be rejected."""
+
         def is_safe_url(url: str) -> bool:
             url_lower = url.lower().strip()
             dangerous_schemes = ["javascript:", "data:", "vbscript:", "file:"]
@@ -265,6 +270,7 @@ class TestURLInputValidation:
 
         def is_external_url(url: str) -> bool:
             from urllib.parse import urlparse
+
             try:
                 parsed = urlparse(url)
                 hostname = parsed.hostname
@@ -313,6 +319,7 @@ class TestFileUploadValidation:
 
         def is_allowed_extension(filename: str) -> bool:
             from pathlib import Path
+
             ext = Path(filename).suffix.lower()
             return ext in ALLOWED_EXTENSIONS
 
@@ -334,6 +341,7 @@ class TestFileUploadValidation:
 
         def validate_content_type(filename: str, content_type: str) -> bool:
             from pathlib import Path
+
             ext = Path(filename).suffix.lower()
             allowed_types = EXTENSION_CONTENT_TYPES.get(ext, [])
             return content_type in allowed_types
@@ -410,10 +418,7 @@ class TestCommandInjectionPrevention:
 
         # Test that safe command works
         result = subprocess.run(
-            safe_cmd,
-            capture_output=True,
-            text=True,
-            shell=False  # Explicit shell=False
+            safe_cmd, capture_output=True, text=True, shell=False  # Explicit shell=False
         )
         assert result.returncode == 0
         assert "hello world" in result.stdout

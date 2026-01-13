@@ -414,9 +414,7 @@ class TestGenerateWithFallback:
 
     async def test_fallback_primary_success(self, executor, mock_agent):
         """Test primary agent succeeds, no fallback needed."""
-        result = await executor.generate_with_fallback(
-            mock_agent, "prompt", [], fallback_agents=[]
-        )
+        result = await executor.generate_with_fallback(mock_agent, "prompt", [], fallback_agents=[])
         assert result == "test response"
 
     async def test_fallback_uses_backup_agent(self, executor):
@@ -680,7 +678,9 @@ class TestChaosDirectorIntegration:
         mock_agent.raise_error = asyncio.TimeoutError("Simulated timeout")
 
         mock_chaos = MagicMock()
-        mock_chaos.timeout_response.return_value.message = "[THEATRICAL] Agent was vanquished by time!"
+        mock_chaos.timeout_response.return_value.message = (
+            "[THEATRICAL] Agent was vanquished by time!"
+        )
 
         executor = AutonomicExecutor(
             circuit_breaker=circuit_breaker,
@@ -698,7 +698,9 @@ class TestChaosDirectorIntegration:
         mock_agent.raise_error = ConnectionError("Network down")
 
         mock_chaos = MagicMock()
-        mock_chaos.connection_response.return_value.message = "[THEATRICAL] The network spirits have abandoned us!"
+        mock_chaos.connection_response.return_value.message = (
+            "[THEATRICAL] The network spirits have abandoned us!"
+        )
 
         executor = AutonomicExecutor(
             circuit_breaker=circuit_breaker,

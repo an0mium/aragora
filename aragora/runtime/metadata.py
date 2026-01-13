@@ -29,9 +29,9 @@ from aragora.utils.json_helpers import safe_json_loads
 class ModelConfig:
     """Configuration for a specific model."""
 
-    model_id: str                    # e.g., "gpt-4-turbo", "claude-3-opus"
-    provider: str                    # e.g., "openai", "anthropic", "local"
-    version: Optional[str] = None   # Model version if known
+    model_id: str  # e.g., "gpt-4-turbo", "claude-3-opus"
+    provider: str  # e.g., "openai", "anthropic", "local"
+    version: Optional[str] = None  # Model version if known
 
     # Sampling parameters
     temperature: float = 0.7
@@ -55,9 +55,7 @@ class ModelConfig:
         """Create config from an Agent instance."""
         system_hash = ""
         if hasattr(agent, "system_prompt") and agent.system_prompt:
-            system_hash = hashlib.sha256(
-                agent.system_prompt.encode()
-            ).hexdigest()[:16]
+            system_hash = hashlib.sha256(agent.system_prompt.encode()).hexdigest()[:16]
 
         return cls(
             model_id=agent.model,
@@ -154,9 +152,7 @@ class DebateMetadata:
             "consensus": self.consensus_method,
             "agents": [c.to_dict() for c in self.agent_configs],
         }
-        return hashlib.sha256(
-            json.dumps(config, sort_keys=True).encode()
-        ).hexdigest()[:16]
+        return hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()[:16]
 
     def to_dict(self) -> dict:
         return {
@@ -195,16 +191,18 @@ class DebateMetadata:
 
         agent_configs = []
         for ac in data.get("agents", []):
-            agent_configs.append(ModelConfig(
-                model_id=ac["model_id"],
-                provider=ac["provider"],
-                version=ac.get("version"),
-                temperature=ac.get("temperature", 0.7),
-                top_p=ac.get("top_p", 1.0),
-                max_tokens=ac.get("max_tokens", 4096),
-                system_prompt_hash=ac.get("system_prompt_hash"),
-                context_window=ac.get("context_window", 8192),
-            ))
+            agent_configs.append(
+                ModelConfig(
+                    model_id=ac["model_id"],
+                    provider=ac["provider"],
+                    version=ac.get("version"),
+                    temperature=ac.get("temperature", 0.7),
+                    top_p=ac.get("top_p", 1.0),
+                    max_tokens=ac.get("max_tokens", 4096),
+                    system_prompt_hash=ac.get("system_prompt_hash"),
+                    context_window=ac.get("context_window", 8192),
+                )
+            )
 
         return cls(
             debate_id=data["debate_id"],
@@ -261,7 +259,10 @@ class DebateMetadata:
             diffs["max_rounds"] = {"self": self.max_rounds, "other": other.max_rounds}
 
         if len(self.agent_configs) != len(other.agent_configs):
-            diffs["agent_count"] = {"self": len(self.agent_configs), "other": len(other.agent_configs)}
+            diffs["agent_count"] = {
+                "self": len(self.agent_configs),
+                "other": len(other.agent_configs),
+            }
 
         return diffs
 
@@ -300,17 +301,20 @@ class MetadataStore(SQLiteStore):
         with self.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO debate_metadata
                 (debate_id, config_hash, task_hash, created_at, metadata_json)
                 VALUES (?, ?, ?, ?, ?)
-            """, (
-                metadata.debate_id,
-                metadata.config_hash,
-                metadata.task_hash,
-                metadata.created_at,
-                metadata.to_json(),
-            ))
+            """,
+                (
+                    metadata.debate_id,
+                    metadata.config_hash,
+                    metadata.task_hash,
+                    metadata.created_at,
+                    metadata.to_json(),
+                ),
+            )
 
             conn.commit()
 
@@ -320,8 +324,7 @@ class MetadataStore(SQLiteStore):
             cursor = conn.cursor()
 
             cursor.execute(
-                "SELECT metadata_json FROM debate_metadata WHERE debate_id = ?",
-                (debate_id,)
+                "SELECT metadata_json FROM debate_metadata WHERE debate_id = ?", (debate_id,)
             )
             row = cursor.fetchone()
 
@@ -336,12 +339,15 @@ class MetadataStore(SQLiteStore):
         with self.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT metadata_json FROM debate_metadata
                 WHERE config_hash = ? AND debate_id != ?
                 ORDER BY created_at DESC
                 LIMIT ?
-            """, (metadata.config_hash, metadata.debate_id, limit))
+            """,
+                (metadata.config_hash, metadata.debate_id, limit),
+            )
 
             results = []
             for row in cursor.fetchall():
@@ -356,12 +362,15 @@ class MetadataStore(SQLiteStore):
         with self.connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT metadata_json FROM debate_metadata
                 WHERE task_hash = ?
                 ORDER BY created_at DESC
                 LIMIT ?
-            """, (task_hash, limit))
+            """,
+                (task_hash, limit),
+            )
 
             results = []
             for row in cursor.fetchall():

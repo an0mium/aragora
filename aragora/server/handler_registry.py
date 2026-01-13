@@ -97,6 +97,7 @@ try:
         FormalVerificationHandler,
         HandlerResult,
     )
+
     HANDLERS_AVAILABLE = True
 except ImportError:
     HANDLERS_AVAILABLE = False
@@ -238,9 +239,14 @@ class RouteIndex:
         # Known prefix patterns by handler (extracted from can_handle implementations)
         PREFIX_PATTERNS = {
             "_debates_handler": ["/api/debates/", "/api/search"],
-            "_agents_handler": ["/api/agent/", "/api/agents", "/api/leaderboard",
-                               "/api/rankings", "/api/calibration/leaderboard",
-                               "/api/matches/recent"],
+            "_agents_handler": [
+                "/api/agent/",
+                "/api/agents",
+                "/api/leaderboard",
+                "/api/rankings",
+                "/api/calibration/leaderboard",
+                "/api/matches/recent",
+            ],
             "_pulse_handler": ["/api/pulse/"],
             "_consensus_handler": ["/api/consensus/"],
             "_belief_handler": ["/api/belief-network/", "/api/laboratory/"],
@@ -280,7 +286,7 @@ class RouteIndex:
                 continue
 
             # Extract exact routes from ROUTES attribute
-            routes = getattr(handler, 'ROUTES', [])
+            routes = getattr(handler, "ROUTES", [])
             for path in routes:
                 if path not in self._exact_routes:
                     self._exact_routes[path] = (attr_name, handler)
@@ -462,20 +468,20 @@ class HandlerRegistryMixin:
 
         # Build server context for handlers
         nomic_dir = None
-        if hasattr(cls, 'nomic_state_file') and cls.nomic_state_file:
+        if hasattr(cls, "nomic_state_file") and cls.nomic_state_file:
             nomic_dir = cls.nomic_state_file.parent
 
         ctx = {
-            "storage": getattr(cls, 'storage', None),
-            "stream_emitter": getattr(cls, 'stream_emitter', None),
-            "elo_system": getattr(cls, 'elo_system', None),
+            "storage": getattr(cls, "storage", None),
+            "stream_emitter": getattr(cls, "stream_emitter", None),
+            "elo_system": getattr(cls, "elo_system", None),
             "nomic_dir": nomic_dir,
-            "debate_embeddings": getattr(cls, 'debate_embeddings', None),
-            "critique_store": getattr(cls, 'critique_store', None),
-            "document_store": getattr(cls, 'document_store', None),
-            "persona_manager": getattr(cls, 'persona_manager', None),
-            "position_ledger": getattr(cls, 'position_ledger', None),
-            "user_store": getattr(cls, 'user_store', None),
+            "debate_embeddings": getattr(cls, "debate_embeddings", None),
+            "critique_store": getattr(cls, "critique_store", None),
+            "document_store": getattr(cls, "document_store", None),
+            "persona_manager": getattr(cls, "persona_manager", None),
+            "position_ledger": getattr(cls, "position_ledger", None),
+            "user_store": getattr(cls, "user_store", None),
         }
 
         # Initialize all handlers from registry
@@ -499,10 +505,10 @@ class HandlerRegistryMixin:
         from aragora.config import DB_PERSONAS_PATH
 
         resources = {
-            "storage": getattr(cls, 'storage', None) is not None,
-            "elo_system": getattr(cls, 'elo_system', None) is not None,
-            "debate_embeddings": getattr(cls, 'debate_embeddings', None) is not None,
-            "document_store": getattr(cls, 'document_store', None) is not None,
+            "storage": getattr(cls, "storage", None) is not None,
+            "elo_system": getattr(cls, "elo_system", None) is not None,
+            "debate_embeddings": getattr(cls, "debate_embeddings", None) is not None,
+            "document_store": getattr(cls, "document_store", None) is not None,
             "nomic_dir": nomic_dir is not None,
         }
 
@@ -545,7 +551,7 @@ class HandlerRegistryMixin:
 
         # Extract API version from path/headers
         request_headers = {}
-        if hasattr(self, 'headers'):
+        if hasattr(self, "headers"):
             request_headers = {k: v for k, v in self.headers.items()}
         api_version, is_legacy = extract_version(path, request_headers)
 
@@ -553,10 +559,12 @@ class HandlerRegistryMixin:
         normalized_path = strip_version_prefix(path)
 
         # Convert query params from {key: [val]} to {key: val}
-        query_dict = {k: v[0] if isinstance(v, list) and len(v) == 1 else v for k, v in query.items()}
+        query_dict = {
+            k: v[0] if isinstance(v, list) and len(v) == 1 else v for k, v in query.items()
+        }
 
         # Determine HTTP method for routing
-        method = getattr(self, 'command', 'GET')
+        method = getattr(self, "command", "GET")
 
         # O(1) route lookup via index (uses both original and normalized paths)
         route_index = get_route_index()
@@ -585,13 +593,13 @@ class HandlerRegistryMixin:
             dispatch_path = normalized_path
 
             # Dispatch to appropriate handler method based on HTTP method
-            if method == 'POST' and hasattr(handler, 'handle_post'):
+            if method == "POST" and hasattr(handler, "handle_post"):
                 result = handler.handle_post(dispatch_path, query_dict, self)
-            elif method == 'DELETE' and hasattr(handler, 'handle_delete'):
+            elif method == "DELETE" and hasattr(handler, "handle_delete"):
                 result = handler.handle_delete(dispatch_path, query_dict, self)
-            elif method == 'PATCH' and hasattr(handler, 'handle_patch'):
+            elif method == "PATCH" and hasattr(handler, "handle_patch"):
                 result = handler.handle_patch(dispatch_path, query_dict, self)
-            elif method == 'PUT' and hasattr(handler, 'handle_put'):
+            elif method == "PUT" and hasattr(handler, "handle_put"):
                 result = handler.handle_put(dispatch_path, query_dict, self)
             else:
                 result = handler.handle(dispatch_path, query_dict, self)
@@ -607,7 +615,7 @@ class HandlerRegistryMixin:
 
             if result:
                 self.send_response(result.status_code)
-                self.send_header('Content-Type', result.content_type)
+                self.send_header("Content-Type", result.content_type)
 
                 # Add API version headers
                 version_headers = version_response_headers(api_version, is_legacy)

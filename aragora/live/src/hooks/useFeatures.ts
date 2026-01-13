@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { API_BASE_URL } from '@/config';
 
 /**
  * Feature information from the backend feature registry
@@ -47,7 +48,7 @@ interface UseFeaturesState {
  * const pulseInfo = features?.features?.pulse;
  */
 export function useFeatures(
-  apiBase: string = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai'
+  apiBase: string = API_BASE_URL
 ) {
   const [state, setState] = useState<UseFeaturesState>({
     features: null,

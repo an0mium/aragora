@@ -72,14 +72,16 @@ class CalibrationHandler(BaseHandler):
 
         # Handle leaderboard endpoint
         if path == "/api/calibration/leaderboard":
-            limit = get_clamped_int_param(query_params, 'limit', 20, min_val=1, max_val=100)
-            metric = get_string_param(query_params, 'metric') or 'brier'
-            min_predictions = get_clamped_int_param(query_params, 'min_predictions', 5, min_val=1, max_val=1000)
+            limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
+            metric = get_string_param(query_params, "metric") or "brier"
+            min_predictions = get_clamped_int_param(
+                query_params, "min_predictions", 5, min_val=1, max_val=1000
+            )
             return self._get_calibration_leaderboard(limit, metric, min_predictions)
 
         # Handle visualization endpoint
         if path == "/api/calibration/visualization":
-            limit = get_clamped_int_param(query_params, 'limit', 5, min_val=1, max_val=10)
+            limit = get_clamped_int_param(query_params, "limit", 5, min_val=1, max_val=10)
             return self._get_calibration_visualization(limit)
 
         if not path.startswith("/api/agent/"):
@@ -91,11 +93,11 @@ class CalibrationHandler(BaseHandler):
             return err
 
         if path.endswith("/calibration-curve"):
-            buckets = get_clamped_int_param(query_params, 'buckets', 10, min_val=5, max_val=20)
-            domain = get_string_param(query_params, 'domain')
+            buckets = get_clamped_int_param(query_params, "buckets", 10, min_val=5, max_val=20)
+            domain = get_string_param(query_params, "domain")
             return self._get_calibration_curve(agent, buckets, domain)
         elif path.endswith("/calibration-summary"):
-            domain = get_string_param(query_params, 'domain')
+            domain = get_string_param(query_params, "domain")
             return self._get_calibration_summary(agent, domain)
 
         return None
@@ -110,28 +112,28 @@ class CalibrationHandler(BaseHandler):
 
         tracker = CalibrationTracker()
         curve = tracker.get_calibration_curve(agent, num_buckets=buckets, domain=domain)
-        return json_response({
-            "agent": agent,
-            "domain": domain,
-            "buckets": [
-                {
-                    "range_start": b.range_start,
-                    "range_end": b.range_end,
-                    "total_predictions": b.total_predictions,
-                    "correct_predictions": b.correct_predictions,
-                    "accuracy": b.accuracy,
-                    "expected_accuracy": (b.range_start + b.range_end) / 2,
-                    "brier_score": b.brier_score,
-                }
-                for b in curve
-            ],
-            "count": len(curve),
-        })
+        return json_response(
+            {
+                "agent": agent,
+                "domain": domain,
+                "buckets": [
+                    {
+                        "range_start": b.range_start,
+                        "range_end": b.range_end,
+                        "total_predictions": b.total_predictions,
+                        "correct_predictions": b.correct_predictions,
+                        "accuracy": b.accuracy,
+                        "expected_accuracy": (b.range_start + b.range_end) / 2,
+                        "brier_score": b.brier_score,
+                    }
+                    for b in curve
+                ],
+                "count": len(curve),
+            }
+        )
 
     @handle_errors("calibration summary retrieval")
-    def _get_calibration_summary(
-        self, agent: str, domain: Optional[str]
-    ) -> HandlerResult:
+    def _get_calibration_summary(self, agent: str, domain: Optional[str]) -> HandlerResult:
         """Get comprehensive calibration summary for an agent."""
         if not CALIBRATION_AVAILABLE or not CalibrationTracker:
             return error_response("Calibration tracker not available", 503)
@@ -139,17 +141,19 @@ class CalibrationHandler(BaseHandler):
         tracker = CalibrationTracker()
         summary = tracker.get_calibration_summary(agent, domain=domain)
 
-        return json_response({
-            "agent": summary.agent,
-            "domain": domain,
-            "total_predictions": summary.total_predictions,
-            "total_correct": summary.total_correct,
-            "accuracy": summary.accuracy,
-            "brier_score": summary.brier_score,
-            "ece": summary.ece,
-            "is_overconfident": summary.is_overconfident,
-            "is_underconfident": summary.is_underconfident,
-        })
+        return json_response(
+            {
+                "agent": summary.agent,
+                "domain": domain,
+                "total_predictions": summary.total_predictions,
+                "total_correct": summary.total_correct,
+                "accuracy": summary.accuracy,
+                "brier_score": summary.brier_score,
+                "ece": summary.ece,
+                "is_overconfident": summary.is_overconfident,
+                "is_underconfident": summary.is_underconfident,
+            }
+        )
 
     @handle_errors("calibration leaderboard retrieval")
     def _get_calibration_leaderboard(
@@ -187,16 +191,20 @@ class CalibrationHandler(BaseHandler):
                 if rating.calibration_total < min_predictions:
                     continue
 
-                calibration_entries.append({
-                    "agent": agent_name,
-                    "calibration_score": rating.calibration_score,
-                    "brier_score": rating.calibration_brier_score,
-                    "accuracy": rating.calibration_accuracy,
-                    "ece": 1.0 - rating.calibration_score if rating.calibration_score > 0 else 1.0,
-                    "predictions_count": rating.calibration_total,
-                    "correct_count": rating.calibration_correct,
-                    "elo": rating.elo,
-                })
+                calibration_entries.append(
+                    {
+                        "agent": agent_name,
+                        "calibration_score": rating.calibration_score,
+                        "brier_score": rating.calibration_brier_score,
+                        "accuracy": rating.calibration_accuracy,
+                        "ece": (
+                            1.0 - rating.calibration_score if rating.calibration_score > 0 else 1.0
+                        ),
+                        "predictions_count": rating.calibration_total,
+                        "correct_count": rating.calibration_correct,
+                        "elo": rating.elo,
+                    }
+                )
             except Exception as e:
                 logger.debug(f"Skipping agent {agent_name}: {e}")
                 continue
@@ -218,12 +226,14 @@ class CalibrationHandler(BaseHandler):
         # Limit results
         calibration_entries = calibration_entries[:limit]
 
-        return json_response({
-            "metric": metric,
-            "min_predictions": min_predictions,
-            "agents": calibration_entries,
-            "count": len(calibration_entries),
-        })
+        return json_response(
+            {
+                "metric": metric,
+                "min_predictions": min_predictions,
+                "agents": calibration_entries,
+                "count": len(calibration_entries),
+            }
+        )
 
     @handle_errors("calibration visualization retrieval")
     def _get_calibration_visualization(self, limit: int) -> HandlerResult:
@@ -275,10 +285,12 @@ class CalibrationHandler(BaseHandler):
                 try:
                     summary = tracker.get_calibration_summary(agent)
                     if summary and summary.total_predictions >= 5:
-                        agent_summaries.append({
-                            "agent": agent,
-                            "summary": summary,
-                        })
+                        agent_summaries.append(
+                            {
+                                "agent": agent,
+                                "summary": summary,
+                            }
+                        )
                 except Exception as e:
                     logger.debug(f"Error getting summary for {agent}: {e}")
                     continue
@@ -302,10 +314,7 @@ class CalibrationHandler(BaseHandler):
                                 }
                                 for b in curve
                             ],
-                            "perfect_line": [
-                                {"x": i / 10, "y": i / 10}
-                                for i in range(11)
-                            ],
+                            "perfect_line": [{"x": i / 10, "y": i / 10} for i in range(11)],
                         }
                 except Exception as e:
                     logger.debug(f"Error getting curve for {agent}: {e}")
@@ -314,15 +323,17 @@ class CalibrationHandler(BaseHandler):
             for entry in agent_summaries:
                 agent = entry["agent"]
                 summary = entry["summary"]
-                result["scatter_data"].append({
-                    "agent": agent,
-                    "accuracy": summary.accuracy,
-                    "brier_score": summary.brier_score,
-                    "ece": summary.ece,
-                    "predictions": summary.total_predictions,
-                    "is_overconfident": summary.is_overconfident,
-                    "is_underconfident": summary.is_underconfident,
-                })
+                result["scatter_data"].append(
+                    {
+                        "agent": agent,
+                        "accuracy": summary.accuracy,
+                        "brier_score": summary.brier_score,
+                        "ece": summary.ece,
+                        "predictions": summary.total_predictions,
+                        "is_overconfident": summary.is_overconfident,
+                        "is_underconfident": summary.is_underconfident,
+                    }
+                )
 
             # 3. Confidence distribution histogram (aggregate)
             confidence_buckets = {i: 0 for i in range(10)}

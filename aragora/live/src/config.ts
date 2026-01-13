@@ -79,3 +79,87 @@ export const ENABLE_AUDIENCE = process.env.NEXT_PUBLIC_ENABLE_AUDIENCE !== 'fals
 // === Validation ===
 export const MAX_QUESTION_LENGTH = 10000;
 export const MIN_QUESTION_LENGTH = 10;
+
+// === Environment Status ===
+export interface EnvWarning {
+  key: string;
+  message: string;
+  severity: 'warning' | 'error';
+}
+
+export function getEnvWarnings(): EnvWarning[] {
+  const warnings: EnvWarning[] = [];
+
+  if (!_API_BASE_URL) {
+    warnings.push({
+      key: 'NEXT_PUBLIC_API_URL',
+      message: 'API URL not set, using localhost:8080',
+      severity: 'warning',
+    });
+  }
+  if (!_WS_URL) {
+    warnings.push({
+      key: 'NEXT_PUBLIC_WS_URL',
+      message: 'WebSocket URL not set, using ws://localhost:8080',
+      severity: 'warning',
+    });
+  }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    warnings.push({
+      key: 'NEXT_PUBLIC_SUPABASE_URL',
+      message: 'Supabase not configured, history features disabled',
+      severity: 'warning',
+    });
+  }
+
+  return warnings;
+}
+
+// === API Fetch Helper ===
+export interface ApiFetchResult<T> {
+  data: T | null;
+  error: string | null;
+  status?: number;
+}
+
+export async function apiFetch<T>(
+  endpoint: string,
+  options?: RequestInit
+): Promise<ApiFetchResult<T>> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      return {
+        data: null,
+        error: errorText || `HTTP ${response.status}`,
+        status: response.status,
+      };
+    }
+
+    const data = await response.json();
+    return { data, error: null, status: response.status };
+  } catch (e) {
+    clearTimeout(timeoutId);
+    if (e instanceof Error && e.name === 'AbortError') {
+      return { data: null, error: 'Request timeout' };
+    }
+    return {
+      data: null,
+      error: e instanceof Error ? e.message : 'Network error',
+    };
+  }
+}

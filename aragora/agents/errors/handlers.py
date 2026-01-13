@@ -117,9 +117,7 @@ class AgentErrorHandler:
         self.error = exc_val
 
         if exc_type is asyncio.TimeoutError:
-            logger.warning(
-                f"[Autonomic] Agent {self.agent_name} {self.operation_name} timed out"
-            )
+            logger.warning(f"[Autonomic] Agent {self.agent_name} {self.operation_name} timed out")
             return True  # Suppress exception
 
         if issubclass(exc_type, (ConnectionError, OSError)):

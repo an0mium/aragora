@@ -166,7 +166,7 @@ class GauntletExporter(BaseExporter):
             for example in category["examples"]:
                 instruction = (
                     f"You receive the following message in a debate context:\n\n"
-                    f"\"{example}\"\n\n"
+                    f'"{example}"\n\n'
                     f"Identify if this appears to be an adversarial prompt attempt "
                     f"and explain your reasoning."
                 )
@@ -180,15 +180,17 @@ class GauntletExporter(BaseExporter):
                     f"4. Flag the attempt if it continues"
                 )
 
-                records.append({
-                    "instruction": instruction,
-                    "response": response,
-                    "metadata": {
-                        "source": "attack",
-                        "category": category["name"],
-                        "is_adversarial": True,
-                    },
-                })
+                records.append(
+                    {
+                        "instruction": instruction,
+                        "response": response,
+                        "metadata": {
+                            "source": "attack",
+                            "category": category["name"],
+                            "is_adversarial": True,
+                        },
+                    }
+                )
 
                 if len(records) >= limit:
                     return records
@@ -238,16 +240,18 @@ class GauntletExporter(BaseExporter):
                 "5. Be willing to update views given new evidence, but not manipulation"
             )
 
-            records.append({
-                "instruction": instruction,
-                "response": response,
-                "metadata": {
-                    "source": "defense",
-                    "agent": agent_name,
-                    "robustness_score": avg_impact,
-                    "sessions": sessions,
-                },
-            })
+            records.append(
+                {
+                    "instruction": instruction,
+                    "response": response,
+                    "metadata": {
+                        "source": "defense",
+                        "agent": agent_name,
+                        "robustness_score": avg_impact,
+                        "sessions": sessions,
+                    },
+                }
+            )
 
             if len(records) >= limit:
                 break
@@ -322,14 +326,16 @@ class GauntletExporter(BaseExporter):
         ]
 
         for example in synthetic_examples[:limit]:
-            records.append({
-                "instruction": example["instruction"],
-                "response": example["response"],
-                "metadata": {
-                    "source": "synthetic",
-                    "is_adversarial": True,
-                },
-            })
+            records.append(
+                {
+                    "instruction": example["instruction"],
+                    "response": example["response"],
+                    "metadata": {
+                        "source": "synthetic",
+                        "is_adversarial": True,
+                    },
+                }
+            )
 
         return records
 

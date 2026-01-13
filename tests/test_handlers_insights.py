@@ -21,6 +21,7 @@ from aragora.server.handlers.insights import InsightsHandler
 
 class MockInsightType(Enum):
     """Mock insight type enum."""
+
     PATTERN = "pattern"
     CLAIM = "claim"
     EVIDENCE = "evidence"
@@ -29,6 +30,7 @@ class MockInsightType(Enum):
 @dataclass
 class MockInsight:
     """Mock insight for testing."""
+
     id: str
     type: MockInsightType
     title: str
@@ -58,26 +60,28 @@ def insights_handler():
 @pytest.fixture
 def handler_with_store():
     """Create handler with mock insight store."""
-    store = MockInsightStore([
-        MockInsight(
-            id="insight-001",
-            type=MockInsightType.PATTERN,
-            title="Consensus Pattern",
-            description="Agents reached agreement via negotiation",
-            confidence=0.85,
-            agents_involved=["claude", "gpt"],
-            evidence=["evidence 1", "evidence 2", "evidence 3", "evidence 4"],
-        ),
-        MockInsight(
-            id="insight-002",
-            type=MockInsightType.CLAIM,
-            title="Key Claim",
-            description="Main argument about efficiency",
-            confidence=0.72,
-            agents_involved=["claude"],
-            evidence=["single evidence"],
-        ),
-    ])
+    store = MockInsightStore(
+        [
+            MockInsight(
+                id="insight-001",
+                type=MockInsightType.PATTERN,
+                title="Consensus Pattern",
+                description="Agents reached agreement via negotiation",
+                confidence=0.85,
+                agents_involved=["claude", "gpt"],
+                evidence=["evidence 1", "evidence 2", "evidence 3", "evidence 4"],
+            ),
+            MockInsight(
+                id="insight-002",
+                type=MockInsightType.CLAIM,
+                title="Key Claim",
+                description="Main argument about efficiency",
+                confidence=0.72,
+                agents_involved=["claude"],
+                evidence=["single evidence"],
+            ),
+        ]
+    )
     return InsightsHandler({"insight_store": store})
 
 
@@ -159,9 +163,7 @@ class TestRecentInsights:
 
     def test_get_recent_insights_no_store(self, insights_handler):
         """Should return error when no insight store configured."""
-        result = insights_handler.handle_get(
-            "/api/insights/recent", {}, None, {}
-        )
+        result = insights_handler.handle_get("/api/insights/recent", {}, None, {})
 
         assert result is not None
         data = json.loads(result.body)
@@ -175,14 +177,12 @@ class TestExtractDetailedInsights:
     def test_extract_insights_success(self, insights_handler):
         """Should extract insights from content."""
         mock_handler = Mock()
-        mock_handler.rfile.read.return_value = json.dumps({
-            "content": "Therefore, we should implement caching because it improves performance."
-        }).encode()
+        mock_handler.rfile.read.return_value = json.dumps(
+            {"content": "Therefore, we should implement caching because it improves performance."}
+        ).encode()
         mock_handler.headers = {"Content-Length": "100"}
 
-        result = insights_handler.handle_post(
-            "/api/insights/extract-detailed", {}, mock_handler
-        )
+        result = insights_handler.handle_post("/api/insights/extract-detailed", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -197,9 +197,7 @@ class TestExtractDetailedInsights:
         mock_handler.rfile.read.return_value = json.dumps({}).encode()
         mock_handler.headers = {"Content-Length": "2"}
 
-        result = insights_handler.handle_post(
-            "/api/insights/extract-detailed", {}, mock_handler
-        )
+        result = insights_handler.handle_post("/api/insights/extract-detailed", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -210,9 +208,7 @@ class TestExtractDetailedInsights:
         mock_handler.rfile.read.return_value = b"not json"
         mock_handler.headers = {"Content-Length": "8"}
 
-        result = insights_handler.handle_post(
-            "/api/insights/extract-detailed", {}, mock_handler
-        )
+        result = insights_handler.handle_post("/api/insights/extract-detailed", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -371,15 +367,15 @@ class TestIntegration:
         """
 
         mock_handler = Mock()
-        mock_handler.rfile.read.return_value = json.dumps({
-            "content": content,
-            "debate_id": "test-debate-001",
-        }).encode()
+        mock_handler.rfile.read.return_value = json.dumps(
+            {
+                "content": content,
+                "debate_id": "test-debate-001",
+            }
+        ).encode()
         mock_handler.headers = {"Content-Length": str(len(content) + 50)}
 
-        result = insights_handler.handle_post(
-            "/api/insights/extract-detailed", {}, mock_handler
-        )
+        result = insights_handler.handle_post("/api/insights/extract-detailed", {}, mock_handler)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -394,17 +390,17 @@ class TestIntegration:
         content = "Therefore, we should do this because it works."
 
         mock_handler = Mock()
-        mock_handler.rfile.read.return_value = json.dumps({
-            "content": content,
-            "extract_claims": True,
-            "extract_evidence": False,
-            "extract_patterns": False,
-        }).encode()
+        mock_handler.rfile.read.return_value = json.dumps(
+            {
+                "content": content,
+                "extract_claims": True,
+                "extract_evidence": False,
+                "extract_patterns": False,
+            }
+        ).encode()
         mock_handler.headers = {"Content-Length": "200"}
 
-        result = insights_handler.handle_post(
-            "/api/insights/extract-detailed", {}, mock_handler
-        )
+        result = insights_handler.handle_post("/api/insights/extract-detailed", {}, mock_handler)
 
         data = json.loads(result.body)
         assert "claims" in data

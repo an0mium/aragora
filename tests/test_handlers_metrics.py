@@ -314,7 +314,7 @@ class TestSystemEndpoint:
             assert isinstance(data["memory"]["rss_mb"], (int, float))
             assert isinstance(data["memory"]["vms_mb"], (int, float))
 
-    @patch.dict('sys.modules', {'psutil': None})
+    @patch.dict("sys.modules", {"psutil": None})
     def test_handles_missing_psutil(self, handler):
         """Gracefully handles missing psutil."""
         # This test verifies the fallback behavior exists
@@ -348,7 +348,7 @@ class TestPrometheusEndpoint:
         # Should contain some metric-like content
         assert len(body) > 0
 
-    @patch('aragora.server.handlers.metrics.get_metrics_output')
+    @patch("aragora.server.handlers.metrics.get_metrics_output")
     def test_handles_prometheus_error(self, mock_output, handler):
         """Handles errors during Prometheus generation."""
         mock_output.side_effect = Exception("Prometheus error")

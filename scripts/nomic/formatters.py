@@ -101,9 +101,7 @@ class ContextFormatter:
             return ""
 
         try:
-            patterns = self.deps.critique_store.retrieve_patterns(
-                min_success=2, limit=limit
-            )
+            patterns = self.deps.critique_store.retrieve_patterns(min_success=2, limit=limit)
             if not patterns:
                 return ""
 
@@ -161,9 +159,7 @@ class ContextFormatter:
                 success_rate = success_count / total if total > 0 else 0
                 if success_rate < 0.5:  # Only show patterns with <50% success
                     lines.append(f"- **{issue_type}**: {issue_text}")
-                    lines.append(
-                        f"  ({fail_count} failures, {success_rate:.0%} success rate)"
-                    )
+                    lines.append(f"  ({fail_count} failures, {success_rate:.0%} success rate)")
 
             return "\n".join(lines) if len(lines) > 2 else ""
         except Exception:
@@ -188,12 +184,10 @@ class ContextFormatter:
                 return ""
 
             # Filter to successful patterns and sort by importance
-            successful = [
-                m for m in memories if m.get("metadata", {}).get("success", False)
+            successful = [m for m in memories if m.get("metadata", {}).get("success", False)]
+            successful = sorted(successful, key=lambda x: x.get("importance", 0), reverse=True)[
+                :limit
             ]
-            successful = sorted(
-                successful, key=lambda x: x.get("importance", 0), reverse=True
-            )[:limit]
 
             if not successful:
                 return ""
@@ -221,9 +215,7 @@ class ContextFormatter:
 
         try:
             # Find similar past debates
-            similar = self.deps.consensus_memory.find_similar_debates(
-                topic, limit=limit
-            )
+            similar = self.deps.consensus_memory.find_similar_debates(topic, limit=limit)
             if not similar:
                 return ""
 
@@ -231,17 +223,13 @@ class ContextFormatter:
             lines.append("Previous debates on similar topics:\n")
 
             for s in similar:
-                strength = (
-                    s.consensus.strength.value if s.consensus.strength else "unknown"
-                )
+                strength = s.consensus.strength.value if s.consensus.strength else "unknown"
                 lines.append(
                     f"- **{s.consensus.topic}** ({strength}, {s.similarity_score:.0%} similar)"
                 )
                 lines.append(f"  Decision: {s.consensus.conclusion}")
                 if s.dissents:
-                    lines.append(
-                        f"  ⚠️ {len(s.dissents)} dissenting view(s) - consider addressing"
-                    )
+                    lines.append(f"  ⚠️ {len(s.dissents)} dissenting view(s) - consider addressing")
 
             # Add unaddressed dissents if retriever available
             if self.deps.dissent_retriever:
@@ -252,9 +240,7 @@ class ContextFormatter:
                         lines.append(f"- [{d['dissent_type']}] {d['content']}")
 
                 # Add contrarian views
-                contrarian = self.deps.dissent_retriever.find_contrarian_views(
-                    topic, limit=3
-                )
+                contrarian = self.deps.dissent_retriever.find_contrarian_views(topic, limit=3)
                 if contrarian:
                     lines.append("\n### Contrarian Perspectives (Devil's Advocate)")
                     for c in contrarian:
@@ -293,10 +279,7 @@ class ContextFormatter:
 
     def format_relationship_network(self, limit: int = 3) -> str:
         """Format agent relationship dynamics for debate context."""
-        if (
-            not self.deps.relationship_tracker
-            or not self.deps.grounded_personas_available
-        ):
+        if not self.deps.relationship_tracker or not self.deps.grounded_personas_available:
             return ""
 
         try:
@@ -309,13 +292,9 @@ class ContextFormatter:
                 influence_scores = []
                 for agent in agents:
                     try:
-                        network = self.deps.relationship_tracker.get_influence_network(
-                            agent
-                        )
+                        network = self.deps.relationship_tracker.get_influence_network(agent)
                         if network and network.get("influences"):
-                            total_influence = sum(
-                                score for _, score in network["influences"]
-                            )
+                            total_influence = sum(score for _, score in network["influences"])
                             influence_scores.append((agent, total_influence))
                     except Exception:
                         continue
@@ -338,9 +317,7 @@ class ContextFormatter:
                         dynamics_found = True
                         rival_names = [r[0] for r in rivals] if rivals else []
                         ally_names = [a[0] for a in allies] if allies else []
-                        lines.append(
-                            f"- {agent}: rivals={rival_names}, allies={ally_names}"
-                        )
+                        lines.append(f"- {agent}: rivals={rival_names}, allies={ally_names}")
 
             return "\n".join(lines) if len(lines) > 1 and dynamics_found else ""
         except Exception as e:
@@ -358,17 +335,13 @@ class ContextFormatter:
 
             for agent_name in ["gemini", "claude", "codex", "grok"]:
                 if hasattr(self.deps.elo_system, "get_expected_calibration_error"):
-                    ece = self.deps.elo_system.get_expected_calibration_error(
-                        agent_name
-                    )
+                    ece = self.deps.elo_system.get_expected_calibration_error(agent_name)
                     if ece and ece > 0.2:  # Poorly calibrated
                         flagged.append((agent_name, ece))
                         lines.append(
                             f"- WARNING: {agent_name} has high calibration error ({ece:.2f})"
                         )
-                        lines.append(
-                            "  Consider weighing their opinions lower on uncertain topics"
-                        )
+                        lines.append("  Consider weighing their opinions lower on uncertain topics")
 
             if flagged:
                 self._log(f"  [calibration] Flagged {len(flagged)} poorly calibrated agents")
@@ -378,9 +351,7 @@ class ContextFormatter:
             self._log(f"  [calibration] Audit error: {e}")
             return ""
 
-    def format_agent_memories(
-        self, agent_name: str, task: str, limit: int = 3
-    ) -> str:
+    def format_agent_memories(self, agent_name: str, task: str, limit: int = 3) -> str:
         """Format agent-specific memories relevant to current task."""
         if not self.deps.memory_stream:
             return ""
@@ -402,9 +373,7 @@ class ContextFormatter:
         except Exception:
             return ""
 
-    def format_position_history(
-        self, agent_name: str, topic: str, limit: int = 5
-    ) -> str:
+    def format_position_history(self, agent_name: str, topic: str, limit: int = 5) -> str:
         """Format agent's position history on similar topics."""
         if not self.deps.position_tracker:
             return ""

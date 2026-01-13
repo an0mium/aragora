@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Pattern for valid document IDs (alphanumeric, hyphens, underscores only)
-VALID_DOC_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+VALID_DOC_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 def _validate_doc_id(doc_id: str) -> bool:
@@ -75,9 +75,11 @@ def _safe_path(storage_dir: Path, doc_id: str) -> Optional[Path]:
 
     return doc_path
 
+
 # Optional PDF support
 try:
     from pypdf import PdfReader
+
     PDF_AVAILABLE = True
 except ImportError:
     PDF_AVAILABLE = False
@@ -86,6 +88,7 @@ except ImportError:
 # Optional DOCX support
 try:
     from docx import Document as DocxDocument
+
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
@@ -95,6 +98,7 @@ except ImportError:
 @dataclass
 class ParsedDocument:
     """A parsed document with extracted text."""
+
     id: str
     filename: str
     content_type: str
@@ -143,6 +147,7 @@ def parse_pdf(content: bytes, filename: str) -> ParsedDocument:
         raise ImportError("pypdf is required for PDF parsing. Install with: pip install pypdf")
 
     import io
+
     reader = PdfReader(io.BytesIO(content))
 
     text_parts = []
@@ -165,9 +170,12 @@ def parse_pdf(content: bytes, filename: str) -> ParsedDocument:
 def parse_docx(content: bytes, filename: str) -> ParsedDocument:
     """Parse a Word document and extract text."""
     if not DOCX_AVAILABLE:
-        raise ImportError("python-docx is required for DOCX parsing. Install with: pip install python-docx")
+        raise ImportError(
+            "python-docx is required for DOCX parsing. Install with: pip install python-docx"
+        )
 
     import io
+
     doc = DocxDocument(io.BytesIO(content))
 
     text_parts = []
@@ -309,12 +317,14 @@ class DocumentStore:
             try:
                 with open(doc_path) as f:
                     data = json.load(f)
-                docs.append({
-                    "id": data["id"],
-                    "filename": data["filename"],
-                    "word_count": data.get("word_count", 0),
-                    "preview": data.get("preview", "")[:100],
-                })
+                docs.append(
+                    {
+                        "id": data["id"],
+                        "filename": data["filename"],
+                        "word_count": data.get("word_count", 0),
+                        "preview": data.get("preview", "")[:100],
+                    }
+                )
             except json.JSONDecodeError as e:
                 logger.warning(f"Corrupted document file {doc_path}: {e}")
                 continue
@@ -366,12 +376,17 @@ class DocumentStore:
 # Supported file extensions
 SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".markdown"}
 
+
 def get_supported_formats() -> dict:
     """Get information about supported document formats."""
     return {
         "formats": [
             {"ext": ".pdf", "mime": "application/pdf", "available": PDF_AVAILABLE},
-            {"ext": ".docx", "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "available": DOCX_AVAILABLE},
+            {
+                "ext": ".docx",
+                "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "available": DOCX_AVAILABLE,
+            },
             {"ext": ".txt", "mime": "text/plain", "available": True},
             {"ext": ".md", "mime": "text/markdown", "available": True},
         ],

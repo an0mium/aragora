@@ -45,12 +45,14 @@ MAX_WEBHOOK_URL_LENGTH = 2048
 MAX_WEBHOOK_HEADER_COUNT = 20
 MAX_WEBHOOK_HEADER_SIZE = 1024
 BLOCKED_WEBHOOK_SUFFIXES = (".internal", ".local", ".localhost", ".lan")
-BLOCKED_METADATA_HOSTNAMES = frozenset([
-    "169.254.169.254",
-    "metadata.google.internal",
-    "metadata.goog",
-    "instance-data",
-])
+BLOCKED_METADATA_HOSTNAMES = frozenset(
+    [
+        "169.254.169.254",
+        "metadata.google.internal",
+        "metadata.goog",
+        "instance-data",
+    ]
+)
 
 
 def validate_webhook_url(url: str) -> tuple[bool, str]:
@@ -76,13 +78,24 @@ def validate_webhook_url(url: str) -> tuple[bool, str]:
     if hostname.endswith(BLOCKED_WEBHOOK_SUFFIXES):
         return False, "webhook_url uses an internal hostname"
 
-    allow_localhost = os.environ.get("ARAGORA_WEBHOOK_ALLOW_LOCALHOST", "").lower() in ("1", "true", "yes")
+    allow_localhost = os.environ.get("ARAGORA_WEBHOOK_ALLOW_LOCALHOST", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
     if allow_localhost and hostname in ("localhost", "127.0.0.1", "::1"):
         return True, ""
 
     try:
         ip_obj = ipaddress.ip_address(hostname)
-        if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_reserved or ip_obj.is_multicast or ip_obj.is_unspecified:
+        if (
+            ip_obj.is_private
+            or ip_obj.is_loopback
+            or ip_obj.is_link_local
+            or ip_obj.is_reserved
+            or ip_obj.is_multicast
+            or ip_obj.is_unspecified
+        ):
             return False, "webhook_url resolves to a private or local address"
         return True, ""
     except ValueError:
@@ -99,13 +112,22 @@ def validate_webhook_url(url: str) -> tuple[bool, str]:
             ip_obj = ipaddress.ip_address(ip_str)
         except ValueError:
             continue
-        if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_reserved or ip_obj.is_multicast or ip_obj.is_unspecified:
+        if (
+            ip_obj.is_private
+            or ip_obj.is_loopback
+            or ip_obj.is_link_local
+            or ip_obj.is_reserved
+            or ip_obj.is_multicast
+            or ip_obj.is_unspecified
+        ):
             return False, "webhook_url resolves to a private or local address"
 
     return True, ""
 
 
-def sanitize_webhook_headers(headers: Optional[Dict[str, Any]]) -> tuple[Dict[str, str], Optional[str]]:
+def sanitize_webhook_headers(
+    headers: Optional[Dict[str, Any]],
+) -> tuple[Dict[str, str], Optional[str]]:
     """Validate and sanitize webhook headers."""
     if headers is None:
         return {}, None
@@ -129,6 +151,7 @@ def sanitize_webhook_headers(headers: Optional[Dict[str, Any]]) -> tuple[Dict[st
 
 class BatchStatus(str, Enum):
     """Status of a batch request."""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -139,6 +162,7 @@ class BatchStatus(str, Enum):
 
 class ItemStatus(str, Enum):
     """Status of an individual batch item."""
+
     QUEUED = "queued"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -149,6 +173,7 @@ class ItemStatus(str, Enum):
 @dataclass
 class BatchItem:
     """A single debate request within a batch."""
+
     question: str
     agents: str = "anthropic-api,openai-api,gemini"
     rounds: int = 3
@@ -236,6 +261,7 @@ class BatchItem:
 @dataclass
 class BatchRequest:
     """A batch of debate requests to process."""
+
     items: List[BatchItem]
     webhook_url: Optional[str] = None  # Called when batch completes
     webhook_headers: Dict[str, str] = field(default_factory=dict)
@@ -263,7 +289,9 @@ class BatchRequest:
             "failed": failed,
             "running": running,
             "queued": queued,
-            "progress_percent": round(100 * (completed + failed) / len(self.items), 1) if self.items else 0,
+            "progress_percent": (
+                round(100 * (completed + failed) / len(self.items), 1) if self.items else 0
+            ),
             "webhook_url": self.webhook_url,
             "created_at": self.created_at,
             "started_at": self.started_at,
@@ -347,9 +375,7 @@ class DebateQueue:
         # Register batch
         self._batches[batch.batch_id] = batch
 
-        logger.info(
-            f"Batch {batch.batch_id} submitted with {len(batch.items)} items"
-        )
+        logger.info(f"Batch {batch.batch_id} submitted with {len(batch.items)} items")
 
         # Start processing if not already running
         if self._processor_task is None or self._processor_task.done():
@@ -435,7 +461,11 @@ class DebateQueue:
 
             # Find a batch with pending items
             for batch in self._batches.values():
-                if batch.status in (BatchStatus.COMPLETED, BatchStatus.FAILED, BatchStatus.CANCELLED):
+                if batch.status in (
+                    BatchStatus.COMPLETED,
+                    BatchStatus.FAILED,
+                    BatchStatus.CANCELLED,
+                ):
                     continue
 
                 # Start batch if not started
@@ -489,8 +519,7 @@ class DebateQueue:
     async def _check_batch_completion(self, batch: BatchRequest) -> None:
         """Check if batch is complete and trigger webhook if so."""
         pending = sum(
-            1 for item in batch.items
-            if item.status in (ItemStatus.QUEUED, ItemStatus.RUNNING)
+            1 for item in batch.items if item.status in (ItemStatus.QUEUED, ItemStatus.RUNNING)
         )
 
         if pending > 0:
@@ -573,7 +602,8 @@ class DebateQueue:
             batch_id
             for batch_id, batch in self._batches.items()
             if batch.created_at < cutoff
-            and batch.status in (
+            and batch.status
+            in (
                 BatchStatus.COMPLETED,
                 BatchStatus.FAILED,
                 BatchStatus.CANCELLED,
@@ -608,6 +638,7 @@ async def get_debate_queue() -> DebateQueue:
     async with _queue_lock:
         if _queue is None:
             from aragora.config import MAX_CONCURRENT_DEBATES
+
             _queue = DebateQueue(max_concurrent=MAX_CONCURRENT_DEBATES)
         return _queue
 

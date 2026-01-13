@@ -83,9 +83,7 @@ class TestVoteWeightCalculator:
 
     def test_reliability_weight(self):
         """Test weight with reliability weights."""
-        calculator = VoteWeightCalculator(
-            reliability_weights={"reliable": 1.0, "unreliable": 0.5}
-        )
+        calculator = VoteWeightCalculator(reliability_weights={"reliable": 1.0, "unreliable": 0.5})
 
         assert calculator.compute_weight("reliable") == 1.0
         assert calculator.compute_weight("unreliable") == 0.5
@@ -156,9 +154,7 @@ class TestVoteWeightCalculator:
 
     def test_compute_weights_batch(self):
         """Test batch weight computation."""
-        calculator = VoteWeightCalculator(
-            reliability_weights={"a": 0.8, "b": 1.2}
-        )
+        calculator = VoteWeightCalculator(reliability_weights={"a": 0.8, "b": 1.2})
 
         weights = calculator.compute_weights_batch(["a", "b", "c"])
 
@@ -168,6 +164,7 @@ class TestVoteWeightCalculator:
 
     def test_error_handling_in_sources(self):
         """Test that errors in weight sources are handled gracefully."""
+
         def failing_reputation(name):
             raise ValueError("Reputation lookup failed")
 
@@ -265,9 +262,7 @@ class TestVoteGrouping:
     def test_group_similar_votes_merges_similar(self):
         """Test that similar votes are merged."""
         protocol = MockProtocol(vote_grouping=True, vote_grouping_threshold=0.7)
-        backend = MockSimilarityBackend(
-            similarities={("Vector DB", "Use vector database"): 0.85}
-        )
+        backend = MockSimilarityBackend(similarities={("Vector DB", "Use vector database"): 0.85})
         voting = VotingPhase(protocol=protocol, similarity_backend=backend)
 
         votes = [
@@ -285,9 +280,7 @@ class TestVoteGrouping:
     def test_group_similar_votes_keeps_distinct(self):
         """Test that distinct votes are not merged."""
         protocol = MockProtocol(vote_grouping=True, vote_grouping_threshold=0.7)
-        backend = MockSimilarityBackend(
-            similarities={("Option A", "Option B"): 0.2}
-        )
+        backend = MockSimilarityBackend(similarities={("Option A", "Option B"): 0.2})
         voting = VotingPhase(protocol=protocol, similarity_backend=backend)
 
         votes = [
@@ -562,9 +555,7 @@ class TestCountWeightedVotes:
         protocol = MockProtocol(vote_grouping=False)
         voting = VotingPhase(protocol=protocol)
 
-        weight_calc = VoteWeightCalculator(
-            reliability_weights={"expert": 2.0, "novice": 0.5}
-        )
+        weight_calc = VoteWeightCalculator(reliability_weights={"expert": 2.0, "novice": 0.5})
 
         votes = [
             MockVote(agent="expert", choice="A"),
@@ -591,9 +582,7 @@ class TestCountWeightedVotes:
             {"choice": "B", "user_id": "user2"},
         ]
 
-        result = voting.count_weighted_votes(
-            votes, user_votes=user_votes, user_vote_weight=0.5
-        )
+        result = voting.count_weighted_votes(votes, user_votes=user_votes, user_vote_weight=0.5)
 
         # Agent: 1.0 for A, Users: 0.5 + 0.5 = 1.0 for B
         assert result.vote_counts["A"] == 1.0
@@ -651,9 +640,7 @@ class TestCountWeightedVotes:
     def test_count_votes_applies_grouping(self):
         """Test that vote grouping is applied."""
         protocol = MockProtocol(vote_grouping=True, vote_grouping_threshold=0.7)
-        backend = MockSimilarityBackend(
-            similarities={("Vector DB", "Use vector database"): 0.85}
-        )
+        backend = MockSimilarityBackend(similarities={("Vector DB", "Use vector database"): 0.85})
         voting = VotingPhase(protocol=protocol, similarity_backend=backend)
 
         votes = [
@@ -805,9 +792,7 @@ class TestCheckUnanimous:
     def test_check_unanimous_applies_grouping(self):
         """Test that unanimous check applies vote grouping."""
         protocol = MockProtocol(vote_grouping=True, vote_grouping_threshold=0.7)
-        backend = MockSimilarityBackend(
-            similarities={("Option A", "Choice A"): 0.9}
-        )
+        backend = MockSimilarityBackend(similarities={("Option A", "Choice A"): 0.9})
         voting = VotingPhase(protocol=protocol, similarity_backend=backend)
 
         votes = [
@@ -870,9 +855,7 @@ class TestVotingIntegration:
     def test_full_voting_workflow(self):
         """Test complete voting workflow."""
         protocol = MockProtocol(vote_grouping_threshold=0.7)
-        backend = MockSimilarityBackend(
-            similarities={("Use Python", "Python is best"): 0.8}
-        )
+        backend = MockSimilarityBackend(similarities={("Use Python", "Python is best"): 0.8})
         voting = VotingPhase(protocol=protocol, similarity_backend=backend)
 
         # Create weight calculator
@@ -900,9 +883,7 @@ class TestVotingIntegration:
         protocol = MockProtocol(vote_grouping=False)
         voting = VotingPhase(protocol=protocol)
 
-        weight_calc = VoteWeightCalculator(
-            reliability_weights={"agent1": 1.0, "agent2": 1.0}
-        )
+        weight_calc = VoteWeightCalculator(reliability_weights={"agent1": 1.0, "agent2": 1.0})
 
         agent_votes = [
             MockVote(agent="agent1", choice="A"),
@@ -985,10 +966,7 @@ class TestVotingEdgeCases:
         voting = VotingPhase(protocol=protocol)
 
         # Create 100 votes
-        votes = [
-            MockVote(agent=f"agent_{i}", choice="A" if i < 60 else "B")
-            for i in range(100)
-        ]
+        votes = [MockVote(agent=f"agent_{i}", choice="A" if i < 60 else "B") for i in range(100)]
 
         result = voting.count_weighted_votes(votes)
 

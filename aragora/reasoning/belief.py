@@ -26,6 +26,7 @@ from aragora.config import BELIEF_MAX_ITERATIONS, BELIEF_CONVERGENCE_THRESHOLD
 
 class BeliefStatus(Enum):
     """Status of a belief node."""
+
     PRIOR = "prior"  # Initial belief before evidence
     UPDATED = "updated"  # Updated via propagation
     CONVERGED = "converged"  # Stable after propagation
@@ -40,6 +41,7 @@ class BeliefDistribution:
     Represents P(claim=true), P(claim=false), and optional
     probability mass for "unknown/undecidable".
     """
+
     p_true: float = 0.5
     p_false: float = 0.5
     p_unknown: float = 0.0
@@ -99,9 +101,9 @@ class BeliefDistribution:
     def from_confidence(cls, confidence: float, lean_true: bool = True) -> "BeliefDistribution":
         """Create distribution from a confidence score."""
         if lean_true:
-            return cls(p_true=confidence, p_false=1-confidence)
+            return cls(p_true=confidence, p_false=1 - confidence)
         else:
-            return cls(p_true=1-confidence, p_false=confidence)
+            return cls(p_true=1 - confidence, p_false=confidence)
 
     @classmethod
     def uniform(cls) -> "BeliefDistribution":
@@ -126,6 +128,7 @@ class BeliefNode:
     Wraps a TypedClaim with probabilistic beliefs that can be updated
     via message passing.
     """
+
     node_id: str
     claim_id: str
     claim_statement: str
@@ -215,6 +218,7 @@ class Factor:
     - CONTRADICTS: P(child=T | parent=T) low
     - DEPENDS_ON: Child true requires parent true
     """
+
     factor_id: str
     relation_type: RelationType
     source_node_id: str
@@ -273,6 +277,7 @@ class Factor:
 @dataclass
 class PropagationResult:
     """Result of belief propagation."""
+
     converged: bool
     iterations: int
     max_change: float
@@ -284,9 +289,7 @@ class PropagationResult:
             "converged": self.converged,
             "iterations": self.iterations,
             "max_change": self.max_change,
-            "node_posteriors": {
-                k: v.to_dict() for k, v in self.node_posteriors.items()
-            },
+            "node_posteriors": {k: v.to_dict() for k, v in self.node_posteriors.items()},
             "centralities": self.centralities,
         }
 
@@ -447,7 +450,7 @@ class BeliefNetwork:
 
         converged = False
         iteration = 0
-        max_change = float('inf')
+        max_change = float("inf")
 
         while iteration < self.max_iterations and not converged:
             old_posteriors = {
@@ -489,9 +492,7 @@ class BeliefNetwork:
             converged=converged,
             iterations=iteration,
             max_change=max_change,
-            node_posteriors={
-                nid: node.posterior for nid, node in self.nodes.items()
-            },
+            node_posteriors={nid: node.posterior for nid, node in self.nodes.items()},
             centralities=centralities,
         )
 
@@ -502,9 +503,7 @@ class BeliefNetwork:
 
         # Message from source to target (through factor)
         # Marginalize out source variable
-        msg_to_target = self._compute_message(
-            factor, source_node, target_node, to_target=True
-        )
+        msg_to_target = self._compute_message(factor, source_node, target_node, to_target=True)
 
         # Apply damping
         if factor.factor_id in target_node.incoming_messages:
@@ -517,9 +516,7 @@ class BeliefNetwork:
         target_node.incoming_messages[factor.factor_id] = msg_to_target
 
         # Message from target to source
-        msg_to_source = self._compute_message(
-            factor, source_node, target_node, to_target=False
-        )
+        msg_to_source = self._compute_message(factor, source_node, target_node, to_target=False)
 
         if factor.factor_id in source_node.incoming_messages:
             old_msg = source_node.incoming_messages[factor.factor_id]
@@ -540,24 +537,20 @@ class BeliefNetwork:
         """Compute message through a factor."""
         if to_target:
             # Marginalize over source to get message to target
-            msg_true = (
-                source_node.posterior.p_true * factor.get_factor_potential(True, True) +
-                source_node.posterior.p_false * factor.get_factor_potential(False, True)
-            )
-            msg_false = (
-                source_node.posterior.p_true * factor.get_factor_potential(True, False) +
-                source_node.posterior.p_false * factor.get_factor_potential(False, False)
-            )
+            msg_true = source_node.posterior.p_true * factor.get_factor_potential(
+                True, True
+            ) + source_node.posterior.p_false * factor.get_factor_potential(False, True)
+            msg_false = source_node.posterior.p_true * factor.get_factor_potential(
+                True, False
+            ) + source_node.posterior.p_false * factor.get_factor_potential(False, False)
         else:
             # Marginalize over target to get message to source
-            msg_true = (
-                target_node.posterior.p_true * factor.get_factor_potential(True, True) +
-                target_node.posterior.p_false * factor.get_factor_potential(True, False)
-            )
-            msg_false = (
-                target_node.posterior.p_true * factor.get_factor_potential(False, True) +
-                target_node.posterior.p_false * factor.get_factor_potential(False, False)
-            )
+            msg_true = target_node.posterior.p_true * factor.get_factor_potential(
+                True, True
+            ) + target_node.posterior.p_false * factor.get_factor_potential(True, False)
+            msg_false = target_node.posterior.p_true * factor.get_factor_potential(
+                False, True
+            ) + target_node.posterior.p_false * factor.get_factor_potential(False, False)
 
         return BeliefDistribution(p_true=msg_true, p_false=msg_false)
 
@@ -608,18 +601,12 @@ class BeliefNetwork:
 
     def get_most_uncertain_claims(self, limit: int = 5) -> list[tuple[BeliefNode, float]]:
         """Get claims with highest entropy (most uncertain)."""
-        scored = [
-            (node, node.posterior.entropy)
-            for node in self.nodes.values()
-        ]
+        scored = [(node, node.posterior.entropy) for node in self.nodes.values()]
         return sorted(scored, key=lambda x: -x[1])[:limit]
 
     def get_load_bearing_claims(self, limit: int = 5) -> list[tuple[BeliefNode, float]]:
         """Get claims with highest centrality (most load-bearing)."""
-        scored = [
-            (node, node.centrality)
-            for node in self.nodes.values()
-        ]
+        scored = [(node, node.centrality) for node in self.nodes.values()]
         return sorted(scored, key=lambda x: -x[1])[:limit]
 
     def get_contested_claims(self) -> list[BeliefNode]:
@@ -686,17 +673,11 @@ class BeliefNetwork:
                 continue
 
             # Test sensitivity by setting claim to true
-            p_given_true = self.conditional_probability(
-                target_claim_id,
-                {claim_id: True}
-            ).p_true
+            p_given_true = self.conditional_probability(target_claim_id, {claim_id: True}).p_true
 
             # Reset and test with false
             self.propagate()  # Reset
-            p_given_false = self.conditional_probability(
-                target_claim_id,
-                {claim_id: False}
-            ).p_true
+            p_given_false = self.conditional_probability(target_claim_id, {claim_id: False}).p_true
 
             # Sensitivity is the difference
             sensitivities[claim_id] = abs(p_given_true - p_given_false)
@@ -721,11 +702,9 @@ class BeliefNetwork:
         # Most certain claims
         lines.append("## Most Certain Claims")
         lines.append("")
-        certain = sorted(
-            self.nodes.values(),
-            key=lambda n: n.posterior.confidence,
-            reverse=True
-        )[:5]
+        certain = sorted(self.nodes.values(), key=lambda n: n.posterior.confidence, reverse=True)[
+            :5
+        ]
         for node in certain:
             verdict = "TRUE" if node.posterior.p_true > 0.5 else "FALSE"
             lines.append(
@@ -737,11 +716,7 @@ class BeliefNetwork:
         # Most uncertain
         lines.append("## Most Uncertain Claims")
         lines.append("")
-        uncertain = sorted(
-            self.nodes.values(),
-            key=lambda n: n.posterior.entropy,
-            reverse=True
-        )[:5]
+        uncertain = sorted(self.nodes.values(), key=lambda n: n.posterior.entropy, reverse=True)[:5]
         for node in uncertain:
             lines.append(
                 f"- [Entropy: {node.posterior.entropy:.2f}] "
@@ -843,15 +818,17 @@ class BeliefPropagationAnalyzer:
             # Crux score = centrality * entropy
             score = node.centrality * node.posterior.entropy
 
-            cruxes.append({
-                "claim_id": node.claim_id,
-                "statement": node.claim_statement,
-                "author": node.author,
-                "crux_score": score,
-                "centrality": node.centrality,
-                "entropy": node.posterior.entropy,
-                "current_belief": node.posterior.to_dict(),
-            })
+            cruxes.append(
+                {
+                    "claim_id": node.claim_id,
+                    "statement": node.claim_statement,
+                    "author": node.author,
+                    "crux_score": score,
+                    "centrality": node.centrality,
+                    "entropy": node.posterior.entropy,
+                    "current_belief": node.posterior.to_dict(),
+                }
+            )
 
         return sorted(cruxes, key=lambda x: -x["crux_score"])[:top_k]  # type: ignore[operator]
 
@@ -864,14 +841,16 @@ class BeliefPropagationAnalyzer:
         for node in self.network.nodes.values():
             # High entropy + high centrality = needs evidence
             if node.posterior.entropy > 0.8 and node.centrality > 0.05:
-                suggestions.append({
-                    "claim_id": node.claim_id,
-                    "statement": node.claim_statement,
-                    "author": node.author,
-                    "current_uncertainty": node.posterior.entropy,
-                    "importance": node.centrality,
-                    "suggestion": f"Provide evidence to resolve: '{node.claim_statement[:100]}...'"
-                })
+                suggestions.append(
+                    {
+                        "claim_id": node.claim_id,
+                        "statement": node.claim_statement,
+                        "author": node.author,
+                        "current_uncertainty": node.posterior.entropy,
+                        "importance": node.centrality,
+                        "suggestion": f"Provide evidence to resolve: '{node.claim_statement[:100]}...'",
+                    }
+                )
 
         return sorted(suggestions, key=lambda x: -x["importance"])
 
@@ -885,9 +864,9 @@ class BeliefPropagationAnalyzer:
             return {"probability": 0.0, "explanation": "No claims in network"}
 
         # Average confidence across all claims
-        avg_confidence = sum(
-            n.posterior.confidence for n in self.network.nodes.values()
-        ) / len(self.network.nodes)
+        avg_confidence = sum(n.posterior.confidence for n in self.network.nodes.values()) / len(
+            self.network.nodes
+        )
 
         # Count contested claims
         contested = len(self.network.get_contested_claims())
@@ -943,13 +922,15 @@ class BeliefPropagationAnalyzer:
             original = original_posteriors[nid]
             delta = node.posterior.p_true - original.p_true
             if abs(delta) > 0.05:
-                changes.append({
-                    "claim_id": node.claim_id,
-                    "statement": node.claim_statement[:100],
-                    "original_p_true": original.p_true,
-                    "new_p_true": node.posterior.p_true,
-                    "delta": delta,
-                })
+                changes.append(
+                    {
+                        "claim_id": node.claim_id,
+                        "statement": node.claim_statement[:100],
+                        "original_p_true": original.p_true,
+                        "new_p_true": node.posterior.p_true,
+                        "delta": delta,
+                    }
+                )
 
         # Restore original state
         for nid, posterior in original_posteriors.items():

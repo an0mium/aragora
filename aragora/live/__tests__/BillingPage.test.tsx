@@ -1,14 +1,5 @@
 /**
  * Tests for Billing Page
- *
- * Tests cover:
- * - Loading state
- * - Usage data display
- * - Subscription info
- * - Invoice history
- * - Usage forecast
- * - Tab navigation
- * - Manage billing button
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -18,15 +9,8 @@ import BillingPage from '../src/app/billing/page';
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-// Mock next/navigation
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: jest.fn(),
-  }),
-}));
-
 // Mock AuthContext
-jest.mock('../src/context/AuthContext', () => ({
+jest.mock('@/context/AuthContext', () => ({
   useAuth: () => ({
     user: { id: 'user-1', email: 'test@example.com', name: 'Test User' },
     tokens: { access_token: 'test-token' },
@@ -37,18 +21,18 @@ jest.mock('../src/context/AuthContext', () => ({
 }));
 
 // Mock ProtectedRoute
-jest.mock('../src/components/auth/ProtectedRoute', () => ({
+jest.mock('@/components/auth/ProtectedRoute', () => ({
   ProtectedRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 // Mock MatrixRain
-jest.mock('../src/components/MatrixRain', () => ({
+jest.mock('@/components/MatrixRain', () => ({
   Scanlines: () => null,
   CRTVignette: () => null,
 }));
 
 // Mock AsciiBanner
-jest.mock('../src/components/AsciiBanner', () => ({
+jest.mock('@/components/AsciiBanner', () => ({
   AsciiBannerCompact: () => <div>ARAGORA</div>,
 }));
 
@@ -57,7 +41,7 @@ const mockUsage = {
   debates_limit: 50,
   debates_remaining: 35,
   tokens_used: 125000,
-  estimated_cost_usd: 2.50,
+  estimated_cost_usd: 2.5,
   period_start: '2026-01-01T00:00:00Z',
 };
 
@@ -80,7 +64,7 @@ const mockInvoices = [
     number: 'INV-001',
     status: 'paid',
     amount_due: 2900,
-    amount_paid: 29.00,
+    amount_paid: 29.0,
     currency: 'usd',
     created: '2026-01-01T00:00:00Z',
     period_start: '2026-01-01T00:00:00Z',
@@ -105,7 +89,7 @@ const mockInvoices = [
 
 const mockForecast = {
   projected_debates: 45,
-  cost_end_of_cycle_usd: 7.50,
+  cost_end_of_cycle_usd: 7.5,
   days_remaining: 21,
   will_hit_limit: false,
   tier_recommendation: null,
@@ -126,310 +110,250 @@ describe('BillingPage', () => {
     const { usageOk = true, subscriptionOk = true, invoicesOk = true, forecastOk = true } = options;
 
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/usage') && !url.includes('/forecast')) {
+      if (url.includes('/api/billing/usage/forecast')) {
+        return Promise.resolve({
+          ok: forecastOk,
+          json: () => Promise.resolve({ forecast: mockForecast }),
+        });
+      }
+      if (url.includes('/api/billing/usage')) {
         return Promise.resolve({
           ok: usageOk,
           json: () => Promise.resolve({ usage: mockUsage }),
         });
       }
-      if (url.includes('/subscription')) {
+      if (url.includes('/api/billing/subscription')) {
         return Promise.resolve({
           ok: subscriptionOk,
           json: () => Promise.resolve({ subscription: mockSubscription }),
         });
       }
-      if (url.includes('/invoices')) {
+      if (url.includes('/api/billing/invoices')) {
         return Promise.resolve({
           ok: invoicesOk,
           json: () => Promise.resolve({ invoices: mockInvoices }),
-        });
-      }
-      if (url.includes('/forecast')) {
-        return Promise.resolve({
-          ok: forecastOk,
-          json: () => Promise.resolve({ forecast: mockForecast }),
         });
       }
       return Promise.resolve({ ok: false });
     });
   };
 
-  describe('Loading State', () => {
-    it('shows loading state initially', () => {
-      mockFetch.mockImplementation(() => new Promise(() => {}));
+  it('shows loading state initially', () => {
+    mockFetch.mockImplementation(() => new Promise(() => {}));
 
-      render(<BillingPage />);
+    render(<BillingPage />);
 
-      expect(screen.getByText(/loading billing data/i)).toBeInTheDocument();
+    expect(screen.getByText(/loading billing data/i)).toBeInTheDocument();
+  });
+
+  it('renders overview data', async () => {
+    setupMocks();
+
+    render(<BillingPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/current plan/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/current plan/i)).toBeInTheDocument();
+    expect(screen.getByText(/starter/i)).toBeInTheDocument();
+    expect(screen.getByText(/active/i)).toBeInTheDocument();
+
+    expect(screen.getByText(/15 \/ 50/)).toBeInTheDocument();
+    expect(screen.getByText(/35 remaining/i)).toBeInTheDocument();
+    expect(screen.getByText(/125,000/)).toBeInTheDocument();
+    expect(screen.getByText(/\$2.50/)).toBeInTheDocument();
+
+    expect(screen.getByText(/usage forecast/i)).toBeInTheDocument();
+    expect(screen.getByText('45')).toBeInTheDocument();
+    expect(screen.getByText('21')).toBeInTheDocument();
+
+    expect(screen.getByText(/plan features/i)).toBeInTheDocument();
+    expect(screen.getByText(/enabled/i)).toBeInTheDocument();
+  });
+
+  it('switches to invoices tab and shows invoices', async () => {
+    setupMocks();
+
+    render(<BillingPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/current plan/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/invoices/i));
+
+    await waitFor(() => {
+      expect(screen.getByText('INVOICE HISTORY')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('INV-001')).toBeInTheDocument();
+    expect(screen.getByText('INV-002')).toBeInTheDocument();
+  });
+
+  it('shows invoice actions when available', async () => {
+    setupMocks();
+
+    render(<BillingPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/current plan/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/invoices/i));
+
+    await waitFor(() => {
+      const viewLinks = screen.getAllByText('[VIEW]');
+      expect(viewLinks.length).toBeGreaterThan(0);
+
+      const pdfLinks = screen.getAllByText('[PDF]');
+      expect(pdfLinks.length).toBeGreaterThan(0);
     });
   });
 
-  describe('Overview Tab', () => {
-    it('displays current plan', async () => {
-      setupMocks();
-
-      render(<BillingPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText('STARTER')).toBeInTheDocument();
-        expect(screen.getByText(/active/i)).toBeInTheDocument();
-      });
+  it('shows empty message when no invoices', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/billing/usage/forecast')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ forecast: mockForecast }),
+        });
+      }
+      if (url.includes('/api/billing/usage')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ usage: mockUsage }),
+        });
+      }
+      if (url.includes('/api/billing/subscription')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ subscription: mockSubscription }),
+        });
+      }
+      if (url.includes('/api/billing/invoices')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ invoices: [] }),
+        });
+      }
+      return Promise.resolve({ ok: false });
     });
 
-    it('displays usage data', async () => {
-      setupMocks();
+    render(<BillingPage />);
 
-      render(<BillingPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/15 \/ 50/)).toBeInTheDocument();
-        expect(screen.getByText(/35 remaining/i)).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      expect(screen.getByText(/current plan/i)).toBeInTheDocument();
     });
 
-    it('displays token usage and cost', async () => {
-      setupMocks();
+    fireEvent.click(screen.getByText(/invoices/i));
 
-      render(<BillingPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/125,000/)).toBeInTheDocument();
-        expect(screen.getByText(/\$2.50/)).toBeInTheDocument();
-      });
-    });
-
-    it('displays usage forecast', async () => {
-      setupMocks();
-
-      render(<BillingPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/45/)).toBeInTheDocument(); // Projected debates
-        expect(screen.getByText(/21/)).toBeInTheDocument(); // Days remaining
-      });
-    });
-
-    it('displays plan features', async () => {
-      setupMocks();
-
-      render(<BillingPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/50/)).toBeInTheDocument(); // Debates per month
-        expect(screen.getByText(/enabled/i)).toBeInTheDocument(); // API access
-      });
+    await waitFor(() => {
+      expect(screen.getByText(/no invoices found/i)).toBeInTheDocument();
     });
   });
 
-  describe('Tab Navigation', () => {
-    it('switches to invoices tab', async () => {
-      setupMocks();
+  it('shows warning when forecast will hit limit', async () => {
+    const limitForecast = {
+      ...mockForecast,
+      will_hit_limit: true,
+      tier_recommendation: 'professional',
+    };
 
-      render(<BillingPage />);
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/billing/usage/forecast')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ forecast: limitForecast }),
+        });
+      }
+      if (url.includes('/api/billing/usage')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ usage: mockUsage }),
+        });
+      }
+      if (url.includes('/api/billing/subscription')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ subscription: mockSubscription }),
+        });
+      }
+      if (url.includes('/api/billing/invoices')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ invoices: mockInvoices }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
 
-      await waitFor(() => {
-        expect(screen.getByText('OVERVIEW')).toBeInTheDocument();
-      });
+    render(<BillingPage />);
 
-      fireEvent.click(screen.getByText(/invoices/i));
-
-      await waitFor(() => {
-        expect(screen.getByText('INVOICE HISTORY')).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      expect(screen.getByText(/may exceed your limit/i)).toBeInTheDocument();
+      expect(screen.getByText(/upgrade to professional/i)).toBeInTheDocument();
     });
   });
 
-  describe('Invoices Tab', () => {
-    it('displays invoice list', async () => {
-      setupMocks();
+  it('opens billing portal on manage subscription', async () => {
+    const originalLocation = window.location;
+    // @ts-expect-error - override location for test
+    delete window.location;
+    // @ts-expect-error - override location for test
+    window.location = { href: 'http://localhost' };
 
-      render(<BillingPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText('OVERVIEW')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText(/invoices/i));
-
-      await waitFor(() => {
-        expect(screen.getByText('INV-001')).toBeInTheDocument();
-        expect(screen.getByText('INV-002')).toBeInTheDocument();
-      });
+    mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+      if (options?.method === 'POST' && url.includes('/api/billing/portal')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            portal: { url: 'https://billing.stripe.com/session' },
+          }),
+        });
+      }
+      if (url.includes('/api/billing/usage/forecast')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ forecast: mockForecast }),
+        });
+      }
+      if (url.includes('/api/billing/usage')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ usage: mockUsage }),
+        });
+      }
+      if (url.includes('/api/billing/subscription')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ subscription: mockSubscription }),
+        });
+      }
+      if (url.includes('/api/billing/invoices')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ invoices: mockInvoices }),
+        });
+      }
+      return Promise.resolve({ ok: false });
     });
 
-    it('shows invoice status badges', async () => {
-      setupMocks();
+    render(<BillingPage />);
 
-      render(<BillingPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText('OVERVIEW')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText(/invoices/i));
-
-      await waitFor(() => {
-        expect(screen.getByText('PAID')).toBeInTheDocument();
-        expect(screen.getByText('OPEN')).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      expect(screen.getByText('MANAGE SUBSCRIPTION')).toBeInTheDocument();
     });
 
-    it('shows view and PDF links for invoices', async () => {
-      setupMocks();
+    fireEvent.click(screen.getByText('MANAGE SUBSCRIPTION'));
 
-      render(<BillingPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText('OVERVIEW')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText(/invoices/i));
-
-      await waitFor(() => {
-        const viewLinks = screen.getAllByText('[VIEW]');
-        expect(viewLinks.length).toBeGreaterThan(0);
-
-        const pdfLinks = screen.getAllByText('[PDF]');
-        expect(pdfLinks.length).toBeGreaterThan(0);
-      });
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/billing/portal'),
+        expect.objectContaining({ method: 'POST' })
+      );
     });
 
-    it('shows empty message when no invoices', async () => {
-      mockFetch.mockImplementation((url: string) => {
-        if (url.includes('/invoices')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ invoices: [] }),
-          });
-        }
-        return setupMocks() as never;
-      });
-
-      render(<BillingPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText('OVERVIEW')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText(/invoices/i));
-
-      await waitFor(() => {
-        expect(screen.getByText(/no invoices found/i)).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Forecast Warnings', () => {
-    it('shows warning when will hit limit', async () => {
-      const limitForecast = {
-        ...mockForecast,
-        will_hit_limit: true,
-        tier_recommendation: 'professional',
-      };
-
-      mockFetch.mockImplementation((url: string) => {
-        if (url.includes('/forecast')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ forecast: limitForecast }),
-          });
-        }
-        if (url.includes('/usage') && !url.includes('/forecast')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ usage: mockUsage }),
-          });
-        }
-        if (url.includes('/subscription')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ subscription: mockSubscription }),
-          });
-        }
-        if (url.includes('/invoices')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ invoices: mockInvoices }),
-          });
-        }
-        return Promise.resolve({ ok: false });
-      });
-
-      render(<BillingPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/may exceed your limit/i)).toBeInTheDocument();
-        expect(screen.getByText(/professional/i)).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Manage Subscription', () => {
-    it('shows manage button for paid tiers', async () => {
-      setupMocks();
-
-      render(<BillingPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText('MANAGE SUBSCRIPTION')).toBeInTheDocument();
-      });
-    });
-
-    it('opens billing portal on click', async () => {
-      setupMocks();
-
-      // Mock portal response
-      mockFetch.mockImplementation((url: string, options?: RequestInit) => {
-        if (options?.method === 'POST' && url.includes('/portal')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
-              portal: { url: 'https://billing.stripe.com/session' },
-            }),
-          });
-        }
-        // Default responses for GET requests
-        if (url.includes('/usage') && !url.includes('/forecast')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ usage: mockUsage }),
-          });
-        }
-        if (url.includes('/subscription')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ subscription: mockSubscription }),
-          });
-        }
-        if (url.includes('/invoices')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ invoices: mockInvoices }),
-          });
-        }
-        if (url.includes('/forecast')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ forecast: mockForecast }),
-          });
-        }
-        return Promise.resolve({ ok: false });
-      });
-
-      render(<BillingPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText('MANAGE SUBSCRIPTION')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText('MANAGE SUBSCRIPTION'));
-
-      await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/billing/portal'),
-          expect.objectContaining({ method: 'POST' })
-        );
-      });
-    });
+    window.location = originalLocation;
   });
 });

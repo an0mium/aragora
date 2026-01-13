@@ -1,5 +1,7 @@
 # Pulse System Documentation
 
+> **See also**: [PULSE.md](./PULSE.md) for a quick start guide. This document provides detailed architecture and API reference.
+
 The Pulse system provides trending topic ingestion and automated debate scheduling for Aragora.
 
 ## Overview

@@ -11,6 +11,7 @@ class TestLaboratoryHandlerRouting:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.laboratory import LaboratoryHandler
+
         ctx = {}
         return LaboratoryHandler(ctx)
 
@@ -31,6 +32,7 @@ class TestEmergentTraitsEndpoint:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.laboratory import LaboratoryHandler
+
         ctx = {}
         return LaboratoryHandler(ctx)
 
@@ -56,7 +58,9 @@ class TestEmergentTraitsEndpoint:
         mock_lab.detect_emergent_traits.return_value = [mock_trait]
 
         with patch("aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", True):
-            with patch("aragora.server.handlers.laboratory.PersonaLaboratory", return_value=mock_lab):
+            with patch(
+                "aragora.server.handlers.laboratory.PersonaLaboratory", return_value=mock_lab
+            ):
                 result = handler.handle("/api/laboratory/emergent-traits", {})
                 assert result.status_code == 200
                 data = json.loads(result.body)
@@ -70,6 +74,7 @@ class TestCrossPollinationsEndpoint:
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.laboratory import LaboratoryHandler
+
         ctx = {}
         return LaboratoryHandler(ctx)
 
@@ -86,7 +91,9 @@ class TestCrossPollinationsEndpoint:
         mock_handler.rfile.read.return_value = b'{"target_agent": "test"}'
 
         with patch("aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", False):
-            result = handler.handle_post("/api/laboratory/cross-pollinations/suggest", {}, mock_handler)
+            result = handler.handle_post(
+                "/api/laboratory/cross-pollinations/suggest", {}, mock_handler
+            )
             assert result.status_code == 503
             data = json.loads(result.body)
             assert "error" in data
@@ -94,11 +101,13 @@ class TestCrossPollinationsEndpoint:
     def test_cross_pollinations_missing_target(self, handler, mock_handler):
         """Returns 400 when target_agent is missing."""
         mock_handler.rfile = Mock()
-        mock_handler.rfile.read.return_value = b'{}'
+        mock_handler.rfile.read.return_value = b"{}"
 
         with patch("aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", True):
             with patch("aragora.server.handlers.laboratory.PersonaLaboratory"):
-                result = handler.handle_post("/api/laboratory/cross-pollinations/suggest", {}, mock_handler)
+                result = handler.handle_post(
+                    "/api/laboratory/cross-pollinations/suggest", {}, mock_handler
+                )
                 assert result.status_code == 400
                 data = json.loads(result.body)
                 assert "error" in data
@@ -114,8 +123,12 @@ class TestCrossPollinationsEndpoint:
         ]
 
         with patch("aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", True):
-            with patch("aragora.server.handlers.laboratory.PersonaLaboratory", return_value=mock_lab):
-                result = handler.handle_post("/api/laboratory/cross-pollinations/suggest", {}, mock_handler)
+            with patch(
+                "aragora.server.handlers.laboratory.PersonaLaboratory", return_value=mock_lab
+            ):
+                result = handler.handle_post(
+                    "/api/laboratory/cross-pollinations/suggest", {}, mock_handler
+                )
                 assert result.status_code == 200
                 data = json.loads(result.body)
                 assert data["target_agent"] == "claude"
@@ -129,9 +142,11 @@ class TestLaboratoryHandlerImport:
     def test_handler_importable(self):
         """LaboratoryHandler can be imported from handlers package."""
         from aragora.server.handlers import LaboratoryHandler
+
         assert LaboratoryHandler is not None
 
     def test_handler_in_all_exports(self):
         """LaboratoryHandler is in __all__ exports."""
         from aragora.server.handlers import __all__
+
         assert "LaboratoryHandler" in __all__

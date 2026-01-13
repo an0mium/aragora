@@ -26,6 +26,7 @@ from aragora.debate.autonomic_executor import (
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def streaming_buffer():
     """Create a fresh streaming content buffer."""
@@ -77,6 +78,7 @@ def executor(mock_circuit_breaker):
 # ============================================================================
 # StreamingContentBuffer Tests
 # ============================================================================
+
 
 class TestStreamingContentBuffer:
     """Tests for StreamingContentBuffer class."""
@@ -148,6 +150,7 @@ class TestStreamingContentBuffer:
 # AutonomicExecutor Initialization Tests
 # ============================================================================
 
+
 class TestAutonomicExecutorInit:
     """Tests for AutonomicExecutor initialization."""
 
@@ -202,6 +205,7 @@ class TestAutonomicExecutorInit:
 # ============================================================================
 # Timeout Escalation Tests
 # ============================================================================
+
 
 class TestTimeoutEscalation:
     """Tests for timeout escalation logic."""
@@ -269,12 +273,14 @@ class TestTimeoutEscalation:
 # with_timeout Tests
 # ============================================================================
 
+
 class TestWithTimeout:
     """Tests for with_timeout wrapper."""
 
     @pytest.mark.asyncio
     async def test_with_timeout_success(self, executor):
         """Test successful completion within timeout."""
+
         async def quick_task():
             return "result"
 
@@ -284,6 +290,7 @@ class TestWithTimeout:
     @pytest.mark.asyncio
     async def test_with_timeout_raises_on_timeout(self, executor):
         """Test TimeoutError raised when operation times out."""
+
         async def slow_task():
             await asyncio.sleep(10)
             return "never reached"
@@ -295,8 +302,11 @@ class TestWithTimeout:
         assert "timed out" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_with_timeout_records_circuit_breaker_failure(self, executor, mock_circuit_breaker):
+    async def test_with_timeout_records_circuit_breaker_failure(
+        self, executor, mock_circuit_breaker
+    ):
         """Test circuit breaker failure recorded on timeout."""
+
         async def slow_task():
             await asyncio.sleep(10)
 
@@ -308,6 +318,7 @@ class TestWithTimeout:
     @pytest.mark.asyncio
     async def test_with_timeout_uses_default(self, executor):
         """Test uses default timeout when not specified."""
+
         async def quick_task():
             return "result"
 
@@ -318,6 +329,7 @@ class TestWithTimeout:
 # ============================================================================
 # generate() Tests
 # ============================================================================
+
 
 class TestGenerate:
     """Tests for generate() method."""
@@ -437,6 +449,7 @@ class TestGenerate:
 # critique() Tests
 # ============================================================================
 
+
 class TestCritique:
     """Tests for critique() method."""
 
@@ -485,6 +498,7 @@ class TestCritique:
 # ============================================================================
 # vote() Tests
 # ============================================================================
+
 
 class TestVote:
     """Tests for vote() method."""
@@ -535,6 +549,7 @@ class TestVote:
 # ============================================================================
 # generate_with_fallback() Tests
 # ============================================================================
+
 
 class TestGenerateWithFallback:
     """Tests for generate_with_fallback() method."""
@@ -599,9 +614,7 @@ class TestGenerateWithFallback:
         agent.name = "flaky_agent"
         agent.generate = AsyncMock(side_effect=failing_generate)
 
-        result = await executor.generate_with_fallback(
-            agent, "prompt", [], max_retries=3
-        )
+        result = await executor.generate_with_fallback(agent, "prompt", [], max_retries=3)
 
         assert "Success on retry" in result
 
@@ -673,6 +686,7 @@ class TestGenerateWithFallback:
 # Wisdom Fallback Tests
 # ============================================================================
 
+
 class TestWisdomFallback:
     """Tests for wisdom fallback functionality."""
 
@@ -693,9 +707,9 @@ class TestWisdomFallback:
     def test_get_wisdom_fallback_success(self, executor):
         """Test successful wisdom fallback."""
         wisdom_store = Mock()
-        wisdom_store.get_relevant_wisdom = Mock(return_value=[
-            {"id": "w1", "text": "Audience wisdom", "submitter_id": "user123"}
-        ])
+        wisdom_store.get_relevant_wisdom = Mock(
+            return_value=[{"id": "w1", "text": "Audience wisdom", "submitter_id": "user123"}]
+        )
         wisdom_store.mark_wisdom_used = Mock()
 
         executor.wisdom_store = wisdom_store
@@ -738,6 +752,7 @@ class TestWisdomFallback:
 # Telemetry Tests
 # ============================================================================
 
+
 class TestTelemetry:
     """Tests for telemetry functionality."""
 
@@ -746,24 +761,21 @@ class TestTelemetry:
         executor.enable_telemetry = False
 
         # Should not raise
-        executor._emit_agent_telemetry(
-            "agent1", "generate", 0.0, True
-        )
+        executor._emit_agent_telemetry("agent1", "generate", 0.0, True)
 
     def test_emit_telemetry_enabled_import_error(self, executor):
         """Test telemetry handles import error gracefully."""
         executor.enable_telemetry = True
 
-        with patch.dict('sys.modules', {'aragora.agents.telemetry': None}):
+        with patch.dict("sys.modules", {"aragora.agents.telemetry": None}):
             # Should not raise
-            executor._emit_agent_telemetry(
-                "agent1", "generate", 0.0, True
-            )
+            executor._emit_agent_telemetry("agent1", "generate", 0.0, True)
 
 
 # ============================================================================
 # Edge Cases
 # ============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
@@ -778,9 +790,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_fallback_empty_list(self, executor, mock_agent):
         """Test fallback with empty fallback agents list."""
-        result = await executor.generate_with_fallback(
-            mock_agent, "prompt", [], fallback_agents=[]
-        )
+        result = await executor.generate_with_fallback(mock_agent, "prompt", [], fallback_agents=[])
 
         assert result is not None
 
@@ -819,4 +829,3 @@ class TestEdgeCases:
 
         assert "[System:" in result
         assert "connection failed" in result
-

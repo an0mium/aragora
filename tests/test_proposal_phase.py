@@ -17,9 +17,11 @@ from aragora.debate.phases.proposal_phase import ProposalPhase
 # Mock Classes
 # ============================================================================
 
+
 @dataclass
 class MockEnvironment:
     """Mock environment for testing."""
+
     task: str = "Test task"
     context: str = ""
 
@@ -27,6 +29,7 @@ class MockEnvironment:
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str = "test_agent"
     role: str = "proposer"
 
@@ -34,6 +37,7 @@ class MockAgent:
 @dataclass
 class MockDebateResult:
     """Mock debate result for testing."""
+
     id: str = "debate_001"
     messages: list = field(default_factory=list)
 
@@ -41,6 +45,7 @@ class MockDebateResult:
 # ============================================================================
 # ProposalPhase Construction Tests
 # ============================================================================
+
 
 class TestProposalPhaseConstruction:
     """Tests for ProposalPhase construction."""
@@ -69,6 +74,7 @@ class TestProposalPhaseConstruction:
 # ============================================================================
 # Circuit Breaker Tests
 # ============================================================================
+
 
 class TestCircuitBreakerFiltering:
     """Tests for circuit breaker filtering."""
@@ -162,6 +168,7 @@ class TestCircuitBreakerFiltering:
 # Parallel Generation Tests
 # ============================================================================
 
+
 class TestParallelGeneration:
     """Tests for parallel proposal generation."""
 
@@ -187,6 +194,7 @@ class TestParallelGeneration:
     @pytest.mark.asyncio
     async def test_handle_partial_failures(self):
         """Should continue on partial failures."""
+
         async def generate_side_effect(agent, prompt, context):
             if agent.name == "claude":
                 return "Proposal"
@@ -230,6 +238,7 @@ class TestParallelGeneration:
 # ============================================================================
 # Message and Event Tests
 # ============================================================================
+
 
 class TestMessageEvents:
     """Tests for message and event emission."""
@@ -318,6 +327,7 @@ class TestMessageEvents:
 # Position Tracking Tests
 # ============================================================================
 
+
 class TestPositionTracking:
     """Tests for position tracking."""
 
@@ -375,6 +385,7 @@ class TestPositionTracking:
 # Recorder Tests
 # ============================================================================
 
+
 class TestRecorder:
     """Tests for replay recorder."""
 
@@ -421,6 +432,7 @@ class TestRecorder:
 # Citation Extraction Tests
 # ============================================================================
 
+
 class TestCitationExtraction:
     """Tests for citation need extraction."""
 
@@ -447,6 +459,7 @@ class TestCitationExtraction:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestProposalPhaseIntegration:
     """Integration tests for full proposal execution."""

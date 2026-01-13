@@ -42,7 +42,7 @@ class TestVerifyClaimsCallback:
         """Should return dict with zeros when no claims are extracted."""
         from aragora.debate.arena_phases import _create_verify_claims_callback
 
-        with patch('aragora.debate.arena_phases.fast_extract_claims') as mock_extract:
+        with patch("aragora.debate.arena_phases.fast_extract_claims") as mock_extract:
             mock_extract.return_value = []
 
             callback = _create_verify_claims_callback(mock_arena)
@@ -60,7 +60,7 @@ class TestVerifyClaimsCallback:
             {"type": "FACTUAL", "text": "2+2=4", "confidence": 0.9},
         ]
 
-        with patch('aragora.debate.arena_phases.fast_extract_claims') as mock_extract:
+        with patch("aragora.debate.arena_phases.fast_extract_claims") as mock_extract:
             mock_extract.return_value = mock_claims
 
             callback = _create_verify_claims_callback(mock_arena)
@@ -80,7 +80,7 @@ class TestVerifyClaimsCallback:
             {"type": "FACTUAL", "text": "Uncertain claim", "confidence": 0.4},
         ]
 
-        with patch('aragora.debate.arena_phases.fast_extract_claims') as mock_extract:
+        with patch("aragora.debate.arena_phases.fast_extract_claims") as mock_extract:
             mock_extract.return_value = mock_claims
 
             callback = _create_verify_claims_callback(mock_arena)
@@ -96,11 +96,10 @@ class TestVerifyClaimsCallback:
         from aragora.debate.arena_phases import _create_verify_claims_callback
 
         mock_claims = [
-            {"type": "FACTUAL", "text": f"Claim {i}", "confidence": 0.8}
-            for i in range(10)
+            {"type": "FACTUAL", "text": f"Claim {i}", "confidence": 0.8} for i in range(10)
         ]
 
-        with patch('aragora.debate.arena_phases.fast_extract_claims') as mock_extract:
+        with patch("aragora.debate.arena_phases.fast_extract_claims") as mock_extract:
             mock_extract.return_value = mock_claims
 
             callback = _create_verify_claims_callback(mock_arena)
@@ -120,7 +119,7 @@ class TestVerifyClaimsCallback:
             {"type": "FACTUAL", "text": "Borderline", "confidence": 0.5},
         ]
 
-        with patch('aragora.debate.arena_phases.fast_extract_claims') as mock_extract:
+        with patch("aragora.debate.arena_phases.fast_extract_claims") as mock_extract:
             mock_extract.return_value = mock_claims
 
             callback = _create_verify_claims_callback(mock_arena)
@@ -163,8 +162,11 @@ class TestVerifyClaimsCallback:
 
         mock_manager.attempt_formal_verification = mock_verify
 
-        with patch('aragora.debate.arena_phases.fast_extract_claims') as mock_extract:
-            with patch('aragora.verification.formal.get_formal_verification_manager', return_value=mock_manager):
+        with patch("aragora.debate.arena_phases.fast_extract_claims") as mock_extract:
+            with patch(
+                "aragora.verification.formal.get_formal_verification_manager",
+                return_value=mock_manager,
+            ):
                 mock_extract.return_value = mock_claims
 
                 callback = _create_verify_claims_callback(mock_arena)
@@ -492,16 +494,16 @@ class TestArenaPhaseIntegration:
         init_phases(fully_mocked_arena)
 
         # Check all expected phases exist
-        assert hasattr(fully_mocked_arena, 'voting_phase')
-        assert hasattr(fully_mocked_arena, 'prompt_builder')
-        assert hasattr(fully_mocked_arena, 'memory_manager')
-        assert hasattr(fully_mocked_arena, 'context_gatherer')
-        assert hasattr(fully_mocked_arena, 'context_initializer')
-        assert hasattr(fully_mocked_arena, 'proposal_phase')
-        assert hasattr(fully_mocked_arena, 'debate_rounds_phase')
-        assert hasattr(fully_mocked_arena, 'consensus_phase')
-        assert hasattr(fully_mocked_arena, 'analytics_phase')
-        assert hasattr(fully_mocked_arena, 'feedback_phase')
+        assert hasattr(fully_mocked_arena, "voting_phase")
+        assert hasattr(fully_mocked_arena, "prompt_builder")
+        assert hasattr(fully_mocked_arena, "memory_manager")
+        assert hasattr(fully_mocked_arena, "context_gatherer")
+        assert hasattr(fully_mocked_arena, "context_initializer")
+        assert hasattr(fully_mocked_arena, "proposal_phase")
+        assert hasattr(fully_mocked_arena, "debate_rounds_phase")
+        assert hasattr(fully_mocked_arena, "consensus_phase")
+        assert hasattr(fully_mocked_arena, "analytics_phase")
+        assert hasattr(fully_mocked_arena, "feedback_phase")
 
     def test_phases_have_correct_types(self, fully_mocked_arena):
         """Phases should have correct types."""

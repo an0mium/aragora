@@ -21,6 +21,7 @@ from aragora.debate.protocol import DebateProtocol
 # Protocol Configuration Tests
 # ============================================================================
 
+
 class TestProtocolConfiguration:
     """Tests for DebateProtocol configuration validation."""
 
@@ -107,23 +108,27 @@ class TestProtocolCombinations:
 # Arena Interface Tests (Without Full Initialization)
 # ============================================================================
 
+
 class TestArenaInterface:
     """Tests for Arena interface without requiring full initialization."""
 
     def test_arena_class_exists(self):
         """Arena class is importable."""
         from aragora.debate.orchestrator import Arena
+
         assert Arena is not None
 
     def test_arena_has_run_method(self):
         """Arena has run method."""
         from aragora.debate.orchestrator import Arena
+
         assert hasattr(Arena, "run")
         assert callable(Arena.run)
 
     def test_arena_has_from_config(self):
         """Arena has from_config class method."""
         from aragora.debate.orchestrator import Arena
+
         assert hasattr(Arena, "from_config")
 
     def test_arena_accepts_event_emitter_param(self):
@@ -141,6 +146,7 @@ class TestArenaInterface:
 # ============================================================================
 # Environment Tests
 # ============================================================================
+
 
 class TestEnvironmentConfiguration:
     """Tests for Environment configuration."""
@@ -171,22 +177,26 @@ class TestEnvironmentConfiguration:
 # Core Type Tests
 # ============================================================================
 
+
 class TestCoreTypes:
     """Tests for core debate types."""
 
     def test_vote_type_exists(self):
         """Vote type is importable."""
         from aragora.core import Vote
+
         assert Vote is not None
 
     def test_critique_type_exists(self):
         """Critique type is importable."""
         from aragora.core import Critique
+
         assert Critique is not None
 
     def test_debate_result_type_exists(self):
         """DebateResult type is importable."""
         from aragora.core import DebateResult
+
         assert DebateResult is not None
 
 
@@ -194,12 +204,14 @@ class TestCoreTypes:
 # Agent Base Tests
 # ============================================================================
 
+
 class TestAgentBase:
     """Tests for agent base class interface."""
 
     def test_agent_factory_exists(self):
         """create_agent factory is importable."""
         from aragora.agents.base import create_agent
+
         assert create_agent is not None
 
     def test_agent_types_available(self):
@@ -214,6 +226,7 @@ class TestAgentBase:
 # ============================================================================
 # Event Emission Interface Tests
 # ============================================================================
+
 
 class TestEventEmissionInterface:
     """Tests for event emission interface."""
@@ -249,6 +262,7 @@ class TestEventEmissionInterface:
 # Consensus Detection Interface Tests
 # ============================================================================
 
+
 class TestConsensusInterface:
     """Tests for consensus detection interfaces."""
 
@@ -256,6 +270,7 @@ class TestConsensusInterface:
         """ConvergenceDetector is importable."""
         try:
             from aragora.debate.convergence import ConvergenceDetector
+
             assert ConvergenceDetector is not None
         except ImportError:
             pytest.skip("ConvergenceDetector not available")
@@ -264,6 +279,7 @@ class TestConsensusInterface:
         """ConsensusProof type exists."""
         try:
             from aragora.debate.consensus import ConsensusProof
+
             assert ConsensusProof is not None
         except ImportError:
             pytest.skip("ConsensusProof not available")
@@ -272,6 +288,7 @@ class TestConsensusInterface:
 # ============================================================================
 # Error Handling Pattern Tests
 # ============================================================================
+
 
 class TestErrorHandlingPatterns:
     """Tests for error handling patterns in debate module."""
@@ -296,6 +313,7 @@ class TestErrorHandlingPatterns:
 # Memory Integration Interface Tests
 # ============================================================================
 
+
 class TestMemoryInterface:
     """Tests for memory integration interfaces."""
 
@@ -303,6 +321,7 @@ class TestMemoryInterface:
         """ContinuumMemory is importable."""
         try:
             from aragora.memory.continuum import ContinuumMemory
+
             assert ContinuumMemory is not None
         except ImportError:
             pytest.skip("ContinuumMemory not available")
@@ -310,12 +329,14 @@ class TestMemoryInterface:
     def test_consensus_memory_importable(self):
         """ConsensusMemory is importable."""
         from aragora.memory.consensus import ConsensusMemory
+
         assert ConsensusMemory is not None
 
 
 # ============================================================================
 # Phase System Tests
 # ============================================================================
+
 
 class TestPhaseSystem:
     """Tests for debate phase system."""
@@ -330,6 +351,7 @@ class TestPhaseSystem:
         """DebateContext is importable."""
         try:
             from aragora.debate.context import DebateContext
+
             assert DebateContext is not None
         except ImportError:
             pytest.skip("DebateContext not available")
@@ -338,6 +360,7 @@ class TestPhaseSystem:
 # ============================================================================
 # Rate Limiting Tests
 # ============================================================================
+
 
 class TestRateLimiting:
     """Tests for rate limiting in debate handlers."""

@@ -38,6 +38,7 @@ from aragora.storage.schema import (
 # SQL Injection Prevention Tests
 # ============================================================================
 
+
 class TestValidateSqlIdentifier:
     """Tests for SQL identifier validation to prevent injection."""
 
@@ -156,6 +157,7 @@ class TestValidateDefaultValue:
 # Migration Tests
 # ============================================================================
 
+
 class TestMigration:
     """Tests for Migration dataclass."""
 
@@ -207,6 +209,7 @@ class TestMigration:
 # ============================================================================
 # SchemaManager Tests
 # ============================================================================
+
 
 class TestSchemaManager:
     """Tests for SchemaManager."""
@@ -299,6 +302,7 @@ class TestSchemaManager:
 # safe_add_column Tests
 # ============================================================================
 
+
 class TestSafeAddColumn:
     """Tests for safe_add_column function."""
 
@@ -369,6 +373,7 @@ class TestSafeAddColumn:
 # ============================================================================
 # DatabaseManager Tests
 # ============================================================================
+
 
 class TestDatabaseManager:
     """Tests for DatabaseManager."""
@@ -502,6 +507,7 @@ class TestDatabaseManager:
 # ConnectionPool Tests
 # ============================================================================
 
+
 class TestConnectionPool:
     """Tests for ConnectionPool."""
 
@@ -612,6 +618,7 @@ class TestConnectionPool:
             pool.close()
 
             from aragora.exceptions import DatabaseError
+
             with pytest.raises(DatabaseError, match="pool is closed"):
                 pool.acquire()
 
@@ -620,13 +627,16 @@ class TestConnectionPool:
 # Performance Index Tests
 # ============================================================================
 
+
 class TestPerformanceIndexes:
     """Tests for create_performance_indexes."""
 
     def test_creates_indexes_on_existing_tables(self):
         """Indexes should be created for existing tables."""
         conn = sqlite3.connect(":memory:")
-        conn.execute("CREATE TABLE memory_store (id INTEGER, agent_name TEXT, debate_id TEXT, timestamp TEXT)")
+        conn.execute(
+            "CREATE TABLE memory_store (id INTEGER, agent_name TEXT, debate_id TEXT, timestamp TEXT)"
+        )
         conn.commit()
 
         result = create_performance_indexes(conn, tables_to_index=["memory_store"])
@@ -646,7 +656,9 @@ class TestPerformanceIndexes:
     def test_idempotent(self):
         """Creating indexes twice should be safe."""
         conn = sqlite3.connect(":memory:")
-        conn.execute("CREATE TABLE memory_store (id INTEGER, agent_name TEXT, debate_id TEXT, timestamp TEXT)")
+        conn.execute(
+            "CREATE TABLE memory_store (id INTEGER, agent_name TEXT, debate_id TEXT, timestamp TEXT)"
+        )
         conn.commit()
 
         result1 = create_performance_indexes(conn, tables_to_index=["memory_store"])
@@ -674,6 +686,7 @@ class TestAnalyzeTables:
 # ============================================================================
 # WAL Connection Tests
 # ============================================================================
+
 
 class TestWalConnection:
     """Tests for get_wal_connection."""

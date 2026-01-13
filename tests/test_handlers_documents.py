@@ -16,7 +16,7 @@ def mock_auth():
     mock_user.is_authenticated = True
     mock_user.error_reason = None
     # Patch the jwt_auth module that gets imported at runtime
-    with patch('aragora.billing.jwt_auth.extract_user_from_request', return_value=mock_user):
+    with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_user):
         yield
 
 
@@ -26,6 +26,7 @@ class TestDocumentHandlerRouting:
     @pytest.fixture
     def doc_handler(self):
         from aragora.server.handlers.documents import DocumentHandler
+
         ctx = {"document_store": None}
         return DocumentHandler(ctx)
 
@@ -60,6 +61,7 @@ class TestListDocumentsEndpoint:
     @pytest.fixture
     def doc_handler(self, mock_store):
         from aragora.server.handlers.documents import DocumentHandler
+
         ctx = {"document_store": mock_store}
         return DocumentHandler(ctx)
 
@@ -72,6 +74,7 @@ class TestListDocumentsEndpoint:
 
     def test_list_documents_no_store_returns_empty(self):
         from aragora.server.handlers.documents import DocumentHandler
+
         ctx = {"document_store": None}
         handler = DocumentHandler(ctx)
         result = handler.handle("/api/documents", {}, None)
@@ -88,6 +91,7 @@ class TestFormatsEndpoint:
     @pytest.fixture
     def doc_handler(self):
         from aragora.server.handlers.documents import DocumentHandler
+
         ctx = {"document_store": None}
         return DocumentHandler(ctx)
 
@@ -117,6 +121,7 @@ class TestGetDocumentEndpoint:
     @pytest.fixture
     def doc_handler(self, mock_store):
         from aragora.server.handlers.documents import DocumentHandler
+
         ctx = {"document_store": mock_store}
         return DocumentHandler(ctx)
 
@@ -137,6 +142,7 @@ class TestGetDocumentEndpoint:
 
     def test_get_document_no_store_returns_500(self):
         from aragora.server.handlers.documents import DocumentHandler
+
         ctx = {"document_store": None}
         handler = DocumentHandler(ctx)
         result = handler.handle("/api/documents/doc123", {}, None)
@@ -149,6 +155,7 @@ class TestDocumentIdValidation:
     @pytest.fixture
     def doc_handler(self):
         from aragora.server.handlers.documents import DocumentHandler
+
         store = Mock()
         store.get.return_value = None  # Document not found
         ctx = {"document_store": store}
@@ -184,6 +191,7 @@ class TestDocumentUploadEndpoint:
     @pytest.fixture
     def doc_handler(self, mock_store):
         from aragora.server.handlers.documents import DocumentHandler
+
         ctx = {"document_store": mock_store}
         handler = DocumentHandler(ctx)
         # Reset rate limits for test isolation
@@ -200,6 +208,7 @@ class TestDocumentUploadEndpoint:
 
     def test_upload_no_store_returns_500(self, mock_http_handler):
         from aragora.server.handlers.documents import DocumentHandler
+
         ctx = {"document_store": None}
         handler = DocumentHandler(ctx)
         DocumentHandler._upload_counts = OrderedDict()
@@ -251,6 +260,7 @@ class TestDocumentUploadRateLimiting:
     @pytest.fixture
     def doc_handler(self, mock_store):
         from aragora.server.handlers.documents import DocumentHandler
+
         ctx = {"document_store": mock_store}
         handler = DocumentHandler(ctx)
         # Reset rate limits for test isolation
@@ -317,6 +327,7 @@ class TestDocumentUploadParsing:
     @pytest.fixture
     def doc_handler(self, mock_store):
         from aragora.server.handlers.documents import DocumentHandler
+
         ctx = {"document_store": mock_store}
         handler = DocumentHandler(ctx)
         DocumentHandler._upload_counts = OrderedDict()
@@ -465,10 +476,10 @@ class TestDocumentUploadParsing:
         parts = []
         for i in range(15):  # MAX_MULTIPART_PARTS is 10
             parts.append(
-                f'------WebKitFormBoundary\r\n'
+                f"------WebKitFormBoundary\r\n"
                 f'Content-Disposition: form-data; name="field{i}"\r\n'
-                f'\r\n'
-                f'value{i}\r\n'
+                f"\r\n"
+                f"value{i}\r\n"
             )
         parts.append("------WebKitFormBoundary--\r\n")
         body = "".join(parts).encode()
@@ -487,6 +498,7 @@ class TestDocumentHandlerGetClientIP:
     @pytest.fixture
     def doc_handler(self):
         from aragora.server.handlers.documents import DocumentHandler
+
         ctx = {"document_store": None}
         return DocumentHandler(ctx)
 
@@ -516,6 +528,7 @@ class TestDocumentListException:
     @pytest.fixture
     def doc_handler(self, mock_store):
         from aragora.server.handlers.documents import DocumentHandler
+
         ctx = {"document_store": mock_store}
         return DocumentHandler(ctx)
 
@@ -538,6 +551,7 @@ class TestDocumentGetException:
     @pytest.fixture
     def doc_handler(self, mock_store):
         from aragora.server.handlers.documents import DocumentHandler
+
         ctx = {"document_store": mock_store}
         return DocumentHandler(ctx)
 

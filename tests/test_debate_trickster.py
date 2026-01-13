@@ -373,9 +373,7 @@ class TestCheckAndIntervene:
         on_alert = MagicMock()
         trickster = EvidencePoweredTrickster(on_alert=on_alert, linker=MagicMock())
 
-        alert = HollowConsensusAlert(
-            detected=True, severity=0.6, round_num=1, avg_quality=0.4
-        )
+        alert = HollowConsensusAlert(detected=True, severity=0.6, round_num=1, avg_quality=0.4)
         trickster._analyzer.analyze_batch = MagicMock(return_value={})
         trickster._detector.check = MagicMock(return_value=alert)
 
@@ -598,9 +596,7 @@ class TestInterventionTypeSelection:
         config = TricksterConfig(enable_breakpoints=True)
         trickster = EvidencePoweredTrickster(config=config, linker=MagicMock())
 
-        alert = HollowConsensusAlert(
-            detected=True, severity=0.85, round_num=1, avg_quality=0.2
-        )
+        alert = HollowConsensusAlert(detected=True, severity=0.85, round_num=1, avg_quality=0.2)
 
         intervention_type = trickster._select_intervention_type(alert, round_num=1)
         assert intervention_type == InterventionType.BREAKPOINT
@@ -610,9 +606,7 @@ class TestInterventionTypeSelection:
         config = TricksterConfig(enable_role_assignment=True, enable_breakpoints=False)
         trickster = EvidencePoweredTrickster(config=config, linker=MagicMock())
 
-        alert = HollowConsensusAlert(
-            detected=True, severity=0.6, round_num=1, avg_quality=0.4
-        )
+        alert = HollowConsensusAlert(detected=True, severity=0.6, round_num=1, avg_quality=0.4)
 
         intervention_type = trickster._select_intervention_type(alert, round_num=1)
         assert intervention_type == InterventionType.QUALITY_ROLE
@@ -623,9 +617,7 @@ class TestInterventionTypeSelection:
         trickster = EvidencePoweredTrickster(config=config, linker=MagicMock())
         trickster._state.total_interventions = 1  # Not first intervention
 
-        alert = HollowConsensusAlert(
-            detected=True, severity=0.6, round_num=2, avg_quality=0.4
-        )
+        alert = HollowConsensusAlert(detected=True, severity=0.6, round_num=2, avg_quality=0.4)
 
         intervention_type = trickster._select_intervention_type(alert, round_num=2)
         assert intervention_type == InterventionType.CHALLENGE_PROMPT
@@ -635,9 +627,7 @@ class TestInterventionTypeSelection:
         config = TricksterConfig(enable_breakpoints=False, enable_role_assignment=False)
         trickster = EvidencePoweredTrickster(config=config, linker=MagicMock())
 
-        alert = HollowConsensusAlert(
-            detected=True, severity=0.9, round_num=1, avg_quality=0.1
-        )
+        alert = HollowConsensusAlert(detected=True, severity=0.9, round_num=1, avg_quality=0.1)
 
         intervention_type = trickster._select_intervention_type(alert, round_num=1)
         assert intervention_type == InterventionType.CHALLENGE_PROMPT
@@ -655,9 +645,7 @@ class TestRoleAssignment:
         """Test getting quality challenger role assignment."""
         trickster = EvidencePoweredTrickster(linker=MagicMock())
 
-        assignment = trickster.get_quality_challenger_assignment(
-            agent_name="agent1", round_num=2
-        )
+        assignment = trickster.get_quality_challenger_assignment(agent_name="agent1", round_num=2)
 
         assert assignment.agent_name == "agent1"
         assert assignment.role == CognitiveRole.QUALITY_CHALLENGER
@@ -792,7 +780,9 @@ class TestTricksterIntegration:
 
         # Round 1: Good quality, no intervention
         trickster._analyzer.analyze_batch = MagicMock(
-            return_value={"agent1": EvidenceQualityScore(agent="agent", round_num=1, overall_quality=0.8)}
+            return_value={
+                "agent1": EvidenceQualityScore(agent="agent", round_num=1, overall_quality=0.8)
+            }
         )
         trickster._detector.check = MagicMock(
             return_value=HollowConsensusAlert(
@@ -910,7 +900,9 @@ class TestEdgeCases:
         trickster = EvidencePoweredTrickster(linker=MagicMock())
 
         trickster._analyzer.analyze_batch = MagicMock(
-            return_value={"agent1": EvidenceQualityScore(agent="agent", round_num=1, overall_quality=0.3)}
+            return_value={
+                "agent1": EvidenceQualityScore(agent="agent", round_num=1, overall_quality=0.3)
+            }
         )
         trickster._detector.check = MagicMock(
             return_value=HollowConsensusAlert(

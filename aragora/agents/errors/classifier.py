@@ -58,20 +58,20 @@ class ErrorSeverity(Enum):
     """Severity level of errors for logging and alerting."""
 
     CRITICAL = "critical"  # System failure, requires immediate attention
-    ERROR = "error"        # Operation failed, may need investigation
-    WARNING = "warning"    # Transient failure, likely recoverable
-    INFO = "info"          # Expected failure (e.g., rate limit, retry will succeed)
+    ERROR = "error"  # Operation failed, may need investigation
+    WARNING = "warning"  # Transient failure, likely recoverable
+    INFO = "info"  # Expected failure (e.g., rate limit, retry will succeed)
 
 
 class RecoveryAction(Enum):
     """Recommended recovery action for an error."""
 
-    RETRY = "retry"              # Retry with exponential backoff
+    RETRY = "retry"  # Retry with exponential backoff
     RETRY_IMMEDIATE = "retry_immediate"  # Retry immediately (transient)
-    FALLBACK = "fallback"        # Switch to alternative agent
-    WAIT = "wait"                # Wait for specified duration (rate limit)
-    ABORT = "abort"              # Do not retry, operation cannot succeed
-    ESCALATE = "escalate"        # Requires human intervention
+    FALLBACK = "fallback"  # Switch to alternative agent
+    WAIT = "wait"  # Wait for specified duration (rate limit)
+    ABORT = "abort"  # Do not retry, operation cannot succeed
+    ESCALATE = "escalate"  # Requires human intervention
 
 
 # =============================================================================
@@ -81,121 +81,196 @@ class RecoveryAction(Enum):
 # Patterns that indicate rate limiting, quota errors, or service issues
 RATE_LIMIT_PATTERNS: tuple[str, ...] = (
     # Rate limiting
-    "rate limit", "rate_limit", "ratelimit",
-    "429", "too many requests",
+    "rate limit",
+    "rate_limit",
+    "ratelimit",
+    "429",
+    "too many requests",
     "throttl",  # throttled, throttling
     # Quota/usage limit errors
-    "quota exceeded", "quota_exceeded",
-    "resource exhausted", "resource_exhausted",
-    "insufficient_quota", "limit exceeded",
-    "usage_limit", "usage limit",
+    "quota exceeded",
+    "quota_exceeded",
+    "resource exhausted",
+    "resource_exhausted",
+    "insufficient_quota",
+    "limit exceeded",
+    "usage_limit",
+    "usage limit",
     "limit has been reached",
     # Billing errors
-    "billing", "credit balance", "payment required",
-    "purchase credits", "402",
+    "billing",
+    "credit balance",
+    "payment required",
+    "purchase credits",
+    "402",
 )
 
 NETWORK_ERROR_PATTERNS: tuple[str, ...] = (
     # Capacity/availability errors
-    "503", "service unavailable",
-    "502", "bad gateway",
-    "500", "internal server error",
-    "overloaded", "capacity",
-    "temporarily unavailable", "try again later",
-    "server busy", "high demand",
+    "503",
+    "service unavailable",
+    "502",
+    "bad gateway",
+    "500",
+    "internal server error",
+    "overloaded",
+    "capacity",
+    "temporarily unavailable",
+    "try again later",
+    "server busy",
+    "high demand",
     # Connection errors
-    "connection refused", "connection reset",
-    "timed out", "timeout",
-    "network error", "socket error",
-    "could not resolve host", "name or service not known",
-    "econnrefused", "econnreset", "etimedout",
-    "no route to host", "network is unreachable",
+    "connection refused",
+    "connection reset",
+    "timed out",
+    "timeout",
+    "network error",
+    "socket error",
+    "could not resolve host",
+    "name or service not known",
+    "econnrefused",
+    "econnreset",
+    "etimedout",
+    "no route to host",
+    "network is unreachable",
     # SSL/TLS errors
-    "ssl error", "ssl_error", "certificate verify failed",
-    "ssl handshake", "ssl: certificate",
-    "certificate expired", "cert verify",
+    "ssl error",
+    "ssl_error",
+    "certificate verify failed",
+    "ssl handshake",
+    "ssl: certificate",
+    "certificate expired",
+    "cert verify",
     # Proxy errors
-    "proxy error", "proxy authentication",
-    "tunnel connection failed", "407",
+    "proxy error",
+    "proxy authentication",
+    "tunnel connection failed",
+    "407",
     # DNS errors
-    "dns resolution failed", "getaddrinfo failed",
+    "dns resolution failed",
+    "getaddrinfo failed",
     "nodename nor servname provided",
 )
 
 CLI_ERROR_PATTERNS: tuple[str, ...] = (
     # CLI-specific errors
     "argument list too long",  # E2BIG - prompt too large for CLI
-    "command not found", "no such file or directory",
-    "permission denied", "access denied",
+    "command not found",
+    "no such file or directory",
+    "permission denied",
+    "access denied",
     "broken pipe",  # EPIPE - connection closed unexpectedly
 )
 
 AUTH_ERROR_PATTERNS: tuple[str, ...] = (
     # Authentication/authorization errors
-    "invalid_api_key", "invalid api key",
-    "unauthorized", "401",
-    "authentication failed", "auth error",
-    "forbidden", "403",
-    "access denied", "permission denied",
-    "invalid credentials", "bad credentials",
-    "token expired", "session expired",
-    "api key not found", "missing api key",
+    "invalid_api_key",
+    "invalid api key",
+    "unauthorized",
+    "401",
+    "authentication failed",
+    "auth error",
+    "forbidden",
+    "403",
+    "access denied",
+    "permission denied",
+    "invalid credentials",
+    "bad credentials",
+    "token expired",
+    "session expired",
+    "api key not found",
+    "missing api key",
 )
 
 VALIDATION_ERROR_PATTERNS: tuple[str, ...] = (
     # Input validation errors
-    "context length", "context_length",
-    "context window", "context_window",
-    "too long", "max_tokens",
-    "maximum context", "token limit",
-    "input too large", "prompt too long",
-    "invalid input", "invalid_input",
-    "bad request", "400",
-    "validation error", "validation_error",
-    "malformed", "invalid format",
-    "missing required", "required field",
-    "out of range", "invalid value",
+    "context length",
+    "context_length",
+    "context window",
+    "context_window",
+    "too long",
+    "max_tokens",
+    "maximum context",
+    "token limit",
+    "input too large",
+    "prompt too long",
+    "invalid input",
+    "invalid_input",
+    "bad request",
+    "400",
+    "validation error",
+    "validation_error",
+    "malformed",
+    "invalid format",
+    "missing required",
+    "required field",
+    "out of range",
+    "invalid value",
     # Provider-specific validation
     "string_above_max_length",
-    "reduce your prompt", "reduce the length",
-    "exceeds the model", "exceeds maximum",
+    "reduce your prompt",
+    "reduce the length",
+    "exceeds the model",
+    "exceeds maximum",
 )
 
 MODEL_ERROR_PATTERNS: tuple[str, ...] = (
     # Model-specific errors
-    "model overloaded", "model is currently overloaded",
+    "model overloaded",
+    "model is currently overloaded",
     "engine is currently overloaded",
-    "model_not_found", "model not found",
-    "model unavailable", "model_unavailable",
-    "unsupported model", "invalid model",
-    "model deprecated", "model_deprecated",
+    "model_not_found",
+    "model not found",
+    "model unavailable",
+    "model_unavailable",
+    "unsupported model",
+    "invalid model",
+    "model deprecated",
+    "model_deprecated",
     # Provider-specific model errors
-    "does not exist", "does not support",
-    "model access", "model_access_denied",
-    "decommissioned", "no longer available",
+    "does not exist",
+    "does not support",
+    "model access",
+    "model_access_denied",
+    "decommissioned",
+    "no longer available",
     "not available in your region",
 )
 
 CONTENT_POLICY_PATTERNS: tuple[str, ...] = (
     # Content moderation/policy violations
-    "content policy", "content_policy",
-    "content filter", "content_filter",
-    "safety filter", "safety_filter",
-    "moderation", "flagged",
-    "harmful content", "inappropriate",
-    "policy violation", "terms of service",
-    "refused to generate", "cannot generate",
+    "content policy",
+    "content_policy",
+    "content filter",
+    "content_filter",
+    "safety filter",
+    "safety_filter",
+    "moderation",
+    "flagged",
+    "harmful content",
+    "inappropriate",
+    "policy violation",
+    "terms of service",
+    "refused to generate",
+    "cannot generate",
     # Provider-specific content blocks
-    "i cannot", "i'm unable to",
-    "output blocked", "response blocked",
-    "content violation", "safety system",
-    "ethical guidelines", "usage policies",
+    "i cannot",
+    "i'm unable to",
+    "output blocked",
+    "response blocked",
+    "content violation",
+    "safety system",
+    "ethical guidelines",
+    "usage policies",
 )
 
 # Combined patterns for fallback decisions (all error types that should trigger fallback)
 ALL_FALLBACK_PATTERNS: tuple[str, ...] = (
-    RATE_LIMIT_PATTERNS + NETWORK_ERROR_PATTERNS + CLI_ERROR_PATTERNS +
-    AUTH_ERROR_PATTERNS + MODEL_ERROR_PATTERNS
+    RATE_LIMIT_PATTERNS
+    + NETWORK_ERROR_PATTERNS
+    + CLI_ERROR_PATTERNS
+    + AUTH_ERROR_PATTERNS
+    + MODEL_ERROR_PATTERNS
 )
 
 
@@ -291,14 +366,16 @@ class ErrorClassifier:
     """
 
     # OS error numbers that indicate connection/network issues
-    NETWORK_ERRNO: frozenset[int] = frozenset({
-        7,    # E2BIG - Argument list too long (prompt too large for CLI)
-        32,   # EPIPE - Broken pipe (connection closed)
-        104,  # ECONNRESET - Connection reset by peer
-        110,  # ETIMEDOUT - Connection timed out
-        111,  # ECONNREFUSED - Connection refused
-        113,  # EHOSTUNREACH - No route to host
-    })
+    NETWORK_ERRNO: frozenset[int] = frozenset(
+        {
+            7,  # E2BIG - Argument list too long (prompt too large for CLI)
+            32,  # EPIPE - Broken pipe (connection closed)
+            104,  # ECONNRESET - Connection reset by peer
+            110,  # ETIMEDOUT - Connection timed out
+            111,  # ECONNREFUSED - Connection refused
+            113,  # EHOSTUNREACH - No route to host
+        }
+    )
 
     @classmethod
     def is_rate_limit(cls, error_message: str) -> bool:
@@ -415,8 +492,9 @@ class ErrorClassifier:
             return True
 
         # Connection errors should trigger fallback
-        if isinstance(error, (ConnectionError, ConnectionRefusedError,
-                              ConnectionResetError, BrokenPipeError)):
+        if isinstance(
+            error, (ConnectionError, ConnectionRefusedError, ConnectionResetError, BrokenPipeError)
+        ):
             return True
 
         # OS-level errors (file not found for CLI, etc.)
@@ -456,8 +534,7 @@ class ErrorClassifier:
             return "rate_limit"
 
         if cls.is_network_error(error_str) or isinstance(
-            error, (ConnectionError, ConnectionRefusedError,
-                    ConnectionResetError, BrokenPipeError)
+            error, (ConnectionError, ConnectionRefusedError, ConnectionResetError, BrokenPipeError)
         ):
             return "network"
 
@@ -506,8 +583,7 @@ class ErrorClassifier:
 
         # Check network errors
         if cls.is_network_error(error_str) or isinstance(
-            error, (ConnectionError, ConnectionRefusedError,
-                    ConnectionResetError, BrokenPipeError)
+            error, (ConnectionError, ConnectionRefusedError, ConnectionResetError, BrokenPipeError)
         ):
             return True, "network"
 
@@ -584,6 +660,7 @@ class ErrorClassifier:
             for pattern in ["retry after ", "retry-after: ", "wait "]:
                 if pattern in error_str:
                     import re
+
                     match = re.search(rf"{pattern}(\d+)", error_str)
                     if match:
                         retry_after = float(match.group(1))
@@ -600,8 +677,7 @@ class ErrorClassifier:
 
         # Network errors
         if cls.is_network_error(error_str) or isinstance(
-            error, (ConnectionError, ConnectionRefusedError,
-                    ConnectionResetError, BrokenPipeError)
+            error, (ConnectionError, ConnectionRefusedError, ConnectionResetError, BrokenPipeError)
         ):
             return ClassifiedError(
                 category=ErrorCategory.NETWORK,
@@ -688,9 +764,7 @@ class ErrorClassifier:
             category=ErrorCategory.UNKNOWN,
             severity=ErrorSeverity.WARNING,
             action=RecoveryAction.RETRY,
-            should_fallback=any(
-                pattern in error_str for pattern in ALL_FALLBACK_PATTERNS
-            ),
+            should_fallback=any(pattern in error_str for pattern in ALL_FALLBACK_PATTERNS),
             message=error_message,
         )
 
@@ -739,7 +813,11 @@ def classify_cli_error(
     # Timeout detection (SIGKILL = -9)
     if returncode == -9 or "timeout" in stderr_lower or "timed out" in stderr_lower:
         return CLITimeoutError(
-            f"CLI command timed out after {timeout_seconds}s" if timeout_seconds else "CLI command timed out",
+            (
+                f"CLI command timed out after {timeout_seconds}s"
+                if timeout_seconds
+                else "CLI command timed out"
+            ),
             agent_name=agent_name,
             timeout_seconds=timeout_seconds,
         )
@@ -774,6 +852,7 @@ def classify_cli_error(
     if stdout and stdout.strip().startswith("{"):
         try:
             import json
+
             data = json.loads(stdout)
             if "error" in data:
                 return CLIAgentError(

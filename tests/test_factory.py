@@ -27,6 +27,7 @@ from aragora.debate.protocol import DebateProtocol
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def factory():
     """Create a fresh ArenaFactory instance."""
@@ -64,6 +65,7 @@ def mock_protocol():
 # ArenaFactory Initialization Tests
 # ============================================================================
 
+
 class TestArenaFactoryInit:
     """Tests for ArenaFactory initialization."""
 
@@ -94,6 +96,7 @@ class TestArenaFactoryInit:
 # ============================================================================
 # Lazy Loading Tests
 # ============================================================================
+
 
 class TestLazyLoading:
     """Tests for lazy loading of optional dependencies."""
@@ -165,12 +168,12 @@ class TestLazyLoading:
 
     def test_import_error_returns_none(self, factory):
         """ImportError should result in None, not exception."""
-        with patch.dict('sys.modules', {'aragora.agents.truth_grounding': None}):
+        with patch.dict("sys.modules", {"aragora.agents.truth_grounding": None}):
             # Clear any cached value
             factory._position_tracker_cls = None
 
             # Should handle ImportError gracefully
-            with patch.object(factory, '_position_tracker_cls', None):
+            with patch.object(factory, "_position_tracker_cls", None):
                 # The actual import logic should handle errors gracefully
                 # and return None or the cached value
                 pass
@@ -179,6 +182,7 @@ class TestLazyLoading:
 # ============================================================================
 # Factory Method Tests
 # ============================================================================
+
 
 class TestFactoryMethods:
     """Tests for component creation methods."""
@@ -189,21 +193,21 @@ class TestFactoryMethods:
 
         # Result depends on whether PositionTracker is available
         # Either returns an instance or None
-        assert tracker is None or hasattr(tracker, '__class__')
+        assert tracker is None or hasattr(tracker, "__class__")
 
     def test_create_calibration_tracker(self, factory):
         """create_calibration_tracker should create instance if class available."""
         tracker = factory.create_calibration_tracker()
 
         # Result depends on whether CalibrationTracker is available
-        assert tracker is None or hasattr(tracker, '__class__')
+        assert tracker is None or hasattr(tracker, "__class__")
 
     def test_create_belief_network(self, factory):
         """create_belief_network should create instance if class available."""
         network = factory.create_belief_network()
 
         # Result depends on whether BeliefNetwork is available
-        assert network is None or hasattr(network, '__class__')
+        assert network is None or hasattr(network, "__class__")
 
     def test_create_belief_analyzer(self, factory):
         """create_belief_analyzer should create instance if class available."""
@@ -211,7 +215,7 @@ class TestFactoryMethods:
         network = factory.create_belief_network()
         if network is not None:
             analyzer = factory.create_belief_analyzer(network=network)
-            assert analyzer is None or hasattr(analyzer, '__class__')
+            assert analyzer is None or hasattr(analyzer, "__class__")
         else:
             # Skip if BeliefNetwork not available
             pass
@@ -221,35 +225,35 @@ class TestFactoryMethods:
         extractor = factory.create_citation_extractor()
 
         # Result depends on whether CitationExtractor is available
-        assert extractor is None or hasattr(extractor, '__class__')
+        assert extractor is None or hasattr(extractor, "__class__")
 
     def test_create_insight_extractor(self, factory):
         """create_insight_extractor should create instance if class available."""
         extractor = factory.create_insight_extractor()
 
         # Result depends on whether InsightExtractor is available
-        assert extractor is None or hasattr(extractor, '__class__')
+        assert extractor is None or hasattr(extractor, "__class__")
 
     def test_create_insight_store(self, factory):
         """create_insight_store should create instance if class available."""
         store = factory.create_insight_store()
 
         # Result depends on whether InsightStore is available
-        assert store is None or hasattr(store, '__class__')
+        assert store is None or hasattr(store, "__class__")
 
     def test_create_critique_store(self, factory):
         """create_critique_store should create instance if class available."""
         store = factory.create_critique_store()
 
         # Result depends on whether CritiqueStore is available
-        assert store is None or hasattr(store, '__class__')
+        assert store is None or hasattr(store, "__class__")
 
     def test_create_argument_cartographer(self, factory):
         """create_argument_cartographer should create instance if class available."""
         cartographer = factory.create_argument_cartographer()
 
         # Result depends on whether ArgumentCartographer is available
-        assert cartographer is None or hasattr(cartographer, '__class__')
+        assert cartographer is None or hasattr(cartographer, "__class__")
 
     def test_create_with_kwargs(self, factory):
         """Factory methods should pass kwargs to constructors."""
@@ -265,7 +269,7 @@ class TestFactoryMethods:
         """Factory methods should return None when class is unavailable."""
         factory._position_tracker_cls = None
         # Force it to stay None by mocking the getter
-        with patch.object(factory, '_get_position_tracker_cls', return_value=None):
+        with patch.object(factory, "_get_position_tracker_cls", return_value=None):
             result = factory.create_position_tracker()
             assert result is None
 
@@ -274,13 +278,14 @@ class TestFactoryMethods:
 # Arena Creation Tests
 # ============================================================================
 
+
 class TestArenaCreation:
     """Tests for Arena creation via factory."""
 
     def test_create_minimal_arena(self, factory, mock_environment, mock_agents):
         """Create arena with minimal required parameters."""
         # Arena is imported inside create(), so we patch at the source
-        with patch('aragora.debate.orchestrator.Arena') as MockArena:
+        with patch("aragora.debate.orchestrator.Arena") as MockArena:
             MockArena.return_value = Mock()
 
             arena = factory.create(
@@ -290,12 +295,12 @@ class TestArenaCreation:
 
             MockArena.assert_called_once()
             call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs['environment'] is mock_environment
-            assert call_kwargs['agents'] is mock_agents
+            assert call_kwargs["environment"] is mock_environment
+            assert call_kwargs["agents"] is mock_agents
 
     def test_create_with_protocol(self, factory, mock_environment, mock_agents, mock_protocol):
         """Create arena with custom protocol."""
-        with patch('aragora.debate.orchestrator.Arena') as MockArena:
+        with patch("aragora.debate.orchestrator.Arena") as MockArena:
             MockArena.return_value = Mock()
 
             arena = factory.create(
@@ -305,11 +310,11 @@ class TestArenaCreation:
             )
 
             call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs['protocol'] is mock_protocol
+            assert call_kwargs["protocol"] is mock_protocol
 
     def test_create_with_enable_position_tracking(self, factory, mock_environment, mock_agents):
         """Enable position tracking auto-creates tracker."""
-        with patch('aragora.debate.orchestrator.Arena') as MockArena:
+        with patch("aragora.debate.orchestrator.Arena") as MockArena:
             MockArena.return_value = Mock()
 
             # Mock the factory method
@@ -324,11 +329,11 @@ class TestArenaCreation:
 
             factory.create_position_tracker.assert_called_once()
             call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs['position_tracker'] is mock_tracker
+            assert call_kwargs["position_tracker"] is mock_tracker
 
     def test_create_with_enable_calibration(self, factory, mock_environment, mock_agents):
         """Enable calibration auto-creates tracker."""
-        with patch('aragora.debate.orchestrator.Arena') as MockArena:
+        with patch("aragora.debate.orchestrator.Arena") as MockArena:
             MockArena.return_value = Mock()
 
             mock_tracker = Mock()
@@ -342,11 +347,11 @@ class TestArenaCreation:
 
             factory.create_calibration_tracker.assert_called_once()
             call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs['calibration_tracker'] is mock_tracker
+            assert call_kwargs["calibration_tracker"] is mock_tracker
 
     def test_create_with_enable_insights(self, factory, mock_environment, mock_agents):
         """Enable insights auto-creates store."""
-        with patch('aragora.debate.orchestrator.Arena') as MockArena:
+        with patch("aragora.debate.orchestrator.Arena") as MockArena:
             MockArena.return_value = Mock()
 
             mock_store = Mock()
@@ -360,11 +365,11 @@ class TestArenaCreation:
 
             factory.create_insight_store.assert_called_once()
             call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs['insight_store'] is mock_store
+            assert call_kwargs["insight_store"] is mock_store
 
     def test_create_with_enable_critique_patterns(self, factory, mock_environment, mock_agents):
         """Enable critique patterns auto-creates memory store."""
-        with patch('aragora.debate.orchestrator.Arena') as MockArena:
+        with patch("aragora.debate.orchestrator.Arena") as MockArena:
             MockArena.return_value = Mock()
 
             mock_store = Mock()
@@ -378,11 +383,11 @@ class TestArenaCreation:
 
             factory.create_critique_store.assert_called_once()
             call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs['memory'] is mock_store
+            assert call_kwargs["memory"] is mock_store
 
     def test_create_explicit_overrides_enable_flag(self, factory, mock_environment, mock_agents):
         """Explicit instance should override enable flag."""
-        with patch('aragora.debate.orchestrator.Arena') as MockArena:
+        with patch("aragora.debate.orchestrator.Arena") as MockArena:
             MockArena.return_value = Mock()
 
             explicit_tracker = Mock()
@@ -398,11 +403,11 @@ class TestArenaCreation:
             # Should not call create_position_tracker
             factory.create_position_tracker.assert_not_called()
             call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs['position_tracker'] is explicit_tracker
+            assert call_kwargs["position_tracker"] is explicit_tracker
 
     def test_create_with_all_explicit_dependencies(self, factory, mock_environment, mock_agents):
         """Create arena with all explicit dependencies."""
-        with patch('aragora.debate.orchestrator.Arena') as MockArena:
+        with patch("aragora.debate.orchestrator.Arena") as MockArena:
             MockArena.return_value = Mock()
 
             mock_memory = Mock()
@@ -456,34 +461,35 @@ class TestArenaCreation:
             )
 
             call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs['memory'] is mock_memory
-            assert call_kwargs['event_hooks'] is mock_hooks
-            assert call_kwargs['event_emitter'] is mock_emitter
-            assert call_kwargs['spectator'] is mock_spectator
-            assert call_kwargs['debate_embeddings'] is mock_embeddings
-            assert call_kwargs['insight_store'] is mock_insight_store
-            assert call_kwargs['recorder'] is mock_recorder
-            assert call_kwargs['agent_weights'] is mock_weights
-            assert call_kwargs['position_tracker'] is mock_position_tracker
-            assert call_kwargs['position_ledger'] is mock_position_ledger
-            assert call_kwargs['elo_system'] is mock_elo
-            assert call_kwargs['persona_manager'] is mock_persona_manager
-            assert call_kwargs['dissent_retriever'] is mock_dissent
-            assert call_kwargs['flip_detector'] is mock_flip
-            assert call_kwargs['calibration_tracker'] is mock_calibration
-            assert call_kwargs['continuum_memory'] is mock_continuum
-            assert call_kwargs['relationship_tracker'] is mock_relationship
-            assert call_kwargs['moment_detector'] is mock_moment
-            assert call_kwargs['loop_id'] == "test-loop"
-            assert call_kwargs['strict_loop_scoping'] is True
-            assert call_kwargs['circuit_breaker'] is mock_circuit_breaker
-            assert call_kwargs['initial_messages'] is mock_initial_messages
-            assert call_kwargs['trending_topic'] is mock_trending
+            assert call_kwargs["memory"] is mock_memory
+            assert call_kwargs["event_hooks"] is mock_hooks
+            assert call_kwargs["event_emitter"] is mock_emitter
+            assert call_kwargs["spectator"] is mock_spectator
+            assert call_kwargs["debate_embeddings"] is mock_embeddings
+            assert call_kwargs["insight_store"] is mock_insight_store
+            assert call_kwargs["recorder"] is mock_recorder
+            assert call_kwargs["agent_weights"] is mock_weights
+            assert call_kwargs["position_tracker"] is mock_position_tracker
+            assert call_kwargs["position_ledger"] is mock_position_ledger
+            assert call_kwargs["elo_system"] is mock_elo
+            assert call_kwargs["persona_manager"] is mock_persona_manager
+            assert call_kwargs["dissent_retriever"] is mock_dissent
+            assert call_kwargs["flip_detector"] is mock_flip
+            assert call_kwargs["calibration_tracker"] is mock_calibration
+            assert call_kwargs["continuum_memory"] is mock_continuum
+            assert call_kwargs["relationship_tracker"] is mock_relationship
+            assert call_kwargs["moment_detector"] is mock_moment
+            assert call_kwargs["loop_id"] == "test-loop"
+            assert call_kwargs["strict_loop_scoping"] is True
+            assert call_kwargs["circuit_breaker"] is mock_circuit_breaker
+            assert call_kwargs["initial_messages"] is mock_initial_messages
+            assert call_kwargs["trending_topic"] is mock_trending
 
 
 # ============================================================================
 # Singleton Tests
 # ============================================================================
+
 
 class TestSingleton:
     """Tests for get_arena_factory singleton."""
@@ -520,12 +526,13 @@ class TestSingleton:
 # Convenience Function Tests
 # ============================================================================
 
+
 class TestCreateArenaConvenience:
     """Tests for create_arena convenience function."""
 
     def test_create_arena_uses_singleton(self, mock_environment, mock_agents):
         """create_arena should use the singleton factory."""
-        with patch('aragora.debate.factory.get_arena_factory') as mock_get:
+        with patch("aragora.debate.factory.get_arena_factory") as mock_get:
             mock_factory = Mock()
             mock_factory.create.return_value = Mock()
             mock_get.return_value = mock_factory
@@ -543,7 +550,7 @@ class TestCreateArenaConvenience:
 
     def test_create_arena_passes_kwargs(self, mock_environment, mock_agents):
         """create_arena should pass kwargs to factory.create."""
-        with patch('aragora.debate.factory.get_arena_factory') as mock_get:
+        with patch("aragora.debate.factory.get_arena_factory") as mock_get:
             mock_factory = Mock()
             mock_factory.create.return_value = Mock()
             mock_get.return_value = mock_factory
@@ -566,6 +573,7 @@ class TestCreateArenaConvenience:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestIntegration:
     """Integration tests with real classes."""

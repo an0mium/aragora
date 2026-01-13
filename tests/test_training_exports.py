@@ -259,7 +259,8 @@ class TestSFTExporter:
         conn = sqlite3.connect(db_path)
 
         # Create debates table
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE debates (
                 id TEXT PRIMARY KEY,
                 task TEXT,
@@ -269,10 +270,12 @@ class TestSFTExporter:
                 consensus_reached INTEGER,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         # Create critiques table
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE critiques (
                 id INTEGER PRIMARY KEY,
                 debate_id TEXT,
@@ -284,21 +287,26 @@ class TestSFTExporter:
                 reasoning TEXT,
                 led_to_improvement INTEGER
             )
-        """)
+        """
+        )
 
         # Insert test data
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO debates (id, task, final_answer, confidence, rounds_used, consensus_reached)
             VALUES ('debate-1', 'Analyze the security of this code',
                     'The code has a SQL injection vulnerability on line 15. To fix this, use parameterized queries instead of string concatenation.',
                     0.85, 3, 1)
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             INSERT INTO debates (id, task, final_answer, confidence, rounds_used, consensus_reached)
             VALUES ('debate-2', 'Review the architecture',
                     'The architecture follows good separation of concerns. The service layer properly isolates business logic.',
                     0.92, 2, 1)
-        """)
+        """
+        )
 
         conn.commit()
         conn.close()
@@ -309,7 +317,8 @@ class TestSFTExporter:
         """Should handle empty database."""
         db_path = tmp_path / "empty.db"
         conn = sqlite3.connect(db_path)
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE debates (
                 id TEXT PRIMARY KEY,
                 task TEXT,
@@ -319,7 +328,8 @@ class TestSFTExporter:
                 consensus_reached INTEGER,
                 created_at TEXT
             )
-        """)
+        """
+        )
         conn.commit()
         conn.close()
 

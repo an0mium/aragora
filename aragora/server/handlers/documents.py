@@ -21,8 +21,13 @@ from enum import Enum
 from typing import Any, Optional
 
 from .base import (
-    BaseHandler, HandlerResult, json_response, error_response, handle_errors,
-    require_user_auth, safe_error_message,
+    BaseHandler,
+    HandlerResult,
+    json_response,
+    error_response,
+    handle_errors,
+    require_user_auth,
+    safe_error_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,6 +40,7 @@ MIN_FILE_SIZE = 1  # Minimum 1 byte
 
 class UploadErrorCode(Enum):
     """Specific error codes for upload failures."""
+
     RATE_LIMITED = "rate_limited"
     FILE_TOO_LARGE = "file_too_large"
     FILE_TOO_SMALL = "file_too_small"
@@ -54,6 +60,7 @@ class UploadErrorCode(Enum):
 @dataclass
 class UploadError:
     """Structured upload error response."""
+
     code: UploadErrorCode
     message: str
     details: Optional[dict] = None
@@ -143,10 +150,9 @@ class DocumentHandler(BaseHandler):
             success = store.delete(doc_id)
             if success:
                 logger.info(f"Document deleted: {doc_id}")
-                return json_response({
-                    "success": True,
-                    "message": f"Document {doc_id} deleted successfully"
-                })
+                return json_response(
+                    {"success": True, "message": f"Document {doc_id} deleted successfully"}
+                )
             else:
                 return error_response(f"Failed to delete document: {doc_id}", 500)
         except Exception as e:
@@ -161,18 +167,13 @@ class DocumentHandler(BaseHandler):
         """List all uploaded documents."""
         store = self.get_document_store()
         if not store:
-            return json_response({
-                "documents": [],
-                "count": 0,
-                "error": "Document storage not configured"
-            })
+            return json_response(
+                {"documents": [], "count": 0, "error": "Document storage not configured"}
+            )
 
         try:
             docs = store.list_all()
-            return json_response({
-                "documents": docs,
-                "count": len(docs)
-            })
+            return json_response({"documents": docs, "count": len(docs)})
         except Exception as e:
             return error_response(safe_error_message(e, "list documents"), 500)
 
@@ -180,13 +181,16 @@ class DocumentHandler(BaseHandler):
         """Get list of supported document formats."""
         try:
             from aragora.server.documents import get_supported_formats
+
             formats = get_supported_formats()
             return json_response(formats)
         except ImportError:
-            return json_response({
-                "extensions": [".txt", ".md", ".pdf"],
-                "note": "Document parsing module not fully loaded"
-            })
+            return json_response(
+                {
+                    "extensions": [".txt", ".md", ".pdf"],
+                    "note": "Document parsing module not fully loaded",
+                }
+            )
 
     def _get_document(self, doc_id: str) -> HandlerResult:
         """Get a document by ID."""
@@ -223,8 +227,7 @@ class DocumentHandler(BaseHandler):
 
             # Clean up old entries for this IP
             DocumentHandler._upload_counts[client_ip] = [
-                ts for ts in DocumentHandler._upload_counts[client_ip]
-                if ts > one_hour_ago
+                ts for ts in DocumentHandler._upload_counts[client_ip] if ts > one_hour_ago
             ]
 
             # Remove empty entries to prevent memory leak
@@ -240,14 +243,14 @@ class DocumentHandler(BaseHandler):
             if recent_minute >= DocumentHandler.MAX_UPLOADS_PER_MINUTE:
                 return error_response(
                     f"Upload rate limit exceeded. Max {DocumentHandler.MAX_UPLOADS_PER_MINUTE} per minute.",
-                    429
+                    429,
                 )
 
             # Check per-hour limit
             if len(timestamps) >= DocumentHandler.MAX_UPLOADS_PER_HOUR:
                 return error_response(
                     f"Upload rate limit exceeded. Max {DocumentHandler.MAX_UPLOADS_PER_HOUR} per hour.",
-                    429
+                    429,
                 )
 
             # Enforce max tracked IPs (LRU eviction)
@@ -262,7 +265,7 @@ class DocumentHandler(BaseHandler):
 
     def _get_client_ip(self, handler) -> str:
         """Get client IP address, respecting trusted proxy headers."""
-        remote_ip = handler.client_address[0] if hasattr(handler, 'client_address') else 'unknown'
+        remote_ip = handler.client_address[0] if hasattr(handler, "client_address") else "unknown"
         # For simplicity, just return remote IP (full proxy handling is in unified_server)
         return remote_ip
 
@@ -282,31 +285,30 @@ class DocumentHandler(BaseHandler):
         store = self.get_document_store()
         if not store:
             return UploadError(
-                UploadErrorCode.STORAGE_NOT_CONFIGURED,
-                "Document storage not configured"
+                UploadErrorCode.STORAGE_NOT_CONFIGURED, "Document storage not configured"
             ).to_response(500)
 
         # Get and validate content length
         try:
-            content_length = int(handler.headers.get('Content-Length', '0'))
+            content_length = int(handler.headers.get("Content-Length", "0"))
         except ValueError:
             return UploadError(
                 UploadErrorCode.INVALID_CONTENT_LENGTH,
                 "Invalid Content-Length header",
-                {"header_value": handler.headers.get('Content-Length', '')}
+                {"header_value": handler.headers.get("Content-Length", "")},
             ).to_response(400)
 
         if content_length == 0:
             return UploadError(
                 UploadErrorCode.NO_CONTENT,
-                "No content provided. Include file data in request body."
+                "No content provided. Include file data in request body.",
             ).to_response(400)
 
         if content_length < MIN_FILE_SIZE:
             return UploadError(
                 UploadErrorCode.FILE_TOO_SMALL,
                 f"File too small. Minimum size: {MIN_FILE_SIZE} bytes",
-                {"received_bytes": content_length}
+                {"received_bytes": content_length},
             ).to_response(400)
 
         # Check max size (10MB)
@@ -315,10 +317,10 @@ class DocumentHandler(BaseHandler):
             return UploadError(
                 UploadErrorCode.FILE_TOO_LARGE,
                 "File too large. Maximum size: 10MB",
-                {"received_bytes": content_length, "max_bytes": max_size}
+                {"received_bytes": content_length, "max_bytes": max_size},
             ).to_response(413)
 
-        content_type = handler.headers.get('Content-Type', '')
+        content_type = handler.headers.get("Content-Type", "")
 
         # Parse file from request
         file_content, filename, parse_error = self._parse_upload_with_error(
@@ -331,7 +333,7 @@ class DocumentHandler(BaseHandler):
         if not file_content or not filename:
             return UploadError(
                 UploadErrorCode.CORRUPTED_UPLOAD,
-                "Could not extract file from upload. Ensure file is included in request."
+                "Could not extract file from upload. Ensure file is included in request.",
             ).to_response(400)
 
         # Validate filename length
@@ -339,7 +341,7 @@ class DocumentHandler(BaseHandler):
             return UploadError(
                 UploadErrorCode.FILENAME_TOO_LONG,
                 f"Filename too long. Maximum: {MAX_FILENAME_LENGTH} characters",
-                {"filename_length": len(filename), "max_length": MAX_FILENAME_LENGTH}
+                {"filename_length": len(filename), "max_length": MAX_FILENAME_LENGTH},
             ).to_response(400)
 
         # Verify actual content matches declared length (detect truncation)
@@ -347,7 +349,7 @@ class DocumentHandler(BaseHandler):
             return UploadError(
                 UploadErrorCode.CORRUPTED_UPLOAD,
                 "Upload appears truncated or corrupted",
-                {"expected_bytes": content_length, "received_bytes": len(file_content)}
+                {"expected_bytes": content_length, "received_bytes": len(file_content)},
             ).to_response(400)
 
         # Import document parsing
@@ -355,43 +357,45 @@ class DocumentHandler(BaseHandler):
             from aragora.server.documents import parse_document, SUPPORTED_EXTENSIONS
         except ImportError:
             return UploadError(
-                UploadErrorCode.PARSING_FAILED,
-                "Document parsing module not available"
+                UploadErrorCode.PARSING_FAILED, "Document parsing module not available"
             ).to_response(500)
 
         # Validate file extension
-        ext = '.' + filename.split('.')[-1].lower() if '.' in filename else ''
+        ext = "." + filename.split(".")[-1].lower() if "." in filename else ""
         if ext not in SUPPORTED_EXTENSIONS:
             return UploadError(
                 UploadErrorCode.UNSUPPORTED_FORMAT,
                 f"Unsupported file type: {ext}",
-                {"extension": ext, "supported": list(SUPPORTED_EXTENSIONS)}
+                {"extension": ext, "supported": list(SUPPORTED_EXTENSIONS)},
             ).to_response(400)
 
         # Parse and store document
         from aragora.server.error_utils import safe_error_message
+
         try:
             doc = parse_document(file_content, filename)
             doc_id = store.add(doc)
 
             logger.info(f"Document uploaded: {filename} ({len(file_content)} bytes) -> {doc_id}")
 
-            return json_response({
-                "success": True,
-                "document": {
-                    "id": doc_id,
-                    "filename": doc.filename,
-                    "word_count": doc.word_count,
-                    "page_count": doc.page_count,
-                    "preview": doc.preview,
+            return json_response(
+                {
+                    "success": True,
+                    "document": {
+                        "id": doc_id,
+                        "filename": doc.filename,
+                        "word_count": doc.word_count,
+                        "page_count": doc.page_count,
+                        "preview": doc.preview,
+                    },
                 }
-            })
+            )
         except ImportError as e:
             logger.error(f"Document import error: {e}")
             return UploadError(
                 UploadErrorCode.PARSING_FAILED,
                 safe_error_message(e, "document_import"),
-                {"error_type": "ImportError"}
+                {"error_type": "ImportError"},
             ).to_response(400)
         except ValueError as e:
             # Common for malformed PDFs, etc
@@ -399,14 +403,14 @@ class DocumentHandler(BaseHandler):
             return UploadError(
                 UploadErrorCode.PARSING_FAILED,
                 f"Could not parse document: {safe_error_message(e, 'document_parsing')}",
-                {"filename": filename, "error_type": "ValueError"}
+                {"filename": filename, "error_type": "ValueError"},
             ).to_response(400)
         except Exception as e:
             logger.error(f"Document storage error: {e}")
             return UploadError(
                 UploadErrorCode.STORAGE_FAILED,
                 safe_error_message(e, "document_storage"),
-                {"error_type": type(e).__name__}
+                {"error_type": type(e).__name__},
             ).to_response(500)
 
     def _parse_upload_with_error(
@@ -418,19 +422,23 @@ class DocumentHandler(BaseHandler):
         On success: (content, filename, None)
         On failure: (None, None, UploadError)
         """
-        if 'multipart/form-data' in content_type:
+        if "multipart/form-data" in content_type:
             return self._parse_multipart_with_error(handler, content_type, content_length)
         else:
             return self._parse_raw_upload_with_error(handler, content_length)
 
-    def _parse_upload(self, handler, content_type: str, content_length: int) -> tuple[Optional[bytes], Optional[str]]:
+    def _parse_upload(
+        self, handler, content_type: str, content_length: int
+    ) -> tuple[Optional[bytes], Optional[str]]:
         """Parse file content and filename from upload request.
 
         Returns (file_content, filename) or (None, None) on failure.
         Legacy method - use _parse_upload_with_error for better error handling.
         """
-        if 'multipart/form-data' in content_type:
-            content, filename, _ = self._parse_multipart_with_error(handler, content_type, content_length)
+        if "multipart/form-data" in content_type:
+            content, filename, _ = self._parse_multipart_with_error(
+                handler, content_type, content_length
+            )
             return content, filename
         else:
             content, filename, _ = self._parse_raw_upload_with_error(handler, content_length)
@@ -442,52 +450,63 @@ class DocumentHandler(BaseHandler):
         """Parse multipart form data upload with detailed errors."""
         # Parse boundary
         boundary = None
-        for part in content_type.split(';'):
-            if 'boundary=' in part:
-                parts = part.split('=', 1)
+        for part in content_type.split(";"):
+            if "boundary=" in part:
+                parts = part.split("=", 1)
                 if len(parts) == 2 and parts[1].strip():
                     boundary = parts[1].strip().strip('"')
                 break
 
         if not boundary:
-            return None, None, UploadError(
-                UploadErrorCode.MISSING_BOUNDARY,
-                "Missing boundary in multipart/form-data Content-Type header",
-                {"content_type": content_type}
+            return (
+                None,
+                None,
+                UploadError(
+                    UploadErrorCode.MISSING_BOUNDARY,
+                    "Missing boundary in multipart/form-data Content-Type header",
+                    {"content_type": content_type},
+                ),
             )
 
         try:
             body: bytes = handler.rfile.read(content_length)
         except Exception as e:
-            return None, None, UploadError(
-                UploadErrorCode.CORRUPTED_UPLOAD,
-                f"Failed to read upload body: {str(e)[:100]}"
+            return (
+                None,
+                None,
+                UploadError(
+                    UploadErrorCode.CORRUPTED_UPLOAD, f"Failed to read upload body: {str(e)[:100]}"
+                ),
             )
 
-        boundary_bytes = f'--{boundary}'.encode()
+        boundary_bytes = f"--{boundary}".encode()
         body_parts: list[bytes] = body.split(boundary_bytes)
 
         # DoS protection
         if len(body_parts) > MAX_MULTIPART_PARTS:
-            return None, None, UploadError(
-                UploadErrorCode.MULTIPART_PARSE_ERROR,
-                f"Too many parts in multipart upload. Maximum: {MAX_MULTIPART_PARTS}",
-                {"part_count": len(body_parts), "max_parts": MAX_MULTIPART_PARTS}
+            return (
+                None,
+                None,
+                UploadError(
+                    UploadErrorCode.MULTIPART_PARSE_ERROR,
+                    f"Too many parts in multipart upload. Maximum: {MAX_MULTIPART_PARTS}",
+                    {"part_count": len(body_parts), "max_parts": MAX_MULTIPART_PARTS},
+                ),
             )
 
         for part in body_parts:
-            if b'Content-Disposition' not in part:
+            if b"Content-Disposition" not in part:
                 continue
 
             try:
-                header_end = part.index(b'\r\n\r\n')
-                headers_raw = part[:header_end].decode('utf-8', errors='ignore')
-                file_data = part[header_end + 4:]
+                header_end = part.index(b"\r\n\r\n")
+                headers_raw = part[:header_end].decode("utf-8", errors="ignore")
+                file_data = part[header_end + 4 :]
 
                 # Remove trailing boundary markers
-                if file_data.endswith(b'--\r\n'):
+                if file_data.endswith(b"--\r\n"):
                     file_data = file_data[:-4]
-                elif file_data.endswith(b'\r\n'):
+                elif file_data.endswith(b"\r\n"):
                     file_data = file_data[:-2]
 
                 # Extract and sanitize filename
@@ -499,24 +518,39 @@ class DocumentHandler(BaseHandler):
 
                     # Reject suspicious patterns with specific errors
                     if not filename:
-                        return None, None, UploadError(
-                            UploadErrorCode.INVALID_FILENAME,
-                            "Empty filename in upload"
+                        return (
+                            None,
+                            None,
+                            UploadError(
+                                UploadErrorCode.INVALID_FILENAME, "Empty filename in upload"
+                            ),
                         )
-                    if '\x00' in filename:
-                        return None, None, UploadError(
-                            UploadErrorCode.INVALID_FILENAME,
-                            "Filename contains null bytes (potential attack)"
+                    if "\x00" in filename:
+                        return (
+                            None,
+                            None,
+                            UploadError(
+                                UploadErrorCode.INVALID_FILENAME,
+                                "Filename contains null bytes (potential attack)",
+                            ),
                         )
-                    if '..' in filename:
-                        return None, None, UploadError(
-                            UploadErrorCode.INVALID_FILENAME,
-                            "Filename contains path traversal sequence (..)"
+                    if ".." in filename:
+                        return (
+                            None,
+                            None,
+                            UploadError(
+                                UploadErrorCode.INVALID_FILENAME,
+                                "Filename contains path traversal sequence (..)",
+                            ),
                         )
-                    if filename.strip('.').strip() == '':
-                        return None, None, UploadError(
-                            UploadErrorCode.INVALID_FILENAME,
-                            "Filename cannot be only dots or whitespace"
+                    if filename.strip(".").strip() == "":
+                        return (
+                            None,
+                            None,
+                            UploadError(
+                                UploadErrorCode.INVALID_FILENAME,
+                                "Filename cannot be only dots or whitespace",
+                            ),
                         )
 
                     return file_data, filename, None
@@ -524,51 +558,76 @@ class DocumentHandler(BaseHandler):
                 logger.debug(f"Multipart part parse error: {e}")
                 continue
 
-        return None, None, UploadError(
-            UploadErrorCode.MULTIPART_PARSE_ERROR,
-            "No valid file found in multipart upload. Ensure field name is 'file' and filename is provided."
+        return (
+            None,
+            None,
+            UploadError(
+                UploadErrorCode.MULTIPART_PARSE_ERROR,
+                "No valid file found in multipart upload. Ensure field name is 'file' and filename is provided.",
+            ),
         )
 
-    def _parse_multipart(self, handler, content_type: str, content_length: int) -> tuple[Optional[bytes], Optional[str]]:
+    def _parse_multipart(
+        self, handler, content_type: str, content_length: int
+    ) -> tuple[Optional[bytes], Optional[str]]:
         """Parse multipart form data upload (legacy)."""
-        content, filename, _ = self._parse_multipart_with_error(handler, content_type, content_length)
+        content, filename, _ = self._parse_multipart_with_error(
+            handler, content_type, content_length
+        )
         return content, filename
 
     def _parse_raw_upload_with_error(
         self, handler, content_length: int
     ) -> tuple[Optional[bytes], Optional[str], Optional[UploadError]]:
         """Parse raw file upload with X-Filename header (with detailed errors)."""
-        raw_filename = handler.headers.get('X-Filename', 'document.txt')
+        raw_filename = handler.headers.get("X-Filename", "document.txt")
         filename = os.path.basename(raw_filename)
 
         # Reject suspicious patterns with specific errors
         if not filename:
-            return None, None, UploadError(
-                UploadErrorCode.INVALID_FILENAME,
-                "Empty filename. Provide X-Filename header with valid filename."
+            return (
+                None,
+                None,
+                UploadError(
+                    UploadErrorCode.INVALID_FILENAME,
+                    "Empty filename. Provide X-Filename header with valid filename.",
+                ),
             )
-        if '\x00' in filename:
-            return None, None, UploadError(
-                UploadErrorCode.INVALID_FILENAME,
-                "Filename contains null bytes (potential attack)"
+        if "\x00" in filename:
+            return (
+                None,
+                None,
+                UploadError(
+                    UploadErrorCode.INVALID_FILENAME,
+                    "Filename contains null bytes (potential attack)",
+                ),
             )
-        if '..' in filename:
-            return None, None, UploadError(
-                UploadErrorCode.INVALID_FILENAME,
-                "Filename contains path traversal sequence (..)"
+        if ".." in filename:
+            return (
+                None,
+                None,
+                UploadError(
+                    UploadErrorCode.INVALID_FILENAME,
+                    "Filename contains path traversal sequence (..)",
+                ),
             )
 
         try:
             file_content = handler.rfile.read(content_length)
         except Exception as e:
-            return None, None, UploadError(
-                UploadErrorCode.CORRUPTED_UPLOAD,
-                f"Failed to read upload body: {str(e)[:100]}"
+            return (
+                None,
+                None,
+                UploadError(
+                    UploadErrorCode.CORRUPTED_UPLOAD, f"Failed to read upload body: {str(e)[:100]}"
+                ),
             )
 
         return file_content, filename, None
 
-    def _parse_raw_upload(self, handler, content_length: int) -> tuple[Optional[bytes], Optional[str]]:
+    def _parse_raw_upload(
+        self, handler, content_length: int
+    ) -> tuple[Optional[bytes], Optional[str]]:
         """Parse raw file upload with X-Filename header (legacy)."""
         content, filename, _ = self._parse_raw_upload_with_error(handler, content_length)
         return content, filename

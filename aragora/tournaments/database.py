@@ -1,20 +1,19 @@
 """
 Database abstraction for the tournaments module.
 
-Provides thread-safe database access by inheriting from BaseDatabase,
-which delegates to DatabaseManager with per-operation connections
-for concurrent access patterns.
+Provides thread-safe database access by inheriting from SQLiteStore,
+which provides standardized schema management and connection handling.
 """
 
-from aragora.storage import BaseDatabase
+from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.storage.base_store import SQLiteStore
 
 
-class TournamentDatabase(BaseDatabase):
+class TournamentDatabase(SQLiteStore):
     """
     Database wrapper for tournament system operations.
 
-    Inherits thread-safe access via BaseDatabase, which uses
-    DatabaseManager.fresh_connection() for per-operation connections.
+    Inherits from SQLiteStore for standardized schema management.
     Uses WAL mode for better concurrent read/write performance.
 
     Usage:
@@ -29,4 +28,35 @@ class TournamentDatabase(BaseDatabase):
         rows = db.fetch_all("SELECT * FROM tournaments ORDER BY created_at DESC")
     """
 
-    pass
+    SCHEMA_NAME = "tournaments"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS tournaments (
+            tournament_id TEXT PRIMARY KEY,
+            name TEXT,
+            format TEXT,
+            agents TEXT,
+            tasks TEXT,
+            standings TEXT,
+            champion TEXT,
+            started_at TEXT,
+            completed_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS tournament_matches (
+            match_id TEXT PRIMARY KEY,
+            tournament_id TEXT,
+            round_num INTEGER,
+            participants TEXT,
+            task_id TEXT,
+            scores TEXT,
+            winner TEXT,
+            started_at TEXT,
+            completed_at TEXT
+        );
+    """
+
+    def __init__(self, db_path: str = "aragora_tournaments.db"):
+        """Initialize tournament database."""
+        super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)

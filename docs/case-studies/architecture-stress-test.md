@@ -126,7 +126,7 @@ MedConnect addressed all critical and high-severity issues over 3 weeks:
     {
       "attack_id": "arch-001",
       "finding": "Single PostgreSQL instance cannot handle 10x scale",
-      "agents_agreed": ["claude-opus", "gpt-4", "gemini-pro"],
+      "agents_agreed": ["anthropic-api", "openai-api", "gemini"],
       "dissenting": [],
       "severity": "critical",
       "scaling_analysis": {
@@ -139,7 +139,7 @@ MedConnect addressed all critical and high-severity issues over 3 weeks:
     {
       "attack_id": "hipaa-003",
       "finding": "PHI written to unencrypted logs",
-      "agents_agreed": ["claude-opus", "gpt-4", "gemini-pro"],
+      "agents_agreed": ["anthropic-api", "openai-api", "gemini"],
       "dissenting": [],
       "severity": "critical",
       "hipaa_sections": ["45 CFR 164.312(a)(1)", "45 CFR 164.312(b)"]

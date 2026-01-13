@@ -210,10 +210,7 @@ class TestServiceRegistration:
         """Test factory with configuration."""
         registry = ServiceRegistry.get()
 
-        registry.register_factory(
-            MockDatabase,
-            lambda: MockDatabase("postgres://prod")
-        )
+        registry.register_factory(MockDatabase, lambda: MockDatabase("postgres://prod"))
 
         db = registry.resolve(MockDatabase)
         assert db.connection_string == "postgres://prod"

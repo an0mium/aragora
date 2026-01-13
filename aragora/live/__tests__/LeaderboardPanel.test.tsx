@@ -129,13 +129,18 @@ function setupSuccessfulFetch() {
 }
 
 describe('LeaderboardPanel', () => {
+  let consoleWarnSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.resetAllMocks();
     jest.useFakeTimers();
+    // Suppress expected fallback warnings during tests
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
     jest.useRealTimers();
+    consoleWarnSpy.mockRestore();
   });
 
   it('renders skeleton loading state initially', async () => {

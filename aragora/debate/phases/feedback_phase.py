@@ -93,6 +93,10 @@ class FeedbackPhase:
         insight_store: Any = None,  # InsightStore for insight usage tracking
         # Training data export for Tinker integration
         training_exporter: Any = None,  # TrainingExporter callback for fine-tuning data
+        # Broadcast auto-trigger for high-quality debates
+        broadcast_pipeline: Any = None,  # BroadcastPipeline for audio/video generation
+        auto_broadcast: bool = False,  # Auto-trigger broadcast after high-quality debates
+        broadcast_min_confidence: float = 0.8,  # Minimum confidence to trigger broadcast
     ):
         """
         Initialize the feedback phase.
@@ -121,6 +125,9 @@ class FeedbackPhase:
             prompt_evolver: Optional PromptEvolver for extracting winning patterns
             insight_store: Optional InsightStore for insight usage tracking
             training_exporter: Optional callback for exporting training data to Tinker
+            broadcast_pipeline: Optional BroadcastPipeline for audio/video generation
+            auto_broadcast: If True, trigger broadcast after high-quality debates
+            broadcast_min_confidence: Minimum confidence to trigger broadcast (default 0.8)
         """
         self.elo_system = elo_system
         self.persona_manager = persona_manager
@@ -141,6 +148,9 @@ class FeedbackPhase:
         self.prompt_evolver = prompt_evolver
         self.insight_store = insight_store
         self.training_exporter = training_exporter
+        self.broadcast_pipeline = broadcast_pipeline
+        self.auto_broadcast = auto_broadcast
+        self.broadcast_min_confidence = broadcast_min_confidence
 
         # Callbacks
         self._emit_moment_event = emit_moment_event
@@ -219,6 +229,79 @@ class FeedbackPhase:
         # 20. Emit training data for Tinker fine-tuning
         await self._emit_training_data(ctx)
 
+        # 21. Auto-trigger broadcast for high-quality debates
+        await self._maybe_trigger_broadcast(ctx)
+
+    async def _maybe_trigger_broadcast(self, ctx: "DebateContext") -> None:
+        """Trigger broadcast for high-quality debates.
+
+        When enabled via auto_broadcast, this method:
+        1. Checks if debate confidence meets broadcast threshold
+        2. Triggers the broadcast pipeline asynchronously (fire-and-forget)
+        3. Logs success/failure without blocking debate completion
+
+        This enables automatic podcast/video generation for noteworthy debates.
+        """
+        if not self.broadcast_pipeline or not self.auto_broadcast:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        # Check confidence threshold
+        confidence = getattr(result, "confidence", 0.0)
+        if confidence < self.broadcast_min_confidence:
+            logger.debug(
+                "[broadcast] Skipping broadcast: confidence %.2f < threshold %.2f",
+                confidence,
+                self.broadcast_min_confidence,
+            )
+            return
+
+        # Fire-and-forget broadcast to not block debate completion
+        asyncio.create_task(self._broadcast_async(ctx))
+        logger.info(
+            "[broadcast] Triggered auto-broadcast for debate %s (confidence=%.2f)",
+            ctx.debate_id,
+            confidence,
+        )
+
+    async def _broadcast_async(self, ctx: "DebateContext") -> None:
+        """Run broadcast pipeline asynchronously.
+
+        This is a fire-and-forget task so it doesn't block debate completion.
+        Failures are logged but don't affect the debate result.
+        """
+        try:
+            from aragora.broadcast.pipeline import BroadcastOptions
+
+            options = BroadcastOptions(
+                audio_enabled=True,
+                generate_rss_episode=True,
+            )
+
+            pipeline_result = await self.broadcast_pipeline.run(
+                ctx.debate_id,
+                options,
+            )
+
+            if pipeline_result.success:
+                logger.info(
+                    "[broadcast] Successfully generated broadcast for %s: audio=%s",
+                    ctx.debate_id,
+                    pipeline_result.audio_path,
+                )
+            else:
+                logger.warning(
+                    "[broadcast] Broadcast failed for %s: %s",
+                    ctx.debate_id,
+                    pipeline_result.error_message,
+                )
+
+        except Exception as e:
+            logger.warning("[broadcast] Auto-broadcast failed: %s", e)
+
     def _assess_risks(self, ctx: "DebateContext") -> None:
         """Assess domain-specific risks and emit RISK_WARNING events.
 
@@ -236,19 +319,21 @@ class FeedbackPhase:
             risks = assess_debate_risk(ctx.env.task, domain=ctx.domain)
 
             for risk in risks:
-                self.event_emitter.emit(StreamEvent(
-                    type=StreamEventType.RISK_WARNING,
-                    loop_id=self.loop_id,
-                    data={
-                        "level": risk.level.value,
-                        "domain": risk.domain,
-                        "category": risk.category,
-                        "description": risk.description,
-                        "mitigations": risk.mitigations,
-                        "confidence": risk.confidence,
-                        "debate_id": ctx.debate_id,
-                    }
-                ))
+                self.event_emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.RISK_WARNING,
+                        loop_id=self.loop_id,
+                        data={
+                            "level": risk.level.value,
+                            "domain": risk.domain,
+                            "category": risk.category,
+                            "description": risk.description,
+                            "mitigations": risk.mitigations,
+                            "confidence": risk.confidence,
+                            "debate_id": ctx.debate_id,
+                        },
+                    )
+                )
 
             if risks:
                 logger.info(
@@ -285,20 +370,20 @@ class FeedbackPhase:
             recorded = 0
             for vote in result.votes:
                 # Check if vote has confidence attribute
-                confidence = getattr(vote, 'confidence', None)
+                confidence = getattr(vote, "confidence", None)
                 if confidence is None:
                     continue
 
                 # Determine if the prediction was correct
                 # A vote is "correct" if the voted choice matches the actual winner
-                correct = (vote.choice == actual_winner)
+                correct = vote.choice == actual_winner
 
                 # Record the prediction with correct parameter names
                 self.calibration_tracker.record_prediction(
                     agent=vote.agent,
                     confidence=confidence,
                     correct=correct,
-                    debate_id=getattr(result, 'debate_id', ''),
+                    debate_id=getattr(result, "debate_id", ""),
                 )
                 recorded += 1
 
@@ -319,20 +404,22 @@ class FeedbackPhase:
 
             # Get summary stats from calibration tracker
             summary = {}
-            if hasattr(self.calibration_tracker, 'get_summary'):
+            if hasattr(self.calibration_tracker, "get_summary"):
                 summary = self.calibration_tracker.get_summary()
 
-            self.event_emitter.emit(StreamEvent(
-                type=StreamEventType.CALIBRATION_UPDATE,
-                loop_id=self.loop_id,
-                data={
-                    "debate_id": ctx.debate_id,
-                    "predictions_recorded": recorded_count,
-                    "total_predictions": summary.get("total_predictions", 0),
-                    "overall_accuracy": summary.get("overall_accuracy", 0.0),
-                    "domain": ctx.domain,
-                }
-            ))
+            self.event_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.CALIBRATION_UPDATE,
+                    loop_id=self.loop_id,
+                    data={
+                        "debate_id": ctx.debate_id,
+                        "predictions_recorded": recorded_count,
+                        "total_predictions": summary.get("total_predictions", 0),
+                        "overall_accuracy": summary.get("overall_accuracy", 0.0),
+                        "domain": ctx.domain,
+                    },
+                )
+            )
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug(f"Calibration event emission error: {e}")
 
@@ -349,26 +436,26 @@ class FeedbackPhase:
             return
 
         # Check if the debate has a trending topic attached
-        trending_topic = getattr(ctx, 'trending_topic', None)
+        trending_topic = getattr(ctx, "trending_topic", None)
         if not trending_topic:
             # Also check arena for backwards compatibility
-            arena = getattr(ctx, 'arena', None)
+            arena = getattr(ctx, "arena", None)
             if arena:
-                trending_topic = getattr(arena, 'trending_topic', None)
+                trending_topic = getattr(arena, "trending_topic", None)
 
         if not trending_topic:
             return
 
         try:
             self.pulse_manager.record_debate_outcome(
-                topic=getattr(trending_topic, 'topic', str(trending_topic)),
-                platform=getattr(trending_topic, 'platform', 'unknown'),
+                topic=getattr(trending_topic, "topic", str(trending_topic)),
+                platform=getattr(trending_topic, "platform", "unknown"),
                 debate_id=ctx.debate_id,
                 consensus_reached=result.consensus_reached,
                 confidence=result.confidence,
                 rounds_used=result.rounds_used,
-                category=getattr(trending_topic, 'category', ''),
-                volume=getattr(trending_topic, 'volume', 0),
+                category=getattr(trending_topic, "category", ""),
+                volume=getattr(trending_topic, "volume", 0),
             )
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.warning(f"[pulse] Failed to record outcome: {e}")
@@ -423,20 +510,18 @@ class FeedbackPhase:
                 else:
                     scores[agent_name] = 0.0
 
-            self.elo_system.record_match(
-                ctx.debate_id, participants, scores, domain=ctx.domain
-            )
+            self.elo_system.record_match(ctx.debate_id, participants, scores, domain=ctx.domain)
 
             # Emit MATCH_RECORDED event
             self._emit_match_recorded_event(ctx, participants)
 
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             _, msg, exc_info = _build_error_action(e, "elo")
-            logger.warning("ELO update failed for debate %s: %s", ctx.debate_id, msg, exc_info=exc_info)
+            logger.warning(
+                "ELO update failed for debate %s: %s", ctx.debate_id, msg, exc_info=exc_info
+            )
 
-    def _emit_match_recorded_event(
-        self, ctx: "DebateContext", participants: list[str]
-    ) -> None:
+    def _emit_match_recorded_event(self, ctx: "DebateContext", participants: list[str]) -> None:
         """Emit MATCH_RECORDED event for real-time leaderboard updates."""
         if not self.event_emitter or not self.elo_system:
             return
@@ -451,34 +536,38 @@ class FeedbackPhase:
                 for name in participants
             }
 
-            self.event_emitter.emit(StreamEvent(
-                type=StreamEventType.MATCH_RECORDED,
-                loop_id=self.loop_id,
-                data={
-                    "debate_id": ctx.debate_id,
-                    "participants": participants,
-                    "elo_changes": elo_changes,
-                    "domain": ctx.domain,
-                    "winner": ctx.result.winner,
-                }
-            ))
+            self.event_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.MATCH_RECORDED,
+                    loop_id=self.loop_id,
+                    data={
+                        "debate_id": ctx.debate_id,
+                        "participants": participants,
+                        "elo_changes": elo_changes,
+                        "domain": ctx.domain,
+                        "winner": ctx.result.winner,
+                    },
+                )
+            )
 
             # Emit per-agent ELO updates for granular tracking
             for agent_name in participants:
                 rating = ratings_batch.get(agent_name)
                 if rating:
-                    self.event_emitter.emit(StreamEvent(
-                        type=StreamEventType.AGENT_ELO_UPDATED,
-                        loop_id=self.loop_id,
-                        agent=agent_name,
-                        data={
-                            "agent": agent_name,
-                            "new_elo": rating.elo,
-                            "debate_id": ctx.debate_id,
-                            "domain": ctx.domain,
-                            "is_winner": agent_name == ctx.result.winner,
-                        }
-                    ))
+                    self.event_emitter.emit(
+                        StreamEvent(
+                            type=StreamEventType.AGENT_ELO_UPDATED,
+                            loop_id=self.loop_id,
+                            agent=agent_name,
+                            data={
+                                "agent": agent_name,
+                                "new_elo": rating.elo,
+                                "debate_id": ctx.debate_id,
+                                "domain": ctx.domain,
+                                "is_winner": agent_name == ctx.result.winner,
+                            },
+                        )
+                    )
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.warning(f"ELO event emission error: {e}")
 
@@ -526,27 +615,30 @@ class FeedbackPhase:
                     continue
 
                 # Check for newly emerged traits
-                new_traits = getattr(persona, 'emerging_traits', [])
+                new_traits = getattr(persona, "emerging_traits", [])
                 if not new_traits:
                     # Try to detect traits from performance history
                     new_traits = self._detect_emerging_traits(agent.name, ctx)
 
                 for trait in new_traits:
-                    self.event_emitter.emit(StreamEvent(
-                        type=StreamEventType.TRAIT_EMERGED,
-                        loop_id=self.loop_id,
-                        data={
-                            "agent": agent.name,
-                            "trait": trait.get("name", "unknown"),
-                            "description": trait.get("description", ""),
-                            "confidence": trait.get("confidence", 0.5),
-                            "domain": ctx.domain,
-                            "debate_id": ctx.debate_id,
-                        }
-                    ))
+                    self.event_emitter.emit(
+                        StreamEvent(
+                            type=StreamEventType.TRAIT_EMERGED,
+                            loop_id=self.loop_id,
+                            data={
+                                "agent": agent.name,
+                                "trait": trait.get("name", "unknown"),
+                                "description": trait.get("description", ""),
+                                "confidence": trait.get("confidence", 0.5),
+                                "domain": ctx.domain,
+                                "debate_id": ctx.debate_id,
+                            },
+                        )
+                    )
                     logger.info(
                         "[persona] Trait emerged for %s: %s",
-                        agent.name, trait.get("name", "unknown")
+                        agent.name,
+                        trait.get("name", "unknown"),
                     )
 
         except (TypeError, ValueError, AttributeError, KeyError) as e:
@@ -561,7 +653,7 @@ class FeedbackPhase:
 
         try:
             # Get performance stats if available
-            if not hasattr(self.persona_manager, 'get_performance_stats'):
+            if not hasattr(self.persona_manager, "get_performance_stats"):
                 return traits
 
             stats = self.persona_manager.get_performance_stats(agent_name)
@@ -569,31 +661,37 @@ class FeedbackPhase:
                 return traits
 
             # Domain specialist: High win rate in specific domain
-            domain_wins = stats.get('domain_wins', {})
+            domain_wins = stats.get("domain_wins", {})
             if ctx.domain in domain_wins and domain_wins[ctx.domain] >= 3:
-                traits.append({
-                    "name": f"{ctx.domain}_specialist",
-                    "description": f"Demonstrated expertise in {ctx.domain} domain",
-                    "confidence": min(0.9, 0.5 + (domain_wins[ctx.domain] * 0.1)),
-                })
+                traits.append(
+                    {
+                        "name": f"{ctx.domain}_specialist",
+                        "description": f"Demonstrated expertise in {ctx.domain} domain",
+                        "confidence": min(0.9, 0.5 + (domain_wins[ctx.domain] * 0.1)),
+                    }
+                )
 
             # High calibration: Consistent accurate predictions
-            accuracy = stats.get('prediction_accuracy', 0.0)
-            if accuracy >= 0.8 and stats.get('total_predictions', 0) >= 5:
-                traits.append({
-                    "name": "well_calibrated",
-                    "description": f"Highly accurate predictions ({accuracy:.0%})",
-                    "confidence": accuracy,
-                })
+            accuracy = stats.get("prediction_accuracy", 0.0)
+            if accuracy >= 0.8 and stats.get("total_predictions", 0) >= 5:
+                traits.append(
+                    {
+                        "name": "well_calibrated",
+                        "description": f"Highly accurate predictions ({accuracy:.0%})",
+                        "confidence": accuracy,
+                    }
+                )
 
             # Consistent winner: High overall win rate
-            win_rate = stats.get('win_rate', 0.0)
-            if win_rate >= 0.7 and stats.get('total_debates', 0) >= 5:
-                traits.append({
-                    "name": "consistent_winner",
-                    "description": f"Wins {win_rate:.0%} of debates",
-                    "confidence": win_rate,
-                })
+            win_rate = stats.get("win_rate", 0.0)
+            if win_rate >= 0.7 and stats.get("total_debates", 0) >= 5:
+                traits.append(
+                    {
+                        "name": "consistent_winner",
+                        "description": f"Wins {win_rate:.0%} of debates",
+                        "confidence": win_rate,
+                    }
+                )
 
         except (TypeError, ValueError, AttributeError, KeyError, ZeroDivisionError) as e:
             logger.debug(f"Trait detection error for {agent_name}: {e}")
@@ -635,11 +733,13 @@ class FeedbackPhase:
             critiques = []
             if result.messages:
                 for msg in result.messages:
-                    if getattr(msg, 'role', '') == 'critic':
-                        critiques.append({
-                            "agent": getattr(msg, 'agent', 'unknown'),
-                            "target": getattr(msg, 'target_agent', None),
-                        })
+                    if getattr(msg, "role", "") == "critic":
+                        critiques.append(
+                            {
+                                "agent": getattr(msg, "agent", "unknown"),
+                                "target": getattr(msg, "target_agent", None),
+                            }
+                        )
 
             # Build vote mapping
             votes = {}
@@ -683,7 +783,7 @@ class FeedbackPhase:
             for v in result.votes:
                 if v.confidence >= 0.85:
                     canonical = ctx.choice_mapping.get(v.choice, v.choice)
-                    was_correct = (canonical == result.winner)
+                    was_correct = canonical == result.winner
                     if was_correct:
                         moment = self.moment_detector.detect_calibration_vindication(
                             agent_name=v.agent,
@@ -712,31 +812,42 @@ class FeedbackPhase:
             transcript_parts = []
             if result.messages:
                 for msg in result.messages[:30]:
-                    agent_name = getattr(msg, 'agent', 'unknown')
-                    content = getattr(msg, 'content', str(msg))[:500]
+                    agent_name = getattr(msg, "agent", "unknown")
+                    content = getattr(msg, "content", str(msg))[:500]
                     transcript_parts.append(f"{agent_name}: {content}")
 
             artifact = {
-                'id': ctx.debate_id,
-                'task': ctx.env.task,
-                'domain': ctx.domain,
-                'winner': result.winner,
-                'final_answer': result.final_answer or '',
-                'confidence': result.confidence,
-                'agents': [a.name for a in ctx.agents],
-                'transcript': '\n'.join(transcript_parts),
-                'rounds_used': result.rounds_used,
-                'consensus_reached': result.consensus_reached,
+                "id": ctx.debate_id,
+                "task": ctx.env.task,
+                "domain": ctx.domain,
+                "winner": result.winner,
+                "final_answer": result.final_answer or "",
+                "confidence": result.confidence,
+                "agents": [a.name for a in ctx.agents],
+                "transcript": "\n".join(transcript_parts),
+                "rounds_used": result.rounds_used,
+                "consensus_reached": result.consensus_reached,
             }
 
             if self._index_debate_async:
                 task = asyncio.create_task(self._index_debate_async(artifact))
-                task.add_done_callback(lambda t: (
-                    logger.warning(f"Debate indexing failed: {t.exception()}")
-                    if t.exception() else None
-                ))
+                task.add_done_callback(
+                    lambda t: (
+                        logger.warning(f"Debate indexing failed: {t.exception()}")
+                        if t.exception()
+                        else None
+                    )
+                )
 
-        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError, ConnectionError) as e:
+        except (
+            TypeError,
+            ValueError,
+            AttributeError,
+            KeyError,
+            RuntimeError,
+            OSError,
+            ConnectionError,
+        ) as e:
             logger.warning("Embedding indexing failed: %s", e)
 
     def _detect_flips(self, ctx: "DebateContext") -> None:
@@ -749,17 +860,14 @@ class FeedbackPhase:
                 flips = self.flip_detector.detect_flips_for_agent(agent.name)
                 if flips:
                     logger.info(
-                        "[flip] Detected %d position changes for %s",
-                        len(flips), agent.name
+                        "[flip] Detected %d position changes for %s", len(flips), agent.name
                     )
                     self._emit_flip_events(ctx, agent.name, flips)
 
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning("Flip detection failed: %s", e)
 
-    def _emit_flip_events(
-        self, ctx: "DebateContext", agent_name: str, flips: list
-    ) -> None:
+    def _emit_flip_events(self, ctx: "DebateContext", agent_name: str, flips: list) -> None:
         """Emit FLIP_DETECTED events to WebSocket."""
         if not self.event_emitter:
             return
@@ -768,21 +876,23 @@ class FeedbackPhase:
             from aragora.server.stream import StreamEvent, StreamEventType
 
             for flip in flips:
-                self.event_emitter.emit(StreamEvent(
-                    type=StreamEventType.FLIP_DETECTED,
-                    loop_id=self.loop_id,
-                    data={
-                        "agent": agent_name,
-                        "flip_type": getattr(flip, 'flip_type', 'unknown'),
-                        "original_claim": getattr(flip, 'original_claim', '')[:200],
-                        "new_claim": getattr(flip, 'new_claim', '')[:200],
-                        "original_confidence": getattr(flip, 'original_confidence', 0.0),
-                        "new_confidence": getattr(flip, 'new_confidence', 0.0),
-                        "similarity_score": getattr(flip, 'similarity_score', 0.0),
-                        "domain": getattr(flip, 'domain', None),
-                        "debate_id": ctx.result.id if ctx.result else ctx.debate_id,
-                    }
-                ))
+                self.event_emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.FLIP_DETECTED,
+                        loop_id=self.loop_id,
+                        data={
+                            "agent": agent_name,
+                            "flip_type": getattr(flip, "flip_type", "unknown"),
+                            "original_claim": getattr(flip, "original_claim", "")[:200],
+                            "new_claim": getattr(flip, "new_claim", "")[:200],
+                            "original_confidence": getattr(flip, "original_confidence", 0.0),
+                            "new_confidence": getattr(flip, "new_confidence", 0.0),
+                            "similarity_score": getattr(flip, "similarity_score", 0.0),
+                            "domain": getattr(flip, "domain", None),
+                            "debate_id": ctx.result.id if ctx.result else ctx.debate_id,
+                        },
+                    )
+                )
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.warning(f"Flip event emission error: {e}")
 
@@ -828,7 +938,7 @@ class FeedbackPhase:
             # Determine agreeing vs dissenting agents from votes
             agreeing_agents = []
             dissenting_agents = []
-            winner_agent = getattr(result, 'winner', None)
+            winner_agent = getattr(result, "winner", None)
 
             if result.votes and winner_agent:
                 for vote in result.votes:
@@ -839,7 +949,7 @@ class FeedbackPhase:
                         dissenting_agents.append(vote.agent)
 
             # Extract belief cruxes from result (set by AnalyticsPhase)
-            belief_cruxes = getattr(result, 'belief_cruxes', []) or []
+            belief_cruxes = getattr(result, "belief_cruxes", []) or []
             key_claims = [str(c) for c in belief_cruxes[:10]]  # Limit to 10
 
             # Store the consensus record
@@ -854,7 +964,7 @@ class FeedbackPhase:
                 key_claims=key_claims,
                 domain=ctx.domain,
                 tags=[],
-                debate_duration=getattr(result, 'duration_seconds', 0.0),
+                debate_duration=getattr(result, "duration_seconds", 0.0),
                 rounds=result.rounds_used,
                 metadata={"belief_cruxes": key_claims} if key_claims else None,
             )
@@ -864,9 +974,7 @@ class FeedbackPhase:
 
             # Store dissenting views as dissent records
             if dissenting_agents and result.votes:
-                self._store_dissenting_views(
-                    ctx, consensus_record.id, dissenting_agents
-                )
+                self._store_dissenting_views(ctx, consensus_record.id, dissenting_agents)
 
             logger.info(
                 "[consensus_memory] Stored outcome for debate %s: "
@@ -915,7 +1023,7 @@ class FeedbackPhase:
                 continue
 
             # Get the vote's reasoning as dissent content
-            reasoning = getattr(vote, 'reasoning', '') or ''
+            reasoning = getattr(vote, "reasoning", "") or ""
             if not reasoning:
                 reasoning = f"Voted for {vote.choice} instead of {result.winner}"
 
@@ -926,7 +1034,7 @@ class FeedbackPhase:
                     dissent_type=DissentType.ALTERNATIVE_APPROACH,
                     content=reasoning[:500],
                     reasoning=f"Preferred: {vote.choice}",
-                    confidence=getattr(vote, 'confidence', 0.5),
+                    confidence=getattr(vote, "confidence", 0.5),
                 )
             except (TypeError, ValueError, AttributeError, KeyError) as e:
                 logger.debug("Dissent storage failed for %s: %s", vote.agent, e)
@@ -942,7 +1050,7 @@ class FeedbackPhase:
             return
 
         # Get the consensus ID from the last stored consensus
-        consensus_id = getattr(ctx, '_last_consensus_id', None)
+        consensus_id = getattr(ctx, "_last_consensus_id", None)
         if not consensus_id:
             return
 
@@ -954,29 +1062,33 @@ class FeedbackPhase:
         cruxes = []
 
         # 1. From belief network if available
-        if hasattr(ctx, 'belief_network') and ctx.belief_network:
+        if hasattr(ctx, "belief_network") and ctx.belief_network:
             try:
                 network_cruxes = ctx.belief_network.get_cruxes(limit=3)
                 for crux in network_cruxes:
-                    cruxes.append({
-                        "source": "belief_network",
-                        "claim": crux.get("claim", ""),
-                        "positions": crux.get("positions", {}),
-                        "confidence_gap": crux.get("confidence_gap", 0.0),
-                    })
+                    cruxes.append(
+                        {
+                            "source": "belief_network",
+                            "claim": crux.get("claim", ""),
+                            "positions": crux.get("positions", {}),
+                            "confidence_gap": crux.get("confidence_gap", 0.0),
+                        }
+                    )
             except (TypeError, ValueError, AttributeError, KeyError) as e:
                 logger.debug("Belief network crux extraction failed: %s", e)
 
         # 2. From dissenting views - high-confidence dissents are cruxes
         if result.dissenting_views:
             for view in result.dissenting_views[:2]:
-                if hasattr(view, 'confidence') and view.confidence > 0.7:
-                    cruxes.append({
-                        "source": "dissent",
-                        "claim": getattr(view, 'content', str(view))[:200],
-                        "agent": getattr(view, 'agent', 'unknown'),
-                        "confidence": getattr(view, 'confidence', 0.0),
-                    })
+                if hasattr(view, "confidence") and view.confidence > 0.7:
+                    cruxes.append(
+                        {
+                            "source": "dissent",
+                            "claim": getattr(view, "content", str(view))[:200],
+                            "agent": getattr(view, "agent", "unknown"),
+                            "confidence": getattr(view, "confidence", 0.0),
+                        }
+                    )
 
         # 3. From votes with conflicting rationales
         if result.votes and len(result.votes) >= 2:
@@ -985,23 +1097,27 @@ class FeedbackPhase:
                 choice = vote.choice
                 if choice not in vote_choices:
                     vote_choices[choice] = []
-                reasoning = getattr(vote, 'reasoning', '')
+                reasoning = getattr(vote, "reasoning", "")
                 if reasoning:
-                    vote_choices[choice].append({
-                        "agent": vote.agent,
-                        "reasoning": reasoning[:150],
-                    })
+                    vote_choices[choice].append(
+                        {
+                            "agent": vote.agent,
+                            "reasoning": reasoning[:150],
+                        }
+                    )
 
             # If there are multiple choices with reasoning, that's a crux
             if len(vote_choices) > 1:
-                cruxes.append({
-                    "source": "vote_split",
-                    "positions": {
-                        choice: [v["reasoning"] for v in votes]
-                        for choice, votes in vote_choices.items()
-                        if votes
-                    },
-                })
+                cruxes.append(
+                    {
+                        "source": "vote_split",
+                        "positions": {
+                            choice: [v["reasoning"] for v in votes]
+                            for choice, votes in vote_choices.items()
+                            if votes
+                        },
+                    }
+                )
 
         if not cruxes:
             return
@@ -1029,16 +1145,16 @@ class FeedbackPhase:
         if not result:
             return
 
-        winner_agent = getattr(result, 'winner', None)
+        winner_agent = getattr(result, "winner", None)
 
         for agent in ctx.agents:
-            genome_id = getattr(agent, 'genome_id', None)
+            genome_id = getattr(agent, "genome_id", None)
             if not genome_id:
                 continue
 
             try:
                 # Determine if this agent won
-                consensus_win = (agent.name == winner_agent)
+                consensus_win = agent.name == winner_agent
 
                 # Check if agent's prediction was correct
                 prediction_correct = self._check_agent_prediction(agent, ctx)
@@ -1072,7 +1188,7 @@ class FeedbackPhase:
         if not result or not result.votes:
             return False
 
-        winner = getattr(result, 'winner', None)
+        winner = getattr(result, "winner", None)
         if not winner:
             return False
 
@@ -1112,7 +1228,7 @@ class FeedbackPhase:
                 return
 
             # Track debate in population history
-            history = getattr(population, 'debate_history', []) or []
+            history = getattr(population, "debate_history", []) or []
             history.append(ctx.debate_id)
 
             # Evolve every 5 debates
@@ -1145,16 +1261,18 @@ class FeedbackPhase:
             if self.event_emitter:
                 from aragora.server.stream import StreamEvent, StreamEventType
 
-                self.event_emitter.emit(StreamEvent(
-                    type=StreamEventType.GENESIS_EVOLUTION,
-                    loop_id=self.loop_id,
-                    data={
-                        "generation": evolved.generation,
-                        "genome_count": len(evolved.genomes),
-                        "population_id": getattr(population, 'id', ''),
-                        "top_fitness": getattr(evolved, 'top_fitness', 0.0),
-                    }
-                ))
+                self.event_emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.GENESIS_EVOLUTION,
+                        loop_id=self.loop_id,
+                        data={
+                            "generation": evolved.generation,
+                            "genome_count": len(evolved.genomes),
+                            "population_id": getattr(population, "id", ""),
+                            "top_fitness": getattr(evolved, "top_fitness", 0.0),
+                        },
+                    )
+                )
 
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning("[genesis] Evolution failed: %s", e)
@@ -1194,13 +1312,13 @@ class FeedbackPhase:
                     # Extract critiques from messages if available
                     if ctx_result.messages:
                         for msg in ctx_result.messages:
-                            if getattr(msg, 'role', '') == 'critic':
+                            if getattr(msg, "role", "") == "critic":
                                 # Create a critique-like object
                                 class CritiqueProxy:
                                     def __init__(self, m):
-                                        self.severity = getattr(m, 'severity', 0.5)
-                                        self.issues = getattr(m, 'issues', [])
-                                        self.suggestions = getattr(m, 'suggestions', [])
+                                        self.severity = getattr(m, "severity", 0.5)
+                                        self.issues = getattr(m, "issues", [])
+                                        self.suggestions = getattr(m, "suggestions", [])
 
                                 self.critiques.append(CritiqueProxy(msg))
 
@@ -1219,7 +1337,7 @@ class FeedbackPhase:
 
             # Update performance for each agent's current prompt version
             for agent in ctx.agents:
-                prompt_version = getattr(agent, 'prompt_version', None)
+                prompt_version = getattr(agent, "prompt_version", None)
                 if prompt_version is not None:
                     self.prompt_evolver.update_performance(
                         agent_name=agent.name,
@@ -1247,7 +1365,7 @@ class FeedbackPhase:
             return
 
         # Get applied insight IDs from context
-        applied_ids = getattr(ctx, 'applied_insight_ids', [])
+        applied_ids = getattr(ctx, "applied_insight_ids", [])
         if not applied_ids:
             return
 
@@ -1257,16 +1375,13 @@ class FeedbackPhase:
 
         # Determine if debate was successful
         # Only record usage for clear success/failure to avoid noise
-        was_successful = (
-            result.consensus_reached and
-            result.confidence >= 0.7
-        )
+        was_successful = result.consensus_reached and result.confidence >= 0.7
 
         # Only record for clear outcomes
         if not result.consensus_reached:
             logger.debug(
                 "[insight] Skipping usage record - no consensus reached for %d insights",
-                len(applied_ids)
+                len(applied_ids),
             )
             return
 
@@ -1284,7 +1399,15 @@ class FeedbackPhase:
                 was_successful,
                 ctx.debate_id[:8],
             )
-        except (TypeError, ValueError, AttributeError, KeyError, OSError, ConnectionError, RuntimeError) as e:
+        except (
+            TypeError,
+            ValueError,
+            AttributeError,
+            KeyError,
+            OSError,
+            ConnectionError,
+            RuntimeError,
+        ) as e:
             logger.debug("[insight] Usage recording failed: %s", e)
 
     async def _emit_training_data(self, ctx: "DebateContext") -> None:
@@ -1363,7 +1486,7 @@ class FeedbackPhase:
 
         # Build instruction from task + context
         instruction = f"Debate task: {ctx.env.task}"
-        if hasattr(ctx.env, 'context') and ctx.env.context:
+        if hasattr(ctx.env, "context") and ctx.env.context:
             instruction += f"\n\nContext: {ctx.env.context[:500]}"
 
         # Get the winning response (final answer represents consensus)
@@ -1398,10 +1521,10 @@ class FeedbackPhase:
         # Extract agent responses from messages
         agent_responses = {}
         for msg in result.messages:
-            agent_name = getattr(msg, 'agent', None)
+            agent_name = getattr(msg, "agent", None)
             if not agent_name:
                 continue
-            content = getattr(msg, 'content', str(msg))
+            content = getattr(msg, "content", str(msg))
             # Keep the most substantive response per agent
             if agent_name not in agent_responses or len(content) > len(agent_responses[agent_name]):
                 agent_responses[agent_name] = content[:2000]
@@ -1427,19 +1550,21 @@ class FeedbackPhase:
             if len(response) < 50:
                 continue
 
-            records.append({
-                "type": "dpo",
-                "prompt": prompt,
-                "chosen": winner_response,
-                "rejected": response,
-                "metadata": {
-                    "debate_id": ctx.debate_id,
-                    "domain": ctx.domain,
-                    "winner": result.winner,
-                    "loser": agent_name,
-                    "confidence": result.confidence,
-                },
-            })
+            records.append(
+                {
+                    "type": "dpo",
+                    "prompt": prompt,
+                    "chosen": winner_response,
+                    "rejected": response,
+                    "metadata": {
+                        "debate_id": ctx.debate_id,
+                        "domain": ctx.domain,
+                        "winner": result.winner,
+                        "loser": agent_name,
+                        "confidence": result.confidence,
+                    },
+                }
+            )
 
         return records
 
@@ -1455,26 +1580,28 @@ class FeedbackPhase:
             return records
 
         for vote in result.votes:
-            confidence = getattr(vote, 'confidence', None)
+            confidence = getattr(vote, "confidence", None)
             if confidence is None:
                 continue
 
             # Determine if prediction was correct
             canonical = ctx.choice_mapping.get(vote.choice, vote.choice)
-            correct = (canonical == result.winner)
+            correct = canonical == result.winner
 
-            records.append({
-                "type": "calibration",
-                "agent": vote.agent,
-                "confidence": confidence,
-                "correct": correct,
-                "metadata": {
-                    "debate_id": ctx.debate_id,
-                    "domain": ctx.domain,
-                    "choice": vote.choice,
-                    "actual_winner": result.winner,
-                },
-            })
+            records.append(
+                {
+                    "type": "calibration",
+                    "agent": vote.agent,
+                    "confidence": confidence,
+                    "correct": correct,
+                    "metadata": {
+                        "debate_id": ctx.debate_id,
+                        "domain": ctx.domain,
+                        "choice": vote.choice,
+                        "actual_winner": result.winner,
+                    },
+                }
+            )
 
         return records
 
@@ -1487,18 +1614,20 @@ class FeedbackPhase:
             from aragora.server.stream import StreamEvent, StreamEventType
 
             # Check if TRAINING_DATA_EXPORTED exists, otherwise skip
-            if not hasattr(StreamEventType, 'TRAINING_DATA_EXPORTED'):
+            if not hasattr(StreamEventType, "TRAINING_DATA_EXPORTED"):
                 return
 
-            self.event_emitter.emit(StreamEvent(
-                type=StreamEventType.TRAINING_DATA_EXPORTED,
-                loop_id=self.loop_id,
-                data={
-                    "debate_id": ctx.debate_id,
-                    "records_exported": record_count,
-                    "domain": ctx.domain,
-                    "confidence": ctx.result.confidence if ctx.result else 0.0,
-                }
-            ))
+            self.event_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.TRAINING_DATA_EXPORTED,
+                    loop_id=self.loop_id,
+                    data={
+                        "debate_id": ctx.debate_id,
+                        "records_exported": record_count,
+                        "domain": ctx.domain,
+                        "confidence": ctx.result.confidence if ctx.result else 0.0,
+                    },
+                )
+            )
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug("Training event emission error: %s", e)

@@ -7,11 +7,12 @@ This document provides operational guidance for running, monitoring, and trouble
 1. [Quick Start](#quick-start)
 2. [Server Management](#server-management)
 3. [Monitoring & Observability](#monitoring--observability)
-4. [Common Issues & Debugging](#common-issues--debugging)
-5. [Scaling Guide](#scaling-guide)
-6. [Incident Response](#incident-response)
-7. [Database Operations](#database-operations)
-8. [Backup & Recovery](#backup--recovery)
+4. [Admin Console & Developer Portal](#admin-console--developer-portal)
+5. [Common Issues & Debugging](#common-issues--debugging)
+6. [Scaling Guide](#scaling-guide)
+7. [Incident Response](#incident-response)
+8. [Database Operations](#database-operations)
+9. [Backup & Recovery](#backup--recovery)
 
 ---
 
@@ -189,6 +190,43 @@ groups:
         annotations:
           summary: "Debate failure rate > 10%"
 ```
+
+---
+
+## Admin Console & Developer Portal
+
+### Admin Console (`/admin`)
+
+The admin console surfaces system health, circuit breaker state, recent errors, and rate-limit status.
+It is intended for on-call and operations use.
+
+Operational dependencies:
+- Auth must be enabled (JWT) and the user role must be `admin`.
+- The console reads from these endpoints:
+  - `GET /api/health`
+  - `GET /api/system/circuit-breakers`
+  - `GET /api/system/errors?limit=20` (optional)
+  - `GET /api/system/rate-limits` (optional)
+
+Notes:
+- If optional endpoints are not available, the UI degrades gracefully.
+- For production, restrict `/admin` behind SSO, an allowlist, or an internal network boundary.
+
+### Developer Portal (`/developer`)
+
+The developer portal provides API key management and usage telemetry for authenticated users.
+
+Operational dependencies:
+- Auth must be enabled (JWT). Standard users can access their own portal.
+- The portal reads from these endpoints:
+  - `GET /api/auth/me`
+  - `POST /api/auth/api-key`
+  - `DELETE /api/auth/api-key`
+  - `GET /api/billing/usage`
+
+Notes:
+- API keys are bearer credentials; display them once and store only client-side.
+- Encourage users to rotate keys on compromise or after team changes.
 
 ---
 
@@ -547,8 +585,8 @@ curl -s http://localhost:8080/api/debates | jq '.debates | length'
 # List agents and their ELO
 curl -s http://localhost:8080/api/leaderboard/rankings | jq '.agents[] | {name, elo}'
 
-# Force agent circuit breaker reset
-curl -X POST http://localhost:8080/api/agents/claude/reset
+# View circuit breaker status
+curl -s http://localhost:8080/api/circuit-breakers | jq .
 
 # Export debate history
 curl -s http://localhost:8080/api/debates/export?format=json > debates.json

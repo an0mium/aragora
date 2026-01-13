@@ -72,7 +72,7 @@ class TestAragoraJSONEncoder(unittest.TestCase):
             "data": {
                 "participants": {"agent_a", "agent_b"},
                 "started_at": datetime(2024, 1, 1, 0, 0, 0),
-            }
+            },
         }
         result = json.dumps(data, cls=AragoraJSONEncoder)
         parsed = json.loads(result)
@@ -108,15 +108,17 @@ class TestWebhookConfig(unittest.TestCase):
         self.assertIsNone(cfg.loop_ids)
 
     def test_from_dict_full(self):
-        cfg = WebhookConfig.from_dict({
-            "name": "slack",
-            "url": "https://hooks.slack.com/xxx",
-            "secret": "my-secret",
-            "event_types": ["debate_start", "consensus"],
-            "loop_ids": ["loop-1", "loop-2"],
-            "timeout_s": 5.0,
-            "max_retries": 2,
-        })
+        cfg = WebhookConfig.from_dict(
+            {
+                "name": "slack",
+                "url": "https://hooks.slack.com/xxx",
+                "secret": "my-secret",
+                "event_types": ["debate_start", "consensus"],
+                "loop_ids": ["loop-1", "loop-2"],
+                "timeout_s": 5.0,
+                "max_retries": 2,
+            }
+        )
         self.assertEqual(cfg.secret, "my-secret")
         self.assertEqual(cfg.event_types, {"debate_start", "consensus"})
         self.assertEqual(cfg.loop_ids, {"loop-1", "loop-2"})
@@ -140,44 +142,42 @@ class TestWebhookConfig(unittest.TestCase):
         self.assertEqual(original, original_copy)
 
     def test_from_dict_invalid_event_types_uses_default(self):
-        cfg = WebhookConfig.from_dict({
-            "name": "test",
-            "url": "http://x",
-            "event_types": "not-a-list"  # Invalid type
-        })
+        cfg = WebhookConfig.from_dict(
+            {"name": "test", "url": "http://x", "event_types": "not-a-list"}  # Invalid type
+        )
         self.assertEqual(cfg.event_types, set(DEFAULT_EVENT_TYPES))
 
     def test_from_dict_event_types_already_set(self):
         """event_types that's already a set should pass through."""
-        cfg = WebhookConfig.from_dict({
-            "name": "test",
-            "url": "http://x",
-            "event_types": {"debate_start", "consensus"}  # Already a set
-        })
+        cfg = WebhookConfig.from_dict(
+            {
+                "name": "test",
+                "url": "http://x",
+                "event_types": {"debate_start", "consensus"},  # Already a set
+            }
+        )
         self.assertEqual(cfg.event_types, {"debate_start", "consensus"})
 
     def test_from_dict_loop_ids_already_set(self):
         """loop_ids that's already a set should pass through."""
-        cfg = WebhookConfig.from_dict({
-            "name": "test",
-            "url": "http://x",
-            "loop_ids": {"loop-1", "loop-2"}  # Already a set
-        })
+        cfg = WebhookConfig.from_dict(
+            {"name": "test", "url": "http://x", "loop_ids": {"loop-1", "loop-2"}}  # Already a set
+        )
         self.assertEqual(cfg.loop_ids, {"loop-1", "loop-2"})
 
     def test_from_dict_invalid_loop_ids_type_uses_none(self):
         """Invalid loop_ids type should default to None (all loops)."""
-        cfg = WebhookConfig.from_dict({
-            "name": "test",
-            "url": "http://x",
-            "loop_ids": "not-a-list"  # Invalid type
-        })
+        cfg = WebhookConfig.from_dict(
+            {"name": "test", "url": "http://x", "loop_ids": "not-a-list"}  # Invalid type
+        )
         self.assertIsNone(cfg.loop_ids)
 
 
 class TestLoadWebhookConfigs(unittest.TestCase):
     def test_loads_from_env_inline(self):
-        with patch.dict(os.environ, {"ARAGORA_WEBHOOKS": '[{"name": "test", "url": "http://x"}]'}, clear=False):
+        with patch.dict(
+            os.environ, {"ARAGORA_WEBHOOKS": '[{"name": "test", "url": "http://x"}]'}, clear=False
+        ):
             configs = load_webhook_configs()
             self.assertEqual(len(configs), 1)
             self.assertEqual(configs[0].name, "test")
@@ -188,9 +188,11 @@ class TestLoadWebhookConfigs(unittest.TestCase):
             self.assertEqual(configs, [])
 
     def test_skips_invalid_configs_in_array(self):
-        with patch.dict(os.environ, {
-            "ARAGORA_WEBHOOKS": '[{"name": "good", "url": "http://x"}, {"bad": "config"}]'
-        }, clear=False):
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_WEBHOOKS": '[{"name": "good", "url": "http://x"}, {"bad": "config"}]'},
+            clear=False,
+        ):
             configs = load_webhook_configs()
             self.assertEqual(len(configs), 1)
             self.assertEqual(configs[0].name, "good")
@@ -202,14 +204,17 @@ class TestLoadWebhookConfigs(unittest.TestCase):
 
     def test_returns_empty_when_inline_not_array(self):
         """ARAGORA_WEBHOOKS must be a JSON array."""
-        with patch.dict(os.environ, {"ARAGORA_WEBHOOKS": '{"name": "test", "url": "http://x"}'}, clear=False):
+        with patch.dict(
+            os.environ, {"ARAGORA_WEBHOOKS": '{"name": "test", "url": "http://x"}'}, clear=False
+        ):
             configs = load_webhook_configs()
             self.assertEqual(configs, [])
 
     def test_loads_from_config_file(self):
         """Should load configs from ARAGORA_WEBHOOKS_CONFIG file path."""
         import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump([{"name": "file-test", "url": "http://file-test.com"}], f)
             config_path = f.name
 
@@ -223,14 +228,17 @@ class TestLoadWebhookConfigs(unittest.TestCase):
 
     def test_returns_empty_when_config_file_not_found(self):
         """Should return empty list if config file doesn't exist."""
-        with patch.dict(os.environ, {"ARAGORA_WEBHOOKS_CONFIG": "/nonexistent/path.json"}, clear=True):
+        with patch.dict(
+            os.environ, {"ARAGORA_WEBHOOKS_CONFIG": "/nonexistent/path.json"}, clear=True
+        ):
             configs = load_webhook_configs()
             self.assertEqual(configs, [])
 
     def test_returns_empty_when_config_file_not_array(self):
         """Config file must contain a JSON array."""
         import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"name": "test", "url": "http://x"}, f)  # Object, not array
             config_path = f.name
 
@@ -244,11 +252,15 @@ class TestLoadWebhookConfigs(unittest.TestCase):
     def test_skips_invalid_configs_in_file(self):
         """Should skip invalid individual configs in file."""
         import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump([
-                {"name": "good", "url": "http://good.com"},
-                {"invalid": "config"},  # Missing required fields
-            ], f)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(
+                [
+                    {"name": "good", "url": "http://good.com"},
+                    {"invalid": "config"},  # Missing required fields
+                ],
+                f,
+            )
             config_path = f.name
 
         try:
@@ -262,7 +274,8 @@ class TestLoadWebhookConfigs(unittest.TestCase):
     def test_returns_empty_on_config_file_parse_error(self):
         """Should return empty list if config file contains invalid JSON."""
         import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write("not valid json {]")
             config_path = f.name
 
@@ -349,10 +362,12 @@ class TestWebhookDelivery(unittest.TestCase):
             def do_POST(self):
                 content_len = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(content_len)
-                received.append({
-                    "body": json.loads(body),
-                    "headers": dict(self.headers),
-                })
+                received.append(
+                    {
+                        "body": json.loads(body),
+                        "headers": dict(self.headers),
+                    }
+                )
                 self.send_response(parent.response_code)
                 self.end_headers()
 
@@ -362,6 +377,7 @@ class TestWebhookDelivery(unittest.TestCase):
         class ReusableHTTPServer(http.server.HTTPServer):
             def server_bind(self):
                 import socket
+
                 self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 super().server_bind()
 
@@ -380,11 +396,13 @@ class TestWebhookDelivery(unittest.TestCase):
         dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
-        dispatcher.enqueue({
-            "type": "debate_start",
-            "loop_id": "test-loop",
-            "timestamp": 1234567890,
-        })
+        dispatcher.enqueue(
+            {
+                "type": "debate_start",
+                "loop_id": "test-loop",
+                "timestamp": 1234567890,
+            }
+        )
 
         time.sleep(0.5)
         dispatcher.stop()
@@ -405,10 +423,12 @@ class TestWebhookDelivery(unittest.TestCase):
         dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
-        dispatcher.enqueue({
-            "type": "debate_start",
-            "data": {"agents": {"alice", "bob"}},
-        })
+        dispatcher.enqueue(
+            {
+                "type": "debate_start",
+                "data": {"agents": {"alice", "bob"}},
+            }
+        )
 
         time.sleep(0.5)
         dispatcher.stop()
@@ -469,11 +489,13 @@ class TestRetryLogic(unittest.TestCase):
             def do_POST(self):
                 content_len = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(content_len)
-                received.append({
-                    "body": json.loads(body),
-                    "headers": dict(self.headers),
-                    "time": time.time(),
-                })
+                received.append(
+                    {
+                        "body": json.loads(body),
+                        "headers": dict(self.headers),
+                        "time": time.time(),
+                    }
+                )
                 # Pop next status code or use 200 as default
                 code = parent.response_codes.pop(0) if parent.response_codes else 200
                 self.send_response(code)
@@ -487,6 +509,7 @@ class TestRetryLogic(unittest.TestCase):
         class ReusableHTTPServer(http.server.HTTPServer):
             def server_bind(self):
                 import socket
+
                 self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 super().server_bind()
 
@@ -657,6 +680,7 @@ class TestTimeoutBehavior(unittest.TestCase):
         class ReusableHTTPServer(http.server.HTTPServer):
             def server_bind(self):
                 import socket
+
                 self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 super().server_bind()
 
@@ -729,6 +753,7 @@ class TestConcurrency(unittest.TestCase):
         class ReusableHTTPServer(http.server.HTTPServer):
             def server_bind(self):
                 import socket
+
                 self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 super().server_bind()
 
@@ -749,16 +774,15 @@ class TestConcurrency(unittest.TestCase):
 
         def enqueue_events(thread_id):
             for i in range(events_per_thread):
-                dispatcher.enqueue({
-                    "type": "debate_start",
-                    "thread": thread_id,
-                    "event": i,
-                })
+                dispatcher.enqueue(
+                    {
+                        "type": "debate_start",
+                        "thread": thread_id,
+                        "event": i,
+                    }
+                )
 
-        threads = [
-            threading.Thread(target=enqueue_events, args=(i,))
-            for i in range(num_threads)
-        ]
+        threads = [threading.Thread(target=enqueue_events, args=(i,)) for i in range(num_threads)]
         for t in threads:
             t.start()
         for t in threads:
@@ -836,14 +860,18 @@ class TestSSRFProtection(unittest.TestCase):
 
     def test_blocks_aws_metadata_endpoint(self):
         """Should block AWS metadata endpoint 169.254.169.254."""
-        valid, msg = self.dispatcher._validate_webhook_url("http://169.254.169.254/latest/meta-data/")
+        valid, msg = self.dispatcher._validate_webhook_url(
+            "http://169.254.169.254/latest/meta-data/"
+        )
         self.assertFalse(valid)
         # Could be Link-local or blocked metadata IP
         self.assertTrue("Link-local" in msg or "metadata" in msg.lower() or "169.254" in msg)
 
     def test_blocks_gcp_metadata_hostname(self):
         """Should block GCP metadata hostname."""
-        valid, msg = self.dispatcher._validate_webhook_url("http://metadata.google.internal/computeMetadata/")
+        valid, msg = self.dispatcher._validate_webhook_url(
+            "http://metadata.google.internal/computeMetadata/"
+        )
         self.assertFalse(valid)
         self.assertIn("metadata", msg.lower())
 
@@ -992,11 +1020,7 @@ class TestSignatureVerification(unittest.TestCase):
         sig = sign_payload(secret, body)
 
         # Verify externally (simulating webhook receiver)
-        expected_sig = hmac.new(
-            secret.encode("utf-8"),
-            body,
-            hashlib.sha256
-        ).hexdigest()
+        expected_sig = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
 
         self.assertEqual(sig, f"sha256={expected_sig}")
 
@@ -1019,7 +1043,7 @@ class TestSignatureVerification(unittest.TestCase):
     def test_none_secret_handled(self):
         """None as secret should not crash."""
         # sign_payload expects string, but let's ensure graceful handling
-        sig = sign_payload("", b'any')
+        sig = sign_payload("", b"any")
         self.assertEqual(sig, "")
 
 
@@ -1082,6 +1106,7 @@ class TestLifecycle(unittest.TestCase):
         class ReusableHTTPServer(http.server.HTTPServer):
             def server_bind(self):
                 import socket
+
                 self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 super().server_bind()
 

@@ -26,10 +26,10 @@ from aragora.connectors.base import BaseConnector, Evidence
 logger = logging.getLogger(__name__)
 
 # Regex for valid GitHub repo format: owner/repo (alphanumeric, dash, underscore, dot)
-VALID_REPO_PATTERN = re.compile(r'^[\w.-]+/[\w.-]+$')
+VALID_REPO_PATTERN = re.compile(r"^[\w.-]+/[\w.-]+$")
 
 # Regex for valid issue/PR number (digits only, reasonable length)
-VALID_NUMBER_PATTERN = re.compile(r'^\d{1,10}$')
+VALID_NUMBER_PATTERN = re.compile(r"^\d{1,10}$")
 
 # Maximum query length to prevent abuse
 MAX_QUERY_LENGTH = 500
@@ -100,7 +100,12 @@ class GitHubConnector(BaseConnector):
                 shell=False,
             )
             self._gh_available = result.returncode == 0
-        except (subprocess.SubprocessError, FileNotFoundError, OSError, subprocess.TimeoutExpired) as e:
+        except (
+            subprocess.SubprocessError,
+            FileNotFoundError,
+            OSError,
+            subprocess.TimeoutExpired,
+        ) as e:
             logger.debug(f"[github] gh CLI check failed: {e}")
             self._gh_available = False
 
@@ -113,7 +118,8 @@ class GitHubConnector(BaseConnector):
 
         try:
             proc = await asyncio.create_subprocess_exec(
-                "gh", *args,
+                "gh",
+                *args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -180,11 +186,16 @@ class GitHubConnector(BaseConnector):
         validated_state = self._validate_state(state)
 
         args = [
-            "issue", "list",
-            "--repo", self.repo,
-            "--search", query,
-            "--limit", str(min(limit, 100)),  # Cap limit to prevent abuse
-            "--json", "number,title,body,author,createdAt,url,state,labels",
+            "issue",
+            "list",
+            "--repo",
+            self.repo,
+            "--search",
+            query,
+            "--limit",
+            str(min(limit, 100)),  # Cap limit to prevent abuse
+            "--json",
+            "number,title,body,author,createdAt,url,state,labels",
         ]
 
         if validated_state != "all":
@@ -243,11 +254,16 @@ class GitHubConnector(BaseConnector):
         validated_state = self._validate_state(state)
 
         args = [
-            "pr", "list",
-            "--repo", self.repo,
-            "--search", query,
-            "--limit", str(min(limit, 100)),  # Cap limit to prevent abuse
-            "--json", "number,title,body,author,createdAt,url,state,mergedAt",
+            "pr",
+            "list",
+            "--repo",
+            self.repo,
+            "--search",
+            query,
+            "--limit",
+            str(min(limit, 100)),  # Cap limit to prevent abuse
+            "--json",
+            "number,title,body,author,createdAt,url,state,mergedAt",
         ]
 
         if validated_state != "all":
@@ -302,10 +318,13 @@ class GitHubConnector(BaseConnector):
             search_query = f"repo:{self.repo} {query}"
 
         args = [
-            "search", "code",
+            "search",
+            "code",
             search_query,
-            "--limit", str(min(limit, 100)),  # Cap limit to prevent abuse
-            "--json", "path,repository,textMatches",
+            "--limit",
+            str(min(limit, 100)),  # Cap limit to prevent abuse
+            "--json",
+            "path,repository,textMatches",
         ]
 
         output = await self._run_gh(args)
@@ -324,10 +343,7 @@ class GitHubConnector(BaseConnector):
 
             # Extract text matches
             matches = result.get("textMatches", [])
-            content = "\n---\n".join(
-                m.get("fragment", "")
-                for m in matches[:3]
-            )
+            content = "\n---\n".join(m.get("fragment", "") for m in matches[:3])
 
             evidence = Evidence(
                 id=f"gh-code:{hashlib.sha256(f'{repo_name}/{path}'.encode()).hexdigest()[:12]}",
@@ -390,9 +406,13 @@ class GitHubConnector(BaseConnector):
     async def _fetch_issue(self, repo: str, number: str) -> Optional[Evidence]:
         """Fetch single issue."""
         args = [
-            "issue", "view", number,
-            "--repo", repo,
-            "--json", "number,title,body,author,createdAt,url,state,labels,comments",
+            "issue",
+            "view",
+            number,
+            "--repo",
+            repo,
+            "--json",
+            "number,title,body,author,createdAt,url,state,labels,comments",
         ]
 
         output = await self._run_gh(args)
@@ -439,9 +459,13 @@ class GitHubConnector(BaseConnector):
     async def _fetch_pr(self, repo: str, number: str) -> Optional[Evidence]:
         """Fetch single PR."""
         args = [
-            "pr", "view", number,
-            "--repo", repo,
-            "--json", "number,title,body,author,createdAt,url,state,mergedAt,reviews",
+            "pr",
+            "view",
+            number,
+            "--repo",
+            repo,
+            "--json",
+            "number,title,body,author,createdAt,url,state,mergedAt,reviews",
         ]
 
         output = await self._run_gh(args)

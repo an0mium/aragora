@@ -339,8 +339,14 @@ class DomainCalibrationEngine:
                     updated_at = ?
                 """,
                 (
-                    agent_name, domain, 1 if correct else 0, brier, now,
-                    1 if correct else 0, brier, now,
+                    agent_name,
+                    domain,
+                    1 if correct else 0,
+                    brier,
+                    now,
+                    1 if correct else 0,
+                    brier,
+                    now,
                 ),
             )
 
@@ -354,7 +360,15 @@ class DomainCalibrationEngine:
                     correct = correct + ?,
                     brier_sum = brier_sum + ?
                 """,
-                (agent_name, domain, bucket_key, 1 if correct else 0, brier, 1 if correct else 0, brier),
+                (
+                    agent_name,
+                    domain,
+                    bucket_key,
+                    1 if correct else 0,
+                    brier,
+                    1 if correct else 0,
+                    brier,
+                ),
             )
 
             conn.commit()
@@ -480,16 +494,18 @@ class DomainCalibrationEngine:
 
             expected = (bucket_start + bucket_end) / 2
 
-            buckets.append(BucketStats(
-                bucket_key=bucket_key,
-                bucket_start=bucket_start,
-                bucket_end=bucket_end,
-                predictions=predictions,
-                correct=correct,
-                accuracy=correct / predictions if predictions > 0 else 0.0,
-                expected_accuracy=expected,
-                brier_score=brier / predictions if predictions > 0 else 1.0,
-            ))
+            buckets.append(
+                BucketStats(
+                    bucket_key=bucket_key,
+                    bucket_start=bucket_start,
+                    bucket_end=bucket_end,
+                    predictions=predictions,
+                    correct=correct,
+                    accuracy=correct / predictions if predictions > 0 else 0.0,
+                    expected_accuracy=expected,
+                    brier_score=brier / predictions if predictions > 0 else 1.0,
+                )
+            )
 
         return buckets
 

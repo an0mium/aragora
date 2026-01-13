@@ -611,6 +611,26 @@
               }
             }
           },
+          "402": {
+            "description": "Quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Server error",
             "content": {
@@ -1187,6 +1207,137 @@
             "bearerAuth": []
           }
         ]
+      },
+      "post": {
+        "tags": [
+          "Debates"
+        ],
+        "summary": "Create a new debate",
+        "description": "Start a new multi-agent debate on a given topic",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DebateCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Debate created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebateCreateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/debate": {
+      "post": {
+        "tags": [
+          "Debates"
+        ],
+        "summary": "Create a new debate (deprecated)",
+        "description": "Deprecated. Use POST /api/debates instead.",
+        "deprecated": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DebateCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Debate created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebateCreateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/debates/{id}": {
@@ -3272,28 +3423,63 @@
           }
         }
       },
-      "Debate": {
+      "DebateStatus": {
+        "type": "string",
+        "enum": [
+          "created",
+          "starting",
+          "pending",
+          "running",
+          "in_progress",
+          "completed",
+          "failed",
+          "cancelled",
+          "paused",
+          "active",
+          "concluded",
+          "archived"
+        ]
+      },
+      "ConsensusResult": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "description": "Debate ID"
+          "reached": {
+            "type": "boolean"
           },
-          "topic": {
-            "type": "string",
-            "description": "Debate topic/question"
+          "agreement": {
+            "type": "number"
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "active",
-              "completed",
-              "failed"
-            ]
+          "confidence": {
+            "type": "number"
           },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
+          "final_answer": {
+            "type": "string"
+          },
+          "conclusion": {
+            "type": "string"
+          },
+          "supporting_agents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dissenting_agents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DebateCreateRequest": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
           },
           "agents": {
             "type": "array",
@@ -3304,8 +3490,113 @@
           "rounds": {
             "type": "integer"
           },
+          "consensus": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "auto_select": {
+            "type": "boolean"
+          },
+          "auto_select_config": {
+            "type": "object"
+          },
+          "use_trending": {
+            "type": "boolean"
+          },
+          "trending_category": {
+            "type": "string"
+          }
+        }
+      },
+      "DebateCreateResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "debate_id": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DebateStatus"
+          },
+          "task": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "Debate": {
+        "type": "object",
+        "properties": {
+          "debate_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DebateStatus"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "final_answer": {
+            "type": "string"
+          },
+          "consensus": {
+            "$ref": "#/components/schemas/ConsensusResult"
+          },
+          "consensus_proof": {
+            "type": "object"
+          },
           "consensus_reached": {
             "type": "boolean"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "rounds_used": {
+            "type": "integer"
+          },
+          "duration_seconds": {
+            "type": "number"
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rounds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Round"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "metadata": {
+            "type": "object"
           }
         }
       },
@@ -3324,6 +3615,9 @@
             "type": "string"
           },
           "agent": {
+            "type": "string"
+          },
+          "agent_id": {
             "type": "string"
           },
           "round": {

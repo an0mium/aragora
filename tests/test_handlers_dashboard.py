@@ -22,6 +22,7 @@ from aragora.server.handlers.base import clear_cache
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def temp_db():
     """Create a temporary database with test data."""
@@ -30,7 +31,8 @@ def temp_db():
 
     conn = sqlite3.connect(db_path)
     # Create debates table matching DebateStorage schema
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS debates (
             id TEXT PRIMARY KEY,
             slug TEXT UNIQUE NOT NULL,
@@ -42,22 +44,32 @@ def temp_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             view_count INTEGER DEFAULT 0
         )
-    """)
+    """
+    )
     # Insert test data
     now = datetime.now().isoformat()
     old = (datetime.now() - timedelta(hours=48)).isoformat()
-    conn.execute("""
+    conn.execute(
+        """
         INSERT INTO debates (id, slug, task, agents, artifact_json, consensus_reached, confidence, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, ("debate-1", "debate-1", "Test Debate 1", "[]", "{}", True, 0.85, now))
-    conn.execute("""
+    """,
+        ("debate-1", "debate-1", "Test Debate 1", "[]", "{}", True, 0.85, now),
+    )
+    conn.execute(
+        """
         INSERT INTO debates (id, slug, task, agents, artifact_json, consensus_reached, confidence, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, ("debate-2", "debate-2", "Test Debate 2", "[]", "{}", False, 0.6, old))
-    conn.execute("""
+    """,
+        ("debate-2", "debate-2", "Test Debate 2", "[]", "{}", False, 0.6, old),
+    )
+    conn.execute(
+        """
         INSERT INTO debates (id, slug, task, agents, artifact_json, consensus_reached, confidence, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, ("debate-3", "debate-3", "Test Debate 3", "[]", "{}", True, 0.9, now))
+    """,
+        ("debate-3", "debate-3", "Test Debate 3", "[]", "{}", True, 0.9, now),
+    )
     conn.commit()
     conn.close()
 
@@ -197,6 +209,7 @@ def clear_caches():
 # Route Matching Tests
 # ============================================================================
 
+
 class TestDashboardRouting:
     """Tests for route matching."""
 
@@ -213,6 +226,7 @@ class TestDashboardRouting:
 # ============================================================================
 # GET /api/dashboard/debates Tests
 # ============================================================================
+
 
 class TestDashboardDebates:
     """Tests for GET /api/dashboard/debates endpoint."""
@@ -296,6 +310,7 @@ class TestDashboardDebates:
 # Dashboard Subsections Tests
 # ============================================================================
 
+
 class TestDashboardRecentActivity:
     """Tests for recent activity section."""
 
@@ -317,10 +332,13 @@ class TestDashboardRecentActivity:
         conn = sqlite3.connect(temp_db)
         conn.execute("DELETE FROM debates")
         old_date = (datetime.now() - timedelta(days=7)).isoformat()
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO debates (id, slug, task, agents, artifact_json, consensus_reached, confidence, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, ("old-1", "old-1", "Old Debate", "[]", "{}", True, 0.8, old_date))
+        """,
+            ("old-1", "old-1", "Old Debate", "[]", "{}", True, 0.8, old_date),
+        )
         conn.commit()
         conn.close()
 
@@ -367,6 +385,7 @@ class TestDashboardSystemHealth:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestDashboardErrorHandling:
     """Tests for error handling."""
 
@@ -409,6 +428,7 @@ class TestDashboardErrorHandling:
 # ============================================================================
 # Edge Cases
 # ============================================================================
+
 
 class TestDashboardEdgeCases:
     """Tests for edge cases."""
@@ -457,14 +477,20 @@ class TestDashboardEdgeCases:
         # Clear existing data and add sparse debates
         conn = sqlite3.connect(temp_db)
         conn.execute("DELETE FROM debates")
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO debates (id, slug, task, agents, artifact_json, consensus_reached, confidence)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, ("sparse-1", "sparse-1", "Sparse 1", "[]", "{}", None, None))
-        conn.execute("""
+        """,
+            ("sparse-1", "sparse-1", "Sparse 1", "[]", "{}", None, None),
+        )
+        conn.execute(
+            """
             INSERT INTO debates (id, slug, task, agents, artifact_json, consensus_reached, confidence, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, ("sparse-2", "sparse-2", "Sparse 2", "[]", "{}", None, None, "invalid-date"))
+        """,
+            ("sparse-2", "sparse-2", "Sparse 2", "[]", "{}", None, None, "invalid-date"),
+        )
         conn.commit()
         conn.close()
 
@@ -490,6 +516,7 @@ class TestDashboardEdgeCases:
 # Single Pass Processing Tests
 # ============================================================================
 
+
 class TestSinglePassProcessing:
     """Tests for _process_debates_single_pass method."""
 
@@ -509,13 +536,15 @@ class TestSinglePassProcessing:
 
     def test_single_debate_with_consensus(self, handler):
         """Should process single debate with consensus."""
-        debates = [{
-            "id": "d1",
-            "consensus_reached": True,
-            "confidence": 0.85,
-            "created_at": datetime.now().isoformat(),
-            "domain": "coding",
-        }]
+        debates = [
+            {
+                "id": "d1",
+                "consensus_reached": True,
+                "confidence": 0.85,
+                "created_at": datetime.now().isoformat(),
+                "domain": "coding",
+            }
+        ]
 
         summary, activity, patterns = handler._process_debates_single_pass(debates, None, 24)
 
@@ -528,16 +557,34 @@ class TestSinglePassProcessing:
         """Should correctly aggregate metrics from multiple debates."""
         now = datetime.now().isoformat()
         debates = [
-            {"id": "d1", "consensus_reached": True, "confidence": 0.8, "created_at": now, "domain": "coding"},
-            {"id": "d2", "consensus_reached": False, "confidence": 0.6, "created_at": now, "domain": "reasoning"},
-            {"id": "d3", "consensus_reached": True, "confidence": 0.9, "created_at": now, "domain": "coding"},
+            {
+                "id": "d1",
+                "consensus_reached": True,
+                "confidence": 0.8,
+                "created_at": now,
+                "domain": "coding",
+            },
+            {
+                "id": "d2",
+                "consensus_reached": False,
+                "confidence": 0.6,
+                "created_at": now,
+                "domain": "reasoning",
+            },
+            {
+                "id": "d3",
+                "consensus_reached": True,
+                "confidence": 0.9,
+                "created_at": now,
+                "domain": "coding",
+            },
         ]
 
         summary, activity, patterns = handler._process_debates_single_pass(debates, None, 24)
 
         assert summary["total_debates"] == 3
         assert summary["consensus_reached"] == 2
-        assert summary["consensus_rate"] == round(2/3, 3)
+        assert summary["consensus_rate"] == round(2 / 3, 3)
         assert summary["avg_confidence"] == round((0.8 + 0.6 + 0.9) / 3, 3)
 
     def test_recent_activity_filtering(self, handler):
@@ -546,7 +593,12 @@ class TestSinglePassProcessing:
         old = (now - timedelta(hours=48)).isoformat()
 
         debates = [
-            {"id": "d1", "consensus_reached": True, "created_at": now.isoformat(), "domain": "coding"},
+            {
+                "id": "d1",
+                "consensus_reached": True,
+                "created_at": now.isoformat(),
+                "domain": "coding",
+            },
             {"id": "d2", "consensus_reached": False, "created_at": old, "domain": "old-domain"},
         ]
 
@@ -577,7 +629,11 @@ class TestSinglePassProcessing:
         now = datetime.now().isoformat()
         debates = [
             {"id": "d1", "created_at": now, "disagreement_report": {"types": ["semantic"]}},
-            {"id": "d2", "created_at": now, "disagreement_report": {"types": ["factual", "semantic"]}},
+            {
+                "id": "d2",
+                "created_at": now,
+                "disagreement_report": {"types": ["factual", "semantic"]},
+            },
             {"id": "d3", "created_at": now},  # No disagreement
         ]
 
@@ -633,6 +689,7 @@ class TestSinglePassProcessing:
 # Legacy Method Tests
 # ============================================================================
 
+
 class TestLegacySummaryMetrics:
     """Tests for _get_summary_metrics legacy method."""
 
@@ -684,7 +741,12 @@ class TestLegacyRecentActivity:
         old = (now - timedelta(days=7)).isoformat()
 
         debates = [
-            {"id": "d1", "consensus_reached": True, "created_at": now.isoformat(), "domain": "recent"},
+            {
+                "id": "d1",
+                "consensus_reached": True,
+                "created_at": now.isoformat(),
+                "domain": "recent",
+            },
             {"id": "d2", "consensus_reached": True, "created_at": old, "domain": "old"},
         ]
 
@@ -742,6 +804,7 @@ class TestDebatePatterns:
 # Consensus Insights Tests
 # ============================================================================
 
+
 class TestConsensusInsights:
     """Tests for _get_consensus_insights method."""
 
@@ -752,7 +815,9 @@ class TestConsensusInsights:
 
     def test_handles_import_error(self, handler):
         """Should handle missing ConsensusMemory gracefully."""
-        with patch("aragora.server.handlers.dashboard.DashboardHandler._get_consensus_insights") as mock:
+        with patch(
+            "aragora.server.handlers.dashboard.DashboardHandler._get_consensus_insights"
+        ) as mock:
             mock.return_value = {
                 "total_consensus_topics": 0,
                 "high_confidence_count": 0,
@@ -793,6 +858,7 @@ class TestConsensusInsights:
 # ============================================================================
 # System Health Tests
 # ============================================================================
+
 
 class TestSystemHealthDetails:
     """Tests for _get_system_health method."""

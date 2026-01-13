@@ -91,21 +91,21 @@ class GenesisHandler(BaseHandler):
             return self._get_genesis_stats(nomic_dir)
 
         if path == "/api/genesis/events":
-            limit = get_int_param(query_params, 'limit', 20)
+            limit = get_int_param(query_params, "limit", 20)
             limit = min(limit, 100)
-            event_type = query_params.get('event_type')
+            event_type = query_params.get("event_type")
             if isinstance(event_type, list):
                 event_type = event_type[0] if event_type else None
             return self._get_genesis_events(nomic_dir, limit, event_type)
 
         if path == "/api/genesis/genomes":
-            limit = get_int_param(query_params, 'limit', 50)
+            limit = get_int_param(query_params, "limit", 50)
             limit = min(limit, 200)
-            offset = get_int_param(query_params, 'offset', 0)
+            offset = get_int_param(query_params, "offset", 0)
             return self._get_genomes(nomic_dir, limit, offset)
 
         if path == "/api/genesis/genomes/top":
-            limit = get_int_param(query_params, 'limit', 10)
+            limit = get_int_param(query_params, "limit", 10)
             limit = min(limit, 50)
             return self._get_top_genomes(nomic_dir, limit)
 
@@ -114,9 +114,9 @@ class GenesisHandler(BaseHandler):
 
         if path.startswith("/api/genesis/genomes/"):
             # Block path traversal attempts
-            if '..' in path:
+            if ".." in path:
                 return error_response("Invalid genome ID", 400)
-            genome_id = path.split('/')[-1]
+            genome_id = path.split("/")[-1]
             is_valid, err = validate_genome_id(genome_id)
             if not is_valid:
                 return error_response(err, 400)
@@ -124,9 +124,9 @@ class GenesisHandler(BaseHandler):
 
         if path.startswith("/api/genesis/lineage/"):
             # Block path traversal attempts
-            if '..' in path:
+            if ".." in path:
                 return error_response("Invalid genome ID", 400)
-            genome_id = path.split('/')[-1]
+            genome_id = path.split("/")[-1]
             is_valid, err = validate_genome_id(genome_id)
             if not is_valid:
                 return error_response(err, 400)
@@ -134,9 +134,9 @@ class GenesisHandler(BaseHandler):
 
         if path.startswith("/api/genesis/tree/"):
             # Block path traversal attempts
-            if '..' in path:
+            if ".." in path:
                 return error_response("Invalid debate ID", 400)
-            debate_id = path.split('/')[-1]
+            debate_id = path.split("/")[-1]
             is_valid, err = validate_debate_id(debate_id)
             if not is_valid:
                 return error_response(err, 400)
@@ -173,16 +173,18 @@ class GenesisHandler(BaseHandler):
                 changes = [e.data.get("change", 0) for e in fitness_updates[-50:]]
                 avg_fitness_change = sum(changes) / len(changes) if changes else 0.0
 
-            return json_response({
-                "event_counts": event_counts,
-                "total_events": sum(event_counts.values()),
-                "total_births": len(births),
-                "total_deaths": len(deaths),
-                "net_population_change": len(births) - len(deaths),
-                "avg_fitness_change_recent": round(avg_fitness_change, 4),
-                "integrity_verified": ledger.verify_integrity(),
-                "merkle_root": ledger.get_merkle_root()[:32] + "...",
-            })
+            return json_response(
+                {
+                    "event_counts": event_counts,
+                    "total_events": sum(event_counts.values()),
+                    "total_births": len(births),
+                    "total_deaths": len(deaths),
+                    "net_population_change": len(births) - len(deaths),
+                    "avg_fitness_change_recent": round(avg_fitness_change, 4),
+                    "integrity_verified": ledger.verify_integrity(),
+                    "merkle_root": ledger.get_merkle_root()[:32] + "...",
+                }
+            )
         except Exception as e:
             return error_response(_safe_error_message(e, "genesis_stats"), 500)
 
@@ -204,11 +206,13 @@ class GenesisHandler(BaseHandler):
                     etype = GenesisEventType(event_type)
                     ledger = GenesisLedger(ledger_path)
                     events = ledger.get_events_by_type(etype)[-limit:]
-                    return json_response({
-                        "events": [e.to_dict() for e in events],
-                        "count": len(events),
-                        "filter": event_type,
-                    })
+                    return json_response(
+                        {
+                            "events": [e.to_dict() for e in events],
+                            "count": len(events),
+                            "filter": event_type,
+                        }
+                    )
                 except ValueError:
                     return error_response(f"Unknown event type: {event_type}", 400)
 
@@ -216,34 +220,39 @@ class GenesisHandler(BaseHandler):
             ledger = GenesisLedger(ledger_path)
             with ledger.db.connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT event_id, event_type, timestamp, parent_event_id, content_hash, data
                     FROM genesis_events
                     ORDER BY timestamp DESC
                     LIMIT ?
-                """, (limit,))
+                """,
+                    (limit,),
+                )
 
                 events = []
                 for row in cursor.fetchall():
-                    events.append({
-                        "event_id": row[0],
-                        "event_type": row[1],
-                        "timestamp": row[2],
-                        "parent_event_id": row[3],
-                        "content_hash": row[4][:16] + "..." if row[4] else None,
-                        "data": safe_json_parse(row[5], {}),
-                    })
+                    events.append(
+                        {
+                            "event_id": row[0],
+                            "event_type": row[1],
+                            "timestamp": row[2],
+                            "parent_event_id": row[3],
+                            "content_hash": row[4][:16] + "..." if row[4] else None,
+                            "data": safe_json_parse(row[5], {}),
+                        }
+                    )
 
-            return json_response({
-                "events": events,
-                "count": len(events),
-            })
+            return json_response(
+                {
+                    "events": events,
+                    "count": len(events),
+                }
+            )
         except Exception as e:
             return error_response(_safe_error_message(e, "genesis_events"), 500)
 
-    def _get_genome_lineage(
-        self, nomic_dir: Optional[Path], genome_id: str
-    ) -> HandlerResult:
+    def _get_genome_lineage(self, nomic_dir: Optional[Path], genome_id: str) -> HandlerResult:
         """Get the lineage (ancestry) of a genome."""
         if not GENESIS_AVAILABLE:
             return error_response("Genesis module not available", 503)
@@ -257,20 +266,20 @@ class GenesisHandler(BaseHandler):
             lineage = ledger.get_lineage(genome_id)
 
             if lineage:
-                return json_response({
-                    "genome_id": genome_id,
-                    "lineage": lineage,
-                    "generations": len(lineage),
-                })
+                return json_response(
+                    {
+                        "genome_id": genome_id,
+                        "lineage": lineage,
+                        "generations": len(lineage),
+                    }
+                )
             else:
                 return error_response(f"Genome not found: {genome_id}", 404)
 
         except Exception as e:
             return error_response(_safe_error_message(e, "genome_lineage"), 500)
 
-    def _get_debate_tree(
-        self, nomic_dir: Optional[Path], debate_id: str
-    ) -> HandlerResult:
+    def _get_debate_tree(self, nomic_dir: Optional[Path], debate_id: str) -> HandlerResult:
         """Get the fractal tree structure for a debate."""
         if not GENESIS_AVAILABLE:
             return error_response("Genesis module not available", 503)
@@ -283,18 +292,18 @@ class GenesisHandler(BaseHandler):
             ledger = GenesisLedger(ledger_path)
             tree = ledger.get_debate_tree(debate_id)
 
-            return json_response({
-                "debate_id": debate_id,
-                "tree": tree.to_dict(),
-                "total_nodes": len(tree.nodes),
-            })
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "tree": tree.to_dict(),
+                    "total_nodes": len(tree.nodes),
+                }
+            )
 
         except Exception as e:
             return error_response(_safe_error_message(e, "debate_tree"), 500)
 
-    def _get_genomes(
-        self, nomic_dir: Optional[Path], limit: int, offset: int
-    ) -> HandlerResult:
+    def _get_genomes(self, nomic_dir: Optional[Path], limit: int, offset: int) -> HandlerResult:
         """Get all genomes with pagination."""
         if not GENOME_AVAILABLE:
             return error_response("Genesis genome module not available", 503)
@@ -309,21 +318,21 @@ class GenesisHandler(BaseHandler):
 
             # Apply pagination
             total = len(all_genomes)
-            paginated = all_genomes[offset:offset + limit]
+            paginated = all_genomes[offset : offset + limit]
 
-            return json_response({
-                "genomes": [g.to_dict() for g in paginated],
-                "total": total,
-                "limit": limit,
-                "offset": offset,
-            })
+            return json_response(
+                {
+                    "genomes": [g.to_dict() for g in paginated],
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
 
         except Exception as e:
             return error_response(_safe_error_message(e, "genomes_list"), 500)
 
-    def _get_top_genomes(
-        self, nomic_dir: Optional[Path], limit: int
-    ) -> HandlerResult:
+    def _get_top_genomes(self, nomic_dir: Optional[Path], limit: int) -> HandlerResult:
         """Get top genomes by fitness score."""
         if not GENOME_AVAILABLE:
             return error_response("Genesis genome module not available", 503)
@@ -336,17 +345,17 @@ class GenesisHandler(BaseHandler):
             store = GenomeStore(db_path)
             top_genomes = store.get_top_by_fitness(limit)
 
-            return json_response({
-                "genomes": [g.to_dict() for g in top_genomes],
-                "count": len(top_genomes),
-            })
+            return json_response(
+                {
+                    "genomes": [g.to_dict() for g in top_genomes],
+                    "count": len(top_genomes),
+                }
+            )
 
         except Exception as e:
             return error_response(_safe_error_message(e, "genomes_top"), 500)
 
-    def _get_genome(
-        self, nomic_dir: Optional[Path], genome_id: str
-    ) -> HandlerResult:
+    def _get_genome(self, nomic_dir: Optional[Path], genome_id: str) -> HandlerResult:
         """Get a single genome by ID."""
         if not GENOME_AVAILABLE:
             return error_response("Genesis genome module not available", 503)
@@ -360,9 +369,11 @@ class GenesisHandler(BaseHandler):
             genome = store.get(genome_id)
 
             if genome:
-                return json_response({
-                    "genome": genome.to_dict(),
-                })
+                return json_response(
+                    {
+                        "genome": genome.to_dict(),
+                    }
+                )
             else:
                 return error_response(f"Genome not found: {genome_id}", 404)
 
@@ -407,17 +418,23 @@ class GenesisHandler(BaseHandler):
             # Add genome summaries
             for genome in population.genomes:
                 # Get top traits and expertise
-                top_traits = genome.get_dominant_traits(3) if hasattr(genome, 'get_dominant_traits') else list(genome.traits.keys())[:3]
+                top_traits = (
+                    genome.get_dominant_traits(3)
+                    if hasattr(genome, "get_dominant_traits")
+                    else list(genome.traits.keys())[:3]
+                )
                 top_expertise = list(genome.expertise.keys())[:3] if genome.expertise else []
 
-                result["genomes"].append({
-                    "genome_id": genome.genome_id,
-                    "agent_name": genome.name,  # Use 'name' not 'agent_name'
-                    "fitness_score": genome.fitness_score,
-                    "generation": genome.generation,
-                    "personality_traits": top_traits,
-                    "expertise_domains": top_expertise,
-                })
+                result["genomes"].append(
+                    {
+                        "genome_id": genome.genome_id,
+                        "agent_name": genome.name,  # Use 'name' not 'agent_name'
+                        "fitness_score": genome.fitness_score,
+                        "generation": genome.generation,
+                        "personality_traits": top_traits,
+                        "expertise_domains": top_expertise,
+                    }
+                )
 
             # Add best genome
             best = population.best_genome

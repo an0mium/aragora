@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { PanelTemplate } from './shared/PanelTemplate';
+import { API_BASE_URL } from '@/config';
 
 interface Moment {
   id: string;
@@ -27,7 +28,7 @@ interface MomentsTimelineProps {
   apiBase?: string;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 const MOMENT_ICONS: Record<string, string> = {
   upset_victory: '🏆',
@@ -130,7 +131,10 @@ export function MomentsTimeline({ apiBase = DEFAULT_API_BASE }: MomentsTimelineP
         {!selectedType && summary.most_significant && (
           <div className="mb-4">
             <div className="text-xs text-text-muted mb-2">HIGHLIGHT</div>
-            <div className={`p-3 rounded border ${getMomentColor(summary.most_significant.type)}`}>
+            <div
+              data-testid="moments-highlight"
+              className={`p-3 rounded border ${getMomentColor(summary.most_significant.type)}`}
+            >
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">{getMomentIcon(summary.most_significant.type)}</span>
                 <span className="font-medium text-sm">
@@ -149,7 +153,7 @@ export function MomentsTimeline({ apiBase = DEFAULT_API_BASE }: MomentsTimelineP
         )}
 
         {/* Recent Moments */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-testid="moments-recent-list">
           <div className="text-xs text-text-muted mb-2">
             {selectedType ? formatMomentType(selectedType) : 'RECENT'}
           </div>
@@ -187,7 +191,7 @@ export function MomentsTimeline({ apiBase = DEFAULT_API_BASE }: MomentsTimelineP
 
         {/* Agent Distribution */}
         {Object.keys(summary.by_agent).length > 0 && (
-          <div className="mt-4 pt-4 border-t border-border">
+          <div className="mt-4 pt-4 border-t border-border" data-testid="moments-agent-distribution">
             <div className="text-xs text-text-muted mb-2">BY AGENT</div>
             <div className="flex flex-wrap gap-2">
               {Object.entries(summary.by_agent)

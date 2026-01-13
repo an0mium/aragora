@@ -244,11 +244,13 @@ class TinkerEvaluator:
 
                 except Exception as e:
                     logger.warning("Trial failed: %s", e)
-                    trials.append({
-                        "task": task,
-                        "trial": trial_num + 1,
-                        "error": str(e),
-                    })
+                    trials.append(
+                        {
+                            "task": task,
+                            "trial": trial_num + 1,
+                            "error": str(e),
+                        }
+                    )
 
         total_trials = fine_tuned_wins + baseline_wins + draws
         win_rate = fine_tuned_wins / total_trials if total_trials > 0 else 0
@@ -384,11 +386,13 @@ class TinkerEvaluator:
                 num_trials=trials_per_task,
             )
 
-            results["comparisons"].append({
-                "baseline": baseline.name,
-                "win_rate": ab_result.fine_tuned_win_rate,
-                "is_significant": ab_result.is_significant,
-            })
+            results["comparisons"].append(
+                {
+                    "baseline": baseline.name,
+                    "win_rate": ab_result.fine_tuned_win_rate,
+                    "is_significant": ab_result.is_significant,
+                }
+            )
 
             total_wins += ab_result.fine_tuned_wins
             total_games += ab_result.num_trials
@@ -440,12 +444,14 @@ class TinkerEvaluator:
         for filepath in sorted(self.results_dir.glob("test-*.json"), reverse=True)[:limit]:
             with open(filepath) as f:
                 data = json.load(f)
-                results.append({
-                    "test_id": data["test_id"],
-                    "fine_tuned_agent": data["fine_tuned_agent"],
-                    "baseline_agent": data["baseline_agent"],
-                    "fine_tuned_win_rate": data["fine_tuned_win_rate"],
-                    "is_significant": data.get("is_significant", False),
-                    "created_at": data.get("created_at", ""),
-                })
+                results.append(
+                    {
+                        "test_id": data["test_id"],
+                        "fine_tuned_agent": data["fine_tuned_agent"],
+                        "baseline_agent": data["baseline_agent"],
+                        "fine_tuned_win_rate": data["fine_tuned_win_rate"],
+                        "is_significant": data.get("is_significant", False),
+                        "created_at": data.get("created_at", ""),
+                    }
+                )
         return results

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { fetchWithRetry, type RetryConfig } from '@/lib/retry';
+import { API_BASE_URL } from '@/config';
 
 interface ApiState<T> {
   data: T | null;
@@ -36,7 +37,7 @@ interface UseApiOptions extends RetryConfig {
  * await api.post('/api/debate', { question: 'Is AI good?' });
  */
 export function useApi<T = unknown>(
-  baseUrl: string = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai',
+  baseUrl: string = API_BASE_URL,
   options: UseApiOptions = {}
 ) {
   const [state, setState] = useState<ApiState<T>>({

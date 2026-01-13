@@ -31,10 +31,11 @@ logger = logging.getLogger(__name__)
 
 class MemoryTier(Enum):
     """Memory update frequency tiers."""
-    FAST = "fast"       # Updates on every event
-    MEDIUM = "medium"   # Updates per debate round
-    SLOW = "slow"       # Updates per nomic cycle
-    GLACIAL = "glacial" # Updates monthly
+
+    FAST = "fast"  # Updates on every event
+    MEDIUM = "medium"  # Updates per debate round
+    SLOW = "slow"  # Updates per nomic cycle
+    GLACIAL = "glacial"  # Updates monthly
 
 
 # Tier ordering from slowest to fastest
@@ -49,13 +50,14 @@ TIER_ORDER: List[MemoryTier] = [
 @dataclass
 class TierConfig:
     """Configuration for a memory tier."""
+
     name: str
     half_life_hours: float
     update_frequency: str
     base_learning_rate: float
     decay_rate: float
     promotion_threshold: float  # Surprise score to promote to faster tier
-    demotion_threshold: float   # Stability score to demote to slower tier
+    demotion_threshold: float  # Stability score to demote to slower tier
 
     @property
     def half_life_seconds(self) -> float:
@@ -72,7 +74,7 @@ DEFAULT_TIER_CONFIGS: Dict[MemoryTier, TierConfig] = {
         base_learning_rate=0.3,
         decay_rate=0.95,
         promotion_threshold=1.0,  # Can't promote higher
-        demotion_threshold=0.2,   # Very stable patterns demote
+        demotion_threshold=0.2,  # Very stable patterns demote
     ),
     MemoryTier.MEDIUM: TierConfig(
         name="medium",
@@ -99,7 +101,7 @@ DEFAULT_TIER_CONFIGS: Dict[MemoryTier, TierConfig] = {
         base_learning_rate=0.01,
         decay_rate=0.9999,
         promotion_threshold=0.5,  # Low bar to promote (rarely happens)
-        demotion_threshold=1.0,   # Can't demote lower
+        demotion_threshold=1.0,  # Can't demote lower
     ),
 }
 
@@ -107,8 +109,9 @@ DEFAULT_TIER_CONFIGS: Dict[MemoryTier, TierConfig] = {
 @dataclass
 class TierTransitionMetrics:
     """Metrics for tier transition tracking."""
+
     promotions: Dict[str, int] = field(default_factory=dict)  # tier -> count
-    demotions: Dict[str, int] = field(default_factory=dict)   # tier -> count
+    demotions: Dict[str, int] = field(default_factory=dict)  # tier -> count
     total_promotions: int = 0
     total_demotions: int = 0
     last_reset: str = field(default_factory=lambda: datetime.now().isoformat())

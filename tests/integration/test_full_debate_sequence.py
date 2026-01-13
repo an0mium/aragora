@@ -46,9 +46,7 @@ class TestFullDebateSequence:
         assert result.task == simple_environment.task
 
     @pytest.mark.asyncio
-    async def test_debate_with_multiple_rounds(
-        self, mock_agents, simple_environment
-    ):
+    async def test_debate_with_multiple_rounds(self, mock_agents, simple_environment):
         """Debate should execute multiple rounds when configured."""
         protocol = DebateProtocol(rounds=3, consensus="majority")
 
@@ -70,9 +68,7 @@ class TestFullDebateSequence:
         assert_consensus_reached(result)
 
     @pytest.mark.asyncio
-    async def test_debate_handles_split_vote(
-        self, split_vote_agents, simple_environment
-    ):
+    async def test_debate_handles_split_vote(self, split_vote_agents, simple_environment):
         """Debate with disagreeing agents should handle split vote."""
         protocol = DebateProtocol(rounds=2, consensus="majority")
 
@@ -125,9 +121,7 @@ class TestAgentFailureHandling:
             pass
 
     @pytest.mark.asyncio
-    async def test_debate_timeout_with_slow_agent(
-        self, simple_environment, quick_protocol
-    ):
+    async def test_debate_timeout_with_slow_agent(self, simple_environment, quick_protocol):
         """Debate should timeout if agent is too slow."""
         agents = [
             MockAgent(name="fast", role="proposer"),
@@ -164,9 +158,7 @@ class TestStatePersistence:
             assert len(result.proposals) >= 1
 
     @pytest.mark.asyncio
-    async def test_debate_tracks_round_count(
-        self, mock_agents, simple_environment
-    ):
+    async def test_debate_tracks_round_count(self, mock_agents, simple_environment):
         """Debate should accurately track round count."""
         protocol = DebateProtocol(rounds=2, consensus="majority")
 
@@ -281,9 +273,7 @@ class TestConcurrentDebates:
         assert results[1].task == "Debate 2: Design database"
 
     @pytest.mark.asyncio
-    async def test_many_concurrent_debates(
-        self, mock_agent_factory, quick_protocol
-    ):
+    async def test_many_concurrent_debates(self, mock_agent_factory, quick_protocol):
         """System should handle many concurrent debates."""
         num_debates = 5
 

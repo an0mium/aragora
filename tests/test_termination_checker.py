@@ -265,9 +265,7 @@ class TestTerminationChecker:
         generate_fn = AsyncMock(return_value="CONCLUSIVE: yes\nREASON: Done")
 
         hook_called = []
-        hooks = {
-            "on_judge_termination": lambda name, reason: hook_called.append((name, reason))
-        }
+        hooks = {"on_judge_termination": lambda name, reason: hook_called.append((name, reason))}
 
         checker = TerminationChecker(
             protocol=mock_protocol,
@@ -295,9 +293,7 @@ class TestTerminationChecker:
         mock_protocol.early_stop_threshold = 0.5
 
         hook_called = []
-        hooks = {
-            "on_early_stop": lambda r, s, t: hook_called.append((r, s, t))
-        }
+        hooks = {"on_early_stop": lambda r, s, t: hook_called.append((r, s, t))}
 
         checker = TerminationChecker(
             protocol=mock_protocol,

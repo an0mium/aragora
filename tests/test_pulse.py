@@ -137,10 +137,7 @@ class ConcretePulseIngestor(PulseIngestor):
     """Concrete implementation for testing abstract base class."""
 
     async def fetch_trending(self, limit: int = 10):
-        return [
-            TrendingTopic("test", f"Topic {i}", i * 100)
-            for i in range(limit)
-        ]
+        return [TrendingTopic("test", f"Topic {i}", i * 100) for i in range(limit)]
 
 
 class TestPulseIngestor:

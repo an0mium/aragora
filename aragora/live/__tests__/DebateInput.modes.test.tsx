@@ -5,21 +5,8 @@
  * navigation to the appropriate results pages.
  */
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-
-// Mock next/navigation
-const mockPush = jest.fn();
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: mockPush,
-    replace: jest.fn(),
-    prefetch: jest.fn(),
-  }),
-  useSearchParams: () => ({
-    get: jest.fn(),
-  }),
-}));
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { mockRouter } from 'next/navigation';
 
 // Mock fetch
 const mockFetch = jest.fn();
@@ -44,12 +31,7 @@ describe('DebateInput Mode Switching', () => {
 
   beforeEach(() => {
     mockFetch.mockClear();
-    mockPush.mockClear();
-    jest.useFakeTimers();
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
+    mockRouter.push.mockClear();
   });
 
   const setupHealthyApi = () => {
@@ -61,74 +43,79 @@ describe('DebateInput Mode Switching', () => {
     });
   };
 
+  const waitForApiOnline = async () => {
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /start debate/i })).toBeEnabled();
+    });
+  };
+
+  const openAdvancedOptions = () => {
+    fireEvent.click(screen.getByRole('button', { name: /show advanced options/i }));
+  };
+
   describe('Mode Selection UI', () => {
-    it('renders all three mode buttons', async () => {
+    it('renders all three mode tabs', async () => {
       setupHealthyApi();
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
-      expect(screen.getByRole('button', { name: /standard/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /graph/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /matrix/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /standard/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /graph/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /matrix/i })).toBeInTheDocument();
     });
 
     it('defaults to STANDARD mode', async () => {
       setupHealthyApi();
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
-      const standardButton = screen.getByRole('button', { name: /standard/i });
-      expect(standardButton).toHaveClass('active');
+      const standardTab = screen.getByRole('tab', { name: /standard/i });
+      expect(standardTab).toHaveAttribute('aria-selected', 'true');
     });
 
     it('switches to GRAPH mode when clicked', async () => {
       setupHealthyApi();
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
-      const graphButton = screen.getByRole('button', { name: /graph/i });
-      fireEvent.click(graphButton);
+      const graphTab = screen.getByRole('tab', { name: /graph/i });
+      fireEvent.click(graphTab);
 
-      expect(graphButton).toHaveClass('active');
+      expect(graphTab).toHaveAttribute('aria-selected', 'true');
     });
 
     it('switches to MATRIX mode when clicked', async () => {
       setupHealthyApi();
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
-      const matrixButton = screen.getByRole('button', { name: /matrix/i });
-      fireEvent.click(matrixButton);
+      const matrixTab = screen.getByRole('tab', { name: /matrix/i });
+      fireEvent.click(matrixTab);
 
-      expect(matrixButton).toHaveClass('active');
+      expect(matrixTab).toHaveAttribute('aria-selected', 'true');
     });
 
-    it('shows mode description when hovering', async () => {
+    it('shows the description for the selected mode', async () => {
       setupHealthyApi();
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
-      const graphButton = screen.getByRole('button', { name: /graph/i });
-      fireEvent.mouseEnter(graphButton);
+      expect(screen.getByText(/linear debate with critique rounds/i)).toBeInTheDocument();
 
-      await waitFor(() => {
-        expect(screen.getByText(/branching debate/i)).toBeInTheDocument();
-      });
+      const graphTab = screen.getByRole('tab', { name: /graph/i });
+      fireEvent.click(graphTab);
+
+      expect(screen.getByText(/branching debate exploring multiple paths/i)).toBeInTheDocument();
     });
   });
 
@@ -153,11 +140,9 @@ describe('DebateInput Mode Switching', () => {
       const onDebateStarted = jest.fn();
       render(<DebateInput apiBase={apiBase} onDebateStarted={onDebateStarted} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
 
-      const textarea = screen.getByRole('textbox');
+      const textarea = screen.getByLabelText(/enter your debate question/i);
       fireEvent.change(textarea, { target: { value: 'Test standard debate' } });
 
       const submitButton = screen.getByRole('button', { name: /start debate/i });
@@ -192,18 +177,16 @@ describe('DebateInput Mode Switching', () => {
 
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
 
-      const textarea = screen.getByRole('textbox');
+      const textarea = screen.getByLabelText(/enter your debate question/i);
       fireEvent.change(textarea, { target: { value: 'Test' } });
 
       const submitButton = screen.getByRole('button', { name: /start debate/i });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
-        expect(mockPush).not.toHaveBeenCalled();
+        expect(mockRouter.push).not.toHaveBeenCalled();
       });
     });
   });
@@ -228,15 +211,14 @@ describe('DebateInput Mode Switching', () => {
 
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
       // Switch to GRAPH mode
-      const graphButton = screen.getByRole('button', { name: /graph/i });
-      fireEvent.click(graphButton);
+      const graphTab = screen.getByRole('tab', { name: /graph/i });
+      fireEvent.click(graphTab);
 
-      const textarea = screen.getByRole('textbox');
+      const textarea = screen.getByLabelText(/enter your debate question/i);
       fireEvent.change(textarea, { target: { value: 'Test graph debate' } });
 
       const submitButton = screen.getByRole('button', { name: /start debate/i });
@@ -271,22 +253,21 @@ describe('DebateInput Mode Switching', () => {
 
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
       // Switch to GRAPH mode
-      const graphButton = screen.getByRole('button', { name: /graph/i });
-      fireEvent.click(graphButton);
+      const graphTab = screen.getByRole('tab', { name: /graph/i });
+      fireEvent.click(graphTab);
 
-      const textarea = screen.getByRole('textbox');
+      const textarea = screen.getByLabelText(/enter your debate question/i);
       fireEvent.change(textarea, { target: { value: 'Test graph debate' } });
 
       const submitButton = screen.getByRole('button', { name: /start debate/i });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/debates/graph?id=graph-debate-123');
+        expect(mockRouter.push).toHaveBeenCalledWith('/debates/graph?id=graph-debate-123');
       });
     });
   });
@@ -311,15 +292,14 @@ describe('DebateInput Mode Switching', () => {
 
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
       // Switch to MATRIX mode
-      const matrixButton = screen.getByRole('button', { name: /matrix/i });
-      fireEvent.click(matrixButton);
+      const matrixTab = screen.getByRole('tab', { name: /matrix/i });
+      fireEvent.click(matrixTab);
 
-      const textarea = screen.getByRole('textbox');
+      const textarea = screen.getByLabelText(/enter your debate question/i);
       fireEvent.change(textarea, { target: { value: 'Test matrix debate' } });
 
       const submitButton = screen.getByRole('button', { name: /start debate/i });
@@ -354,105 +334,88 @@ describe('DebateInput Mode Switching', () => {
 
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
       // Switch to MATRIX mode
-      const matrixButton = screen.getByRole('button', { name: /matrix/i });
-      fireEvent.click(matrixButton);
+      const matrixTab = screen.getByRole('tab', { name: /matrix/i });
+      fireEvent.click(matrixTab);
 
-      const textarea = screen.getByRole('textbox');
+      const textarea = screen.getByLabelText(/enter your debate question/i);
       fireEvent.change(textarea, { target: { value: 'Test matrix debate' } });
 
       const submitButton = screen.getByRole('button', { name: /start debate/i });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/debates/matrix?id=matrix-123');
+        expect(mockRouter.push).toHaveBeenCalledWith('/debates/matrix?id=matrix-123');
       });
     });
 
-    it('shows matrix variables configuration in MATRIX mode', async () => {
+    it('shows matrix mode description in advanced options', async () => {
       setupHealthyApi();
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
 
-      // Switch to MATRIX mode
-      const matrixButton = screen.getByRole('button', { name: /matrix/i });
-      fireEvent.click(matrixButton);
-
-      // Show options
-      fireEvent.click(screen.getByText('[+] Show options'));
+      openAdvancedOptions();
+      const matrixTab = screen.getByRole('tab', { name: /matrix/i });
+      fireEvent.click(matrixTab);
 
       await waitFor(() => {
-        expect(screen.getByText(/variables/i)).toBeInTheDocument();
+        expect(screen.getByText(/parallel scenarios for comparison/i)).toBeInTheDocument();
       });
     });
   });
 
   describe('Mode-specific UI Changes', () => {
-    it('shows branching hint in GRAPH mode', async () => {
+    it('updates description in GRAPH mode', async () => {
       setupHealthyApi();
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
-      const graphButton = screen.getByRole('button', { name: /graph/i });
-      fireEvent.click(graphButton);
+      const graphTab = screen.getByRole('tab', { name: /graph/i });
+      fireEvent.click(graphTab);
 
-      await waitFor(() => {
-        expect(screen.getByText(/explore multiple branches/i)).toBeInTheDocument();
-      });
+      expect(screen.getByText(/branching debate exploring multiple paths/i)).toBeInTheDocument();
     });
 
-    it('shows scenario hint in MATRIX mode', async () => {
+    it('updates description in MATRIX mode', async () => {
       setupHealthyApi();
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
-      const matrixButton = screen.getByRole('button', { name: /matrix/i });
-      fireEvent.click(matrixButton);
+      const matrixTab = screen.getByRole('tab', { name: /matrix/i });
+      fireEvent.click(matrixTab);
 
-      await waitFor(() => {
-        expect(screen.getByText(/compare scenarios/i)).toBeInTheDocument();
-      });
+      expect(screen.getByText(/parallel scenarios for comparison/i)).toBeInTheDocument();
     });
 
-    it('updates submit button text based on mode', async () => {
+    it('keeps the submit button label consistent across modes', async () => {
       setupHealthyApi();
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
       // Default STANDARD mode
       expect(screen.getByRole('button', { name: /start debate/i })).toBeInTheDocument();
 
       // Switch to GRAPH
-      const graphButton = screen.getByRole('button', { name: /graph/i });
-      fireEvent.click(graphButton);
+      const graphTab = screen.getByRole('tab', { name: /graph/i });
+      fireEvent.click(graphTab);
 
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /start graph debate/i })).toBeInTheDocument();
-      });
+      expect(screen.getByRole('button', { name: /start debate/i })).toBeInTheDocument();
 
       // Switch to MATRIX
-      const matrixButton = screen.getByRole('button', { name: /matrix/i });
-      fireEvent.click(matrixButton);
+      const matrixTab = screen.getByRole('tab', { name: /matrix/i });
+      fireEvent.click(matrixTab);
 
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /start matrix/i })).toBeInTheDocument();
-      });
+      expect(screen.getByRole('button', { name: /start debate/i })).toBeInTheDocument();
     });
   });
 
@@ -474,18 +437,17 @@ describe('DebateInput Mode Switching', () => {
       const onError = jest.fn();
       render(<DebateInput apiBase={apiBase} onError={onError} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
       // Switch to GRAPH mode
-      const graphButton = screen.getByRole('button', { name: /graph/i });
-      fireEvent.click(graphButton);
+      const graphTab = screen.getByRole('tab', { name: /graph/i });
+      fireEvent.click(graphTab);
 
-      const textarea = screen.getByRole('textbox');
+      const textarea = screen.getByLabelText(/enter your debate question/i);
       fireEvent.change(textarea, { target: { value: 'Test' } });
 
-      const submitButton = screen.getByRole('button', { name: /start graph debate/i });
+      const submitButton = screen.getByRole('button', { name: /start debate/i });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
@@ -510,18 +472,17 @@ describe('DebateInput Mode Switching', () => {
       const onError = jest.fn();
       render(<DebateInput apiBase={apiBase} onError={onError} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
       // Switch to MATRIX mode
-      const matrixButton = screen.getByRole('button', { name: /matrix/i });
-      fireEvent.click(matrixButton);
+      const matrixTab = screen.getByRole('tab', { name: /matrix/i });
+      fireEvent.click(matrixTab);
 
-      const textarea = screen.getByRole('textbox');
+      const textarea = screen.getByLabelText(/enter your debate question/i);
       fireEvent.change(textarea, { target: { value: 'Test' } });
 
-      const submitButton = screen.getByRole('button', { name: /start matrix/i });
+      const submitButton = screen.getByRole('button', { name: /start debate/i });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
@@ -550,23 +511,22 @@ describe('DebateInput Mode Switching', () => {
 
       render(<DebateInput apiBase={apiBase} />);
 
-      await act(async () => {
-        jest.advanceTimersByTime(100);
-      });
+      await waitForApiOnline();
+      openAdvancedOptions();
 
       // Switch to GRAPH mode
-      const graphButton = screen.getByRole('button', { name: /graph/i });
-      fireEvent.click(graphButton);
+      const graphTab = screen.getByRole('tab', { name: /graph/i });
+      fireEvent.click(graphTab);
 
-      const textarea = screen.getByRole('textbox');
+      const textarea = screen.getByLabelText(/enter your debate question/i);
       fireEvent.change(textarea, { target: { value: 'Test' } });
 
-      const submitButton = screen.getByRole('button', { name: /start graph debate/i });
+      const submitButton = screen.getByRole('button', { name: /start debate/i });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
         // After submission, mode should still be GRAPH
-        expect(graphButton).toHaveClass('active');
+        expect(graphTab).toHaveAttribute('aria-selected', 'true');
       });
     });
   });

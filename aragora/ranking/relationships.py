@@ -453,7 +453,9 @@ class RelationshipTracker:
 
         return self._compute_metrics_from_stats(agent_a, agent_b, stats)
 
-    def get_rivals(self, agent_name: str, limit: int = 5, min_score: float = 0.3) -> list[RelationshipMetrics]:
+    def get_rivals(
+        self, agent_name: str, limit: int = 5, min_score: float = 0.3
+    ) -> list[RelationshipMetrics]:
         """
         Get agent's top rivals by rivalry score.
 
@@ -479,7 +481,9 @@ class RelationshipTracker:
         scored.sort(key=lambda x: x.rivalry_score, reverse=True)
         return scored[:limit]
 
-    def get_allies(self, agent_name: str, limit: int = 5, min_score: float = 0.3) -> list[RelationshipMetrics]:
+    def get_allies(
+        self, agent_name: str, limit: int = 5, min_score: float = 0.3
+    ) -> list[RelationshipMetrics]:
         """
         Get agent's top allies by alliance score.
 

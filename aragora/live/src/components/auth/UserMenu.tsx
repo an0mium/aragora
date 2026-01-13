@@ -12,7 +12,7 @@ export function UserMenu() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuItemsRef = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([]);
 
-  const menuItems = ['billing', 'settings', 'api-keys', 'ab-testing', 'logout'];
+  const menuItems = ['billing', 'settings', 'developer', 'ab-testing', 'logout'];
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -163,13 +163,13 @@ export function UserMenu() {
             </Link>
             <Link
               ref={(el) => { menuItemsRef.current[2] = el; }}
-              href="/api-keys"
+              href="/developer"
               role="menuitem"
               tabIndex={focusedIndex === 2 ? 0 : -1}
               className="block px-4 py-2 text-xs font-mono text-text-muted hover:bg-acid-green/10 hover:text-acid-green focus:bg-acid-green/10 focus:text-acid-green focus:outline-none transition-colors"
               onClick={() => setIsOpen(false)}
             >
-              [API KEYS]
+              [DEVELOPER]
             </Link>
             <Link
               ref={(el) => { menuItemsRef.current[3] = el; }}

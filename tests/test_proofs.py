@@ -628,12 +628,10 @@ class TestClaimVerifier:
     def test_add_multiple_proofs_same_claim(self, verifier):
         """Can add multiple proofs for same claim."""
         proof1 = VerificationProof(
-            id="p1", claim_id="c1", proof_type=ProofType.ASSERTION,
-            description="Test 1", code=""
+            id="p1", claim_id="c1", proof_type=ProofType.ASSERTION, description="Test 1", code=""
         )
         proof2 = VerificationProof(
-            id="p2", claim_id="c1", proof_type=ProofType.ASSERTION,
-            description="Test 2", code=""
+            id="p2", claim_id="c1", proof_type=ProofType.ASSERTION, description="Test 2", code=""
         )
         verifier.add_proof(proof1)
         verifier.add_proof(proof2)
@@ -663,12 +661,20 @@ class TestClaimVerifier:
     async def test_verify_all(self, verifier):
         """verify_all executes all proofs."""
         proof1 = VerificationProof(
-            id="p1", claim_id="c1", proof_type=ProofType.ASSERTION,
-            description="Test 1", code="x = 1", assertion="x == 1"
+            id="p1",
+            claim_id="c1",
+            proof_type=ProofType.ASSERTION,
+            description="Test 1",
+            code="x = 1",
+            assertion="x == 1",
         )
         proof2 = VerificationProof(
-            id="p2", claim_id="c2", proof_type=ProofType.ASSERTION,
-            description="Test 2", code="y = 2", assertion="y == 2"
+            id="p2",
+            claim_id="c2",
+            proof_type=ProofType.ASSERTION,
+            description="Test 2",
+            code="y = 2",
+            assertion="y == 2",
         )
         verifier.add_proof(proof1)
         verifier.add_proof(proof2)
@@ -697,8 +703,12 @@ class TestClaimVerifier:
     async def test_get_claim_verification_status_failed(self, verifier):
         """get_claim_verification_status shows failed when any fail."""
         proof = VerificationProof(
-            id="p1", claim_id="c1", proof_type=ProofType.ASSERTION,
-            description="Failing", code="x = 1", assertion="x == 2"
+            id="p1",
+            claim_id="c1",
+            proof_type=ProofType.ASSERTION,
+            description="Failing",
+            code="x = 1",
+            assertion="x == 2",
         )
         verifier.add_proof(proof)
         await verifier.verify_claim("c1")
@@ -936,12 +946,20 @@ class TestVerifyClaimSet:
         ]
         proofs = [
             VerificationProof(
-                id="p1", claim_id="c1", proof_type=ProofType.ASSERTION,
-                description="Test 1", code="x = 1", assertion="x == 1"
+                id="p1",
+                claim_id="c1",
+                proof_type=ProofType.ASSERTION,
+                description="Test 1",
+                code="x = 1",
+                assertion="x == 1",
             ),
             VerificationProof(
-                id="p2", claim_id="c2", proof_type=ProofType.ASSERTION,
-                description="Test 2", code="y = 2", assertion="y == 2"
+                id="p2",
+                claim_id="c2",
+                proof_type=ProofType.ASSERTION,
+                description="Test 2",
+                code="y = 2",
+                assertion="y == 2",
             ),
         ]
         report = await verify_claim_set(claims, proofs)
@@ -957,8 +975,12 @@ class TestVerifyClaimSet:
         claims = [("c1", "Claim 1")]
         proofs = [
             VerificationProof(
-                id="p1", claim_id="c1", proof_type=ProofType.ASSERTION,
-                description="Failing", code="x = 1", assertion="x == 2"
+                id="p1",
+                claim_id="c1",
+                proof_type=ProofType.ASSERTION,
+                description="Failing",
+                code="x = 1",
+                assertion="x == 2",
             ),
         ]
         report = await verify_claim_set(claims, proofs)
@@ -976,12 +998,20 @@ class TestVerifyClaimSet:
         ]
         proofs = [
             VerificationProof(
-                id="p1", claim_id="c1", proof_type=ProofType.ASSERTION,
-                description="Pass", code="x = 1", assertion="x == 1"
+                id="p1",
+                claim_id="c1",
+                proof_type=ProofType.ASSERTION,
+                description="Pass",
+                code="x = 1",
+                assertion="x == 1",
             ),
             VerificationProof(
-                id="p2", claim_id="c2", proof_type=ProofType.ASSERTION,
-                description="Fail", code="y = 1", assertion="y == 2"
+                id="p2",
+                claim_id="c2",
+                proof_type=ProofType.ASSERTION,
+                description="Fail",
+                code="y = 1",
+                assertion="y == 2",
             ),
         ]
         report = await verify_claim_set(claims, proofs)
@@ -998,8 +1028,12 @@ class TestVerifyClaimSet:
         claims = [("c1", "Test")]
         proofs = [
             VerificationProof(
-                id="p1", claim_id="c1", proof_type=ProofType.ASSERTION,
-                description="Test", code="x = 1", assertion="x == 1"
+                id="p1",
+                claim_id="c1",
+                proof_type=ProofType.ASSERTION,
+                description="Test",
+                code="x = 1",
+                assertion="x == 1",
             ),
         ]
         report = await verify_claim_set(claims, proofs, executor=executor)
@@ -1011,8 +1045,12 @@ class TestVerifyClaimSet:
         claims = [("c1", "Test")]
         proofs = [
             VerificationProof(
-                id="p1", claim_id="c1", proof_type=ProofType.ASSERTION,
-                description="Test", code="x = 1", assertion="x == 1"
+                id="p1",
+                claim_id="c1",
+                proof_type=ProofType.ASSERTION,
+                description="Test",
+                code="x = 1",
+                assertion="x == 1",
             ),
         ]
         report = await verify_claim_set(claims, proofs)
@@ -1097,14 +1135,26 @@ class TestProofsIntegration:
         verifier = ClaimVerifier()
 
         # Add multiple proofs for one claim
-        verifier.add_proof(VerificationProof(
-            id="p1", claim_id="c1", proof_type=ProofType.ASSERTION,
-            description="First check", code="x = 10", assertion="x > 5"
-        ))
-        verifier.add_proof(VerificationProof(
-            id="p2", claim_id="c1", proof_type=ProofType.ASSERTION,
-            description="Second check", code="x = 10", assertion="x < 20"
-        ))
+        verifier.add_proof(
+            VerificationProof(
+                id="p1",
+                claim_id="c1",
+                proof_type=ProofType.ASSERTION,
+                description="First check",
+                code="x = 10",
+                assertion="x > 5",
+            )
+        )
+        verifier.add_proof(
+            VerificationProof(
+                id="p2",
+                claim_id="c1",
+                proof_type=ProofType.ASSERTION,
+                description="Second check",
+                code="x = 10",
+                assertion="x < 20",
+            )
+        )
 
         # Verify
         results = await verifier.verify_claim("c1")

@@ -104,7 +104,9 @@ class TestTierRetrieval:
 
     def test_retrieve_excludes_glacial(self, cms):
         """Test excluding glacial tier from retrieval."""
-        cms.add(id="glacial_test", content="Glacial content", tier=MemoryTier.GLACIAL, importance=0.9)
+        cms.add(
+            id="glacial_test", content="Glacial content", tier=MemoryTier.GLACIAL, importance=0.9
+        )
         cms.add(id="slow_test", content="Slow content", tier=MemoryTier.SLOW, importance=0.9)
 
         entries = cms.retrieve(include_glacial=False)
@@ -113,8 +115,15 @@ class TestTierRetrieval:
 
     def test_retrieve_with_query(self, cms):
         """Test keyword-based retrieval filtering."""
-        cms.add(id="error_1", content="TypeError in function call", tier=MemoryTier.SLOW, importance=0.7)
-        cms.add(id="perf_1", content="Performance optimization tip", tier=MemoryTier.SLOW, importance=0.7)
+        cms.add(
+            id="error_1", content="TypeError in function call", tier=MemoryTier.SLOW, importance=0.7
+        )
+        cms.add(
+            id="perf_1",
+            content="Performance optimization tip",
+            tier=MemoryTier.SLOW,
+            importance=0.7,
+        )
 
         entries = cms.retrieve(query="TypeError")
         assert len(entries) == 1
@@ -189,6 +198,7 @@ class TestTierPromotion:
         # TierManager requires surprise_score > 0.6 for SLOW tier promotion
         # Directly set high surprise score for testing (real scenario builds up via update_outcome)
         from aragora.storage.schema import get_wal_connection
+
         with get_wal_connection(cms.db_path) as conn:
             conn.execute(
                 "UPDATE continuum_memory SET surprise_score = 0.7 WHERE id = ?",
@@ -209,6 +219,7 @@ class TestTierPromotion:
         # TierManager requires surprise_score > 0.7 for MEDIUM tier promotion
         # Directly set high surprise score for testing
         from aragora.storage.schema import get_wal_connection
+
         with get_wal_connection(cms.db_path) as conn:
             conn.execute(
                 "UPDATE continuum_memory SET surprise_score = 0.8 WHERE id = ?",
@@ -270,6 +281,7 @@ class TestConsolidation:
 
         # Manually set high surprise via database
         import sqlite3
+
         conn = sqlite3.connect(cms.db_path)
         cursor = conn.cursor()
         cursor.execute(
@@ -346,8 +358,10 @@ class TestTierConfigs:
 
     def test_tier_ordering(self):
         """Test that tier half-lives are in order."""
-        half_lives = [TIER_CONFIGS[t].half_life_hours for t in
-                      [MemoryTier.FAST, MemoryTier.MEDIUM, MemoryTier.SLOW, MemoryTier.GLACIAL]]
+        half_lives = [
+            TIER_CONFIGS[t].half_life_hours
+            for t in [MemoryTier.FAST, MemoryTier.MEDIUM, MemoryTier.SLOW, MemoryTier.GLACIAL]
+        ]
         assert half_lives == sorted(half_lives)  # Should be ascending
 
 
@@ -509,7 +523,9 @@ class TestRetrieveMultipleKeywords:
 
     def test_retrieve_multiple_keywords_or_logic(self, cms):
         """Test retrieval matches any keyword (OR logic)."""
-        cms.add(id="type_error", content="TypeError in function", tier=MemoryTier.SLOW, importance=0.8)
+        cms.add(
+            id="type_error", content="TypeError in function", tier=MemoryTier.SLOW, importance=0.8
+        )
         cms.add(id="value_error", content="ValueError raised", tier=MemoryTier.SLOW, importance=0.8)
         cms.add(id="unrelated", content="Unrelated pattern", tier=MemoryTier.SLOW, importance=0.8)
 
@@ -522,7 +538,12 @@ class TestRetrieveMultipleKeywords:
 
     def test_retrieve_case_insensitive(self, cms):
         """Test keyword matching is case insensitive."""
-        cms.add(id="mixed_case", content="TypeError WARNING Message", tier=MemoryTier.SLOW, importance=0.8)
+        cms.add(
+            id="mixed_case",
+            content="TypeError WARNING Message",
+            tier=MemoryTier.SLOW,
+            importance=0.8,
+        )
 
         entries = cms.retrieve(query="typeerror")
         assert len(entries) == 1
@@ -562,6 +583,7 @@ class TestCleanupExpiredMemories:
 
         # Manually set old timestamp (FAST tier half-life is 1 hour)
         from aragora.storage.schema import get_wal_connection
+
         old_time = (datetime.now() - timedelta(hours=10)).isoformat()
         with get_wal_connection(cms.db_path) as conn:
             conn.execute(
@@ -595,6 +617,7 @@ class TestCleanupExpiredMemories:
 
         # Set old timestamp
         from aragora.storage.schema import get_wal_connection
+
         old_time = (datetime.now() - timedelta(hours=5)).isoformat()
         with get_wal_connection(cms.db_path) as conn:
             conn.execute(
@@ -614,6 +637,7 @@ class TestCleanupExpiredMemories:
 
         # Set old timestamp
         from aragora.storage.schema import get_wal_connection
+
         old_time = (datetime.now() - timedelta(hours=10)).isoformat()
         with get_wal_connection(cms.db_path) as conn:
             conn.execute(
@@ -701,6 +725,7 @@ class TestArchiveStats:
 
         # Set old timestamp
         from aragora.storage.schema import get_wal_connection
+
         old_time = (datetime.now() - timedelta(hours=10)).isoformat()
         with get_wal_connection(cms.db_path) as conn:
             conn.execute(
@@ -723,6 +748,7 @@ class TestBatchOperations:
         """Test consolidation handles batch promotions."""
         # Add multiple entries with high surprise
         from aragora.storage.schema import get_wal_connection
+
         for i in range(5):
             cms.add(id=f"batch_promo_{i}", content=f"Pattern {i}", tier=MemoryTier.SLOW)
 
@@ -806,6 +832,7 @@ class TestTierMetrics:
         tm = cms.tier_manager
         assert tm is not None
         from aragora.memory.tier_manager import TierManager
+
         assert isinstance(tm, TierManager)
 
 
@@ -817,6 +844,7 @@ class TestPromotionCooldown:
         cms.add(id="cooldown_test", content="Pattern", tier=MemoryTier.SLOW)
 
         from aragora.storage.schema import get_wal_connection
+
         with get_wal_connection(cms.db_path) as conn:
             conn.execute(
                 "UPDATE continuum_memory SET surprise_score = 0.9 WHERE id = ?",

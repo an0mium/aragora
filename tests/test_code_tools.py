@@ -861,4 +861,3 @@ def test_placeholder():
 
         # Verify changes were created
         assert len(changes) > 0
-

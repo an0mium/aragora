@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ErrorWithRetry } from './RetryButton';
 import { fetchWithRetry } from '@/utils/retry';
+import { API_BASE_URL } from '@/config';
+import { PluginRunModal } from './PluginRunModal';
 
 interface PluginManifest {
   name: string;
@@ -35,7 +37,7 @@ interface PluginMarketplacePanelProps {
   backendConfig?: BackendConfig;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 const CAPABILITY_COLORS: Record<string, { text: string; bg: string }> = {
   code_analysis: { text: 'text-acid-cyan', bg: 'bg-acid-cyan/20' },
@@ -76,6 +78,7 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
   const [searchQuery, setSearchQuery] = useState('');
   const [installingPlugin, setInstallingPlugin] = useState<string | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
+  const [runModalPlugin, setRunModalPlugin] = useState<PluginManifest | null>(null);
 
   const fetchPlugins = useCallback(async () => {
     try {
@@ -575,10 +578,7 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
                 <button
                   className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
                   disabled={installingPlugin === selectedPlugin.name}
-                  onClick={() => {
-                    // For now, show CLI command. Future: open run modal
-                    alert(`Run via CLI: aragora plugins run ${selectedPlugin.name}`);
-                  }}
+                  onClick={() => setRunModalPlugin(selectedPlugin)}
                 >
                   Run Plugin
                 </button>
@@ -613,6 +613,15 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
           {loading ? 'Refreshing...' : 'Refresh Plugins'}
         </button>
       </div>
+
+      {/* Run Modal */}
+      {runModalPlugin && (
+        <PluginRunModal
+          plugin={runModalPlugin}
+          onClose={() => setRunModalPlugin(null)}
+          apiBase={apiBase}
+        />
+      )}
     </div>
   );
 }

@@ -49,6 +49,7 @@ from aragora.server.middleware.rate_limit import (
 # IP Normalization Tests
 # =============================================================================
 
+
 class TestIPNormalization:
     """Tests for IP address normalization."""
 
@@ -148,6 +149,7 @@ class TestClientIPExtraction:
 # Path Normalization Tests
 # =============================================================================
 
+
 class TestPathNormalization:
     """Tests for URL path normalization."""
 
@@ -188,6 +190,7 @@ class TestPathNormalization:
 # Key Sanitization Tests
 # =============================================================================
 
+
 class TestKeySanitization:
     """Tests for rate limit key sanitization."""
 
@@ -216,6 +219,7 @@ class TestKeySanitization:
 # =============================================================================
 # Token Bucket Tests
 # =============================================================================
+
 
 class TestTokenBucket:
     """Tests for the token bucket implementation."""
@@ -296,6 +300,7 @@ class TestTokenBucket:
 # =============================================================================
 # Rate Limiter Tests
 # =============================================================================
+
 
 class TestRateLimiter:
     """Tests for the RateLimiter class."""
@@ -411,8 +416,7 @@ class TestRateLimiter:
                 errors.append(e)
 
         threads = [
-            threading.Thread(target=make_requests, args=(f"192.168.1.{i}", 10))
-            for i in range(5)
+            threading.Thread(target=make_requests, args=(f"192.168.1.{i}", 10)) for i in range(5)
         ]
 
         for t in threads:
@@ -482,6 +486,7 @@ class TestRateLimitResult:
 # Registry Tests
 # =============================================================================
 
+
 class TestRateLimiterRegistry:
     """Tests for the rate limiter registry."""
 
@@ -531,6 +536,7 @@ class TestRateLimiterRegistry:
 # =============================================================================
 # Edge Cases and Stress Tests
 # =============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
@@ -591,6 +597,7 @@ class TestEdgeCases:
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestRateLimitIntegration:
     """Integration tests for rate limiting."""

@@ -148,15 +148,17 @@ class RiskBudget:
 
         self.spent += cost
         self.last_action_at = datetime.now().isoformat()
-        self.actions.append({
-            "cost": cost,
-            "description": description,
-            "agent": agent,
-            "tool": tool,
-            "timestamp": self.last_action_at,
-            "remaining_after": self.remaining,
-            "within_budget": within_budget,
-        })
+        self.actions.append(
+            {
+                "cost": cost,
+                "description": description,
+                "agent": agent,
+                "tool": tool,
+                "timestamp": self.last_action_at,
+                "remaining_after": self.remaining,
+                "within_budget": within_budget,
+            }
+        )
 
         if not within_budget:
             logger.warning(

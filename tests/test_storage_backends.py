@@ -88,8 +88,7 @@ class TestSQLiteBackend:
                 conn.execute("CREATE TABLE bulk (id INTEGER PRIMARY KEY, name TEXT)")
 
             backend.executemany(
-                "INSERT INTO bulk (name) VALUES (?)",
-                [("a",), ("b",), ("c",), ("d",)]
+                "INSERT INTO bulk (name) VALUES (?)", [("a",), ("b",), ("c",), ("d",)]
             )
 
             rows = backend.fetch_all("SELECT name FROM bulk")
@@ -127,6 +126,7 @@ class TestPostgreSQLBackend:
     def test_postgresql_available_flag(self):
         """Test POSTGRESQL_AVAILABLE flag is set correctly."""
         from aragora.storage.backends import POSTGRESQL_AVAILABLE
+
         # Just verify it's a boolean
         assert isinstance(POSTGRESQL_AVAILABLE, bool)
 
@@ -140,8 +140,13 @@ class TestPostgreSQLBackend:
 
         # Check same methods exist
         methods = [
-            "connection", "fetch_one", "fetch_all",
-            "execute_write", "executemany", "close", "backend_type"
+            "connection",
+            "fetch_one",
+            "fetch_all",
+            "execute_write",
+            "executemany",
+            "close",
+            "backend_type",
         ]
         for method in methods:
             assert hasattr(SQLiteBackend, method)
@@ -156,7 +161,7 @@ class TestPostgreSQLBackend:
             pytest.skip("psycopg2 not installed")
 
         # Create mock pool
-        with patch('aragora.storage.backends.pg_pool') as mock_pool:
+        with patch("aragora.storage.backends.pg_pool") as mock_pool:
             mock_pool.ThreadedConnectionPool.return_value = MagicMock()
 
             backend = PostgreSQLBackend("postgresql://user:pass@localhost/db")

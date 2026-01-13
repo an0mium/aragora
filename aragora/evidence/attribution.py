@@ -27,20 +27,22 @@ logger = logging.getLogger(__name__)
 
 class VerificationOutcome(str, Enum):
     """Outcome of evidence verification."""
-    VERIFIED = "verified"          # Evidence confirmed accurate
+
+    VERIFIED = "verified"  # Evidence confirmed accurate
     PARTIALLY_VERIFIED = "partial"  # Some claims verified, some not
-    UNVERIFIED = "unverified"      # Could not verify (neutral)
-    CONTESTED = "contested"        # Disputed by other evidence
-    REFUTED = "refuted"            # Evidence shown to be incorrect
+    UNVERIFIED = "unverified"  # Could not verify (neutral)
+    CONTESTED = "contested"  # Disputed by other evidence
+    REFUTED = "refuted"  # Evidence shown to be incorrect
 
 
 class ReputationTier(str, Enum):
     """Source reputation tiers."""
+
     AUTHORITATIVE = "authoritative"  # >= 0.85
-    RELIABLE = "reliable"            # >= 0.70
-    STANDARD = "standard"            # >= 0.50
-    UNCERTAIN = "uncertain"          # >= 0.30
-    UNRELIABLE = "unreliable"        # < 0.30
+    RELIABLE = "reliable"  # >= 0.70
+    STANDARD = "standard"  # >= 0.50
+    UNCERTAIN = "uncertain"  # >= 0.30
+    UNRELIABLE = "unreliable"  # < 0.30
 
     @classmethod
     def from_score(cls, score: float) -> "ReputationTier":
@@ -205,8 +207,7 @@ class SourceReputation:
         # Restore score history
         if "score_history" in data:
             rep.score_history = [
-                (datetime.fromisoformat(ts), score)
-                for ts, score in data["score_history"]
+                (datetime.fromisoformat(ts), score) for ts, score in data["score_history"]
             ]
         return rep
 
@@ -216,16 +217,16 @@ class ReputationScorer:
 
     # Outcome weights for reputation impact
     OUTCOME_WEIGHTS = {
-        VerificationOutcome.VERIFIED: 0.15,        # Positive impact
+        VerificationOutcome.VERIFIED: 0.15,  # Positive impact
         VerificationOutcome.PARTIALLY_VERIFIED: 0.05,
-        VerificationOutcome.UNVERIFIED: 0.0,       # Neutral
+        VerificationOutcome.UNVERIFIED: 0.0,  # Neutral
         VerificationOutcome.CONTESTED: -0.05,
-        VerificationOutcome.REFUTED: -0.20,        # Negative impact
+        VerificationOutcome.REFUTED: -0.20,  # Negative impact
     }
 
     # Time decay parameters
     DECAY_HALF_LIFE_DAYS = 30  # Half-life for time decay
-    RECENT_WINDOW_DAYS = 7    # Window for "recent" calculations
+    RECENT_WINDOW_DAYS = 7  # Window for "recent" calculations
 
     def __init__(
         self,
@@ -500,11 +501,7 @@ class SourceReputationManager:
     def get_debate_sources(self, debate_id: str) -> List[SourceReputation]:
         """Get reputations for all sources in a debate."""
         source_ids = self.debate_sources.get(debate_id, set())
-        return [
-            self.reputations[sid]
-            for sid in source_ids
-            if sid in self.reputations
-        ]
+        return [self.reputations[sid] for sid in source_ids if sid in self.reputations]
 
     def get_top_sources(
         self,
@@ -523,16 +520,13 @@ class SourceReputationManager:
             List of SourceReputation sorted by score
         """
         filtered = [
-            rep for rep in self.reputations.values()
+            rep
+            for rep in self.reputations.values()
             if rep.verification_count >= min_verifications
             and (source_type is None or rep.source_type == source_type)
         ]
 
-        return sorted(
-            filtered,
-            key=lambda r: r.reputation_score,
-            reverse=True
-        )[:limit]
+        return sorted(filtered, key=lambda r: r.reputation_score, reverse=True)[:limit]
 
     def get_unreliable_sources(
         self,
@@ -541,26 +535,19 @@ class SourceReputationManager:
     ) -> List[SourceReputation]:
         """Get sources below reliability threshold."""
         return [
-            rep for rep in self.reputations.values()
-            if rep.reputation_score < threshold
-            and rep.verification_count >= min_verifications
+            rep
+            for rep in self.reputations.values()
+            if rep.reputation_score < threshold and rep.verification_count >= min_verifications
         ]
 
     def export_state(self) -> Dict[str, Any]:
         """Export manager state for persistence."""
         return {
-            "reputations": {
-                sid: rep.to_dict()
-                for sid, rep in self.reputations.items()
-            },
+            "reputations": {sid: rep.to_dict() for sid, rep in self.reputations.items()},
             "verifications": {
-                sid: [v.to_dict() for v in vlist]
-                for sid, vlist in self.verifications.items()
+                sid: [v.to_dict() for v in vlist] for sid, vlist in self.verifications.items()
             },
-            "debate_sources": {
-                did: list(sources)
-                for did, sources in self.debate_sources.items()
-            },
+            "debate_sources": {did: list(sources) for did, sources in self.debate_sources.items()},
             "exported_at": datetime.now().isoformat(),
         }
 
@@ -572,9 +559,7 @@ class SourceReputationManager:
 
         # Import verifications
         for sid, vlist in data.get("verifications", {}).items():
-            self.verifications[sid] = [
-                VerificationRecord.from_dict(v) for v in vlist
-            ]
+            self.verifications[sid] = [VerificationRecord.from_dict(v) for v in vlist]
 
         # Import debate sources
         for did, sources in data.get("debate_sources", {}).items():
@@ -608,7 +593,9 @@ class AttributionChainEntry:
             "content_hash": self.content_hash,
             "reputation_at_use": self.reputation_at_use,
             "timestamp": self.timestamp.isoformat(),
-            "verification_outcome": self.verification_outcome.value if self.verification_outcome else None,
+            "verification_outcome": (
+                self.verification_outcome.value if self.verification_outcome else None
+            ),
             "metadata": self.metadata,
         }
 
@@ -651,9 +638,7 @@ class AttributionChain:
             The created entry
         """
         # Get current reputation
-        reputation = self.reputation_manager.get_or_create_reputation(
-            source_id, source_type
-        )
+        reputation = self.reputation_manager.get_or_create_reputation(source_id, source_type)
 
         # Compute content hash
         content_hash = hashlib.sha256(content.encode()).hexdigest()
@@ -708,17 +693,11 @@ class AttributionChain:
 
     def get_evidence_chain(self, evidence_id: str) -> List[AttributionChainEntry]:
         """Get full chain for an evidence item across debates."""
-        return sorted(
-            self.by_evidence.get(evidence_id, []),
-            key=lambda e: e.timestamp
-        )
+        return sorted(self.by_evidence.get(evidence_id, []), key=lambda e: e.timestamp)
 
     def get_source_chain(self, source_id: str) -> List[AttributionChainEntry]:
         """Get all evidence from a source across debates."""
-        return sorted(
-            self.by_source.get(source_id, []),
-            key=lambda e: e.timestamp
-        )
+        return sorted(self.by_source.get(source_id, []), key=lambda e: e.timestamp)
 
     def get_debate_attributions(self, debate_id: str) -> List[AttributionChainEntry]:
         """Get all attributions for a debate."""
@@ -741,10 +720,7 @@ class AttributionChain:
             }
 
         reputations = [e.reputation_at_use for e in entries]
-        verified = sum(
-            1 for e in entries
-            if e.verification_outcome == VerificationOutcome.VERIFIED
-        )
+        verified = sum(1 for e in entries if e.verification_outcome == VerificationOutcome.VERIFIED)
 
         avg_rep = sum(reputations) / len(reputations)
         min_rep = min(reputations)
@@ -768,9 +744,7 @@ class AttributionChain:
     ) -> Dict[str, List[AttributionChainEntry]]:
         """Find evidence that has been reused across debates."""
         return {
-            eid: entries
-            for eid, entries in self.by_evidence.items()
-            if len(entries) >= min_uses
+            eid: entries for eid, entries in self.by_evidence.items() if len(entries) >= min_uses
         }
 
     def export_chain(self) -> Dict[str, Any]:

@@ -54,6 +54,7 @@ class ArenaFactory:
         if self._position_tracker_cls is None:
             try:
                 from aragora.agents.truth_grounding import PositionTracker
+
                 self._position_tracker_cls = PositionTracker
             except ImportError:
                 logger.debug("PositionTracker not available")
@@ -64,6 +65,7 @@ class ArenaFactory:
         if self._calibration_tracker_cls is None:
             try:
                 from aragora.agents.calibration import CalibrationTracker
+
                 self._calibration_tracker_cls = CalibrationTracker
             except ImportError:
                 logger.debug("CalibrationTracker not available")
@@ -77,6 +79,7 @@ class ArenaFactory:
                     BeliefNetwork,
                     BeliefPropagationAnalyzer,
                 )
+
                 self._belief_network_cls = BeliefNetwork
                 self._belief_analyzer_cls = BeliefPropagationAnalyzer
             except ImportError:
@@ -88,6 +91,7 @@ class ArenaFactory:
         if self._citation_extractor_cls is None:
             try:
                 from aragora.reasoning.citations import CitationExtractor
+
                 self._citation_extractor_cls = CitationExtractor
             except ImportError:
                 logger.debug("CitationExtractor not available")
@@ -98,6 +102,7 @@ class ArenaFactory:
         if self._insight_extractor_cls is None:
             try:
                 from aragora.insights import InsightExtractor, InsightStore
+
                 self._insight_extractor_cls = InsightExtractor
                 self._insight_store_cls = InsightStore
             except ImportError:
@@ -109,6 +114,7 @@ class ArenaFactory:
         if self._critique_store_cls is None:
             try:
                 from aragora.memory.store import CritiqueStore
+
                 self._critique_store_cls = CritiqueStore
             except ImportError:
                 logger.debug("CritiqueStore not available")
@@ -119,6 +125,7 @@ class ArenaFactory:
         if self._argument_cartographer_cls is None:
             try:
                 from aragora.visualization.mapper import ArgumentCartographer
+
                 self._argument_cartographer_cls = ArgumentCartographer
             except ImportError:
                 logger.debug("ArgumentCartographer not available")

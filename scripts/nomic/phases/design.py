@@ -34,6 +34,7 @@ SAFETY_PREAMBLE = """SAFETY RULES:
 @dataclass
 class DesignConfig:
     """Configuration for design phase."""
+
     rounds: int = 2
     consensus_mode: str = "judge"
     judge_selection: str = "elo_ranked"
@@ -51,6 +52,7 @@ class DesignConfig:
 @dataclass
 class BeliefContext:
     """Belief analysis context from debate phase."""
+
     contested_count: int = 0
     crux_count: int = 0
     posteriors: Dict[str, Any] = None
@@ -166,7 +168,9 @@ class DesignPhase:
         self._log("\n" + "=" * 70)
         self._log("PHASE 2: IMPLEMENTATION DESIGN")
         self._log("=" * 70)
-        self._stream_emit("on_phase_start", "design", self.cycle_count, {"agents": len(self.agents)})
+        self._stream_emit(
+            "on_phase_start", "design", self.cycle_count, {"agents": len(self.agents)}
+        )
         self._record_replay("phase", "system", "design")
 
         # Check if deep audit needed
@@ -218,9 +222,7 @@ class DesignPhase:
 
         # Handle no consensus with fast-track arbitration
         if not result.consensus_reached:
-            result = await self._handle_no_consensus(
-                result, arena, improvement, phase_start
-            )
+            result = await self._handle_no_consensus(result, arena, improvement, phase_start)
 
         # Extract proposals and votes
         individual_proposals = self._extract_proposals(result)
@@ -232,8 +234,7 @@ class DesignPhase:
         # Build result
         phase_duration = (datetime.now() - phase_start).total_seconds()
         self._stream_emit(
-            "on_phase_end", "design", self.cycle_count, result.consensus_reached,
-            phase_duration, {}
+            "on_phase_end", "design", self.cycle_count, result.consensus_reached, phase_duration, {}
         )
 
         # Identify affected files
@@ -403,16 +404,16 @@ Designs missing any of these will be automatically rejected."""
             conditional = post_analysis.get("conditional")
             if conditional:
                 self._log("  [deadlock] Resolved with conditional consensus")
-                if hasattr(conditional, 'synthesized_answer') and conditional.synthesized_answer:
+                if hasattr(conditional, "synthesized_answer") and conditional.synthesized_answer:
                     result.final_answer = conditional.synthesized_answer
                     result.consensus_reached = True
-                    result.confidence = getattr(conditional, 'confidence', 0.7)
-                elif hasattr(conditional, 'if_true_conclusion'):
+                    result.confidence = getattr(conditional, "confidence", 0.7)
+                elif hasattr(conditional, "if_true_conclusion"):
                     result.final_answer = self._build_conditional_design(conditional)
                     result.consensus_reached = True
                     result.confidence = max(
                         conditional.if_true_confidence or 0.5,
-                        conditional.if_false_confidence or 0.5
+                        conditional.if_false_confidence or 0.5,
                     )
         except Exception as e:
             self._log(f"  [deadlock] Resolution failed: {e}")
@@ -421,8 +422,8 @@ Designs missing any of these will be automatically rejected."""
 
     def _build_conditional_design(self, conditional: Any) -> str:
         """Build conditional design from branches."""
-        pivot = getattr(conditional, 'pivot_claim', None)
-        pivot_text = pivot.text if pivot and hasattr(pivot, 'text') else "the disputed assumption"
+        pivot = getattr(conditional, "pivot_claim", None)
+        pivot_text = pivot.text if pivot and hasattr(pivot, "text") else "the disputed assumption"
         return (
             f"## CONDITIONAL DESIGN\n\n"
             f"**Key Decision Point:** {pivot_text}\n\n"
@@ -435,7 +436,7 @@ Designs missing any of these will be automatically rejected."""
     def _extract_proposals(self, result: Any) -> Dict[str, str]:
         """Extract individual proposals from messages."""
         proposals = {}
-        if hasattr(result, 'messages'):
+        if hasattr(result, "messages"):
             for msg in result.messages:
                 if msg.role == "proposer" and msg.content:
                     proposals[msg.agent] = msg.content
@@ -444,7 +445,7 @@ Designs missing any of these will be automatically rejected."""
     def _count_votes(self, result: Any) -> Dict[str, int]:
         """Count votes from result."""
         counts: Dict[str, int] = {}
-        if hasattr(result, 'votes'):
+        if hasattr(result, "votes"):
             for vote in result.votes:
                 choice = vote.choice
                 counts[choice] = counts.get(choice, 0) + 1
@@ -467,9 +468,10 @@ Designs missing any of these will be automatically rejected."""
     def _extract_files_from_design(self, design: str) -> List[str]:
         """Extract file paths mentioned in the design."""
         import re
+
         files = []
         # Match patterns like `aragora/path/file.py` or aragora/path/file.py
-        pattern = r'`?(aragora/[a-zA-Z0-9_/]+\.py)`?'
+        pattern = r"`?(aragora/[a-zA-Z0-9_/]+\.py)`?"
         matches = re.findall(pattern, design)
         files.extend(matches)
         return list(set(files))[:10]  # Limit to 10 files

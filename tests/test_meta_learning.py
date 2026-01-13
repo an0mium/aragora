@@ -250,10 +250,10 @@ class TestHyperparameterAdjustment:
         meta.adjust_hyperparameters(metrics)
 
         total = (
-            meta.state.surprise_weight_success +
-            meta.state.surprise_weight_semantic +
-            meta.state.surprise_weight_temporal +
-            meta.state.surprise_weight_agent
+            meta.state.surprise_weight_success
+            + meta.state.surprise_weight_semantic
+            + meta.state.surprise_weight_temporal
+            + meta.state.surprise_weight_agent
         )
         assert abs(total - 1.0) < 0.01  # Allow small floating point error
 
@@ -354,9 +354,7 @@ class TestTrend:
         """Test detection of improving trend."""
         # Add metrics with improving retention
         for i in range(10):
-            meta.metrics_history.append(
-                LearningMetrics(pattern_retention_rate=0.5 + i * 0.05)
-            )
+            meta.metrics_history.append(LearningMetrics(pattern_retention_rate=0.5 + i * 0.05))
 
         trend = meta._compute_trend(meta.metrics_history)
         assert trend == "improving"
@@ -365,9 +363,7 @@ class TestTrend:
         """Test detection of declining trend."""
         # Add metrics with declining retention
         for i in range(10):
-            meta.metrics_history.append(
-                LearningMetrics(pattern_retention_rate=0.9 - i * 0.05)
-            )
+            meta.metrics_history.append(LearningMetrics(pattern_retention_rate=0.9 - i * 0.05))
 
         trend = meta._compute_trend(meta.metrics_history)
         assert trend == "declining"
@@ -376,9 +372,7 @@ class TestTrend:
         """Test detection of stable trend."""
         # Add metrics with stable retention
         for i in range(10):
-            meta.metrics_history.append(
-                LearningMetrics(pattern_retention_rate=0.7)
-            )
+            meta.metrics_history.append(LearningMetrics(pattern_retention_rate=0.7))
 
         trend = meta._compute_trend(meta.metrics_history)
         assert trend == "stable"

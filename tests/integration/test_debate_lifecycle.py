@@ -374,9 +374,7 @@ class TestFollowUpSuggestions:
         ]
 
         # Generate follow-up suggestions
-        suggestions = [
-            f"Deep dive: {c['topic']}" for c in cruxes
-        ]
+        suggestions = [f"Deep dive: {c['topic']}" for c in cruxes]
 
         assert len(suggestions) == 2
         assert "performance vs readability" in suggestions[0]

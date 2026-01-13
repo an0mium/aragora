@@ -29,9 +29,9 @@ class QualityTier(str, Enum):
     """Quality tier classification for evidence."""
 
     EXCELLENT = "excellent"  # >= 0.85
-    GOOD = "good"            # >= 0.70
-    FAIR = "fair"            # >= 0.50
-    POOR = "poor"            # >= 0.30
+    GOOD = "good"  # >= 0.70
+    FAIR = "fair"  # >= 0.50
+    POOR = "poor"  # >= 0.30
     UNRELIABLE = "unreliable"  # < 0.30
 
     @classmethod
@@ -53,16 +53,16 @@ class QualityTier(str, Enum):
 class QualityScores:
     """Quality scores for an evidence snippet."""
 
-    relevance_score: float = 0.5   # 0-1, how relevant to the query (keyword-based)
-    semantic_score: float = 0.5    # 0-1, semantic similarity (embedding-based)
-    freshness_score: float = 0.5   # 0-1, temporal freshness
-    authority_score: float = 0.5   # 0-1, source authority/trustworthiness
+    relevance_score: float = 0.5  # 0-1, how relevant to the query (keyword-based)
+    semantic_score: float = 0.5  # 0-1, semantic similarity (embedding-based)
+    freshness_score: float = 0.5  # 0-1, temporal freshness
+    authority_score: float = 0.5  # 0-1, source authority/trustworthiness
     completeness_score: float = 0.5  # 0-1, how complete the evidence is
-    consistency_score: float = 0.5   # 0-1, internal consistency
+    consistency_score: float = 0.5  # 0-1, internal consistency
 
     # Weights for overall score calculation
-    relevance_weight: float = 0.25   # Reduced to make room for semantic
-    semantic_weight: float = 0.15    # New: embedding-based similarity
+    relevance_weight: float = 0.25  # Reduced to make room for semantic
+    semantic_weight: float = 0.15  # New: embedding-based similarity
     freshness_weight: float = 0.12
     authority_weight: float = 0.28
     completeness_weight: float = 0.10
@@ -72,12 +72,12 @@ class QualityScores:
     def overall_score(self) -> float:
         """Calculate weighted overall quality score."""
         return (
-            self.relevance_score * self.relevance_weight +
-            self.semantic_score * self.semantic_weight +
-            self.freshness_score * self.freshness_weight +
-            self.authority_score * self.authority_weight +
-            self.completeness_score * self.completeness_weight +
-            self.consistency_score * self.consistency_weight
+            self.relevance_score * self.relevance_weight
+            + self.semantic_score * self.semantic_weight
+            + self.freshness_score * self.freshness_weight
+            + self.authority_score * self.authority_weight
+            + self.completeness_score * self.completeness_weight
+            + self.consistency_score * self.consistency_weight
         )
 
     @property
@@ -139,14 +139,14 @@ class QualityScores:
 class QualityContext:
     """Context for quality scoring."""
 
-    query: str = ""                      # The original query/topic
+    query: str = ""  # The original query/topic
     keywords: List[str] = field(default_factory=list)  # Keywords to match
     required_topics: Set[str] = field(default_factory=set)  # Must-have topics
     preferred_sources: Set[str] = field(default_factory=set)  # Preferred sources
     blocked_sources: Set[str] = field(default_factory=set)  # Sources to penalize
-    max_age_days: int = 365              # Maximum age for freshness
-    min_word_count: int = 50             # Minimum content length
-    require_citations: bool = False      # Require citations for high score
+    max_age_days: int = 365  # Maximum age for freshness
+    min_word_count: int = 50  # Minimum content length
+    require_citations: bool = False  # Require citations for high score
 
 
 class QualityScorer:
@@ -366,7 +366,9 @@ class QualityScorer:
 
                 # Get query embedding
                 if ctx.query not in self._query_embedding_cache:
-                    self._query_embedding_cache[ctx.query] = await self._embedding_provider.embed(ctx.query)
+                    self._query_embedding_cache[ctx.query] = await self._embedding_provider.embed(
+                        ctx.query
+                    )
                 query_embedding = self._query_embedding_cache[ctx.query]
 
                 # Batch embed all content
@@ -480,6 +482,7 @@ class QualityScorer:
         # Domain-specific authority
         if url:
             from urllib.parse import urlparse
+
             try:
                 domain = urlparse(url).netloc.lower().replace("www.", "")
                 if domain in self.DOMAIN_AUTHORITY:
@@ -557,14 +560,15 @@ class QualityScorer:
 
         # Check for contradictory language patterns
         contradiction_patterns = [
-            r'\bhowever\b.*\bbut\b',
-            r'\balthough\b.*\bnevertheless\b',
-            r'\bon one hand\b.*\bon the other hand\b',
+            r"\bhowever\b.*\bbut\b",
+            r"\balthough\b.*\bnevertheless\b",
+            r"\bon one hand\b.*\bon the other hand\b",
         ]
 
         # Multiple contradictions may indicate nuanced but potentially confusing content
         contradictions = sum(
-            1 for pattern in contradiction_patterns
+            1
+            for pattern in contradiction_patterns
             if re.search(pattern, content, re.IGNORECASE | re.DOTALL)
         )
 
@@ -573,18 +577,17 @@ class QualityScorer:
 
         # Check for uncertain language
         uncertain_patterns = [
-            r'\bmaybe\b',
-            r'\bperhaps\b',
-            r'\bpossibly\b',
-            r'\bmight be\b',
-            r'\bcould be\b',
-            r'\bunclear\b',
-            r'\bunknown\b',
+            r"\bmaybe\b",
+            r"\bperhaps\b",
+            r"\bpossibly\b",
+            r"\bmight be\b",
+            r"\bcould be\b",
+            r"\bunclear\b",
+            r"\bunknown\b",
         ]
 
         uncertainties = sum(
-            1 for pattern in uncertain_patterns
-            if re.search(pattern, content, re.IGNORECASE)
+            1 for pattern in uncertain_patterns if re.search(pattern, content, re.IGNORECASE)
         )
 
         if uncertainties > 3:
@@ -592,16 +595,15 @@ class QualityScorer:
 
         # Presence of definitive statements is positive
         definitive_patterns = [
-            r'\bdefinitely\b',
-            r'\bcertainly\b',
-            r'\bproven\b',
-            r'\bdemonstrated\b',
-            r'\bestablished\b',
+            r"\bdefinitely\b",
+            r"\bcertainly\b",
+            r"\bproven\b",
+            r"\bdemonstrated\b",
+            r"\bestablished\b",
         ]
 
         definitives = sum(
-            1 for pattern in definitive_patterns
-            if re.search(pattern, content, re.IGNORECASE)
+            1 for pattern in definitive_patterns if re.search(pattern, content, re.IGNORECASE)
         )
 
         if definitives > 0:

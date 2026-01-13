@@ -422,11 +422,7 @@ class TestCalibrationEndpoint:
 
     def test_get_calibration_with_domain(self, handler):
         """Test calibration with domain parameter."""
-        result = handler.handle(
-            "/api/agent/test-agent/calibration",
-            {"domain": "security"},
-            None
-        )
+        result = handler.handle("/api/agent/test-agent/calibration", {"domain": "security"}, None)
 
         assert result.status_code == 200
 
@@ -491,11 +487,7 @@ class TestNetworkEndpoints:
 
     def test_get_rivals_with_limit(self, handler):
         """Test rivals with limit parameter."""
-        result = handler.handle(
-            "/api/agent/test-agent/rivals",
-            {"limit": "3"},
-            None
-        )
+        result = handler.handle("/api/agent/test-agent/rivals", {"limit": "3"}, None)
 
         assert result.status_code == 200
 
@@ -519,11 +511,7 @@ class TestCompareEndpoint:
 
     def test_compare_two_agents(self, handler):
         """Test comparing two agents."""
-        result = handler.handle(
-            "/api/agent/compare",
-            {"agents": ["agent-a", "agent-b"]},
-            None
-        )
+        result = handler.handle("/api/agent/compare", {"agents": ["agent-a", "agent-b"]}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -533,31 +521,21 @@ class TestCompareEndpoint:
 
     def test_compare_with_head_to_head(self, handler):
         """Test compare includes head-to-head for 2 agents."""
-        result = handler.handle(
-            "/api/agent/compare",
-            {"agents": ["agent-a", "agent-b"]},
-            None
-        )
+        result = handler.handle("/api/agent/compare", {"agents": ["agent-a", "agent-b"]}, None)
 
         data = json.loads(result.body)
         assert "head_to_head" in data
 
     def test_compare_too_few_agents(self, handler):
         """Test compare requires at least 2 agents."""
-        result = handler.handle(
-            "/api/agent/compare",
-            {"agents": ["agent-a"]},
-            None
-        )
+        result = handler.handle("/api/agent/compare", {"agents": ["agent-a"]}, None)
 
         assert result.status_code == 400
 
     def test_compare_string_agent(self, handler):
         """Test compare handles string agent (single value)."""
         result = handler.handle(
-            "/api/agent/compare",
-            {"agents": "agent-a"},  # String instead of list
-            None
+            "/api/agent/compare", {"agents": "agent-a"}, None  # String instead of list
         )
 
         # Should fail because only 1 agent
@@ -592,22 +570,14 @@ class TestRecentMatchesEndpoint:
     def test_get_recent_matches_with_loop_id(self, handler):
         """Test recent matches with loop_id filter."""
         clear_cache()
-        result = handler.handle(
-            "/api/matches/recent",
-            {"loop_id": "loop-123"},
-            None
-        )
+        result = handler.handle("/api/matches/recent", {"loop_id": "loop-123"}, None)
 
         assert result.status_code == 200
 
     def test_get_recent_matches_invalid_loop_id(self, handler):
         """Test recent matches with invalid loop_id."""
         clear_cache()
-        result = handler.handle(
-            "/api/matches/recent",
-            {"loop_id": "../invalid"},
-            None
-        )
+        result = handler.handle("/api/matches/recent", {"loop_id": "../invalid"}, None)
 
         assert result.status_code == 400
 
@@ -635,11 +605,7 @@ class TestFlipsEndpoints:
     def test_get_agent_flips_with_limit(self, handler):
         """Test agent flips with limit."""
         clear_cache()
-        result = handler.handle(
-            "/api/agent/test-agent/flips",
-            {"limit": "10"},
-            None
-        )
+        result = handler.handle("/api/agent/test-agent/flips", {"limit": "10"}, None)
 
         assert result.status_code == 200
 
@@ -710,11 +676,7 @@ class TestOpponentBriefingEndpoint:
     def test_get_opponent_briefing_unavailable(self, handler):
         """Test opponent briefing returns error when unavailable."""
         # This will fail because PersonaSynthesizer may not be available
-        result = handler.handle(
-            "/api/agent/agent-a/opponent-briefing/agent-b",
-            {},
-            None
-        )
+        result = handler.handle("/api/agent/agent-a/opponent-briefing/agent-b", {}, None)
 
         # Could be 200 with null briefing, 400/500 for errors, or 503 if unavailable
         assert result is not None
@@ -860,11 +822,7 @@ class TestAgentHandlerIntegration:
         clear_cache()
 
         # Compare agents
-        compare = handler.handle(
-            "/api/agent/compare",
-            {"agents": ["agent-a", "agent-b"]},
-            None
-        )
+        compare = handler.handle("/api/agent/compare", {"agents": ["agent-a", "agent-b"]}, None)
         assert compare.status_code == 200
 
         # Get head-to-head

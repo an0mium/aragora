@@ -29,13 +29,20 @@ logger = logging.getLogger(__name__)
 
 from aragora.core import Message, DebateResult, Vote
 from aragora.debate.graph import (
-    DebateGraph, DebateNode, Branch, BranchPolicy, BranchReason,
-    NodeType, MergeStrategy, MergeResult,
+    DebateGraph,
+    DebateNode,
+    Branch,
+    BranchPolicy,
+    BranchReason,
+    NodeType,
+    MergeStrategy,
+    MergeResult,
 )
 
 
 class CounterfactualStatus(Enum):
     """Status of a counterfactual branch."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -50,6 +57,7 @@ class PivotClaim:
 
     The debate forks on whether this claim is assumed true or false.
     """
+
     claim_id: str
     statement: str
     author: str
@@ -78,6 +86,7 @@ class CounterfactualBranch:
     Contains the assumption (claim = True/False) and the debate
     that unfolds under that assumption.
     """
+
     branch_id: str
     parent_debate_id: str
     pivot_claim: PivotClaim
@@ -144,6 +153,7 @@ class CounterfactualBranch:
 @dataclass
 class BranchComparison:
     """Comparison of two counterfactual branch outcomes."""
+
     branch_a_id: str
     branch_b_id: str
 
@@ -171,6 +181,7 @@ class ConditionalConsensus:
     Output format:
     "If [condition], then [conclusion A]; otherwise [conclusion B]"
     """
+
     consensus_id: str
     pivot_claim: PivotClaim
 
@@ -309,7 +320,7 @@ class ImpactDetector:
                     # Find sentence boundaries
                     for delim in ".!?":
                         if delim in claim_text:
-                            claim_text = claim_text[:claim_text.index(delim) + 1]
+                            claim_text = claim_text[: claim_text.index(delim) + 1]
                             break
 
                     if len(claim_text) > 20:
@@ -385,17 +396,12 @@ class CounterfactualOrchestrator:
             return None
 
         # Check limits
-        existing_branches = [
-            b for b in self.branches.values()
-            if b.parent_debate_id == debate_id
-        ]
+        existing_branches = [b for b in self.branches.values() if b.parent_debate_id == debate_id]
         if len(existing_branches) >= self.max_branches:
             return None
 
         # Create branches for both assumptions
-        branches = await self.create_and_run_branches(
-            debate_id, pivot, messages, run_branch_fn
-        )
+        branches = await self.create_and_run_branches(debate_id, pivot, messages, run_branch_fn)
 
         return branches
 
@@ -424,14 +430,15 @@ class CounterfactualOrchestrator:
         if self.parallel_execution:
             # Run in parallel
             tasks = [
-                self._run_branch(branch, context_messages, run_branch_fn)
-                for branch in branches
+                self._run_branch(branch, context_messages, run_branch_fn) for branch in branches
             ]
             results = await asyncio.gather(*tasks, return_exceptions=True)
             # Log any exceptions (branches are already updated in _run_branch)
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    logger.error(f"Counterfactual branch {i} failed: {type(result).__name__}: {result}")
+                    logger.error(
+                        f"Counterfactual branch {i} failed: {type(result).__name__}: {result}"
+                    )
         else:
             # Run sequentially
             for branch in branches:
@@ -554,19 +561,16 @@ class CounterfactualOrchestrator:
         """Compare two branch outcomes."""
         # Check if conclusions differ meaningfully
         conclusions_differ = (
-            branch_a.conclusion != branch_b.conclusion and
-            branch_a.conclusion and branch_b.conclusion
+            branch_a.conclusion != branch_b.conclusion
+            and branch_a.conclusion
+            and branch_b.conclusion
         )
 
         # Find key differences
         key_differences = []
         if conclusions_differ:
-            key_differences.append(
-                f"Under assumption TRUE: {branch_a.conclusion[:100]}..."
-            )
-            key_differences.append(
-                f"Under assumption FALSE: {branch_b.conclusion[:100]}..."
-            )
+            key_differences.append(f"Under assumption TRUE: {branch_a.conclusion[:100]}...")
+            key_differences.append(f"Under assumption FALSE: {branch_b.conclusion[:100]}...")
 
         # Find shared insights
         shared_insights = list(set(branch_a.key_insights) & set(branch_b.key_insights))
@@ -628,7 +632,7 @@ class CounterfactualOrchestrator:
             pivots[pivot_id]["branches"].append(branch)
 
         for pivot_id, data in pivots.items():
-            claim = data['claim']
+            claim = data["claim"]
             lines.append(f"## Pivot: {claim.statement[:100]}...")
             lines.append("")
 
@@ -666,16 +670,13 @@ class CounterfactualOrchestrator:
         Returns:
             Number of branches removed
         """
-        to_delete = [
-            bid for bid, b in self.branches.items()
-            if b.parent_debate_id == debate_id
-        ]
+        to_delete = [bid for bid, b in self.branches.items() if b.parent_debate_id == debate_id]
         for bid in to_delete:
             del self.branches[bid]
 
         # Also trim conditional_consensuses to max_history
         if len(self.conditional_consensuses) > self.max_history:
-            self.conditional_consensuses = self.conditional_consensuses[-self.max_history:]
+            self.conditional_consensuses = self.conditional_consensuses[-self.max_history :]
 
         return len(to_delete)
 
@@ -800,7 +801,9 @@ async def explore_counterfactual(
     false_branch = next((b for b in branches if not b.assumption), None)
 
     if not true_branch or not false_branch:
-        logger.error(f"counterfactual_missing_branch true={true_branch is not None} false={false_branch is not None}")
+        logger.error(
+            f"counterfactual_missing_branch true={true_branch is not None} false={false_branch is not None}"
+        )
         raise ValueError("Counterfactual analysis requires both true and false branches")
 
     return orchestrator.synthesize_branches(true_branch, false_branch)

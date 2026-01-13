@@ -8,47 +8,47 @@ Aragora supports 20+ agent types across three backends:
 
 ### CLI-Based Agents
 
-These agents invoke external CLI tools:
+These agents invoke external CLI tools (use these agent type IDs with `create_agent()`):
 
-| Agent | CLI Tool | Model |
-|-------|----------|-------|
-| `ClaudeAgent` | claude-code | claude-sonnet-4 |
-| `CodexAgent` | codex | codex |
-| `OpenAIAgent` | openai | gpt-4o |
-| `GeminiCLIAgent` | gemini | gemini |
-| `GrokCLIAgent` | grok | grok |
-| `QwenCLIAgent` | qwen-coder | qwen-coder |
-| `DeepseekCLIAgent` | deepseek | deepseek |
-| `KiloCodeAgent` | kilocode | kilocode |
+| Agent Type | CLI Tool | Default Model |
+|------------|----------|---------------|
+| `claude` | `claude` (claude-code) | claude-sonnet-4 |
+| `codex` | `codex` | gpt-5.2-codex |
+| `openai` | `openai` | gpt-4o |
+| `gemini-cli` | `gemini` | gemini-3-pro-preview |
+| `grok-cli` | `grok` | grok-4 |
+| `qwen-cli` | `qwen` | qwen3-coder |
+| `deepseek-cli` | `deepseek` | deepseek-v3 |
+| `kilocode` | `kilocode` | gemini-explorer (provider id) |
 
 ### API-Based Agents (Direct)
 
 These agents make direct HTTP API calls to provider endpoints:
 
-| Agent | API | Default Model | Env Var |
-|-------|-----|---------------|---------|
-| `AnthropicAPIAgent` | Anthropic | claude-sonnet-4 | `ANTHROPIC_API_KEY` |
-| `OpenAIAPIAgent` | OpenAI | gpt-4o | `OPENAI_API_KEY` |
-| `GeminiAgent` | Google | gemini-2.0-flash | `GEMINI_API_KEY` |
-| `GrokAgent` | xAI | grok-3 | `XAI_API_KEY` |
-| `MistralAPIAgent` | Mistral | mistral-large-latest | `MISTRAL_API_KEY` |
-| `CodestralAgent` | Mistral | codestral-latest | `MISTRAL_API_KEY` |
-| `OllamaAgent` | Local Ollama | llama3.2 | `OLLAMA_HOST` |
+| Agent Type | API | Default Model | Env Var |
+|------------|-----|---------------|---------|
+| `anthropic-api` | Anthropic | claude-opus-4-5-20251101 | `ANTHROPIC_API_KEY` |
+| `openai-api` | OpenAI | gpt-5.2 | `OPENAI_API_KEY` |
+| `gemini` | Google | gemini-3-pro-preview | `GEMINI_API_KEY` |
+| `grok` | xAI | grok-3 | `XAI_API_KEY` |
+| `mistral-api` | Mistral | mistral-large-2512 | `MISTRAL_API_KEY` |
+| `codestral` | Mistral | codestral-latest | `MISTRAL_API_KEY` |
+| `ollama` | Local Ollama | llama3.2 | `OLLAMA_HOST` |
+| `kimi` | Moonshot | moonshot-v1-8k | `KIMI_API_KEY` |
 
 ### API-Based Agents (via OpenRouter)
 
 These agents use OpenRouter for unified multi-model access:
 
-| Agent | Model | Description |
-|-------|-------|-------------|
-| `DeepSeekAgent` | deepseek/deepseek-v3.2 | DeepSeek V3.2 - excellent for coding |
-| `DeepSeekReasonerAgent` | deepseek/deepseek-r1 | DeepSeek R1 - chain-of-thought reasoning |
-| `LlamaAgent` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
-| `MistralAgent` | mistralai/mistral-large-2411 | Mistral Large via OpenRouter |
-| `QwenAgent` | qwen/qwen-2.5-coder-32b-instruct | Qwen 2.5 Coder |
-| `QwenMaxAgent` | qwen/qwen-max | Qwen Max - flagship reasoning |
-| `YiAgent` | 01-ai/yi-large | Yi Large - balanced capabilities |
-| `KimiAgent` | moonshot-v1-8k | Kimi - Moonshot AI |
+| Agent Type | Model | Description |
+|------------|-------|-------------|
+| `deepseek` | deepseek/deepseek-chat-v3-0324 | DeepSeek V3 (chat) - excellent for coding |
+| `deepseek-r1` | deepseek/deepseek-r1 | DeepSeek R1 - chain-of-thought reasoning |
+| `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
+| `mistral` | mistralai/mistral-large-2411 | Mistral Large via OpenRouter |
+| `qwen` | qwen/qwen-2.5-coder-32b-instruct | Qwen 2.5 Coder |
+| `qwen-max` | qwen/qwen-max | Qwen Max - flagship reasoning |
+| `yi` | 01-ai/yi-large | Yi Large - balanced capabilities |
 
 All OpenRouter agents require `OPENROUTER_API_KEY`.
 
@@ -64,6 +64,7 @@ agent = create_agent("claude", name="claude_proposer", role="proposer")
 agent = create_agent("codex", name="codex_critic", role="critic")
 
 # API agents
+agent = create_agent("anthropic-api", name="claude_api", role="synthesizer", api_key="...")
 agent = create_agent("gemini", name="gemini_judge", role="synthesizer", api_key="...")
 agent = create_agent("ollama", name="local_agent", model="llama3.2")
 ```
@@ -136,8 +137,8 @@ from aragora.core import Environment
 from aragora.memory import CritiqueStore
 
 agents = [
-    create_agent("claude", name="proposer", role="proposer"),
-    create_agent("codex", name="critic", role="critic"),
+    create_agent("anthropic-api", name="proposer", role="proposer"),
+    create_agent("openai-api", name="critic", role="critic"),
     create_agent("gemini", name="judge", role="synthesizer"),
 ]
 

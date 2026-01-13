@@ -82,6 +82,7 @@ class RedisTTLCache(Generic[T]):
 
         try:
             from aragora.server.redis_config import get_redis_client
+
             self._redis = get_redis_client()
             self._redis_checked = True
             if self._redis:

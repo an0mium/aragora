@@ -25,6 +25,7 @@ from typing import NamedTuple
 
 class CheckResult(NamedTuple):
     """Result of an integrity check."""
+
     name: str
     passed: bool
     file: str
@@ -80,10 +81,7 @@ def check_sanitization_exists(root: Path) -> CheckResult:
 
     if not filepath.exists():
         return CheckResult(
-            name="sanitization",
-            passed=False,
-            file=str(filepath),
-            details="File not found"
+            name="sanitization", passed=False, file=str(filepath), details="File not found"
         )
 
     try:
@@ -98,22 +96,19 @@ def check_sanitization_exists(root: Path) -> CheckResult:
                 name="sanitization",
                 passed=True,
                 file=str(filepath),
-                details=f"Found {len(calls)} call(s) at lines: {[c[0] for c in calls]}"
+                details=f"Found {len(calls)} call(s) at lines: {[c[0] for c in calls]}",
             )
         else:
             return CheckResult(
                 name="sanitization",
                 passed=False,
                 file=str(filepath),
-                details="No calls to sanitize_agent_output found"
+                details="No calls to sanitize_agent_output found",
             )
 
     except SyntaxError as e:
         return CheckResult(
-            name="sanitization",
-            passed=False,
-            file=str(filepath),
-            details=f"Syntax error: {e}"
+            name="sanitization", passed=False, file=str(filepath), details=f"Syntax error: {e}"
         )
 
 
@@ -128,10 +123,7 @@ def check_timeout_exists(root: Path) -> CheckResult:
 
     if not filepath.exists():
         return CheckResult(
-            name="timeout",
-            passed=False,
-            file=str(filepath),
-            details="File not found"
+            name="timeout", passed=False, file=str(filepath), details="File not found"
         )
 
     try:
@@ -149,29 +141,23 @@ def check_timeout_exists(root: Path) -> CheckResult:
                 name="timeout",
                 passed=True,
                 file=str(filepath),
-                details=f"Found definition at line {defs[0][0]}, {len(calls)} call(s)"
+                details=f"Found definition at line {defs[0][0]}, {len(calls)} call(s)",
             )
         elif defs:
             return CheckResult(
                 name="timeout",
                 passed=False,
                 file=str(filepath),
-                details="_with_timeout defined but never called"
+                details="_with_timeout defined but never called",
             )
         else:
             return CheckResult(
-                name="timeout",
-                passed=False,
-                file=str(filepath),
-                details="_with_timeout not found"
+                name="timeout", passed=False, file=str(filepath), details="_with_timeout not found"
             )
 
     except SyntaxError as e:
         return CheckResult(
-            name="timeout",
-            passed=False,
-            file=str(filepath),
-            details=f"Syntax error: {e}"
+            name="timeout", passed=False, file=str(filepath), details=f"Syntax error: {e}"
         )
 
 
@@ -186,10 +172,7 @@ def check_loop_binding(root: Path) -> CheckResult:
 
     if not filepath.exists():
         return CheckResult(
-            name="loop_binding",
-            passed=False,
-            file=str(filepath),
-            details="File not found"
+            name="loop_binding", passed=False, file=str(filepath), details="File not found"
         )
 
     try:
@@ -204,22 +187,19 @@ def check_loop_binding(root: Path) -> CheckResult:
                 name="loop_binding",
                 passed=True,
                 file=str(filepath),
-                details=f"Found {len(assignments)} binding(s) at lines: {[a[0] for a in assignments]}"
+                details=f"Found {len(assignments)} binding(s) at lines: {[a[0] for a in assignments]}",
             )
         else:
             return CheckResult(
                 name="loop_binding",
                 passed=False,
                 file=str(filepath),
-                details="No ws._bound_loop_id assignment found"
+                details="No ws._bound_loop_id assignment found",
             )
 
     except SyntaxError as e:
         return CheckResult(
-            name="loop_binding",
-            passed=False,
-            file=str(filepath),
-            details=f"Syntax error: {e}"
+            name="loop_binding", passed=False, file=str(filepath), details=f"Syntax error: {e}"
         )
 
 
@@ -234,10 +214,7 @@ def check_generate_with_agent(root: Path) -> CheckResult:
 
     if not filepath.exists():
         return CheckResult(
-            name="generate_with_agent",
-            passed=False,
-            file=str(filepath),
-            details="File not found"
+            name="generate_with_agent", passed=False, file=str(filepath), details="File not found"
         )
 
     try:
@@ -255,21 +232,21 @@ def check_generate_with_agent(root: Path) -> CheckResult:
                 name="generate_with_agent",
                 passed=True,
                 file=str(filepath),
-                details=f"Found definition at line {defs[0][0]}, {len(calls)} call(s)"
+                details=f"Found definition at line {defs[0][0]}, {len(calls)} call(s)",
             )
         elif defs:
             return CheckResult(
                 name="generate_with_agent",
                 passed=False,
                 file=str(filepath),
-                details="_generate_with_agent defined but never called"
+                details="_generate_with_agent defined but never called",
             )
         else:
             return CheckResult(
                 name="generate_with_agent",
                 passed=False,
                 file=str(filepath),
-                details="_generate_with_agent not found"
+                details="_generate_with_agent not found",
             )
 
     except SyntaxError as e:
@@ -277,7 +254,7 @@ def check_generate_with_agent(root: Path) -> CheckResult:
             name="generate_with_agent",
             passed=False,
             file=str(filepath),
-            details=f"Syntax error: {e}"
+            details=f"Syntax error: {e}",
         )
 
 
@@ -289,10 +266,7 @@ def check_sanitization_module(root: Path) -> CheckResult:
 
     if not filepath.exists():
         return CheckResult(
-            name="sanitization_module",
-            passed=False,
-            file=str(filepath),
-            details="File not found"
+            name="sanitization_module", passed=False, file=str(filepath), details="File not found"
         )
 
     try:
@@ -303,20 +277,19 @@ def check_sanitization_module(root: Path) -> CheckResult:
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 if node.name == "OutputSanitizer":
-                    methods = [n.name for n in node.body
-                              if isinstance(n, ast.FunctionDef)]
+                    methods = [n.name for n in node.body if isinstance(n, ast.FunctionDef)]
                     return CheckResult(
                         name="sanitization_module",
                         passed=True,
                         file=str(filepath),
-                        details=f"OutputSanitizer found with methods: {methods}"
+                        details=f"OutputSanitizer found with methods: {methods}",
                     )
 
         return CheckResult(
             name="sanitization_module",
             passed=False,
             file=str(filepath),
-            details="OutputSanitizer class not found"
+            details="OutputSanitizer class not found",
         )
 
     except SyntaxError as e:
@@ -324,7 +297,7 @@ def check_sanitization_module(root: Path) -> CheckResult:
             name="sanitization_module",
             passed=False,
             file=str(filepath),
-            details=f"Syntax error: {e}"
+            details=f"Syntax error: {e}",
         )
 
 
@@ -355,21 +328,13 @@ def main():
     parser = argparse.ArgumentParser(
         description="Verify proprioceptive fixes exist in the codebase"
     )
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Show detailed output"
-    )
-    parser.add_argument(
-        "--fix",
-        action="store_true",
-        help="Show suggested fixes for failures"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed output")
+    parser.add_argument("--fix", action="store_true", help="Show suggested fixes for failures")
     parser.add_argument(
         "--root",
         type=Path,
         default=Path(__file__).parent.parent,
-        help="Root directory of the aragora project"
+        help="Root directory of the aragora project",
     )
 
     args = parser.parse_args()

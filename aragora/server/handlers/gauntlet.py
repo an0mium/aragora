@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 # Using OrderedDict for FIFO eviction when memory limit reached
 from collections import OrderedDict
 import threading
+
 _gauntlet_runs: OrderedDict[str, dict[str, Any]] = OrderedDict()
 
 # Memory management for gauntlet runs
@@ -95,6 +96,7 @@ def _get_storage() -> "GauntletStorage":
     global _storage
     if _storage is None:
         from aragora.gauntlet.storage import GauntletStorage
+
         _storage = GauntletStorage()
     return _storage
 
@@ -206,6 +208,7 @@ class GauntletHandler(BaseHandler):
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
             from urllib.parse import parse_qs
+
             query_params = parse_qs(query_str)
 
         # POST /api/gauntlet/run
@@ -279,25 +282,31 @@ class GauntletHandler(BaseHandler):
             personas_list = []
             for name in list_personas():
                 persona = get_persona(name)
-                personas_list.append({
-                    "id": name,
-                    "name": persona.name,
-                    "description": persona.description,
-                    "regulation": persona.regulation,
-                    "attack_count": len(persona.attack_prompts),
-                    "categories": list(set(a.category for a in persona.attack_prompts)),
-                })
+                personas_list.append(
+                    {
+                        "id": name,
+                        "name": persona.name,
+                        "description": persona.description,
+                        "regulation": persona.regulation,
+                        "attack_count": len(persona.attack_prompts),
+                        "categories": list(set(a.category for a in persona.attack_prompts)),
+                    }
+                )
 
-            return json_response({
-                "personas": personas_list,
-                "count": len(personas_list),
-            })
+            return json_response(
+                {
+                    "personas": personas_list,
+                    "count": len(personas_list),
+                }
+            )
         except ImportError:
-            return json_response({
-                "personas": [],
-                "count": 0,
-                "error": "Personas module not available",
-            })
+            return json_response(
+                {
+                    "personas": [],
+                    "count": 0,
+                    "error": "Personas module not available",
+                }
+            )
 
     async def _start_gauntlet(self, handler: Any) -> HandlerResult:
         """Start a new gauntlet stress-test."""
@@ -305,9 +314,9 @@ class GauntletHandler(BaseHandler):
         from aragora.billing.jwt_auth import extract_user_from_request
 
         user_store = None
-        if hasattr(handler, 'user_store'):
+        if hasattr(handler, "user_store"):
             user_store = handler.user_store
-        elif hasattr(handler.__class__, 'user_store'):
+        elif hasattr(handler.__class__, "user_store"):
             user_store = handler.__class__.user_store
 
         user_ctx = extract_user_from_request(handler, user_store) if user_store else None
@@ -315,28 +324,33 @@ class GauntletHandler(BaseHandler):
         # Atomic quota check-and-increment to prevent TOCTOU race condition
         # Lock ensures no concurrent requests can pass quota check simultaneously
         if user_ctx and user_ctx.is_authenticated and user_ctx.org_id:
-            if user_store and hasattr(user_store, 'get_organization_by_id'):
+            if user_store and hasattr(user_store, "get_organization_by_id"):
                 with _quota_lock:
                     org = user_store.get_organization_by_id(user_ctx.org_id)
                     if org:
                         if org.is_at_limit:
-                            return json_response({
-                                "error": "Monthly debate quota exceeded",
-                                "code": "quota_exceeded",
-                                "limit": org.limits.debates_per_month,
-                                "used": org.debates_used_this_month,
-                                "remaining": 0,
-                                "tier": org.tier.value,
-                                "upgrade_url": "/pricing",
-                                "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Gauntlet runs count as debates. Upgrade to increase your limit.",
-                            }, status=429)
+                            return json_response(
+                                {
+                                    "error": "Monthly debate quota exceeded",
+                                    "code": "quota_exceeded",
+                                    "limit": org.limits.debates_per_month,
+                                    "used": org.debates_used_this_month,
+                                    "remaining": 0,
+                                    "tier": org.tier.value,
+                                    "upgrade_url": "/pricing",
+                                    "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Gauntlet runs count as debates. Upgrade to increase your limit.",
+                                },
+                                status=429,
+                            )
                         # Increment immediately while holding lock to prevent race
-                        if hasattr(user_store, 'increment_usage'):
+                        if hasattr(user_store, "increment_usage"):
                             try:
                                 user_store.increment_usage(user_ctx.org_id, 1)
                                 logger.info(f"Incremented gauntlet usage for org {user_ctx.org_id}")
                             except Exception as ue:
-                                logger.warning(f"Usage increment failed for org {user_ctx.org_id}: {ue}")
+                                logger.warning(
+                                    f"Usage increment failed for org {user_ctx.org_id}: {ue}"
+                                )
 
         # Parse request body (with Content-Length validation)
         data = self.read_json_body(handler)
@@ -367,7 +381,9 @@ class GauntletHandler(BaseHandler):
             "gauntlet_id": gauntlet_id,
             "status": "pending",
             "input_type": input_type,
-            "input_summary": input_content[:200] + "..." if len(input_content) > 200 else input_content,
+            "input_summary": (
+                input_content[:200] + "..." if len(input_content) > 200 else input_content
+            ),
             "input_hash": input_hash,
             "persona": persona,
             "profile": profile,
@@ -381,16 +397,19 @@ class GauntletHandler(BaseHandler):
             self._run_gauntlet_async(
                 gauntlet_id, input_content, input_type, persona, agents, profile
             ),
-            name=f"gauntlet-{gauntlet_id}"
+            name=f"gauntlet-{gauntlet_id}",
         )
 
         # Note: Usage increment moved to atomic check-and-increment section above
 
-        return json_response({
-            "gauntlet_id": gauntlet_id,
-            "status": "pending",
-            "message": "Gauntlet stress-test started",
-        }, status=202)
+        return json_response(
+            {
+                "gauntlet_id": gauntlet_id,
+                "status": "pending",
+                "message": "Gauntlet stress-test started",
+            },
+            status=202,
+        )
 
     async def _run_gauntlet_async(
         self,
@@ -568,11 +587,13 @@ class GauntletHandler(BaseHandler):
             storage = _get_storage()
             stored = storage.get(gauntlet_id)
             if stored:
-                return json_response({
-                    "gauntlet_id": gauntlet_id,
-                    "status": "completed",
-                    "result": stored,
-                })
+                return json_response(
+                    {
+                        "gauntlet_id": gauntlet_id,
+                        "status": "completed",
+                        "result": stored,
+                    }
+                )
         except (OSError, RuntimeError, ValueError) as e:
             logger.warning(f"Storage lookup failed for {gauntlet_id}: {e}")
 
@@ -618,7 +639,11 @@ class GauntletHandler(BaseHandler):
                 gauntlet_id=gauntlet_id,
                 timestamp=run.get("completed_at", "") if run else datetime.now().isoformat(),
                 input_summary=run["input_summary"] if run else result.get("input_summary", ""),
-                input_hash=run.get("input_hash", gauntlet_id) if run else result.get("input_hash", gauntlet_id),
+                input_hash=(
+                    run.get("input_hash", gauntlet_id)
+                    if run
+                    else result.get("input_hash", gauntlet_id)
+                ),
                 risk_summary={
                     "critical": result.get("critical_count", 0),
                     "high": result.get("high_count", 0),
@@ -695,11 +720,13 @@ class GauntletHandler(BaseHandler):
             for category in sorted(categories):
                 for severity in severities:
                     count = category_severity_counts.get((category, severity), 0)
-                    cells.append(HeatmapCell(
-                        category=category,
-                        severity=severity,
-                        count=count,
-                    ))
+                    cells.append(
+                        HeatmapCell(
+                            category=category,
+                            severity=severity,
+                            count=count,
+                        )
+                    )
 
             heatmap = RiskHeatmap(
                 cells=cells,
@@ -741,27 +768,33 @@ class GauntletHandler(BaseHandler):
 
             total = storage.count(verdict=verdict)
 
-            return json_response({
-                "results": [
-                    {
-                        "gauntlet_id": r.gauntlet_id,
-                        "input_hash": r.input_hash,
-                        "input_summary": r.input_summary[:100] + "..." if len(r.input_summary) > 100 else r.input_summary,
-                        "verdict": r.verdict,
-                        "confidence": r.confidence,
-                        "robustness_score": r.robustness_score,
-                        "critical_count": r.critical_count,
-                        "high_count": r.high_count,
-                        "total_findings": r.total_findings,
-                        "created_at": r.created_at.isoformat(),
-                        "duration_seconds": r.duration_seconds,
-                    }
-                    for r in results
-                ],
-                "total": total,
-                "limit": limit,
-                "offset": offset,
-            })
+            return json_response(
+                {
+                    "results": [
+                        {
+                            "gauntlet_id": r.gauntlet_id,
+                            "input_hash": r.input_hash,
+                            "input_summary": (
+                                r.input_summary[:100] + "..."
+                                if len(r.input_summary) > 100
+                                else r.input_summary
+                            ),
+                            "verdict": r.verdict,
+                            "confidence": r.confidence,
+                            "robustness_score": r.robustness_score,
+                            "critical_count": r.critical_count,
+                            "high_count": r.high_count,
+                            "total_findings": r.total_findings,
+                            "created_at": r.created_at.isoformat(),
+                            "duration_seconds": r.duration_seconds,
+                        }
+                        for r in results
+                    ],
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
         except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.error(f"Failed to list results: {e}")
             return error_response(f"Failed to list results: {e}", 500)

@@ -152,6 +152,7 @@ class TestComputeVoteGroups:
             vote.agent = agent
             vote.choice = choice
             return vote
+
         return _make_vote
 
     def test_no_grouping_function(self, mock_vote):
@@ -234,6 +235,7 @@ class TestCountWeightedVotes:
             vote.agent = agent
             vote.choice = choice
             return vote
+
         return _make_vote
 
     def test_unweighted_counting(self, mock_vote):
@@ -339,9 +341,7 @@ class TestAddUserVotes:
         counts = Counter({"A": 2.0})
         total = 2.0
 
-        new_counts, new_total, user_count = agg._add_user_votes(
-            counts, total, {}, []
-        )
+        new_counts, new_total, user_count = agg._add_user_votes(counts, total, {}, [])
 
         assert new_counts["A"] == 2.0
         assert new_total == 2.0
@@ -356,9 +356,7 @@ class TestAddUserVotes:
         total = 2.0
         user_votes = [{"choice": "B", "user_id": "user1"}]
 
-        new_counts, new_total, user_count = agg._add_user_votes(
-            counts, total, {}, user_votes
-        )
+        new_counts, new_total, user_count = agg._add_user_votes(counts, total, {}, user_votes)
 
         assert new_counts["A"] == 2.0
         assert new_counts["B"] == 0.5
@@ -379,9 +377,7 @@ class TestAddUserVotes:
         counts = Counter()
         user_votes = [{"choice": "A", "intensity": 10}]
 
-        new_counts, new_total, user_count = agg._add_user_votes(
-            counts, 0.0, {}, user_votes
-        )
+        new_counts, new_total, user_count = agg._add_user_votes(counts, 0.0, {}, user_votes)
 
         assert new_counts["A"] == 1.0  # 0.5 * 2.0
         assert new_total == 1.0
@@ -395,9 +391,7 @@ class TestAddUserVotes:
         mapping = {"use vector database": "Vector DB"}
         user_votes = [{"choice": "use vector database"}]
 
-        new_counts, new_total, _ = agg._add_user_votes(
-            counts, 2.0, mapping, user_votes
-        )
+        new_counts, new_total, _ = agg._add_user_votes(counts, 2.0, mapping, user_votes)
 
         assert new_counts["Vector DB"] == 3.0
 
@@ -409,9 +403,7 @@ class TestAddUserVotes:
         counts = Counter()
         user_votes = [{"choice": "", "user_id": "user1"}]
 
-        new_counts, new_total, user_count = agg._add_user_votes(
-            counts, 0.0, {}, user_votes
-        )
+        new_counts, new_total, user_count = agg._add_user_votes(counts, 0.0, {}, user_votes)
 
         assert len(new_counts) == 0
         assert user_count == 0
@@ -431,9 +423,7 @@ class TestAddUserVotes:
         user_votes = [{"choice": "A", "intensity": 10}]
 
         # Should not raise
-        new_counts, new_total, _ = agg._add_user_votes(
-            counts, 0.0, {}, user_votes
-        )
+        new_counts, new_total, _ = agg._add_user_votes(counts, 0.0, {}, user_votes)
 
         assert new_counts["A"] == 0.5  # fallback multiplier 1.0
 
@@ -453,6 +443,7 @@ class TestCountUnweighted:
             vote.agent = agent
             vote.choice = choice
             return vote
+
         return _make_vote
 
     def test_basic_counting(self, mock_vote):
@@ -517,6 +508,7 @@ class TestAggregate:
             vote.agent = agent
             vote.choice = choice
             return vote
+
         return _make_vote
 
     def test_basic_aggregation(self, mock_vote):
@@ -624,9 +616,7 @@ class TestCalculateConsensusStrength:
         from aragora.debate.phases.vote_aggregator import calculate_consensus_strength
 
         # Variance < 1
-        strength, variance = calculate_consensus_strength(
-            Counter({"A": 4, "B": 4})  # variance = 0
-        )
+        strength, variance = calculate_consensus_strength(Counter({"A": 4, "B": 4}))  # variance = 0
 
         assert strength == "strong"
         assert variance < 1
@@ -636,9 +626,7 @@ class TestCalculateConsensusStrength:
         from aragora.debate.phases.vote_aggregator import calculate_consensus_strength
 
         # Variance 1-2
-        strength, variance = calculate_consensus_strength(
-            Counter({"A": 5, "B": 3})  # variance = 1
-        )
+        strength, variance = calculate_consensus_strength(Counter({"A": 5, "B": 3}))  # variance = 1
 
         assert strength == "medium"
         assert 1 <= variance < 2
@@ -648,9 +636,7 @@ class TestCalculateConsensusStrength:
         from aragora.debate.phases.vote_aggregator import calculate_consensus_strength
 
         # Variance >= 2
-        strength, variance = calculate_consensus_strength(
-            Counter({"A": 8, "B": 2})  # variance = 9
-        )
+        strength, variance = calculate_consensus_strength(Counter({"A": 8, "B": 2}))  # variance = 9
 
         assert strength == "weak"
         assert variance >= 2
@@ -671,6 +657,7 @@ class TestVoteAggregatorIntegration:
             vote.agent = agent
             vote.choice = choice
             return vote
+
         return _make_vote
 
     def test_full_workflow(self, mock_vote):

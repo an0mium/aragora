@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DebateState:
     """State for an active debate."""
+
     debate_id: str
     task: str
     agents: list[str]
@@ -137,7 +138,9 @@ class StateManager:
 
         with self._debates_lock:
             self._active_debates[debate_id] = state
-            logger.debug(f"Registered debate {debate_id}, total active: {len(self._active_debates)}")
+            logger.debug(
+                f"Registered debate {debate_id}, total active: {len(self._active_debates)}"
+            )
 
         return state
 
@@ -154,7 +157,9 @@ class StateManager:
         with self._debates_lock:
             state = self._active_debates.pop(debate_id, None)
             if state:
-                logger.debug(f"Unregistered debate {debate_id}, remaining: {len(self._active_debates)}")
+                logger.debug(
+                    f"Unregistered debate {debate_id}, remaining: {len(self._active_debates)}"
+                )
 
         # Trigger periodic cleanup
         self._maybe_cleanup()
@@ -260,8 +265,7 @@ class StateManager:
             if self._executor is None:
                 workers = max_workers or self._executor_max_workers
                 self._executor = ThreadPoolExecutor(
-                    max_workers=workers,
-                    thread_name_prefix="debate-"
+                    max_workers=workers, thread_name_prefix="debate-"
                 )
                 logger.info(f"Created debate executor with {workers} workers")
 

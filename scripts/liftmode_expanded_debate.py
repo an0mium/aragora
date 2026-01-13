@@ -8,10 +8,10 @@ import os
 import sys
 
 # Disable heavy ML imports
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ['TOKENIZERS_PARALLELISM'] = 'false'
-os.environ['SENTENCE_TRANSFORMERS_HOME'] = '/tmp/sentence_transformers'
-os.environ['TRANSFORMERS_OFFLINE'] = '1'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/sentence_transformers"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 import asyncio
 import json
@@ -25,7 +25,11 @@ from aragora.agents.registry import AgentRegistry
 from aragora.agents.api_agents.gemini import GeminiAgent  # noqa: F401
 from aragora.agents.api_agents.grok import GrokAgent  # noqa: F401
 from aragora.agents.api_agents.anthropic import AnthropicAPIAgent  # noqa: F401
-from aragora.agents.api_agents.openrouter import OpenRouterAgent, DeepSeekReasonerAgent  # noqa: F401
+from aragora.agents.api_agents.openrouter import (
+    OpenRouterAgent,
+    DeepSeekReasonerAgent,
+)  # noqa: F401
+
 print("Imports complete.", flush=True)
 
 
@@ -150,7 +154,6 @@ This is the single biggest lever for cash flow (62% of monthly burn).
    - If we promote warehouse lead with $500-1k raise, net savings = $14-14.5k/mo
    - Breakeven impact?
 """,
-
     "b2b_and_marketing": """
 ## TOPIC 2: B2B Wholesale Strategy & Marketing Growth
 
@@ -201,7 +204,6 @@ Kanna is 33% of revenue with 62% margin - it's the hero product.
    - Expected ROI per channel?
    - How long until payback?
 """,
-
     "product_innovation": """
 ## TOPIC 3: New Product Development & Revenue Diversification
 
@@ -237,7 +239,6 @@ Recent trend shows -22.9% revenue decline in last 3 months vs prior 3 months.
 3. Which has best ROI potential?
 4. Regulatory considerations?
 """,
-
     "aragora_revenue": """
 ## TOPIC 4: Aragora as Future Revenue Stream
 
@@ -291,7 +292,7 @@ powering this very discussion. This represents a potential pivot to B2B SaaS rev
    - Does this distract from LiftMode turnaround?
    - Could Aragora revenue eventually exceed supplements?
    - Resource allocation between both businesses?
-"""
+""",
 }
 
 
@@ -390,7 +391,12 @@ Evaluate the Aragora opportunity from a tech product perspective."""
     # Run debate on each topic
     all_results = {}
 
-    topics_to_run = ["doo_elimination", "b2b_and_marketing", "product_innovation", "aragora_revenue"]
+    topics_to_run = [
+        "doo_elimination",
+        "b2b_and_marketing",
+        "product_innovation",
+        "aragora_revenue",
+    ]
 
     for topic_key in topics_to_run:
         topic_prompt = DEBATE_TOPICS[topic_key]
@@ -419,10 +425,9 @@ Evaluate the Aragora opportunity from a tech product perspective."""
 Please provide your analysis and recommendations. Be specific with numbers, timelines, and actionable steps.
 """
                 else:
-                    prev_responses = "\n\n".join([
-                        f"**{m['agent']}**: {m['content'][:800]}..."
-                        for m in round_messages
-                    ])
+                    prev_responses = "\n\n".join(
+                        [f"**{m['agent']}**: {m['content'][:800]}..." for m in round_messages]
+                    )
                     prompt = f"""Based on the previous responses from other advisors:
 
 {prev_responses}
@@ -436,22 +441,26 @@ Be concise but specific."""
 
                 try:
                     response = await agent.generate(prompt, context=None)
-                    round_messages.append({
-                        "agent": agent.name,
-                        "round": round_num,
-                        "content": response,
-                        "timestamp": datetime.now().isoformat(),
-                    })
+                    round_messages.append(
+                        {
+                            "agent": agent.name,
+                            "round": round_num,
+                            "content": response,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    )
                     print(f"\n{agent.name} ({len(response)} chars):", flush=True)
                     print(response[:400] + "..." if len(response) > 400 else response, flush=True)
                 except Exception as e:
                     print(f"Error from {agent.name}: {e}", flush=True)
-                    round_messages.append({
-                        "agent": agent.name,
-                        "round": round_num,
-                        "content": f"Error: {e}",
-                        "timestamp": datetime.now().isoformat(),
-                    })
+                    round_messages.append(
+                        {
+                            "agent": agent.name,
+                            "round": round_num,
+                            "content": f"Error: {e}",
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    )
 
             rounds.append(round_messages)
 
@@ -486,12 +495,16 @@ Be concise but specific."""
     # Save JSON
     json_path = output_dir / f"expanded_debate_{timestamp}.json"
     with open(json_path, "w") as f:
-        json.dump({
-            "timestamp": timestamp,
-            "agents": [a.name for a in agents],
-            "context": COMPANY_CONTEXT,
-            "topics": all_results,
-        }, f, indent=2)
+        json.dump(
+            {
+                "timestamp": timestamp,
+                "agents": [a.name for a in agents],
+                "context": COMPANY_CONTEXT,
+                "topics": all_results,
+            },
+            f,
+            indent=2,
+        )
 
     print(f"JSON saved to: {json_path}")
 

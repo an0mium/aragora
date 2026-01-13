@@ -28,6 +28,7 @@ from aragora.agents.positions import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def temp_db():
     """Create a temporary database for testing."""
@@ -48,6 +49,7 @@ def ledger(temp_db):
 # =============================================================================
 # Position Dataclass Tests
 # =============================================================================
+
 
 class TestPosition:
     """Tests for Position dataclass."""
@@ -111,6 +113,7 @@ class TestPosition:
 # CalibrationBucket Tests
 # =============================================================================
 
+
 class TestCalibrationBucket:
     """Tests for CalibrationBucket dataclass."""
 
@@ -172,6 +175,7 @@ class TestCalibrationBucket:
 # DomainCalibration Tests
 # =============================================================================
 
+
 class TestDomainCalibration:
     """Tests for DomainCalibration dataclass."""
 
@@ -207,6 +211,7 @@ class TestDomainCalibration:
 # =============================================================================
 # PositionLedger Tests - Basic Operations
 # =============================================================================
+
 
 class TestPositionLedgerBasic:
     """Tests for basic PositionLedger operations."""
@@ -257,6 +262,7 @@ class TestPositionLedgerBasic:
 # =============================================================================
 # PositionLedger Tests - Resolution
 # =============================================================================
+
 
 class TestPositionLedgerResolution:
     """Tests for position resolution."""
@@ -313,6 +319,7 @@ class TestPositionLedgerResolution:
 # PositionLedger Tests - Reversal
 # =============================================================================
 
+
 class TestPositionLedgerReversal:
     """Tests for position reversal tracking."""
 
@@ -360,6 +367,7 @@ class TestPositionLedgerReversal:
 # =============================================================================
 # PositionLedger Tests - Queries
 # =============================================================================
+
 
 class TestPositionLedgerQueries:
     """Tests for position querying."""
@@ -420,6 +428,7 @@ class TestPositionLedgerQueries:
 # PositionLedger Tests - Statistics
 # =============================================================================
 
+
 class TestPositionLedgerStats:
     """Tests for position statistics."""
 
@@ -478,6 +487,7 @@ class TestPositionLedgerStats:
 # Domain Detection Tests
 # =============================================================================
 
+
 class TestDomainDetection:
     """Tests for domain detection."""
 
@@ -520,6 +530,7 @@ class TestDomainDetection:
 # =============================================================================
 # Edge Cases and Error Handling
 # =============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases and error handling."""

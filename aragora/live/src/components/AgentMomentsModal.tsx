@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { API_BASE_URL } from '@/config';
 
 interface Moment {
   id: string;
@@ -19,7 +20,7 @@ interface AgentMomentsModalProps {
   apiBase?: string;
 }
 
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const DEFAULT_API_BASE = API_BASE_URL;
 
 export function AgentMomentsModal({ agentName, onClose, apiBase = DEFAULT_API_BASE }: AgentMomentsModalProps) {
   const [moments, setMoments] = useState<Moment[]>([]);

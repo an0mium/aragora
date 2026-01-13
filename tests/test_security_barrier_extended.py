@@ -213,17 +213,7 @@ class TestSecurityBarrierEdgeCases:
         """Should handle deeply nested dictionaries."""
         barrier = SecurityBarrier()
 
-        data = {
-            "level1": {
-                "level2": {
-                    "level3": {
-                        "level4": {
-                            "secret": "api_key=deep_secret"
-                        }
-                    }
-                }
-            }
-        }
+        data = {"level1": {"level2": {"level3": {"level4": {"secret": "api_key=deep_secret"}}}}}
 
         result = barrier.redact_dict(data)
         assert "[REDACTED]" in result["level1"]["level2"]["level3"]["level4"]["secret"]

@@ -119,9 +119,7 @@ class TestDebateResponse:
 
     def test_error_response(self):
         """Should create error response."""
-        response = DebateResponse(
-            success=False, error="Something went wrong", status_code=500
-        )
+        response = DebateResponse(success=False, error="Something went wrong", status_code=500)
 
         assert response.success is False
         assert response.debate_id is None
@@ -211,6 +209,7 @@ class TestDebateControllerStartDebate:
     def setup_method(self):
         """Set up mocks for each test."""
         from aragora.server.state import reset_state_manager
+
         self.factory = Mock()
         self.emitter = Mock()
         self.emitter.set_loop_id = Mock()
@@ -224,14 +223,13 @@ class TestDebateControllerStartDebate:
 
         # Clean up active debates
         from aragora.server.debate_utils import _active_debates, _active_debates_lock
+
         with _active_debates_lock:
             _active_debates.clear()
 
     def test_start_debate_returns_debate_id(self):
         """Should return response with debate_id."""
-        controller = DebateController(
-            factory=self.factory, emitter=self.emitter
-        )
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
 
         request = DebateRequest(question="Test question?")
         response = controller.start_debate(request)
@@ -245,9 +243,7 @@ class TestDebateControllerStartDebate:
         """Should register debate in active debates."""
         from aragora.server.debate_utils import _active_debates, _active_debates_lock
 
-        controller = DebateController(
-            factory=self.factory, emitter=self.emitter
-        )
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
 
         request = DebateRequest(question="Tracked question?")
         response = controller.start_debate(request)
@@ -260,9 +256,7 @@ class TestDebateControllerStartDebate:
 
     def test_start_debate_sets_emitter_loop_id(self):
         """Should set loop_id on emitter."""
-        controller = DebateController(
-            factory=self.factory, emitter=self.emitter
-        )
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
 
         request = DebateRequest(question="Test?")
         response = controller.start_debate(request)
@@ -285,9 +279,7 @@ class TestDebateControllerStartDebate:
         )
         controller.start_debate(request)
 
-        auto_select.assert_called_once_with(
-            "Auto select test?", {"strategy": "best"}
-        )
+        auto_select.assert_called_once_with("Auto select test?", {"strategy": "best"})
 
     def test_start_debate_auto_select_failure_uses_default(self):
         """Should use default agents if auto_select fails."""
@@ -311,9 +303,7 @@ class TestDebateControllerStartDebate:
     @patch("aragora.server.debate_controller.cleanup_stale_debates")
     def test_start_debate_triggers_cleanup(self, mock_cleanup):
         """Should trigger stale debate cleanup."""
-        controller = DebateController(
-            factory=self.factory, emitter=self.emitter
-        )
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
 
         request = DebateRequest(question="Test?")
         controller.start_debate(request)
@@ -352,6 +342,7 @@ class TestDebateControllerRunDebate:
         """Clean up after each test."""
         DebateController.shutdown()
         from aragora.server.debate_utils import _active_debates, _active_debates_lock
+
         with _active_debates_lock:
             _active_debates.clear()
 
@@ -359,9 +350,7 @@ class TestDebateControllerRunDebate:
         """Should create arena with correct config."""
         from aragora.server.debate_factory import DebateConfig
 
-        controller = DebateController(
-            factory=self.factory, emitter=self.emitter
-        )
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
 
         config = DebateConfig(
             question="Test?",
@@ -379,9 +368,7 @@ class TestDebateControllerRunDebate:
         """Should update status to running."""
         from aragora.server.debate_factory import DebateConfig
 
-        controller = DebateController(
-            factory=self.factory, emitter=self.emitter
-        )
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
 
         config = DebateConfig(
             question="Test?",
@@ -394,19 +381,14 @@ class TestDebateControllerRunDebate:
 
         # Check "running" status was set
         calls = mock_update.call_args_list
-        assert any(
-            call[0][0] == "test_123" and call[0][1] == "running"
-            for call in calls
-        )
+        assert any(call[0][0] == "test_123" and call[0][1] == "running" for call in calls)
 
     @patch("aragora.server.debate_controller.update_debate_status")
     def test_run_debate_updates_status_completed(self, mock_update):
         """Should update status to completed with result."""
         from aragora.server.debate_factory import DebateConfig
 
-        controller = DebateController(
-            factory=self.factory, emitter=self.emitter
-        )
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
 
         config = DebateConfig(
             question="Test?",
@@ -429,9 +411,7 @@ class TestDebateControllerRunDebate:
 
         self.factory.create_arena.side_effect = ValueError("Invalid agents")
 
-        controller = DebateController(
-            factory=self.factory, emitter=self.emitter
-        )
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
 
         config = DebateConfig(
             question="Test?",
@@ -458,9 +438,7 @@ class TestDebateControllerRunDebate:
 
         self.factory.create_arena.side_effect = RuntimeError("Unexpected error")
 
-        controller = DebateController(
-            factory=self.factory, emitter=self.emitter
-        )
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
 
         config = DebateConfig(
             question="Test?",
@@ -495,9 +473,7 @@ class TestDebateControllerLeaderboard:
         mock_agent.total_debates = 20
         elo.get_leaderboard.return_value = [mock_agent]
 
-        controller = DebateController(
-            factory=factory, emitter=emitter, elo_system=elo
-        )
+        controller = DebateController(factory=factory, emitter=emitter, elo_system=elo)
 
         controller._emit_leaderboard_update("test_123")
 
@@ -511,9 +487,7 @@ class TestDebateControllerLeaderboard:
         factory = Mock()
         emitter = Mock()
 
-        controller = DebateController(
-            factory=factory, emitter=emitter, elo_system=None
-        )
+        controller = DebateController(factory=factory, emitter=emitter, elo_system=None)
 
         controller._emit_leaderboard_update("test_123")
 
@@ -526,9 +500,7 @@ class TestDebateControllerLeaderboard:
         elo = Mock()
         elo.get_leaderboard.side_effect = Exception("ELO error")
 
-        controller = DebateController(
-            factory=factory, emitter=emitter, elo_system=elo
-        )
+        controller = DebateController(factory=factory, emitter=emitter, elo_system=elo)
 
         # Should not raise
         controller._emit_leaderboard_update("test_123")

@@ -445,3 +445,57 @@ Safety gates:
 3. **Parallel Debate Branches**: DebateForker runs branches concurrently
 4. **Connection Pooling**: Database connections are pooled for efficiency
 5. **Lazy Loading**: Heavy components (Z3, embeddings) loaded on demand
+
+## Recent Additions (Phase 3)
+
+### Feature Flags System
+
+Frontend and backend feature flags for gating experimental features:
+
+```typescript
+// Frontend: aragora/live/src/lib/featureFlags.ts
+import { isFeatureEnabled, FEATURES } from '@/lib/featureFlags';
+
+if (isFeatureEnabled('GRAPH_DEBATES')) {
+  // Show graph debates UI
+}
+```
+
+```python
+# Backend: aragora/config/settings.py
+from aragora.config.settings import feature_settings
+
+if feature_settings.is_enabled("graph_debates"):
+    # Enable graph debates endpoint
+```
+
+### MCP Server
+
+Full Model Context Protocol implementation with 8 tools and 4 resource templates:
+
+| Resource | Description |
+|----------|-------------|
+| `debate://{id}` | Access debate results |
+| `agent://{name}/stats` | Agent statistics and ELO |
+| `consensus://{id}` | Formal verification proofs |
+| `trending://topics` | Pulse trending topics |
+
+See [MCP_INTEGRATION.md](./MCP_INTEGRATION.md) for details.
+
+### Nomic Loop Hardening
+
+Pre-flight health checks before self-improvement cycles:
+
+```bash
+# Run pre-flight checks only
+python scripts/nomic_loop.py preflight
+
+# Full loop with automatic pre-flight
+python scripts/nomic_loop.py run
+```
+
+Checks include: API key validation, disk space, database connectivity, protected file integrity, git repository state.
+
+### Type Coverage
+
+PEP 561 typed package marker (`aragora/py.typed`) and strict mypy configuration for core modules. See `pyproject.toml` for per-module type checking settings.

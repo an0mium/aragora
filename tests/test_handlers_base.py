@@ -48,13 +48,14 @@ def mock_handler():
     """Create a mock HTTP request handler."""
     handler = MagicMock()
     handler.headers = {"Host": "example.com:8080", "Content-Type": "application/json"}
-    handler.rfile = io.BytesIO(b'{}')
+    handler.rfile = io.BytesIO(b"{}")
     return handler
 
 
 @pytest.fixture
 def mock_handler_with_body():
     """Create a mock handler with JSON body."""
+
     def create(body: dict):
         handler = MagicMock()
         body_bytes = json.dumps(body).encode()
@@ -65,6 +66,7 @@ def mock_handler_with_body():
         }
         handler.rfile = io.BytesIO(body_bytes)
         return handler
+
     return create
 
 
@@ -83,6 +85,7 @@ def server_context():
 @dataclass
 class MockAgent:
     """Mock agent object for testing."""
+
     name: str = "test-agent"
     agent_name: str = "test-agent"
     elo: int = 1600
@@ -97,6 +100,7 @@ class MockAgent:
 @dataclass
 class MockUserContext:
     """Mock user authentication context."""
+
     is_authenticated: bool = True
     user_id: str = "user_123"
     org_id: str = "org_456"
@@ -107,6 +111,7 @@ class MockUserContext:
 @dataclass
 class MockOrganization:
     """Mock organization for quota tests."""
+
     debates_used_this_month: int = 5
     is_at_limit: bool = False
 
@@ -226,6 +231,7 @@ class TestAgentToDict:
 
     def test_default_values_for_missing_attrs(self):
         """Test defaults for missing attributes."""
+
         class MinimalAgent:
             pass
 
@@ -331,11 +337,12 @@ class TestFeatureUnavailableResponse:
     def test_returns_503_status(self):
         """Test returns 503 Service Unavailable."""
         from aragora.server.handlers.utils.responses import HandlerResult
+
         with patch("aragora.server.handlers.features.feature_unavailable_response") as mock:
             mock.return_value = HandlerResult(
                 status_code=503,
                 content_type="application/json",
-                body=b'{"error": "Feature unavailable"}'
+                body=b'{"error": "Feature unavailable"}',
             )
             result = feature_unavailable_response("pulse")
 
@@ -344,11 +351,10 @@ class TestFeatureUnavailableResponse:
     def test_passes_feature_id(self):
         """Test passes feature ID to underlying function."""
         from aragora.server.handlers.utils.responses import HandlerResult
+
         with patch("aragora.server.handlers.features.feature_unavailable_response") as mock:
             mock.return_value = HandlerResult(
-                status_code=503,
-                content_type="application/json",
-                body=b'{}'
+                status_code=503, content_type="application/json", body=b"{}"
             )
             feature_unavailable_response("genesis")
             mock.assert_called_once_with("genesis", None)
@@ -509,8 +515,10 @@ class TestPaginatedHandlerMixin:
     @pytest.fixture
     def mixin(self):
         """Create mixin instance."""
+
         class Handler(PaginatedHandlerMixin):
             pass
+
         return Handler()
 
     def test_get_pagination_defaults(self, mixin):
@@ -538,14 +546,10 @@ class TestPaginatedHandlerMixin:
 
     def test_get_pagination_custom_limits(self, mixin):
         """Test custom default and max limits."""
-        limit, offset = mixin.get_pagination(
-            {}, default_limit=10, max_limit=50
-        )
+        limit, offset = mixin.get_pagination({}, default_limit=10, max_limit=50)
         assert limit == 10
 
-        limit, offset = mixin.get_pagination(
-            {"limit": "200"}, max_limit=50
-        )
+        limit, offset = mixin.get_pagination({"limit": "200"}, max_limit=50)
         assert limit == 50
 
     def test_paginated_response(self, mixin):
@@ -572,9 +576,7 @@ class TestPaginatedHandlerMixin:
     def test_paginated_response_custom_key(self, mixin):
         """Test custom items key."""
         items = [{"name": "a"}]
-        result = mixin.paginated_response(
-            items, total=1, limit=20, offset=0, items_key="results"
-        )
+        result = mixin.paginated_response(items, total=1, limit=20, offset=0, items_key="results")
 
         parsed = json.loads(result.body)
         assert "results" in parsed
@@ -592,8 +594,10 @@ class TestCachedHandlerMixin:
     @pytest.fixture
     def mixin(self):
         """Create mixin instance."""
+
         class Handler(CachedHandlerMixin):
             pass
+
         return Handler()
 
     def test_cached_response_calls_generator(self, mixin):
@@ -636,6 +640,7 @@ class TestCachedHandlerMixin:
     @pytest.mark.asyncio
     async def test_async_cached_response(self, mixin):
         """Test async cached response."""
+
         async def async_generator():
             return {"async_data": True}
 
@@ -658,8 +663,10 @@ class TestAuthenticatedHandlerMixin:
     @pytest.fixture
     def mixin(self):
         """Create mixin instance."""
+
         class Handler(AuthenticatedHandlerMixin):
             pass
+
         return Handler()
 
     def test_require_auth_authenticated(self, mixin):
@@ -711,26 +718,20 @@ class TestBaseHandler:
 
     def test_extract_path_param_success(self, handler):
         """Test successful path param extraction."""
-        value, err = handler.extract_path_param(
-            "/api/debates/abc123/status", 2, "debate_id"
-        )
+        value, err = handler.extract_path_param("/api/debates/abc123/status", 2, "debate_id")
         assert value == "abc123"
         assert err is None
 
     def test_extract_path_param_missing(self, handler):
         """Test error for missing path segment."""
-        value, err = handler.extract_path_param(
-            "/api/debates", 5, "debate_id"
-        )
+        value, err = handler.extract_path_param("/api/debates", 5, "debate_id")
         assert value is None
         assert err.status_code == 400
         assert "Missing debate_id" in json.loads(err.body)["error"]
 
     def test_extract_path_param_empty(self, handler):
         """Test error for empty segment."""
-        value, err = handler.extract_path_param(
-            "/api/debates//status", 2, "debate_id"
-        )
+        value, err = handler.extract_path_param("/api/debates//status", 2, "debate_id")
         assert value is None
         assert err.status_code == 400
 
@@ -758,7 +759,7 @@ class TestBaseHandler:
             [
                 (3, "agent_a", SAFE_AGENT_PATTERN),
                 (4, "agent_b", SAFE_AGENT_PATTERN),
-            ]
+            ],
         )
         assert err is None
         assert params == {"agent_a": "claude", "agent_b": "gpt4"}
@@ -770,7 +771,7 @@ class TestBaseHandler:
             [
                 (2, "first", None),  # exists
                 (10, "second", None),  # missing
-            ]
+            ],
         )
         assert params is None
         assert err is not None
@@ -1067,10 +1068,12 @@ class TestBaseHandlerIntegration:
                 if err:
                     return err
 
-                return json_response({
-                    "user_id": user.user_id,
-                    "received": body,
-                })
+                return json_response(
+                    {
+                        "user_id": user.user_id,
+                        "received": body,
+                    }
+                )
 
         handler = AuthHandler(server_context)
         mock_user = MockUserContext()

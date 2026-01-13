@@ -25,14 +25,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install black ruff
 
-      - name: Check formatting with Black
-        run: |
-          black --check --diff aragora/ tests/ scripts/
-        continue-on-error: true
-
-      - name: Lint with Ruff
-        run: |
-          ruff check aragora/ tests/ scripts/ --output-format=github
+      - name: Run lint tier
+        run: bash scripts/test_tiers.sh lint
+        shell: bash
 
   typecheck:
     runs-on: ubuntu-latest
@@ -46,14 +41,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install mypy
+      - name: Install mypy and type stubs
         run: |
           python -m pip install --upgrade pip
-          pip install mypy
+          pip install mypy types-requests types-redis types-python-dateutil types-setuptools
 
-      - name: Run mypy type checking
-        run: |
-          mypy aragora/ --ignore-missing-imports --no-error-summary
+      - name: Run typecheck tier
+        run: bash scripts/test_tiers.sh typecheck
+        shell: bash
         continue-on-error: true
 
   frontend-lint:
@@ -108,3 +103,29 @@ jobs:
           pip install -e .
           safety check --full-report || true
         continue-on-error: true
+
+  docs-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Regenerate API docs
+        run: |
+          python scripts/generate_api_docs.py --output docs/API_ENDPOINTS.md
+          python scripts/export_openapi.py --output-dir docs/api
+
+      - name: Ensure docs are in sync
+        run: |
+          git diff --exit-code docs/API_ENDPOINTS.md docs/api/openapi.json docs/api/openapi.yaml

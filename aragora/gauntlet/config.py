@@ -162,9 +162,7 @@ class GauntletConfig:
     custom_scenarios: list[dict] = field(default_factory=list)
 
     # Agent configuration
-    agents: list[str] = field(
-        default_factory=lambda: ["anthropic-api", "openai-api"]
-    )
+    agents: list[str] = field(default_factory=lambda: ["anthropic-api", "openai-api"])
     max_agents: int = 3
     deep_audit_rounds: int = 4
 
@@ -178,9 +176,7 @@ class GauntletConfig:
 
     # Output configuration
     output_dir: Optional[str] = None
-    output_formats: list[str] = field(
-        default_factory=lambda: ["json", "md"]
-    )
+    output_formats: list[str] = field(default_factory=lambda: ["json", "md"])
     save_artifacts: bool = False
     generate_receipt: bool = True
 
@@ -277,13 +273,11 @@ class GauntletConfig:
         # Convert string values back to enums
         if "attack_categories" in data:
             data["attack_categories"] = [
-                AttackCategory(c) if isinstance(c, str) else c
-                for c in data["attack_categories"]
+                AttackCategory(c) if isinstance(c, str) else c for c in data["attack_categories"]
             ]
         if "probe_categories" in data:
             data["probe_categories"] = [
-                ProbeCategory(c) if isinstance(c, str) else c
-                for c in data["probe_categories"]
+                ProbeCategory(c) if isinstance(c, str) else c for c in data["probe_categories"]
             ]
         if "criteria" in data and isinstance(data["criteria"], dict):
             data["criteria"] = PassFailCriteria(**data["criteria"])
@@ -436,9 +430,7 @@ class GauntletResult:
         critical_count = len(self.critical_findings)
         high_count = len([f for f in self.findings if f.severity == GauntletSeverity.HIGH])
         verification_coverage = (
-            self.verified_claims / self.total_claims
-            if self.total_claims
-            else 0.0
+            self.verified_claims / self.total_claims if self.total_claims else 0.0
         )
 
         if critical_count > criteria.max_critical_findings:
@@ -482,4 +474,5 @@ class GauntletResult:
     def to_receipt(self):
         """Convert to DecisionReceipt."""
         from .receipt import DecisionReceipt
+
         return DecisionReceipt.from_gauntlet_result(self)

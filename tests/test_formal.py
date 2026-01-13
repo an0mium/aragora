@@ -242,7 +242,9 @@ class TestLeanBackend:
     def test_is_available_checks_lean_command(self, backend):
         """is_available checks for lean and lake commands."""
         with patch("shutil.which") as mock_which:
-            mock_which.side_effect = lambda cmd: f"/usr/bin/{cmd}" if cmd in ["lean", "lake"] else None
+            mock_which.side_effect = lambda cmd: (
+                f"/usr/bin/{cmd}" if cmd in ["lean", "lake"] else None
+            )
             assert backend.is_available is True
 
     def test_is_available_false_when_lean_missing(self, backend):
@@ -257,6 +259,7 @@ class TestLeanBackend:
             mock_which.return_value = None
             # Create new backend to avoid cached version
             from aragora.verification.formal import LeanBackend
+
             new_backend = LeanBackend()
             new_backend._lean_version = None  # Reset cached version
             assert new_backend.is_available is False
@@ -266,6 +269,7 @@ class TestLeanBackend:
         with patch("shutil.which", return_value="/usr/bin/lean"):
             # Create fresh backend so is_available uses mocked shutil.which
             from aragora.verification.formal import LeanBackend
+
             fresh_backend = LeanBackend()
             # Mathematical patterns should be verifiable
             assert fresh_backend.can_verify("for all n, n + 0 = n") is True
@@ -287,6 +291,7 @@ class TestLeanBackend:
         with patch("shutil.which", return_value=None):
             # Create fresh backend so is_available uses mocked shutil.which
             from aragora.verification.formal import LeanBackend
+
             fresh_backend = LeanBackend()
             result = await fresh_backend.prove("theorem test : True := trivial")
             assert result.status == FormalProofStatus.BACKEND_UNAVAILABLE
@@ -329,6 +334,7 @@ class TestZ3Backend:
         # This test will pass if z3-solver is installed in test env
         try:
             import z3
+
             assert backend.is_available is True
         except ImportError:
             pytest.skip("z3-solver not installed")
@@ -337,6 +343,7 @@ class TestZ3Backend:
         """z3_version returns version string."""
         try:
             import z3
+
             version = backend.z3_version
             assert isinstance(version, str)
             assert "z3" in version.lower() or version == "unknown"
@@ -576,6 +583,7 @@ class TestFormalVerificationManager:
         """get_backend_for_claim returns Z3 for arithmetic claims."""
         try:
             import z3
+
             backend = manager.get_backend_for_claim("x > y", claim_type="arithmetic")
             assert backend is not None
             assert backend.language == FormalLanguage.Z3_SMT
@@ -748,6 +756,7 @@ class TestFormalVerificationIntegration:
 
         # Should be JSON-serializable
         import json
+
         serialized = json.dumps(d)
         assert isinstance(serialized, str)
 

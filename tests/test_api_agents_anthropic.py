@@ -34,6 +34,7 @@ def create_mock_response(status, json_data=None, text_data=None, content_chunks=
     mock_resp.text = mock_text
 
     if content_chunks:
+
         async def iter_any():
             for chunk in content_chunks:
                 yield chunk
@@ -355,11 +356,14 @@ class TestGenerate:
         mock_resp = create_mock_response(200, json_data=mock_response_success)
 
         with patch("aiohttp.ClientSession") as mock_session_cls:
+
             async def mock_session_cm():
                 async with mock_aiohttp_session(mock_resp) as session:
                     return session
 
-            mock_session_cls.return_value.__aenter__ = lambda self: mock_aiohttp_session(mock_resp).__aenter__()
+            mock_session_cls.return_value.__aenter__ = lambda self: mock_aiohttp_session(
+                mock_resp
+            ).__aenter__()
             mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=None)
 
             # Use a simpler approach - patch the whole method
@@ -554,12 +558,14 @@ class TestGenerateStream:
     def test_stream_is_async_generator(self, agent):
         """generate_stream should return an async generator."""
         import inspect
+
         assert inspect.isasyncgenfunction(agent.generate_stream)
 
     def test_streaming_payload_includes_stream_flag(self, agent):
         """Streaming requests should set stream=True."""
         # Test that the method exists and has correct signature
         import inspect
+
         sig = inspect.signature(agent.generate_stream)
         assert "prompt" in sig.parameters
         assert "context" in sig.parameters

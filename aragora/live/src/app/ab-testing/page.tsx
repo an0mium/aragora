@@ -6,8 +6,9 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { useAuth } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { API_BASE_URL } from '@/config';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const API_BASE = API_BASE_URL;
 
 interface ABTest {
   id: string;

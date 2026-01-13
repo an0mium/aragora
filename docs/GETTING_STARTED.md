@@ -1,11 +1,13 @@
 # Getting Started with Aragora
 
-**Aragora** is an Adversarial Validation Engine that stress-tests decisions through multi-agent AI debate.
+**Aragora** is an Adversarial Validation Engine that stress-tests decisions through multi-agent AI debate. This is the canonical onboarding guide (see `docs/START_HERE.md` for the short entry point).
 
 **Choose your path:**
 - [Quick Start](#quick-start) - Get running in 5 minutes
 - [CLI User Guide](#cli-user-guide) - Run debates from the terminal
 - [API Integrator Guide](#api-integrator-guide) - Build on Aragora's API
+- [Live Dashboard Dev](./FRONTEND_DEVELOPMENT.md) - Build the Next.js UI
+- [TypeScript SDK](../aragora-js/README.md) - Use the JS client library
 - [Gauntlet Guide](#gauntlet-guide) - Stress-test documents and policies
 - [Troubleshooting](#troubleshooting) - Fix common issues
 
@@ -26,16 +28,18 @@ pip install -e .
 Create a `.env` file with at least one AI provider key:
 
 ```bash
-cp .env.example .env
+cp .env.starter .env
 ```
 
-Edit `.env`:
+Edit `.env` (or use `.env.example` for the full template):
 ```bash
 # Required: At least one of these
 ANTHROPIC_API_KEY=sk-ant-xxx     # Claude (recommended)
 OPENAI_API_KEY=sk-xxx            # GPT-4
 GEMINI_API_KEY=AIzaSy...         # Gemini
 XAI_API_KEY=xai-xxx              # Grok
+MISTRAL_API_KEY=xxx              # Mistral (optional)
+OPENROUTER_API_KEY=sk-or-xxx     # OpenRouter (optional)
 ```
 
 ### 3. Verify Setup
@@ -95,14 +99,17 @@ aragora ask "<your question>" --agents <agent1>,<agent2>
 | Agent | Provider | API Key Required |
 |-------|----------|------------------|
 | `anthropic-api` | Claude (Anthropic) | `ANTHROPIC_API_KEY` |
-| `openai-api` | GPT-4 (OpenAI) | `OPENAI_API_KEY` |
-| `gemini` | Gemini (Google) | `GEMINI_API_KEY` |
-| `grok` | Grok (xAI) | `XAI_API_KEY` |
-| `deepseek` | DeepSeek | `DEEPSEEK_API_KEY` |
-| `mistral` | Mistral | `MISTRAL_API_KEY` |
+| `openai-api` | OpenAI | `OPENAI_API_KEY` |
+| `gemini` | Google Gemini | `GEMINI_API_KEY` |
+| `grok` | xAI Grok | `XAI_API_KEY` |
+| `mistral-api` | Mistral (direct) | `MISTRAL_API_KEY` |
+| `codestral` | Mistral (code) | `MISTRAL_API_KEY` |
+| `deepseek` | OpenRouter | `OPENROUTER_API_KEY` |
+| `qwen` / `qwen-max` | OpenRouter | `OPENROUTER_API_KEY` |
+| `kimi` | Moonshot (Kimi) | `KIMI_API_KEY` |
 | `ollama` | Local models | None (local) |
 
-Note: Mistral adds an EU perspective, and Chinese models like DeepSeek, Qwen, and Kimi are available for a Chinese perspective (via OpenRouter or the direct Kimi API).
+Note: OpenRouter agents require `OPENROUTER_API_KEY`. Full catalog is in [AGENTS.md](../AGENTS.md).
 
 ### Common Options
 
@@ -229,7 +236,7 @@ Response:
 For real-time debate updates:
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8080/ws');
+const ws = new WebSocket('ws://localhost:8765/ws');
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);

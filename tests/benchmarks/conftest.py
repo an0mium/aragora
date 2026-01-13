@@ -113,10 +113,7 @@ def benchmark_agent() -> BenchmarkAgent:
 @pytest.fixture
 def benchmark_agents() -> list[BenchmarkAgent]:
     """Set of fast agents for benchmarking."""
-    return [
-        BenchmarkAgent(f"agent_{i}")
-        for i in range(3)
-    ]
+    return [BenchmarkAgent(f"agent_{i}") for i in range(3)]
 
 
 @pytest.fixture

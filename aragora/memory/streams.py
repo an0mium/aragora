@@ -8,19 +8,18 @@ Inspired by Stanford Generative Agents, this module provides:
 - Periodic reflection to synthesize higher-level insights
 """
 
+import hashlib
 import json
 import logging
-import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
-import hashlib
 
 from aragora.config import DB_MEMORY_PATH, DB_TIMEOUT_SECONDS
 from aragora.exceptions import ConfigurationError
-from aragora.memory.database import MemoryDatabase
+from aragora.storage.base_store import SQLiteStore
 from aragora.utils.async_utils import run_async
 from aragora.utils.cache_registry import register_lru_cache
 from aragora.utils.json_helpers import safe_json_loads
@@ -83,11 +82,12 @@ def _get_cached_embedding(content: str) -> tuple[float, ...]:
     if provider is None:
         raise ConfigurationError(
             component="EmbeddingProvider",
-            reason="Provider not initialized. Call set_embedding_provider() first"
+            reason="Provider not initialized. Call set_embedding_provider() first",
         )
     # Use run_async() for safe sync/async bridging
     result = run_async(provider.embed(content))
     return tuple(result)
+
 
 logger = logging.getLogger(__name__)
 
@@ -126,19 +126,47 @@ class RetrievedMemory:
     def total_score(self) -> float:
         """Combined retrieval score."""
         # Weights can be tuned
-        return (
-            0.3 * self.recency_score +
-            0.3 * self.importance_score +
-            0.4 * self.relevance_score
-        )
+        return 0.3 * self.recency_score + 0.3 * self.importance_score + 0.4 * self.relevance_score
 
 
-class MemoryStream:
+class MemoryStream(SQLiteStore):
     """
     Persistent memory stream for an agent.
 
     Stores observations, reflections, and insights across debates.
     Supports retrieval by recency, importance, and relevance.
+
+    Inherits from SQLiteStore for standardized schema management.
+    """
+
+    SCHEMA_NAME = "memory_stream"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        -- Memory storage
+        CREATE TABLE IF NOT EXISTS memories (
+            id TEXT PRIMARY KEY,
+            agent_name TEXT NOT NULL,
+            memory_type TEXT NOT NULL,
+            content TEXT NOT NULL,
+            importance REAL DEFAULT 0.5,
+            debate_id TEXT,
+            metadata TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_memories_agent
+        ON memories(agent_name);
+
+        CREATE INDEX IF NOT EXISTS idx_memories_type
+        ON memories(agent_name, memory_type);
+
+        -- Reflection schedule tracking
+        CREATE TABLE IF NOT EXISTS reflection_schedule (
+            agent_name TEXT PRIMARY KEY,
+            last_reflection TEXT,
+            memories_since_reflection INTEGER DEFAULT 0
+        );
     """
 
     def __init__(
@@ -146,52 +174,11 @@ class MemoryStream:
         db_path: str = DB_MEMORY_PATH,
         embedding_provider: Optional["EmbeddingProvider"] = None,
     ):
-        self.db_path = Path(db_path)
-        self.db = MemoryDatabase(db_path)
+        super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
         self.embedding_provider = embedding_provider
         # Register provider with ServiceRegistry for cached embedding function
         if embedding_provider is not None:
             _register_embedding_provider(embedding_provider)
-        self._init_db()
-
-    def _init_db(self) -> None:
-        """Initialize database schema."""
-        with self.db.connection() as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS memories (
-                    id TEXT PRIMARY KEY,
-                    agent_name TEXT NOT NULL,
-                    memory_type TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    importance REAL DEFAULT 0.5,
-                    debate_id TEXT,
-                    metadata TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_memories_agent
-                ON memories(agent_name)
-            """)
-
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_memories_type
-                ON memories(agent_name, memory_type)
-            """)
-
-            # Reflection schedule tracking
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS reflection_schedule (
-                    agent_name TEXT PRIMARY KEY,
-                    last_reflection TEXT,
-                    memories_since_reflection INTEGER DEFAULT 0
-                )
-            """)
-
-            conn.commit()
 
     def _generate_id(self, agent_name: str, content: str) -> str:
         """Generate unique memory ID."""
@@ -225,7 +212,7 @@ class MemoryStream:
         memory_id = self._generate_id(agent_name, content)
         created_at = datetime.now().isoformat()
 
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -267,7 +254,9 @@ class MemoryStream:
             metadata=metadata or {},
         )
 
-    def observe(self, agent_name: str, content: str, debate_id: str | None = None, importance: float = 0.5) -> Memory:
+    def observe(
+        self, agent_name: str, content: str, debate_id: str | None = None, importance: float = 0.5
+    ) -> Memory:
         """Record an observation (convenience method)."""
         return self.add(agent_name, content, "observation", importance, debate_id)
 
@@ -300,7 +289,7 @@ class MemoryStream:
         Returns:
             List of RetrievedMemory objects sorted by score
         """
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             sql = """
@@ -338,12 +327,14 @@ class MemoryStream:
             importance_score = memory.importance
             relevance_score = self._relevance_score(memory.content, query) if query else 0.5
 
-            memories.append(RetrievedMemory(
-                memory=memory,
-                recency_score=recency_score,
-                importance_score=importance_score,
-                relevance_score=relevance_score,
-            ))
+            memories.append(
+                RetrievedMemory(
+                    memory=memory,
+                    recency_score=recency_score,
+                    importance_score=importance_score,
+                    relevance_score=relevance_score,
+                )
+            )
 
         # Sort by total score and limit
         memories.sort(key=lambda m: m.total_score, reverse=True)
@@ -394,7 +385,7 @@ class MemoryStream:
 
     def get_recent(self, agent_name: str, limit: int = 20) -> list[Memory]:
         """Get most recent memories for an agent."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -426,7 +417,7 @@ class MemoryStream:
 
     def should_reflect(self, agent_name: str, threshold: int = 10) -> bool:
         """Check if agent should perform reflection."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -439,7 +430,7 @@ class MemoryStream:
 
     def mark_reflected(self, agent_name: str) -> None:
         """Mark that agent has performed reflection."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -464,10 +455,7 @@ class MemoryStream:
         if not recent:
             return ""
 
-        memories_text = "\n".join([
-            f"- [{m.memory_type}] {m.content}"
-            for m in recent
-        ])
+        memories_text = "\n".join([f"- [{m.memory_type}] {m.content}" for m in recent])
 
         return f"""Based on your recent experiences, reflect on what you've learned.
 
@@ -525,7 +513,7 @@ Format each insight on a new line starting with "INSIGHT:"
 
     def get_stats(self, agent_name: str) -> dict:
         """Get memory statistics for an agent."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(

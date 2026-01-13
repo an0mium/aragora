@@ -2,15 +2,23 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { API_BASE_URL } from '@/config';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+const API_BASE = API_BASE_URL;
 
 interface UsageData {
   debates_used: number;
   debates_limit: number;
   debates_remaining: number;
   tokens_used: number;
+  tokens_in?: number;
+  tokens_out?: number;
   estimated_cost_usd: number;
+  cost_breakdown?: {
+    input_cost: number;
+    output_cost: number;
+    total: number;
+  };
   period_start: string | null;
 }
 
@@ -112,12 +120,47 @@ export function UsageMetrics({ compact = false, className = '' }: UsageMetricsPr
           {usage.tokens_used > 0 && (
             <div className="pt-2 border-t border-acid-green/10">
               <div className="flex justify-between text-xs font-mono">
-                <span className="text-text-muted">Tokens</span>
+                <span className="text-text-muted">Total Tokens</span>
                 <span className="text-text">{usage.tokens_used.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between text-xs font-mono mt-1">
-                <span className="text-text-muted">Est. Cost</span>
-                <span className="text-acid-cyan">${usage.estimated_cost_usd.toFixed(2)}</span>
+
+              {/* Detailed token breakdown */}
+              {(usage.tokens_in !== undefined || usage.tokens_out !== undefined) && (
+                <div className="mt-2 space-y-1 pl-2 border-l border-acid-green/10">
+                  <div className="flex justify-between text-xs font-mono">
+                    <span className="text-text-muted">Input</span>
+                    <span className="text-text-muted">{(usage.tokens_in ?? 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-mono">
+                    <span className="text-text-muted">Output</span>
+                    <span className="text-text-muted">{(usage.tokens_out ?? 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Cost breakdown */}
+              <div className="mt-2">
+                {usage.cost_breakdown ? (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs font-mono">
+                      <span className="text-text-muted">Input Cost</span>
+                      <span className="text-text-muted">${usage.cost_breakdown.input_cost.toFixed(4)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-mono">
+                      <span className="text-text-muted">Output Cost</span>
+                      <span className="text-text-muted">${usage.cost_breakdown.output_cost.toFixed(4)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-mono pt-1 border-t border-acid-green/10">
+                      <span className="text-text-muted">Total Cost</span>
+                      <span className="text-acid-cyan">${usage.cost_breakdown.total.toFixed(2)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-between text-xs font-mono">
+                    <span className="text-text-muted">Est. Cost</span>
+                    <span className="text-acid-cyan">${usage.estimated_cost_usd.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

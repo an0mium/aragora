@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 
 class MockHandler:
     """Mock HTTP request handler."""
+
     def __init__(self):
         self.headers = {"Content-Type": "application/json"}
         self.path = "/api/debates/batch"
@@ -22,7 +23,7 @@ class MockHandler:
         self._body = b"{}"
         self.rfile = MagicMock()
         self.rfile.read.return_value = self._body
-    
+
     def set_body(self, data: dict):
         self._body = json.dumps(data).encode()
         self.rfile.read.return_value = self._body
@@ -45,17 +46,17 @@ class TestBatchOperations:
     def debates_handler(self):
         """Create a mock DebatesHandler with batch operations."""
         from aragora.server.handlers.debates_batch import BatchOperationsMixin
-        
+
         class MockDebatesHandler(BatchOperationsMixin):
             def __init__(self):
                 self._debate_queue = MagicMock()
-                
+
             def read_json_body(self, handler):
                 try:
                     return json.loads(handler._body.decode())
                 except json.JSONDecodeError:
                     return None
-        
+
         return MockDebatesHandler()
 
     def test_batch_submit_empty_body(self, debates_handler, mock_handler):
@@ -99,18 +100,21 @@ class TestWebhookValidation:
     def test_validate_webhook_url_valid_https(self):
         """Test valid HTTPS webhook URL."""
         from aragora.server.debate_queue import validate_webhook_url
+
         is_valid, _ = validate_webhook_url("https://example.com/webhook")
         assert is_valid is True
 
     def test_validate_webhook_url_localhost_rejected(self):
         """Test localhost URLs rejected (SSRF prevention)."""
         from aragora.server.debate_queue import validate_webhook_url
+
         is_valid, _ = validate_webhook_url("https://localhost/webhook")
         assert is_valid is False
 
     def test_validate_webhook_url_private_ip_rejected(self):
         """Test private IP addresses rejected."""
         from aragora.server.debate_queue import validate_webhook_url
+
         for ip in ["127.0.0.1", "10.0.0.1", "192.168.1.1", "172.16.0.1"]:
             is_valid, _ = validate_webhook_url(f"https://{ip}/webhook")
             assert is_valid is False, f"Should reject {ip}"
@@ -124,12 +128,13 @@ class TestBatchRateLimiting:
         from aragora.server.handlers.debates_batch import BatchOperationsMixin
 
         # Check that the decorator is applied
-        assert hasattr(BatchOperationsMixin._submit_batch, '__wrapped__')
+        assert hasattr(BatchOperationsMixin._submit_batch, "__wrapped__")
 
 
 # ============================================================================
 # Exception Handling Tests (Round 23)
 # ============================================================================
+
 
 class TestBatchExceptionHandling:
     """Tests for specific exception handling in batch operations."""
@@ -167,23 +172,21 @@ class TestBatchExceptionHandling:
         """Verify DebateBatchError can be imported from exceptions."""
         from aragora.exceptions import DebateBatchError
 
-        error = DebateBatchError(
-            operation="submit",
-            reason="Queue full",
-            failed_ids=["id1", "id2"]
-        )
+        error = DebateBatchError(operation="submit", reason="Queue full", failed_ids=["id1", "id2"])
         assert "submit" in str(error)
         assert error.failed_ids == ["id1", "id2"]
 
     def test_batch_item_validation_error_captured(self, debates_handler, mock_handler):
         """Test that validation errors are properly captured for each item."""
-        mock_handler.set_body({
-            "items": [
-                {"question": ""},  # Empty question
-                {"agents": "claude"},  # Missing question
-                {"question": "x" * 10001},  # Too long
-            ]
-        })
+        mock_handler.set_body(
+            {
+                "items": [
+                    {"question": ""},  # Empty question
+                    {"agents": "claude"},  # Missing question
+                    {"question": "x" * 10001},  # Too long
+                ]
+            }
+        )
         result = debates_handler._submit_batch(mock_handler)
         body, status = parse_result(result)
         assert status == 400
@@ -191,12 +194,7 @@ class TestBatchExceptionHandling:
 
     def test_batch_non_object_item_error(self, debates_handler, mock_handler):
         """Test error handling for non-object items in batch."""
-        mock_handler.set_body({
-            "items": [
-                "not an object",
-                {"question": "Valid question"}
-            ]
-        })
+        mock_handler.set_body({"items": ["not an object", {"question": "Valid question"}]})
         result = debates_handler._submit_batch(mock_handler)
         body, status = parse_result(result)
         assert status == 400
@@ -205,9 +203,9 @@ class TestBatchExceptionHandling:
     def test_batch_multiple_errors_truncated(self, debates_handler, mock_handler):
         """Test that multiple validation errors are truncated after 5."""
         # Create 10 invalid items
-        mock_handler.set_body({
-            "items": [{"agents": f"agent{i}"} for i in range(10)]  # All missing question
-        })
+        mock_handler.set_body(
+            {"items": [{"agents": f"agent{i}"} for i in range(10)]}  # All missing question
+        )
         result = debates_handler._submit_batch(mock_handler)
         body, status = parse_result(result)
         assert status == 400

@@ -327,7 +327,9 @@ class TestConfidenceEstimator:
         vote.reasoning = "Good evidence"
         agent.vote = AsyncMock(return_value=vote)
 
-        confidences = await estimator.collect_confidences([agent], {"claude": "proposal"}, "test task")
+        confidences = await estimator.collect_confidences(
+            [agent], {"claude": "proposal"}, "test task"
+        )
 
         assert "claude" in confidences
         assert confidences["claude"].value == 0.85
@@ -376,7 +378,11 @@ class TestDisagreementAnalyzer:
 
         messages = [
             Message(role="proposer", agent="claude", content="Use Redis"),
-            Message(role="critic", agent="gemini", content="However, I disagree. We should use Memcached instead."),
+            Message(
+                role="critic",
+                agent="gemini",
+                content="However, I disagree. We should use Memcached instead.",
+            ),
         ]
         votes = [
             Vote(agent="claude", choice="redis", reasoning="Scalable", confidence=0.9),
@@ -408,9 +414,15 @@ class TestDisagreementAnalyzer:
         analyzer = DisagreementAnalyzer()
 
         messages = [
-            Message(role="critic", agent="gemini", content="This is false. The evidence shows otherwise."),
+            Message(
+                role="critic",
+                agent="gemini",
+                content="This is false. The evidence shows otherwise.",
+            ),
         ]
-        minority_votes = [Vote(agent="gemini", choice="other", reasoning="Wrong facts", confidence=0.8)]
+        minority_votes = [
+            Vote(agent="gemini", choice="other", reasoning="Wrong facts", confidence=0.8)
+        ]
 
         dtype = analyzer._classify_disagreement_type(messages, minority_votes)
 
@@ -421,7 +433,9 @@ class TestDisagreementAnalyzer:
         analyzer = DisagreementAnalyzer()
 
         messages = [
-            Message(role="critic", agent="gemini", content="We should prefer the ethical approach."),
+            Message(
+                role="critic", agent="gemini", content="We should prefer the ethical approach."
+            ),
         ]
         minority_votes = [Vote(agent="gemini", choice="other", reasoning="Better", confidence=0.8)]
 
@@ -502,9 +516,15 @@ class TestDisagreementAnalyzer:
         analyzer = DisagreementAnalyzer()
 
         cruxes = [
-            DisagreementCrux(description="Security issue in auth", divergent_agents=["a"], severity=0.6),
-            DisagreementCrux(description="Auth has security problem", divergent_agents=["b"], severity=0.8),
-            DisagreementCrux(description="Performance is slow", divergent_agents=["c"], severity=0.5),
+            DisagreementCrux(
+                description="Security issue in auth", divergent_agents=["a"], severity=0.6
+            ),
+            DisagreementCrux(
+                description="Auth has security problem", divergent_agents=["b"], severity=0.8
+            ),
+            DisagreementCrux(
+                description="Performance is slow", divergent_agents=["c"], severity=0.5
+            ),
         ]
 
         merged = analyzer._merge_similar_cruxes(cruxes)
@@ -620,8 +640,14 @@ class TestIntegration:
 
         messages = [
             Message(role="proposer", agent="claude", content="Use SQL database"),
-            Message(role="critic", agent="gemini", content="However, NoSQL would be better for this use case. I disagree with SQL."),
-            Message(role="critic", agent="grok", content="But SQL has better consistency guarantees."),
+            Message(
+                role="critic",
+                agent="gemini",
+                content="However, NoSQL would be better for this use case. I disagree with SQL.",
+            ),
+            Message(
+                role="critic", agent="grok", content="But SQL has better consistency guarantees."
+            ),
         ]
         votes = [
             Vote(agent="claude", choice="sql", reasoning="ACID compliance", confidence=0.9),
@@ -799,7 +825,10 @@ class TestSuggestFollowups:
 
         assert len(suggestions) == 1
         assert suggestions[0].crux is cruxes[0]
-        assert "security vulnerability" in suggestions[0].suggested_task.lower() or "auth" in suggestions[0].suggested_task.lower()
+        assert (
+            "security vulnerability" in suggestions[0].suggested_task.lower()
+            or "auth" in suggestions[0].suggested_task.lower()
+        )
         assert suggestions[0].priority > 0
 
     def test_suggest_followups_with_parent_id(self) -> None:
@@ -834,8 +863,12 @@ class TestSuggestFollowups:
         analyzer = DisagreementAnalyzer()
         cruxes = [
             DisagreementCrux(description="Low priority", divergent_agents=["a"], severity=0.2),
-            DisagreementCrux(description="High priority", divergent_agents=["a", "b", "c"], severity=0.9),
-            DisagreementCrux(description="Medium priority", divergent_agents=["a", "b"], severity=0.5),
+            DisagreementCrux(
+                description="High priority", divergent_agents=["a", "b", "c"], severity=0.9
+            ),
+            DisagreementCrux(
+                description="Medium priority", divergent_agents=["a", "b"], severity=0.5
+            ),
         ]
 
         suggestions = analyzer.suggest_followups(cruxes)

@@ -16,9 +16,11 @@ from aragora.debate.context import DebateContext
 # Mock Classes
 # ============================================================================
 
+
 @dataclass
 class MockEnvironment:
     """Mock environment for testing."""
+
     task: str = "Test task"
     context: str = ""
     domain: str = "general"
@@ -27,6 +29,7 @@ class MockEnvironment:
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str = "test_agent"
     role: str = "proposer"
     stance: Optional[str] = None
@@ -35,6 +38,7 @@ class MockAgent:
 @dataclass
 class MockMessage:
     """Mock message for testing."""
+
     role: str = "proposer"
     agent: str = "test_agent"
     content: str = "Test content"
@@ -44,6 +48,7 @@ class MockMessage:
 @dataclass
 class MockCritique:
     """Mock critique for testing."""
+
     agent: str = "critic"
     target_agent: str = "proposer"
     issues: list = field(default_factory=list)
@@ -53,6 +58,7 @@ class MockCritique:
 @dataclass
 class MockDebateResult:
     """Mock debate result for testing."""
+
     id: str = "test_id"
     task: str = "Test task"
     messages: list = field(default_factory=list)
@@ -67,6 +73,7 @@ class MockDebateResult:
 # ============================================================================
 # DebateContext Initialization Tests
 # ============================================================================
+
 
 class TestDebateContextInit:
     """Tests for DebateContext initialization."""
@@ -117,6 +124,7 @@ class TestDebateContextInit:
 # Agent Lookup Tests
 # ============================================================================
 
+
 class TestAgentLookup:
     """Tests for agent lookup methods."""
 
@@ -156,6 +164,7 @@ class TestAgentLookup:
 # Proposal Tests
 # ============================================================================
 
+
 class TestProposals:
     """Tests for proposal handling."""
 
@@ -177,6 +186,7 @@ class TestProposals:
 # ============================================================================
 # Message Tracking Tests
 # ============================================================================
+
 
 class TestMessageTracking:
     """Tests for message addition and tracking."""
@@ -226,6 +236,7 @@ class TestMessageTracking:
 # Critique Tracking Tests
 # ============================================================================
 
+
 class TestCritiqueTracking:
     """Tests for critique addition and tracking."""
 
@@ -262,6 +273,7 @@ class TestCritiqueTracking:
 # ============================================================================
 # Result Finalization Tests
 # ============================================================================
+
 
 class TestResultFinalization:
     """Tests for result finalization."""
@@ -311,6 +323,7 @@ class TestResultFinalization:
 # ============================================================================
 # Summary Dict Tests
 # ============================================================================
+
 
 class TestSummaryDict:
     """Tests for summary dict generation."""
@@ -368,6 +381,7 @@ class TestSummaryDict:
 # Convergence State Tests
 # ============================================================================
 
+
 class TestConvergenceState:
     """Tests for convergence state tracking."""
 
@@ -399,6 +413,7 @@ class TestConvergenceState:
 # Cache Tests
 # ============================================================================
 
+
 class TestCaches:
     """Tests for cache fields."""
 
@@ -429,6 +444,7 @@ class TestCaches:
 # ============================================================================
 # Round State Tests
 # ============================================================================
+
 
 class TestRoundState:
     """Tests for round state management."""

@@ -18,6 +18,7 @@ from aragora.server.handlers.base import clear_cache
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_prompt_evolver():
     """Create a mock PromptEvolver."""
@@ -84,6 +85,7 @@ def clear_caches():
 # Route Matching Tests
 # ============================================================================
 
+
 class TestEvolutionRouting:
     """Tests for route matching."""
 
@@ -108,11 +110,13 @@ class TestEvolutionRouting:
 # GET /api/evolution/{agent}/history Tests
 # ============================================================================
 
+
 class TestEvolutionHistory:
     """Tests for GET /api/evolution/{agent}/history endpoint."""
 
     def test_evolution_module_unavailable(self, evolution_handler):
         import aragora.server.handlers.evolution as mod
+
         original = mod.EVOLUTION_AVAILABLE
         mod.EVOLUTION_AVAILABLE = False
         try:
@@ -142,7 +146,7 @@ class TestEvolutionHistory:
         if not mod.EVOLUTION_AVAILABLE:
             pytest.skip("Evolution module not available")
 
-        with patch.object(mod, 'PromptEvolver', return_value=mock_prompt_evolver):
+        with patch.object(mod, "PromptEvolver", return_value=mock_prompt_evolver):
             result = evolution_handler.handle("/api/evolution/claude/history", {}, None)
 
             assert result is not None
@@ -159,7 +163,7 @@ class TestEvolutionHistory:
         if not mod.EVOLUTION_AVAILABLE:
             pytest.skip("Evolution module not available")
 
-        with patch.object(mod, 'PromptEvolver', return_value=mock_prompt_evolver):
+        with patch.object(mod, "PromptEvolver", return_value=mock_prompt_evolver):
             result = evolution_handler.handle("/api/evolution/claude/history", {"limit": "5"}, None)
 
             assert result is not None
@@ -173,7 +177,7 @@ class TestEvolutionHistory:
         if not mod.EVOLUTION_AVAILABLE:
             pytest.skip("Evolution module not available")
 
-        with patch.object(mod, 'PromptEvolver', return_value=mock_prompt_evolver):
+        with patch.object(mod, "PromptEvolver", return_value=mock_prompt_evolver):
             # Request 0, should be clamped to 1
             result = evolution_handler.handle("/api/evolution/claude/history", {"limit": "0"}, None)
 
@@ -190,6 +194,7 @@ class TestEvolutionHistory:
 # ============================================================================
 # Security Tests
 # ============================================================================
+
 
 class TestEvolutionSecurity:
     """Security tests for evolution endpoints."""
@@ -211,6 +216,7 @@ class TestEvolutionSecurity:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestEvolutionErrorHandling:
     """Tests for error handling."""
 
@@ -227,7 +233,7 @@ class TestEvolutionErrorHandling:
         mock_evolver = Mock()
         mock_evolver.get_evolution_history.side_effect = Exception("Database error")
 
-        with patch.object(mod, 'PromptEvolver', return_value=mock_evolver):
+        with patch.object(mod, "PromptEvolver", return_value=mock_evolver):
             result = evolution_handler.handle("/api/evolution/claude/history", {}, None)
 
             assert result is not None
@@ -237,6 +243,7 @@ class TestEvolutionErrorHandling:
 # ============================================================================
 # Edge Cases
 # ============================================================================
+
 
 class TestEvolutionEdgeCases:
     """Tests for edge cases."""
@@ -265,7 +272,7 @@ class TestEvolutionEdgeCases:
 
         mock_prompt_evolver.get_evolution_history.return_value = []
 
-        with patch.object(mod, 'PromptEvolver', return_value=mock_prompt_evolver):
+        with patch.object(mod, "PromptEvolver", return_value=mock_prompt_evolver):
             result = evolution_handler.handle("/api/evolution/claude/history", {}, None)
 
             assert result is not None
@@ -280,9 +287,11 @@ class TestEvolutionEdgeCases:
         if not mod.EVOLUTION_AVAILABLE:
             pytest.skip("Evolution module not available")
 
-        with patch.object(mod, 'PromptEvolver', return_value=mock_prompt_evolver):
+        with patch.object(mod, "PromptEvolver", return_value=mock_prompt_evolver):
             # Invalid param should use default
-            result = evolution_handler.handle("/api/evolution/claude/history", {"limit": "invalid"}, None)
+            result = evolution_handler.handle(
+                "/api/evolution/claude/history", {"limit": "invalid"}, None
+            )
 
             assert result is not None
             assert result.status_code == 200

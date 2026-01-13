@@ -49,34 +49,34 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
         query = parse_qs(parsed.query)
 
         # API routes
-        if path.startswith('/api/debates/'):
-            slug = path.split('/')[-1]
+        if path.startswith("/api/debates/"):
+            slug = path.split("/")[-1]
             if not SAFE_ID_PATTERN.match(slug):
                 self.send_error(400, "Invalid debate slug format")
                 return
             self._get_debate(slug)
-        elif path == '/api/debates':
-            limit = parse_int_param(query, 'limit', default=20, min_val=1, max_val=100)
+        elif path == "/api/debates":
+            limit = parse_int_param(query, "limit", default=20, min_val=1, max_val=100)
             self._list_debates(limit)
-        elif path.startswith('/api/replays/'):
-            debate_id = path.split('/')[-1]
+        elif path.startswith("/api/replays/"):
+            debate_id = path.split("/")[-1]
             if not SAFE_ID_PATTERN.match(debate_id):
                 self.send_error(400, "Invalid replay ID format")
                 return
             self._get_replay(debate_id)
-        elif path == '/api/replays':
-            limit = parse_int_param(query, 'limit', default=20, min_val=1, max_val=100)
+        elif path == "/api/replays":
+            limit = parse_int_param(query, "limit", default=20, min_val=1, max_val=100)
             self._list_replays(limit)
-        elif path == '/api/health':
+        elif path == "/api/health":
             self._health_check()
 
         # Static file serving
-        elif path in ('/', '/index.html'):
-            self._serve_file('index.html')
-        elif path == '/viewer.html' or path.startswith('/viewer'):
-            self._serve_file('viewer.html')
-        elif path.endswith(('.html', '.css', '.js', '.json')):
-            self._serve_file(path.lstrip('/'))
+        elif path in ("/", "/index.html"):
+            self._serve_file("index.html")
+        elif path == "/viewer.html" or path.startswith("/viewer"):
+            self._serve_file("viewer.html")
+        elif path.endswith((".html", ".css", ".js", ".json")):
+            self._serve_file(path.lstrip("/"))
         else:
             self.send_error(404, f"Not found: {path}")
 
@@ -92,8 +92,8 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
         path = parsed.path
 
         # Fork replay endpoint
-        if path.startswith('/api/replays/') and path.endswith('/fork'):
-            debate_id = path.split('/')[-3]  # /api/replays/{id}/fork
+        if path.startswith("/api/replays/") and path.endswith("/fork"):
+            debate_id = path.split("/")[-3]  # /api/replays/{id}/fork
             self._fork_replay(debate_id)
         else:
             self.send_error(404, f"Not found: {path}")
@@ -117,15 +117,20 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
             return
 
         debates = self.storage.list_recent(limit)
-        self._send_json([{
-            "slug": d.slug,
-            "task": d.task[:100] + "..." if len(d.task) > 100 else d.task,
-            "agents": d.agents,
-            "consensus": d.consensus_reached,
-            "confidence": d.confidence,
-            "views": d.view_count,
-            "created": d.created_at.isoformat(),
-        } for d in debates])
+        self._send_json(
+            [
+                {
+                    "slug": d.slug,
+                    "task": d.task[:100] + "..." if len(d.task) > 100 else d.task,
+                    "agents": d.agents,
+                    "consensus": d.consensus_reached,
+                    "confidence": d.confidence,
+                    "views": d.view_count,
+                    "created": d.created_at.isoformat(),
+                }
+                for d in debates
+            ]
+        )
 
     def _list_replays(self, limit: int = 20) -> None:
         """List recent replays."""
@@ -158,19 +163,16 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
 
         try:
             # Read metadata
-            with open(meta_path, 'r', encoding='utf-8') as f:
+            with open(meta_path, "r", encoding="utf-8") as f:
                 meta = json.load(f)
 
             # Read events
             events = []
-            with open(events_path, 'r', encoding='utf-8') as f:
+            with open(events_path, "r", encoding="utf-8") as f:
                 for line in f:
                     events.append(json.loads(line.strip()))
 
-            self._send_json({
-                "meta": meta,
-                "events": events
-            })
+            self._send_json({"meta": meta, "events": events})
         except (OSError, json.JSONDecodeError) as e:
             logger.error(f"Error reading replay {debate_id}: {type(e).__name__}: {e}")
             self.send_error(500, "Failed to read replay")
@@ -183,7 +185,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
 
         # Read POST data with size validation
         try:
-            content_length = int(self.headers.get('Content-Length', '0'))
+            content_length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             self.send_error(400, "Invalid Content-Length header")
             return
@@ -202,7 +204,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
 
         try:
             post_data = self.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
+            data = json.loads(post_data.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
             self.send_error(400, "Invalid JSON")
             return
@@ -234,12 +236,12 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
 
         try:
             # Read metadata
-            with open(meta_path, 'r', encoding='utf-8') as f:
+            with open(meta_path, "r", encoding="utf-8") as f:
                 meta = json.load(f)
 
             # Read events up to the fork point
             events = []
-            with open(events_path, 'r', encoding='utf-8') as f:
+            with open(events_path, "r", encoding="utf-8") as f:
                 for line in f:
                     event = json.loads(line.strip())
                     events.append(event)
@@ -258,7 +260,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
                 "meta": meta,
                 "events": events,
                 "config_overrides": config_overrides,
-                "message": "Fork created. Use this fork_id to start a new debate via WebSocket."
+                "message": "Fork created. Use this fork_id to start a new debate via WebSocket.",
             }
 
             self._send_json(fork_data)
@@ -296,19 +298,19 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
             return
 
         # Determine content type
-        content_type = 'text/html'
-        if filename.endswith('.css'):
-            content_type = 'text/css'
-        elif filename.endswith('.js'):
-            content_type = 'application/javascript'
-        elif filename.endswith('.json'):
-            content_type = 'application/json'
+        content_type = "text/html"
+        if filename.endswith(".css"):
+            content_type = "text/css"
+        elif filename.endswith(".js"):
+            content_type = "application/javascript"
+        elif filename.endswith(".json"):
+            content_type = "application/json"
 
         try:
             content = filepath.read_bytes()
             self.send_response(200)
-            self.send_header('Content-Type', content_type)
-            self.send_header('Content-Length', str(len(content)))
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(content)))
             self._add_cors_headers()
             self.end_headers()
             self.wfile.write(content)
@@ -320,8 +322,8 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
         """Send JSON response."""
         content = json.dumps(data).encode()
         self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', str(len(content)))
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(content)))
         self._add_cors_headers()
         self.end_headers()
         self.wfile.write(content)
@@ -330,27 +332,27 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
         """Send JSON error response (consistent with API handlers)."""
         content = json.dumps({"error": message}).encode()
         self.send_response(status)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', str(len(content)))
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(content)))
         self._add_cors_headers()
         self.end_headers()
         self.wfile.write(content)
 
     def _add_cors_headers(self) -> None:
         """Add CORS headers with origin validation for security."""
-        request_origin = self.headers.get('Origin', '')
+        request_origin = self.headers.get("Origin", "")
 
         # Validate origin against allowed list
         if request_origin in ALLOWED_ORIGINS:
-            self.send_header('Access-Control-Allow-Origin', request_origin)
+            self.send_header("Access-Control-Allow-Origin", request_origin)
         elif not request_origin:
             # Same-origin requests (no Origin header)
             pass
         # else: no CORS header = browser blocks cross-origin request
 
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        self.send_header('Access-Control-Max-Age', '3600')
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Max-Age", "3600")
 
     def log_message(self, format: str, *args) -> None:
         """Suppress default logging (too verbose)."""

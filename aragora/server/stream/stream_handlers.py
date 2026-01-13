@@ -77,9 +77,10 @@ class StreamAPIHandlersMixin:
     # CORS Handler
     # =========================================================================
 
-    async def _handle_options(self, request) -> 'aiohttp.web.Response':
+    async def _handle_options(self, request) -> "aiohttp.web.Response":
         """Handle CORS preflight requests."""
         import aiohttp.web as web
+
         origin = request.headers.get("Origin")
         return web.Response(status=204, headers=self._cors_headers(origin))
 
@@ -87,16 +88,14 @@ class StreamAPIHandlersMixin:
     # Leaderboard and Matches (ELO System)
     # =========================================================================
 
-    async def _handle_leaderboard(self, request) -> 'aiohttp.web.Response':
+    async def _handle_leaderboard(self, request) -> "aiohttp.web.Response":
         """GET /api/leaderboard - Agent rankings."""
         import aiohttp.web as web
+
         origin = request.headers.get("Origin")
 
         if not self.elo_system:
-            return web.json_response(
-                {"agents": [], "count": 0},
-                headers=self._cors_headers(origin)
-            )
+            return web.json_response({"agents": [], "count": 0}, headers=self._cors_headers(origin))
 
         try:
             limit = safe_query_int(request.query, "limit", default=10, max_val=100)
@@ -114,137 +113,133 @@ class StreamAPIHandlersMixin:
                 for a in agents
             ]
             return web.json_response(
-                {"agents": agent_data, "count": len(agent_data)},
-                headers=self._cors_headers(origin)
+                {"agents": agent_data, "count": len(agent_data)}, headers=self._cors_headers(origin)
             )
         except Exception as e:
             logger.error(f"Leaderboard error: {e}")
             return web.json_response(
                 {"error": "Failed to fetch leaderboard"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
-    async def _handle_matches_recent(self, request) -> 'aiohttp.web.Response':
+    async def _handle_matches_recent(self, request) -> "aiohttp.web.Response":
         """GET /api/matches/recent - Recent ELO matches."""
         import aiohttp.web as web
+
         origin = request.headers.get("Origin")
 
         if not self.elo_system:
             return web.json_response(
-                {"matches": [], "count": 0},
-                headers=self._cors_headers(origin)
+                {"matches": [], "count": 0}, headers=self._cors_headers(origin)
             )
 
         try:
             limit = safe_query_int(request.query, "limit", default=10, max_val=100)
             matches = self.elo_system.get_recent_matches(limit=limit)
             return web.json_response(
-                {"matches": matches, "count": len(matches)},
-                headers=self._cors_headers(origin)
+                {"matches": matches, "count": len(matches)}, headers=self._cors_headers(origin)
             )
         except Exception as e:
             logger.error(f"Matches error: {e}")
             return web.json_response(
-                {"error": "Failed to fetch matches"},
-                status=500,
-                headers=self._cors_headers(origin)
+                {"error": "Failed to fetch matches"}, status=500, headers=self._cors_headers(origin)
             )
 
     # =========================================================================
     # Insights and Flips
     # =========================================================================
 
-    async def _handle_insights_recent(self, request) -> 'aiohttp.web.Response':
+    async def _handle_insights_recent(self, request) -> "aiohttp.web.Response":
         """GET /api/insights/recent - Recent debate insights."""
         import aiohttp.web as web
+
         origin = request.headers.get("Origin")
 
         if not self.insight_store:
             return web.json_response(
-                {"insights": [], "count": 0},
-                headers=self._cors_headers(origin)
+                {"insights": [], "count": 0}, headers=self._cors_headers(origin)
             )
 
         try:
             limit = safe_query_int(request.query, "limit", default=10, max_val=100)
             insights = await self.insight_store.get_recent_insights(limit=limit)
             return web.json_response(
-                {"insights": [i.to_dict() if hasattr(i, 'to_dict') else i for i in insights], "count": len(insights)},
-                headers=self._cors_headers(origin)
+                {
+                    "insights": [i.to_dict() if hasattr(i, "to_dict") else i for i in insights],
+                    "count": len(insights),
+                },
+                headers=self._cors_headers(origin),
             )
         except Exception as e:
             logger.error(f"Insights error: {e}")
             return web.json_response(
                 {"error": "Failed to fetch insights"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
-    async def _handle_flips_summary(self, request) -> 'aiohttp.web.Response':
+    async def _handle_flips_summary(self, request) -> "aiohttp.web.Response":
         """GET /api/flips/summary - Position flip summary."""
         import aiohttp.web as web
+
         origin = request.headers.get("Origin")
 
         if not self.flip_detector:
             return web.json_response(
-                {"summary": {}, "count": 0},
-                headers=self._cors_headers(origin)
+                {"summary": {}, "count": 0}, headers=self._cors_headers(origin)
             )
 
         try:
             summary = self.flip_detector.get_flip_summary()
             return web.json_response(
                 {"summary": summary, "count": summary.get("total_flips", 0)},
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
         except Exception as e:
             logger.error(f"Flips summary error: {e}")
             return web.json_response(
                 {"error": "Failed to fetch flip summary"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
-    async def _handle_flips_recent(self, request) -> 'aiohttp.web.Response':
+    async def _handle_flips_recent(self, request) -> "aiohttp.web.Response":
         """GET /api/flips/recent - Recent position flips."""
         import aiohttp.web as web
+
         origin = request.headers.get("Origin")
 
         if not self.flip_detector:
-            return web.json_response(
-                {"flips": [], "count": 0},
-                headers=self._cors_headers(origin)
-            )
+            return web.json_response({"flips": [], "count": 0}, headers=self._cors_headers(origin))
 
         try:
             limit = safe_query_int(request.query, "limit", default=10, max_val=100)
             flips = self.flip_detector.get_recent_flips(limit=limit)
             return web.json_response(
-                {"flips": flips, "count": len(flips)},
-                headers=self._cors_headers(origin)
+                {"flips": flips, "count": len(flips)}, headers=self._cors_headers(origin)
             )
         except Exception as e:
             logger.error(f"Flips recent error: {e}")
             return web.json_response(
                 {"error": "Failed to fetch recent flips"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
     # =========================================================================
     # Tournaments
     # =========================================================================
 
-    async def _handle_tournaments(self, request) -> 'aiohttp.web.Response':
+    async def _handle_tournaments(self, request) -> "aiohttp.web.Response":
         """GET /api/tournaments - Tournament list with real data."""
         import aiohttp.web as web
+
         origin = request.headers.get("Origin")
 
         if not self.nomic_dir:
             return web.json_response(
-                {"tournaments": [], "count": 0},
-                headers=self._cors_headers(origin)
+                {"tournaments": [], "count": 0}, headers=self._cors_headers(origin)
             )
 
         try:
@@ -255,6 +250,7 @@ class StreamAPIHandlersMixin:
                 for db_file in sorted(tournaments_dir.glob("*.db")):
                     try:
                         from aragora.tournaments.tournament import TournamentManager
+
                         manager = TournamentManager(db_path=str(db_file))
 
                         tournament = manager.get_tournament()
@@ -272,37 +268,38 @@ class StreamAPIHandlersMixin:
 
             return web.json_response(
                 {"tournaments": tournaments_list, "count": len(tournaments_list)},
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
         except Exception as e:
             logger.error(f"Tournament list error: {e}")
             return web.json_response(
                 {"error": "Failed to fetch tournaments", "tournaments": [], "count": 0},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
-    async def _handle_tournament_details(self, request) -> 'aiohttp.web.Response':
+    async def _handle_tournament_details(self, request) -> "aiohttp.web.Response":
         """GET /api/tournaments/{tournament_id} - Tournament details with standings."""
         import aiohttp.web as web
         import re
+
         origin = request.headers.get("Origin")
 
-        tournament_id = request.match_info.get('tournament_id', '')
+        tournament_id = request.match_info.get("tournament_id", "")
 
         # Validate tournament_id format (prevent path traversal)
-        if not re.match(r'^[a-zA-Z0-9_-]+$', tournament_id):
+        if not re.match(r"^[a-zA-Z0-9_-]+$", tournament_id):
             return web.json_response(
                 {"error": "Invalid tournament ID format"},
                 status=400,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
         if not self.nomic_dir:
             return web.json_response(
                 {"error": "Nomic directory not configured"},
                 status=503,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
         try:
@@ -312,10 +309,11 @@ class StreamAPIHandlersMixin:
                 return web.json_response(
                     {"error": "Tournament not found"},
                     status=404,
-                    headers=self._cors_headers(origin)
+                    headers=self._cors_headers(origin),
                 )
 
             from aragora.tournaments.tournament import TournamentManager
+
             manager = TournamentManager(db_path=str(tournament_db))
 
             tournament = manager.get_tournament()
@@ -326,7 +324,7 @@ class StreamAPIHandlersMixin:
                 return web.json_response(
                     {"error": "Tournament data not found"},
                     status=404,
-                    headers=self._cors_headers(origin)
+                    headers=self._cors_headers(origin),
                 )
 
             standings_data = [
@@ -351,34 +349,35 @@ class StreamAPIHandlersMixin:
                     "recent_matches": matches,
                     "matches_count": len(matches),
                 },
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
         except Exception as e:
             logger.error(f"Tournament details error: {e}")
             return web.json_response(
                 {"error": "Failed to fetch tournament details"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
     # =========================================================================
     # Agent Analysis
     # =========================================================================
 
-    async def _handle_agent_consistency(self, request) -> 'aiohttp.web.Response':
+    async def _handle_agent_consistency(self, request) -> "aiohttp.web.Response":
         """GET /api/agent/{name}/consistency - Agent consistency score from FlipDetector."""
         import aiohttp.web as web
         import re
+
         origin = request.headers.get("Origin")
 
-        agent_name = request.match_info.get('name', '')
+        agent_name = request.match_info.get("name", "")
 
         # Validate agent name format
-        if not re.match(r'^[a-zA-Z0-9_-]+$', agent_name):
+        if not re.match(r"^[a-zA-Z0-9_-]+$", agent_name):
             return web.json_response(
                 {"error": "Invalid agent name format"},
                 status=400,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
         try:
@@ -392,7 +391,9 @@ class StreamAPIHandlersMixin:
 
             if score:
                 consistency = score.consistency_score
-                consistency_class = "high" if consistency >= 0.8 else ("medium" if consistency >= 0.5 else "low")
+                consistency_class = (
+                    "high" if consistency >= 0.8 else ("medium" if consistency >= 0.5 else "low")
+                )
                 return web.json_response(
                     {
                         "agent": agent_name,
@@ -404,7 +405,7 @@ class StreamAPIHandlersMixin:
                         "contradictions": score.contradictions,
                         "refinements": score.refinements,
                     },
-                    headers=self._cors_headers(origin)
+                    headers=self._cors_headers(origin),
                 )
             else:
                 return web.json_response(
@@ -418,30 +419,31 @@ class StreamAPIHandlersMixin:
                         "contradictions": 0,
                         "refinements": 0,
                     },
-                    headers=self._cors_headers(origin)
+                    headers=self._cors_headers(origin),
                 )
         except Exception as e:
             logger.error(f"Agent consistency error for {agent_name}: {e}")
             return web.json_response(
                 {"error": "Failed to fetch agent consistency"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
-    async def _handle_agent_network(self, request) -> 'aiohttp.web.Response':
+    async def _handle_agent_network(self, request) -> "aiohttp.web.Response":
         """GET /api/agent/{name}/network - Agent relationship network (rivals, allies)."""
         import aiohttp.web as web
         import re
+
         origin = request.headers.get("Origin")
 
-        agent_name = request.match_info.get('name', '')
+        agent_name = request.match_info.get("name", "")
 
         # Validate agent name format
-        if not re.match(r'^[a-zA-Z0-9_-]+$', agent_name):
+        if not re.match(r"^[a-zA-Z0-9_-]+$", agent_name):
             return web.json_response(
                 {"error": "Invalid agent name format"},
                 status=400,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
         try:
@@ -454,24 +456,26 @@ class StreamAPIHandlersMixin:
             }
 
             # Try persona manager first (has relationship tracker)
-            if self.persona_manager and hasattr(self.persona_manager, 'relationship_tracker'):
+            if self.persona_manager and hasattr(self.persona_manager, "relationship_tracker"):
                 tracker = self.persona_manager.relationship_tracker
 
-                if hasattr(tracker, 'get_rivals'):
+                if hasattr(tracker, "get_rivals"):
                     rivals = tracker.get_rivals(agent_name, limit=5)
-                    network_data["rivals"] = [
-                        {"agent": r[0], "score": r[1], "debate_count": 0}
-                        for r in rivals
-                    ] if rivals else []
+                    network_data["rivals"] = (
+                        [{"agent": r[0], "score": r[1], "debate_count": 0} for r in rivals]
+                        if rivals
+                        else []
+                    )
 
-                if hasattr(tracker, 'get_allies'):
+                if hasattr(tracker, "get_allies"):
                     allies = tracker.get_allies(agent_name, limit=5)
-                    network_data["allies"] = [
-                        {"agent": a[0], "score": a[1], "debate_count": 0}
-                        for a in allies
-                    ] if allies else []
+                    network_data["allies"] = (
+                        [{"agent": a[0], "score": a[1], "debate_count": 0} for a in allies]
+                        if allies
+                        else []
+                    )
 
-                if hasattr(tracker, 'get_influence_network'):
+                if hasattr(tracker, "get_influence_network"):
                     influence = tracker.get_influence_network(agent_name)
                     network_data["influences"] = [
                         {"agent": name, "score": score, "debate_count": 0}
@@ -484,19 +488,35 @@ class StreamAPIHandlersMixin:
 
             # Fall back to ELO system if no persona manager
             elif self.elo_system:
-                if hasattr(self.elo_system, 'get_rivals'):
+                if hasattr(self.elo_system, "get_rivals"):
                     rivals = self.elo_system.get_rivals(agent_name, limit=5)
-                    network_data["rivals"] = [
-                        {"agent": r.get("agent_b", r.get("agent")), "score": r.get("rivalry_score", 0), "debate_count": r.get("matches", 0)}
-                        for r in rivals
-                    ] if rivals else []
+                    network_data["rivals"] = (
+                        [
+                            {
+                                "agent": r.get("agent_b", r.get("agent")),
+                                "score": r.get("rivalry_score", 0),
+                                "debate_count": r.get("matches", 0),
+                            }
+                            for r in rivals
+                        ]
+                        if rivals
+                        else []
+                    )
 
-                if hasattr(self.elo_system, 'get_allies'):
+                if hasattr(self.elo_system, "get_allies"):
                     allies = self.elo_system.get_allies(agent_name, limit=5)
-                    network_data["allies"] = [
-                        {"agent": a.get("agent_b", a.get("agent")), "score": a.get("alliance_score", 0), "debate_count": a.get("matches", 0)}
-                        for a in allies
-                    ] if allies else []
+                    network_data["allies"] = (
+                        [
+                            {
+                                "agent": a.get("agent_b", a.get("agent")),
+                                "score": a.get("alliance_score", 0),
+                                "debate_count": a.get("matches", 0),
+                            }
+                            for a in allies
+                        ]
+                        if allies
+                        else []
+                    )
 
             return web.json_response(network_data, headers=self._cors_headers(origin))
         except Exception as e:
@@ -504,98 +524,111 @@ class StreamAPIHandlersMixin:
             return web.json_response(
                 {"error": "Failed to fetch agent network"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
     # =========================================================================
     # Memory and Laboratory
     # =========================================================================
 
-    async def _handle_memory_tier_stats(self, request) -> 'aiohttp.web.Response':
+    async def _handle_memory_tier_stats(self, request) -> "aiohttp.web.Response":
         """GET /api/memory/tier-stats - Continuum memory statistics."""
         import aiohttp.web as web
+
         origin = request.headers.get("Origin")
 
         if not self.debate_embeddings:
             return web.json_response(
                 {"tiers": {"fast": 0, "medium": 0, "slow": 0, "glacial": 0}, "total": 0},
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
         try:
-            stats = self.debate_embeddings.get_tier_stats() if hasattr(self.debate_embeddings, 'get_tier_stats') else {}
+            stats = (
+                self.debate_embeddings.get_tier_stats()
+                if hasattr(self.debate_embeddings, "get_tier_stats")
+                else {}
+            )
             return web.json_response(
                 {"tiers": stats, "total": sum(stats.values()) if stats else 0},
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
         except Exception as e:
             logger.error(f"Memory tier stats error: {e}")
             return web.json_response(
                 {"error": "Failed to fetch memory stats"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
-    async def _handle_laboratory_emergent_traits(self, request) -> 'aiohttp.web.Response':
+    async def _handle_laboratory_emergent_traits(self, request) -> "aiohttp.web.Response":
         """GET /api/laboratory/emergent-traits - Discovered agent traits."""
         import aiohttp.web as web
+
         origin = request.headers.get("Origin")
 
         if not self.persona_manager:
-            return web.json_response(
-                {"traits": [], "count": 0},
-                headers=self._cors_headers(origin)
-            )
+            return web.json_response({"traits": [], "count": 0}, headers=self._cors_headers(origin))
 
         try:
-            min_confidence = safe_query_float(request.query, "min_confidence", default=0.3, min_val=0.0, max_val=1.0)
+            min_confidence = safe_query_float(
+                request.query, "min_confidence", default=0.3, min_val=0.0, max_val=1.0
+            )
             limit = safe_query_int(request.query, "limit", default=10, max_val=100)
-            traits = self.persona_manager.get_emergent_traits(min_confidence=min_confidence, limit=limit) if hasattr(self.persona_manager, 'get_emergent_traits') else []
+            traits = (
+                self.persona_manager.get_emergent_traits(min_confidence=min_confidence, limit=limit)
+                if hasattr(self.persona_manager, "get_emergent_traits")
+                else []
+            )
             return web.json_response(
-                {"traits": traits, "count": len(traits)},
-                headers=self._cors_headers(origin)
+                {"traits": traits, "count": len(traits)}, headers=self._cors_headers(origin)
             )
         except Exception as e:
             logger.error(f"Emergent traits error: {e}")
             return web.json_response(
                 {"error": "Failed to fetch emergent traits"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
-    async def _handle_laboratory_cross_pollinations(self, request) -> 'aiohttp.web.Response':
+    async def _handle_laboratory_cross_pollinations(self, request) -> "aiohttp.web.Response":
         """GET /api/laboratory/cross-pollinations/suggest - Trait transfer suggestions."""
         import aiohttp.web as web
+
         origin = request.headers.get("Origin")
 
         if not self.persona_manager:
             return web.json_response(
-                {"suggestions": [], "count": 0},
-                headers=self._cors_headers(origin)
+                {"suggestions": [], "count": 0}, headers=self._cors_headers(origin)
             )
 
         try:
-            suggestions = self.persona_manager.suggest_cross_pollinations() if hasattr(self.persona_manager, 'suggest_cross_pollinations') else []
+            suggestions = (
+                self.persona_manager.suggest_cross_pollinations()
+                if hasattr(self.persona_manager, "suggest_cross_pollinations")
+                else []
+            )
             return web.json_response(
                 {"suggestions": suggestions, "count": len(suggestions)},
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
         except Exception as e:
             logger.error(f"Cross-pollinations error: {e}")
             return web.json_response(
                 {"error": "Failed to fetch cross-pollination suggestions"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
     # =========================================================================
     # Nomic State
     # =========================================================================
 
-    async def _handle_health(self, request) -> 'aiohttp.web.Response':
+    async def _handle_health(self, request) -> "aiohttp.web.Response":
         """GET /api/health - Health check endpoint."""
         import aiohttp.web as web
         from datetime import datetime
+
         origin = request.headers.get("Origin")
 
         health = {
@@ -605,12 +638,13 @@ class StreamAPIHandlersMixin:
         }
         return web.json_response(health, headers=self._cors_headers(origin))
 
-    async def _handle_metrics(self, request) -> 'aiohttp.web.Response':
+    async def _handle_metrics(self, request) -> "aiohttp.web.Response":
         """GET /metrics - Prometheus-format metrics."""
         import aiohttp.web as web
 
         try:
             from aragora.server.prometheus import get_prometheus_metrics, CONTENT_TYPE_LATEST
+
             metrics_text = get_prometheus_metrics()
             return web.Response(
                 text=metrics_text,
@@ -622,9 +656,10 @@ class StreamAPIHandlersMixin:
                 content_type="text/plain",
             )
 
-    async def _handle_nomic_state(self, request) -> 'aiohttp.web.Response':
+    async def _handle_nomic_state(self, request) -> "aiohttp.web.Response":
         """GET /api/nomic/state - Current nomic loop state."""
         import aiohttp.web as web
+
         origin = request.headers.get("Origin")
 
         with self._active_loops_lock:
@@ -645,20 +680,19 @@ class StreamAPIHandlersMixin:
     # Graph Visualization (ArgumentCartographer)
     # =========================================================================
 
-    async def _handle_graph_json(self, request) -> 'aiohttp.web.Response':
+    async def _handle_graph_json(self, request) -> "aiohttp.web.Response":
         """GET /api/debate/{loop_id}/graph - Debate argument graph as JSON."""
         import aiohttp.web as web
         import re
+
         origin = request.headers.get("Origin")
 
-        loop_id = request.match_info.get('loop_id', '')
+        loop_id = request.match_info.get("loop_id", "")
 
         # Validate loop_id format (security: prevent injection)
-        if not re.match(r'^[a-zA-Z0-9_-]+$', loop_id):
+        if not re.match(r"^[a-zA-Z0-9_-]+$", loop_id):
             return web.json_response(
-                {"error": "Invalid loop_id format"},
-                status=400,
-                headers=self._cors_headers(origin)
+                {"error": "Invalid loop_id format"}, status=400, headers=self._cors_headers(origin)
             )
 
         with self._cartographers_lock:
@@ -668,39 +702,34 @@ class StreamAPIHandlersMixin:
             return web.json_response(
                 {"error": f"No cartographer found for loop: {loop_id}"},
                 status=404,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
         try:
             include_full = request.query.get("full", "false").lower() == "true"
             graph_json = cartographer.export_json(include_full_content=include_full)
             return web.Response(
-                text=graph_json,
-                content_type="application/json",
-                headers=self._cors_headers(origin)
+                text=graph_json, content_type="application/json", headers=self._cors_headers(origin)
             )
         except Exception as e:
             logger.error(f"Graph JSON error for {loop_id}: {e}")
             return web.json_response(
-                {"error": "Failed to export graph"},
-                status=500,
-                headers=self._cors_headers(origin)
+                {"error": "Failed to export graph"}, status=500, headers=self._cors_headers(origin)
             )
 
-    async def _handle_graph_mermaid(self, request) -> 'aiohttp.web.Response':
+    async def _handle_graph_mermaid(self, request) -> "aiohttp.web.Response":
         """GET /api/debate/{loop_id}/graph/mermaid - Debate argument graph as Mermaid diagram."""
         import aiohttp.web as web
         import re
+
         origin = request.headers.get("Origin")
 
-        loop_id = request.match_info.get('loop_id', '')
+        loop_id = request.match_info.get("loop_id", "")
 
         # Validate loop_id format
-        if not re.match(r'^[a-zA-Z0-9_-]+$', loop_id):
+        if not re.match(r"^[a-zA-Z0-9_-]+$", loop_id):
             return web.json_response(
-                {"error": "Invalid loop_id format"},
-                status=400,
-                headers=self._cors_headers(origin)
+                {"error": "Invalid loop_id format"}, status=400, headers=self._cors_headers(origin)
             )
 
         with self._cartographers_lock:
@@ -710,7 +739,7 @@ class StreamAPIHandlersMixin:
             return web.json_response(
                 {"error": f"No cartographer found for loop: {loop_id}"},
                 status=404,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
         try:
@@ -720,32 +749,29 @@ class StreamAPIHandlersMixin:
                 direction = "TD"
             mermaid = cartographer.export_mermaid(direction=direction)
             return web.Response(
-                text=mermaid,
-                content_type="text/plain",
-                headers=self._cors_headers(origin)
+                text=mermaid, content_type="text/plain", headers=self._cors_headers(origin)
             )
         except Exception as e:
             logger.error(f"Graph Mermaid error for {loop_id}: {e}")
             return web.json_response(
                 {"error": "Failed to export Mermaid diagram"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
-    async def _handle_graph_stats(self, request) -> 'aiohttp.web.Response':
+    async def _handle_graph_stats(self, request) -> "aiohttp.web.Response":
         """GET /api/debate/{loop_id}/graph/stats - Debate argument graph statistics."""
         import aiohttp.web as web
         import re
+
         origin = request.headers.get("Origin")
 
-        loop_id = request.match_info.get('loop_id', '')
+        loop_id = request.match_info.get("loop_id", "")
 
         # Validate loop_id format
-        if not re.match(r'^[a-zA-Z0-9_-]+$', loop_id):
+        if not re.match(r"^[a-zA-Z0-9_-]+$", loop_id):
             return web.json_response(
-                {"error": "Invalid loop_id format"},
-                status=400,
-                headers=self._cors_headers(origin)
+                {"error": "Invalid loop_id format"}, status=400, headers=self._cors_headers(origin)
             )
 
         with self._cartographers_lock:
@@ -755,7 +781,7 @@ class StreamAPIHandlersMixin:
             return web.json_response(
                 {"error": f"No cartographer found for loop: {loop_id}"},
                 status=404,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
         try:
@@ -766,27 +792,26 @@ class StreamAPIHandlersMixin:
             return web.json_response(
                 {"error": "Failed to get graph statistics"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
     # =========================================================================
     # Audience
     # =========================================================================
 
-    async def _handle_audience_clusters(self, request) -> 'aiohttp.web.Response':
+    async def _handle_audience_clusters(self, request) -> "aiohttp.web.Response":
         """GET /api/debate/{loop_id}/audience/clusters - Clustered audience suggestions."""
         import aiohttp.web as web
         import re
+
         origin = request.headers.get("Origin")
 
-        loop_id = request.match_info.get('loop_id', '')
+        loop_id = request.match_info.get("loop_id", "")
 
         # Validate loop_id format
-        if not re.match(r'^[a-zA-Z0-9_-]+$', loop_id):
+        if not re.match(r"^[a-zA-Z0-9_-]+$", loop_id):
             return web.json_response(
-                {"error": "Invalid loop_id format"},
-                status=400,
-                headers=self._cors_headers(origin)
+                {"error": "Invalid loop_id format"}, status=400, headers=self._cors_headers(origin)
             )
 
         try:
@@ -797,15 +822,18 @@ class StreamAPIHandlersMixin:
 
             if not suggestions:
                 return web.json_response(
-                    {"clusters": [], "total": 0},
-                    headers=self._cors_headers(origin)
+                    {"clusters": [], "total": 0}, headers=self._cors_headers(origin)
                 )
 
             # Cluster suggestions
             clusters = cluster_suggestions(
                 suggestions,
-                similarity_threshold=safe_query_float(request.query, "threshold", default=0.6, min_val=0.0, max_val=1.0),
-                max_clusters=safe_query_int(request.query, "max_clusters", default=5, min_val=1, max_val=50),
+                similarity_threshold=safe_query_float(
+                    request.query, "threshold", default=0.6, min_val=0.0, max_val=1.0
+                ),
+                max_clusters=safe_query_int(
+                    request.query, "max_clusters", default=5, min_val=1, max_val=50
+                ),
             )
 
             return web.json_response(
@@ -820,37 +848,36 @@ class StreamAPIHandlersMixin:
                     ],
                     "total": sum(c.count for c in clusters),
                 },
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
         except Exception as e:
             logger.error(f"Audience clusters error for {loop_id}: {e}")
             return web.json_response(
                 {"error": "Failed to cluster audience suggestions"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
     # =========================================================================
     # Replays
     # =========================================================================
 
-    async def _handle_replays(self, request) -> 'aiohttp.web.Response':
+    async def _handle_replays(self, request) -> "aiohttp.web.Response":
         """GET /api/replays - List available debate replays."""
         import aiohttp.web as web
+
         origin = request.headers.get("Origin")
 
         if not self.nomic_dir:
             return web.json_response(
-                {"replays": [], "count": 0},
-                headers=self._cors_headers(origin)
+                {"replays": [], "count": 0}, headers=self._cors_headers(origin)
             )
 
         try:
             replays_dir = self.nomic_dir / "replays"
             if not replays_dir.exists():
                 return web.json_response(
-                    {"replays": [], "count": 0},
-                    headers=self._cors_headers(origin)
+                    {"replays": [], "count": 0}, headers=self._cors_headers(origin)
                 )
 
             # Get limit from query params, default 50, max 200
@@ -874,47 +901,51 @@ class StreamAPIHandlersMixin:
                         except json.JSONDecodeError as e:
                             logger.warning("Failed to parse replay meta %s: %s", meta_file, e)
                             meta = {}
-                        replays.append({
-                            "id": replay_path.name,
-                            "topic": meta.get("topic", replay_path.name),
-                            "timestamp": meta.get("timestamp", ""),
-                        })
+                        replays.append(
+                            {
+                                "id": replay_path.name,
+                                "topic": meta.get("topic", replay_path.name),
+                                "timestamp": meta.get("timestamp", ""),
+                            }
+                        )
                         if len(replays) >= limit:
                             break
 
             return web.json_response(
-                {"replays": sorted(replays, key=lambda x: x["id"], reverse=True)[:limit], "count": len(replays)},
-                headers=self._cors_headers(origin)
+                {
+                    "replays": sorted(replays, key=lambda x: x["id"], reverse=True)[:limit],
+                    "count": len(replays),
+                },
+                headers=self._cors_headers(origin),
             )
         except Exception as e:
             logger.error(f"Replays list error: {e}")
             return web.json_response(
-                {"error": "Failed to list replays"},
-                status=500,
-                headers=self._cors_headers(origin)
+                {"error": "Failed to list replays"}, status=500, headers=self._cors_headers(origin)
             )
 
-    async def _handle_replay_html(self, request) -> 'aiohttp.web.Response':
+    async def _handle_replay_html(self, request) -> "aiohttp.web.Response":
         """GET /api/replays/{replay_id}/html - Get HTML replay visualization."""
         import aiohttp.web as web
         import re
+
         origin = request.headers.get("Origin")
 
-        replay_id = request.match_info.get('replay_id', '')
+        replay_id = request.match_info.get("replay_id", "")
 
         # Validate replay_id format (security: prevent path traversal)
-        if not re.match(r'^[a-zA-Z0-9_-]+$', replay_id):
+        if not re.match(r"^[a-zA-Z0-9_-]+$", replay_id):
             return web.json_response(
                 {"error": "Invalid replay_id format"},
                 status=400,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
         if not self.nomic_dir:
             return web.json_response(
                 {"error": "No nomic directory configured"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
         try:
@@ -923,7 +954,7 @@ class StreamAPIHandlersMixin:
                 return web.json_response(
                     {"error": f"Replay not found: {replay_id}"},
                     status=404,
-                    headers=self._cors_headers(origin)
+                    headers=self._cors_headers(origin),
                 )
 
             # Check for pre-generated HTML
@@ -932,7 +963,7 @@ class StreamAPIHandlersMixin:
                 return web.Response(
                     text=html_file.read_text(),
                     content_type="text/html",
-                    headers=self._cors_headers(origin)
+                    headers=self._cors_headers(origin),
                 )
 
             # Generate from events.jsonl if no pre-generated HTML
@@ -943,7 +974,7 @@ class StreamAPIHandlersMixin:
                 return web.json_response(
                     {"error": f"No events found for replay: {replay_id}"},
                     status=404,
-                    headers=self._cors_headers(origin)
+                    headers=self._cors_headers(origin),
                 )
 
             # Load events and generate HTML
@@ -989,31 +1020,33 @@ class StreamAPIHandlersMixin:
                 messages = []
                 for event in round_events[round_num]:
                     if event.get("type") in ("agent_message", "propose", "critique"):
-                        messages.append(Message(
-                            role=event.get("data", {}).get("role", "unknown"),
-                            agent=event.get("agent", "unknown"),
-                            content=event.get("data", {}).get("content", ""),
-                            round=round_num,
-                        ))
+                        messages.append(
+                            Message(
+                                role=event.get("data", {}).get("role", "unknown"),
+                                agent=event.get("agent", "unknown"),
+                                content=event.get("data", {}).get("content", ""),
+                                round=round_num,
+                            )
+                        )
                 if messages:
-                    artifact.scenes.append(ReplayScene(
-                        round_number=round_num,
-                        timestamp=datetime.now(),
-                        messages=messages,
-                    ))
+                    artifact.scenes.append(
+                        ReplayScene(
+                            round_number=round_num,
+                            timestamp=datetime.now(),
+                            messages=messages,
+                        )
+                    )
 
             html = generator._render_html(artifact)
             return web.Response(
-                text=html,
-                content_type="text/html",
-                headers=self._cors_headers(origin)
+                text=html, content_type="text/html", headers=self._cors_headers(origin)
             )
         except Exception as e:
             logger.error(f"Replay HTML error for {replay_id}: {e}")
             return web.json_response(
                 {"error": "Failed to generate replay HTML"},
                 status=500,
-                headers=self._cors_headers(origin)
+                headers=self._cors_headers(origin),
             )
 
 

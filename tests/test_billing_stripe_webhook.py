@@ -31,6 +31,7 @@ from aragora.billing.models import (
 # Test Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def mock_user_store():
     """Create a mock user store with test data."""
@@ -80,6 +81,7 @@ def billing_handler(mock_user_store):
 @dataclass
 class MockWebhookEvent:
     """Mock Stripe webhook event."""
+
     type: str
     object: dict
     data: dict
@@ -110,6 +112,7 @@ def create_mock_http_handler(payload: bytes, signature: str = "valid_sig"):
 # =============================================================================
 # Checkout Session Completed Tests
 # =============================================================================
+
 
 class TestCheckoutSessionCompleted:
     """Tests for checkout.session.completed webhook event."""
@@ -231,6 +234,7 @@ class TestCheckoutSessionCompleted:
 # Subscription Updated Tests
 # =============================================================================
 
+
 class TestSubscriptionUpdated:
     """Tests for customer.subscription.updated webhook event."""
 
@@ -250,9 +254,7 @@ class TestSubscriptionUpdated:
                 "id": "sub_test_789",
                 "status": "active",
                 "cancel_at_period_end": False,
-                "items": {
-                    "data": [{"price": {"id": "price_enterprise_monthly"}}]
-                },
+                "items": {"data": [{"price": {"id": "price_enterprise_monthly"}}]},
             },
             data={"id": "evt_sub_update_123"},
         )
@@ -286,9 +288,7 @@ class TestSubscriptionUpdated:
                 "id": "sub_test_789",
                 "status": "active",
                 "cancel_at_period_end": False,
-                "items": {
-                    "data": [{"price": {"id": "price_pro_monthly"}}]
-                },
+                "items": {"data": [{"price": {"id": "price_pro_monthly"}}]},
             },
             data={"id": "evt_sub_update_456"},
         )
@@ -308,6 +308,7 @@ class TestSubscriptionUpdated:
 # =============================================================================
 # Subscription Deleted Tests
 # =============================================================================
+
 
 class TestSubscriptionDeleted:
     """Tests for customer.subscription.deleted webhook event."""
@@ -353,6 +354,7 @@ class TestSubscriptionDeleted:
 # =============================================================================
 # Invoice Payment Tests
 # =============================================================================
+
 
 class TestInvoicePayment:
     """Tests for invoice payment webhook events."""
@@ -449,6 +451,7 @@ class TestInvoicePayment:
 # Webhook Idempotency Tests
 # =============================================================================
 
+
 class TestWebhookIdempotency:
     """Tests for webhook idempotency handling."""
 
@@ -519,13 +522,12 @@ class TestWebhookIdempotency:
 # Webhook Signature Validation Tests
 # =============================================================================
 
+
 class TestWebhookSignatureValidation:
     """Tests for webhook signature validation."""
 
     @patch("aragora.billing.stripe_client.parse_webhook_event")
-    def test_missing_signature_rejected(
-        self, mock_parse, billing_handler
-    ):
+    def test_missing_signature_rejected(self, mock_parse, billing_handler):
         """Missing Stripe-Signature header is rejected."""
         payload = b'{"type": "checkout.session.completed"}'
         http_handler = create_mock_http_handler(payload, signature="")
@@ -537,9 +539,7 @@ class TestWebhookSignatureValidation:
         assert "signature" in data["error"].lower()
 
     @patch("aragora.billing.stripe_client.parse_webhook_event")
-    def test_invalid_signature_rejected(
-        self, mock_parse, billing_handler
-    ):
+    def test_invalid_signature_rejected(self, mock_parse, billing_handler):
         """Invalid signature is rejected."""
         mock_parse.return_value = None  # Signature validation failed
 
@@ -557,14 +557,13 @@ class TestWebhookSignatureValidation:
 # Unhandled Event Tests
 # =============================================================================
 
+
 class TestUnhandledEvents:
     """Tests for unhandled webhook event types."""
 
     @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.billing._is_duplicate_webhook")
-    def test_unknown_event_acknowledged(
-        self, mock_is_dup, mock_parse, billing_handler
-    ):
+    def test_unknown_event_acknowledged(self, mock_is_dup, mock_parse, billing_handler):
         """Unknown event types are acknowledged without error."""
         mock_is_dup.return_value = False
 
@@ -588,6 +587,7 @@ class TestUnhandledEvents:
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestWebhookIntegration:
     """Integration tests for complete webhook flows."""

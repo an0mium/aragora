@@ -36,10 +36,10 @@ def escape_like_pattern(value: str) -> str:
         )
     """
     # Escape backslash first (it's the escape character itself)
-    value = value.replace('\\', '\\\\')
+    value = value.replace("\\", "\\\\")
     # Escape LIKE metacharacters
-    value = value.replace('%', '\\%')
-    value = value.replace('_', '\\_')
+    value = value.replace("%", "\\%")
+    value = value.replace("_", "\\_")
     return value
 
 

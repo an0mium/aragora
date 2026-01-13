@@ -28,6 +28,7 @@ from typing import Any, Callable, ContextManager, Dict, Generator, List, Optiona
 # Use structured logging if available
 try:
     from aragora.logging_config import get_logger as get_structured_logger, set_context
+
     _structured_logger = get_structured_logger(__name__)
 except ImportError:
     _structured_logger = None
@@ -36,9 +37,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # Context variable for current span propagation
-_current_span: contextvars.ContextVar["Span"] = contextvars.ContextVar(
-    "current_span", default=None
-)
+_current_span: contextvars.ContextVar["Span"] = contextvars.ContextVar("current_span", default=None)
 
 # Context variable for debate correlation ID
 _debate_context: contextvars.ContextVar[Dict[str, Any]] = contextvars.ContextVar(
@@ -59,6 +58,7 @@ def generate_span_id() -> str:
 @dataclass
 class SpanContext:
     """Immutable context for a span, used for propagation."""
+
     trace_id: str
     span_id: str
     parent_span_id: Optional[str] = None
@@ -67,6 +67,7 @@ class SpanContext:
 @dataclass
 class Span:
     """A single tracing span representing an operation."""
+
     name: str
     trace_id: str
     span_id: str
@@ -88,20 +89,25 @@ class Span:
 
     def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
         """Add an event to the span."""
-        self.events.append({
-            "name": name,
-            "timestamp": time.time(),
-            "attributes": attributes or {},
-        })
+        self.events.append(
+            {
+                "name": name,
+                "timestamp": time.time(),
+                "attributes": attributes or {},
+            }
+        )
 
     def record_exception(self, exc: Exception) -> None:
         """Record an exception in the span."""
         self.status = "ERROR"
         self.error = f"{type(exc).__name__}: {exc}"
-        self.add_event("exception", {
-            "exception.type": type(exc).__name__,
-            "exception.message": str(exc),
-        })
+        self.add_event(
+            "exception",
+            {
+                "exception.type": type(exc).__name__,
+                "exception.message": str(exc),
+            },
+        )
 
     def get_span_context(self) -> SpanContext:
         """Get the immutable span context for propagation."""
@@ -126,7 +132,9 @@ class Span:
             "span_id": self.span_id,
             "parent_span_id": self.parent_span_id,
             "start_time": datetime.fromtimestamp(self.start_time).isoformat(),
-            "end_time": datetime.fromtimestamp(self.end_time).isoformat() if self.end_time else None,
+            "end_time": (
+                datetime.fromtimestamp(self.end_time).isoformat() if self.end_time else None
+            ),
             "duration_ms": self.duration_ms,
             "attributes": self.attributes,
             "events": self.events,
@@ -148,7 +156,7 @@ class SpanRecorder:
         self.spans.append(span)
         # Evict old spans if over limit
         if len(self.spans) > self.max_spans:
-            self.spans = self.spans[-self.max_spans // 2:]
+            self.spans = self.spans[-self.max_spans // 2 :]
 
     def get_spans_by_trace(self, trace_id: str) -> List[Span]:
         """Get all spans for a trace."""
@@ -338,6 +346,7 @@ def get_debate_id() -> Optional[str]:
 
 def with_debate_context(debate_id: str) -> Callable[[Callable], Callable]:
     """Decorator to set debate context for a function."""
+
     def decorator(func: Callable) -> Callable:
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             set_debate_context(debate_id)
@@ -350,6 +359,7 @@ def with_debate_context(debate_id: str) -> Callable[[Callable], Callable]:
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         return sync_wrapper
+
     return decorator
 
 
@@ -358,13 +368,14 @@ def with_debate_context(debate_id: str) -> Callable[[Callable], Callable]:
 
 def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
     """Decorator for tracing agent calls (proposal, critique, vote, etc.)."""
+
     def decorator(func: Callable) -> Callable:
         async def async_wrapper(self: Any, agent: Any, *args: Any, **kwargs: Any) -> Any:
             tracer = get_tracer()
             with tracer.span(
                 f"agent.{operation}",
-                agent_name=getattr(agent, 'name', str(agent)),
-                agent_model=getattr(agent, 'model', 'unknown'),
+                agent_name=getattr(agent, "name", str(agent)),
+                agent_model=getattr(agent, "model", "unknown"),
                 operation=operation,
             ) as span:
                 try:
@@ -380,8 +391,8 @@ def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
             tracer = get_tracer()
             with tracer.span(
                 f"agent.{operation}",
-                agent_name=getattr(agent, 'name', str(agent)),
-                agent_model=getattr(agent, 'model', 'unknown'),
+                agent_name=getattr(agent, "name", str(agent)),
+                agent_model=getattr(agent, "model", "unknown"),
                 operation=operation,
             ) as span:
                 try:
@@ -396,6 +407,7 @@ def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         return sync_wrapper
+
     return decorator
 
 
@@ -417,6 +429,7 @@ def trace_phase(phase: str, round_num: int) -> ContextManager[Span]:
 @dataclass
 class DebateMetrics:
     """Aggregated metrics for a debate."""
+
     debate_id: str
     total_duration_ms: float = 0
     rounds_completed: int = 0
@@ -451,8 +464,7 @@ class DebateMetrics:
             "consensus_reached": self.consensus_reached,
             "consensus_confidence": self.consensus_confidence,
             "per_agent_avg_latencies": {
-                agent: self.get_agent_avg_latency(agent)
-                for agent in self.per_agent_latencies
+                agent: self.get_agent_avg_latency(agent) for agent in self.per_agent_latencies
             },
         }
 

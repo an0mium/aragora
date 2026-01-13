@@ -14,6 +14,7 @@ from aragora.agents.grounded import (
 @dataclass
 class MockELORating:
     """Mock ELO rating for testing."""
+
     elo: float = 1500.0
 
 
@@ -160,12 +161,8 @@ class TestMomentDetectorCalibrationVindication:
         """Higher confidence = higher significance."""
         detector = MomentDetector()
 
-        moment_85 = detector.detect_calibration_vindication(
-            "agent", 0.85, True, "domain", "d1"
-        )
-        moment_95 = detector.detect_calibration_vindication(
-            "agent", 0.95, True, "domain", "d2"
-        )
+        moment_85 = detector.detect_calibration_vindication("agent", 0.85, True, "domain", "d1")
+        moment_95 = detector.detect_calibration_vindication("agent", 0.95, True, "domain", "d2")
 
         assert moment_85.significance_score < moment_95.significance_score
 
@@ -414,14 +411,24 @@ class TestMomentDetectorRecordAndRetrieve:
         """Filter moments by type."""
         detector = MomentDetector()
 
-        detector.record_moment(SignificantMoment(
-            id="m1", moment_type="upset_victory", agent_name="a",
-            description="d", significance_score=0.8,
-        ))
-        detector.record_moment(SignificantMoment(
-            id="m2", moment_type="streak_achievement", agent_name="a",
-            description="d", significance_score=0.5,
-        ))
+        detector.record_moment(
+            SignificantMoment(
+                id="m1",
+                moment_type="upset_victory",
+                agent_name="a",
+                description="d",
+                significance_score=0.8,
+            )
+        )
+        detector.record_moment(
+            SignificantMoment(
+                id="m2",
+                moment_type="streak_achievement",
+                agent_name="a",
+                description="d",
+                significance_score=0.5,
+            )
+        )
 
         upsets = detector.get_agent_moments("a", moment_types=["upset_victory"])
         assert len(upsets) == 1
@@ -453,10 +460,15 @@ class TestMomentDetectorRecordAndRetrieve:
         detector = MomentDetector()
 
         for i in range(10):
-            detector.record_moment(SignificantMoment(
-                id=f"m{i}", moment_type="streak_achievement", agent_name="a",
-                description="d", significance_score=0.5 + i * 0.05,
-            ))
+            detector.record_moment(
+                SignificantMoment(
+                    id=f"m{i}",
+                    moment_type="streak_achievement",
+                    agent_name="a",
+                    description="d",
+                    significance_score=0.5 + i * 0.05,
+                )
+            )
 
         moments = detector.get_agent_moments("a", limit=3)
         assert len(moments) == 3
@@ -485,14 +497,18 @@ class TestMomentDetectorNarrative:
         """Different significance scores get different labels."""
         detector = MomentDetector()
 
-        notable = SignificantMoment(id="1", moment_type="t", agent_name="a",
-                                     description="d", significance_score=0.2)
-        significant = SignificantMoment(id="2", moment_type="t", agent_name="a",
-                                         description="d", significance_score=0.4)
-        major = SignificantMoment(id="3", moment_type="t", agent_name="a",
-                                   description="d", significance_score=0.7)
-        defining = SignificantMoment(id="4", moment_type="t", agent_name="a",
-                                      description="d", significance_score=0.9)
+        notable = SignificantMoment(
+            id="1", moment_type="t", agent_name="a", description="d", significance_score=0.2
+        )
+        significant = SignificantMoment(
+            id="2", moment_type="t", agent_name="a", description="d", significance_score=0.4
+        )
+        major = SignificantMoment(
+            id="3", moment_type="t", agent_name="a", description="d", significance_score=0.7
+        )
+        defining = SignificantMoment(
+            id="4", moment_type="t", agent_name="a", description="d", significance_score=0.9
+        )
 
         assert "Notable" in detector.format_moment_narrative(notable)
         assert "Significant" in detector.format_moment_narrative(significant)
@@ -508,10 +524,15 @@ class TestMomentDetectorNarrative:
     def test_narrative_summary_with_moments(self):
         """Summary for agent with moments."""
         detector = MomentDetector()
-        detector.record_moment(SignificantMoment(
-            id="m1", moment_type="upset_victory", agent_name="claude",
-            description="Claude had a major upset", significance_score=0.8,
-        ))
+        detector.record_moment(
+            SignificantMoment(
+                id="m1",
+                moment_type="upset_victory",
+                agent_name="claude",
+                description="Claude had a major upset",
+                significance_score=0.8,
+            )
+        )
 
         summary = detector.get_narrative_summary("claude")
         assert "claude" in summary.lower()
