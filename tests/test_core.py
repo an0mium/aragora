@@ -31,6 +31,7 @@ from aragora.core import (
 class TestMessageDataclass:
     """Tests for Message dataclass."""
 
+    @pytest.mark.smoke
     def test_creation_with_required_fields(self):
         """Message should be created with role, agent, content."""
         msg = Message(role="proposer", agent="claude", content="Test content")
@@ -77,6 +78,7 @@ class TestMessageDataclass:
 class TestCritiqueDataclass:
     """Tests for Critique dataclass."""
 
+    @pytest.mark.smoke
     def test_creation_with_all_fields(self):
         """Critique should store all provided fields."""
         critique = Critique(
@@ -214,6 +216,7 @@ class TestCritiqueDataclass:
 class TestVoteDataclass:
     """Tests for Vote dataclass."""
 
+    @pytest.mark.smoke
     def test_creation_with_required_fields(self):
         """Vote should be created with agent, choice, reasoning."""
         vote = Vote(agent="claude", choice="proposal_a", reasoning="Best option")

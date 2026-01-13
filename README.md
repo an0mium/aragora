@@ -66,7 +66,7 @@ The **Nomic Loop** is aragora's autonomous self-improvement system—a society o
 - **4 Specialized Agents**: Claude (visionary), Codex (engineer), Gemini (architect), Grok (lateral thinker)
 - **Auto-Implementation**: Consensus proposals are automatically implemented and tested
 - **Crash Recovery**: Checkpoint/resume system survives interruptions
-- **Live Streaming**: Watch debates in real-time at [live.aragora.ai](https://live.aragora.ai)
+- **Live Streaming**: Watch debates in real-time at [aragora.ai](https://aragora.ai)
 
 ```bash
 # Run the nomic loop (experimental; review changes before auto-commit)
@@ -74,7 +74,7 @@ python scripts/run_nomic_with_stream.py run --cycles 24 --auto
 ```
 
 ### Live Dashboard
-Real-time debate visualization at **[live.aragora.ai](https://live.aragora.ai)**:
+Real-time debate visualization at **[aragora.ai](https://aragora.ai)**:
 - WebSocket streaming of agent proposals and critiques
 - Argument graph visualization
 - Late-joiner state sync
@@ -179,7 +179,7 @@ aragora ask "Implement a secure auth system" \
   --consensus majority
 ```
 
-> **See [docs/QUICKSTART.md](docs/QUICKSTART.md) for the complete 5-minute setup guide.**
+> **See [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for the complete setup and usage guide.**
 
 ### Python SDK
 
@@ -520,7 +520,7 @@ The aragora API server runs on AWS Lightsail with Cloudflare Tunnel:
 ./deploy/lightsail-setup.sh
 
 # The server runs at api.aragora.ai via Cloudflare Tunnel
-# Frontend at live.aragora.ai via Cloudflare Pages
+# Frontend at aragora.ai via Cloudflare Pages
 ```
 
 Configuration:
@@ -591,7 +591,7 @@ Aragora implements several security measures:
 Configure security via environment variables:
 ```bash
 export ARAGORA_API_TOKEN="your-secret-token"    # Enable token auth
-export ARAGORA_ALLOWED_ORIGINS="https://aragora.ai,https://live.aragora.ai"
+export ARAGORA_ALLOWED_ORIGINS="https://aragora.ai,https://www.aragora.ai"
 export ARAGORA_TOKEN_TTL=3600                   # Token lifetime in seconds
 export ARAGORA_WS_MAX_MESSAGE_SIZE=65536        # Max WebSocket message size (bytes)
 ```

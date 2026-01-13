@@ -18,6 +18,49 @@ from aragora.resilience import reset_all_circuit_breakers
 
 
 # ============================================================================
+# Test Tier Configuration
+# ============================================================================
+
+def pytest_configure(config):
+    """Register custom pytest markers for test tiers.
+
+    Test Tiers:
+    - smoke: Quick sanity tests for CI (<5 min total)
+    - integration: Tests requiring external dependencies (APIs, DBs)
+    - slow: Long-running tests (>30s each)
+
+    CI Strategy:
+    - PR CI: pytest -m "not slow and not integration" (~5 min)
+    - Nightly: pytest (full suite)
+
+    Usage:
+        @pytest.mark.smoke
+        def test_basic_import():
+            ...
+
+        @pytest.mark.slow
+        def test_full_debate_with_all_agents():
+            ...
+
+        @pytest.mark.integration
+        def test_supabase_connection():
+            ...
+    """
+    config.addinivalue_line(
+        "markers", "smoke: quick sanity tests for fast CI feedback"
+    )
+    config.addinivalue_line(
+        "markers", "integration: tests requiring external dependencies (APIs, databases)"
+    )
+    config.addinivalue_line(
+        "markers", "slow: long-running tests (>30 seconds)"
+    )
+    config.addinivalue_line(
+        "markers", "unit: isolated unit tests with no external dependencies"
+    )
+
+
+# ============================================================================
 # Global Test Setup
 # ============================================================================
 

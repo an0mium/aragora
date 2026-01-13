@@ -19,11 +19,14 @@ This guide covers setting up and developing the Aragora Live frontend applicatio
 ## Canonical Frontend
 
 The active, production frontend lives in `aragora/live/` (Next.js App Router).
-This is the canonical UI for new feature work and is what powers live.aragora.ai.
+This is the canonical UI for new feature work and is what powers aragora.ai.
 
 Other frontend-related directories in the repo:
-- `frontend/`: legacy prototype with a single hook file; not wired to builds or deployments.
-- `aragora-js/`: TypeScript SDK for API consumers; not a UI.
+- `aragora-js/`: TypeScript SDK for API consumers (not a UI)
+
+> **Note:** The `frontend/` directory was removed as it contained only a single orphaned
+> WebSocket hook that duplicated functionality in `aragora/live/`. All frontend development
+> should happen in `aragora/live/`.
 
 ---
 
