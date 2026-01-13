@@ -100,3 +100,25 @@ jobs:
         run: |
           npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
           npm audit --audit-level=high || true
+
+  secret-scanning:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for scanning all commits
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+      - name: Run TruffleHog (additional scan)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified --fail
