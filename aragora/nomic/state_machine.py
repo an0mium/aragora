@@ -363,10 +363,16 @@ class NomicStateMachine:
         # Call transition callbacks
         for callback in self._on_transition_callbacks:
             try:
-                supports_metrics = self._transition_callback_supports_metrics.get(callback)
+                try:
+                    supports_metrics = self._transition_callback_supports_metrics.get(callback)
+                except TypeError:
+                    supports_metrics = None
                 if supports_metrics is None:
                     supports_metrics = self._callback_supports_metrics(callback)
-                    self._transition_callback_supports_metrics[callback] = supports_metrics
+                    try:
+                        self._transition_callback_supports_metrics[callback] = supports_metrics
+                    except TypeError:
+                        pass
 
                 if asyncio.iscoroutinefunction(callback):
                     if supports_metrics:

@@ -196,7 +196,7 @@ See [Database Issues Runbook](RUNBOOK_DATABASE_ISSUES.md)
 
 ```bash
 # 1. Check JWT configuration
-echo "JWT_SECRET_KEY length: ${#JWT_SECRET_KEY}"
+echo "ARAGORA_JWT_SECRET length: ${#ARAGORA_JWT_SECRET}"
 
 # 2. Check auth stats
 curl -s http://localhost:8080/api/auth/stats | jq .
@@ -206,7 +206,7 @@ curl -X POST http://localhost:8080/api/auth/token \
   -H "Content-Type: application/json" \
   -d '{"username":"test","password":"test"}'
 
-# 4. If JWT_SECRET_KEY changed, existing tokens are invalid
+# 4. If ARAGORA_JWT_SECRET changed, existing tokens are invalid
 # Users need to re-authenticate
 ```
 

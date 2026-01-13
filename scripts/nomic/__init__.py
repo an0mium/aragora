@@ -29,11 +29,23 @@ from .deep_audit import DeepAuditRunner, AuditResult
 from .disagreement import DisagreementHandler, DisagreementActions
 from .arena_factory import ArenaFactory, ArenaFactoryDependencies, ArenaConfig
 from .post_processing import PostDebateProcessor, ProcessingDependencies, ProcessingContext
+from .error_taxonomy import (
+    ErrorType,
+    Severity,
+    ErrorCategory,
+    ErrorPattern,
+    classify_error,
+    extract_test_failures,
+    format_learning_summary,
+)
 from .config import (
     NOMIC_AUTO_COMMIT,
     NOMIC_AUTO_CONTINUE,
     NOMIC_MAX_CYCLE_SECONDS,
     NOMIC_STALL_THRESHOLD,
+    NOMIC_FIX_DEADLINE_BUFFER,
+    NOMIC_FIX_ITERATION_BUDGET,
+    NOMIC_AUTO_CHECKPOINT,
     NOMIC_USE_PERFORMANCE_SELECTION,
     NOMIC_TRICKSTER_ENABLED,
     NOMIC_TRICKSTER_SENSITIVITY,
@@ -69,11 +81,22 @@ __all__ = [
     "PostDebateProcessor",
     "ProcessingDependencies",
     "ProcessingContext",
+    # Error Taxonomy (learning)
+    "ErrorType",
+    "Severity",
+    "ErrorCategory",
+    "ErrorPattern",
+    "classify_error",
+    "extract_test_failures",
+    "format_learning_summary",
     # Config
     "NOMIC_AUTO_COMMIT",
     "NOMIC_AUTO_CONTINUE",
     "NOMIC_MAX_CYCLE_SECONDS",
     "NOMIC_STALL_THRESHOLD",
+    "NOMIC_FIX_DEADLINE_BUFFER",
+    "NOMIC_FIX_ITERATION_BUDGET",
+    "NOMIC_AUTO_CHECKPOINT",
     "NOMIC_USE_PERFORMANCE_SELECTION",
     "NOMIC_TRICKSTER_ENABLED",
     "NOMIC_TRICKSTER_SENSITIVITY",

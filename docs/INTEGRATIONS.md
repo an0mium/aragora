@@ -1,4 +1,4 @@
-# Chat Platform Integrations
+# Integrations
 
 Aragora supports posting debate notifications to Discord and Slack channels via webhooks.
 
@@ -267,20 +267,118 @@ Slack messages use Block Kit for rich formatting:
 | `error` | :x: | Failed operations |
 | `critical` | :rotating_light: | System failures |
 
+### Slack App Endpoints (Server)
+
+Expose Slack slash commands and interactive actions via the server handler:
+
+- `POST /api/integrations/slack/commands`
+- `POST /api/integrations/slack/interactive`
+- `POST /api/integrations/slack/events`
+- `GET /api/integrations/slack/status`
+
+Set `SLACK_SIGNING_SECRET` to verify signatures. `SLACK_BOT_TOKEN` enables
+optional API calls, and `SLACK_WEBHOOK_URL` enables outbound notifications.
+
+---
+
+## Telegram Integration
+
+Send debate summaries and consensus alerts to Telegram via a bot.
+
+```python
+import asyncio
+from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
+
+async def notify(result):
+    telegram = TelegramIntegration(
+        TelegramConfig(
+            bot_token="123456:ABC-DEF1234...",
+            chat_id="-1001234567890",
+            notify_on_consensus=True,
+            notify_on_debate_end=True,
+        )
+    )
+
+    # Post a debate summary
+    await telegram.post_debate_summary(result)
+    await telegram.close()
+
+asyncio.run(notify(result))
+```
+
+---
+
+## Email Integration
+
+Send summaries and alerts via SMTP.
+
+```python
+import asyncio
+from aragora.integrations.email import EmailConfig, EmailIntegration, EmailRecipient
+
+async def notify(result):
+    email = EmailIntegration(
+        EmailConfig(
+            smtp_host="smtp.sendgrid.net",
+            smtp_username="apikey",
+            smtp_password="your-api-key",
+            from_email="debates@aragora.ai",
+        )
+    )
+    email.add_recipient(EmailRecipient(email="ops@example.com", name="Ops Team"))
+
+    await email.send_debate_summary(result)
+    await email.close()
+
+asyncio.run(notify(result))
+```
+
+---
+
+## Outbound Webhooks
+
+Use the webhook dispatcher for low-latency event delivery to external systems.
+Configure webhooks via `ARAGORA_WEBHOOKS` or `ARAGORA_WEBHOOKS_CONFIG`.
+
+```json
+[
+  {
+    "name": "alerts",
+    "url": "https://hooks.example.com/aragora",
+    "secret": "hmac-secret",
+    "event_types": ["consensus", "debate_end"],
+    "loop_ids": ["loop_abc123"]
+  }
+]
+```
+
+```python
+from aragora.integrations.webhooks import init_dispatcher
+from aragora.server.stream import SyncEventEmitter, create_arena_hooks
+
+emitter = SyncEventEmitter()
+hooks = create_arena_hooks(emitter)
+
+dispatcher = init_dispatcher()
+if dispatcher:
+    emitter.subscribe(lambda event: dispatcher.enqueue(event.to_dict()))
+```
+
 ---
 
 ## Environment Variables
 
-Configure integrations via environment variables:
+Integrations are configured programmatically; you can load configs from env vars
+if desired. The server-side Slack handler uses these variables:
 
 ```bash
-# Discord
-export DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
-export DISCORD_BOT_NAME="Aragora"
-export DISCORD_RATE_LIMIT=30
-
-# Slack
+# Slack server integration
+export SLACK_SIGNING_SECRET="..."
+export SLACK_BOT_TOKEN="xoxb-..."
 export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+
+# Optional app-level config for integration classes
+export DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
 export SLACK_CHANNEL="#debates"
 export SLACK_BOT_NAME="Aragora"
 ```
@@ -289,12 +387,15 @@ export SLACK_BOT_NAME="Aragora"
 
 ## Server Integration
 
-Use integrations with the Aragora server:
+Hook into debate events by subscribing to the stream emitter used by Arena:
 
 ```python
-from aragora.server import UnifiedServer
+import asyncio
+from aragora.debate.orchestrator import Arena
 from aragora.integrations.discord import DiscordConfig, DiscordIntegration
 from aragora.integrations.slack import SlackConfig, SlackIntegration
+from aragora.server.stream import SyncEventEmitter, create_arena_hooks
+from aragora.server.stream.events import StreamEventType
 
 # Create integrations
 discord = DiscordIntegration(DiscordConfig(
@@ -304,21 +405,40 @@ slack = SlackIntegration(SlackConfig(
     webhook_url=os.environ["SLACK_WEBHOOK_URL"]
 ))
 
-# Hook into debate events
-async def on_debate_complete(result):
-    await discord.send_consensus_reached(
-        debate_id=result.debate_id,
-        topic=result.task,
-        consensus_type="majority",
-        result={
-            "winner": result.winner,
-            "confidence": result.confidence,
-        },
-    )
-    await slack.post_debate_summary(result)
+# Wire emitter -> hooks
+emitter = SyncEventEmitter(loop_id="debate_123")
+hooks = create_arena_hooks(emitter)
+debate_tasks = {}
 
-# Register handler
-server.on_debate_complete(on_debate_complete)
+async def handle_event(event):
+    if event.type == StreamEventType.DEBATE_START:
+        debate_tasks[event.loop_id] = event.data.get("task", "")
+    if event.type == StreamEventType.CONSENSUS:
+        task = debate_tasks.get(event.loop_id, "Debate")
+        await discord.send_consensus_reached(
+            debate_id=event.loop_id,
+            topic=task,
+            consensus_type="majority",
+            result={
+                "winner": event.data.get("answer", ""),
+                "confidence": event.data.get("confidence", 0.0),
+            },
+        )
+        await slack.send_consensus_alert(
+            debate_id=event.loop_id,
+            confidence=event.data.get("confidence", 0.0),
+            winner=event.data.get("answer", ""),
+            task=task,
+        )
+
+def enqueue(event):
+    # Fan-out async work in your own scheduler/task runner
+    asyncio.create_task(handle_event(event))
+
+emitter.subscribe(enqueue)
+
+# Start an arena with the hooks
+arena = Arena(env, agents, event_hooks=hooks, event_emitter=emitter)
 ```
 
 ---

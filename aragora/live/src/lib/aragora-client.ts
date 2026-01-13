@@ -1278,6 +1278,197 @@ class NomicAdminAPI {
 }
 
 // =============================================================================
+// Genesis API (Genetic Evolution)
+// =============================================================================
+
+export interface GenesisStats {
+  total_genomes: number;
+  active_genomes: number;
+  total_debates: number;
+  average_fitness: number;
+  top_fitness: number;
+}
+
+export interface GenesisEvent {
+  event_type: string;
+  genome_id: string;
+  timestamp: string;
+  details: Record<string, unknown>;
+}
+
+export interface Genome {
+  genome_id: string;
+  fitness: number;
+  generation: number;
+  parent_ids?: string[];
+  traits: Record<string, unknown>;
+  created_at: string;
+  debates_count: number;
+}
+
+export interface GenesisLineage {
+  genome_id: string;
+  ancestors: Genome[];
+  descendants: Genome[];
+  depth: number;
+}
+
+export interface GenesisTree {
+  debate_id: string;
+  nodes: Array<{
+    id: string;
+    genome_id: string;
+    parent_id?: string;
+    fitness: number;
+  }>;
+}
+
+class GenesisAPI {
+  constructor(private http: HttpClient) {}
+
+  async stats(): Promise<{ stats: GenesisStats }> {
+    return this.http.get('/api/genesis/stats');
+  }
+
+  async events(limit = 20): Promise<{ events: GenesisEvent[] }> {
+    return this.http.get(`/api/genesis/events?limit=${limit}`);
+  }
+
+  async genomes(params?: { limit?: number; offset?: number }): Promise<{ genomes: Genome[] }> {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set('limit', params.limit.toString());
+    if (params?.offset) query.set('offset', params.offset.toString());
+    return this.http.get(`/api/genesis/genomes?${query}`);
+  }
+
+  async topGenomes(limit = 10): Promise<{ genomes: Genome[] }> {
+    return this.http.get(`/api/genesis/genomes/top?limit=${limit}`);
+  }
+
+  async population(): Promise<{ population: Genome[]; generation: number }> {
+    return this.http.get('/api/genesis/population');
+  }
+
+  async genome(genomeId: string): Promise<{ genome: Genome }> {
+    return this.http.get(`/api/genesis/genomes/${genomeId}`);
+  }
+
+  async lineage(genomeId: string): Promise<{ lineage: GenesisLineage }> {
+    return this.http.get(`/api/genesis/lineage/${genomeId}`);
+  }
+
+  async tree(debateId: string): Promise<{ tree: GenesisTree }> {
+    return this.http.get(`/api/genesis/tree/${debateId}`);
+  }
+}
+
+// =============================================================================
+// Gauntlet API (Stress Testing)
+// =============================================================================
+
+export interface GauntletPersona {
+  id: string;
+  name: string;
+  description: string;
+  traits: string[];
+  difficulty: 'easy' | 'medium' | 'hard' | 'extreme';
+}
+
+export interface GauntletRunRequest {
+  decision: string;
+  personas?: string[];
+  rounds?: number;
+  stress_level?: number;
+}
+
+export interface GauntletResult {
+  gauntlet_id: string;
+  decision: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  personas_used: string[];
+  rounds_completed: number;
+  risk_score: number;
+  vulnerabilities: Array<{
+    category: string;
+    severity: string;
+    description: string;
+  }>;
+  recommendation: string;
+  created_at: string;
+  completed_at?: string;
+}
+
+export interface GauntletReceipt {
+  gauntlet_id: string;
+  decision: string;
+  verdict: 'approved' | 'rejected' | 'needs_review';
+  confidence: number;
+  risk_factors: Array<{
+    factor: string;
+    weight: number;
+    assessment: string;
+  }>;
+  signatures: string[];
+}
+
+export interface GauntletHeatmap {
+  gauntlet_id: string;
+  categories: string[];
+  data: number[][];
+  max_risk: number;
+}
+
+export interface GauntletComparison {
+  gauntlet_a: GauntletResult;
+  gauntlet_b: GauntletResult;
+  differences: Array<{
+    aspect: string;
+    a_value: unknown;
+    b_value: unknown;
+  }>;
+  recommendation: string;
+}
+
+class GauntletAPI {
+  constructor(private http: HttpClient) {}
+
+  async run(request: GauntletRunRequest): Promise<{ gauntlet_id: string; status: string }> {
+    return this.http.post('/api/gauntlet/run', request);
+  }
+
+  async personas(): Promise<{ personas: GauntletPersona[] }> {
+    return this.http.get('/api/gauntlet/personas');
+  }
+
+  async results(params?: { limit?: number; offset?: number }): Promise<{ results: GauntletResult[] }> {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set('limit', params.limit.toString());
+    if (params?.offset) query.set('offset', params.offset.toString());
+    return this.http.get(`/api/gauntlet/results?${query}`);
+  }
+
+  async get(gauntletId: string): Promise<{ gauntlet: GauntletResult }> {
+    return this.http.get(`/api/gauntlet/${gauntletId}`);
+  }
+
+  async receipt(gauntletId: string): Promise<{ receipt: GauntletReceipt }> {
+    return this.http.get(`/api/gauntlet/${gauntletId}/receipt`);
+  }
+
+  async heatmap(gauntletId: string): Promise<{ heatmap: GauntletHeatmap }> {
+    return this.http.get(`/api/gauntlet/${gauntletId}/heatmap`);
+  }
+
+  async compare(gauntletIdA: string, gauntletIdB: string): Promise<{ comparison: GauntletComparison }> {
+    return this.http.get(`/api/gauntlet/${gauntletIdA}/compare/${gauntletIdB}`);
+  }
+
+  async delete(gauntletId: string): Promise<{ success: boolean }> {
+    return this.http.delete(`/api/gauntlet/${gauntletId}`);
+  }
+}
+
+// =============================================================================
 // Main Client
 // =============================================================================
 
@@ -1301,6 +1492,8 @@ export class AragoraClient {
   readonly moments: MomentsAPI;
   readonly agentDetail: AgentDetailAPI;
   readonly nomicAdmin: NomicAdminAPI;
+  readonly genesis: GenesisAPI;
+  readonly gauntlet: GauntletAPI;
 
   constructor(config: AragoraClientConfig) {
     this.http = new HttpClient(config);
@@ -1322,6 +1515,8 @@ export class AragoraClient {
     this.moments = new MomentsAPI(this.http);
     this.agentDetail = new AgentDetailAPI(this.http);
     this.nomicAdmin = new NomicAdminAPI(this.http);
+    this.genesis = new GenesisAPI(this.http);
+    this.gauntlet = new GauntletAPI(this.http);
   }
 
   async health(): Promise<HealthStatus> {

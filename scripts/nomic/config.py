@@ -28,6 +28,16 @@ NOMIC_MAX_CYCLE_SECONDS = int(os.environ.get("NOMIC_MAX_CYCLE_SECONDS", "7200"))
 # Stall detection threshold in seconds (default 30 minutes)
 NOMIC_STALL_THRESHOLD = int(os.environ.get("NOMIC_STALL_THRESHOLD", "1800"))
 
+# Minimum time buffer before deadline to exit verify-fix loop (default 5 minutes)
+NOMIC_FIX_DEADLINE_BUFFER = int(os.environ.get("NOMIC_FIX_DEADLINE_BUFFER", "300"))
+
+# Time allocation per fix iteration in seconds (default 10 minutes)
+# Used to estimate if there's time for another iteration
+NOMIC_FIX_ITERATION_BUDGET = int(os.environ.get("NOMIC_FIX_ITERATION_BUDGET", "600"))
+
+# Enable automatic checkpointing between phases (default ON)
+NOMIC_AUTO_CHECKPOINT = os.environ.get("NOMIC_AUTO_CHECKPOINT", "1") == "1"
+
 
 # =============================================================================
 # INTEGRATION FLAGS - Enable/disable feature integrations

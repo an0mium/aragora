@@ -20,7 +20,7 @@ This runbook provides procedures for common operational issues, debugging, and r
 | Service | Port | Protocol |
 |---------|------|----------|
 | API Server | 8080 | HTTP |
-| WebSocket Server | 8766 | WS |
+| WebSocket Server | 8765 | WS |
 | Prometheus | 9090 | HTTP |
 | Grafana | 3000 | HTTP |
 | Redis | 6379 | TCP |
@@ -55,7 +55,7 @@ SUPABASE_KEY               # Supabase API key
 
 # Redis (optional but recommended)
 ARAGORA_REDIS_URL          # redis://host:port/db
-ARAGORA_ENABLE_REDIS_RATE_LIMIT=1
+REDIS_URL                  # legacy Redis URL used by queues/oauth
 
 # Observability
 SENTRY_DSN                 # Sentry error tracking
@@ -347,7 +347,7 @@ watch -n 30 'curl -s http://localhost:8080/api/metrics | grep process_resident'
 curl -v http://localhost:8080/api/health
 
 # Check WebSocket connectivity
-websocat ws://localhost:8766 -v
+websocat ws://localhost:8765 -v
 
 # Check Redis connectivity
 redis-cli -h localhost ping
@@ -426,7 +426,7 @@ systemctl restart aragora
 # Or manually:
 kill -TERM $(pgrep -f "aragora serve")
 sleep 5
-aragora serve --api-port 8080 --ws-port 8766 &
+aragora serve --api-port 8080 --ws-port 8765 &
 ```
 
 **Force Restart (if hung):**
@@ -694,7 +694,7 @@ spec:
         ports:
         - containerPort: 8080
           name: http
-        - containerPort: 8766
+        - containerPort: 8765
           name: websocket
         envFrom:
         - configMapRef:
@@ -1498,30 +1498,26 @@ systemctl start aragora
 
 **Symptoms:**
 - Webhook events not reaching external systems
-- `WEBHOOK_URL` endpoint returning errors
+- Configured webhook endpoints returning errors
 - Event queue growing
 
 **Diagnosis:**
 
 ```bash
-# Check webhook status
-curl http://localhost:8080/api/webhooks/status
-
-# Check event queue size
-curl http://localhost:8080/api/webhooks/queue | jq '.size'
+# List configured webhooks
+curl http://localhost:8080/api/webhooks | jq .
 
 # Test webhook endpoint
-curl -X POST $WEBHOOK_URL -H "Content-Type: application/json" -d '{"test": true}'
+curl -X POST http://localhost:8080/api/webhooks/<id>/test | jq .
 ```
 
 **Recovery:**
 
 ```bash
-# Flush failed events (if endpoint is back up)
-curl -X POST http://localhost:8080/api/webhooks/retry-failed
-
 # Disable webhook temporarily
-unset WEBHOOK_URL
+curl -X DELETE http://localhost:8080/api/webhooks/<id>
+
+# Or remove ARAGORA_WEBHOOKS/ARAGORA_WEBHOOKS_CONFIG and restart
 systemctl restart aragora
 
 # Or increase queue size

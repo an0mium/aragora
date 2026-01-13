@@ -6,7 +6,7 @@ Operational procedures for Aragora deployments.
 
 | Target | Health Endpoint | SSH Access |
 |--------|-----------------|------------|
-| EC2 Staging | `http://{EC2_HOST}:8765/api/health` | `ssh -i ~/.ssh/ec2 ec2-user@{EC2_HOST}` |
+| EC2 Staging | `http://{EC2_HOST}:8080/api/health` | `ssh -i ~/.ssh/ec2 ec2-user@{EC2_HOST}` |
 | Lightsail Prod | `http://{LIGHTSAIL_HOST}:8080/api/health` | `ssh -i ~/.ssh/lightsail ubuntu@{LIGHTSAIL_HOST}` |
 | Cloudflare | `https://aragora.live/api/health` | N/A (static site) |
 
@@ -60,7 +60,7 @@ sudo fuser -k 8080/tcp 2>/dev/null || true
 sudo systemctl restart aragora-staging
 
 # 6. Verify health
-curl -sf http://localhost:8765/api/health
+curl -sf http://localhost:8080/api/health
 ```
 
 ### Lightsail Production
@@ -135,7 +135,7 @@ npx wrangler pages deployments rollback <deployment-id> --project-name=aragora
 
 ```bash
 # EC2 Staging
-curl -s http://$EC2_HOST:8765/api/health | jq .
+curl -s http://$EC2_HOST:8080/api/health | jq .
 
 # Lightsail Production
 curl -s http://$LIGHTSAIL_HOST:8080/api/health | jq .

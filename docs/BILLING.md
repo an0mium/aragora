@@ -192,6 +192,24 @@ Content-Type: application/json
 }
 ```
 
+## Notifications & Payment Recovery
+
+Aragora can send billing notifications via SMTP or a webhook. Configure these
+variables in your deployment environment:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ARAGORA_SMTP_HOST` | SMTP server host | - |
+| `ARAGORA_SMTP_PORT` | SMTP server port | `587` |
+| `ARAGORA_SMTP_USER` | SMTP username | - |
+| `ARAGORA_SMTP_PASSWORD` | SMTP password | - |
+| `ARAGORA_SMTP_FROM` | From email address | `billing@aragora.ai` |
+| `ARAGORA_NOTIFICATION_WEBHOOK` | Webhook URL for billing notifications | - |
+| `ARAGORA_PAYMENT_GRACE_DAYS` | Days before downgrade after payment failure | `10` |
+
+If you enable SMTP, ensure the credentials are stored in your secret manager
+and that outbound SMTP is allowed from your deployment network.
+
 ## User Management
 
 ### Creating Users
@@ -402,7 +420,7 @@ update_subscription(
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `ARAGORA_JWT_SECRET` | Secret key for JWT signing | Yes (auto-generated if missing) |
+| `ARAGORA_JWT_SECRET` | Secret key for JWT signing | Yes (required for auth; required in prod) |
 | `ARAGORA_JWT_EXPIRY_HOURS` | Access token expiry (default: 24) | No |
 | `ARAGORA_REFRESH_TOKEN_EXPIRY_DAYS` | Refresh token expiry (default: 30) | No |
 | `STRIPE_SECRET_KEY` | Stripe API secret key | For paid tiers |

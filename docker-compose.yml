@@ -29,9 +29,17 @@ services:
       redis:
         condition: service_healthy
     environment:
+      # === AWS Secrets Manager (Production) ===
+      # Set ARAGORA_USE_SECRETS_MANAGER=true to load secrets from AWS
+      # Requires: boto3 installed, IAM role with secretsmanager:GetSecretValue
+      - ARAGORA_USE_SECRETS_MANAGER=${ARAGORA_USE_SECRETS_MANAGER:-false}
+      - ARAGORA_SECRET_NAME=${ARAGORA_SECRET_NAME:-aragora/production}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      # === Local Development (fallback) ===
+      # These are used when AWS Secrets Manager is disabled
       # Required: At least one AI provider key
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # Optional: Additional providers
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - XAI_API_KEY=${XAI_API_KEY:-}
@@ -44,18 +52,18 @@ services:
       - ARAGORA_MAX_CONCURRENT_DEBATES=${ARAGORA_MAX_CONCURRENT_DEBATES:-5}
       # Redis (for OAuth state, session management, and caching)
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
-      # Stripe billing
+      # Stripe billing (use Secrets Manager in production)
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
       - STRIPE_PRICE_STARTER=${STRIPE_PRICE_STARTER:-}
       - STRIPE_PRICE_PROFESSIONAL=${STRIPE_PRICE_PROFESSIONAL:-}
       - STRIPE_PRICE_ENTERPRISE=${STRIPE_PRICE_ENTERPRISE:-}
-      # OAuth (Google)
+      # OAuth (use Secrets Manager in production)
       - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
       - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}
       - GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-}
-      # JWT
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-}
+      # JWT (use Secrets Manager in production)
+      - ARAGORA_JWT_SECRET=${ARAGORA_JWT_SECRET:-}
       - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
     volumes:
       # Persist debate data

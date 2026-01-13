@@ -17,7 +17,7 @@ Aragora implements defense-in-depth security with:
 
 ### Sandboxed Exec (proofs.py)
 
-**Location**: `aragora/verification/proofs.py:261`
+**Location**: `aragora/verification/proofs.py`
 
 **Purpose**: Execute user-provided proof assertions in a controlled environment.
 
@@ -29,7 +29,7 @@ Aragora implements defense-in-depth security with:
 5. **Pattern blocklist**: Blocks `__class__`, `__import__`, `exec(`, `eval(`, `open(`, etc.
 
 ```python
-# Blocked patterns (proofs.py:70-103)
+# Blocked patterns (proofs.py)
 DANGEROUS_PATTERNS = [
     "__class__", "__bases__", "__subclasses__", "__mro__",
     "__globals__", "__code__", "__builtins__", "__import__",
@@ -38,7 +38,7 @@ DANGEROUS_PATTERNS = [
     # ... and more
 ]
 
-# Safe builtins whitelist (proofs.py:120-160)
+# Safe builtins whitelist (proofs.py)
 SAFE_BUILTINS = {
     "abs", "all", "any", "bool", "dict", "float", "int",
     "len", "list", "max", "min", "range", "set", "str",
@@ -53,7 +53,7 @@ SAFE_BUILTINS = {
 
 ### AST-Based Condition Evaluation (policy/engine.py)
 
-**Location**: `aragora/policy/engine.py:181-262`
+**Location**: `aragora/policy/engine.py`
 
 **Purpose**: Evaluate policy condition expressions without using `eval()`.
 
@@ -106,7 +106,7 @@ subprocess.run(f"git commit -m {message}", shell=True)  # NEVER USED
 
 ### Subprocess Runner (subprocess_runner.py)
 
-**Location**: `aragora/utils/subprocess_runner.py:332`
+**Location**: `aragora/utils/subprocess_runner.py`
 
 **Comment**: `shell=False,  # Never use shell=True`
 
@@ -122,7 +122,7 @@ This module provides the standard interface for subprocess execution throughout 
 
 ### HTTP Headers (unified_server.py)
 
-**Location**: `aragora/server/unified_server.py:1152-1165`
+**Location**: `aragora/server/unified_server.py`
 
 The server sets strict CSP headers:
 

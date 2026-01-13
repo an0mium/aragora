@@ -400,7 +400,7 @@ spec:
 
 ```bash
 # Production secrets (set in deployment platform)
-JWT_SECRET_KEY=<random-256-bit-key>
+ARAGORA_JWT_SECRET=<random-256-bit-key>
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 ANTHROPIC_API_KEY=sk-ant-...
@@ -422,7 +422,7 @@ metadata:
   namespace: aragora
 type: Opaque
 stringData:
-  jwt-secret-key: ${JWT_SECRET_KEY}
+  aragora-jwt-secret: ${ARAGORA_JWT_SECRET}
   stripe-secret-key: ${STRIPE_SECRET_KEY}
   anthropic-api-key: ${ANTHROPIC_API_KEY}
 ```
@@ -439,7 +439,7 @@ client = hvac.Client(url='https://vault.internal:8200')
 client.auth.kubernetes.login(role='aragora')
 
 secrets = client.secrets.kv.read_secret_version(path='aragora/production')
-JWT_SECRET_KEY = secrets['data']['data']['jwt_secret_key']
+ARAGORA_JWT_SECRET = secrets['data']['data']['aragora_jwt_secret']
 ```
 
 ---

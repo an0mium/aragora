@@ -103,6 +103,14 @@ try:
         NOMIC_AUTO_CONTINUE as _NOMIC_AUTO_CONTINUE,
         NOMIC_MAX_CYCLE_SECONDS as _NOMIC_MAX_CYCLE_SECONDS,
         NOMIC_STALL_THRESHOLD as _NOMIC_STALL_THRESHOLD,
+        NOMIC_FIX_DEADLINE_BUFFER as _NOMIC_FIX_DEADLINE_BUFFER,
+        NOMIC_FIX_ITERATION_BUDGET as _NOMIC_FIX_ITERATION_BUDGET,
+        NOMIC_AUTO_CHECKPOINT as _NOMIC_AUTO_CHECKPOINT,
+    )
+    from scripts.nomic.error_taxonomy import (
+        classify_error as _classify_error,
+        ErrorPattern as _ErrorPattern,
+        format_learning_summary as _format_learning_summary,
     )
 
     # Import extracted phase classes from aragora.nomic package
@@ -161,6 +169,15 @@ NOMIC_MAX_CYCLE_SECONDS = int(os.environ.get("NOMIC_MAX_CYCLE_SECONDS", "7200"))
 
 # Stall detection threshold in seconds (default 30 minutes)
 NOMIC_STALL_THRESHOLD = int(os.environ.get("NOMIC_STALL_THRESHOLD", "1800"))
+
+# Minimum time buffer before deadline to exit verify-fix loop (default 5 minutes)
+NOMIC_FIX_DEADLINE_BUFFER = int(os.environ.get("NOMIC_FIX_DEADLINE_BUFFER", "300"))
+
+# Time allocation per fix iteration in seconds (default 10 minutes)
+NOMIC_FIX_ITERATION_BUDGET = int(os.environ.get("NOMIC_FIX_ITERATION_BUDGET", "600"))
+
+# Enable automatic checkpointing between phases (default ON)
+NOMIC_AUTO_CHECKPOINT = os.environ.get("NOMIC_AUTO_CHECKPOINT", "1") == "1"
 
 
 # =============================================================================
@@ -3418,6 +3435,92 @@ The most valuable proposals combine deep analysis with actionable implementation
             return "\n".join(lines) if len(lines) > 2 else ""
         except Exception:
             return ""
+
+    def _record_failure_patterns(self, test_output: str, design_context: str = "") -> None:
+        """
+        Record failure patterns for learning using structured error taxonomy.
+
+        Extracts test failures and categorizes them for future avoidance.
+        Uses scripts.nomic.error_taxonomy for structured pattern tracking.
+
+        Args:
+            test_output: Raw pytest output showing failures
+            design_context: The design that led to these failures
+        """
+        if not hasattr(self, "critique_store") or not self.critique_store:
+            return
+
+        try:
+            # Use error taxonomy to extract structured failures
+            if _NOMIC_PACKAGE_AVAILABLE:
+                from scripts.nomic.error_taxonomy import extract_test_failures
+
+                failures = extract_test_failures(test_output)
+            else:
+                # Fallback: simple regex extraction
+                import re
+                failures = []
+                for match in re.finditer(r"FAILED\s+([\w/]+\.py)::([\w\[\]]+)", test_output):
+                    failures.append({"file": match.group(1), "test": match.group(2), "type": "assertion"})
+
+            if not failures:
+                return
+
+            # Get database connection
+            conn = self.critique_store.conn if hasattr(self.critique_store, "conn") else None
+            if not conn:
+                import sqlite3
+                conn = sqlite3.connect(self.critique_store.db_path)
+
+            cursor = conn.cursor()
+
+            # Ensure patterns table exists
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS patterns (
+                    id INTEGER PRIMARY KEY,
+                    issue_type TEXT,
+                    issue_text TEXT,
+                    file_path TEXT,
+                    failure_count INTEGER DEFAULT 0,
+                    success_count INTEGER DEFAULT 0,
+                    last_seen TEXT,
+                    design_context TEXT
+                )
+            """)
+
+            # Record each failure
+            now = datetime.now().isoformat()
+            for failure in failures:
+                file_path = failure.get("file", "")
+                test_name = failure.get("test", "")
+                failure_type = failure.get("type", "unknown")
+
+                # Check if pattern exists
+                cursor.execute(
+                    "SELECT id, failure_count FROM patterns WHERE issue_type = ? AND issue_text = ?",
+                    (failure_type, test_name)
+                )
+                existing = cursor.fetchone()
+
+                if existing:
+                    # Increment failure count
+                    cursor.execute(
+                        "UPDATE patterns SET failure_count = failure_count + 1, last_seen = ? WHERE id = ?",
+                        (now, existing[0])
+                    )
+                else:
+                    # Insert new pattern
+                    cursor.execute(
+                        """INSERT INTO patterns (issue_type, issue_text, file_path, failure_count, last_seen, design_context)
+                           VALUES (?, ?, ?, 1, ?, ?)""",
+                        (failure_type, test_name, file_path, now, design_context[:500] if design_context else "")
+                    )
+
+            conn.commit()
+            self._log(f"  [learning] Recorded {len(failures)} failure patterns")
+
+        except Exception as e:
+            logger.warning(f"Failed to record failure patterns: {e}")
 
     def _format_continuum_patterns(self, limit: int = 5) -> str:
         """Format patterns from ContinuumMemory for prompt injection.
@@ -8152,17 +8255,32 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         cycle_result["fix_iterations"] = []
         best_test_score = 0  # Track progress: best passing test count
         best_test_output = ""
+        iteration_times: list[float] = []  # Track actual iteration durations for budgeting
 
         while True:
-            # Deadline enforcement: check remaining time before each iteration
+            iteration_start = datetime.now()
+
+            # Deadline enforcement: smart time budgeting based on actual iteration times
             if cycle_deadline:
                 remaining_seconds = (cycle_deadline - datetime.now()).total_seconds()
-                if remaining_seconds < 300:  # Less than 5 minutes remaining
+
+                # Calculate estimated time for next iteration
+                if iteration_times:
+                    avg_iteration_time = sum(iteration_times) / len(iteration_times)
+                    estimated_next = avg_iteration_time * 1.2  # 20% buffer
+                else:
+                    estimated_next = NOMIC_FIX_ITERATION_BUDGET  # Default budget
+
+                # Check if we have enough time for another iteration
+                time_needed = max(NOMIC_FIX_DEADLINE_BUFFER, estimated_next)
+
+                if remaining_seconds < time_needed:
                     self._log(
-                        f"\n  [deadline] Only {remaining_seconds:.0f}s remaining - exiting fix loop early"
+                        f"\n  [deadline] {remaining_seconds:.0f}s remaining, need ~{time_needed:.0f}s - exiting fix loop"
                     )
                     cycle_result["outcome"] = "deadline_reached"
                     cycle_result["deadline_remaining_seconds"] = remaining_seconds
+                    cycle_result["iteration_times"] = iteration_times
                     # Try to preserve any partial progress
                     if best_test_score > 0:
                         self._log(
@@ -8227,10 +8345,16 @@ Start directly with "## 1. FILE CHANGES" or similar."""
 
             # Verification failed
             fix_iteration += 1
+
+            # Track iteration duration for time budgeting
+            iteration_duration = (datetime.now() - iteration_start).total_seconds()
+            iteration_times.append(iteration_duration)
+
             iteration_result = {
                 "iteration": fix_iteration,
                 "verify_result": verify_result,
                 "test_counts": test_counts,
+                "duration_seconds": iteration_duration,
             }
 
             if fix_iteration > max_fix_iterations:

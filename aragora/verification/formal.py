@@ -2,15 +2,33 @@
 Formal Verification Backends - Interface for theorem provers.
 
 Provides a protocol for integrating formal proof assistants like Lean, Coq,
-or Isabelle. Currently a stub interface to future-proof the architecture
-for when LLM-to-Lean translation matures.
+or Isabelle. Includes LLM-assisted translation for natural language claims.
 
-Status: Interface defined, implementation pending (estimated 2025-2026)
+IMPORTANT LIMITATIONS:
+- LLM translations may produce valid proofs that don't match the original claim
+- The `verify_claim()` method includes semantic verification to detect this
+- Always check `is_high_confidence` property for reliable results
+- For critical decisions, manually review the `formal_statement`
+
+Usage:
+    backend = LeanBackend()
+    result = await backend.verify_claim("All prime numbers > 2 are odd")
+
+    if result.is_high_confidence:
+        print("Verified with high confidence")
+    elif result.is_verified:
+        print(f"Proof compiles but: {result.confidence_warning}")
+    else:
+        print(f"Verification failed: {result.error_message}")
+
+Supported backends:
+- LeanBackend: Lean 4 with LLM translation (DeepSeek-Prover, Claude, GPT-4)
+- Z3Backend: Z3 SMT solver for decidable claims (arithmetic, logic)
 
 Rationale (from aragora self-debate):
 - LLM-to-Lean tools improving rapidly (DeepSeek-Prover-V2, LeanDojo)
 - Trust differentiation: "machine-verified proof" is valuable signaling
-- Minimal integration cost now, significant optionality later
+- Semantic verification step prevents false positives from hallucination
 - Can connect with ProvenanceManager for "verified provenance"
 """
 
@@ -74,12 +92,26 @@ class FormalProofResult:
     prover_version: str = ""
     timestamp: datetime = field(default_factory=datetime.now)
 
+    # Translation confidence and verification (for LLM-translated proofs)
+    # WARNING: LLM-translated proofs may not semantically match the original claim.
+    # A high confidence score requires both successful compilation AND semantic alignment.
+    translation_confidence: float = 0.0  # 0.0-1.0, how confident is the translation
+    original_claim: str = ""  # The natural language claim that was translated
+    semantic_match_verified: bool = False  # Whether we verified the theorem matches the claim
+    confidence_warning: str = ""  # Warning if confidence is low
+
     @property
     def is_verified(self) -> bool:
+        """Check if proof is formally verified. Note: this only means the proof compiles."""
         return self.status == FormalProofStatus.PROOF_FOUND
 
+    @property
+    def is_high_confidence(self) -> bool:
+        """Check if this is a high-confidence verification (>0.8 and semantically verified)."""
+        return self.is_verified and self.translation_confidence >= 0.8 and self.semantic_match_verified
+
     def to_dict(self) -> dict:
-        return {
+        result = {
             "status": self.status.value,
             "language": self.language.value,
             "formal_statement": self.formal_statement,
@@ -90,7 +122,16 @@ class FormalProofResult:
             "error_message": self.error_message,
             "prover_version": self.prover_version,
             "timestamp": self.timestamp.isoformat(),
+            # New confidence fields
+            "translation_confidence": self.translation_confidence,
+            "is_high_confidence": self.is_high_confidence,
+            "semantic_match_verified": self.semantic_match_verified,
         }
+        if self.confidence_warning:
+            result["confidence_warning"] = self.confidence_warning
+        if self.original_claim:
+            result["original_claim"] = self.original_claim
+        return result
 
 
 @runtime_checkable
@@ -592,6 +633,204 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
         count = len(self._proof_cache)
         self._proof_cache.clear()
         return count
+
+    async def verify_semantic_match(
+        self, original_claim: str, formal_statement: str
+    ) -> tuple[bool, float, str]:
+        """
+        Verify that a formal statement semantically matches the original claim.
+
+        Uses LLM to check if the theorem actually proves what was claimed.
+        This is essential because LLM translation may produce valid Lean code
+        that proves something entirely different from the original claim.
+
+        Args:
+            original_claim: The natural language claim.
+            formal_statement: The Lean 4 code produced by translation.
+
+        Returns:
+            Tuple of (matches, confidence, explanation)
+            - matches: True if the theorem appears to prove the claim
+            - confidence: 0.0-1.0 confidence in the match
+            - explanation: Why it matches or doesn't match
+        """
+        import os
+
+        import aiohttp
+
+        api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            # Can't verify without LLM - return low confidence
+            return False, 0.3, "No LLM available to verify semantic match"
+
+        prompt = f"""Analyze whether this Lean 4 theorem actually proves the given natural language claim.
+
+ORIGINAL CLAIM: {original_claim}
+
+LEAN 4 CODE:
+```lean
+{formal_statement}
+```
+
+Answer these questions:
+1. Does the theorem statement (the part after the colon) logically correspond to the claim?
+2. Is the theorem trivially true (e.g., 1=1) rather than proving the actual claim?
+3. Does the proof actually prove the stated theorem (not just compile)?
+
+Respond in this exact format:
+MATCHES: YES or NO
+CONFIDENCE: 0.0 to 1.0
+EXPLANATION: Brief explanation (1-2 sentences)
+
+Examples of NON-MATCHING:
+- Claim "all primes > 2 are odd" but theorem proves "1 = 1"
+- Claim "x + y = y + x" but theorem proves unrelated property
+- Proof uses 'sorry' (incomplete proof)
+
+Examples of MATCHING:
+- Claim about addition commutativity and theorem proves ∀ a b, a + b = b + a
+- Claim about prime divisibility and theorem proves corresponding property"""
+
+        try:
+            anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+            openai_key = os.environ.get("OPENAI_API_KEY")
+
+            if anthropic_key:
+                url = "https://api.anthropic.com/v1/messages"
+                headers = {
+                    "x-api-key": anthropic_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                }
+                payload = {
+                    "model": "claude-sonnet-4-20250514",
+                    "max_tokens": 512,
+                    "messages": [{"role": "user", "content": prompt}],
+                }
+            else:
+                url = "https://api.openai.com/v1/chat/completions"
+                headers = {
+                    "Authorization": f"Bearer {openai_key}",
+                    "Content-Type": "application/json",
+                }
+                payload = {
+                    "model": "gpt-4o",
+                    "max_tokens": 512,
+                    "messages": [{"role": "user", "content": prompt}],
+                }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=30)
+                ) as response:
+                    if response.status != 200:
+                        return False, 0.3, f"LLM API error: status {response.status}"
+
+                    data = await response.json()
+
+                    if anthropic_key:
+                        result = data["content"][0]["text"].strip()
+                    else:
+                        result = data["choices"][0]["message"]["content"].strip()
+
+                    # Parse response
+                    import re
+
+                    matches_match = re.search(r"MATCHES:\s*(YES|NO)", result, re.IGNORECASE)
+                    conf_match = re.search(r"CONFIDENCE:\s*([0-9.]+)", result)
+                    expl_match = re.search(r"EXPLANATION:\s*(.+?)(?:\n|$)", result, re.DOTALL)
+
+                    matches = matches_match and matches_match.group(1).upper() == "YES"
+                    confidence = float(conf_match.group(1)) if conf_match else 0.5
+                    explanation = expl_match.group(1).strip() if expl_match else "Unable to parse explanation"
+
+                    return matches, min(1.0, max(0.0, confidence)), explanation
+
+        except Exception as e:
+            logger.warning(f"Semantic verification failed: {e}")
+            return False, 0.3, f"Verification error: {e}"
+
+    async def verify_claim(
+        self, claim: str, context: str = "", verify_semantic_match: bool = True
+    ) -> FormalProofResult:
+        """
+        Complete verification pipeline: translate, prove, and verify semantic match.
+
+        This is the recommended entry point for verifying natural language claims.
+        It includes all safety checks to avoid false positives from LLM hallucination.
+
+        Args:
+            claim: Natural language claim to verify.
+            context: Optional context to help translation.
+            verify_semantic_match: Whether to verify the theorem matches the claim.
+                                   Set to False only for debugging/testing.
+
+        Returns:
+            FormalProofResult with confidence information.
+
+        IMPORTANT LIMITATIONS:
+        - LLM translation may produce theorems that don't match the original claim
+        - Even with semantic verification, there's no guarantee of correctness
+        - Use is_high_confidence property to check for reliable results
+        - Always review formal_statement manually for critical decisions
+        """
+        import time
+
+        start_time = time.time()
+
+        # Step 1: Translate claim to Lean
+        formal_statement = await self.translate(claim, context)
+        translation_time_ms = (time.time() - start_time) * 1000
+
+        if formal_statement is None:
+            return FormalProofResult(
+                status=FormalProofStatus.TRANSLATION_FAILED,
+                language=FormalLanguage.LEAN4,
+                original_claim=claim,
+                translation_time_ms=translation_time_ms,
+                error_message="Failed to translate claim to Lean 4",
+                translation_confidence=0.0,
+                confidence_warning="Translation failed - claim may not be suitable for formal verification",
+            )
+
+        # Step 2: Prove the translated theorem
+        proof_result = await self.prove(formal_statement)
+        proof_result.original_claim = claim
+        proof_result.translation_time_ms = translation_time_ms
+
+        if proof_result.status != FormalProofStatus.PROOF_FOUND:
+            proof_result.translation_confidence = 0.3  # Low confidence on failed proofs
+            proof_result.confidence_warning = f"Proof failed: {proof_result.error_message}"
+            return proof_result
+
+        # Step 3: Verify semantic match (optional but recommended)
+        if verify_semantic_match:
+            matches, confidence, explanation = await self.verify_semantic_match(
+                claim, formal_statement
+            )
+            proof_result.semantic_match_verified = matches
+            proof_result.translation_confidence = confidence
+
+            if not matches:
+                proof_result.confidence_warning = (
+                    f"WARNING: The proven theorem may not match the original claim. {explanation}"
+                )
+                logger.warning(
+                    f"Lean proof compiled but may not match claim: {explanation} "
+                    f"(claim: {claim[:50]}...)"
+                )
+            elif confidence < 0.8:
+                proof_result.confidence_warning = (
+                    f"Moderate confidence ({confidence:.0%}): {explanation}"
+                )
+        else:
+            # Without verification, assign low confidence
+            proof_result.translation_confidence = 0.5
+            proof_result.confidence_warning = (
+                "Semantic verification skipped - proof validity not confirmed"
+            )
+
+        return proof_result
 
 
 class Z3Backend:

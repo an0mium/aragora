@@ -324,6 +324,16 @@ ARAGORA_ALLOWED_ORIGINS=https://myapp.com,https://staging.myapp.com
 `ARAGORA_WEBHOOKS` and `ARAGORA_WEBHOOKS_CONFIG` accept a JSON array of configs with:
 `name`, `url`, optional `secret`, optional `event_types`, and optional `loop_ids`.
 
+## Slack Integration (Server)
+
+Configure Slack slash commands and outbound notifications.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `SLACK_SIGNING_SECRET` | Optional | Verify Slack request signatures | - |
+| `SLACK_BOT_TOKEN` | Optional | Bot token for Slack API calls | - |
+| `SLACK_WEBHOOK_URL` | Optional | Outbound Slack webhook URL | - |
+
 ## Rate Limiting
 
 | Variable | Required | Description | Default |
@@ -359,6 +369,7 @@ JWT authentication and Stripe integration for paid tiers.
 **Security Notes:**
 - In **production** (`ARAGORA_ENVIRONMENT=production`), `ARAGORA_JWT_SECRET` is **required** and must be at least 32 characters.
 - Generate a secure secret: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+- In other environments, set `ARAGORA_JWT_SECRET` if you use auth endpoints (missing secrets raise config errors).
 - `ARAGORA_JWT_SECRET_PREVIOUS` is only honored if `ARAGORA_JWT_SECRET_ROTATED_AT` is set.
 - Set `ARAGORA_JWT_ROTATION_GRACE_HOURS` to control the previous-secret window.
 - `ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS` is blocked in production regardless of setting.
@@ -385,6 +396,19 @@ JWT authentication and Stripe integration for paid tiers.
 | `STRIPE_PRICE_ENTERPRISE` | For billing | Price ID for Enterprise tier | - |
 
 See [BILLING.md](./BILLING.md) for subscription tiers and usage tracking.
+
+### Billing Notifications
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_SMTP_HOST` | Optional | SMTP server host | - |
+| `ARAGORA_SMTP_PORT` | Optional | SMTP server port | `587` |
+| `ARAGORA_SMTP_USER` | Optional | SMTP username | - |
+| `ARAGORA_SMTP_PASSWORD` | Optional | SMTP password | - |
+| `ARAGORA_SMTP_FROM` | Optional | From email address | `billing@aragora.ai` |
+| `ARAGORA_NOTIFICATION_WEBHOOK` | Optional | Webhook URL for billing notifications | - |
+| `ARAGORA_PAYMENT_GRACE_DAYS` | Optional | Days before downgrade after payment failure | `10` |
+| `ARAGORA_ALLOW_INSECURE_PASSWORDS` | Optional | Allow weak passwords (dev only) | `0` |
 
 ## SSO/Enterprise Authentication
 

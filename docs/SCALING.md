@@ -7,8 +7,8 @@ This guide covers Aragora's performance characteristics, scaling limits, and dep
 | Resource | Default Limit | Tunable | Environment Variable |
 |----------|---------------|---------|---------------------|
 | Concurrent debates | 10 | Yes | `ARAGORA_MAX_CONCURRENT_DEBATES` |
-| WebSocket connections | 1000 | Yes | Server config |
-| Database connections | 20 | Yes | `ARAGORA_DB_POOL_SIZE` |
+| WebSocket connections (per IP) | 10 | Yes | `ARAGORA_WS_MAX_PER_IP` |
+| Database connections | 10 | Yes | `ARAGORA_DB_POOL_SIZE` |
 | Rate limit (per IP) | 120 req/min | Yes | `ARAGORA_IP_RATE_LIMIT` |
 | Max agents per debate | 10 | Yes | `ARAGORA_MAX_AGENTS_PER_DEBATE` |
 
@@ -65,13 +65,18 @@ Tested on AWS t3.medium (2 vCPU, 4GB RAM):
 
 ### WebSocket Connections
 
-```python
-# Default WebSocket limits in unified_server.py
-MAX_WEBSOCKET_CONNECTIONS = 1000
-WEBSOCKET_PAYLOAD_LIMIT = 64 * 1024  # 64KB
-WEBSOCKET_PING_INTERVAL = 30  # seconds
-WEBSOCKET_PING_TIMEOUT = 10  # seconds
-```
+Default limits are enforced per connection/IP:
+
+| Setting | Default | Environment Variable |
+|---------|---------|----------------------|
+| Max message size | 64KB | `ARAGORA_WS_MAX_MESSAGE_SIZE` |
+| Heartbeat interval | 30s | `ARAGORA_WS_HEARTBEAT` |
+| Connections per IP per minute | 30 | `ARAGORA_WS_CONN_RATE` |
+| Max concurrent per IP | 10 | `ARAGORA_WS_MAX_PER_IP` |
+| Messages per second | 10 | `ARAGORA_WS_MSG_RATE` |
+| Message burst size | 20 | `ARAGORA_WS_MSG_BURST` |
+
+There is no global connection cap; use OS limits and a load balancer to scale.
 
 **Tuning for high concurrency:**
 ```bash
@@ -94,7 +99,7 @@ sysctl -w net.ipv4.tcp_max_syn_backlog=65535
 ```bash
 # Connection pool size
 export ARAGORA_DB_POOL_SIZE=20
-export ARAGORA_DB_POOL_OVERFLOW=10
+export ARAGORA_DB_POOL_MAX_OVERFLOW=10
 export ARAGORA_DB_POOL_TIMEOUT=30
 ```
 
@@ -220,7 +225,7 @@ For production deployments with >100 concurrent users:
 export DATABASE_URL=postgresql://user:pass@host:5432/aragora
 
 # Run migrations
-python -m aragora.persistence.migrate
+python scripts/migrate_sqlite_to_postgres.py
 ```
 
 ### PostgreSQL Tuning

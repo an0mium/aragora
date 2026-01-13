@@ -155,12 +155,98 @@ class RateLimiter:
 
 
 class AragoraAPIError(Exception):
-    """Exception raised for API errors."""
+    """Base exception for API errors.
 
-    def __init__(self, message: str, code: str = "UNKNOWN", status_code: int = 500):
-        super().__init__(message)
+    Attributes:
+        message: Human-readable error message
+        code: Machine-readable error code (e.g., "NOT_FOUND", "RATE_LIMITED")
+        status_code: HTTP status code
+        suggestion: Optional suggestion for resolution
+    """
+
+    def __init__(
+        self,
+        message: str,
+        code: str = "UNKNOWN",
+        status_code: int = 500,
+        suggestion: str | None = None,
+    ):
         self.code = code
         self.status_code = status_code
+        self.suggestion = suggestion
+        full_message = message
+        if suggestion:
+            full_message = f"{message}. Suggestion: {suggestion}"
+        super().__init__(full_message)
+
+
+class RateLimitError(AragoraAPIError):
+    """Raised when rate limit is exceeded (HTTP 429).
+
+    The server may return Retry-After header indicating when to retry.
+    """
+
+    def __init__(self, message: str = "Rate limit exceeded", retry_after: float | None = None):
+        super().__init__(
+            message,
+            code="RATE_LIMITED",
+            status_code=429,
+            suggestion="Wait before retrying. Consider using RetryConfig with exponential backoff.",
+        )
+        self.retry_after = retry_after
+
+
+class AuthenticationError(AragoraAPIError):
+    """Raised when authentication fails (HTTP 401).
+
+    Usually indicates missing or invalid API token.
+    """
+
+    def __init__(self, message: str = "Authentication failed"):
+        super().__init__(
+            message,
+            code="UNAUTHORIZED",
+            status_code=401,
+            suggestion="Check that ARAGORA_API_TOKEN is set correctly.",
+        )
+
+
+class NotFoundError(AragoraAPIError):
+    """Raised when a resource is not found (HTTP 404)."""
+
+    def __init__(self, message: str = "Resource not found", resource_type: str = "resource"):
+        super().__init__(
+            message,
+            code="NOT_FOUND",
+            status_code=404,
+            suggestion=f"Verify the {resource_type} ID is correct.",
+        )
+        self.resource_type = resource_type
+
+
+class QuotaExceededError(AragoraAPIError):
+    """Raised when usage quota is exceeded (HTTP 402)."""
+
+    def __init__(self, message: str = "Quota exceeded"):
+        super().__init__(
+            message,
+            code="QUOTA_EXCEEDED",
+            status_code=402,
+            suggestion="Upgrade your plan or wait for quota reset.",
+        )
+
+
+class ValidationError(AragoraAPIError):
+    """Raised when request validation fails (HTTP 400)."""
+
+    def __init__(self, message: str = "Validation error", field: str | None = None):
+        super().__init__(
+            message,
+            code="VALIDATION_ERROR",
+            status_code=400,
+            suggestion=f"Check the '{field}' parameter." if field else "Check request parameters.",
+        )
+        self.field = field
 
 
 class DebatesAPI:
@@ -1460,7 +1546,7 @@ class AragoraClient:
         )
 
     def _handle_http_error(self, e: Any) -> NoReturn:
-        """Handle HTTP errors."""
+        """Handle HTTP errors with specific error classes."""
         try:
             body = json.loads(e.read().decode())
             error_msg = body.get("error", str(e))
@@ -1471,7 +1557,20 @@ class AragoraClient:
             error_msg = str(e)
             error_code = "HTTP_ERROR"
 
-        raise AragoraAPIError(error_msg, error_code, e.code)
+        # Map HTTP status codes to specific error classes
+        status_code = getattr(e, "code", 500)
+        if status_code == 401:
+            raise AuthenticationError(error_msg)
+        elif status_code == 402:
+            raise QuotaExceededError(error_msg)
+        elif status_code == 404:
+            raise NotFoundError(error_msg)
+        elif status_code == 429:
+            raise RateLimitError(error_msg)
+        elif status_code == 400:
+            raise ValidationError(error_msg)
+        else:
+            raise AragoraAPIError(error_msg, error_code, status_code)
 
     async def _get_async(self, path: str, params: dict | None = None) -> dict:
         """Make an asynchronous GET request with retry and rate limiting."""

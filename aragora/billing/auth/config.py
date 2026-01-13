@@ -18,10 +18,21 @@ from aragora.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
+
+def _get_secret_value(name: str, default: str = "") -> str:
+    """Get secret value from secrets manager or environment."""
+    try:
+        from aragora.config.secrets import get_secret
+        return get_secret(name, default) or default
+    except ImportError:
+        return os.environ.get(name, default)
+
+
 # Environment configuration
 ARAGORA_ENVIRONMENT = os.environ.get("ARAGORA_ENVIRONMENT", "development")
-JWT_SECRET = os.environ.get("ARAGORA_JWT_SECRET", "")
-JWT_SECRET_PREVIOUS = os.environ.get("ARAGORA_JWT_SECRET_PREVIOUS", "")
+# Use secrets manager for sensitive values
+JWT_SECRET = _get_secret_value("ARAGORA_JWT_SECRET", "")
+JWT_SECRET_PREVIOUS = _get_secret_value("ARAGORA_JWT_SECRET_PREVIOUS", "")
 # Unix timestamp when secret was rotated (for limiting previous secret validity)
 JWT_SECRET_ROTATED_AT = os.environ.get("ARAGORA_JWT_SECRET_ROTATED_AT", "")
 # How long previous secret remains valid after rotation (default: 24 hours)

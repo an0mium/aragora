@@ -12,6 +12,7 @@ with the provenance system for traceability:
 - WikipediaConnector: Encyclopedia articles and reference knowledge
 - RedditConnector: Community discussions and sentiment
 - TwitterConnector: Public discourse and real-time updates
+- SQLConnector: Query SQL databases (PostgreSQL, MySQL, SQLite)
 
 All connectors record evidence through ProvenanceManager
 with proper source typing and confidence scoring.
@@ -37,6 +38,7 @@ from aragora.connectors.github import GitHubConnector
 from aragora.connectors.hackernews import HackerNewsConnector
 from aragora.connectors.local_docs import LocalDocsConnector
 from aragora.connectors.reddit import RedditConnector
+from aragora.connectors.sql import SQLConnector, SQLQueryResult
 from aragora.connectors.twitter import TwitterConnector
 from aragora.connectors.web import WebConnector
 from aragora.connectors.wikipedia import WikipediaConnector
@@ -55,6 +57,8 @@ __all__ = [
     "WikipediaConnector",
     "RedditConnector",
     "TwitterConnector",
+    "SQLConnector",
+    "SQLQueryResult",
     # Exceptions
     "ConnectorError",
     "ConnectorAuthError",

@@ -156,6 +156,12 @@ export default function RevenueAdminPage() {
               >
                 REVENUE
               </Link>
+              <Link
+                href="/admin/training"
+                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+              >
+                TRAINING
+              </Link>
             </div>
           </div>
         </div>

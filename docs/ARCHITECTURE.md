@@ -384,13 +384,16 @@ class MyBackend(FormalBackend):
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ARAGORA_DB_PATH` | SQLite database path | `aragora.db` |
-| `ARAGORA_NOMIC_DIR` | Nomic loop state directory | `.nomic` |
+| `ARAGORA_DATA_DIR` | Base directory for runtime data | `.nomic` |
+| `ARAGORA_DB_MODE` | Database layout: `legacy` or `consolidated` | `legacy` |
+| `DATABASE_URL` | PostgreSQL connection string | None |
+| `ARAGORA_NOMIC_DIR` | Legacy alias for data dir | `.nomic` |
 | `SUPABASE_URL` | Supabase project URL | None |
 | `SUPABASE_KEY` | Supabase anon key | None |
 | `OPENAI_API_KEY` | OpenAI API key | None |
 | `ANTHROPIC_API_KEY` | Anthropic API key | None |
-| `GOOGLE_API_KEY` | Google AI key | None |
+| `GEMINI_API_KEY` | Gemini API key | None |
+| `GOOGLE_API_KEY` | Alias for `GEMINI_API_KEY` | None |
 
 ### Feature Flags
 

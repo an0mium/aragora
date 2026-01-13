@@ -1,6 +1,8 @@
 # WebSocket Events Reference
 
-Complete reference for Aragora WebSocket events.
+This document covers control messages and stream events sent by the Aragora
+WebSocket server. Stream events use the `StreamEvent` envelope from
+`aragora/server/stream/events.py`.
 
 ## Connection
 
@@ -15,353 +17,263 @@ The WebSocket server accepts `/` or `/ws`. The live UI uses `/ws`.
 
 ### Authentication
 
-If `ARAGORA_API_TOKEN` is set, include an `Authorization: Bearer` header during the handshake:
+If `ARAGORA_API_TOKEN` is set, include an `Authorization: Bearer` header during
+the handshake:
 
 ```bash
 wscat -c ws://localhost:8765/ws -H "Authorization: Bearer $ARAGORA_API_TOKEN"
 ```
 
-Browser clients cannot set custom headers; use a server-side proxy if auth is enforced.
+Browser clients cannot set custom headers; use a server-side proxy if auth is
+enforced.
 
-### Subscribing to a Debate
+### Initial Messages
 
-After connecting, subscribe to a debate:
+On connection, the server sends:
 
-```json
-{"type": "subscribe", "debate_id": "dbt_abc123"}
-```
+- `connection_info` (auth and client metadata)
+- `loop_list` (active loops/debates)
+- `sync` for each cached loop state
 
-### Connection Lifecycle
-
-```
-Client                              Server
-   |                                   |
-   |------- WebSocket Connect -------->|
-   |                                   |
-   |<------ connection_established ----|
-   |                                   |
-   |<--------- debate_start -----------|
-   |                                   |
-   |<-------- round_start -------------|
-   |<-------- agent_message -----------|
-   |<-------- agent_message -----------|
-   |<-------- critique ----------------|
-   |<-------- round_end ---------------|
-   |                                   |
-   |---------- vote ------------------>|  (user input)
-   |---------- suggestion ------------>|  (user input)
-   |                                   |
-   |<-------- consensus ---------------|
-   |<-------- debate_end --------------|
-   |                                   |
-   X------- Connection closed ---------X
-```
-
-## Event Types
-
-### Server → Client Events
-
-#### `connection_established`
-
-Sent immediately after WebSocket connection is established.
+Example:
 
 ```json
 {
-  "type": "connection_established",
-  "debate_id": "dbt_abc123",
-  "timestamp": "2024-01-15T10:30:00.000Z",
+  "type": "connection_info",
   "data": {
-    "connection_id": "conn_xyz789",
-    "server_version": "1.0.0",
-    "capabilities": ["vote", "suggest", "breakpoint"]
+    "authenticated": false,
+    "client_id": "abc123...",
+    "write_access": true
   }
 }
 ```
 
-#### `debate_start`
+## Client → Server Messages
 
-Signals the beginning of a debate.
+### Request loop list
+
+```json
+{ "type": "get_loops" }
+```
+
+### Submit a vote
 
 ```json
 {
-  "type": "debate_start",
-  "debate_id": "dbt_abc123",
-  "timestamp": "2024-01-15T10:30:01.000Z",
-  "data": {
-    "task": "Should we use microservices architecture?",
-    "agents": ["anthropic-api", "openai-api", "gemini"],
-    "max_rounds": 5,
-    "consensus_threshold": 0.8,
-    "protocol": {
-      "type": "standard",
-      "voting_enabled": true,
-      "user_participation": true
-    }
+  "type": "user_vote",
+  "loop_id": "loop_abc123",
+  "payload": {
+    "choice": "Option A",
+    "intensity": 7
   }
 }
 ```
 
-#### `round_start`
-
-Signals the start of a new debate round.
+### Submit a suggestion
 
 ```json
 {
-  "type": "round_start",
-  "debate_id": "dbt_abc123",
-  "timestamp": "2024-01-15T10:30:05.000Z",
-  "data": {
-    "round": 1,
-    "phase": "proposal",
-    "agents_participating": ["anthropic-api", "openai-api", "gemini"],
-    "time_limit_seconds": 120
+  "type": "user_suggestion",
+  "loop_id": "loop_abc123",
+  "payload": {
+    "text": "Consider a phased rollout for safety."
   }
 }
 ```
 
-#### `agent_message`
-
-An agent has submitted a message.
+### Submit audience wisdom
 
 ```json
 {
-  "type": "agent_message",
-  "debate_id": "dbt_abc123",
-  "timestamp": "2024-01-15T10:30:15.000Z",
-  "data": {
-    "agent_id": "anthropic-api",
-    "round": 1,
-    "message_type": "proposal",
-    "content": "I propose we adopt a hybrid approach...",
-    "position": "for_microservices",
-    "confidence": 0.85,
-    "arguments": [
-      "Improved scalability for individual services",
-      "Independent deployment cycles",
-      "Technology diversity per service"
-    ],
-    "metadata": {
-      "tokens_used": 245,
-      "latency_ms": 1230
-    }
-  }
+  "type": "wisdom_submission",
+  "loop_id": "loop_abc123",
+  "text": "Start with a rollback plan and chaos testing."
 }
 ```
 
-#### `critique`
+The server replies with `ack`, `error`, or `auth_revoked` depending on the
+request and auth state.
 
-An agent has critiqued another agent's message.
+## Stream Event Envelope
 
-```json
-{
-  "type": "critique",
-  "debate_id": "dbt_abc123",
-  "timestamp": "2024-01-15T10:31:00.000Z",
-  "data": {
-    "critic_id": "openai-api",
-    "target_agent_id": "anthropic-api",
-    "target_round": 1,
-    "severity": "medium",
-    "content": "While the scalability argument is valid, it overlooks...",
-    "critique_type": "counterargument"
-  }
-}
-```
-
-#### `vote`
-
-Voting results from agents or users.
-
-```json
-{
-  "type": "vote",
-  "debate_id": "dbt_abc123",
-  "timestamp": "2024-01-15T10:32:00.000Z",
-  "data": {
-    "round": 1,
-    "voter_type": "agent",
-    "voter_id": "gemini",
-    "votes": {
-      "anthropic-api": 0.7,
-      "openai-api": 0.3
-    },
-    "reasoning": "anthropic-api's proposal better addresses scalability concerns"
-  }
-}
-```
-
-#### `consensus`
-
-Consensus has been reached (or failed).
+Stream events (emitted by `SyncEventEmitter`) share a common envelope:
 
 ```json
 {
   "type": "consensus",
-  "debate_id": "dbt_abc123",
-  "timestamp": "2024-01-15T10:35:00.000Z",
-  "data": {
-    "reached": true,
-    "round": 3,
-    "conclusion": "Adopt microservices with careful service boundary design",
-    "confidence": 0.87,
-    "supporting_agents": ["anthropic-api", "openai-api"],
-    "dissenting_agents": ["gemini"],
-    "convergence_type": "semantic"
-  }
+  "data": { "reached": true, "confidence": 0.88, "answer": "Use token bucket" },
+  "timestamp": 1732735053.123,
+  "round": 3,
+  "agent": "anthropic-api",
+  "seq": 42,
+  "agent_seq": 7,
+  "loop_id": "loop_abc123"
 }
 ```
 
-#### `round_end`
+Notes:
+- `timestamp` is epoch seconds (float).
+- `loop_id` is present when the emitter is scoped to a debate/loop.
+- `round`, `agent`, and `agent_seq` are populated when relevant.
 
-Signals the end of a debate round.
+## Common Event Payloads
+
+These payloads are emitted by `create_arena_hooks()`:
+
+```json
+{ "type": "debate_start", "data": { "task": "...", "agents": ["a", "b"] } }
+{ "type": "round_start", "data": { "round": 1 } }
+{ "type": "agent_message", "data": { "content": "...", "role": "proposal" } }
+{ "type": "critique", "data": { "target": "...", "issues": ["..."], "severity": 0.4, "content": "..." } }
+{ "type": "vote", "data": { "vote": "...", "confidence": 0.72 } }
+{ "type": "consensus", "data": { "reached": true, "confidence": 0.85, "answer": "..." } }
+{ "type": "debate_end", "data": { "duration": 42.2, "rounds": 3 } }
+```
+
+Audience metrics emitted after `user_vote` look like:
 
 ```json
 {
-  "type": "round_end",
-  "debate_id": "dbt_abc123",
-  "timestamp": "2024-01-15T10:33:00.000Z",
+  "type": "audience_metrics",
   "data": {
-    "round": 1,
-    "summary": "First round established initial positions",
-    "convergence_score": 0.45,
-    "next_phase": "critique"
+    "votes": { "Option A": 3 },
+    "weighted_votes": { "Option A": 4.5 },
+    "suggestions": 1,
+    "total": 4,
+    "histograms": { "Option A": { "1": 0, "2": 1, "3": 0 } },
+    "conviction_distribution": { "1": 0, "2": 1, "3": 0 }
   }
 }
 ```
 
-#### `debate_end`
+## Stream Event Types
 
-Signals the debate has concluded.
+These are the canonical event names from `StreamEventType`.
 
-```json
-{
-  "type": "debate_end",
-  "debate_id": "dbt_abc123",
-  "timestamp": "2024-01-15T10:36:00.000Z",
-  "data": {
-    "status": "completed",
-    "total_rounds": 3,
-    "consensus_reached": true,
-    "final_conclusion": "Adopt microservices with careful service boundary design",
-    "duration_seconds": 360,
-    "replay_id": "rpl_def456"
-  }
-}
-```
+### Debate lifecycle
+- `debate_start`
+- `round_start`
+- `agent_message`
+- `critique`
+- `vote`
+- `consensus`
+- `debate_end`
 
-#### `breakpoint`
+### Token streaming
+- `token_start`
+- `token_delta`
+- `token_end`
 
-Human-in-the-loop breakpoint triggered.
+### Nomic loop
+- `cycle_start`
+- `cycle_end`
+- `phase_start`
+- `phase_end`
+- `task_start`
+- `task_complete`
+- `task_retry`
+- `verification_start`
+- `verification_result`
+- `commit`
+- `backup_created`
+- `backup_restored`
+- `error`
+- `log_message`
 
-```json
-{
-  "type": "breakpoint",
-  "debate_id": "dbt_abc123",
-  "timestamp": "2024-01-15T10:32:30.000Z",
-  "data": {
-    "breakpoint_id": "brk_xyz789",
-    "round": 2,
-    "reason": "High disagreement detected",
-    "options": ["continue", "modify", "stop"],
-    "timeout_seconds": 300
-  }
-}
-```
+### Multi-loop management
+- `loop_register`
+- `loop_unregister`
+- `loop_list`
 
-#### `error`
+### Audience participation
+- `user_vote`
+- `user_suggestion`
+- `audience_summary`
+- `audience_metrics`
+- `audience_drain`
 
-An error occurred during the debate.
+### Memory & learning
+- `memory_recall`
+- `insight_extracted`
 
-```json
-{
-  "type": "error",
-  "debate_id": "dbt_abc123",
-  "timestamp": "2024-01-15T10:34:00.000Z",
-  "data": {
-    "code": "AGENT_TIMEOUT",
-    "message": "Agent openai-api timed out after 60 seconds",
-    "severity": "warning",
-    "recoverable": true
-  }
-}
-```
+### Rankings & leaderboard
+- `match_recorded`
+- `leaderboard_update`
+- `grounded_verdict`
+- `moment_detected`
+- `agent_elo_updated`
 
-### Client → Server Events
+### Claim verification
+- `claim_verification_result`
+- `formal_verification_result`
 
-#### `vote` (User Vote)
+### Memory tiers
+- `memory_tier_promotion`
+- `memory_tier_demotion`
 
-Submit a user vote on proposals.
+### Graph debates
+- `graph_node_added`
+- `graph_branch_created`
+- `graph_branch_merged`
 
-```json
-{
-  "type": "vote",
-  "data": {
-    "round": 1,
-    "votes": { "anthropic-api": 0.8, "openai-api": 0.2 },
-    "comment": "Claude's argument is more compelling"
-  }
-}
-```
+### Position tracking
+- `flip_detected`
 
-#### `suggestion`
+### Feature integration
+- `trait_emerged`
+- `risk_warning`
+- `evidence_found`
+- `calibration_update`
+- `genesis_evolution`
+- `training_data_exported`
 
-Submit a user suggestion to influence the debate.
+### Rhetorical analysis
+- `rhetorical_observation`
 
-```json
-{
-  "type": "suggestion",
-  "data": {
-    "content": "Consider the impact on team structure",
-    "target_agents": ["all"],
-    "priority": "high"
-  }
-}
-```
+### Trickster events
+- `hollow_consensus`
+- `trickster_intervention`
 
-#### `breakpoint_resolve`
+### Breakpoints
+- `breakpoint`
+- `breakpoint_resolved`
 
-Resolve a human-in-the-loop breakpoint.
+### Mood/sentiment
+- `mood_detected`
+- `mood_shift`
+- `debate_energy`
 
-```json
-{
-  "type": "breakpoint_resolve",
-  "data": {
-    "breakpoint_id": "brk_xyz789",
-    "action": "modify",
-    "modification": "Focus on practical implementation"
-  }
-}
-```
+### Capability probes
+- `probe_start`
+- `probe_result`
+- `probe_complete`
 
-#### `ping`
+### Deep audit
+- `audit_start`
+- `audit_round`
+- `audit_finding`
+- `audit_cross_exam`
+- `audit_verdict`
 
-Keep-alive ping (server responds with `pong`).
+### Telemetry
+- `telemetry_thought`
+- `telemetry_capability`
+- `telemetry_redaction`
+- `telemetry_diagnostic`
 
-```json
-{ "type": "ping" }
-```
+### Gauntlet
+- `gauntlet_start`
+- `gauntlet_phase`
+- `gauntlet_agent_active`
+- `gauntlet_attack`
+- `gauntlet_finding`
+- `gauntlet_probe`
+- `gauntlet_verification`
+- `gauntlet_risk`
+- `gauntlet_progress`
+- `gauntlet_verdict`
+- `gauntlet_complete`
 
-## Rate Limits
-
-| Event Type | Limit |
-|------------|-------|
-| `vote` | 1 per round per user |
-| `suggestion` | 5 per debate |
-| `breakpoint_resolve` | 1 per breakpoint |
-| `ping` | 1 per 30 seconds |
-
-## Error Codes
-
-| Code | Description |
-|------|-------------|
-| `DEBATE_NOT_FOUND` | Debate ID does not exist |
-| `UNAUTHORIZED` | Invalid or missing authentication |
-| `DEBATE_ENDED` | Cannot interact with ended debate |
-| `RATE_LIMITED` | Too many requests |
-| `INVALID_EVENT` | Malformed event data |
-
-## Related Documentation
-
-- [API Reference](API_REFERENCE.md)
-- [Error Codes](ERROR_CODES.md)
-- [SDK Documentation](../aragora-js/README.md)
+Some events are emitted only when the corresponding feature is enabled. Use
+`loop_list` and `sync` control messages to seed UI state before processing
+stream events.

@@ -65,6 +65,9 @@ ARAGORA_SSO_ENTITY_ID=https://your-app.example.com
 
 # Optional: Restrict to specific domains
 ARAGORA_SSO_ALLOWED_DOMAINS=example.com,company.org
+
+# Optional: Restrict redirect hosts
+ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS=app.example.com,staging.example.com
 ```
 
 ### 3. Basic SAML Configuration

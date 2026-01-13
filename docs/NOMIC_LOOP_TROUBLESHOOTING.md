@@ -45,11 +45,11 @@ python scripts/nomic_loop.py --cycles 1
 
 **Fix**:
 ```bash
-# Limit context size
-export ARAGORA_MAX_CONTEXT_FILES=100
-export ARAGORA_MAX_FILE_SIZE=50000  # bytes
+# Increase context phase timeout
+export NOMIC_CONTEXT_TIMEOUT=1800  # 30 minutes
 
-python scripts/nomic_loop.py
+# Narrow scope by pointing at a smaller subtree
+python scripts/nomic_loop.py --path /path/to/subdir
 ```
 
 ### Phase 1: Debate
@@ -84,10 +84,10 @@ print(f'Agent created: {agent}')
 **Fix**:
 ```bash
 # Increase timeout
-export ARAGORA_DEBATE_TIMEOUT=600  # 10 minutes
+export NOMIC_DEBATE_TIMEOUT=5400  # 90 minutes
 
-# Or reduce debate complexity
-python scripts/nomic_loop.py --debate-rounds 2
+# Or reduce cycle scope
+python scripts/nomic_loop.py --cycles 1
 ```
 
 #### "Hollow consensus detected"
@@ -96,9 +96,9 @@ python scripts/nomic_loop.py --debate-rounds 2
 
 This is intentional. The Trickster detected agents agreeing superficially without substantive engagement.
 
-**Fix**: Re-run with more rounds or different agents:
+**Fix**: Re-run with a sharper proposal or narrower goal:
 ```bash
-python scripts/nomic_loop.py --debate-rounds 5 --agents anthropic-api,openai-api,gemini
+python scripts/nomic_loop.py --proposal "Focus on the weakest assumptions in the current design."
 ```
 
 ### Phase 2: Design

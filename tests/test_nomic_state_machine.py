@@ -47,6 +47,7 @@ from aragora.nomic.checkpoints import (
     list_checkpoints,
     cleanup_old_checkpoints,
 )
+from aragora.nomic.metrics import NOMIC_CYCLES_IN_PROGRESS, NOMIC_CYCLES_TOTAL, NOMIC_PHASE_TRANSITIONS
 from aragora.nomic.recovery import (
     RecoveryStrategy,
     RecoveryDecision,
@@ -555,6 +556,49 @@ class TestStateMachineIntegration:
         assert not machine.running
         metrics = machine.get_metrics()
         assert metrics["successful_cycles"] == 1
+
+    @pytest.mark.asyncio
+    async def test_metrics_track_transitions(self):
+        """Ensure metrics update on transitions and cycle completion."""
+        initial_transitions = NOMIC_PHASE_TRANSITIONS.get(from_phase="idle", to_phase="context")
+        initial_cycles = NOMIC_CYCLES_TOTAL.get(outcome="success")
+        initial_in_progress = NOMIC_CYCLES_IN_PROGRESS.get()
+
+        machine = NomicStateMachine(enable_checkpoints=False, enable_metrics=True)
+
+        async def context_handler(ctx, event):
+            return NomicState.DEBATE, {}
+
+        async def debate_handler(ctx, event):
+            return NomicState.DESIGN, {}
+
+        async def design_handler(ctx, event):
+            return NomicState.IMPLEMENT, {}
+
+        async def implement_handler(ctx, event):
+            return NomicState.VERIFY, {}
+
+        async def verify_handler(ctx, event):
+            return NomicState.COMMIT, {}
+
+        async def commit_handler(ctx, event):
+            return NomicState.COMPLETED, {}
+
+        machine.register_handler(NomicState.CONTEXT, context_handler)
+        machine.register_handler(NomicState.DEBATE, debate_handler)
+        machine.register_handler(NomicState.DESIGN, design_handler)
+        machine.register_handler(NomicState.IMPLEMENT, implement_handler)
+        machine.register_handler(NomicState.VERIFY, verify_handler)
+        machine.register_handler(NomicState.COMMIT, commit_handler)
+
+        await machine.start()
+
+        assert (
+            NOMIC_PHASE_TRANSITIONS.get(from_phase="idle", to_phase="context")
+            == initial_transitions + 1
+        )
+        assert NOMIC_CYCLES_TOTAL.get(outcome="success") == initial_cycles + 1
+        assert NOMIC_CYCLES_IN_PROGRESS.get() == initial_in_progress
 
     @pytest.mark.asyncio
     async def test_cycle_with_recovery(self):

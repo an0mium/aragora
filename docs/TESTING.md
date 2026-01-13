@@ -331,7 +331,7 @@ pytest tests/ -v --timeout=60 --cov=aragora --cov-report=xml --cov-report=term-m
 # CLI smoke (demo)
 aragora ask "Smoke test a demo debate" --demo --rounds 1
 
-# Server smoke
+# Server smoke (non-default ports to avoid collisions)
 aragora serve --api-port 8090 --ws-port 8766 --host 127.0.0.1
 ```
 

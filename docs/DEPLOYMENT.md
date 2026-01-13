@@ -213,8 +213,9 @@ For more database setup details, see [DATABASE_SETUP.md](DATABASE_SETUP.md).
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `REDIS_URL` | `redis://localhost:6379` | Redis for rate limiting and sessions |
-| `JWT_SECRET_KEY` | (required for auth) | 32+ character secret for JWT tokens |
+| `ARAGORA_REDIS_URL` | `redis://localhost:6379/0` | Redis for rate limiting and caching |
+| `REDIS_URL` | `redis://localhost:6379` | Legacy Redis URL used by queues/oauth/token revocation |
+| `ARAGORA_JWT_SECRET` | (required for auth) | 32+ character secret for JWT tokens |
 | `ARAGORA_API_TOKEN` | (optional) | API token for authenticated endpoints |
 
 ### Optional Providers
