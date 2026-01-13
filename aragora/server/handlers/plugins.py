@@ -50,6 +50,7 @@ class PluginsHandler(BaseHandler):
     ROUTES = [
         "/api/plugins",
         "/api/plugins/installed",
+        "/api/plugins/marketplace",
         "/api/plugins/*",
         "/api/plugins/*/install",
         "/api/plugins/*/run",
@@ -57,7 +58,7 @@ class PluginsHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in ("/api/plugins", "/api/plugins/installed"):
+        if path in ("/api/plugins", "/api/plugins/installed", "/api/plugins/marketplace"):
             return True
         # Match /api/plugins/{name}, /api/plugins/{name}/run, /api/plugins/{name}/install
         if path.startswith("/api/plugins/"):
@@ -74,6 +75,9 @@ class PluginsHandler(BaseHandler):
 
         if path == "/api/plugins/installed":
             return self._list_installed(handler)
+
+        if path == "/api/plugins/marketplace":
+            return self._get_marketplace()
 
         # Get plugin details: /api/plugins/{name}
         if path.startswith("/api/plugins/") and not path.endswith(("/run", "/install")):
@@ -123,6 +127,46 @@ class PluginsHandler(BaseHandler):
         return json_response({
             "plugins": [p.to_dict() for p in plugins],
             "count": len(plugins),
+        })
+
+    @handle_errors("get marketplace")
+    def _get_marketplace(self) -> HandlerResult:
+        """Get marketplace listings with categorized plugins.
+
+        Returns featured plugins and plugins organized by category.
+        """
+        if not PLUGINS_AVAILABLE or not get_registry:
+            return json_response({
+                "featured": [],
+                "categories": {},
+                "total": 0,
+                "message": "Plugin system not configured",
+            })
+
+        registry = get_registry()
+        plugins = registry.list_plugins()
+
+        # Categorize plugins
+        featured = []
+        categories: dict[str, list] = {}
+
+        for plugin in plugins:
+            plugin_dict = plugin.to_dict()
+
+            # Check for featured flag
+            if getattr(plugin, 'featured', False):
+                featured.append(plugin_dict)
+
+            # Group by category
+            category = getattr(plugin, 'category', 'other')
+            if category not in categories:
+                categories[category] = []
+            categories[category].append(plugin_dict)
+
+        return json_response({
+            "featured": featured[:5],  # Top 5 featured
+            "categories": categories,
+            "total": len(plugins),
         })
 
     @handle_errors("get plugin")

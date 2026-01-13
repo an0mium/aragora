@@ -49,6 +49,7 @@ class InsightsHandler(BaseHandler):
     ROUTES = [
         "/api/insights/recent",
         "/api/insights/extract-detailed",
+        "/api/flips/recent",
     ]
 
     # Endpoints that require authentication
@@ -58,7 +59,7 @@ class InsightsHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/insights/")
+        return path.startswith("/api/insights/") or path == "/api/flips/recent"
 
     def handle_get(
         self, path: str, query: dict, handler, ctx: dict
@@ -72,6 +73,9 @@ class InsightsHandler(BaseHandler):
 
         if path == "/api/insights/recent":
             return self._get_recent_insights(query, ctx)
+
+        if path == "/api/flips/recent":
+            return self._get_recent_flips(query, ctx)
 
         return None
 
@@ -128,6 +132,53 @@ class InsightsHandler(BaseHandler):
                 for i in insights
             ],
             "count": len(insights),
+        })
+
+    @handle_errors("recent flips retrieval")
+    def _get_recent_flips(
+        self, query: dict, ctx: dict
+    ) -> HandlerResult:
+        """Get recent position flips/reversals.
+
+        Query params:
+            limit: Maximum number of flips to return (default: 20, max: 100)
+
+        Returns:
+            List of recent position reversals with agent, previous/new positions,
+            confidence change, and detection timestamp.
+        """
+        insight_store = ctx.get("insight_store")
+        if not insight_store:
+            return json_response({
+                "flips": [],
+                "count": 0,
+                "message": "Position flip tracking not configured",
+            })
+
+        limit = max(1, min(get_int_param(query, "limit", 20), 100))
+
+        # Get insights and filter for position reversals
+        flips = []
+        try:
+            insights = _run_async(insight_store.get_recent_insights(limit=limit * 2))
+            for i in insights:
+                if i.type.value == "position_reversal":
+                    flips.append({
+                        "id": i.id,
+                        "agent": i.agents_involved[0] if i.agents_involved else "unknown",
+                        "previous_position": i.description[:200] if i.description else "",
+                        "new_position": i.title,
+                        "confidence": i.confidence,
+                        "detected_at": str(getattr(i, 'created_at', None)),
+                    })
+                if len(flips) >= limit:
+                    break
+        except Exception as e:
+            logger.warning(f"Error fetching position flips: {e}")
+
+        return json_response({
+            "flips": flips,
+            "count": len(flips),
         })
 
     @handle_errors("insight extraction")

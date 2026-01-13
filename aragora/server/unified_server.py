@@ -44,6 +44,7 @@ from ..connectors.youtube_uploader import YouTubeUploaderConnector, YouTubeVideo
 from ..broadcast.video_gen import VideoGenerator
 from .auth import auth_config, check_auth
 from .cors_config import cors_config
+from .middleware.tracing import TracingMiddleware, get_trace_id, TRACE_ID_HEADER
 
 # For ad-hoc debates
 import threading
@@ -243,6 +244,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     storage: Optional[DebateStorage] = None
     static_dir: Optional[Path] = None
     stream_emitter: Optional[SyncEventEmitter] = None
+    tracing: TracingMiddleware = TracingMiddleware(service_name="aragora-api")
     nomic_state_file: Optional[Path] = None
     persistence: Optional["SupabaseClient"] = None  # Supabase client for history
     insight_store: Optional["InsightStore"] = None  # InsightStore for debate insights
@@ -695,17 +697,26 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         path = parsed.path
         query = parse_qs(parsed.query)
 
+        # Start tracing span for API requests
+        span = None
+        if path.startswith('/api/'):
+            span = self.tracing.start_request_span("GET", path, dict(self.headers))
+
         try:
             self._do_GET_internal(path, query)
         except Exception as e:
             # Top-level safety net for GET handlers
             status_code = 500
             logger.exception(f"[request] Unhandled exception in GET {path}: {e}")
+            if span:
+                span.set_error(e)
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
             except Exception as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
+            if span:
+                self.tracing.finish_request_span(span, status_code)
             duration_ms = (time.time() - start_time) * 1000
             # Log API requests (skip static file logging for noise reduction)
             if path.startswith('/api/'):
@@ -801,17 +812,26 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         parsed = urlparse(self.path)
         path = parsed.path
 
+        # Start tracing span for API requests
+        span = None
+        if path.startswith('/api/'):
+            span = self.tracing.start_request_span("POST", path, dict(self.headers))
+
         try:
             self._do_POST_internal(path)
         except Exception as e:
             # Top-level safety net for POST handlers
             status_code = 500
             logger.exception(f"[request] Unhandled exception in POST {path}: {e}")
+            if span:
+                span.set_error(e)
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
             except Exception as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
+            if span:
+                self.tracing.finish_request_span(span, status_code)
             duration_ms = (time.time() - start_time) * 1000
             self._log_request("POST", path, status_code, duration_ms)
 
@@ -1024,8 +1044,15 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         self._add_cors_headers()
         self._add_security_headers()
         self._add_rate_limit_headers()
+        self._add_trace_headers()
         self.end_headers()
         self.wfile.write(content)
+
+    def _add_trace_headers(self) -> None:
+        """Add trace ID header to response for correlation."""
+        trace_id = get_trace_id()
+        if trace_id:
+            self.send_header(TRACE_ID_HEADER, trace_id)
 
     def _add_rate_limit_headers(self) -> None:
         """Add rate limit headers to response.
@@ -1577,6 +1604,13 @@ class UnifiedServer:
             logger.debug("Redis connection pool closed")
         except (ImportError, RuntimeError) as e:
             logger.debug(f"Redis shutdown: {e}")
+
+        # 6.6. Stop auth cleanup thread
+        try:
+            auth_config.stop_cleanup_thread()
+            logger.debug("Auth cleanup thread stopped")
+        except (RuntimeError, AttributeError) as e:
+            logger.debug(f"Auth cleanup shutdown: {e}")
 
         # 7. Close database connections (connection pool cleanup)
         try:

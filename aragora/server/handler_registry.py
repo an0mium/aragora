@@ -91,6 +91,10 @@ try:
         MemoryAnalyticsHandler,
         GauntletHandler,
         SlackHandler,
+        OrganizationsHandler,
+        OAuthHandler,
+        ReviewsHandler,
+        FormalVerificationHandler,
         HandlerResult,
     )
     HANDLERS_AVAILABLE = True
@@ -142,6 +146,10 @@ except ImportError:
     MemoryAnalyticsHandler: HandlerType = None
     GauntletHandler: HandlerType = None
     SlackHandler: HandlerType = None
+    OrganizationsHandler: HandlerType = None
+    OAuthHandler: HandlerType = None
+    ReviewsHandler: HandlerType = None
+    FormalVerificationHandler: HandlerType = None
     HandlerResult: HandlerType = None
 
 
@@ -192,6 +200,10 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_memory_analytics_handler", MemoryAnalyticsHandler),
     ("_gauntlet_handler", GauntletHandler),
     ("_slack_handler", SlackHandler),
+    ("_organizations_handler", OrganizationsHandler),
+    ("_oauth_handler", OAuthHandler),
+    ("_reviews_handler", ReviewsHandler),
+    ("_formal_verification_handler", FormalVerificationHandler),
 ]
 
 
@@ -256,6 +268,10 @@ class RouteIndex:
             "_graph_debates_handler": ["/api/debates/graph"],
             "_matrix_debates_handler": ["/api/debates/matrix"],
             "_gauntlet_handler": ["/api/gauntlet/"],
+            "_organizations_handler": ["/api/organizations/"],
+            "_oauth_handler": ["/api/auth/oauth/"],
+            "_reviews_handler": ["/api/reviews/"],
+            "_formal_verification_handler": ["/api/verify/"],
         }
 
         for attr_name, _ in HANDLER_REGISTRY:
@@ -423,6 +439,15 @@ class HandlerRegistryMixin:
     _billing_handler: Optional["BaseHandler"] = None
     _graph_debates_handler: Optional["BaseHandler"] = None
     _matrix_debates_handler: Optional["BaseHandler"] = None
+    _features_handler: Optional["BaseHandler"] = None
+    _memory_analytics_handler: Optional["BaseHandler"] = None
+    _gauntlet_handler: Optional["BaseHandler"] = None
+    _slack_handler: Optional["BaseHandler"] = None
+    _organizations_handler: Optional["BaseHandler"] = None
+    _oauth_handler: Optional["BaseHandler"] = None
+    _reviews_handler: Optional["BaseHandler"] = None
+    _formal_verification_handler: Optional["BaseHandler"] = None
+    _evolution_ab_testing_handler: Optional["BaseHandler"] = None
     _handlers_initialized: bool = False
 
     @classmethod

@@ -2,8 +2,28 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { logger } from '@/utils/logger';
+import { WS_URL } from '@/config';
 
-const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
+const DEFAULT_WS_URL = WS_URL;
+
+/**
+ * Validate WebSocket URL format.
+ * @returns Object with valid flag and optional error message
+ */
+function validateWsUrl(url: string): { valid: boolean; error?: string } {
+  if (!url) {
+    return { valid: false, error: 'WebSocket URL is required' };
+  }
+  if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+    return { valid: false, error: 'Invalid WebSocket URL protocol (must be ws:// or wss://)' };
+  }
+  try {
+    new URL(url);
+  } catch {
+    return { valid: false, error: 'Invalid WebSocket URL format' };
+  }
+  return { valid: true };
+}
 
 // Gauntlet event types
 export type GauntletEventType =
@@ -288,6 +308,16 @@ export function useGauntletWebSocket({
 
     try {
       const url = wsUrl.endsWith('/') ? wsUrl.slice(0, -1) : wsUrl;
+
+      // Validate WebSocket URL before connecting
+      const validation = validateWsUrl(url);
+      if (!validation.valid) {
+        logger.error(`Invalid WebSocket URL: ${validation.error}`);
+        setError(validation.error || 'Invalid WebSocket URL');
+        setStatus('error');
+        return;
+      }
+
       logger.debug(`Connecting to Gauntlet WebSocket: ${url}`);
 
       const ws = new WebSocket(url);

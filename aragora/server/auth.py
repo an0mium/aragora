@@ -21,6 +21,9 @@ from aragora.exceptions import AuthenticationError
 class AuthConfig:
     """Configuration for authentication."""
 
+    # Cleanup interval in seconds (5 minutes)
+    CLEANUP_INTERVAL_SECONDS = 300
+
     def __init__(self):
         self.enabled = False
         self.api_token: Optional[str] = None
@@ -41,6 +44,71 @@ class AuthConfig:
         self._revoked_tokens: Dict[str, float] = {}  # token_hash -> revocation_time
         self._revocation_lock = threading.Lock()
         self._max_revoked_tokens = auth_settings.max_revoked_tokens
+        # Background cleanup thread
+        self._cleanup_thread: Optional[threading.Thread] = None
+        self._cleanup_stop_event = threading.Event()
+        # Shareable session storage (session_id -> {token, expires_at, loop_id})
+        # Sessions replace direct token-in-URL for security (avoids exposure in logs/referrer)
+        self._shareable_sessions: Dict[str, Dict[str, Any]] = {}
+        self._session_lock = threading.Lock()
+        self._max_sessions = 10000  # Prevent unbounded growth
+        self._start_cleanup_thread()
+
+    def _start_cleanup_thread(self) -> None:
+        """Start the background cleanup thread.
+
+        The thread runs every CLEANUP_INTERVAL_SECONDS to prevent
+        unbounded memory growth from rate limit tracking.
+        """
+        if self._cleanup_thread is not None and self._cleanup_thread.is_alive():
+            return
+
+        self._cleanup_stop_event.clear()
+        self._cleanup_thread = threading.Thread(
+            target=self._cleanup_loop,
+            name="auth-cleanup",
+            daemon=True,  # Don't block process exit
+        )
+        self._cleanup_thread.start()
+
+    def _cleanup_loop(self) -> None:
+        """Background loop that periodically cleans up stale entries."""
+        import logging
+        _logger = logging.getLogger(__name__)
+
+        while not self._cleanup_stop_event.is_set():
+            # Wait for the interval or until stop is signaled
+            if self._cleanup_stop_event.wait(timeout=self.CLEANUP_INTERVAL_SECONDS):
+                break  # Stop event was set
+
+            try:
+                stats = self.cleanup_expired_entries()
+                total_removed = (
+                    stats["token_entries_removed"]
+                    + stats["ip_entries_removed"]
+                    + stats["revoked_tokens_removed"]
+                    + stats.get("sessions_removed", 0)
+                )
+                if total_removed > 0:
+                    _logger.debug(
+                        f"auth_cleanup removed={total_removed} "
+                        f"tokens={stats['token_entries_removed']} "
+                        f"ips={stats['ip_entries_removed']} "
+                        f"revoked={stats['revoked_tokens_removed']} "
+                        f"sessions={stats.get('sessions_removed', 0)}"
+                    )
+            except Exception as e:
+                _logger.warning(f"auth_cleanup_error error={e}")
+
+    def stop_cleanup_thread(self) -> None:
+        """Stop the background cleanup thread.
+
+        Call this during graceful shutdown.
+        """
+        self._cleanup_stop_event.set()
+        if self._cleanup_thread is not None:
+            self._cleanup_thread.join(timeout=2.0)
+            self._cleanup_thread = None
 
     def configure_from_env(self):
         """Configure from environment variables.
@@ -212,6 +280,102 @@ class AuthConfig:
         except (ValueError, IndexError):
             return None
 
+    def generate_session(self, loop_id: str, expires_in: int | None = None) -> str:
+        """Generate a secure session ID for shareable links.
+
+        Sessions store the actual token server-side, preventing token exposure
+        in URLs, browser history, logs, and referrer headers.
+
+        Args:
+            loop_id: The loop_id to associate with this session
+            expires_in: Session TTL in seconds (default: SHAREABLE_LINK_TTL)
+
+        Returns:
+            A short, URL-safe session ID
+        """
+        if expires_in is None:
+            expires_in = SHAREABLE_LINK_TTL
+
+        # Generate cryptographically secure session ID (URL-safe, 16 bytes = 22 chars base64)
+        session_id = secrets.token_urlsafe(16)
+        expires_at = time.time() + expires_in
+
+        # Generate the actual token (stored server-side only)
+        token = self.generate_token(loop_id, expires_in)
+
+        with self._session_lock:
+            # Enforce max sessions - evict oldest if at capacity
+            if len(self._shareable_sessions) >= self._max_sessions:
+                # Remove expired sessions first
+                now = time.time()
+                expired = [k for k, v in self._shareable_sessions.items() if v["expires_at"] < now]
+                for k in expired:
+                    del self._shareable_sessions[k]
+
+                # If still at capacity, remove oldest 10%
+                if len(self._shareable_sessions) >= self._max_sessions:
+                    sorted_sessions = sorted(
+                        self._shareable_sessions.items(),
+                        key=lambda x: x[1]["expires_at"]
+                    )
+                    for k, _ in sorted_sessions[: len(sorted_sessions) // 10]:
+                        del self._shareable_sessions[k]
+
+            self._shareable_sessions[session_id] = {
+                "token": token,
+                "expires_at": expires_at,
+                "loop_id": loop_id,
+                "created_at": time.time(),
+            }
+
+        return session_id
+
+    def resolve_session(self, session_id: str) -> tuple[bool, str, str]:
+        """Resolve a session ID to its token and loop_id.
+
+        Args:
+            session_id: The session ID from the URL
+
+        Returns:
+            Tuple of (is_valid, token, loop_id)
+            If invalid/expired, returns (False, "", "")
+        """
+        if not session_id:
+            return False, "", ""
+
+        with self._session_lock:
+            session = self._shareable_sessions.get(session_id)
+            if not session:
+                return False, "", ""
+
+            # Check expiration
+            if time.time() > session["expires_at"]:
+                # Clean up expired session
+                del self._shareable_sessions[session_id]
+                return False, "", ""
+
+            return True, session["token"], session["loop_id"]
+
+    def revoke_session(self, session_id: str) -> bool:
+        """Revoke a shareable session.
+
+        Args:
+            session_id: The session ID to revoke
+
+        Returns:
+            True if session was found and revoked
+        """
+        with self._session_lock:
+            if session_id in self._shareable_sessions:
+                del self._shareable_sessions[session_id]
+                return True
+            return False
+
+    def get_session_count(self) -> int:
+        """Get the number of active shareable sessions."""
+        with self._session_lock:
+            return len(self._shareable_sessions)
+
     def validate_token_for_loop(self, token: str, loop_id: str) -> tuple[bool, str]:
         """Validate a token specifically for a given loop_id.
 
@@ -314,17 +478,29 @@ class AuthConfig:
                 del self._revoked_tokens[key]
                 stats["revoked_tokens_removed"] += 1
 
+        # Clean expired shareable sessions
+        stats["sessions_removed"] = 0
+        now = time.time()
+        with self._session_lock:
+            keys_to_remove = [k for k, v in self._shareable_sessions.items() if v["expires_at"] < now]
+            for key in keys_to_remove:
+                del self._shareable_sessions[key]
+                stats["sessions_removed"] += 1
+
         return stats
 
     def get_rate_limit_stats(self) -> dict:
         """Get current rate limiting statistics for monitoring."""
         with self._rate_limit_lock:
-            return {
+            stats = {
                 "token_entries": len(self._token_request_counts),
                 "ip_entries": len(self._ip_request_counts),
                 "revoked_tokens": len(self._revoked_tokens),
                 "max_tracked_entries": self._max_tracked_entries,
             }
+        with self._session_lock:
+            stats["shareable_sessions"] = len(self._shareable_sessions)
+        return stats
 
     def check_rate_limit(self, token: str) -> tuple:
         """Check if token is within rate limit.
@@ -477,10 +653,35 @@ def check_auth(headers: Dict[str, Any], query_string: str = "", loop_id: str = "
 
 
 def generate_shareable_link(base_url: str, loop_id: str, expires_in: int = SHAREABLE_LINK_TTL) -> str:
-    """Generate a shareable link with embedded token."""
-    token = auth_config.generate_token(loop_id, expires_in)
-    if not token:
+    """Generate a shareable link with session-based authentication.
+
+    Uses server-side sessions instead of embedding tokens in URLs to prevent
+    token exposure in browser history, server logs, and HTTP referrer headers.
+
+    Args:
+        base_url: The base URL to share
+        loop_id: The loop ID to authorize access to
+        expires_in: Session TTL in seconds (default: SHAREABLE_LINK_TTL)
+
+    Returns:
+        URL with session parameter, or base_url if auth is disabled
+    """
+    # Generate session (stores token server-side)
+    session_id = auth_config.generate_session(loop_id, expires_in)
+    if not session_id:
         return base_url
 
     separator = "&" if "?" in base_url else "?"
-    return f"{base_url}{separator}token={token}"
+    return f"{base_url}{separator}session={session_id}"
+
+
+def resolve_shareable_session(session_id: str) -> tuple[bool, str, str]:
+    """Resolve a shareable session from URL parameter.
+
+    Args:
+        session_id: The session ID from the URL's 'session' parameter
+
+    Returns:
+        Tuple of (is_valid, token, loop_id)
+    """
+    return auth_config.resolve_session(session_id)
