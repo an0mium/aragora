@@ -391,14 +391,8 @@ class TestSearchEvidence:
         assert result is not None
         assert result.status_code == 200
 
-    @pytest.mark.skip(reason="Handler uses wrong QualityContext kwargs - needs fix in evidence.py")
     def test_search_evidence_with_context(self, evidence_handler, mock_evidence_store, mock_handler):
-        """Test searching with quality context.
-
-        NOTE: Currently skipped because evidence.py:276 uses debate_topic, required_sources,
-        recency_weight which don't match QualityContext dataclass fields (query, keywords,
-        required_topics, preferred_sources, etc.). This needs a handler fix.
-        """
+        """Test searching with quality context."""
         body = {
             "query": "machine learning",
             "context": {

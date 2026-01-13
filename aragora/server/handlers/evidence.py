@@ -274,9 +274,14 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         if "context" in body:
             ctx_data = body["context"]
             context = QualityContext(
-                debate_topic=ctx_data.get("topic", ""),
-                required_sources=ctx_data.get("required_sources", []),
-                recency_weight=ctx_data.get("recency_weight", 0.3),
+                query=ctx_data.get("topic", ctx_data.get("query", "")),
+                keywords=ctx_data.get("keywords", []),
+                required_topics=set(ctx_data.get("required_topics", [])),
+                preferred_sources=set(ctx_data.get("preferred_sources", ctx_data.get("required_sources", []))),
+                blocked_sources=set(ctx_data.get("blocked_sources", [])),
+                max_age_days=ctx_data.get("max_age_days", 365),
+                min_word_count=ctx_data.get("min_word_count", 50),
+                require_citations=ctx_data.get("require_citations", False),
             )
 
         store = self._get_evidence_store()
