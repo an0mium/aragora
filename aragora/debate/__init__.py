@@ -15,6 +15,8 @@ _EXPORT_MAP = {
     'Arena': ('aragora.debate.orchestrator', 'Arena'),
     'ArenaBuilder': ('aragora.debate.arena_builder', 'ArenaBuilder'),
     'ArenaConfig': ('aragora.debate.arena_config', 'ArenaConfig'),
+    'ArenaExtensions': ('aragora.debate.extensions', 'ArenaExtensions'),
+    'ExtensionsConfig': ('aragora.debate.extensions', 'ExtensionsConfig'),
     'InitPhase': ('aragora.debate.arena_builder', 'InitPhase'),
     'BlackboxEvent': ('aragora.debate.blackbox', 'BlackboxEvent'),
     'BlackboxRecorder': ('aragora.debate.blackbox', 'BlackboxRecorder'),
@@ -131,6 +133,8 @@ __all__ = [
     "Arena",
     "ArenaBuilder",
     "ArenaConfig",
+    "ArenaExtensions",
+    "ExtensionsConfig",
     "InitPhase",
     "DebateProtocol",
     # Graph-based debates

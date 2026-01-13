@@ -54,6 +54,7 @@ from aragora.debate.sanitization import OutputSanitizer
 from aragora.debate.termination_checker import TerminationChecker
 from aragora.debate.result_formatter import ResultFormatter
 from aragora.spectate.stream import SpectatorStream
+from aragora.observability.tracing import get_tracer, add_span_attributes, trace_debate_phase
 
 from aragora.debate.context import DebateContext
 from aragora.debate.arena_config import ArenaConfig
@@ -507,23 +508,12 @@ class Arena:
         else:
             self.checkpoint_manager = None
 
-        # Billing/usage tracking
+        # Billing identity - kept for context metadata
         self.org_id = org_id
         self.user_id = user_id
-        self.usage_tracker = usage_tracker
-
-        # Broadcast auto-trigger for high-quality debates
-        self.broadcast_pipeline = broadcast_pipeline
-        self.auto_broadcast = auto_broadcast
-        self.broadcast_min_confidence = broadcast_min_confidence
-
-        # Training data export (Tinker integration)
-        self.training_exporter = training_exporter
-        self.auto_export_training = auto_export_training
-        self.training_export_min_confidence = training_export_min_confidence
 
         # Create extensions handler (billing, broadcast, training)
-        # Extensions are triggered after debate completion
+        # Extensions are triggered after debate completion - all settings stored there
         self.extensions = ArenaExtensions(
             org_id=org_id,
             user_id=user_id,
@@ -1354,66 +1344,102 @@ class Arena:
         debate_start_time = time.perf_counter()
         debate_status = "completed"
 
-        try:
-            # Phase 0: Context Initialization
-            await self.context_initializer.initialize(ctx)
+        # Initialize OpenTelemetry tracer for distributed tracing
+        tracer = get_tracer()
 
-            # Phase 1: Initial Proposals
-            await self.proposal_phase.execute(ctx)
+        with tracer.start_as_current_span("debate") as span:
+            # Add debate attributes to span
+            add_span_attributes(span, {
+                "debate.id": debate_id,
+                "debate.correlation_id": correlation_id,
+                "debate.domain": domain,
+                "debate.complexity": task_complexity.value,
+                "debate.agent_count": len(self.agents),
+                "debate.agents": ",".join(a.name for a in self.agents),
+                "debate.task_length": len(self.env.task),
+            })
 
-            # Phase 2: Debate Rounds (critique/revision loop)
-            await self.debate_rounds_phase.execute(ctx)
+            try:
+                # Phase 0: Context Initialization
+                with trace_debate_phase("context_init", debate_id) as phase_span:
+                    await self.context_initializer.initialize(ctx)
 
-            # Phase 3: Consensus Resolution
-            await self.consensus_phase.execute(ctx)
+                # Phase 1: Initial Proposals
+                with trace_debate_phase("proposals", debate_id) as phase_span:
+                    await self.proposal_phase.execute(ctx)
 
-            # Phases 4-6: Analytics
-            await self.analytics_phase.execute(ctx)
+                # Phase 2: Debate Rounds (critique/revision loop)
+                with trace_debate_phase("debate_rounds", debate_id) as phase_span:
+                    await self.debate_rounds_phase.execute(ctx)
+                    phase_span.set_attribute("debate.rounds_used", ctx.result.rounds_used)
 
-            # Phase 7: Feedback Loops
-            await self.feedback_phase.execute(ctx)
+                # Phase 3: Consensus Resolution
+                with trace_debate_phase("consensus", debate_id) as phase_span:
+                    await self.consensus_phase.execute(ctx)
+                    phase_span.set_attribute("debate.consensus_reached", ctx.result.consensus_reached)
 
-        except asyncio.TimeoutError:
-            # Timeout recovery - use partial results from context
-            ctx.result.messages = ctx.partial_messages
-            ctx.result.critiques = ctx.partial_critiques
-            ctx.result.rounds_used = ctx.partial_rounds
-            debate_status = "timeout"
-            logger.warning("Debate timed out, returning partial results")
+                # Phases 4-6: Analytics
+                with trace_debate_phase("analytics", debate_id) as phase_span:
+                    await self.analytics_phase.execute(ctx)
 
-        except EarlyStopError:
-            # Early stop is intentional, not an error
-            debate_status = "aborted"
-            raise
+                # Phase 7: Feedback Loops
+                with trace_debate_phase("feedback", debate_id) as phase_span:
+                    await self.feedback_phase.execute(ctx)
 
-        except Exception:
-            debate_status = "error"
-            raise
+            except asyncio.TimeoutError:
+                # Timeout recovery - use partial results from context
+                ctx.result.messages = ctx.partial_messages
+                ctx.result.critiques = ctx.partial_critiques
+                ctx.result.rounds_used = ctx.partial_rounds
+                debate_status = "timeout"
+                span.set_attribute("debate.status", "timeout")
+                logger.warning("Debate timed out, returning partial results")
 
-        finally:
-            # Track metrics regardless of outcome
-            ACTIVE_DEBATES.dec()
-            duration = time.perf_counter() - debate_start_time
+            except EarlyStopError:
+                # Early stop is intentional, not an error
+                debate_status = "aborted"
+                span.set_attribute("debate.status", "aborted")
+                raise
 
-            # Get consensus info from result
-            consensus_reached = getattr(ctx.result, 'consensus_reached', False)
-            confidence = getattr(ctx.result, 'confidence', 0.0)
+            except Exception as e:
+                debate_status = "error"
+                span.set_attribute("debate.status", "error")
+                span.record_exception(e)
+                raise
 
-            track_debate_outcome(
-                status=debate_status,
-                domain=domain,
-                duration_seconds=duration,
-                consensus_reached=consensus_reached,
-                confidence=confidence,
-            )
+            finally:
+                # Track metrics regardless of outcome
+                ACTIVE_DEBATES.dec()
+                duration = time.perf_counter() - debate_start_time
 
-            # Track circuit breaker state
-            if self.circuit_breaker:
-                open_count = sum(
-                    1 for state in getattr(self.circuit_breaker, '_agent_states', {}).values()
-                    if getattr(state, 'is_open', False)
+                # Get consensus info from result
+                consensus_reached = getattr(ctx.result, 'consensus_reached', False)
+                confidence = getattr(ctx.result, 'confidence', 0.0)
+
+                # Add final attributes to span
+                add_span_attributes(span, {
+                    "debate.status": debate_status,
+                    "debate.duration_seconds": duration,
+                    "debate.consensus_reached": consensus_reached,
+                    "debate.confidence": confidence,
+                    "debate.message_count": len(ctx.result.messages) if ctx.result else 0,
+                })
+
+                track_debate_outcome(
+                    status=debate_status,
+                    domain=domain,
+                    duration_seconds=duration,
+                    consensus_reached=consensus_reached,
+                    confidence=confidence,
                 )
-                track_circuit_breaker_state(open_count)
+
+                # Track circuit breaker state
+                if self.circuit_breaker:
+                    open_count = sum(
+                        1 for state in getattr(self.circuit_breaker, '_agent_states', {}).values()
+                        if getattr(state, 'is_open', False)
+                    )
+                    track_circuit_breaker_state(open_count)
 
         # Trigger extensions (billing, training export)
         # Extensions handle their own error handling and won't fail the debate
@@ -1429,102 +1455,9 @@ class Arena:
     # - ConsensusPhase (Phase 3)
     # - AnalyticsPhase (Phases 4-6)
     # - FeedbackPhase (Phase 7)
-
-    def _record_token_usage(self, ctx) -> None:
-        """Record token usage from all agents for billing.
-
-        Aggregates token usage across all API agents and records
-        via the usage_tracker if configured.
-
-        Args:
-            ctx: DebateContext containing result and debate metadata
-        """
-        if not self.usage_tracker:
-            return
-
-        try:
-            # Aggregate usage across all agents
-            total_tokens_in = 0
-            total_tokens_out = 0
-
-            for agent in self.agents:
-                # Check if agent has token tracking (APIAgent subclasses)
-                if hasattr(agent, 'get_token_usage'):
-                    usage = agent.get_token_usage()
-                    total_tokens_in += usage.get('total_tokens_in', 0)
-                    total_tokens_out += usage.get('total_tokens_out', 0)
-
-            # Only record if we have actual usage
-            if total_tokens_in > 0 or total_tokens_out > 0:
-                # Get debate ID from result
-                debate_id = getattr(ctx.result, 'id', '') or getattr(ctx, 'debate_id', '')
-
-                # Record via usage tracker
-                self.usage_tracker.record_debate(
-                    user_id=self.user_id,
-                    org_id=self.org_id,
-                    debate_id=debate_id,
-                    tokens_in=total_tokens_in,
-                    tokens_out=total_tokens_out,
-                    provider="mixed",  # Multiple providers may be used
-                    model="mixed",  # Multiple models may be used
-                )
-                logger.info(
-                    f"Recorded usage: {total_tokens_in} in, {total_tokens_out} out "
-                    f"for debate {debate_id} (org={self.org_id})"
-                )
-        except (AttributeError, TypeError, ValueError, KeyError, RuntimeError, OSError) as e:
-            # Don't fail the debate if usage recording fails
-            logger.warning(f"Failed to record token usage: {e}")
-
-    def _export_training_data(self, ctx) -> None:
-        """Export training data from completed debate (Tinker integration).
-
-        Exports high-quality debate results for model fine-tuning:
-        - SFT: Task/answer pairs from winning responses
-        - DPO: Preference pairs (winner vs other proposals)
-
-        Args:
-            ctx: DebateContext containing result and debate metadata
-        """
-        # Skip if auto-export not enabled
-        if not self.auto_export_training:
-            return
-
-        # Check confidence threshold
-        confidence = getattr(ctx.result, 'confidence', 0.0)
-        if confidence < self.training_export_min_confidence:
-            logger.debug(
-                "training_export_skipped confidence=%.2f threshold=%.2f",
-                confidence,
-                self.training_export_min_confidence,
-            )
-            return
-
-        try:
-            # Use provided exporter or create one lazily
-            if self.training_exporter is None:
-                from aragora.training.debate_exporter import DebateTrainingExporter
-                self.training_exporter = DebateTrainingExporter()
-
-            # Export the debate
-            result = self.training_exporter.export_debate(
-                result=ctx.result,
-                debate_id=getattr(ctx, 'debate_id', ''),
-                domain=getattr(ctx, 'domain', ''),
-                agents=self.agents,
-            )
-
-            if result.get('sft', 0) > 0 or result.get('dpo', 0) > 0:
-                logger.info(
-                    "training_export_complete debate_id=%s sft=%d dpo=%d",
-                    getattr(ctx, 'debate_id', '')[:8],
-                    result.get('sft', 0),
-                    result.get('dpo', 0),
-                )
-        except (ImportError, AttributeError, TypeError, ValueError, OSError, IOError) as e:
-            # Don't fail the debate if training export fails
-            logger.warning("training_export_failed error=%s", e)
+    #
+    # NOTE: Token usage recording and training export are now handled by
+    # ArenaExtensions.on_debate_complete() - see debate/extensions.py
 
     async def _index_debate_async(self, artifact: dict) -> None:
         """Index debate asynchronously to avoid blocking."""
