@@ -175,7 +175,7 @@ class RedisTokenBucket:
     def get_retry_after(self) -> float:
         """Get seconds until next token is available."""
         try:
-            data: list[bytes | None] = self.redis.hmget(self.key, "tokens", "last_refill")  # type: ignore[assignment]
+            data: list[bytes | None] = self.redis.hmget(self.key, "tokens", "last_refill")  # type: ignore[assignment, arg-type]
             tokens = float(data[0]) if data[0] else float(self.burst_size)
             if tokens >= 1:
                 return 0
@@ -190,7 +190,7 @@ class RedisTokenBucket:
     def remaining(self) -> int:
         """Get remaining tokens."""
         try:
-            data: list[bytes | None] = self.redis.hmget(self.key, "tokens", "last_refill")  # type: ignore[assignment]
+            data: list[bytes | None] = self.redis.hmget(self.key, "tokens", "last_refill")  # type: ignore[assignment, arg-type]
             tokens = float(data[0]) if data[0] else float(self.burst_size)
             last_refill = float(data[1]) if data[1] else time.time()
 

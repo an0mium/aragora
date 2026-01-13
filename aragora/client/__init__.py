@@ -52,6 +52,8 @@ Gauntlet Usage:
 from .client import (
     AragoraClient,
     AragoraAPIError,
+    RetryConfig,
+    RateLimiter,
     DebatesAPI,
     AgentsAPI,
     LeaderboardAPI,
@@ -128,6 +130,8 @@ __all__ = [
     # Client
     "AragoraClient",
     "AragoraAPIError",
+    "RetryConfig",
+    "RateLimiter",
     # API interfaces
     "DebatesAPI",
     "AgentsAPI",

@@ -17,7 +17,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Optional
 
 from .base import (
@@ -118,7 +118,7 @@ class AdminHandler(BaseHandler):
             # POST /api/admin/impersonate/:user_id
             if path.startswith("/api/admin/impersonate/"):
                 user_id = path.split("/")[-1]
-                if not validate_path_segment(user_id, SAFE_ID_PATTERN):
+                if not validate_path_segment(user_id, "user_id", SAFE_ID_PATTERN)[0]:
                     return error_response("Invalid user ID format", 400)
                 return self._impersonate_user(handler, user_id)
 
@@ -126,7 +126,7 @@ class AdminHandler(BaseHandler):
             if "/users/" in path and path.endswith("/deactivate"):
                 parts = path.split("/")
                 user_id = parts[-2]
-                if not validate_path_segment(user_id, SAFE_ID_PATTERN):
+                if not validate_path_segment(user_id, "user_id", SAFE_ID_PATTERN)[0]:
                     return error_response("Invalid user ID format", 400)
                 return self._deactivate_user(handler, user_id)
 
@@ -134,7 +134,7 @@ class AdminHandler(BaseHandler):
             if "/users/" in path and path.endswith("/activate"):
                 parts = path.split("/")
                 user_id = parts[-2]
-                if not validate_path_segment(user_id, SAFE_ID_PATTERN):
+                if not validate_path_segment(user_id, "user_id", SAFE_ID_PATTERN)[0]:
                     return error_response("Invalid user ID format", 400)
                 return self._activate_user(handler, user_id)
 
@@ -230,7 +230,7 @@ class AdminHandler(BaseHandler):
         if err:
             return err
 
-        metrics = {
+        metrics: dict[str, Any] = {
             "timestamp": datetime.utcnow().isoformat(),
         }
 
@@ -250,8 +250,8 @@ class AdminHandler(BaseHandler):
 
         # Get circuit breaker stats if available
         try:
-            from aragora.resilience import get_circuit_breaker_stats
-            metrics["circuit_breakers"] = get_circuit_breaker_stats()
+            from aragora.resilience import get_circuit_breaker_status
+            metrics["circuit_breakers"] = get_circuit_breaker_status()
         except ImportError:
             pass
         except Exception as e:
@@ -266,13 +266,10 @@ class AdminHandler(BaseHandler):
 
         # Get rate limit stats if available
         try:
-            from aragora.server.auth import _rate_limiters
-            rate_limit_stats = {}
-            for name, limiter in _rate_limiters.items():
-                if hasattr(limiter, "get_stats"):
-                    rate_limit_stats[name] = limiter.get_stats()
-            if rate_limit_stats:
-                metrics["rate_limits"] = rate_limit_stats
+            from aragora.server.middleware.rate_limit import get_rate_limiter
+            limiter = get_rate_limiter()
+            if limiter and hasattr(limiter, "get_stats"):
+                metrics["rate_limits"] = limiter.get_stats()
         except Exception as e:
             logger.warning(f"Failed to get rate limit stats: {e}")
 
@@ -341,17 +338,14 @@ class AdminHandler(BaseHandler):
         if not target_user:
             return error_response("User not found", 404)
 
-        # Create short-lived impersonation token
+        # Create short-lived impersonation token (1 hour)
+        # Note: impersonation metadata is logged below since JWT doesn't support custom claims
         impersonation_token = create_access_token(
             user_id=target_user_id,
             email=target_user.email,
             org_id=target_user.org_id,
             role=target_user.role,
-            expires_delta=timedelta(hours=1),
-            additional_claims={
-                "impersonated_by": auth_ctx.user_id,
-                "impersonation": True,
-            },
+            expiry_hours=1,
         )
 
         # Log the impersonation for audit

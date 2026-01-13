@@ -344,6 +344,162 @@ def get_retry_delay(error: Exception, default: float = 5.0) -> float:
     return default
 
 
+def classify_exception(
+    error: Exception,
+    connector_name: str = "unknown",
+) -> ConnectorError:
+    """
+    Convert a generic exception to an appropriate ConnectorError subclass.
+
+    This enables consistent error handling by converting standard Python
+    exceptions (TimeoutError, ConnectionError, etc.) to the connector
+    exception hierarchy.
+
+    Args:
+        error: The original exception
+        connector_name: Name of the connector for error context
+
+    Returns:
+        A ConnectorError subclass appropriate for the error type
+
+    Example:
+        try:
+            response = await client.get(url)
+        except Exception as e:
+            raise classify_exception(e, "web_connector") from e
+    """
+    import asyncio
+    import json
+    import ssl
+
+    error_type = type(error).__name__
+    error_msg = str(error).lower()
+
+    # Already a ConnectorError - just update connector name if needed
+    if isinstance(error, ConnectorError):
+        if error.connector_name == "unknown":
+            error.connector_name = connector_name
+        return error
+
+    # Timeout errors
+    if isinstance(error, (asyncio.TimeoutError, TimeoutError)):
+        return ConnectorTimeoutError(
+            f"Request timed out: {error}",
+            connector_name=connector_name,
+        )
+    if "timeout" in error_type.lower() or "timeout" in error_msg:
+        return ConnectorTimeoutError(
+            str(error),
+            connector_name=connector_name,
+        )
+
+    # Connection/network errors
+    if isinstance(error, (ConnectionError, OSError)):
+        if "refused" in error_msg or "reset" in error_msg:
+            return ConnectorNetworkError(
+                f"Connection failed: {error}",
+                connector_name=connector_name,
+            )
+        return ConnectorNetworkError(
+            str(error),
+            connector_name=connector_name,
+        )
+
+    # SSL errors
+    if isinstance(error, ssl.SSLError):
+        return ConnectorNetworkError(
+            f"SSL error: {error}",
+            connector_name=connector_name,
+        )
+
+    # JSON parsing errors
+    if isinstance(error, json.JSONDecodeError):
+        return ConnectorParseError(
+            f"JSON decode error: {error}",
+            connector_name=connector_name,
+            content_type="application/json",
+        )
+
+    # Rate limit detection from error messages
+    if "429" in error_msg or "rate limit" in error_msg or "too many requests" in error_msg:
+        return ConnectorRateLimitError(
+            str(error),
+            connector_name=connector_name,
+        )
+
+    # Auth detection from error messages
+    if any(
+        x in error_msg
+        for x in ["401", "403", "unauthorized", "forbidden", "invalid.*key", "auth"]
+    ):
+        return ConnectorAuthError(
+            str(error),
+            connector_name=connector_name,
+        )
+
+    # Not found detection
+    if "404" in error_msg or "not found" in error_msg:
+        return ConnectorNotFoundError(
+            str(error),
+            connector_name=connector_name,
+        )
+
+    # Server errors
+    if any(x in error_msg for x in ["500", "502", "503", "504", "server error"]):
+        return ConnectorAPIError(
+            str(error),
+            connector_name=connector_name,
+            status_code=500,
+        )
+
+    # Validation errors
+    if isinstance(error, (ValueError, TypeError)):
+        return ConnectorValidationError(
+            str(error),
+            connector_name=connector_name,
+        )
+
+    # Default: wrap as generic ConnectorAPIError
+    return ConnectorAPIError(
+        f"Unexpected error: {error}",
+        connector_name=connector_name,
+        status_code=None,
+    )
+
+
+class connector_error_handler:
+    """
+    Context manager that converts exceptions to ConnectorError types.
+
+    Usage:
+        async with connector_error_handler("github"):
+            response = await client.get(url)
+            return response.json()
+
+    Any exception raised within the block will be converted to an
+    appropriate ConnectorError subclass with the connector name set.
+    """
+
+    def __init__(self, connector_name: str):
+        self.connector_name = connector_name
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_val is not None:
+            raise classify_exception(exc_val, self.connector_name) from exc_val
+        return False
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if exc_val is not None:
+            raise classify_exception(exc_val, self.connector_name) from exc_val
+        return False
+
+
 __all__ = [
     # Base
     "ConnectorError",
@@ -360,4 +516,6 @@ __all__ = [
     # Utilities
     "is_retryable_error",
     "get_retry_delay",
+    "classify_exception",
+    "connector_error_handler",
 ]

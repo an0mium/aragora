@@ -552,7 +552,7 @@ class ForkOperationsMixin:
             forks.sort(key=lambda x: x.get("created_at", 0))
 
             # Build tree structure
-            tree = self._build_fork_tree(debate_id, forks)
+            tree = _build_fork_tree(debate_id, forks)
 
             return json_response(
                 {
@@ -567,79 +567,79 @@ class ForkOperationsMixin:
             logger.error("Failed to list forks for %s: %s", debate_id, e)
             return error_response(safe_error_message(e, "list forks"), 500)
 
-    def _build_fork_tree(
-        self,
-        root_id: str,
-        forks: list[Dict[str, Any]],
-    ) -> Dict[str, Any]:
-        """Build a hierarchical tree structure from flat fork list.
 
-        Args:
-            root_id: The root debate ID
-            forks: List of fork data dicts
+def _build_fork_tree(
+    root_id: str,
+    forks: list[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Build a hierarchical tree structure from flat fork list.
 
-        Returns:
-            Tree structure with nested children
-        """
-        # Create lookup by branch_id
-        fork_lookup = {f.get("branch_id"): f for f in forks}
+    Args:
+        root_id: The root debate ID
+        forks: List of fork data dicts
 
-        # Build tree recursively
-        def build_node(node_id: str, is_root: bool = False) -> Dict[str, Any]:
-            children: list[Dict[str, Any]] = []
-            if is_root:
-                # Root node is the original debate
-                node: Dict[str, Any] = {
-                    "id": node_id,
-                    "type": "root",
-                    "branch_point": 0,
-                    "children": children,
-                }
-            else:
-                # Fork node
-                fork_data = fork_lookup.get(node_id, {})
-                node = {
-                    "id": node_id,
-                    "type": "fork",
-                    "branch_point": fork_data.get("branch_point", 0),
-                    "pivot_claim": fork_data.get("pivot_claim"),
-                    "status": fork_data.get("status", "unknown"),
-                    "modified_context": fork_data.get("modified_context"),
-                    "messages_inherited": fork_data.get("messages_inherited", 0),
-                    "created_at": fork_data.get("created_at"),
-                    "children": children,
-                }
+    Returns:
+        Tree structure with nested children
+    """
+    # Create lookup by branch_id
+    fork_lookup = {f.get("branch_id"): f for f in forks}
 
-            # Find children (forks that have this node as parent)
-            for fork in forks:
-                if fork.get("parent_debate_id") == node_id:
-                    child_id = fork.get("branch_id")
-                    if child_id:
-                        child_node = build_node(child_id)
-                        children.append(child_node)
+    # Build tree recursively
+    def build_node(node_id: str, is_root: bool = False) -> Dict[str, Any]:
+        children: list[Dict[str, Any]] = []
+        if is_root:
+            # Root node is the original debate
+            node: Dict[str, Any] = {
+                "id": node_id,
+                "type": "root",
+                "branch_point": 0,
+                "children": children,
+            }
+        else:
+            # Fork node
+            fork_data = fork_lookup.get(node_id, {})
+            node = {
+                "id": node_id,
+                "type": "fork",
+                "branch_point": fork_data.get("branch_point", 0),
+                "pivot_claim": fork_data.get("pivot_claim"),
+                "status": fork_data.get("status", "unknown"),
+                "modified_context": fork_data.get("modified_context"),
+                "messages_inherited": fork_data.get("messages_inherited", 0),
+                "created_at": fork_data.get("created_at"),
+                "children": children,
+            }
 
-            return node
+        # Find children (forks that have this node as parent)
+        for fork in forks:
+            if fork.get("parent_debate_id") == node_id:
+                child_id = fork.get("branch_id")
+                if child_id:
+                    child_node = build_node(child_id)
+                    children.append(child_node)
 
-        tree = build_node(root_id, is_root=True)
+        return node
 
-        # Calculate tree stats
-        def count_nodes(node: dict) -> tuple:
-            """Count total nodes and max depth."""
-            if not node.get("children"):
-                return 1, 1
-            total = 1
-            max_depth = 1
-            for child in node["children"]:
-                child_count, child_depth = count_nodes(child)
-                total += child_count
-                max_depth = max(max_depth, child_depth + 1)
-            return total, max_depth
+    tree = build_node(root_id, is_root=True)
 
-        total_nodes, max_depth = count_nodes(tree)
-        tree["total_nodes"] = total_nodes
-        tree["max_depth"] = max_depth
+    # Calculate tree stats
+    def count_nodes(node: Dict[str, Any]) -> tuple[int, int]:
+        """Count total nodes and max depth."""
+        if not node.get("children"):
+            return 1, 1
+        total = 1
+        max_depth = 1
+        for child in node["children"]:
+            child_count, child_depth = count_nodes(child)
+            total += child_count
+            max_depth = max(max_depth, child_depth + 1)
+        return total, max_depth
 
-        return tree
+    total_nodes, max_depth = count_nodes(tree)
+    tree["total_nodes"] = total_nodes
+    tree["max_depth"] = max_depth
+
+    return tree
 
 
 __all__ = ["ForkOperationsMixin"]

@@ -16,6 +16,8 @@ from functools import lru_cache
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Optional
 
+from aragora.observability.logging import get_logger as get_structured_logger, correlation_context
+
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 from aragora.utils.cache_registry import register_lru_cache
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
@@ -70,6 +72,8 @@ except ImportError:
     PROMPT_EVOLVER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
+# Structured logger for key debate events (JSON-formatted in production)
+slog = get_structured_logger(__name__)
 
 # TYPE_CHECKING imports for type hints without runtime import overhead
 if TYPE_CHECKING:
@@ -1380,10 +1384,17 @@ class Arena:
             self.agents = self._select_debate_team(self.agents)
             ctx.agents = self.agents  # Update context with selected agents
 
-        logger.info(
-            f"debate_start id={debate_id[:8]} complexity={task_complexity.value} "
-            f"agents={[a.name for a in self.agents]}"
-        )
+        # Structured logging for debate lifecycle (JSON in production)
+        with correlation_context(correlation_id):
+            slog.info(
+                "debate_start",
+                debate_id=debate_id,
+                complexity=task_complexity.value,
+                agent_count=len(self.agents),
+                agents=[a.name for a in self.agents],
+                domain=domain,
+                task_length=len(self.env.task),
+            )
 
         # Initialize result early for timeout recovery
         ctx.result = DebateResult(
@@ -1497,6 +1508,19 @@ class Arena:
                     duration_seconds=duration,
                     consensus_reached=consensus_reached,
                     confidence=confidence,
+                )
+
+                # Structured logging for debate completion
+                slog.info(
+                    "debate_end",
+                    debate_id=debate_id,
+                    status=debate_status,
+                    duration_seconds=round(duration, 3),
+                    consensus_reached=consensus_reached,
+                    confidence=round(confidence, 3),
+                    rounds_used=ctx.result.rounds_used if ctx.result else 0,
+                    message_count=len(ctx.result.messages) if ctx.result else 0,
+                    domain=domain,
                 )
 
                 # Track circuit breaker state

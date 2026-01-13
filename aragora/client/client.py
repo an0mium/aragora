@@ -1238,6 +1238,8 @@ class AragoraClient:
         base_url: str = "http://localhost:8080",
         api_key: str | None = None,
         timeout: int = 60,
+        retry_config: RetryConfig | None = None,
+        rate_limit_rps: float = 0,
     ):
         """
         Initialize the Aragora client.
@@ -1246,10 +1248,14 @@ class AragoraClient:
             base_url: Base URL of the Aragora API server.
             api_key: Optional API key for authentication.
             timeout: Request timeout in seconds.
+            retry_config: Optional retry configuration for resilient requests.
+            rate_limit_rps: Client-side rate limit in requests per second (0 = disabled).
         """
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.timeout = timeout
+        self.retry_config = retry_config
+        self._rate_limiter = RateLimiter(rate_limit_rps) if rate_limit_rps > 0 else None
 
         # Lazy-loaded HTTP clients
         self._session: Optional["aiohttp.ClientSession"] = None
@@ -1276,7 +1282,7 @@ class AragoraClient:
         return headers
 
     def _get(self, path: str, params: dict | None = None) -> dict:
-        """Make a synchronous GET request."""
+        """Make a synchronous GET request with retry and rate limiting."""
         import urllib.request
         import urllib.parse
         import urllib.error
@@ -1286,15 +1292,34 @@ class AragoraClient:
             url = f"{url}?{urllib.parse.urlencode(params)}"
 
         req = urllib.request.Request(url, headers=self._get_headers(), method="GET")
+        last_error: Optional[Exception] = None
+        max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                return json.loads(resp.read().decode())
-        except urllib.error.HTTPError as e:
-            self._handle_http_error(e)
+        for attempt in range(max_attempts):
+            # Apply rate limiting
+            if self._rate_limiter:
+                self._rate_limiter.wait()
+
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    return json.loads(resp.read().decode())
+            except urllib.error.HTTPError as e:
+                last_error = e
+                # Check if we should retry
+                if self.retry_config and e.code in self.retry_config.retry_statuses:
+                    if attempt < max_attempts - 1:
+                        delay = self.retry_config.get_delay(attempt)
+                        logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})")
+                        time_module.sleep(delay)
+                        continue
+                self._handle_http_error(e)
+
+        # Should not reach here, but handle gracefully
+        if last_error:
+            self._handle_http_error(last_error)
 
     def _post(self, path: str, data: dict) -> dict:
-        """Make a synchronous POST request."""
+        """Make a synchronous POST request with retry and rate limiting."""
         import urllib.request
         import urllib.error
 
@@ -1305,15 +1330,34 @@ class AragoraClient:
             method="POST",
             data=json.dumps(data).encode(),
         )
+        last_error: Optional[Exception] = None
+        max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                return json.loads(resp.read().decode())
-        except urllib.error.HTTPError as e:
-            self._handle_http_error(e)
+        for attempt in range(max_attempts):
+            # Apply rate limiting
+            if self._rate_limiter:
+                self._rate_limiter.wait()
+
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    return json.loads(resp.read().decode())
+            except urllib.error.HTTPError as e:
+                last_error = e
+                # Check if we should retry
+                if self.retry_config and e.code in self.retry_config.retry_statuses:
+                    if attempt < max_attempts - 1:
+                        delay = self.retry_config.get_delay(attempt)
+                        logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})")
+                        time_module.sleep(delay)
+                        continue
+                self._handle_http_error(e)
+
+        # Should not reach here, but handle gracefully
+        if last_error:
+            self._handle_http_error(last_error)
 
     def _delete(self, path: str, params: dict | None = None) -> dict:
-        """Make a synchronous DELETE request."""
+        """Make a synchronous DELETE request with retry and rate limiting."""
         import urllib.request
         import urllib.parse
         import urllib.error
@@ -1323,35 +1367,82 @@ class AragoraClient:
             url = f"{url}?{urllib.parse.urlencode(params)}"
 
         req = urllib.request.Request(url, headers=self._get_headers(), method="DELETE")
+        last_error: Optional[Exception] = None
+        max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                return json.loads(resp.read().decode())
-        except urllib.error.HTTPError as e:
-            self._handle_http_error(e)
+        for attempt in range(max_attempts):
+            # Apply rate limiting
+            if self._rate_limiter:
+                self._rate_limiter.wait()
+
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    return json.loads(resp.read().decode())
+            except urllib.error.HTTPError as e:
+                last_error = e
+                # Check if we should retry
+                if self.retry_config and e.code in self.retry_config.retry_statuses:
+                    if attempt < max_attempts - 1:
+                        delay = self.retry_config.get_delay(attempt)
+                        logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})")
+                        time_module.sleep(delay)
+                        continue
+                self._handle_http_error(e)
+
+        # Should not reach here, but handle gracefully
+        if last_error:
+            self._handle_http_error(last_error)
 
     async def _delete_async(self, path: str, params: dict | None = None) -> dict:
-        """Make an asynchronous DELETE request."""
+        """Make an asynchronous DELETE request with retry and rate limiting."""
         import aiohttp
+        import asyncio
 
         if self._session is None:
             self._session = aiohttp.ClientSession()
 
         url = urljoin(self.base_url, path)
-        async with self._session.delete(
-            url,
-            headers=self._get_headers(),
-            params=params,
-            timeout=aiohttp.ClientTimeout(total=self.timeout),
-        ) as resp:
-            if resp.status >= 400:
-                body = await resp.json()
-                raise AragoraAPIError(
-                    body.get("error", "Unknown error"),
-                    body.get("code", "HTTP_ERROR"),
-                    resp.status,
-                )
-            return await resp.json()
+        last_error: Optional[Exception] = None
+        max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
+
+        for attempt in range(max_attempts):
+            # Apply rate limiting
+            if self._rate_limiter:
+                await self._rate_limiter.wait_async()
+
+            try:
+                async with self._session.delete(
+                    url,
+                    headers=self._get_headers(),
+                    params=params,
+                    timeout=aiohttp.ClientTimeout(total=self.timeout),
+                ) as resp:
+                    if resp.status >= 400:
+                        body = await resp.json()
+                        # Check if we should retry
+                        if self.retry_config and resp.status in self.retry_config.retry_statuses:
+                            if attempt < max_attempts - 1:
+                                delay = self.retry_config.get_delay(attempt)
+                                logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status})")
+                                await asyncio.sleep(delay)
+                                continue
+                        raise AragoraAPIError(
+                            body.get("error", "Unknown error"),
+                            body.get("code", "HTTP_ERROR"),
+                            resp.status,
+                        )
+                    return await resp.json()
+            except aiohttp.ClientError as e:
+                last_error = e
+                if self.retry_config and attempt < max_attempts - 1:
+                    delay = self.retry_config.get_delay(attempt)
+                    logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)")
+                    await asyncio.sleep(delay)
+                    continue
+                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+
+        # Should not reach here
+        raise AragoraAPIError(str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0)
 
     def _handle_http_error(self, e: Any) -> NoReturn:
         """Handle HTTP errors."""
@@ -1368,50 +1459,106 @@ class AragoraClient:
         raise AragoraAPIError(error_msg, error_code, e.code)
 
     async def _get_async(self, path: str, params: dict | None = None) -> dict:
-        """Make an asynchronous GET request."""
+        """Make an asynchronous GET request with retry and rate limiting."""
         import aiohttp
+        import asyncio
 
         if self._session is None:
             self._session = aiohttp.ClientSession()
 
         url = urljoin(self.base_url, path)
-        async with self._session.get(
-            url,
-            headers=self._get_headers(),
-            params=params,
-            timeout=aiohttp.ClientTimeout(total=self.timeout),
-        ) as resp:
-            if resp.status >= 400:
-                body = await resp.json()
-                raise AragoraAPIError(
-                    body.get("error", "Unknown error"),
-                    body.get("code", "HTTP_ERROR"),
-                    resp.status,
-                )
-            return await resp.json()
+        last_error: Optional[Exception] = None
+        max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
+
+        for attempt in range(max_attempts):
+            # Apply rate limiting
+            if self._rate_limiter:
+                await self._rate_limiter.wait_async()
+
+            try:
+                async with self._session.get(
+                    url,
+                    headers=self._get_headers(),
+                    params=params,
+                    timeout=aiohttp.ClientTimeout(total=self.timeout),
+                ) as resp:
+                    if resp.status >= 400:
+                        body = await resp.json()
+                        # Check if we should retry
+                        if self.retry_config and resp.status in self.retry_config.retry_statuses:
+                            if attempt < max_attempts - 1:
+                                delay = self.retry_config.get_delay(attempt)
+                                logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status})")
+                                await asyncio.sleep(delay)
+                                continue
+                        raise AragoraAPIError(
+                            body.get("error", "Unknown error"),
+                            body.get("code", "HTTP_ERROR"),
+                            resp.status,
+                        )
+                    return await resp.json()
+            except aiohttp.ClientError as e:
+                last_error = e
+                if self.retry_config and attempt < max_attempts - 1:
+                    delay = self.retry_config.get_delay(attempt)
+                    logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)")
+                    await asyncio.sleep(delay)
+                    continue
+                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+
+        # Should not reach here
+        raise AragoraAPIError(str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0)
 
     async def _post_async(self, path: str, data: dict) -> dict:
-        """Make an asynchronous POST request."""
+        """Make an asynchronous POST request with retry and rate limiting."""
         import aiohttp
+        import asyncio
 
         if self._session is None:
             self._session = aiohttp.ClientSession()
 
         url = urljoin(self.base_url, path)
-        async with self._session.post(
-            url,
-            headers=self._get_headers(),
-            json=data,
-            timeout=aiohttp.ClientTimeout(total=self.timeout),
-        ) as resp:
-            if resp.status >= 400:
-                body = await resp.json()
-                raise AragoraAPIError(
-                    body.get("error", "Unknown error"),
-                    body.get("code", "HTTP_ERROR"),
-                    resp.status,
-                )
-            return await resp.json()
+        last_error: Optional[Exception] = None
+        max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
+
+        for attempt in range(max_attempts):
+            # Apply rate limiting
+            if self._rate_limiter:
+                await self._rate_limiter.wait_async()
+
+            try:
+                async with self._session.post(
+                    url,
+                    headers=self._get_headers(),
+                    json=data,
+                    timeout=aiohttp.ClientTimeout(total=self.timeout),
+                ) as resp:
+                    if resp.status >= 400:
+                        body = await resp.json()
+                        # Check if we should retry
+                        if self.retry_config and resp.status in self.retry_config.retry_statuses:
+                            if attempt < max_attempts - 1:
+                                delay = self.retry_config.get_delay(attempt)
+                                logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status})")
+                                await asyncio.sleep(delay)
+                                continue
+                        raise AragoraAPIError(
+                            body.get("error", "Unknown error"),
+                            body.get("code", "HTTP_ERROR"),
+                            resp.status,
+                        )
+                    return await resp.json()
+            except aiohttp.ClientError as e:
+                last_error = e
+                if self.retry_config and attempt < max_attempts - 1:
+                    delay = self.retry_config.get_delay(attempt)
+                    logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)")
+                    await asyncio.sleep(delay)
+                    continue
+                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+
+        # Should not reach here
+        raise AragoraAPIError(str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0)
 
     def health(self) -> HealthCheck:
         """Check API health."""
