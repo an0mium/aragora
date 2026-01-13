@@ -94,6 +94,8 @@ OAuthHandler: HandlerType = None
 ReviewsHandler: HandlerType = None
 FormalVerificationHandler: HandlerType = None
 EvidenceHandler: HandlerType = None
+WebhookHandler: HandlerType = None
+AdminHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
 # Import handlers with graceful fallback
@@ -148,6 +150,8 @@ try:
         ReviewsHandler as _ReviewsHandler,
         FormalVerificationHandler as _FormalVerificationHandler,
         EvidenceHandler as _EvidenceHandler,
+        WebhookHandler as _WebhookHandler,
+        AdminHandler as _AdminHandler,
         HandlerResult as _HandlerResult,
     )
 
@@ -201,6 +205,8 @@ try:
     ReviewsHandler = _ReviewsHandler
     FormalVerificationHandler = _FormalVerificationHandler
     EvidenceHandler = _EvidenceHandler
+    WebhookHandler = _WebhookHandler
+    AdminHandler = _AdminHandler
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
@@ -261,6 +267,8 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_reviews_handler", ReviewsHandler),
     ("_formal_verification_handler", FormalVerificationHandler),
     ("_evidence_handler", EvidenceHandler),
+    ("_webhook_handler", WebhookHandler),
+    ("_admin_handler", AdminHandler),
 ]
 
 
@@ -335,6 +343,8 @@ class RouteIndex:
             "_reviews_handler": ["/api/reviews/"],
             "_formal_verification_handler": ["/api/verify/"],
             "_evidence_handler": ["/api/evidence"],
+            "_webhook_handler": ["/api/webhooks"],
+            "_admin_handler": ["/api/admin"],
         }
 
         for attr_name, _ in HANDLER_REGISTRY:
@@ -512,6 +522,8 @@ class HandlerRegistryMixin:
     _formal_verification_handler: Optional["BaseHandler"] = None
     _evolution_ab_testing_handler: Optional["BaseHandler"] = None
     _evidence_handler: Optional["BaseHandler"] = None
+    _webhook_handler: Optional["BaseHandler"] = None
+    _admin_handler: Optional["BaseHandler"] = None
     _handlers_initialized: bool = False
 
     @classmethod

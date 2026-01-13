@@ -186,6 +186,38 @@ export default function AdminPage() {
           </div>
         </header>
 
+        {/* Sub Navigation */}
+        <div className="border-b border-acid-green/20 bg-surface/40">
+          <div className="container mx-auto px-4">
+            <div className="flex gap-4 overflow-x-auto">
+              <Link
+                href="/admin"
+                className="px-4 py-2 font-mono text-sm text-acid-green border-b-2 border-acid-green"
+              >
+                SYSTEM
+              </Link>
+              <Link
+                href="/admin/organizations"
+                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+              >
+                ORGANIZATIONS
+              </Link>
+              <Link
+                href="/admin/users"
+                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+              >
+                USERS
+              </Link>
+              <Link
+                href="/admin/revenue"
+                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+              >
+                REVENUE
+              </Link>
+            </div>
+          </div>
+        </div>
+
         {/* Content */}
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6 flex items-center justify-between">
