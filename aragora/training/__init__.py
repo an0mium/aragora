@@ -31,6 +31,11 @@ from aragora.training.exporters import (
     GauntletExporter,
     BaseExporter,
 )
+from aragora.training.debate_exporter import (
+    DebateTrainingExporter,
+    DebateTrainingConfig,
+    export_debate_to_training,
+)
 
 __all__ = [
     # Client
@@ -53,4 +58,8 @@ __all__ = [
     "DPOExporter",
     "GauntletExporter",
     "BaseExporter",
+    # Debate Exporter (Tinker integration)
+    "DebateTrainingExporter",
+    "DebateTrainingConfig",
+    "export_debate_to_training",
 ]

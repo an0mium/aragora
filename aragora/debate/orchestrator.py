@@ -18,6 +18,12 @@ from typing import Optional
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 from aragora.utils.cache_registry import register_lru_cache
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
+from aragora.server.metrics import (
+    ACTIVE_DEBATES,
+    track_debate_outcome,
+    track_agent_error,
+    track_circuit_breaker_state,
+)
 from aragora.exceptions import EarlyStopError
 from aragora.debate.convergence import ConvergenceDetector
 from aragora.debate.event_bridge import EventEmitterBridge
@@ -154,6 +160,14 @@ class Arena:
         org_id: str = "",  # Organization ID for multi-tenancy
         user_id: str = "",  # User ID for usage attribution
         usage_tracker=None,  # UsageTracker instance for recording token usage
+        # Broadcast auto-trigger
+        broadcast_pipeline=None,  # BroadcastPipeline for audio/video generation
+        auto_broadcast: bool = False,  # Auto-trigger broadcast after high-quality debates
+        broadcast_min_confidence: float = 0.8,  # Minimum confidence to trigger broadcast
+        # Training data export (Tinker integration)
+        training_exporter=None,  # DebateTrainingExporter for auto-export
+        auto_export_training: bool = False,  # Auto-export training data after debates
+        training_export_min_confidence: float = 0.75,  # Min confidence to export
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
@@ -236,6 +250,9 @@ class Arena:
             org_id=org_id,
             user_id=user_id,
             usage_tracker=usage_tracker,
+            broadcast_pipeline=broadcast_pipeline,
+            auto_broadcast=auto_broadcast,
+            broadcast_min_confidence=broadcast_min_confidence,
         )
 
         # Initialize tracking subsystems
@@ -351,6 +368,12 @@ class Arena:
             org_id=config.org_id,
             user_id=config.user_id,
             usage_tracker=config.usage_tracker,
+            broadcast_pipeline=config.broadcast_pipeline,
+            auto_broadcast=config.auto_broadcast,
+            broadcast_min_confidence=config.broadcast_min_confidence,
+            training_exporter=config.training_exporter,
+            auto_export_training=config.auto_export_training,
+            training_export_min_confidence=config.training_export_min_confidence,
         )
 
     def _init_core(
@@ -392,6 +415,9 @@ class Arena:
         org_id: str = "",
         user_id: str = "",
         usage_tracker=None,
+        broadcast_pipeline=None,
+        auto_broadcast: bool = False,
+        broadcast_min_confidence: float = 0.8,
     ) -> None:
         """Initialize core Arena configuration."""
         auto_evolve = resolve_auto_evolve(auto_evolve)
@@ -477,6 +503,16 @@ class Arena:
         self.org_id = org_id
         self.user_id = user_id
         self.usage_tracker = usage_tracker
+
+        # Broadcast auto-trigger for high-quality debates
+        self.broadcast_pipeline = broadcast_pipeline
+        self.auto_broadcast = auto_broadcast
+        self.broadcast_min_confidence = broadcast_min_confidence
+
+        # Training data export (Tinker integration)
+        self.training_exporter = training_exporter
+        self.auto_export_training = auto_export_training
+        self.training_export_min_confidence = training_export_min_confidence
 
         # Auto-initialize BreakpointManager if enable_breakpoints is True
         if self.protocol.enable_breakpoints and self.breakpoint_manager is None:
@@ -1191,6 +1227,9 @@ class Arena:
         if not correlation_id:
             correlation_id = f"corr-{debate_id[:8]}"
 
+        # Extract domain early for metrics
+        domain = self._extract_debate_domain()
+
         # Create shared context for all phases
         ctx = DebateContext(
             env=self.env,
@@ -1198,7 +1237,7 @@ class Arena:
             start_time=time.time(),
             debate_id=debate_id,
             correlation_id=correlation_id,
-            domain=self._extract_debate_domain(),
+            domain=domain,
         )
 
         # Classify task complexity and configure adaptive timeouts
@@ -1228,6 +1267,11 @@ class Arena:
             final_answer="",
         )
 
+        # Track active debates metric
+        ACTIVE_DEBATES.inc()
+        debate_start_time = time.perf_counter()
+        debate_status = "completed"
+
         try:
             # Phase 0: Context Initialization
             await self.context_initializer.initialize(ctx)
@@ -1252,10 +1296,48 @@ class Arena:
             ctx.result.messages = ctx.partial_messages
             ctx.result.critiques = ctx.partial_critiques
             ctx.result.rounds_used = ctx.partial_rounds
+            debate_status = "timeout"
             logger.warning("Debate timed out, returning partial results")
+
+        except EarlyStopError:
+            # Early stop is intentional, not an error
+            debate_status = "aborted"
+            raise
+
+        except Exception:
+            debate_status = "error"
+            raise
+
+        finally:
+            # Track metrics regardless of outcome
+            ACTIVE_DEBATES.dec()
+            duration = time.perf_counter() - debate_start_time
+
+            # Get consensus info from result
+            consensus_reached = getattr(ctx.result, 'consensus_reached', False)
+            confidence = getattr(ctx.result, 'confidence', 0.0)
+
+            track_debate_outcome(
+                status=debate_status,
+                domain=domain,
+                duration_seconds=duration,
+                consensus_reached=consensus_reached,
+                confidence=confidence,
+            )
+
+            # Track circuit breaker state
+            if self.circuit_breaker:
+                open_count = sum(
+                    1 for state in getattr(self.circuit_breaker, '_agent_states', {}).values()
+                    if getattr(state, 'is_open', False)
+                )
+                track_circuit_breaker_state(open_count)
 
         # Record token usage for billing (before returning)
         self._record_token_usage(ctx)
+
+        # Export training data if configured (Tinker integration)
+        self._export_training_data(ctx)
 
         return ctx.finalize_result()
 
@@ -1314,6 +1396,55 @@ class Arena:
         except (AttributeError, TypeError, ValueError, KeyError, RuntimeError, OSError) as e:
             # Don't fail the debate if usage recording fails
             logger.warning(f"Failed to record token usage: {e}")
+
+    def _export_training_data(self, ctx) -> None:
+        """Export training data from completed debate (Tinker integration).
+
+        Exports high-quality debate results for model fine-tuning:
+        - SFT: Task/answer pairs from winning responses
+        - DPO: Preference pairs (winner vs other proposals)
+
+        Args:
+            ctx: DebateContext containing result and debate metadata
+        """
+        # Skip if auto-export not enabled
+        if not self.auto_export_training:
+            return
+
+        # Check confidence threshold
+        confidence = getattr(ctx.result, 'confidence', 0.0)
+        if confidence < self.training_export_min_confidence:
+            logger.debug(
+                "training_export_skipped confidence=%.2f threshold=%.2f",
+                confidence,
+                self.training_export_min_confidence,
+            )
+            return
+
+        try:
+            # Use provided exporter or create one lazily
+            if self.training_exporter is None:
+                from aragora.training.debate_exporter import DebateTrainingExporter
+                self.training_exporter = DebateTrainingExporter()
+
+            # Export the debate
+            result = self.training_exporter.export_debate(
+                result=ctx.result,
+                debate_id=getattr(ctx, 'debate_id', ''),
+                domain=getattr(ctx, 'domain', ''),
+                agents=self.agents,
+            )
+
+            if result.get('sft', 0) > 0 or result.get('dpo', 0) > 0:
+                logger.info(
+                    "training_export_complete debate_id=%s sft=%d dpo=%d",
+                    getattr(ctx, 'debate_id', '')[:8],
+                    result.get('sft', 0),
+                    result.get('dpo', 0),
+                )
+        except (ImportError, AttributeError, TypeError, ValueError, OSError, IOError) as e:
+            # Don't fail the debate if training export fails
+            logger.warning("training_export_failed error=%s", e)
 
     async def _index_debate_async(self, artifact: dict) -> None:
         """Index debate asynchronously to avoid blocking."""

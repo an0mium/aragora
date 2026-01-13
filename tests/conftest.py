@@ -10,7 +10,7 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Generator
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, AsyncMock
 
 import pytest
 
@@ -535,3 +535,315 @@ def reset_lazy_globals():
         DatabaseManager.clear_instances()
     except (ImportError, AttributeError):
         pass
+
+
+# ============================================================================
+# API Response Mocking Fixtures
+# ============================================================================
+
+@pytest.fixture
+def mock_anthropic_response():
+    """Create mock Anthropic API response.
+
+    Returns a factory function that creates mock responses.
+    Use with `unittest.mock.patch` to mock httpx or requests calls.
+
+    Example:
+        def test_anthropic_call(mock_anthropic_response):
+            with patch('httpx.AsyncClient.post') as mock_post:
+                mock_post.return_value = mock_anthropic_response("Hello!")
+                # ... test code
+    """
+    def _make_response(
+        content: str = "Test response",
+        model: str = "claude-sonnet-4-20250514",
+        stop_reason: str = "end_turn",
+        input_tokens: int = 100,
+        output_tokens: int = 50,
+    ):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "id": "msg_test123",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": content}],
+            "model": model,
+            "stop_reason": stop_reason,
+            "usage": {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+            },
+        }
+        mock_resp.raise_for_status = MagicMock()
+        return mock_resp
+    return _make_response
+
+
+@pytest.fixture
+def mock_openai_response():
+    """Create mock OpenAI API response.
+
+    Returns a factory function that creates mock responses.
+
+    Example:
+        def test_openai_call(mock_openai_response):
+            with patch('openai.AsyncOpenAI') as mock_client:
+                mock_client.return_value.chat.completions.create = AsyncMock(
+                    return_value=mock_openai_response("Hello!")
+                )
+    """
+    def _make_response(
+        content: str = "Test response",
+        model: str = "gpt-4o",
+        finish_reason: str = "stop",
+        prompt_tokens: int = 100,
+        completion_tokens: int = 50,
+    ):
+        mock_choice = MagicMock()
+        mock_choice.message.content = content
+        mock_choice.message.role = "assistant"
+        mock_choice.finish_reason = finish_reason
+        mock_choice.index = 0
+
+        mock_usage = MagicMock()
+        mock_usage.prompt_tokens = prompt_tokens
+        mock_usage.completion_tokens = completion_tokens
+        mock_usage.total_tokens = prompt_tokens + completion_tokens
+
+        mock_resp = MagicMock()
+        mock_resp.id = "chatcmpl-test123"
+        mock_resp.model = model
+        mock_resp.choices = [mock_choice]
+        mock_resp.usage = mock_usage
+        mock_resp.created = 1700000000
+
+        return mock_resp
+    return _make_response
+
+
+@pytest.fixture
+def mock_openrouter_response():
+    """Create mock OpenRouter API response.
+
+    OpenRouter uses OpenAI-compatible format.
+    """
+    def _make_response(
+        content: str = "Test response",
+        model: str = "anthropic/claude-3.5-sonnet",
+        finish_reason: str = "stop",
+    ):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "id": "gen-test123",
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": content,
+                },
+                "finish_reason": finish_reason,
+            }],
+            "usage": {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "total_tokens": 150,
+            },
+        }
+        mock_resp.raise_for_status = MagicMock()
+        return mock_resp
+    return _make_response
+
+
+@pytest.fixture
+def mock_streaming_response():
+    """Create mock streaming API response (SSE format).
+
+    Returns a factory that creates an async generator for streaming responses.
+    """
+    def _make_stream(chunks: list[str] | None = None):
+        if chunks is None:
+            chunks = ["Hello", " world", "!"]
+
+        async def _stream():
+            for i, chunk in enumerate(chunks):
+                yield {
+                    "id": f"chunk-{i}",
+                    "choices": [{
+                        "index": 0,
+                        "delta": {"content": chunk},
+                        "finish_reason": None if i < len(chunks) - 1 else "stop",
+                    }],
+                }
+
+        return _stream()
+    return _make_stream
+
+
+# ============================================================================
+# Z3/Formal Verification Fixtures
+# ============================================================================
+
+@pytest.fixture
+def z3_available() -> bool:
+    """Check if Z3 solver is available.
+
+    Returns True if Z3 can be imported and used.
+    Use with pytest.mark.skipif for Z3-dependent tests.
+
+    Example:
+        @pytest.mark.skipif(not z3_available(), reason="Z3 not installed")
+        def test_z3_proof(z3_available):
+            ...
+    """
+    try:
+        import z3
+        # Quick sanity check that Z3 actually works
+        solver = z3.Solver()
+        x = z3.Int('x')
+        solver.add(x > 0)
+        return solver.check() == z3.sat
+    except ImportError:
+        return False
+    except Exception:
+        return False
+
+
+# Helper function for use in skipif decorators
+def _z3_installed() -> bool:
+    """Check if Z3 is installed (for use in decorators)."""
+    try:
+        import z3
+        return True
+    except ImportError:
+        return False
+
+
+# Make this available at module level for skipif decorators
+Z3_AVAILABLE = _z3_installed()
+
+
+# ============================================================================
+# HTTP Client Mocking Fixtures
+# ============================================================================
+
+@pytest.fixture
+def mock_httpx_client():
+    """Create a mock httpx.AsyncClient.
+
+    Returns a configured mock client for HTTP request testing.
+    """
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    client.get = AsyncMock()
+    client.post = AsyncMock()
+    client.put = AsyncMock()
+    client.delete = AsyncMock()
+    return client
+
+
+@pytest.fixture
+def mock_aiohttp_session():
+    """Create a mock aiohttp.ClientSession.
+
+    Returns a configured mock session for async HTTP testing.
+    """
+    session = MagicMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=None)
+
+    # Mock response context manager
+    mock_response = MagicMock()
+    mock_response.status = 200
+    mock_response.json = AsyncMock(return_value={})
+    mock_response.text = AsyncMock(return_value="")
+    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_response.__aexit__ = AsyncMock(return_value=None)
+
+    session.get = MagicMock(return_value=mock_response)
+    session.post = MagicMock(return_value=mock_response)
+
+    return session
+
+
+# ============================================================================
+# Pulse/Trending Fixtures
+# ============================================================================
+
+@pytest.fixture
+def mock_pulse_topics():
+    """Create sample trending topics for Pulse tests.
+
+    Returns a list of mock TrendingTopic-like dicts.
+    """
+    return [
+        {
+            "topic": "AI Safety Debate",
+            "platform": "hackernews",
+            "category": "tech",
+            "volume": 500,
+            "controversy_score": 0.8,
+            "timestamp": "2026-01-12T00:00:00Z",
+        },
+        {
+            "topic": "Climate Policy",
+            "platform": "reddit",
+            "category": "politics",
+            "volume": 350,
+            "controversy_score": 0.7,
+            "timestamp": "2026-01-12T01:00:00Z",
+        },
+        {
+            "topic": "Cryptocurrency Regulation",
+            "platform": "twitter",
+            "category": "finance",
+            "volume": 200,
+            "controversy_score": 0.6,
+            "timestamp": "2026-01-12T02:00:00Z",
+        },
+    ]
+
+
+@pytest.fixture
+def mock_pulse_manager(mock_pulse_topics):
+    """Create a mock PulseManager for scheduler tests.
+
+    Returns a MagicMock with common PulseManager methods configured.
+    """
+    manager = MagicMock()
+    manager.get_trending_topics = AsyncMock(return_value=mock_pulse_topics)
+    manager.get_topic_history = AsyncMock(return_value=[])
+    manager.refresh_topics = AsyncMock(return_value=None)
+    return manager
+
+
+# ============================================================================
+# WebSocket Testing Fixtures
+# ============================================================================
+
+@pytest.fixture
+def mock_websocket():
+    """Create a mock WebSocket connection.
+
+    Returns a MagicMock configured for WebSocket testing.
+    """
+    ws = MagicMock()
+    ws.send_json = AsyncMock()
+    ws.send_text = AsyncMock()
+    ws.receive_json = AsyncMock(return_value={})
+    ws.receive_text = AsyncMock(return_value="")
+    ws.close = AsyncMock()
+    ws.accept = AsyncMock()
+
+    # Track sent messages for assertions
+    ws.sent_messages = []
+
+    async def track_send(data):
+        ws.sent_messages.append(data)
+
+    ws.send_json.side_effect = track_send
+
+    return ws

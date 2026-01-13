@@ -158,5 +158,22 @@ class ArenaConfig:
     user_id: str = ""  # User ID for usage attribution
     usage_tracker: Optional[object] = None  # UsageTracker for token usage
 
+    # Broadcast auto-trigger for high-quality debates
+    broadcast_pipeline: Optional[object] = None  # BroadcastPipeline for audio/video generation
+    auto_broadcast: bool = False  # Auto-trigger broadcast after high-quality debates
+    broadcast_min_confidence: float = 0.8  # Minimum confidence to trigger broadcast
+    broadcast_platforms: list = None  # Platforms to publish to (default: ["rss"])
+
+    # Training data export (Tinker integration)
+    training_exporter: Optional[object] = None  # TrainingDataExporter for auto-export
+    auto_export_training: bool = False  # Auto-export training data after debates
+    training_export_min_confidence: float = 0.75  # Min confidence to export as SFT
+    training_export_path: str = ""  # Output path for training data (default: data/training/)
+
+    def __post_init__(self):
+        """Initialize defaults that can't be set in field definitions."""
+        if self.broadcast_platforms is None:
+            self.broadcast_platforms = ["rss"]
+
 
 __all__ = ["ArenaConfig"]

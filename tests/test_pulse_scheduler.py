@@ -293,7 +293,8 @@ class TestSchedulerStateMachine:
     @pytest.mark.asyncio
     async def test_start_without_creator_raises(self, scheduler):
         """Test that start() without debate creator raises."""
-        with pytest.raises(RuntimeError, match="No debate creator"):
+        from aragora.exceptions import ConfigurationError
+        with pytest.raises(ConfigurationError, match="No debate creator"):
             await scheduler.start()
 
     @pytest.mark.asyncio
