@@ -29,7 +29,15 @@ from pathlib import Path
 from typing import Any, Iterator, Optional
 
 from aragora.billing.models import Organization, OrganizationInvitation, SubscriptionTier, User
-from aragora.storage.repositories import AuditRepository, InvitationRepository, SecurityRepository
+from aragora.storage.repositories import (
+    AuditRepository,
+    InvitationRepository,
+    OAuthRepository,
+    OrganizationRepository,
+    SecurityRepository,
+    UsageRepository,
+    UserRepository,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +66,10 @@ class UserStore:
         self._init_schema()
 
         # Initialize specialized repositories (delegates for modular operations)
+        self._user_repo = UserRepository(self._transaction, self._get_connection)
+        self._org_repo = OrganizationRepository(self._transaction, self._row_to_user)
+        self._oauth_repo = OAuthRepository(self._transaction)
+        self._usage_repo = UsageRepository(self._transaction, self.get_organization_by_id)
         self._audit_repo = AuditRepository(self._transaction)
         self._invitation_repo = InvitationRepository(self._transaction)
         self._security_repo = SecurityRepository(self._transaction)
