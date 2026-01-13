@@ -28,9 +28,14 @@ from aragora.config import DB_CONSENSUS_PATH, DB_TIMEOUT_SECONDS
 from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager, get_wal_connection
 from aragora.utils.json_helpers import safe_json_loads
-from aragora.utils.cache import invalidate_cache
+from aragora.utils.cache import invalidate_cache, TTLCache
 
 logger = logging.getLogger(__name__)
+
+# LRU cache for consensus queries (5 min TTL, 500 entries max)
+# Using Any type to avoid forward reference issues with ConsensusRecord
+_consensus_cache: TTLCache[Any] = TTLCache(maxsize=500, ttl_seconds=300)
+_dissents_cache: TTLCache[list] = TTLCache(maxsize=500, ttl_seconds=300)
 
 # Schema version for ConsensusMemory migrations
 # v1: Initial schema (consensus + dissent tables)
@@ -366,6 +371,7 @@ class ConsensusMemory(SQLiteStore):
 
         # Invalidate related caches so API returns fresh data
         invalidate_cache("consensus")
+        _consensus_cache.clear()  # Clear LRU cache on write
 
         return record
 
@@ -435,6 +441,8 @@ class ConsensusMemory(SQLiteStore):
 
         # Invalidate related caches so API returns fresh data
         invalidate_cache("consensus")
+        _consensus_cache.invalidate(f"consensus:{debate_id}")  # Invalidate specific consensus
+        _dissents_cache.invalidate(f"dissents:{debate_id}")  # Invalidate dissents for this debate
 
         return record
 
@@ -541,6 +549,7 @@ class ConsensusMemory(SQLiteStore):
 
         # Invalidate related caches
         invalidate_cache("consensus")
+        _consensus_cache.invalidate(f"consensus:{debate_id}")  # Invalidate specific consensus
 
         return proof_id
 
@@ -623,7 +632,17 @@ class ConsensusMemory(SQLiteStore):
         ]
 
     def get_consensus(self, consensus_id: str) -> Optional[ConsensusRecord]:
-        """Get a consensus record by ID."""
+        """Get a consensus record by ID.
+
+        Uses LRU cache with 5-minute TTL to reduce database queries
+        for frequently accessed consensus records.
+        """
+        # Check cache first
+        cache_key = f"consensus:{consensus_id}"
+        cached = _consensus_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT data FROM consensus WHERE id = ?", (consensus_id,))
@@ -632,11 +651,23 @@ class ConsensusMemory(SQLiteStore):
         if row:
             data: dict = safe_json_loads(row[0], {}, context=f"consensus:{consensus_id}")
             if data:
-                return ConsensusRecord.from_dict(data)
+                record = ConsensusRecord.from_dict(data)
+                _consensus_cache.set(cache_key, record)
+                return record
         return None
 
     def get_dissents(self, debate_id: str) -> list[DissentRecord]:
-        """Get all dissenting views for a debate."""
+        """Get all dissenting views for a debate.
+
+        Uses LRU cache with 5-minute TTL to reduce database queries
+        for frequently accessed dissent records.
+        """
+        # Check cache first
+        cache_key = f"dissents:{debate_id}"
+        cached = _dissents_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -650,6 +681,9 @@ class ConsensusMemory(SQLiteStore):
             data: dict = safe_json_loads(row[0], {}, context=f"dissent:debate={debate_id}")
             if data:
                 results.append(DissentRecord.from_dict(data))
+
+        # Cache the results
+        _dissents_cache.set(cache_key, results)
         return results
 
     def find_similar_debates(

@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *No unreleased changes*
 
+## [1.0.0] - 2026-01-13
+
+### Added
+- **LRU caching for consensus queries**: `get_consensus()` and `get_dissents()` now use TTL-based caching (5 min, 500 entries) for improved performance
+- **VoteCollector module**: Extracted vote collection logic with timeout protection
+- **VoteWeighter module**: Extracted vote weighting and calibration logic
+- **Comprehensive API versioning**: Full documentation in `docs/API_VERSIONING.md`
+- **Deprecation policy**: Formal policy in `docs/DEPRECATION_POLICY.md`
+
+### Changed
+- **Version bump to 1.0.0**: First stable release
+- **Database optimization**: Added LRU caching to frequently-accessed consensus and dissent queries
+- **Architecture cleanup**: Modular vote handling with VoteCollector and VoteWeighter classes
+
+### Fixed
+- Auth handler test mocks for `is_account_locked()` and `record_failed_login()`
+
+### Documentation
+- API versioning policy with deprecation timelines
+- Migration guide from 0.8.x to 1.0.0
+
 ## [0.8.1] - 2026-01-13
 
 ### Added
