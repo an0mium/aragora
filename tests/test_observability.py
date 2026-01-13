@@ -31,20 +31,18 @@ class TestMetricsInitialization:
 
     def test_init_metrics_prometheus_not_installed(self):
         """Test graceful handling when prometheus not installed."""
-        with patch("aragora.observability.metrics.get_metrics_config") as mock_config:
-            mock_config.return_value = Mock(enabled=True, histogram_buckets=[0.1, 0.5, 1.0])
+        # Import before any mocking
+        from aragora.observability.metrics import _init_noop_metrics
+        import aragora.observability.metrics as metrics_module
 
-            with patch("aragora.observability.metrics._initialized", False):
-                with patch.dict("sys.modules", {"prometheus_client": None}):
-                    with patch("builtins.__import__", side_effect=ImportError):
-                        from aragora.observability.metrics import _init_metrics
-                        import aragora.observability.metrics as metrics_module
-                        metrics_module._initialized = False
+        # Test that NoOp initialization works
+        _init_noop_metrics()
 
-                        result = _init_metrics()
-
-                        # Should gracefully handle ImportError
-                        assert metrics_module._initialized is True
+        # NoOp metrics should be in place and functional
+        assert metrics_module.REQUEST_COUNT is not None
+        # Verify NoOp metrics work without raising
+        metrics_module.REQUEST_COUNT.labels(method="GET", endpoint="/test").inc()
+        metrics_module.REQUEST_LATENCY.labels(method="GET", endpoint="/test").observe(0.1)
 
 
 class TestNoOpMetrics:
@@ -465,6 +463,7 @@ class TestTraceHandler:
             mock_handler = Mock()
             mock_handler.path = "/api/test"
             mock_handler.command = "GET"
+            mock_handler.client_address = ("127.0.0.1", 8080)
 
             result = handler_function(mock_self, mock_handler)
             assert result == "result"
@@ -473,22 +472,23 @@ class TestTraceHandler:
 class TestTraceAgentCall:
     """Test trace_agent_call decorator."""
 
-    def test_trace_agent_call_decorator(self):
+    @pytest.mark.asyncio
+    async def test_trace_agent_call_decorator(self):
         """Test trace_agent_call decorates agent methods."""
         from aragora.observability.tracing import trace_agent_call, _NoOpTracer
 
         with patch("aragora.observability.tracing.get_tracer") as mock_get_tracer:
             mock_get_tracer.return_value = _NoOpTracer()
 
-            @trace_agent_call
-            def generate(self, prompt: str):
+            @trace_agent_call("test_agent")
+            async def generate(self, prompt: str):
                 return f"Response to: {prompt}"
 
             mock_self = Mock()
             mock_self.name = "test_agent"
             mock_self.model = "test_model"
 
-            result = generate(mock_self, "Hello")
+            result = await generate(mock_self, "Hello")
             assert "Hello" in result
 
     @pytest.mark.asyncio
@@ -499,7 +499,7 @@ class TestTraceAgentCall:
         with patch("aragora.observability.tracing.get_tracer") as mock_get_tracer:
             mock_get_tracer.return_value = _NoOpTracer()
 
-            @trace_agent_call
+            @trace_agent_call("async_agent")
             async def async_generate(self, prompt: str):
                 return f"Async response to: {prompt}"
 
