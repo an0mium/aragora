@@ -13,7 +13,8 @@ import time
 from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Optional
+from types import TracebackType
+from typing import Any, Optional
 
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 from aragora.utils.cache_registry import register_lru_cache
@@ -253,6 +254,9 @@ class Arena:
             broadcast_pipeline=broadcast_pipeline,
             auto_broadcast=auto_broadcast,
             broadcast_min_confidence=broadcast_min_confidence,
+            training_exporter=training_exporter,
+            auto_export_training=auto_export_training,
+            training_export_min_confidence=training_export_min_confidence,
         )
 
         # Initialize tracking subsystems
@@ -418,6 +422,9 @@ class Arena:
         broadcast_pipeline=None,
         auto_broadcast: bool = False,
         broadcast_min_confidence: float = 0.8,
+        training_exporter=None,
+        auto_export_training: bool = False,
+        training_export_min_confidence: float = 0.75,
     ) -> None:
         """Initialize core Arena configuration."""
         auto_evolve = resolve_auto_evolve(auto_evolve)
@@ -1175,6 +1182,66 @@ class Arena:
             logger.debug(f"[checkpoint] Saved checkpoint after round {round_num}")
         except (IOError, OSError, TypeError, ValueError, RuntimeError) as e:
             logger.warning(f"[checkpoint] Failed to create checkpoint: {e}")
+
+    # =========================================================================
+    # Async Context Manager Protocol
+    # =========================================================================
+
+    async def __aenter__(self) -> "Arena":
+        """Enter async context - prepare for debate.
+
+        Enables usage pattern:
+            async with Arena(env, agents, protocol) as arena:
+                result = await arena.run()
+        """
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        """Exit async context - cleanup resources.
+
+        Cancels any pending arena-related tasks and clears caches.
+        This ensures clean teardown even when tests timeout or fail.
+        """
+        await self._cleanup()
+
+    async def _cleanup(self) -> None:
+        """Internal cleanup implementation.
+
+        Can be called directly if not using context manager.
+        """
+        # Cancel any pending arena-related asyncio tasks
+        try:
+            for task in asyncio.all_tasks():
+                task_name = task.get_name() if hasattr(task, 'get_name') else ""
+                if task_name and task_name.startswith(('arena_', 'debate_')):
+                    task.cancel()
+                    try:
+                        await asyncio.wait_for(
+                            asyncio.shield(task),
+                            timeout=1.0,
+                        )
+                    except (asyncio.CancelledError, asyncio.TimeoutError):
+                        pass
+        except Exception as e:
+            logger.debug(f"Error cancelling tasks during cleanup: {e}")
+
+        # Clear internal caches
+        self._historical_context_cache = ""
+        self._research_context_cache = None
+
+        # Close checkpoint manager if we created it
+        if self.checkpoint_manager and hasattr(self.checkpoint_manager, 'close'):
+            try:
+                close_result = self.checkpoint_manager.close()
+                if asyncio.iscoroutine(close_result):
+                    await close_result
+            except Exception as e:
+                logger.debug(f"Error closing checkpoint manager: {e}")
 
     async def run(self, correlation_id: str = "") -> DebateResult:
         """Run the full debate and return results.

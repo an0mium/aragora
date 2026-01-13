@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Callable, Generator, Optional, Union
 
 from aragora.exceptions import DatabaseError
+from aragora.utils.timeouts import timed_lock
 
 logger = logging.getLogger(__name__)
 
@@ -534,10 +535,13 @@ class DatabaseManager:
 
         Returns:
             DatabaseManager instance for the given path
+
+        Raises:
+            TimeoutError: If unable to acquire the instance lock within 30 seconds
         """
         resolved_path = str(Path(db_path).resolve())
 
-        with cls._instances_lock:
+        with timed_lock(cls._instances_lock, timeout=30.0, name="DatabaseManager.instances"):
             if resolved_path not in cls._instances:
                 cls._instances[resolved_path] = cls(db_path, timeout)
                 logger.debug(f"Created DatabaseManager for {resolved_path}")
@@ -545,8 +549,12 @@ class DatabaseManager:
 
     @classmethod
     def clear_instances(cls) -> None:
-        """Clear all cached instances. Useful for testing."""
-        with cls._instances_lock:
+        """Clear all cached instances. Useful for testing.
+
+        Raises:
+            TimeoutError: If unable to acquire the instance lock within 30 seconds
+        """
+        with timed_lock(cls._instances_lock, timeout=30.0, name="DatabaseManager.instances"):
             for manager in cls._instances.values():
                 manager.close()
             cls._instances.clear()

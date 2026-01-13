@@ -9,12 +9,17 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Generator
+from typing import TYPE_CHECKING, Generator
 from unittest.mock import Mock, MagicMock, AsyncMock
 
 import pytest
 
 from aragora.resilience import reset_all_circuit_breakers
+from tests.utils import managed_fixture
+
+if TYPE_CHECKING:
+    from aragora.ranking.elo import EloSystem
+    from aragora.memory.continuum import ContinuumMemory
 
 
 # ============================================================================
@@ -386,25 +391,31 @@ def event_loop_policy():
 # ============================================================================
 
 @pytest.fixture
-def elo_system(temp_db) -> "EloSystem":
+def elo_system(temp_db) -> Generator["EloSystem", None, None]:
     """Create a real EloSystem with a temporary database.
 
-    Returns an EloSystem instance backed by a temp database
-    that is cleaned up after the test.
+    Yields an EloSystem instance backed by a temp database.
+    The database connection is properly closed after the test.
     """
     from aragora.ranking.elo import EloSystem
-    return EloSystem(db_path=temp_db)
+
+    system = EloSystem(db_path=temp_db)
+    with managed_fixture(system, name="EloSystem"):
+        yield system
 
 
 @pytest.fixture
-def continuum_memory(temp_db) -> "ContinuumMemory":
+def continuum_memory(temp_db) -> Generator["ContinuumMemory", None, None]:
     """Create a real ContinuumMemory with a temporary database.
 
-    Returns a ContinuumMemory instance backed by a temp database
-    that is cleaned up after the test.
+    Yields a ContinuumMemory instance backed by a temp database.
+    The database connection is properly closed after the test.
     """
     from aragora.memory.continuum import ContinuumMemory
-    return ContinuumMemory(db_path=temp_db)
+
+    memory = ContinuumMemory(db_path=temp_db)
+    with managed_fixture(memory, name="ContinuumMemory"):
+        yield memory
 
 
 # ============================================================================
@@ -502,19 +513,11 @@ def sample_critique() -> dict:
 # Global State Reset Fixtures
 # ============================================================================
 
-@pytest.fixture(autouse=True)
-def reset_lazy_globals():
-    """Reset lazy-loaded globals between tests.
+def _reset_lazy_globals_impl():
+    """Implementation of lazy globals reset.
 
-    This fixture prevents test pollution from global state that persists
-    between tests. It runs automatically after each test (autouse=True).
-
-    Affected modules:
-    - aragora.debate.orchestrator (9 globals)
-    - aragora.server.handlers.* (2-4 globals each)
+    Extracted to allow calling before AND after tests.
     """
-    yield  # Run the test first
-
     # Reset orchestrator globals
     try:
         import aragora.debate.orchestrator as orch
@@ -578,6 +581,25 @@ def reset_lazy_globals():
         DatabaseManager.clear_instances()
     except (ImportError, AttributeError):
         pass
+
+
+@pytest.fixture(autouse=True)
+def reset_lazy_globals():
+    """Reset lazy-loaded globals BEFORE and AFTER each test.
+
+    This fixture prevents test pollution from global state that persists
+    between tests. Running reset both before AND after ensures:
+    1. Each test starts with clean state
+    2. If a test hangs/times out, the next test still gets clean state
+
+    Affected modules:
+    - aragora.debate.orchestrator (9 globals)
+    - aragora.server.handlers.* (2-4 globals each)
+    - aragora.storage.schema.DatabaseManager (singleton cache)
+    """
+    _reset_lazy_globals_impl()  # Reset BEFORE test
+    yield
+    _reset_lazy_globals_impl()  # Reset AFTER test
 
 
 # ============================================================================

@@ -141,6 +141,8 @@ ignore = ["E501"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+timeout = 60
+timeout_method = "thread"
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
@@ -225,3 +227,34 @@ tests_dir = "tests/"
 runner = "python -m pytest -x --tb=no -q"
 dict_synonyms = "Struct,NamedTuple,Dict"
 backup = false
+
+# Coverage configuration
+[tool.coverage.run]
+branch = true
+source = ["aragora"]
+omit = [
+    "tests/*",
+    "*/__pycache__/*",
+    "aragora/live/*",  # Frontend code
+    "*/migrations/*",
+]
+
+[tool.coverage.report]
+fail_under = 75
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "@overload",
+    "\\.\\.\\.",  # Ellipsis
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
