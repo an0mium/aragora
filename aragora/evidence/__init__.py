@@ -24,6 +24,16 @@ from aragora.evidence.store import (
     EvidenceStore,
     InMemoryEvidenceStore,
 )
+from aragora.evidence.attribution import (
+    AttributionChain,
+    AttributionChainEntry,
+    ReputationScorer,
+    ReputationTier,
+    SourceReputation,
+    SourceReputationManager,
+    VerificationOutcome,
+    VerificationRecord,
+)
 
 # Import Evidence from connectors where it's defined
 from aragora.connectors.base import Evidence
@@ -52,6 +62,15 @@ __all__ = [
     # Store
     "EvidenceStore",
     "InMemoryEvidenceStore",
+    # Attribution
+    "AttributionChain",
+    "AttributionChainEntry",
+    "ReputationScorer",
+    "ReputationTier",
+    "SourceReputation",
+    "SourceReputationManager",
+    "VerificationOutcome",
+    "VerificationRecord",
     # External
     "Evidence",
     "EvidenceType",
