@@ -328,10 +328,13 @@ def check_circuit_breakers() -> list[CheckResult]:
             if info.get("status") == "open":
                 open_circuits.append(name)
 
+        # Count actual circuit breakers (exclude metadata keys)
+        cb_count = len([k for k in status.keys() if not k.startswith("_")])
+
         if not open_circuits:
             results.append(
                 CheckResult(
-                    "circuit_breakers", "pass", f"All {len(status)} circuit breakers closed"
+                    "circuit_breakers", "pass", f"All {cb_count} circuit breakers closed"
                 )
             )
         else:
@@ -339,7 +342,7 @@ def check_circuit_breakers() -> list[CheckResult]:
                 CheckResult(
                     "circuit_breakers",
                     "warn",
-                    f"{len(open_circuits)}/{len(status)} open: {', '.join(open_circuits)}",
+                    f"{len(open_circuits)}/{cb_count} open: {', '.join(open_circuits)}",
                 )
             )
 

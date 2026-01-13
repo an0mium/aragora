@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from contextlib import contextmanager
+from contextlib import AbstractContextManager
 from datetime import datetime
 from typing import Any, Callable, Optional
 
@@ -26,7 +26,7 @@ class AuditRepository:
     - Billing events (payments, invoices)
     """
 
-    def __init__(self, transaction_fn: Callable[[], "contextmanager[sqlite3.Cursor]"]) -> None:
+    def __init__(self, transaction_fn: Callable[[], AbstractContextManager[sqlite3.Cursor]]) -> None:
         """
         Initialize the audit repository.
 

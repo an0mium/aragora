@@ -107,6 +107,14 @@ class SystemHandler(BaseHandler):
         "/api/history/summary",
     ]
 
+    # History endpoint configuration: path -> (method_name, default_limit, max_limit)
+    _HISTORY_CONFIG: dict[str, tuple[str, int, int]] = {
+        "/api/history/cycles": ("_get_history_cycles", 50, 200),
+        "/api/history/events": ("_get_history_events", 100, 500),
+        "/api/history/debates": ("_get_history_debates", 50, 200),
+        "/api/history/summary": ("_get_history_summary", 0, 0),  # No limit param
+    }
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         return path in self.ROUTES
@@ -147,36 +155,38 @@ class SystemHandler(BaseHandler):
         return error_response("Authentication required for history endpoints", 401)
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
-        """Route system requests to appropriate methods."""
-        # Debug endpoint for testing
-        if path == "/api/debug/test":
-            method = getattr(handler, "command", "GET")
-            return json_response(
-                {"status": "ok", "method": method, "message": "Modular handler works"}
-            )
+        """Route system requests to appropriate methods.
 
-        # Kubernetes-standard health probes
-        if path == "/healthz":
-            return self._liveness_probe()
+        Uses dispatch tables to reduce cyclomatic complexity.
+        """
+        # Simple routes with no parameters
+        simple_routes = {
+            "/api/debug/test": lambda: self._handle_debug_test(handler),
+            "/healthz": self._liveness_probe,
+            "/readyz": self._readiness_probe,
+            "/api/health": self._health_check,
+            "/api/health/detailed": self._detailed_health_check,
+            "/api/health/deep": self._deep_health_check,
+            "/api/nomic/state": self._get_nomic_state,
+            "/api/nomic/health": self._get_nomic_health,
+            "/api/modes": self._get_modes,
+            "/api/auth/stats": self._get_auth_stats,
+            "/metrics": self._get_prometheus_metrics,
+            "/api/circuit-breakers": self._get_circuit_breaker_metrics,
+        }
 
-        if path == "/readyz":
-            return self._readiness_probe()
+        if path in simple_routes:
+            return simple_routes[path]()
 
-        if path == "/api/health":
-            return self._health_check()
+        # OpenAPI and docs routes
+        if path in ("/api/openapi", "/api/openapi.json"):
+            return self._get_openapi_spec("json")
+        if path == "/api/openapi.yaml":
+            return self._get_openapi_spec("yaml")
+        if path in ("/api/docs", "/api/docs/"):
+            return self._get_swagger_ui()
 
-        if path == "/api/health/detailed":
-            return self._detailed_health_check()
-
-        if path == "/api/health/deep":
-            return self._deep_health_check()
-
-        if path == "/api/nomic/state":
-            return self._get_nomic_state()
-
-        if path == "/api/nomic/health":
-            return self._get_nomic_health()
-
+        # Parameterized routes
         if path == "/api/nomic/log":
             lines = get_int_param(query_params, "lines", 100)
             return self._get_nomic_log(max(1, min(lines, 1000)))
@@ -185,87 +195,58 @@ class SystemHandler(BaseHandler):
             limit = get_int_param(query_params, "limit", 50)
             return self._get_risk_register(max(1, min(limit, 200)))
 
-        if path == "/api/modes":
-            return self._get_modes()
-
-        if path == "/api/history/cycles":
-            # Require auth for history endpoints
-            auth_error = self._check_history_auth(handler)
-            if auth_error:
-                return auth_error
-            loop_id = get_string_param(query_params, "loop_id")
-            if loop_id:
-                is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
-                if not is_valid:
-                    return error_response(err, 400)
-            limit = get_clamped_int_param(query_params, "limit", 50, 1, 200)
-            return self._get_history_cycles(handler, loop_id, limit)
-
-        if path == "/api/history/events":
-            # Require auth for history endpoints
-            auth_error = self._check_history_auth(handler)
-            if auth_error:
-                return auth_error
-            loop_id = get_string_param(query_params, "loop_id")
-            if loop_id:
-                is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
-                if not is_valid:
-                    return error_response(err, 400)
-            limit = get_clamped_int_param(query_params, "limit", 100, 1, 500)
-            return self._get_history_events(handler, loop_id, limit)
-
-        if path == "/api/history/debates":
-            # Require auth for history endpoints
-            auth_error = self._check_history_auth(handler)
-            if auth_error:
-                return auth_error
-            loop_id = get_string_param(query_params, "loop_id")
-            if loop_id:
-                is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
-                if not is_valid:
-                    return error_response(err, 400)
-            limit = get_clamped_int_param(query_params, "limit", 50, 1, 200)
-            return self._get_history_debates(handler, loop_id, limit)
-
-        if path == "/api/history/summary":
-            # Require auth for history endpoints
-            auth_error = self._check_history_auth(handler)
-            if auth_error:
-                return auth_error
-            loop_id = get_string_param(query_params, "loop_id")
-            if loop_id:
-                is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
-                if not is_valid:
-                    return error_response(err, 400)
-            return self._get_history_summary(handler, loop_id)
-
         if path == "/api/system/maintenance":
-            task = get_string_param(query_params, "task", "status")
-            if task not in ("status", "vacuum", "analyze", "checkpoint", "full"):
-                return error_response(
-                    "Invalid task. Use: status, vacuum, analyze, checkpoint, full", 400
-                )
-            return self._run_maintenance(task)
+            return self._handle_maintenance(query_params)
 
-        if path in ("/api/openapi", "/api/openapi.json"):
-            return self._get_openapi_spec("json")
-
-        if path == "/api/openapi.yaml":
-            return self._get_openapi_spec("yaml")
-
-        if path in ("/api/docs", "/api/docs/"):
-            return self._get_swagger_ui()
-
-        if path == "/api/auth/stats":
-            return self._get_auth_stats()
-
-        if path == "/metrics":
-            return self._get_prometheus_metrics()
-
-        if path == "/api/circuit-breakers":
-            return self._get_circuit_breaker_metrics()
+        # History endpoints (require auth)
+        if path in self._HISTORY_CONFIG:
+            return self._handle_history_endpoint(path, query_params, handler)
 
         return None
+
+    def _handle_debug_test(self, handler) -> HandlerResult:
+        """Handle debug test endpoint."""
+        method = getattr(handler, "command", "GET")
+        return json_response(
+            {"status": "ok", "method": method, "message": "Modular handler works"}
+        )
+
+    def _handle_maintenance(self, query_params: dict) -> HandlerResult:
+        """Handle system maintenance endpoint."""
+        task = get_string_param(query_params, "task", "status")
+        valid_tasks = ("status", "vacuum", "analyze", "checkpoint", "full")
+        if task not in valid_tasks:
+            return error_response(
+                f"Invalid task. Use: {', '.join(valid_tasks)}", 400
+            )
+        return self._run_maintenance(task)
+
+    def _handle_history_endpoint(
+        self, path: str, query_params: dict, handler
+    ) -> HandlerResult:
+        """Handle history endpoints with common auth and validation pattern."""
+        # Require auth for history endpoints
+        auth_error = self._check_history_auth(handler)
+        if auth_error:
+            return auth_error
+
+        # Validate loop_id parameter
+        loop_id = get_string_param(query_params, "loop_id")
+        if loop_id:
+            is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
+            if not is_valid:
+                return error_response(err, 400)
+
+        # Get config for this endpoint
+        method_name, default_limit, max_limit = self._HISTORY_CONFIG[path]
+        method = getattr(self, method_name)
+
+        # Summary endpoint doesn't use limit
+        if max_limit == 0:
+            return method(handler, loop_id)
+
+        limit = get_clamped_int_param(query_params, "limit", default_limit, 1, max_limit)
+        return method(handler, loop_id, limit)
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests for auth endpoints."""

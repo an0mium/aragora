@@ -35,8 +35,15 @@ from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiters for evidence endpoints
+# Read operations are more permissive
+_evidence_read_limiter = RateLimiter(requests_per_minute=60)
+# Write/collect operations are more restrictive (expensive external API calls)
+_evidence_write_limiter = RateLimiter(requests_per_minute=10)
 
 
 class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
@@ -106,6 +113,12 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle GET requests for evidence endpoints."""
+        # Rate limit check for read operations
+        client_ip = get_client_ip(handler)
+        if not _evidence_read_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for evidence GET: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # GET /api/evidence/statistics
         if path == "/api/evidence/statistics":
             return self._handle_statistics()
@@ -134,6 +147,12 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests for evidence endpoints."""
+        # Rate limit check for write operations
+        client_ip = get_client_ip(handler)
+        if not _evidence_write_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for evidence POST: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # POST /api/evidence/search
         if path == "/api/evidence/search":
             body, err = self.read_json_body_validated(handler)
@@ -164,6 +183,12 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle DELETE requests for evidence endpoints."""
+        # Rate limit check for delete operations (uses write limiter)
+        client_ip = get_client_ip(handler)
+        if not _evidence_write_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for evidence DELETE: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # DELETE /api/evidence/:id
         if path.startswith("/api/evidence/") and path.count("/") == 3:
             evidence_id, err = self.extract_path_param(path, 2, "evidence_id", SAFE_ID_PATTERN)

@@ -1832,5 +1832,184 @@ class UserStore:
 
         return info
 
+    # =========================================================================
+    # Admin Methods (for admin panel)
+    # =========================================================================
+
+    def list_all_organizations(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        tier_filter: Optional[str] = None,
+    ) -> tuple[list[Organization], int]:
+        """
+        List all organizations with pagination.
+
+        Args:
+            limit: Maximum number of organizations to return
+            offset: Number of organizations to skip
+            tier_filter: Optional filter by subscription tier
+
+        Returns:
+            Tuple of (organizations list, total count)
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        # Build query with optional tier filter
+        where_clause = ""
+        params: list[Any] = []
+        if tier_filter:
+            where_clause = "WHERE tier = ?"
+            params.append(tier_filter)
+
+        # Get total count
+        cursor.execute(
+            f"SELECT COUNT(*) FROM organizations {where_clause}",
+            params,
+        )
+        total = cursor.fetchone()[0]
+
+        # Get paginated results
+        query = f"""
+            SELECT * FROM organizations
+            {where_clause}
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        """
+        params.extend([limit, offset])
+        cursor.execute(query, params)
+
+        organizations = []
+        for row in cursor.fetchall():
+            organizations.append(self._row_to_organization(row))
+
+        return organizations, total
+
+    def list_all_users(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        org_id_filter: Optional[str] = None,
+        role_filter: Optional[str] = None,
+        active_only: bool = False,
+    ) -> tuple[list[User], int]:
+        """
+        List all users with pagination and filtering.
+
+        Args:
+            limit: Maximum number of users to return
+            offset: Number of users to skip
+            org_id_filter: Optional filter by organization ID
+            role_filter: Optional filter by role
+            active_only: If True, only return active users
+
+        Returns:
+            Tuple of (users list, total count)
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        # Build WHERE clause
+        conditions = []
+        params: list[Any] = []
+
+        if org_id_filter:
+            conditions.append("org_id = ?")
+            params.append(org_id_filter)
+        if role_filter:
+            conditions.append("role = ?")
+            params.append(role_filter)
+        if active_only:
+            conditions.append("is_active = 1")
+
+        where_clause = ""
+        if conditions:
+            where_clause = "WHERE " + " AND ".join(conditions)
+
+        # Get total count
+        cursor.execute(
+            f"SELECT COUNT(*) FROM users {where_clause}",
+            params.copy(),
+        )
+        total = cursor.fetchone()[0]
+
+        # Get paginated results
+        query = f"""
+            SELECT * FROM users
+            {where_clause}
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        """
+        params.extend([limit, offset])
+        cursor.execute(query, params)
+
+        users = []
+        for row in cursor.fetchall():
+            users.append(self._row_to_user(row))
+
+        return users, total
+
+    def get_admin_stats(self) -> dict:
+        """
+        Get system-wide statistics for admin dashboard.
+
+        Returns:
+            Dict with user/org/usage statistics
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        stats = {}
+
+        # User counts
+        cursor.execute("SELECT COUNT(*) FROM users")
+        stats["total_users"] = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM users WHERE is_active = 1")
+        stats["active_users"] = cursor.fetchone()[0]
+
+        # Organization counts
+        cursor.execute("SELECT COUNT(*) FROM organizations")
+        stats["total_organizations"] = cursor.fetchone()[0]
+
+        # Tier distribution
+        cursor.execute("""
+            SELECT tier, COUNT(*) as count
+            FROM organizations
+            GROUP BY tier
+        """)
+        stats["tier_distribution"] = {row["tier"]: row["count"] for row in cursor.fetchall()}
+
+        # Usage stats
+        cursor.execute("""
+            SELECT SUM(debates_used_this_month) as total_debates
+            FROM organizations
+        """)
+        result = cursor.fetchone()
+        stats["total_debates_this_month"] = result["total_debates"] or 0
+
+        # Recent activity (last 24 hours)
+        cursor.execute("""
+            SELECT COUNT(*) FROM users
+            WHERE last_login_at > datetime('now', '-1 day')
+        """)
+        stats["users_active_24h"] = cursor.fetchone()[0]
+
+        # Recent signups (last 7 days)
+        cursor.execute("""
+            SELECT COUNT(*) FROM users
+            WHERE created_at > datetime('now', '-7 days')
+        """)
+        stats["new_users_7d"] = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT COUNT(*) FROM organizations
+            WHERE created_at > datetime('now', '-7 days')
+        """)
+        stats["new_orgs_7d"] = cursor.fetchone()[0]
+
+        return stats
+
 
 __all__ = ["UserStore"]

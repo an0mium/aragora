@@ -271,7 +271,7 @@ class PostgresStore(ABC):
         self,
         sql: str,
         *args: Any,
-    ) -> Optional[asyncpg.Record]:
+    ) -> Optional[Any]:  # Returns asyncpg.Record when available
         """
         Execute query and fetch single row.
 
@@ -289,7 +289,7 @@ class PostgresStore(ABC):
         self,
         sql: str,
         *args: Any,
-    ) -> list[asyncpg.Record]:
+    ) -> list[Any]:  # Returns list[asyncpg.Record] when available
         """
         Execute query and fetch all rows.
 

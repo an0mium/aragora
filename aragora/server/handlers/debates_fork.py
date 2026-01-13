@@ -18,6 +18,7 @@ from aragora.server.handlers.base import (
     require_storage,
     safe_error_message,
 )
+from aragora.server.handlers.utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
     from aragora.server.handlers.debates import DebatesHandler
@@ -156,6 +157,7 @@ class ForkOperationsMixin:
             )
             return error_response(safe_error_message(e, "create fork"), 500)
 
+    @rate_limit(rpm=10, limiter_name="debates_verify_outcome")
     @handle_errors("verify debate outcome")
     def _verify_outcome(self: "DebatesHandler", handler, debate_id: str) -> HandlerResult:
         """Record verification of whether a debate's winning position was correct.
@@ -330,6 +332,7 @@ class ForkOperationsMixin:
             )
             return error_response(safe_error_message(e, "get followup suggestions"), 500)
 
+    @rate_limit(rpm=5, limiter_name="debates_followup")
     @require_storage
     def _create_followup_debate(self: "DebatesHandler", handler, debate_id: str) -> HandlerResult:
         """Create a follow-up debate to resolve a specific crux.

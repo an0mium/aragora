@@ -1241,6 +1241,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
         return None
 
+    @rate_limit(rpm=5, limiter_name="debates_create")
     @require_quota("debate")
     def _create_debate(self, handler) -> HandlerResult:
         """Start an ad-hoc debate with specified question.
