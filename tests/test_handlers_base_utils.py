@@ -34,14 +34,14 @@ from aragora.server.handlers.base import (
     get_clamped_int_param,
     get_bounded_float_param,
     get_bounded_string_param,
-    validate_path_segment,
-    validate_agent_name,
-    validate_debate_id,
-    _map_exception_to_status,
 )
+from aragora.server.middleware.exception_handler import map_exception_to_status
 from aragora.server.validation import (
     ValidationResult,
     validate_against_schema,
+    validate_path_segment,
+    validate_agent_name,
+    validate_debate_id,
 )
 
 
@@ -786,13 +786,13 @@ class TestErrorHandling:
 
         assert result.status_code == 200
 
-    def test_map_exception_to_status(self):
+    def testmap_exception_to_status(self):
         """Should map exceptions to appropriate status codes."""
-        assert _map_exception_to_status(FileNotFoundError()) == 404
-        assert _map_exception_to_status(ValueError()) == 400
-        assert _map_exception_to_status(PermissionError()) == 403
-        assert _map_exception_to_status(TimeoutError()) == 504
-        assert _map_exception_to_status(Exception()) == 500  # Default
+        assert map_exception_to_status(FileNotFoundError()) == 404
+        assert map_exception_to_status(ValueError()) == 400
+        assert map_exception_to_status(PermissionError()) == 403
+        assert map_exception_to_status(TimeoutError()) == 504
+        assert map_exception_to_status(Exception()) == 500  # Default
 
 
 class TestErrorRecovery:
@@ -968,43 +968,43 @@ class TestExceptionStatusMapping:
 
     def test_file_not_found_maps_to_404(self):
         """FileNotFoundError should map to 404."""
-        assert _map_exception_to_status(FileNotFoundError("missing")) == 404
+        assert map_exception_to_status(FileNotFoundError("missing")) == 404
 
     def test_key_error_maps_to_404(self):
         """KeyError should map to 404."""
-        assert _map_exception_to_status(KeyError("key")) == 404
+        assert map_exception_to_status(KeyError("key")) == 404
 
     def test_value_error_maps_to_400(self):
         """ValueError should map to 400."""
-        assert _map_exception_to_status(ValueError("bad value")) == 400
+        assert map_exception_to_status(ValueError("bad value")) == 400
 
     def test_type_error_maps_to_400(self):
         """TypeError should map to 400."""
-        assert _map_exception_to_status(TypeError("bad type")) == 400
+        assert map_exception_to_status(TypeError("bad type")) == 400
 
     def test_permission_error_maps_to_403(self):
         """PermissionError should map to 403."""
-        assert _map_exception_to_status(PermissionError("denied")) == 403
+        assert map_exception_to_status(PermissionError("denied")) == 403
 
     def test_timeout_error_maps_to_504(self):
         """TimeoutError should map to 504."""
-        assert _map_exception_to_status(TimeoutError("timeout")) == 504
+        assert map_exception_to_status(TimeoutError("timeout")) == 504
 
     def test_connection_error_maps_to_502(self):
         """ConnectionError should map to 502."""
-        assert _map_exception_to_status(ConnectionError("conn failed")) == 502
+        assert map_exception_to_status(ConnectionError("conn failed")) == 502
 
     def test_os_error_maps_to_500(self):
         """OSError should map to 500."""
-        assert _map_exception_to_status(OSError("os error")) == 500
+        assert map_exception_to_status(OSError("os error")) == 500
 
     def test_generic_exception_maps_to_500(self):
         """Unknown exceptions should map to 500."""
-        assert _map_exception_to_status(Exception("generic")) == 500
+        assert map_exception_to_status(Exception("generic")) == 500
 
     def test_runtime_error_maps_to_500(self):
         """RuntimeError should map to 500."""
-        assert _map_exception_to_status(RuntimeError("runtime")) == 500
+        assert map_exception_to_status(RuntimeError("runtime")) == 500
 
     def test_custom_exception_maps_to_500(self):
         """Custom exceptions should map to 500."""
@@ -1012,7 +1012,7 @@ class TestExceptionStatusMapping:
         class CustomError(Exception):
             pass
 
-        assert _map_exception_to_status(CustomError("custom")) == 500
+        assert map_exception_to_status(CustomError("custom")) == 500
 
 
 class TestHandleErrorsDecorator:

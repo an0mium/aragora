@@ -12,11 +12,11 @@ from unittest.mock import patch, MagicMock
 from aragora.server.handlers.base import (
     handle_errors,
     generate_trace_id,
-    _map_exception_to_status,
     error_response,
     json_response,
     HandlerResult,
 )
+from aragora.server.middleware.exception_handler import map_exception_to_status
 
 
 # ============================================================================
@@ -50,7 +50,7 @@ class TestGenerateTraceId:
 
 
 # ============================================================================
-# Test _map_exception_to_status
+# Test map_exception_to_status
 # ============================================================================
 
 
@@ -59,52 +59,52 @@ class TestMapExceptionToStatus:
 
     def test_file_not_found_returns_404(self):
         """FileNotFoundError should map to 404."""
-        status = _map_exception_to_status(FileNotFoundError("missing"))
+        status = map_exception_to_status(FileNotFoundError("missing"))
         assert status == 404
 
     def test_key_error_returns_404(self):
         """KeyError should map to 404."""
-        status = _map_exception_to_status(KeyError("key"))
+        status = map_exception_to_status(KeyError("key"))
         assert status == 404
 
     def test_value_error_returns_400(self):
         """ValueError should map to 400."""
-        status = _map_exception_to_status(ValueError("bad"))
+        status = map_exception_to_status(ValueError("bad"))
         assert status == 400
 
     def test_type_error_returns_400(self):
         """TypeError should map to 400."""
-        status = _map_exception_to_status(TypeError("type"))
+        status = map_exception_to_status(TypeError("type"))
         assert status == 400
 
     def test_permission_error_returns_403(self):
         """PermissionError should map to 403."""
-        status = _map_exception_to_status(PermissionError("denied"))
+        status = map_exception_to_status(PermissionError("denied"))
         assert status == 403
 
     def test_timeout_error_returns_504(self):
         """TimeoutError should map to 504."""
-        status = _map_exception_to_status(TimeoutError("slow"))
+        status = map_exception_to_status(TimeoutError("slow"))
         assert status == 504
 
     def test_connection_error_returns_502(self):
         """ConnectionError should map to 502."""
-        status = _map_exception_to_status(ConnectionError("network"))
+        status = map_exception_to_status(ConnectionError("network"))
         assert status == 502
 
     def test_os_error_returns_500(self):
         """OSError should map to 500."""
-        status = _map_exception_to_status(OSError("io"))
+        status = map_exception_to_status(OSError("io"))
         assert status == 500
 
     def test_unknown_exception_returns_default(self):
         """Unknown exceptions should return default status."""
-        status = _map_exception_to_status(RuntimeError("unknown"))
+        status = map_exception_to_status(RuntimeError("unknown"))
         assert status == 500
 
     def test_custom_default_status(self):
         """Custom default should be used for unknown exceptions."""
-        status = _map_exception_to_status(RuntimeError("unknown"), default=503)
+        status = map_exception_to_status(RuntimeError("unknown"), default=503)
         assert status == 503
 
 

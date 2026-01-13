@@ -22,12 +22,14 @@ from aragora.server.handlers.base import (
     get_clamped_int_param,
     get_bounded_float_param,
     get_bounded_string_param,
-    validate_path_segment,
-    validate_agent_name,
-    validate_debate_id,
     ttl_cache,
     clear_cache,
     get_cache_stats,
+)
+from aragora.server.validation import (
+    validate_path_segment,
+    validate_agent_name,
+    validate_debate_id,
 )
 
 

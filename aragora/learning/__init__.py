@@ -8,12 +8,12 @@ Implements continual learning with Nested Learning paradigm:
 
 from aragora.learning.meta import MetaLearner
 from aragora.memory.continuum import (
-    TIER_CONFIGS,
     ContinuumMemory,
     ContinuumMemoryEntry,
     MemoryTier,
-    TierConfig,
+    TIER_CONFIGS,
 )
+from aragora.memory.tier_manager import TierConfig
 
 __all__ = [
     "ContinuumMemory",

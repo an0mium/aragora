@@ -15,9 +15,8 @@ from aragora.server.handlers.base import (
     HandlerResult,
     json_response,
     error_response,
-    validate_debate_id,
-    validate_agent_name,
 )
+from aragora.server.validation import validate_debate_id, validate_agent_name
 from aragora.server.handlers.probes import ProbesHandler
 from aragora.server.handlers.verification import VerificationHandler
 from aragora.server.handlers.debates import DebatesHandler
