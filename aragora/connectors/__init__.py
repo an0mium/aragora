@@ -7,6 +7,8 @@ with the provenance system for traceability:
 - LocalDocsConnector: Search local documentation, markdown, code
 - GitHubConnector: Fetch issues, PRs, discussions
 - WebConnector: Search and fetch live web content
+- ArXivConnector: Academic papers and preprints
+- HackerNewsConnector: Tech community discussions
 
 All connectors record evidence through ProvenanceManager
 with proper source typing and confidence scoring.
@@ -16,6 +18,7 @@ from aragora.connectors.local_docs import LocalDocsConnector
 from aragora.connectors.github import GitHubConnector
 from aragora.connectors.web import WebConnector
 from aragora.connectors.arxiv import ArXivConnector, ARXIV_CATEGORIES
+from aragora.connectors.hackernews import HackerNewsConnector
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.connectors.exceptions import (
     ConnectorError,
@@ -42,6 +45,7 @@ __all__ = [
     "WebConnector",
     "ArXivConnector",
     "ARXIV_CATEGORIES",
+    "HackerNewsConnector",
     # Exceptions
     "ConnectorError",
     "ConnectorAuthError",
