@@ -20,8 +20,12 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for features endpoints (100 requests per minute - status checks)
+_features_limiter = RateLimiter(requests_per_minute=100)
 
 
 # =============================================================================
@@ -563,6 +567,12 @@ class FeaturesHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET/POST requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _features_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for features endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # Direct route match
         if path in self.ROUTES:
             method_name = self.ROUTES[path]

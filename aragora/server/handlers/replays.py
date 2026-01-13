@@ -26,6 +26,7 @@ from .base import (
     safe_json_parse,
     handle_errors,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.config import (
     DB_TIMEOUT_SECONDS,
     CACHE_TTL_REPLAYS_LIST,
@@ -35,6 +36,9 @@ from aragora.config import (
 from aragora.memory.database import MemoryDatabase
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for replays endpoints (30 requests per minute - file operations)
+_replays_limiter = RateLimiter(requests_per_minute=30)
 
 
 class ReplaysHandler(BaseHandler):
@@ -57,6 +61,12 @@ class ReplaysHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route replay requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _replays_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for replays endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         nomic_dir = self.ctx.get("nomic_dir")
 
         if path == "/api/replays":

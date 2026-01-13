@@ -20,9 +20,13 @@ from .base import (
     get_int_param,
     ttl_cache,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.config import DB_TIMEOUT_SECONDS, CACHE_TTL_DASHBOARD_DEBATES
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for dashboard endpoints (60 requests per minute - frequently accessed)
+_dashboard_limiter = RateLimiter(requests_per_minute=60)
 
 
 class DashboardHandler(BaseHandler):
@@ -36,6 +40,12 @@ class DashboardHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route dashboard requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _dashboard_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for dashboard endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/dashboard/debates":
             domain = query_params.get("domain")
             limit = get_int_param(query_params, "limit", 10)

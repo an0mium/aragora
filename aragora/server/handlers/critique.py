@@ -22,10 +22,14 @@ from .base import (
     get_clamped_int_param,
     get_bounded_float_param,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.validation import validate_agent_name_with_version
 from aragora.utils.optional_imports import try_import_class
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for critique endpoints (60 requests per minute - read-heavy)
+_critique_limiter = RateLimiter(requests_per_minute=60)
 
 # Lazy import for optional dependency using centralized utility
 CritiqueStore, CRITIQUE_STORE_AVAILABLE = try_import_class(
@@ -55,6 +59,12 @@ class CritiqueHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route critique requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _critique_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for critique endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         nomic_dir = self.ctx.get("nomic_dir")
 
         if path == "/api/critiques/patterns":

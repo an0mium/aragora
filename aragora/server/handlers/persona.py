@@ -25,9 +25,13 @@ from .base import (
     get_string_param,
     SAFE_AGENT_PATTERN,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.utils.optional_imports import try_import_class
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for persona endpoints (60 requests per minute - read-heavy)
+_persona_limiter = RateLimiter(requests_per_minute=60)
 
 # Lazy imports for optional dependencies using centralized utility
 PersonaSynthesizer, GROUNDED_AVAILABLE = try_import_class(
@@ -70,6 +74,12 @@ class PersonaHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route persona requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _persona_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for persona endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # List all personas
         if path == "/api/personas":
             return self._get_all_personas()

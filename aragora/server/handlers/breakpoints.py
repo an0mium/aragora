@@ -26,6 +26,10 @@ from .base import (
     SAFE_ID_PATTERN,
     safe_error_message,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
+
+# Rate limiter for breakpoints endpoints (60 requests per minute - debug feature)
+_breakpoints_limiter = RateLimiter(requests_per_minute=60)
 
 
 class BreakpointsHandler(BaseHandler):
@@ -63,6 +67,12 @@ class BreakpointsHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route breakpoint requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _breakpoints_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for breakpoints endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/breakpoints/pending":
             return self._get_pending_breakpoints()
 

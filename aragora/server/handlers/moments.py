@@ -21,9 +21,13 @@ from .base import (
     error_response,
     get_int_param,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.utils.optional_imports import try_import
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for moments endpoints (30 requests per minute - analytics queries)
+_moments_limiter = RateLimiter(requests_per_minute=30)
 
 # Valid moment types
 VALID_MOMENT_TYPES = {
@@ -66,6 +70,12 @@ class MomentsHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route moments requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _moments_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for moments endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/moments/summary":
             return self._get_summary()
 

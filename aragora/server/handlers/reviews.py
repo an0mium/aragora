@@ -7,11 +7,17 @@ Endpoints:
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
-from .base import BaseHandler
+from .base import BaseHandler, error_response
+from .utils.rate_limit import RateLimiter, get_client_ip
 
+logger = logging.getLogger(__name__)
+
+# Rate limiter for reviews endpoints (30 requests per minute)
+_reviews_limiter = RateLimiter(requests_per_minute=30)
 
 # Reviews are stored at ~/.aragora/reviews/
 REVIEWS_DIR = Path.home() / ".aragora" / "reviews"
@@ -28,6 +34,12 @@ class ReviewsHandler(BaseHandler):
 
     def handle(self, handler: Any, path: str, method: str) -> dict | None:
         """Handle the request."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _reviews_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for reviews endpoint: {client_ip}")
+            return {"error": "Rate limit exceeded. Please try again later.", "status": 429}
+
         if method != "GET":
             return {"error": "Method not allowed", "status": 405}
 

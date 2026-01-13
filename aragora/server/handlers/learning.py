@@ -25,8 +25,12 @@ from .base import (
     get_clamped_int_param,
     get_db_connection,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for learning endpoints (30 requests per minute - ML operations)
+_learning_limiter = RateLimiter(requests_per_minute=30)
 
 
 class LearningHandler(BaseHandler):
@@ -45,6 +49,12 @@ class LearningHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _learning_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for learning endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/learning/cycles":
             limit = get_clamped_int_param(query_params, 'limit', 20, min_val=1, max_val=100)
             return self._get_cycle_summaries(limit)

@@ -30,10 +30,14 @@ from .base import (
     table_exists,
     SAFE_AGENT_PATTERN,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.utils.optional_imports import try_import
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for relationship endpoints (60 requests per minute - read-heavy)
+_relationship_limiter = RateLimiter(requests_per_minute=60)
 
 # Lazy imports for optional dependencies using centralized utility
 _relationship_imports, RELATIONSHIP_TRACKER_AVAILABLE = try_import(
@@ -198,6 +202,12 @@ class RelationshipHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route relationship requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _relationship_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for relationship endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         logger.debug(f"Relationship request: {path} params={query_params}")
         nomic_dir = self.ctx.get("nomic_dir")
 

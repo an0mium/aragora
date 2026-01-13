@@ -23,8 +23,12 @@ from .base import (
     handle_errors,
     get_clamped_int_param,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for routing endpoints (100 requests per minute - internal routing)
+_routing_limiter = RateLimiter(requests_per_minute=100)
 
 # Lazy imports for optional dependencies
 _routing_imports, ROUTING_AVAILABLE = try_import(
@@ -54,6 +58,12 @@ class RoutingHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _routing_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for routing endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/routing/best-teams":
             min_debates = get_clamped_int_param(query_params, 'min_debates', 3, min_val=1, max_val=20)
             limit = get_clamped_int_param(query_params, 'limit', 10, min_val=1, max_val=50)

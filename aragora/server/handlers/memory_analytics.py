@@ -20,8 +20,12 @@ from .base import (
     handle_errors,
     get_clamped_int_param,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for memory analytics endpoints (30 requests per minute - query-heavy)
+_memory_analytics_limiter = RateLimiter(requests_per_minute=30)
 
 
 class MemoryAnalyticsHandler(BaseHandler):
@@ -61,6 +65,12 @@ class MemoryAnalyticsHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _memory_analytics_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for memory analytics endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/memory/analytics":
             days = get_clamped_int_param(query_params, 'days', 30, min_val=1, max_val=365)
             return self._get_analytics(days)
