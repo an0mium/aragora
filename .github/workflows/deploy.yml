@@ -222,8 +222,15 @@ jobs:
               echo 'Environment="SENTRY_DSN=${{ secrets.SENTRY_DSN }}"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
               sudo systemctl daemon-reload
             fi
-            echo "Restarting service..."
-            sudo systemctl restart aragora-staging 2>/dev/null || sudo systemctl restart aragora
+            echo "Stopping service and releasing ports..."
+            sudo systemctl stop aragora-staging 2>/dev/null || sudo systemctl stop aragora 2>/dev/null || true
+            # Force kill any process still using port 8765 (WebSocket)
+            sudo fuser -k 8765/tcp 2>/dev/null || true
+            # Force kill any process still using port 8080 (HTTP)
+            sudo fuser -k 8080/tcp 2>/dev/null || true
+            sleep 2
+            echo "Starting service..."
+            sudo systemctl start aragora-staging 2>/dev/null || sudo systemctl start aragora
             echo "Checking service status..."
             sleep 5
             if ! sudo systemctl is-active --quiet aragora-staging 2>/dev/null && ! sudo systemctl is-active --quiet aragora; then
