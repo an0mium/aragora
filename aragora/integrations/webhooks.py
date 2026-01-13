@@ -25,6 +25,8 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
 from urllib.parse import urlparse
 
+from aragora.resilience import CircuitOpenError, get_circuit_breaker
+
 logger = logging.getLogger(__name__)
 
 
@@ -524,7 +526,12 @@ class WebhookDispatcher:
             self._delivery_semaphore.release()
 
     def _deliver(self, cfg: WebhookConfig, event_dict: Dict[str, Any]) -> bool:
-        """Attempt delivery to a single webhook with retries.
+        """Attempt delivery to a single webhook with retries and circuit breaker.
+
+        Circuit breaker policy:
+        - After 5 consecutive failures, circuit opens for 120 seconds
+        - During open state, deliveries are skipped (fail-fast)
+        - After cooldown, circuit enters half-open state for trial delivery
 
         Retry policy:
         - 2xx: Success, no retry
@@ -535,6 +542,19 @@ class WebhookDispatcher:
 
         Returns True on success, False on final failure.
         """
+        # Circuit breaker check: fail-fast if endpoint is consistently failing
+        circuit = get_circuit_breaker(
+            f"webhook:{cfg.name}",
+            failure_threshold=5,
+            cooldown_seconds=120.0,
+        )
+        if not circuit.can_proceed():
+            logger.debug(
+                f"Webhook {cfg.name} circuit open, skipping delivery "
+                f"for {event_dict.get('type')}"
+            )
+            return False
+
         # SSRF protection: validate URL before making request
         is_valid, error_msg = self._validate_webhook_url(cfg.url)
         if not is_valid:
@@ -560,6 +580,7 @@ class WebhookDispatcher:
                 req = urllib.request.Request(cfg.url, data=body, headers=headers, method="POST")
                 with urllib.request.urlopen(req, timeout=cfg.timeout_s) as resp:
                     if 200 <= resp.status < 300:
+                        circuit.record_success()
                         logger.debug(f"Webhook {cfg.name} delivered: {event_dict.get('type')}")
                         return True
                     # Non-2xx but not HTTPError means unexpected success-like response
@@ -584,6 +605,7 @@ class WebhookDispatcher:
                         continue
                 else:
                     # Non-retriable 4xx (400, 401, 403, 404, etc.)
+                    # Don't record as circuit failure - this is likely a config issue
                     logger.warning(
                         f"Webhook {cfg.name} failed with non-retriable error {e.code} "
                         f"for {event_dict.get('type')}"
@@ -601,6 +623,8 @@ class WebhookDispatcher:
                     time.sleep(backoff)
                     continue
 
+        # All retries exhausted - record circuit failure
+        circuit.record_failure()
         logger.warning(
             f"Webhook {cfg.name} delivery failed after {cfg.max_retries} attempts "
             f"for {event_dict.get('type')}"
@@ -608,7 +632,7 @@ class WebhookDispatcher:
         return False
 
     @property
-    def stats(self) -> Dict[str, int]:
+    def stats(self) -> Dict[str, Any]:
         """Return delivery statistics (thread-safe)."""
         with self._stats_lock:
             return {
@@ -617,6 +641,26 @@ class WebhookDispatcher:
                 "failed": self._failure_count,
                 "dropped": self._drop_count,
             }
+
+    def get_circuit_status(self) -> Dict[str, Dict[str, Any]]:
+        """Get circuit breaker status for all configured webhooks.
+
+        Returns:
+            Dict mapping webhook names to their circuit breaker status.
+        """
+        status: Dict[str, Dict[str, Any]] = {}
+        for cfg in self.configs:
+            circuit = get_circuit_breaker(
+                f"webhook:{cfg.name}",
+                failure_threshold=5,
+                cooldown_seconds=120.0,
+            )
+            status[cfg.name] = {
+                "status": circuit.get_status(),
+                "failures": circuit.failures,
+                "url": cfg.url[:50] + "..." if len(cfg.url) > 50 else cfg.url,
+            }
+        return status
 
 
 # Module-level singleton

@@ -39,6 +39,7 @@ from .billing import BillingHandler
 from .breakpoints import BreakpointsHandler
 from .broadcast import BroadcastHandler
 from .calibration import CalibrationHandler
+from .checkpoints import CheckpointHandler
 from .consensus import ConsensusHandler
 from .critique import CritiqueHandler
 from .dashboard import DashboardHandler
@@ -108,6 +109,7 @@ ALL_HANDLERS = [
     PersonaHandler,
     IntrospectionHandler,
     CalibrationHandler,
+    CheckpointHandler,
     RoutingHandler,
     EvolutionABTestingHandler,  # More specific: /api/evolution/ab-tests
     EvolutionHandler,

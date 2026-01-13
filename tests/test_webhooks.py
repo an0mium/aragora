@@ -414,3 +414,86 @@ class TestDefaultEventTypes:
     def test_is_frozenset(self):
         """Test DEFAULT_EVENT_TYPES is immutable."""
         assert isinstance(DEFAULT_EVENT_TYPES, frozenset)
+
+
+class TestWebhookCircuitBreaker:
+    """Test circuit breaker integration in webhooks."""
+
+    @pytest.fixture
+    def sample_config(self):
+        """Create sample webhook config."""
+        return WebhookConfig(
+            name="cb-test-hook",
+            url="https://example.com/hook",
+            max_retries=1,  # Faster test
+        )
+
+    @pytest.fixture
+    def dispatcher(self, sample_config):
+        """Create a dispatcher with circuit breaker test config."""
+        d = WebhookDispatcher([sample_config], allow_localhost=True)
+        d.start()
+        yield d
+        d.stop(timeout=1.0)
+        # Reset circuit breaker after test
+        from aragora.resilience import get_circuit_breaker
+        cb = get_circuit_breaker("webhook:cb-test-hook")
+        cb.reset()
+
+    def test_get_circuit_status(self, dispatcher):
+        """Test get_circuit_status returns webhook circuit status."""
+        status = dispatcher.get_circuit_status()
+
+        assert "cb-test-hook" in status
+        assert status["cb-test-hook"]["status"] == "closed"
+        assert status["cb-test-hook"]["failures"] == 0
+        assert "url" in status["cb-test-hook"]
+
+    def test_circuit_breaker_opens_after_failures(self):
+        """Test circuit breaker opens after repeated failures."""
+        from aragora.resilience import get_circuit_breaker, reset_all_circuit_breakers
+
+        # Reset all circuit breakers first
+        reset_all_circuit_breakers()
+
+        # Simulate failures by directly manipulating the circuit breaker
+        cb = get_circuit_breaker(
+            "webhook:fail-test-hook",
+            failure_threshold=5,
+            cooldown_seconds=120.0,
+        )
+
+        # Record 5 failures to open the circuit
+        for _ in range(5):
+            cb.record_failure()
+
+        assert cb.get_status() == "open"
+        assert not cb.can_proceed()
+
+        # Clean up
+        cb.reset()
+
+    def test_circuit_breaker_closes_on_success(self):
+        """Test circuit breaker closes on successful delivery."""
+        from aragora.resilience import get_circuit_breaker, reset_all_circuit_breakers
+
+        reset_all_circuit_breakers()
+
+        cb = get_circuit_breaker(
+            "webhook:success-test-hook",
+            failure_threshold=5,
+            cooldown_seconds=1.0,  # Short cooldown for test
+        )
+
+        # Record failures but not enough to open
+        cb.record_failure()
+        cb.record_failure()
+        assert cb.get_status() == "closed"
+        assert cb.failures == 2
+
+        # Success resets failure count
+        cb.record_success()
+        assert cb.failures == 0
+
+        # Clean up
+        cb.reset()

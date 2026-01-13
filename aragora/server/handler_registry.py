@@ -83,6 +83,7 @@ LearningHandler: HandlerType = None
 GalleryHandler: HandlerType = None
 AuthHandler: HandlerType = None
 BillingHandler: HandlerType = None
+CheckpointHandler: HandlerType = None
 GraphDebatesHandler: HandlerType = None
 MatrixDebatesHandler: HandlerType = None
 FeaturesHandler: HandlerType = None
@@ -132,6 +133,9 @@ try:
     )
     from aragora.server.handlers import (
         CalibrationHandler as _CalibrationHandler,
+    )
+    from aragora.server.handlers import (
+        CheckpointHandler as _CheckpointHandler,
     )
     from aragora.server.handlers import (
         ConsensusHandler as _ConsensusHandler,
@@ -296,6 +300,7 @@ try:
     GalleryHandler = _GalleryHandler
     AuthHandler = _AuthHandler
     BillingHandler = _BillingHandler
+    CheckpointHandler = _CheckpointHandler
     GraphDebatesHandler = _GraphDebatesHandler
     MatrixDebatesHandler = _MatrixDebatesHandler
     FeaturesHandler = _FeaturesHandler
@@ -358,6 +363,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_gallery_handler", GalleryHandler),
     ("_auth_handler", AuthHandler),
     ("_billing_handler", BillingHandler),
+    ("_checkpoint_handler", CheckpointHandler),
     ("_graph_debates_handler", GraphDebatesHandler),
     ("_matrix_debates_handler", MatrixDebatesHandler),
     ("_features_handler", FeaturesHandler),
@@ -437,6 +443,7 @@ class RouteIndex:
             "_gallery_handler": ["/api/gallery/"],
             "_auth_handler": ["/api/auth/"],
             "_billing_handler": ["/api/billing/"],
+            "_checkpoint_handler": ["/api/checkpoints"],
             "_graph_debates_handler": ["/api/debates/graph"],
             "_matrix_debates_handler": ["/api/debates/matrix"],
             "_gauntlet_handler": ["/api/gauntlet/"],
