@@ -53,15 +53,20 @@ from .client import (
     AgentsAPI,
     AragoraAPIError,
     AragoraClient,
+    AuthenticationError,
     DebatesAPI,
     GauntletAPI,
     GraphDebatesAPI,
     LeaderboardAPI,
     MatrixDebatesAPI,
     MemoryAPI,
+    NotFoundError,
+    QuotaExceededError,
     RateLimiter,
+    RateLimitError,
     ReplayAPI,
     RetryConfig,
+    ValidationError,
     VerificationAPI,
 )
 from .models import (
@@ -132,6 +137,12 @@ __all__ = [
     "AragoraAPIError",
     "RetryConfig",
     "RateLimiter",
+    # Errors
+    "AuthenticationError",
+    "NotFoundError",
+    "QuotaExceededError",
+    "RateLimitError",
+    "ValidationError",
     # API interfaces
     "DebatesAPI",
     "AgentsAPI",
