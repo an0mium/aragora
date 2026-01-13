@@ -12,7 +12,15 @@ case "$tier" in
     ;;
   lint)
     black --check --diff aragora/ tests/ scripts/
-    ruff check aragora/ tests/ scripts/
+    ruff_cmd="ruff"
+    if ! command -v ruff >/dev/null 2>&1; then
+      if command -v python3 >/dev/null 2>&1; then
+        ruff_cmd="python3 -m ruff"
+      else
+        ruff_cmd="python -m ruff"
+      fi
+    fi
+    $ruff_cmd check aragora/ tests/ scripts/
     ;;
   typecheck)
     mypy aragora/ --ignore-missing-imports --no-error-summary --show-error-codes
