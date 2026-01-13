@@ -82,6 +82,7 @@ class TestQualityScores:
         """Test QualityScores default values."""
         scores = QualityScores()
         assert scores.relevance_score == 0.5
+        assert scores.semantic_score == 0.5
         assert scores.freshness_score == 0.5
         assert scores.authority_score == 0.5
         assert scores.completeness_score == 0.5
@@ -90,9 +91,10 @@ class TestQualityScores:
     def test_quality_scores_weights_defaults(self):
         """Test default weight values."""
         scores = QualityScores()
-        assert scores.relevance_weight == 0.35
-        assert scores.freshness_weight == 0.15
-        assert scores.authority_weight == 0.30
+        assert scores.relevance_weight == 0.25
+        assert scores.semantic_weight == 0.15
+        assert scores.freshness_weight == 0.12
+        assert scores.authority_weight == 0.28
         assert scores.completeness_weight == 0.10
         assert scores.consistency_weight == 0.10
 
@@ -101,6 +103,7 @@ class TestQualityScores:
         scores = QualityScores()
         total = (
             scores.relevance_weight +
+            scores.semantic_weight +
             scores.freshness_weight +
             scores.authority_weight +
             scores.completeness_weight +
@@ -112,6 +115,7 @@ class TestQualityScores:
         """Test overall score calculation."""
         scores = QualityScores(
             relevance_score=1.0,
+            semantic_score=1.0,
             freshness_score=1.0,
             authority_score=1.0,
             completeness_score=1.0,
@@ -123,6 +127,7 @@ class TestQualityScores:
         """Test overall score with all zeros."""
         scores = QualityScores(
             relevance_score=0.0,
+            semantic_score=0.0,
             freshness_score=0.0,
             authority_score=0.0,
             completeness_score=0.0,
@@ -134,6 +139,7 @@ class TestQualityScores:
         """Test overall score with mixed values."""
         scores = QualityScores(
             relevance_score=0.8,
+            semantic_score=0.75,
             freshness_score=0.6,
             authority_score=0.9,
             completeness_score=0.7,
@@ -141,11 +147,12 @@ class TestQualityScores:
         )
         # Verify calculation
         expected = (
-            0.8 * 0.35 +  # relevance
-            0.6 * 0.15 +  # freshness
-            0.9 * 0.30 +  # authority
-            0.7 * 0.10 +  # completeness
-            0.5 * 0.10    # consistency
+            0.8 * 0.25 +   # relevance
+            0.75 * 0.15 +  # semantic
+            0.6 * 0.12 +   # freshness
+            0.9 * 0.28 +   # authority
+            0.7 * 0.10 +   # completeness
+            0.5 * 0.10     # consistency
         )
         assert abs(scores.overall_score - expected) < 0.001
 
@@ -153,6 +160,7 @@ class TestQualityScores:
         """Test quality tier property."""
         excellent = QualityScores(
             relevance_score=0.9,
+            semantic_score=0.9,
             freshness_score=0.9,
             authority_score=0.9,
             completeness_score=0.9,
@@ -162,6 +170,7 @@ class TestQualityScores:
 
         poor = QualityScores(
             relevance_score=0.3,
+            semantic_score=0.3,
             freshness_score=0.3,
             authority_score=0.3,
             completeness_score=0.3,
@@ -169,39 +178,66 @@ class TestQualityScores:
         )
         assert poor.quality_tier == QualityTier.POOR
 
+    def test_quality_scores_combined_relevance_with_semantic(self):
+        """Test combined relevance when semantic score is meaningful."""
+        scores = QualityScores(
+            relevance_score=0.6,
+            semantic_score=0.9,
+        )
+        # With meaningful semantic score (>0.1), combined = 0.4*keyword + 0.6*semantic
+        expected = 0.6 * 0.4 + 0.9 * 0.6
+        assert abs(scores.combined_relevance - expected) < 0.001
+
+    def test_quality_scores_combined_relevance_without_semantic(self):
+        """Test combined relevance when semantic score is minimal."""
+        scores = QualityScores(
+            relevance_score=0.8,
+            semantic_score=0.05,  # Below threshold
+        )
+        # Without meaningful semantic, just return keyword relevance
+        assert scores.combined_relevance == 0.8
+
     def test_quality_scores_to_dict(self):
         """Test QualityScores serialization."""
         scores = QualityScores(
             relevance_score=0.8,
+            semantic_score=0.75,
             authority_score=0.7,
         )
         data = scores.to_dict()
         assert data["relevance_score"] == 0.8
+        assert data["semantic_score"] == 0.75
         assert data["authority_score"] == 0.7
         assert "overall_score" in data
+        assert "combined_relevance" in data
         assert "quality_tier" in data
         assert "weights" in data
+        assert "semantic" in data["weights"]
 
     def test_quality_scores_from_dict(self):
         """Test QualityScores deserialization."""
         data = {
             "relevance_score": 0.75,
+            "semantic_score": 0.80,
             "freshness_score": 0.65,
             "authority_score": 0.85,
             "completeness_score": 0.55,
             "consistency_score": 0.60,
             "weights": {
-                "relevance": 0.40,
-                "freshness": 0.10,
-                "authority": 0.30,
+                "relevance": 0.25,
+                "semantic": 0.15,
+                "freshness": 0.12,
+                "authority": 0.28,
                 "completeness": 0.10,
                 "consistency": 0.10,
             },
         }
         scores = QualityScores.from_dict(data)
         assert scores.relevance_score == 0.75
+        assert scores.semantic_score == 0.80
         assert scores.freshness_score == 0.65
-        assert scores.relevance_weight == 0.40
+        assert scores.relevance_weight == 0.25
+        assert scores.semantic_weight == 0.15
 
 
 # =============================================================================
@@ -531,6 +567,217 @@ class TestQualityScorer:
         scorer = QualityScorer(default_context=ctx)
         scores = scorer.score(content="Content about test query.")
         assert scores.relevance_score > 0.3
+
+
+# =============================================================================
+# Semantic Scoring Tests
+# =============================================================================
+
+
+class MockEmbeddingProvider:
+    """Mock embedding provider for testing semantic scoring."""
+
+    def __init__(self, dimension: int = 256):
+        self.dimension = dimension
+        self._call_count = 0
+
+    async def embed(self, text: str) -> list[float]:
+        """Generate deterministic embedding based on text hash."""
+        import hashlib
+        import struct
+
+        self._call_count += 1
+        embedding = []
+        for seed in range(self.dimension):
+            h = hashlib.sha256(f"{seed}:{text}".encode()).digest()
+            val = struct.unpack('<i', h[:4])[0] / (2**31)
+            embedding.append(val)
+        return embedding
+
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """Embed multiple texts."""
+        return [await self.embed(text) for text in texts]
+
+
+class TestSemanticScoring:
+    """Tests for semantic scoring functionality."""
+
+    @pytest.fixture
+    def mock_provider(self):
+        """Create mock embedding provider."""
+        return MockEmbeddingProvider()
+
+    @pytest.fixture
+    def scorer_with_provider(self, mock_provider):
+        """Create scorer with mock embedding provider."""
+        return QualityScorer(embedding_provider=mock_provider)
+
+    def test_set_embedding_provider(self):
+        """Test setting embedding provider."""
+        scorer = QualityScorer()
+        assert scorer._embedding_provider is None
+
+        provider = MockEmbeddingProvider()
+        scorer.set_embedding_provider(provider)
+        assert scorer._embedding_provider is provider
+
+    def test_set_embedding_provider_clears_cache(self):
+        """Test that setting provider clears query cache."""
+        scorer = QualityScorer()
+        # Simulate cached query
+        scorer._query_embedding_cache["test"] = [0.1] * 256
+
+        provider = MockEmbeddingProvider()
+        scorer.set_embedding_provider(provider)
+
+        assert len(scorer._query_embedding_cache) == 0
+
+    @pytest.mark.asyncio
+    async def test_score_with_semantic_returns_scores(self, scorer_with_provider):
+        """Test score_with_semantic returns QualityScores."""
+        ctx = QualityContext(query="machine learning")
+        scores = await scorer_with_provider.score_with_semantic(
+            content="Machine learning is a subset of AI.",
+            context=ctx,
+        )
+        assert isinstance(scores, QualityScores)
+        assert 0 <= scores.semantic_score <= 1
+
+    @pytest.mark.asyncio
+    async def test_score_with_semantic_no_provider(self):
+        """Test score_with_semantic defaults to 0.5 without provider."""
+        scorer = QualityScorer()  # No provider
+        ctx = QualityContext(query="test query")
+        scores = await scorer.score_with_semantic(
+            content="Test content",
+            context=ctx,
+        )
+        assert scores.semantic_score == 0.5  # Default
+
+    @pytest.mark.asyncio
+    async def test_score_with_semantic_no_query(self, scorer_with_provider):
+        """Test score_with_semantic defaults to 0.5 without query."""
+        ctx = QualityContext()  # No query
+        scores = await scorer_with_provider.score_with_semantic(
+            content="Test content",
+            context=ctx,
+        )
+        assert scores.semantic_score == 0.5  # Default
+
+    @pytest.mark.asyncio
+    async def test_score_with_semantic_caches_query_embedding(
+        self, scorer_with_provider, mock_provider
+    ):
+        """Test that query embeddings are cached."""
+        ctx = QualityContext(query="machine learning")
+
+        # First call
+        await scorer_with_provider.score_with_semantic(
+            content="Content 1",
+            context=ctx,
+        )
+        first_call_count = mock_provider._call_count
+
+        # Second call with same query
+        await scorer_with_provider.score_with_semantic(
+            content="Content 2",
+            context=ctx,
+        )
+        second_call_count = mock_provider._call_count
+
+        # Query should be cached, so only 1 additional call (for content)
+        assert second_call_count - first_call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_score_semantic_identical_content(self, scorer_with_provider):
+        """Test semantic score for identical content is high."""
+        ctx = QualityContext(query="machine learning algorithms")
+        scores = await scorer_with_provider.score_with_semantic(
+            content="machine learning algorithms",
+            context=ctx,
+        )
+        # Identical content should have very high semantic similarity
+        assert scores.semantic_score > 0.9
+
+    @pytest.mark.asyncio
+    async def test_score_semantic_handles_errors(self, mock_provider):
+        """Test semantic scoring handles provider errors gracefully."""
+        # Create a failing provider
+        class FailingProvider:
+            async def embed(self, text: str):
+                raise RuntimeError("API error")
+
+        scorer = QualityScorer(embedding_provider=FailingProvider())
+        ctx = QualityContext(query="test")
+
+        # Should not raise, should default to 0.5
+        scores = await scorer.score_with_semantic(
+            content="Test content",
+            context=ctx,
+        )
+        assert scores.semantic_score == 0.5
+
+    @pytest.mark.asyncio
+    async def test_score_batch_with_semantic(self, scorer_with_provider):
+        """Test batch scoring with semantic similarity."""
+        class MockEvidence:
+            def __init__(self, snippet):
+                self.snippet = snippet
+
+        evidence_list = [
+            MockEvidence("Machine learning for data"),
+            MockEvidence("Deep learning neural networks"),
+            MockEvidence("Cooking recipes for dinner"),
+        ]
+        ctx = QualityContext(query="machine learning")
+
+        results = await scorer_with_provider.score_batch_with_semantic(
+            evidence_list, context=ctx
+        )
+
+        assert len(results) == 3
+        assert all(isinstance(r, QualityScores) for r in results)
+        # All should have semantic scores set
+        assert all(0 <= r.semantic_score <= 1 for r in results)
+
+    @pytest.mark.asyncio
+    async def test_score_batch_without_provider(self):
+        """Test batch scoring defaults to 0.5 without provider."""
+        scorer = QualityScorer()
+
+        class MockEvidence:
+            def __init__(self, snippet):
+                self.snippet = snippet
+                self.url = None
+                self.source = None
+                self.fetched_at = None
+
+        evidence_list = [MockEvidence("Content 1"), MockEvidence("Content 2")]
+        ctx = QualityContext(query="test")
+
+        results = await scorer.score_batch_with_semantic(evidence_list, context=ctx)
+
+        assert len(results) == 2
+        assert all(r.semantic_score == 0.5 for r in results)
+
+    @pytest.mark.asyncio
+    async def test_score_batch_without_query(self, scorer_with_provider):
+        """Test batch scoring defaults to 0.5 without query."""
+        class MockEvidence:
+            def __init__(self, snippet):
+                self.snippet = snippet
+                self.url = None
+                self.source = None
+                self.fetched_at = None
+
+        evidence_list = [MockEvidence("Content")]
+        ctx = QualityContext()  # No query
+
+        results = await scorer_with_provider.score_batch_with_semantic(
+            evidence_list, context=ctx
+        )
+
+        assert results[0].semantic_score == 0.5
 
 
 # =============================================================================

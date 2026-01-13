@@ -3,19 +3,24 @@ Evidence Quality Scoring.
 
 Provides comprehensive quality scoring for evidence snippets including:
 - Relevance scoring (how relevant to the query/topic)
+- Semantic confidence scoring (embedding-based similarity)
 - Freshness scoring (temporal relevance)
 - Authority scoring (source trustworthiness)
 - Overall quality score (weighted combination)
 """
 
+import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Set, TYPE_CHECKING
 
 from aragora.evidence.metadata import EnrichedMetadata, SourceType
+
+if TYPE_CHECKING:
+    from aragora.memory.embeddings import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
 
@@ -48,16 +53,18 @@ class QualityTier(str, Enum):
 class QualityScores:
     """Quality scores for an evidence snippet."""
 
-    relevance_score: float = 0.5   # 0-1, how relevant to the query
+    relevance_score: float = 0.5   # 0-1, how relevant to the query (keyword-based)
+    semantic_score: float = 0.5    # 0-1, semantic similarity (embedding-based)
     freshness_score: float = 0.5   # 0-1, temporal freshness
     authority_score: float = 0.5   # 0-1, source authority/trustworthiness
     completeness_score: float = 0.5  # 0-1, how complete the evidence is
     consistency_score: float = 0.5   # 0-1, internal consistency
 
     # Weights for overall score calculation
-    relevance_weight: float = 0.35
-    freshness_weight: float = 0.15
-    authority_weight: float = 0.30
+    relevance_weight: float = 0.25   # Reduced to make room for semantic
+    semantic_weight: float = 0.15    # New: embedding-based similarity
+    freshness_weight: float = 0.12
+    authority_weight: float = 0.28
     completeness_weight: float = 0.10
     consistency_weight: float = 0.10
 
@@ -66,11 +73,20 @@ class QualityScores:
         """Calculate weighted overall quality score."""
         return (
             self.relevance_score * self.relevance_weight +
+            self.semantic_score * self.semantic_weight +
             self.freshness_score * self.freshness_weight +
             self.authority_score * self.authority_weight +
             self.completeness_score * self.completeness_weight +
             self.consistency_score * self.consistency_weight
         )
+
+    @property
+    def combined_relevance(self) -> float:
+        """Combined relevance from keyword and semantic scoring."""
+        # Weighted combination favoring semantic when available
+        if self.semantic_score > 0.1:  # Has meaningful semantic score
+            return (self.relevance_score * 0.4) + (self.semantic_score * 0.6)
+        return self.relevance_score
 
     @property
     def quality_tier(self) -> QualityTier:
@@ -81,14 +97,17 @@ class QualityScores:
         """Convert to dictionary for serialization."""
         return {
             "relevance_score": self.relevance_score,
+            "semantic_score": self.semantic_score,
             "freshness_score": self.freshness_score,
             "authority_score": self.authority_score,
             "completeness_score": self.completeness_score,
             "consistency_score": self.consistency_score,
             "overall_score": self.overall_score,
+            "combined_relevance": self.combined_relevance,
             "quality_tier": self.quality_tier.value,
             "weights": {
                 "relevance": self.relevance_weight,
+                "semantic": self.semantic_weight,
                 "freshness": self.freshness_weight,
                 "authority": self.authority_weight,
                 "completeness": self.completeness_weight,
@@ -102,13 +121,15 @@ class QualityScores:
         weights = data.get("weights", {})
         return cls(
             relevance_score=data.get("relevance_score", 0.5),
+            semantic_score=data.get("semantic_score", 0.5),
             freshness_score=data.get("freshness_score", 0.5),
             authority_score=data.get("authority_score", 0.5),
             completeness_score=data.get("completeness_score", 0.5),
             consistency_score=data.get("consistency_score", 0.5),
-            relevance_weight=weights.get("relevance", 0.35),
-            freshness_weight=weights.get("freshness", 0.15),
-            authority_weight=weights.get("authority", 0.30),
+            relevance_weight=weights.get("relevance", 0.25),
+            semantic_weight=weights.get("semantic", 0.15),
+            freshness_weight=weights.get("freshness", 0.12),
+            authority_weight=weights.get("authority", 0.28),
             completeness_weight=weights.get("completeness", 0.10),
             consistency_weight=weights.get("consistency", 0.10),
         )
@@ -171,13 +192,23 @@ class QualityScorer:
     def __init__(
         self,
         default_context: Optional[QualityContext] = None,
+        embedding_provider: Optional["EmbeddingProvider"] = None,
     ):
         """Initialize the quality scorer.
 
         Args:
             default_context: Default context for scoring
+            embedding_provider: Optional embedding provider for semantic scoring.
+                               If not provided, semantic scoring will use neutral default.
         """
         self.default_context = default_context or QualityContext()
+        self._embedding_provider = embedding_provider
+        self._query_embedding_cache: Dict[str, List[float]] = {}
+
+    def set_embedding_provider(self, provider: "EmbeddingProvider") -> None:
+        """Set or update the embedding provider for semantic scoring."""
+        self._embedding_provider = provider
+        self._query_embedding_cache.clear()
 
     def score(
         self,
@@ -188,7 +219,9 @@ class QualityScorer:
         source: Optional[str] = None,
         fetched_at: Optional[datetime] = None,
     ) -> QualityScores:
-        """Score evidence quality.
+        """Score evidence quality (synchronous, without semantic scoring).
+
+        For semantic scoring, use score_with_semantic() instead.
 
         Args:
             content: The evidence content
@@ -199,7 +232,7 @@ class QualityScorer:
             fetched_at: Optional fetch timestamp
 
         Returns:
-            QualityScores with all dimension scores
+            QualityScores with all dimension scores (semantic_score defaults to 0.5)
         """
         ctx = context or self.default_context
 
@@ -225,8 +258,146 @@ class QualityScorer:
             ctx,
         )
         scores.consistency_score = self._score_consistency(content)
+        # semantic_score defaults to 0.5 (neutral)
 
         return scores
+
+    async def score_with_semantic(
+        self,
+        content: str,
+        metadata: Optional[EnrichedMetadata] = None,
+        context: Optional[QualityContext] = None,
+        url: Optional[str] = None,
+        source: Optional[str] = None,
+        fetched_at: Optional[datetime] = None,
+    ) -> QualityScores:
+        """Score evidence quality with semantic similarity scoring.
+
+        Uses embeddings to compute semantic similarity between the query
+        and evidence content. Falls back to keyword-based scoring if
+        no embedding provider is available.
+
+        Args:
+            content: The evidence content
+            metadata: Optional enriched metadata
+            context: Optional scoring context
+            url: Optional source URL
+            source: Optional source name
+            fetched_at: Optional fetch timestamp
+
+        Returns:
+            QualityScores with all dimension scores including semantic
+        """
+        # Start with base scores
+        scores = self.score(content, metadata, context, url, source, fetched_at)
+        ctx = context or self.default_context
+
+        # Add semantic score if provider available and query exists
+        if self._embedding_provider and ctx.query:
+            try:
+                scores.semantic_score = await self._score_semantic(content, ctx.query)
+            except Exception as e:
+                logger.warning(f"Semantic scoring failed, using default: {e}")
+                scores.semantic_score = 0.5
+
+        return scores
+
+    async def _score_semantic(self, content: str, query: str) -> float:
+        """Score semantic similarity between content and query using embeddings.
+
+        Args:
+            content: Evidence content
+            query: Search query
+
+        Returns:
+            Similarity score 0-1 (higher = more similar)
+        """
+        if not self._embedding_provider:
+            return 0.5
+
+        try:
+            from aragora.memory.embeddings import cosine_similarity
+
+            # Get or compute query embedding (cached)
+            if query not in self._query_embedding_cache:
+                self._query_embedding_cache[query] = await self._embedding_provider.embed(query)
+
+            query_embedding = self._query_embedding_cache[query]
+
+            # Truncate content for embedding (most providers have limits)
+            content_truncated = content[:8000]
+            content_embedding = await self._embedding_provider.embed(content_truncated)
+
+            # Compute cosine similarity
+            similarity = cosine_similarity(query_embedding, content_embedding)
+
+            # Convert to 0-1 scale (cosine can be -1 to 1)
+            return max(0.0, min(1.0, (similarity + 1) / 2))
+
+        except ImportError:
+            logger.debug("Embedding module not available for semantic scoring")
+            return 0.5
+        except Exception as e:
+            logger.debug(f"Semantic scoring error: {e}")
+            return 0.5
+
+    async def score_batch_with_semantic(
+        self,
+        evidence_list: List[Any],
+        context: Optional[QualityContext] = None,
+    ) -> List[QualityScores]:
+        """Score multiple evidence items with semantic similarity.
+
+        Optimized for batch processing with parallel embedding computation.
+
+        Args:
+            evidence_list: List of evidence items (must have .snippet attribute)
+            context: Optional quality context
+
+        Returns:
+            List of QualityScores for each evidence item
+        """
+        ctx = context or self.default_context
+
+        # Compute all content embeddings in parallel
+        if self._embedding_provider and ctx.query:
+            try:
+                from aragora.memory.embeddings import cosine_similarity
+
+                # Get query embedding
+                if ctx.query not in self._query_embedding_cache:
+                    self._query_embedding_cache[ctx.query] = await self._embedding_provider.embed(ctx.query)
+                query_embedding = self._query_embedding_cache[ctx.query]
+
+                # Batch embed all content
+                contents = [e.snippet[:8000] for e in evidence_list]
+                content_embeddings = await self._embedding_provider.embed_batch(contents)
+
+                # Calculate similarities
+                similarities = [
+                    max(0.0, min(1.0, (cosine_similarity(query_embedding, emb) + 1) / 2))
+                    for emb in content_embeddings
+                ]
+            except Exception as e:
+                logger.warning(f"Batch semantic scoring failed: {e}")
+                similarities = [0.5] * len(evidence_list)
+        else:
+            similarities = [0.5] * len(evidence_list)
+
+        # Score each evidence with pre-computed semantic scores
+        results = []
+        for evidence, semantic_score in zip(evidence_list, similarities):
+            scores = self.score(
+                content=evidence.snippet,
+                url=getattr(evidence, "url", None),
+                source=getattr(evidence, "source", None),
+                fetched_at=getattr(evidence, "fetched_at", None),
+                context=ctx,
+            )
+            scores.semantic_score = semantic_score
+            results.append(scores)
+
+        return results
 
     def _score_relevance(self, content: str, context: QualityContext) -> float:
         """Score relevance to the query/topic."""
