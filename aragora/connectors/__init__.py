@@ -11,6 +11,7 @@ with the provenance system for traceability:
 - HackerNewsConnector: Tech community discussions
 - WikipediaConnector: Encyclopedia articles and reference knowledge
 - RedditConnector: Community discussions and sentiment
+- TwitterConnector: Public discourse and real-time updates
 
 All connectors record evidence through ProvenanceManager
 with proper source typing and confidence scoring.
@@ -23,6 +24,7 @@ from aragora.connectors.arxiv import ArXivConnector, ARXIV_CATEGORIES
 from aragora.connectors.hackernews import HackerNewsConnector
 from aragora.connectors.wikipedia import WikipediaConnector
 from aragora.connectors.reddit import RedditConnector
+from aragora.connectors.twitter import TwitterConnector
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.connectors.exceptions import (
     ConnectorError,
@@ -52,6 +54,7 @@ __all__ = [
     "HackerNewsConnector",
     "WikipediaConnector",
     "RedditConnector",
+    "TwitterConnector",
     # Exceptions
     "ConnectorError",
     "ConnectorAuthError",
