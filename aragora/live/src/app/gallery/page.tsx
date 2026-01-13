@@ -5,20 +5,10 @@ import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { createClient } from '@/lib/aragora-client';
+import { getClient, GalleryEntry } from '@/lib/aragora-client';
 
-interface GalleryDebate {
-  id: string;
-  topic: string;
-  summary?: string;
-  agents: string[];
-  consensus?: string;
-  created_at: string;
-  views: number;
-  votes: number;
-  featured?: boolean;
-  domain?: string;
-}
+// Use GalleryEntry from SDK
+type GalleryDebate = GalleryEntry;
 
 export default function GalleryPage() {
   const [debates, setDebates] = useState<GalleryDebate[]>([]);
@@ -31,7 +21,7 @@ export default function GalleryPage() {
   const loadDebates = useCallback(async (reset = false) => {
     setLoading(true);
     try {
-      const client = createClient();
+      const client = getClient();
       const params: Record<string, string | number> = {
         limit: 12,
         offset: reset ? 0 : page * 12,
@@ -42,7 +32,7 @@ export default function GalleryPage() {
       if (searchQuery) params.search = searchQuery;
 
       const response = await client.gallery.list(params);
-      const newDebates = response.debates || [];
+      const newDebates = response.entries || [];
 
       if (reset) {
         setDebates(newDebates);
@@ -183,7 +173,7 @@ export default function GalleryPage() {
 
                   {/* Topic */}
                   <h3 className="font-mono text-acid-green group-hover:text-acid-cyan transition-colors mb-3 line-clamp-2">
-                    {debate.topic}
+                    {debate.title}
                   </h3>
 
                   {/* Summary */}
@@ -211,19 +201,16 @@ export default function GalleryPage() {
                   </div>
 
                   {/* Consensus */}
-                  {debate.consensus && (
+                  {debate.consensus_reached && (
                     <div className="text-xs font-mono text-acid-green/80 mb-4 p-2 bg-acid-green/5 border-l-2 border-acid-green">
-                      Consensus: {debate.consensus.slice(0, 100)}...
+                      [CONSENSUS REACHED]
                     </div>
                   )}
 
                   {/* Meta */}
                   <div className="flex items-center justify-between text-xs font-mono text-text-muted">
                     <span>{formatDate(debate.created_at)}</span>
-                    <div className="flex gap-4">
-                      <span>{debate.views || 0} views</span>
-                      <span>{debate.votes || 0} votes</span>
-                    </div>
+                    <span>{debate.views || 0} views</span>
                   </div>
                 </Link>
               ))}

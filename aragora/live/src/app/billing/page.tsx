@@ -394,12 +394,12 @@ export default function BillingPage() {
                     <div className="flex justify-between">
                       <span className="text-text-muted">Projected debates:</span>
                       <span className={forecast.will_hit_limit ? 'text-warning' : 'text-acid-green'}>
-                        {forecast.projected_debates}
+                        {forecast.projection.debates_end_of_cycle}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-text-muted">Est. end-of-cycle cost:</span>
-                      <span className="text-text">${forecast.cost_end_of_cycle_usd.toFixed(2)}</span>
+                      <span className="text-text">${forecast.projection.cost_end_of_cycle_usd.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-text-muted">Days remaining:</span>
@@ -410,7 +410,7 @@ export default function BillingPage() {
                         You may exceed your limit before the cycle ends.
                         {forecast.tier_recommendation && (
                           <span className="block mt-1">
-                            Recommended: Upgrade to {forecast.tier_recommendation}
+                            Recommended: Upgrade to {forecast.tier_recommendation.recommended_tier}
                           </span>
                         )}
                       </div>
