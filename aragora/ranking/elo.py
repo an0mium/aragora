@@ -20,7 +20,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from aragora.config import (
     DB_ELO_PATH,
@@ -585,7 +585,7 @@ class EloSystem:
     def _compute_calibration_k_multipliers(
         self,
         participants: list[str],
-        calibration_tracker: Optional[object] = None,
+        calibration_tracker: "Any | None" = None,
     ) -> dict[str, float]:
         """Compute per-agent K-factor multipliers based on calibration quality.
 
@@ -1472,9 +1472,9 @@ class EloSystem:
             )
             rows = cursor.fetchall()
 
-        history = []
+        history: list[dict[str, Any]] = []
         total_impact = 0.0
-        prev_elo = None
+        prev_elo: float | None = None
 
         for row in reversed(rows):
             debate_id, elo, created_at = row

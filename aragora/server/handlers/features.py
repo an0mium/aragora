@@ -406,20 +406,20 @@ def _check_moments() -> tuple[bool, Optional[str]]:
 
 def _check_tournaments() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.ranking.tournaments import TournamentRunner
+        from aragora.ranking.tournaments import TournamentManager
 
         return True, None
     except ImportError:
-        return False, "TournamentRunner not available"
+        return False, "TournamentManager not available"
 
 
 def _check_elo() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.ranking.elo import ELOSystem
+        from aragora.ranking.elo import EloSystem
 
         return True, None
     except ImportError:
-        return False, "ELOSystem not available"
+        return False, "EloSystem not available"
 
 
 def _check_crux() -> tuple[bool, Optional[str]]:
@@ -433,11 +433,11 @@ def _check_crux() -> tuple[bool, Optional[str]]:
 
 def _check_rhetorical() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.debate.rhetorical_observer import RhetoricalObserver
+        from aragora.debate.rhetorical_observer import RhetoricalAnalysisObserver
 
         return True, None
     except ImportError:
-        return False, "RhetoricalObserver not available"
+        return False, "RhetoricalAnalysisObserver not available"
 
 
 def _check_trickster() -> tuple[bool, Optional[str]]:

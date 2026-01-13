@@ -8,10 +8,12 @@ Supports:
 - Multiple model variants
 """
 
-import aiohttp
+import asyncio
 import json
 import logging
 import os
+
+import aiohttp
 from typing import AsyncGenerator, Optional
 
 from aragora.agents.api_agents.base import APIAgent

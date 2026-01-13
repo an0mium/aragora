@@ -942,20 +942,30 @@ document.querySelectorAll('.graph-node').forEach(node => {{
         const content = node.dataset.content;
         const nodeId = node.dataset.nodeId;
 
-        // Create and show modal
+        // Create and show modal (using safe DOM methods to prevent XSS)
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay active';
-        overlay.innerHTML = `
-            <div class="modal">
-                <button class="modal-close">&times;</button>
-                <h3>Node ${{nodeId}}</h3>
-                <pre>${{content}}</pre>
-            </div>
-        `;
 
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'modal-close';
+        closeBtn.innerHTML = '&times;';
+
+        const heading = document.createElement('h3');
+        heading.textContent = 'Node ' + nodeId;
+
+        const pre = document.createElement('pre');
+        pre.textContent = content;
+
+        modal.appendChild(closeBtn);
+        modal.appendChild(heading);
+        modal.appendChild(pre);
+        overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
-        overlay.querySelector('.modal-close').addEventListener('click', () => {{
+        closeBtn.addEventListener('click', () => {{
             overlay.remove();
         }});
 

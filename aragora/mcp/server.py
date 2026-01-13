@@ -464,7 +464,7 @@ class AragoraMCPServer:
                         "task": debate_meta.task[:100] if debate_meta.task else "",
                         "consensus_reached": debate_meta.consensus_reached,
                         "confidence": debate_meta.confidence,
-                        "timestamp": debate_meta.timestamp.isoformat() if debate_meta.timestamp else "",
+                        "timestamp": debate_meta.created_at.isoformat() if debate_meta.created_at else "",
                     }
                     if debate_dict["debate_id"] not in [r["debate_id"] for r in results]:
                         results.append(debate_dict)
@@ -510,8 +510,7 @@ class AragoraMCPServer:
             elo = EloSystem()
             rating = elo.get_rating(agent_name)
             if rating:
-                result["elo_rating"] = rating.rating
-                result["elo_deviation"] = rating.deviation
+                result["elo_rating"] = rating.elo
         except Exception as e:
             logger.debug(f"Could not get ELO: {e}")
 

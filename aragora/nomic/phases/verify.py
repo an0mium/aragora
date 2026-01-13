@@ -297,7 +297,7 @@ Be concise - this is a quality gate, not a full review."""
                         "passed": True,
                         "output": audit_response[:500],
                     }
-        except Exception as e:
+        except (ConnectionError, TimeoutError, asyncio.TimeoutError, RuntimeError, ValueError) as e:
             self._log(f"  [hybrid] Codex audit error: {e}")
             return {
                 "check": "codex_audit",
@@ -321,8 +321,8 @@ Be concise - this is a quality gate, not a full review."""
             stdout, _ = await proc.communicate()
             if proc.returncode == 0 and stdout:
                 return [f.strip() for f in stdout.decode().strip().split("\n") if f.strip()]
-        except Exception:
-            pass
+        except (OSError, FileNotFoundError, asyncio.TimeoutError) as e:
+            self._log(f"  [git] Failed to get changed files: {e}")
         return []
 
     async def _check_staleness(self) -> list:
@@ -341,7 +341,7 @@ Be concise - this is a quality gate, not a full review."""
                 state={"all_passed": True, "changed_files": changed_files},
                 cycle=self.cycle_count,
             )
-        except Exception as e:
+        except (OSError, IOError, asyncio.TimeoutError, RuntimeError) as e:
             self._log(f"  [integration] Staleness check failed: {e}")
         return []
 

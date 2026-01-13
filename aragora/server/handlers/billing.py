@@ -205,7 +205,7 @@ class BillingHandler(BaseHandler):
         # Get usage tracker
         usage_tracker = self._get_usage_tracker()
 
-        usage_data = {
+        usage_data: dict[str, Any] = {
             "debates_used": 0,
             "debates_limit": 10,
             "debates_remaining": 10,
@@ -510,7 +510,7 @@ class BillingHandler(BaseHandler):
             return error_response("Audit logs require Enterprise tier", 403)
 
         # Only admins/owners can view audit logs
-        if auth_ctx.role not in ("owner", "admin"):
+        if user.role not in ("owner", "admin"):
             return error_response("Insufficient permissions", 403)
 
         # Get query params

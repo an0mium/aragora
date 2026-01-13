@@ -10,17 +10,19 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Coroutine, TypeVar
 
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.registry import AgentRegistry
-from aragora.core import Message
+from aragora.core import Critique, Message
 from aragora.training.tinker_client import TinkerClient, TinkerConfig, TinkerModel
 
 logger = logging.getLogger(__name__)
 
+_T = TypeVar("_T")
 
-def _run_async_in_thread(coro):
+
+def _run_async_in_thread(coro: Coroutine[Any, Any, _T]) -> _T:
     """Run an async coroutine in a thread-safe manner.
 
     Creates a new event loop for the thread to avoid RuntimeError when
@@ -264,47 +266,27 @@ class TinkerAgent(APIAgent):
         }
         return prompts.get(self.role, prompts["proposer"])
 
-    def critique(
+    async def critique(
         self,
-        target_agent: str,
         proposal: str,
+        task: str,
         context: list[Message] | None = None,
-    ) -> dict[str, Any]:
+    ) -> Critique:
         """
-        Generate a critique of another agent's proposal.
+        Critique a proposal using Tinker API.
 
         Args:
-            target_agent: Name of the agent being critiqued
             proposal: The proposal to critique
+            task: The task/prompt the proposal was for
             context: Previous messages
 
         Returns:
-            Critique dict with issues, suggestions, severity, reasoning
+            Critique with issues, suggestions, severity, reasoning
         """
-        # Run async critique in sync context
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # We're in an async context, run in thread with new loop
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    _run_async_in_thread, self._async_critique(target_agent, proposal, context)
-                )
-                return future.result()
-        else:
-            return loop.run_until_complete(self._async_critique(target_agent, proposal, context))
-
-    async def _async_critique(
-        self,
-        target_agent: str,
-        proposal: str,
-        context: list[Message] | None = None,
-    ) -> dict[str, Any]:
-        """Async implementation of critique."""
         critique_prompt = (
-            f"Critique the following proposal from {target_agent}:\n\n"
-            f"{proposal}\n\n"
+            f"Critique the following proposal for this task:\n\n"
+            f"Task: {task}\n\n"
+            f"Proposal:\n{proposal}\n\n"
             "Identify:\n"
             "1. Logical issues or flaws\n"
             "2. Missing considerations\n"
@@ -313,7 +295,7 @@ class TinkerAgent(APIAgent):
         )
 
         response = await self.respond(critique_prompt, context)
-        return self._parse_critique(response, target_agent)
+        return self._parse_critique(response, "proposal", proposal)
 
     def set_adapter(self, adapter: str | None) -> None:
         """

@@ -756,14 +756,14 @@ class SystemHandler(BaseHandler):
 
         # 3. Supabase
         try:
-            from aragora.persistence.supabase_client import get_supabase_client
+            from aragora.persistence.supabase_client import SupabaseClient
 
-            client = get_supabase_client()
-            if client is not None:
+            supabase_wrapper = SupabaseClient()
+            if supabase_wrapper.is_configured and supabase_wrapper.client is not None:
                 # Try a simple query to verify connectivity
                 ping_start = time.time()
-                # Use a lightweight query
-                result = client.table("debates").select("id").limit(1).execute()
+                # Use a lightweight query via the underlying client
+                result = supabase_wrapper.client.table("debates").select("id").limit(1).execute()
                 ping_latency = round((time.time() - ping_start) * 1000, 2)
                 checks["supabase"] = {
                     "healthy": True,
@@ -802,7 +802,7 @@ class SystemHandler(BaseHandler):
             from aragora.billing.stripe_client import StripeClient
 
             stripe_client = StripeClient()
-            if stripe_client.is_configured():
+            if stripe_client._is_configured():
                 checks["billing"] = {"healthy": True, "status": "configured"}
             else:
                 checks["billing"] = {"healthy": True, "status": "not_configured"}

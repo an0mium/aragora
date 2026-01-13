@@ -157,7 +157,8 @@ class AgentPool:
 
         try:
             return self._config.circuit_breaker.is_open(agent_name)
-        except Exception:
+        except (KeyError, AttributeError, TypeError) as e:
+            logger.debug(f"Circuit breaker check failed for {agent_name}: {e}")
             return False
 
     # =========================================================================
@@ -258,8 +259,8 @@ class AgentPool:
         if self._config.elo_system is not None:
             try:
                 elo_score = self._config.elo_system.get_rating(agent_name)
-            except Exception:
-                pass
+            except (KeyError, AttributeError, TypeError, ValueError) as e:
+                logger.debug(f"ELO rating lookup failed for {agent_name}: {e}")
 
         # Calibration weight
         calibration_weight = self._get_calibration_weight(agent_name)
@@ -275,8 +276,8 @@ class AgentPool:
                 )
                 if domain_rating:
                     composite = (composite + domain_rating) / 2
-            except Exception:
-                pass
+            except (KeyError, AttributeError, TypeError, ValueError) as e:
+                logger.debug(f"Domain rating lookup failed for {agent_name}/{domain}: {e}")
 
         return composite
 
@@ -301,7 +302,8 @@ class AgentPool:
                 return 1.0
             # Map calibration (0-1) to weight (0.5-1.5)
             return 0.5 + calibration
-        except Exception:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
+            logger.debug(f"Calibration lookup failed for {agent_name}: {e}")
             return 1.0
 
     # =========================================================================

@@ -55,7 +55,7 @@ class ContextPhase:
         skip_kilocode: bool = False,
         kilocode_agent_factory: Optional[Callable[..., Any]] = None,
         cycle_count: int = 0,
-        log_fn: Optional[Callable[[str], None]] = None,
+        log_fn: Optional[Callable[..., None]] = None,
         stream_emit_fn: Optional[Callable[..., None]] = None,
         get_features_fn: Optional[Callable[[], str]] = None,
     ):
@@ -156,7 +156,7 @@ class ContextPhase:
         # Combine the context from all agents
         combined_context = []
         for result in results:
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 continue
             name, harness, content = result
             if content and "Error:" not in content:

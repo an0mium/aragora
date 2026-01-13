@@ -502,14 +502,15 @@ class RedisSessionStore(SessionStore):
     def _start_pubsub(self) -> None:
         """Start the pub/sub listener thread."""
         try:
-            self._pubsub = self._redis.pubsub()
+            pubsub = self._redis.pubsub()
+            self._pubsub = pubsub
 
             # Subscribe to all registered channels
             with self._callbacks_lock:
                 patterns = [self._key("events", "*")]
 
-            self._pubsub.psubscribe(**{patterns[0]: self._handle_message})
-            self._pubsub_thread = self._pubsub.run_in_thread(sleep_time=0.1)
+            pubsub.psubscribe(**{patterns[0]: self._handle_message})
+            self._pubsub_thread = pubsub.run_in_thread(sleep_time=0.1)
             logger.info("Redis pub/sub listener started")
         except Exception as e:
             logger.warning(f"Failed to start Redis pub/sub: {e}")

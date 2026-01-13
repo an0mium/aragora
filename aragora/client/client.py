@@ -1317,6 +1317,7 @@ class AragoraClient:
         # Should not reach here, but handle gracefully
         if last_error:
             self._handle_http_error(last_error)
+        raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
     def _post(self, path: str, data: dict) -> dict:
         """Make a synchronous POST request with retry and rate limiting."""
@@ -1355,6 +1356,7 @@ class AragoraClient:
         # Should not reach here, but handle gracefully
         if last_error:
             self._handle_http_error(last_error)
+        raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
     def _delete(self, path: str, params: dict | None = None) -> dict:
         """Make a synchronous DELETE request with retry and rate limiting."""
@@ -1392,6 +1394,7 @@ class AragoraClient:
         # Should not reach here, but handle gracefully
         if last_error:
             self._handle_http_error(last_error)
+        raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
     async def _delete_async(self, path: str, params: dict | None = None) -> dict:
         """Make an asynchronous DELETE request with retry and rate limiting."""

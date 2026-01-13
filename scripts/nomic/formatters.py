@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
@@ -79,7 +79,7 @@ class ContextFormatter:
     def __init__(
         self,
         deps: FormatterDependencies,
-        log_fn: Optional[callable] = None,
+        log_fn: Optional[Callable[..., None]] = None,
     ):
         """
         Initialize context formatter.

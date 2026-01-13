@@ -480,9 +480,9 @@ def track_request(endpoint: str, method: str = "GET") -> Generator[None, None, N
     status = "success"
     try:
         yield
-    except Exception:
-        # Track application errors, but let KeyboardInterrupt/SystemExit propagate
-        # without being marked as "error" (they're intentional terminations)
+    except Exception:  # noqa: BLE001 - Intentionally broad for metrics tracking
+        # Note: We catch Exception (not BaseException) to track application errors
+        # while letting KeyboardInterrupt/SystemExit propagate as intentional terminations
         status = "error"
         raise
     finally:
@@ -643,7 +643,8 @@ def track_debate_execution(domain: str = "general") -> Generator[dict, None, Non
     except asyncio.TimeoutError:
         ctx["status"] = "timeout"
         raise
-    except Exception:
+    except Exception:  # noqa: BLE001 - Intentionally broad for metrics tracking
+        # Note: Catches any application error to track status, then re-raises
         ctx["status"] = "error"
         raise
     finally:

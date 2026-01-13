@@ -9,9 +9,9 @@ Endpoints:
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
-from .base import BaseHandler, error_response
+from .base import BaseHandler, HandlerResult, json_response, error_response
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -32,16 +32,15 @@ class ReviewsHandler(BaseHandler):
         """Check if this handler can handle the request."""
         return path.startswith(self.prefix)
 
-    def handle(self, handler: Any, path: str, method: str) -> dict | None:
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
         """Handle the request."""
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _reviews_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for reviews endpoint: {client_ip}")
-            return {"error": "Rate limit exceeded. Please try again later.", "status": 429}
-
-        if method != "GET":
-            return {"error": "Method not allowed", "status": 405}
+            return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Strip prefix
         subpath = path[len(self.prefix) :]
@@ -56,10 +55,10 @@ class ReviewsHandler(BaseHandler):
 
         return None
 
-    def _list_reviews(self, limit: int = 20) -> dict:
+    def _list_reviews(self, limit: int = 20) -> HandlerResult:
         """List recent reviews."""
         if not REVIEWS_DIR.exists():
-            return {"reviews": [], "total": 0}
+            return json_response({"reviews": [], "total": 0})
 
         reviews = []
         for review_file in sorted(
@@ -85,20 +84,20 @@ class ReviewsHandler(BaseHandler):
             except (json.JSONDecodeError, KeyError):
                 continue
 
-        return {"reviews": reviews, "total": len(reviews)}
+        return json_response({"reviews": reviews, "total": len(reviews)})
 
-    def _get_review(self, review_id: str) -> dict:
+    def _get_review(self, review_id: str) -> HandlerResult:
         """Get a specific review by ID."""
         # Validate ID: must be alphanumeric and reasonable length
         if not review_id or not review_id.isalnum() or len(review_id) > 64:
-            return {"error": "Invalid review ID", "status": 400}
+            return error_response("Invalid review ID", 400)
 
         review_path = REVIEWS_DIR / f"{review_id}.json"
         if not review_path.exists():
-            return {"error": "Review not found", "status": 404}
+            return error_response("Review not found", 404)
 
         try:
             data = json.loads(review_path.read_text())
-            return {"review": data}
+            return json_response({"review": data})
         except json.JSONDecodeError:
-            return {"error": "Invalid review data", "status": 500}
+            return error_response("Invalid review data", 500)

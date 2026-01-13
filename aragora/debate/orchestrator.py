@@ -30,6 +30,8 @@ from aragora.server.metrics import (
 from aragora.exceptions import EarlyStopError
 from aragora.debate.convergence import ConvergenceDetector
 from aragora.debate.event_bridge import EventEmitterBridge
+from aragora.debate.event_bus import EventBus
+from aragora.debate.agent_pool import AgentPool
 from aragora.debate.immune_system import TransparentImmuneSystem, get_immune_system
 from aragora.debate.chaos_theater import ChaosDirector, get_chaos_director, DramaLevel
 from aragora.debate.audience_manager import AudienceManager
@@ -318,6 +320,7 @@ class Arena:
 
         # Initialize user participation and roles
         self._init_user_participation()
+        self._init_event_bus()
         self._init_roles_and_stances()
 
         # Initialize convergence detection and caches
@@ -581,6 +584,9 @@ class Arena:
             loop_id=self.loop_id,
         )
 
+        # Event bus initialized later in _init_event_bus() after audience_manager exists
+        self.event_bus: Optional[EventBus] = None
+
         # Connect immune system to event bridge for WebSocket broadcasting
         self.immune_system.set_broadcast_callback(self._broadcast_health_event)
 
@@ -734,6 +740,18 @@ class Arena:
         # Subscribe to user participation events if emitter provided
         if self.event_emitter:
             self.audience_manager.subscribe_to_emitter(self.event_emitter)
+
+    def _init_event_bus(self) -> None:
+        """Initialize EventBus for pub/sub event handling.
+
+        Must be called after _init_user_participation() so audience_manager exists.
+        """
+        self.event_bus = EventBus(
+            event_bridge=self.event_bridge,
+            audience_manager=self.audience_manager,
+            immune_system=self.immune_system,
+            spectator=self.spectator,
+        )
 
     @property
     def user_votes(self) -> deque[dict]:

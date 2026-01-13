@@ -402,7 +402,8 @@ CRITICAL SAFETY RULES:
             )
             stdout, _ = await proc.communicate()
             return stdout.decode().strip() if proc.returncode == 0 else None
-        except Exception:
+        except (OSError, FileNotFoundError, asyncio.TimeoutError) as e:
+            self._log(f"  [git] Failed to create stash: {e}")
             return None
 
     async def _git_stash_pop(self, stash_ref: Optional[str]) -> bool:
@@ -421,7 +422,8 @@ CRITICAL SAFETY RULES:
             )
             await proc.communicate()
             return True
-        except Exception:
+        except (OSError, FileNotFoundError, asyncio.TimeoutError) as e:
+            self._log(f"  [git] Failed to apply stash: {e}")
             return False
 
     async def _get_git_diff(self) -> str:
@@ -437,7 +439,8 @@ CRITICAL SAFETY RULES:
             )
             stdout, _ = await proc.communicate()
             return stdout.decode() if proc.returncode == 0 else ""
-        except Exception:
+        except (OSError, FileNotFoundError, asyncio.TimeoutError) as e:
+            self._log(f"  [git] Failed to get diff: {e}")
             return ""
 
     async def _get_modified_files(self) -> List[str]:
@@ -454,8 +457,8 @@ CRITICAL SAFETY RULES:
             stdout, _ = await proc.communicate()
             if proc.returncode == 0:
                 return [f.strip() for f in stdout.decode().strip().split("\n") if f.strip()]
-        except Exception:
-            pass
+        except (OSError, FileNotFoundError, asyncio.TimeoutError) as e:
+            self._log(f"  [git] Failed to get modified files: {e}")
         return []
 
 
