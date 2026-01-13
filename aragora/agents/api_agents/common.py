@@ -31,7 +31,7 @@ from aragora.agents.errors import (
 from aragora.agents.registry import AgentRegistry
 from aragora.config import DB_TIMEOUT_SECONDS, get_api_key, get_settings
 from aragora.core import Agent, Critique, Message
-from aragora.server.error_utils import sanitize_error_text as _sanitize_error_message
+from aragora.utils.error_sanitizer import sanitize_error_text as _sanitize_error_message
 
 logger = logging.getLogger(__name__)
 

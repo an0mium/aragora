@@ -258,6 +258,11 @@ module = [
 disallow_untyped_defs = false
 check_untyped_defs = false
 
+# Ignore missing stubs for third-party libraries
+[[tool.mypy.overrides]]
+module = ["yaml"]
+ignore_missing_imports = true
+
 [tool.mutmut]
 paths_to_mutate = "aragora/core.py,aragora/ranking/elo.py,aragora/ranking/elo_core.py"
 tests_dir = "tests/"

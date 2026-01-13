@@ -421,7 +421,7 @@ class DashboardHandler(BaseHandler):
             if elo:
                 # Get all ratings in a single batch query (N+1 optimization)
                 ratings = elo.get_all_ratings() if hasattr(elo, "get_all_ratings") else []
-                all_ratings = [
+                all_ratings: list[dict[str, Any]] = [
                     {
                         "name": rating.agent_name,
                         "elo": rating.elo,

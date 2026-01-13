@@ -386,7 +386,7 @@ class MemoryAuditBackend:
     ) -> List[AuditEvent]:
         """Query audit events from memory."""
         with self._lock:
-            results = []
+            results: List[AuditEvent] = []
             for event in self._events:
                 if len(results) >= limit:
                     break

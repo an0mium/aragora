@@ -59,6 +59,8 @@ if TYPE_CHECKING:
 from aragora.server.error_utils import safe_error_message
 from aragora.server.handlers.cache import (
     CACHE_INVALIDATION_MAP,
+    BoundedTTLCache,
+    _cache,
     async_ttl_cache,
     clear_cache,
     get_cache_stats,

@@ -457,7 +457,7 @@ def wrap_agent(
 def wrap_agents(
     agents: list["Agent"],
     config: Optional[AirlockConfig] = None,
-) -> list["Agent"]:
+) -> list["AirlockProxy"]:
     """
     Wrap multiple agents with airlock protection.
 

@@ -17,7 +17,8 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 logger = logging.getLogger(__name__)
 
-# Import shared sanitization utilities
+# Import shared sanitization utilities - re-exported for backwards compatibility
+from aragora.utils.error_sanitizer import sanitize_error, sanitize_error_text
 
 
 # =============================================================================

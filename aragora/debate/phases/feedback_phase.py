@@ -27,12 +27,22 @@ Arena._run_inner() method, handling post-debate updates:
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if not TYPE_CHECKING:
     from aragora.memory.consensus import ConsensusStrength
 
 from aragora.agents.errors import _build_error_action
+from aragora.typing import (
+    CalibrationTrackerProtocol,
+    EloSystemProtocol,
+    EventEmitterProtocol,
+    MomentDetectorProtocol,
+    PersonaManagerProtocol,
+    PositionLedgerProtocol,
+    RelationshipTrackerProtocol,
+    TieredMemoryProtocol,
+)
 
 if TYPE_CHECKING:
     from aragora.core import Agent
@@ -66,41 +76,41 @@ class FeedbackPhase:
 
     def __init__(
         self,
-        elo_system: Any = None,
-        persona_manager: Any = None,
-        position_ledger: Any = None,
-        relationship_tracker: Any = None,
-        moment_detector: Any = None,
-        debate_embeddings: Any = None,
-        flip_detector: Any = None,
-        continuum_memory: Any = None,
-        event_emitter: Any = None,
+        elo_system: Optional[EloSystemProtocol] = None,
+        persona_manager: Optional[PersonaManagerProtocol] = None,
+        position_ledger: Optional[PositionLedgerProtocol] = None,
+        relationship_tracker: Optional[RelationshipTrackerProtocol] = None,
+        moment_detector: Optional[MomentDetectorProtocol] = None,
+        debate_embeddings: Any = None,  # TODO: Add DebateEmbeddingsProtocol
+        flip_detector: Any = None,  # TODO: Add FlipDetectorProtocol
+        continuum_memory: Optional[TieredMemoryProtocol] = None,
+        event_emitter: Optional[EventEmitterProtocol] = None,
         loop_id: Optional[str] = None,
         # Callbacks for orchestrator methods
-        emit_moment_event: Optional[Callable] = None,
-        store_debate_outcome_as_memory: Optional[Callable] = None,
-        update_continuum_memory_outcomes: Optional[Callable] = None,
-        index_debate_async: Optional[Callable] = None,
+        emit_moment_event: Optional[Callable[[Any], None]] = None,
+        store_debate_outcome_as_memory: Optional[Callable[[Any], None]] = None,
+        update_continuum_memory_outcomes: Optional[Callable[[Any], None]] = None,
+        index_debate_async: Optional[Callable[[Dict[str, Any]], Any]] = None,
         # ConsensusMemory for storing historical outcomes
-        consensus_memory: Any = None,
+        consensus_memory: Any = None,  # TODO: Add ConsensusMemoryProtocol
         # CalibrationTracker for prediction accuracy
-        calibration_tracker: Any = None,
+        calibration_tracker: Optional[CalibrationTrackerProtocol] = None,
         # Genesis evolution
-        population_manager: Any = None,  # PopulationManager for genome evolution
-        auto_evolve: bool = True,  # Trigger evolution after high-quality debates
-        breeding_threshold: float = 0.8,  # Min confidence to trigger evolution
+        population_manager: Any = None,  # TODO: Add PopulationManagerProtocol
+        auto_evolve: bool = True,
+        breeding_threshold: float = 0.8,
         # Pulse manager for trending topic analytics
-        pulse_manager: Any = None,
+        pulse_manager: Any = None,  # TODO: Add PulseManagerProtocol
         # Prompt evolution for learning from debates
-        prompt_evolver: Any = None,  # PromptEvolver for extracting winning patterns
+        prompt_evolver: Any = None,  # TODO: Add PromptEvolverProtocol
         # Insight store for tracking applied insights
-        insight_store: Any = None,  # InsightStore for insight usage tracking
+        insight_store: Any = None,  # TODO: Add InsightStoreProtocol
         # Training data export for Tinker integration
-        training_exporter: Any = None,  # TrainingExporter callback for fine-tuning data
+        training_exporter: Optional[Callable[[List[Dict[str, Any]], str], Any]] = None,
         # Broadcast auto-trigger for high-quality debates
-        broadcast_pipeline: Any = None,  # BroadcastPipeline for audio/video generation
-        auto_broadcast: bool = False,  # Auto-trigger broadcast after high-quality debates
-        broadcast_min_confidence: float = 0.8,  # Minimum confidence to trigger broadcast
+        broadcast_pipeline: Any = None,  # TODO: Add BroadcastPipelineProtocol
+        auto_broadcast: bool = False,
+        broadcast_min_confidence: float = 0.8,
     ):
         """
         Initialize the feedback phase.

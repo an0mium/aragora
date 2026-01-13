@@ -290,6 +290,205 @@ class RankingSystemProtocol(Protocol):
 
 
 # =============================================================================
+# Tracker Protocols
+# =============================================================================
+
+
+@runtime_checkable
+class EloSystemProtocol(Protocol):
+    """Protocol for ELO rating systems.
+
+    More specific than RankingSystemProtocol, tailored for ELO-style ratings
+    with win/loss recording and domain-specific tracking.
+    """
+
+    def get_rating(self, agent: str, domain: str = "") -> float:
+        """Get ELO rating for an agent, optionally in a specific domain."""
+        ...
+
+    def record_match(
+        self,
+        winner: str,
+        loser: str,
+        domain: str = "",
+        margin: float = 1.0,
+    ) -> None:
+        """Record a match result between two agents."""
+        ...
+
+    def get_leaderboard(self, limit: int = 10, domain: str = "") -> List[Any]:
+        """Get top agents by ELO rating."""
+        ...
+
+    def get_match_history(self, agent: str, limit: int = 20) -> List[Any]:
+        """Get recent match history for an agent."""
+        ...
+
+
+@runtime_checkable
+class CalibrationTrackerProtocol(Protocol):
+    """Protocol for prediction calibration tracking.
+
+    Tracks how well-calibrated an agent's confidence scores are
+    by comparing predicted confidence to actual outcomes.
+    """
+
+    def get_calibration(self, agent: str) -> Optional[Dict[str, Any]]:
+        """Get calibration data for an agent."""
+        ...
+
+    def record_prediction(
+        self,
+        agent: str,
+        confidence: float,
+        correct: bool,
+        domain: str = "",
+    ) -> None:
+        """Record a prediction with its outcome."""
+        ...
+
+    def get_calibration_score(self, agent: str) -> float:
+        """Get overall calibration score (0-1, lower is better calibrated)."""
+        ...
+
+
+@runtime_checkable
+class PositionLedgerProtocol(Protocol):
+    """Protocol for tracking agent positions across debates.
+
+    Records what positions agents take on claims, enabling
+    consistency tracking and position evolution analysis.
+    """
+
+    def record_position(
+        self,
+        agent_name: str,
+        claim: str,
+        stance: str,
+        confidence: float,
+        debate_id: str,
+        round_num: int,
+        domain: Optional[str] = None,
+    ) -> None:
+        """Record an agent's position on a claim."""
+        ...
+
+    def get_positions(
+        self,
+        agent_name: str,
+        limit: int = 10,
+        claim_filter: Optional[str] = None,
+    ) -> List[Any]:
+        """Get recent positions for an agent."""
+        ...
+
+    def get_consistency_score(self, agent_name: str) -> float:
+        """Get position consistency score for an agent."""
+        ...
+
+
+@runtime_checkable
+class RelationshipTrackerProtocol(Protocol):
+    """Protocol for agent relationship tracking.
+
+    Tracks agreement patterns between agent pairs,
+    enabling alliance detection and relationship analysis.
+    """
+
+    def get_relationship(self, agent_a: str, agent_b: str) -> Optional[Dict[str, Any]]:
+        """Get relationship data between two agents."""
+        ...
+
+    def update_relationship(
+        self,
+        agent_a: str,
+        agent_b: str,
+        outcome: str,
+        debate_id: str = "",
+    ) -> None:
+        """Update relationship based on debate outcome."""
+        ...
+
+    def get_allies(self, agent: str, threshold: float = 0.6) -> List[str]:
+        """Get agents that frequently agree with the given agent."""
+        ...
+
+    def get_adversaries(self, agent: str, threshold: float = 0.6) -> List[str]:
+        """Get agents that frequently disagree with the given agent."""
+        ...
+
+
+@runtime_checkable
+class MomentDetectorProtocol(Protocol):
+    """Protocol for significant moment detection.
+
+    Identifies important moments in debates such as
+    breakthroughs, conflicts, or consensus shifts.
+    """
+
+    def detect_moment(
+        self,
+        content: str,
+        context: Dict[str, Any],
+        threshold: float = 0.7,
+    ) -> Optional[Dict[str, Any]]:
+        """Detect if content represents a significant moment."""
+        ...
+
+    def get_moment_types(self) -> List[str]:
+        """Get list of moment types this detector can identify."""
+        ...
+
+
+@runtime_checkable
+class PersonaManagerProtocol(Protocol):
+    """Protocol for agent persona management.
+
+    Manages persistent personas for agents, including
+    communication style, expertise areas, and traits.
+    """
+
+    def get_persona(self, agent_name: str) -> Optional[Dict[str, Any]]:
+        """Get persona configuration for an agent."""
+        ...
+
+    def update_persona(self, agent_name: str, updates: Dict[str, Any]) -> None:
+        """Update persona attributes for an agent."""
+        ...
+
+    def get_context_for_prompt(self, agent_name: str) -> str:
+        """Get persona context string for prompt injection."""
+        ...
+
+
+@runtime_checkable
+class DissentRetrieverProtocol(Protocol):
+    """Protocol for retrieving dissenting positions.
+
+    Finds historical dissenting opinions relevant to current debates.
+    """
+
+    def retrieve_dissent(
+        self,
+        topic: str,
+        limit: int = 5,
+        min_relevance: float = 0.5,
+    ) -> List[Any]:
+        """Retrieve relevant dissenting positions."""
+        ...
+
+    def store_dissent(
+        self,
+        agent: str,
+        position: str,
+        debate_id: str,
+        context: str = "",
+    ) -> str:
+        """Store a dissenting position for future retrieval."""
+        ...
+
+
+# =============================================================================
 # Storage Protocols
 # =============================================================================
 
@@ -475,6 +674,14 @@ __all__ = [
     "ConsensusDetectorProtocol",
     # Ranking protocols
     "RankingSystemProtocol",
+    # Tracker protocols
+    "EloSystemProtocol",
+    "CalibrationTrackerProtocol",
+    "PositionLedgerProtocol",
+    "RelationshipTrackerProtocol",
+    "MomentDetectorProtocol",
+    "PersonaManagerProtocol",
+    "DissentRetrieverProtocol",
     # Storage protocols
     "DebateStorageProtocol",
     "UserStoreProtocol",

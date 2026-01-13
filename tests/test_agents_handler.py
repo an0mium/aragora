@@ -23,11 +23,10 @@ from aragora.server.handlers.base import (
     error_response,
     get_int_param,
     get_string_param,
-    validate_agent_name,
-    validate_path_segment,
     SAFE_ID_PATTERN,
     clear_cache,
 )
+from aragora.server.validation import validate_agent_name, validate_path_segment
 
 
 # =============================================================================

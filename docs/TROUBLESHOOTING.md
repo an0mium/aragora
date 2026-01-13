@@ -4,12 +4,224 @@ Common issues and solutions for Aragora.
 
 ## Table of Contents
 
+- [Quick Diagnostics](#quick-diagnostics)
+- [Authentication Issues](#authentication-issues)
+- [Redis Connection Issues](#redis-connection-issues)
+- [Rate Limiting Issues](#rate-limiting-issues)
 - [Server Issues](#server-issues)
 - [WebSocket Connection Issues](#websocket-connection-issues)
 - [Nomic Loop Problems](#nomic-loop-problems)
 - [Database Issues](#database-issues)
 - [API Key Configuration](#api-key-configuration)
 - [Frontend Issues](#frontend-issues)
+
+---
+
+## Quick Diagnostics
+
+Run the built-in diagnostics command:
+
+```bash
+aragora doctor
+```
+
+This checks:
+- API key configuration
+- Database connectivity
+- Redis connection (if configured)
+- Circuit breaker status
+- Memory usage
+
+---
+
+## Authentication Issues
+
+### "Invalid credentials" on login
+
+**Symptoms:** Login fails with "Invalid email or password"
+
+**Solutions:**
+
+1. **Check password case sensitivity** (passwords are case-sensitive)
+
+2. **Account may be locked:**
+   ```bash
+   curl -X GET /api/v2/admin/users/{user_id}/lockout-status \
+     -H "Authorization: Bearer $ADMIN_TOKEN"
+   ```
+
+3. **Reset password via CLI:**
+   ```bash
+   python -c "
+   from aragora.storage.user_store import UserStore
+   store = UserStore('.nomic/aragora_users.db')
+   store.reset_password('user@example.com', 'new-password')
+   "
+   ```
+
+### "Account locked" error
+
+**Symptoms:** "Account locked for X seconds" after failed login attempts
+
+Lockout durations:
+- 5 failed attempts: 1 minute
+- 10 failed attempts: 15 minutes
+- 15+ failed attempts: 1 hour
+
+**Solutions:**
+
+1. **Wait for lockout to expire**
+
+2. **Admin unlock:**
+   ```bash
+   curl -X POST /api/v2/admin/users/{user_id}/unlock \
+     -H "Authorization: Bearer $ADMIN_TOKEN"
+   ```
+
+3. **Direct database unlock (emergency only):**
+   ```bash
+   sqlite3 .nomic/aragora_users.db \
+     "UPDATE users SET locked_until=NULL, failed_login_count=0 WHERE email='user@example.com'"
+   ```
+
+### MFA verification fails
+
+**Symptoms:** TOTP codes not accepted
+
+**Solutions:**
+
+1. **Check time synchronization:**
+   - TOTP codes use 30-second windows
+   - Ensure device and server clocks are synced (UTC)
+   ```bash
+   date -u  # Should match device time
+   ```
+
+2. **Use backup codes** (each code works once)
+
+3. **Admin MFA reset:**
+   ```bash
+   curl -X DELETE /api/v2/admin/users/{user_id}/mfa \
+     -H "Authorization: Bearer $ADMIN_TOKEN"
+   ```
+
+### JWT token errors
+
+**Symptoms:** "Token expired" or "Invalid token"
+
+**Solutions:**
+
+1. **Re-authenticate** to get a fresh token
+
+2. **Check token expiry:**
+   ```python
+   import jwt
+   decoded = jwt.decode(token, options={"verify_signature": False})
+   print(decoded["exp"])  # Expiry timestamp
+   ```
+
+3. **Verify token hasn't been revoked:**
+   - Tokens are revoked on password change
+   - Tokens are revoked on logout
+
+---
+
+## Redis Connection Issues
+
+### "Redis connection refused"
+
+**Symptoms:** `ConnectionRefusedError: Connection refused`
+
+**Solutions:**
+
+1. **Verify Redis is running:**
+   ```bash
+   redis-cli ping
+   # Should return: PONG
+   ```
+
+2. **Check Redis URL:**
+   ```bash
+   echo $REDIS_URL
+   # Format: redis://host:6379/0 or rediss://... for TLS
+   ```
+
+3. **Test connection:**
+   ```bash
+   redis-cli -u "$REDIS_URL" ping
+   ```
+
+4. **Note:** Aragora falls back to in-memory storage automatically
+   - Check logs for: "Redis unavailable, using in-memory storage"
+   - Multi-replica deployments will have inconsistent state
+
+### Redis timeout errors
+
+**Symptoms:** `TimeoutError: Connection timed out`
+
+**Solutions:**
+
+1. **Increase timeout:**
+   ```bash
+   export REDIS_TIMEOUT=10
+   ```
+
+2. **Check Redis server load:**
+   ```bash
+   redis-cli info stats | grep -E "instantaneous_ops|connected_clients"
+   ```
+
+3. **Check network latency:**
+   ```bash
+   redis-cli --latency-history
+   ```
+
+---
+
+## Rate Limiting Issues
+
+### "Too many requests" (429 error)
+
+**Symptoms:** API returns 429 status code
+
+**Check rate limit headers:**
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1704134400
+Retry-After: 60
+```
+
+**Solutions:**
+
+1. **Wait for reset** (check `Retry-After` header)
+
+2. **Implement exponential backoff:**
+   ```python
+   import time
+
+   def call_with_backoff(fn, max_retries=5):
+       for i in range(max_retries):
+           try:
+               return fn()
+           except RateLimitError:
+               wait = 2 ** i
+               time.sleep(wait)
+       raise Exception("Max retries exceeded")
+   ```
+
+3. **Increase limits (admin):**
+   ```bash
+   export ARAGORA_RATE_LIMIT_DEFAULT=200
+   export ARAGORA_RATE_LIMIT_AUTH=20
+   ```
+
+Default limits:
+| Endpoint | Limit |
+|----------|-------|
+| Authentication | 10/min |
+| Debate creation | 30/min |
+| General API | 100/min |
 
 ---
 
