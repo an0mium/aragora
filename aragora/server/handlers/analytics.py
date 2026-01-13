@@ -32,6 +32,10 @@ from .base import (
     ttl_cache,
     handle_errors,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
+
+# Rate limiter for analytics endpoints (30 requests per minute - cached data)
+_analytics_limiter = RateLimiter(requests_per_minute=30)
 
 
 class AnalyticsHandler(BaseHandler):
@@ -54,6 +58,13 @@ class AnalyticsHandler(BaseHandler):
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route analytics requests to appropriate methods."""
         logger.debug(f"Analytics request: {path}")
+
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _analytics_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for analytics endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/analytics/disagreements":
             return self._get_disagreement_stats()
 

@@ -41,6 +41,10 @@ from .base import (
     validate_path_segment,
     SAFE_ID_PATTERN,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
+
+# Rate limiter for leaderboard endpoints (60 requests per minute - cached data)
+_leaderboard_limiter = RateLimiter(requests_per_minute=60)
 
 
 class LeaderboardViewHandler(BaseHandler):
@@ -73,6 +77,12 @@ class LeaderboardViewHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route leaderboard view requests."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _leaderboard_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for leaderboard endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         logger.debug(f"Leaderboard request: {path} params={query_params}")
         if path == "/api/leaderboard-view":
             limit = get_int_param(query_params, 'limit', 10)

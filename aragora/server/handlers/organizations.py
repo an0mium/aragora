@@ -33,8 +33,12 @@ from .base import (
     json_response,
     log_request,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for organization endpoints (30 requests per minute)
+_org_limiter = RateLimiter(requests_per_minute=30)
 
 # Role hierarchy (higher number = more permissions)
 ROLE_HIERARCHY = {
@@ -83,6 +87,12 @@ class OrganizationsHandler(BaseHandler):
         self, path: str, query_params: dict, handler, method: str = "GET"
     ) -> Optional[HandlerResult]:
         """Route organization requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _org_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for organization endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if hasattr(handler, "command"):
             method = handler.command
 

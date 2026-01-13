@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 from aragora.config import DB_ELO_PATH, DB_INSIGHTS_PATH
 from .base import BaseHandler, HandlerResult, json_response, error_response, safe_error_message
 from .cache import _cache, get_cache_stats
+from .utils.rate_limit import RateLimiter, get_client_ip
+
+# Rate limiter for metrics endpoints (60 requests per minute - monitoring may poll frequently)
+_metrics_limiter = RateLimiter(requests_per_minute=60)
 from ..prometheus import (
     get_metrics_output,
     is_prometheus_available,
@@ -129,6 +133,12 @@ class MetricsHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route metrics requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _metrics_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for metrics endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/metrics":
             return self._get_metrics()
 

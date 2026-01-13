@@ -24,9 +24,13 @@ from .base import (
     handle_errors,
     SAFE_AGENT_PATTERN,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.utils.optional_imports import try_import_class
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for calibration endpoints (30 requests per minute)
+_calibration_limiter = RateLimiter(requests_per_minute=30)
 
 # Calibration limits
 MAX_CALIBRATION_AGENTS = 100  # Maximum agents for calibration visualization
@@ -60,6 +64,12 @@ class CalibrationHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route calibration requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _calibration_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for calibration endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # Handle leaderboard endpoint
         if path == "/api/calibration/leaderboard":
             limit = get_clamped_int_param(query_params, 'limit', 20, min_val=1, max_val=100)

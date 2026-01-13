@@ -34,34 +34,104 @@ from .base import (
     json_response,
     log_request,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for OAuth endpoints (20 requests per minute - auth attempts should be limited)
+_oauth_limiter = RateLimiter(requests_per_minute=20)
 
 
 # =============================================================================
 # Configuration
 # =============================================================================
 
+# Check if we're in production mode
+_IS_PRODUCTION = os.environ.get("ARAGORA_ENV", "").lower() == "production"
+
+# Core OAuth credentials
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
-GOOGLE_REDIRECT_URI = os.environ.get(
-    "GOOGLE_OAUTH_REDIRECT_URI",
-    "http://localhost:8080/api/auth/oauth/google/callback"
-)
 
-# Frontend URLs for redirects after OAuth
-OAUTH_SUCCESS_URL = os.environ.get("OAUTH_SUCCESS_URL", "http://localhost:3000/auth/callback")
-OAUTH_ERROR_URL = os.environ.get("OAUTH_ERROR_URL", "http://localhost:3000/auth/error")
+# Redirect URIs - require explicit configuration in production
+_GOOGLE_REDIRECT_URI_ENV = os.environ.get("GOOGLE_OAUTH_REDIRECT_URI")
+_OAUTH_SUCCESS_URL_ENV = os.environ.get("OAUTH_SUCCESS_URL")
+_OAUTH_ERROR_URL_ENV = os.environ.get("OAUTH_ERROR_URL")
+
+# Use env vars or localhost fallbacks (with warnings for dev mode)
+if _IS_PRODUCTION:
+    # In production, use env vars only (no fallbacks)
+    GOOGLE_REDIRECT_URI = _GOOGLE_REDIRECT_URI_ENV or ""
+    OAUTH_SUCCESS_URL = _OAUTH_SUCCESS_URL_ENV or ""
+    OAUTH_ERROR_URL = _OAUTH_ERROR_URL_ENV or ""
+else:
+    # Dev mode: warn and use localhost fallbacks
+    GOOGLE_REDIRECT_URI = _GOOGLE_REDIRECT_URI_ENV or "http://localhost:8080/api/auth/oauth/google/callback"
+    OAUTH_SUCCESS_URL = _OAUTH_SUCCESS_URL_ENV or "http://localhost:3000/auth/callback"
+    OAUTH_ERROR_URL = _OAUTH_ERROR_URL_ENV or "http://localhost:3000/auth/error"
+
+    # Log warnings in dev mode when using fallbacks
+    if not _GOOGLE_REDIRECT_URI_ENV:
+        logger.warning(
+            "[OAuth] GOOGLE_OAUTH_REDIRECT_URI not set, using localhost fallback. "
+            "This will fail in production."
+        )
+    if not _OAUTH_SUCCESS_URL_ENV:
+        logger.warning(
+            "[OAuth] OAUTH_SUCCESS_URL not set, using localhost fallback. "
+            "This will fail in production."
+        )
+    if not _OAUTH_ERROR_URL_ENV:
+        logger.warning(
+            "[OAuth] OAUTH_ERROR_URL not set, using localhost fallback. "
+            "This will fail in production."
+        )
 
 # Security: Allowed redirect hosts (comma-separated)
 # Only redirect URLs with these hosts are allowed after OAuth
-_ALLOWED_REDIRECT_HOSTS_STR = os.environ.get(
-    "OAUTH_ALLOWED_REDIRECT_HOSTS",
-    "localhost,127.0.0.1"
-)
+_ALLOWED_REDIRECT_HOSTS_STR = os.environ.get("OAUTH_ALLOWED_REDIRECT_HOSTS")
+if not _ALLOWED_REDIRECT_HOSTS_STR:
+    if _IS_PRODUCTION:
+        logger.warning(
+            "[OAuth] OAUTH_ALLOWED_REDIRECT_HOSTS not set in production! "
+            "OAuth will reject all redirects. Set this to your domain(s)."
+        )
+        _ALLOWED_REDIRECT_HOSTS_STR = ""  # No allowed hosts = reject all
+    else:
+        _ALLOWED_REDIRECT_HOSTS_STR = "localhost,127.0.0.1"
+        logger.debug("[OAuth] Using localhost for allowed redirect hosts (dev mode)")
+
 ALLOWED_OAUTH_REDIRECT_HOSTS = frozenset(
     host.strip().lower() for host in _ALLOWED_REDIRECT_HOSTS_STR.split(",") if host.strip()
 )
+
+
+def validate_oauth_config() -> list[str]:
+    """
+    Validate OAuth configuration and return list of missing required vars.
+
+    Call this at startup to catch configuration errors early.
+    Returns empty list if configuration is valid, or list of missing var names.
+    """
+    if not _IS_PRODUCTION:
+        return []  # No validation in dev mode
+
+    missing = []
+
+    # If Google OAuth is enabled (client ID set), check required vars
+    if GOOGLE_CLIENT_ID:
+        if not GOOGLE_CLIENT_SECRET:
+            missing.append("GOOGLE_OAUTH_CLIENT_SECRET")
+        if not GOOGLE_REDIRECT_URI:
+            missing.append("GOOGLE_OAUTH_REDIRECT_URI")
+        if not OAUTH_SUCCESS_URL:
+            missing.append("OAUTH_SUCCESS_URL")
+        if not OAUTH_ERROR_URL:
+            missing.append("OAUTH_ERROR_URL")
+        if not ALLOWED_OAUTH_REDIRECT_HOSTS:
+            missing.append("OAUTH_ALLOWED_REDIRECT_HOSTS")
+
+    return missing
 
 # Google OAuth endpoints
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -223,6 +293,12 @@ class OAuthHandler(BaseHandler):
         self, path: str, query_params: dict, handler, method: str = "GET"
     ) -> Optional[HandlerResult]:
         """Route OAuth requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _oauth_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for OAuth endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if hasattr(handler, "command"):
             method = handler.command
 
@@ -644,4 +720,4 @@ class OAuthHandler(BaseHandler):
         return json_response({"message": f"Unlinked {provider} successfully"})
 
 
-__all__ = ["OAuthHandler"]
+__all__ = ["OAuthHandler", "validate_oauth_config"]
