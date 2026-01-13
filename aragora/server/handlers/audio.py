@@ -21,9 +21,13 @@ from .base import (
     get_host_header,
     validate_debate_id,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for audio endpoints (10 requests per minute - resource-intensive TTS)
+_audio_limiter = RateLimiter(requests_per_minute=10)
 
 # Podcast feed limits
 MAX_PODCAST_EPISODES = 200  # Prevent unbounded feed generation
@@ -58,6 +62,12 @@ class AudioHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle GET requests."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _audio_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for audio endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # Audio file serving
         if path.startswith('/audio/') and path.endswith('.mp3'):
             debate_id = path[7:-4]  # Extract ID from /audio/{id}.mp3

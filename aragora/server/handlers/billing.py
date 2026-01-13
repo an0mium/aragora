@@ -29,6 +29,7 @@ from .base import (
     get_string_param,
     require_permission,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.validation.schema import validate_against_schema, CHECKOUT_SESSION_SCHEMA
 
 # Module-level imports for test mocking compatibility
@@ -46,6 +47,9 @@ from aragora.server.handlers.exceptions import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for billing endpoints (20 requests per minute - financial operations)
+_billing_limiter = RateLimiter(requests_per_minute=20)
 
 # Webhook idempotency tracking (persistent SQLite by default)
 # Uses aragora.storage.webhook_store for persistence across restarts
@@ -91,6 +95,13 @@ class BillingHandler(BaseHandler):
         self, path: str, query_params: dict, handler, method: str = "GET"
     ) -> Optional[HandlerResult]:
         """Route billing requests to appropriate methods."""
+        # Rate limit check (skip for webhooks - they have their own idempotency)
+        if path != "/api/webhooks/stripe":
+            client_ip = get_client_ip(handler)
+            if not _billing_limiter.is_allowed(client_ip):
+                logger.warning(f"Rate limit exceeded for billing endpoint: {client_ip}")
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # Determine HTTP method from handler if not provided
         if hasattr(handler, "command"):
             method = handler.command

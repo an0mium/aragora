@@ -18,6 +18,7 @@ from aragora.server.handlers.base import (
     json_response,
     error_response,
 )
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.validation.schema import (
     validate_against_schema,
     EMAIL_CONFIG_SCHEMA,
@@ -28,6 +29,9 @@ from aragora.integrations.email import EmailConfig, EmailIntegration, EmailRecip
 from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for notification endpoints (30 requests per minute - can trigger external calls)
+_notifications_limiter = RateLimiter(requests_per_minute=30)
 
 
 def _run_async_in_thread(coro):
@@ -137,6 +141,12 @@ class NotificationsHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """Handle GET requests."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _notifications_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for notifications endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/notifications/status":
             return self._get_status()
 
@@ -147,6 +157,12 @@ class NotificationsHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """Handle POST requests."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _notifications_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for notifications endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # Require authentication for all POST endpoints
         user, err = self.require_auth_or_error(handler)
         if err:
