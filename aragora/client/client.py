@@ -15,14 +15,32 @@ Usage:
     async with AragoraClient(base_url="http://localhost:8080") as client:
         debate = await client.debates.create_async(task="...")
         result = await client.debates.get_async(debate.debate_id)
+
+    # With retry and rate limiting
+    from aragora.client import AragoraClient, RetryConfig
+    client = AragoraClient(
+        base_url="http://localhost:8080",
+        retry_config=RetryConfig(max_retries=3, backoff_factor=0.5),
+        rate_limit_rps=10,
+    )
+
+    # Batch fetching
+    debates = await client.debates.batch_get_async(["id1", "id2", "id3"])
+
+    # Pagination
+    async for debate in client.debates.iterate_async(status="completed"):
+        print(debate.task)
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import random
+import time as time_module
 from contextlib import asynccontextmanager
-from typing import Any, List, NoReturn, Optional, TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import Any, AsyncIterator, Iterator, List, NoReturn, Optional, TYPE_CHECKING
 from urllib.parse import urljoin
 
 from .models import (
@@ -66,6 +84,76 @@ if TYPE_CHECKING:
     import httpx
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RetryConfig:
+    """Configuration for request retry behavior.
+
+    Uses exponential backoff with jitter for resilient API calls.
+
+    Args:
+        max_retries: Maximum number of retry attempts (default: 3)
+        backoff_factor: Base delay multiplier in seconds (default: 0.5)
+        max_backoff: Maximum delay between retries in seconds (default: 30)
+        retry_statuses: HTTP status codes that trigger retry (default: 429, 500, 502, 503, 504)
+        jitter: Add random jitter to backoff (default: True)
+    """
+    max_retries: int = 3
+    backoff_factor: float = 0.5
+    max_backoff: float = 30.0
+    retry_statuses: tuple[int, ...] = (429, 500, 502, 503, 504)
+    jitter: bool = True
+
+    def get_delay(self, attempt: int) -> float:
+        """Calculate delay for a retry attempt with exponential backoff."""
+        delay = min(self.backoff_factor * (2 ** attempt), self.max_backoff)
+        if self.jitter:
+            delay = delay * (0.5 + random.random())
+        return delay
+
+
+class RateLimiter:
+    """Simple token bucket rate limiter for client-side request throttling.
+
+    Implements a sliding window rate limiter that tracks request timestamps
+    and enforces a maximum requests-per-second limit.
+    """
+
+    def __init__(self, rps: float):
+        """Initialize rate limiter.
+
+        Args:
+            rps: Maximum requests per second allowed.
+        """
+        self.rps = rps
+        self.min_interval = 1.0 / rps if rps > 0 else 0
+        self._last_request: float = 0
+        self._lock: Optional[Any] = None
+
+    def wait(self) -> None:
+        """Block until a request is allowed (synchronous)."""
+        if self.rps <= 0:
+            return
+
+        now = time_module.time()
+        elapsed = now - self._last_request
+        if elapsed < self.min_interval:
+            time_module.sleep(self.min_interval - elapsed)
+        self._last_request = time_module.time()
+
+    async def wait_async(self) -> None:
+        """Block until a request is allowed (asynchronous)."""
+        import asyncio
+
+        if self.rps <= 0:
+            return
+
+        now = asyncio.get_event_loop().time()
+        elapsed = now - self._last_request
+        if elapsed < self.min_interval:
+            await asyncio.sleep(self.min_interval - elapsed)
+        self._last_request = asyncio.get_event_loop().time()
 
 
 class AragoraAPIError(Exception):
@@ -353,6 +441,136 @@ class DebatesAPI:
         import asyncio
 
         return await asyncio.gather(*[self.get_async(debate_id) for debate_id in debate_ids])
+
+    def batch_get(
+        self,
+        debate_ids: List[str],
+        max_concurrent: int = 10,
+    ) -> List[Debate]:
+        """
+        Batch fetch multiple debates efficiently.
+
+        Fetches debates sequentially in sync mode but allows controlling
+        the batch size to avoid overwhelming the server.
+
+        Args:
+            debate_ids: List of debate IDs to fetch.
+            max_concurrent: Maximum concurrent requests (for pacing).
+
+        Returns:
+            List of Debate objects (in same order as input IDs).
+        """
+        results = []
+        for i, debate_id in enumerate(debate_ids):
+            results.append(self.get(debate_id))
+            # Add small delay every max_concurrent requests
+            if (i + 1) % max_concurrent == 0 and i < len(debate_ids) - 1:
+                import time
+                time.sleep(0.1)
+        return results
+
+    async def batch_get_async(
+        self,
+        debate_ids: List[str],
+        max_concurrent: int = 10,
+    ) -> List[Debate]:
+        """
+        Batch fetch multiple debates with concurrency control.
+
+        Uses asyncio.Semaphore to limit concurrent requests.
+
+        Args:
+            debate_ids: List of debate IDs to fetch.
+            max_concurrent: Maximum concurrent requests (default: 10).
+
+        Returns:
+            List of Debate objects (in same order as input IDs).
+        """
+        import asyncio
+
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def fetch_with_limit(debate_id: str) -> Debate:
+            async with semaphore:
+                return await self.get_async(debate_id)
+
+        return await asyncio.gather(*[fetch_with_limit(did) for did in debate_ids])
+
+    def iterate(
+        self,
+        status: str | None = None,
+        page_size: int = 50,
+        max_items: int | None = None,
+    ) -> Iterator[Debate]:
+        """
+        Iterate through all debates with automatic pagination.
+
+        Lazily fetches pages as needed, making it memory-efficient
+        for large result sets.
+
+        Args:
+            status: Optional status filter.
+            page_size: Number of items per page (default: 50).
+            max_items: Maximum total items to return (default: unlimited).
+
+        Yields:
+            Debate objects one at a time.
+        """
+        offset = 0
+        count = 0
+
+        while True:
+            debates = self.list(limit=page_size, offset=offset, status=status)
+            if not debates:
+                break
+
+            for debate in debates:
+                yield debate
+                count += 1
+                if max_items and count >= max_items:
+                    return
+
+            if len(debates) < page_size:
+                break
+            offset += page_size
+
+    async def iterate_async(
+        self,
+        status: str | None = None,
+        page_size: int = 50,
+        max_items: int | None = None,
+    ) -> AsyncIterator[Debate]:
+        """
+        Async iterate through all debates with automatic pagination.
+
+        Lazily fetches pages as needed, making it memory-efficient
+        for large result sets.
+
+        Args:
+            status: Optional status filter.
+            page_size: Number of items per page (default: 50).
+            max_items: Maximum total items to return (default: unlimited).
+
+        Yields:
+            Debate objects one at a time.
+        """
+        offset = 0
+        count = 0
+
+        while True:
+            debates = await self.list_async(limit=page_size, offset=offset, status=status)
+            if not debates:
+                break
+
+            for debate in debates:
+                yield debate
+                count += 1
+                if max_items and count >= max_items:
+                    return
+
+            if len(debates) < page_size:
+                break
+            offset += page_size
 
 
 class AgentsAPI:
