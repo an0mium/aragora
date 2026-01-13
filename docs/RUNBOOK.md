@@ -1080,6 +1080,29 @@ python scripts/nomic_loop.py preflight
 # [PASS] Backup Directory
 ```
 
+### Phased Workflow
+
+Each nomic cycle follows this phased workflow:
+
+| Phase | Name | Description |
+|-------|------|-------------|
+| 0 | Context | Gather codebase understanding |
+| 1 | Debate | Agents propose improvements |
+| 2 | Design | Architecture planning |
+| 3 | Implement | Code generation |
+| 4 | Verify | Test validation (syntax, imports, pytest) |
+
+### Test Validation (Phase 4)
+
+The verify phase runs comprehensive checks before any commit:
+
+1. **Syntax Check**: Validates all Python files parse correctly
+2. **Import Check**: Verifies all imports resolve
+3. **Test Suite**: Runs `pytest tests/ -x --tb=short -q` (240s timeout)
+4. **Optional Codex Audit**: Code review by Codex agent
+
+If any check fails, the cycle rolls back automatically.
+
 ### Safety Features
 
 The Nomic Loop includes multiple safety mechanisms:
@@ -1089,6 +1112,8 @@ The Nomic Loop includes multiple safety mechanisms:
 3. **Automatic Backups**: Created before each cycle
 4. **Pre-flight Checks**: Validates environment before running
 5. **Rollback on Failure**: Automatic rollback if tests fail
+6. **Human Approval Gate**: Interactive approval before commit (unless `--auto`)
+7. **Auto-commit Safety**: Requires `NOMIC_AUTO_COMMIT=1` for autonomous commits
 
 ### Monitoring the Loop
 
@@ -1228,6 +1253,413 @@ kubectl patch hpa aragora -n aragora \
 
 - **Horizontal (add replicas)**: Preferred for most workloads
 - **Vertical (increase resources)**: For memory-bound operations or large debates
+
+---
+
+## Additional Recovery Scenarios
+
+### Agent API Quota Exhaustion
+
+**Symptoms:**
+- `AgentQuotaExhausted` alert firing
+- 429 errors from specific AI provider
+- Debates failing with "quota exceeded" messages
+
+**Immediate Actions:**
+
+```bash
+# Check which agents are affected
+curl http://localhost:8080/api/agents/status | jq '.[] | select(.quota_remaining <= 0)'
+
+# Check circuit breaker states
+curl http://localhost:8080/api/agents/circuit-breakers
+
+# Enable fallback to OpenRouter (if not already)
+export OPENROUTER_API_KEY=sk-or-xxx
+systemctl restart aragora
+```
+
+**Provider-Specific Quotas:**
+
+| Provider | Quota Reset | Dashboard |
+|----------|-------------|-----------|
+| Anthropic | Monthly | console.anthropic.com |
+| OpenAI | Monthly | platform.openai.com/usage |
+| Gemini | Daily | cloud.google.com/apis/quotas |
+| Mistral | Monthly | console.mistral.ai |
+
+**Long-Term Resolution:**
+1. Upgrade API tier with provider
+2. Add OpenRouter as fallback (`OPENROUTER_API_KEY`)
+3. Configure per-agent rate limits to spread usage
+4. Review debate volume and optimize agent selection
+
+---
+
+### Certificate Expiration
+
+**Symptoms:**
+- `TLSCertificateExpiringSoon` or `TLSCertificateExpired` alert
+- Browser showing certificate warnings
+- API clients failing with SSL errors
+
+**Check Certificate Status:**
+
+```bash
+# Check expiration via openssl
+echo | openssl s_client -connect aragora.yourdomain.com:443 2>/dev/null | \
+  openssl x509 -noout -dates
+
+# Check via Kubernetes (if using cert-manager)
+kubectl get certificate -n aragora
+kubectl describe certificate aragora-tls -n aragora
+```
+
+**Manual Certificate Renewal (Let's Encrypt):**
+
+```bash
+# Certbot renewal
+certbot renew --cert-name aragora.yourdomain.com
+
+# Or force renewal
+certbot renew --cert-name aragora.yourdomain.com --force-renewal
+
+# Restart to pick up new cert
+systemctl restart nginx  # or haproxy/traefik
+```
+
+**cert-manager Renewal (Kubernetes):**
+
+```bash
+# Check certificate status
+kubectl describe certificate aragora-tls -n aragora | grep -A 10 "Status:"
+
+# Force renewal by deleting the secret
+kubectl delete secret aragora-tls -n aragora
+
+# cert-manager will automatically request a new certificate
+# Watch the certificate status
+kubectl get certificate aragora-tls -n aragora -w
+```
+
+**Troubleshooting cert-manager:**
+
+```bash
+# Check cert-manager logs
+kubectl logs -n cert-manager deployment/cert-manager
+
+# Check challenge status (for HTTP-01 or DNS-01)
+kubectl get challenges -n aragora
+
+# Check certificate request
+kubectl get certificaterequest -n aragora
+kubectl describe certificaterequest <name> -n aragora
+```
+
+---
+
+### Debate State Corruption
+
+**Symptoms:**
+- Debates stuck in "running" state indefinitely
+- Inconsistent debate results
+- `debate_start_timestamp` much older than expected
+
+**Diagnosis:**
+
+```bash
+# Find stuck debates
+curl http://localhost:8080/api/debates?status=running | jq '[.[] | select(.duration_seconds > 600)]'
+
+# Check debate in database
+psql -c "SELECT id, status, created_at, updated_at FROM debates WHERE status = 'running' AND updated_at < now() - interval '10 minutes';"
+```
+
+**Recovery:**
+
+```bash
+# Mark stuck debates as timed out
+curl -X POST http://localhost:8080/api/admin/cleanup-stale-debates
+
+# Or manually via database
+psql -c "UPDATE debates SET status = 'timeout', updated_at = now() WHERE status = 'running' AND updated_at < now() - interval '30 minutes';"
+
+# Restart to clear in-memory state
+systemctl restart aragora
+```
+
+---
+
+### Redis Cluster Failover
+
+**Symptoms:**
+- Rate limiting not working
+- Session tokens not validating
+- High latency on operations using Redis
+
+**Check Redis Status:**
+
+```bash
+# Check if Redis is responding
+redis-cli ping
+
+# Check cluster info (if using Sentinel/Cluster)
+redis-cli info replication
+
+# Check Sentinel status
+redis-cli -p 26379 sentinel masters
+```
+
+**Sentinel Failover:**
+
+```bash
+# Force failover
+redis-cli -p 26379 sentinel failover aragora-master
+
+# Check new master
+redis-cli -p 26379 sentinel get-master-addr-by-name aragora-master
+```
+
+**Recovery Without Redis:**
+
+If Redis is completely down, Aragora can fall back to in-memory rate limiting:
+
+```bash
+# Enable fail-open mode (allows requests when Redis down)
+export ARAGORA_RATE_LIMIT_FAIL_OPEN=true
+systemctl restart aragora
+
+# Note: Rate limits will not persist across requests
+# and blacklisted tokens may work again temporarily
+```
+
+---
+
+### PostgreSQL Recovery
+
+**Symptoms:**
+- `DatabaseConnectionPoolExhausted` alert
+- `PostgreSQLDown` alert
+- API returning 500 errors with database messages
+
+**Check Database Status:**
+
+```bash
+# Check if PostgreSQL is running
+pg_isready -h localhost
+
+# Check connection count
+psql -c "SELECT count(*) FROM pg_stat_activity WHERE datname='aragora';"
+
+# Check for long-running queries
+psql -c "SELECT pid, now() - pg_stat_activity.query_start AS duration, query
+         FROM pg_stat_activity
+         WHERE state != 'idle' AND query NOT LIKE '%pg_stat%'
+         ORDER BY duration DESC LIMIT 10;"
+```
+
+**Kill Long-Running Queries:**
+
+```bash
+# Terminate specific query
+psql -c "SELECT pg_terminate_backend(PID);"
+
+# Terminate all idle connections older than 10 minutes
+psql -c "SELECT pg_terminate_backend(pid)
+         FROM pg_stat_activity
+         WHERE datname='aragora'
+         AND state='idle'
+         AND state_change < now() - interval '10 minutes';"
+```
+
+**Point-in-Time Recovery:**
+
+```bash
+# Stop Aragora
+systemctl stop aragora
+
+# Restore from backup
+pg_restore -d aragora_restore /backups/aragora_20240115.dump
+
+# If needed, apply WAL logs
+# (requires WAL archiving to be enabled)
+
+# Rename databases
+psql -c "ALTER DATABASE aragora RENAME TO aragora_old;"
+psql -c "ALTER DATABASE aragora_restore RENAME TO aragora;"
+
+# Restart
+systemctl start aragora
+```
+
+---
+
+### Webhook Delivery Failures
+
+**Symptoms:**
+- Webhook events not reaching external systems
+- `WEBHOOK_URL` endpoint returning errors
+- Event queue growing
+
+**Diagnosis:**
+
+```bash
+# Check webhook status
+curl http://localhost:8080/api/webhooks/status
+
+# Check event queue size
+curl http://localhost:8080/api/webhooks/queue | jq '.size'
+
+# Test webhook endpoint
+curl -X POST $WEBHOOK_URL -H "Content-Type: application/json" -d '{"test": true}'
+```
+
+**Recovery:**
+
+```bash
+# Flush failed events (if endpoint is back up)
+curl -X POST http://localhost:8080/api/webhooks/retry-failed
+
+# Disable webhook temporarily
+unset WEBHOOK_URL
+systemctl restart aragora
+
+# Or increase queue size
+export ARAGORA_WEBHOOK_QUEUE_SIZE=5000
+systemctl restart aragora
+```
+
+---
+
+### Memory Leak Investigation
+
+**Symptoms:**
+- `HighMemoryUsage` alert persisting
+- Memory growing continuously over time
+- OOM kills in logs
+
+**Diagnosis:**
+
+```bash
+# Check current memory usage
+ps aux | grep aragora | awk '{print $6/1024 " MB", $11}'
+
+# Check memory trend
+while true; do
+  ps aux | grep "[a]ragora" | awk '{print strftime("%H:%M:%S"), $6/1024 " MB"}'
+  sleep 60
+done
+
+# Enable memory profiling (development only)
+export ARAGORA_MEMORY_PROFILING=1
+systemctl restart aragora
+
+# After some time, dump memory profile
+curl -X POST http://localhost:8080/api/debug/memory-dump
+cat /tmp/aragora_memory_dump.json | jq '.top_allocations[:20]'
+```
+
+**Mitigation:**
+
+```bash
+# Reduce concurrent debates
+export ARAGORA_MAX_CONCURRENT_DEBATES=5
+
+# Clear caches
+curl -X POST http://localhost:8080/api/admin/cleanup-caches
+
+# Schedule regular restarts (if leak is known)
+# Add to crontab:
+# 0 4 * * * systemctl restart aragora
+
+# Increase memory limit to buy time
+# (Kubernetes)
+kubectl patch deployment aragora -n aragora --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/memory", "value": "4Gi"}]'
+```
+
+---
+
+### Nomic Loop Recovery
+
+**Symptoms:**
+- Nomic loop appears stuck
+- Lock files preventing new cycles
+- Constitution signature validation failing
+
+**Diagnosis:**
+
+```bash
+# Check for lock files
+ls -la .nomic/*.lock
+
+# Check current cycle state
+cat .nomic/sessions/*/transcript.md | tail -50
+
+# Check constitution signature
+python scripts/sign_constitution.py verify
+```
+
+**Recovery:**
+
+```bash
+# Remove stale locks
+rm .nomic/*.lock
+
+# If constitution signature is invalid, re-sign
+# (requires private key and manual review)
+python scripts/sign_constitution.py sign
+
+# Reset to last known good state
+git stash
+git checkout main
+
+# Restore from backup if needed
+python scripts/nomic_loop.py rollback --backup .nomic/backups/cycle_5/
+```
+
+---
+
+### Load Balancer Health Check Failures
+
+**Symptoms:**
+- Pods being removed from load balancer
+- Intermittent 502/503 errors
+- Health endpoint returning errors
+
+**Check Health Endpoint:**
+
+```bash
+# Check health endpoint directly
+curl -v http://localhost:8080/api/health
+
+# Check readiness
+curl -v http://localhost:8080/api/health/ready
+
+# Check from load balancer perspective
+kubectl exec -it deployment/nginx-ingress -n ingress-nginx -- curl http://aragora.aragora.svc:8080/api/health
+```
+
+**Common Causes:**
+
+1. **Database not ready**: Health check includes DB connectivity
+2. **High latency**: Health check times out
+3. **Resource exhaustion**: Pod can't process requests
+
+**Resolution:**
+
+```bash
+# Increase health check timeout (Kubernetes)
+kubectl patch deployment aragora -n aragora --type='json' -p='[
+  {"op": "replace", "path": "/spec/template/spec/containers/0/livenessProbe/timeoutSeconds", "value": 10},
+  {"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe/timeoutSeconds", "value": 10}
+]'
+
+# Check pod events for OOM or other issues
+kubectl describe pod -l app=aragora -n aragora | grep -A 20 "Events:"
+
+# Scale up if under-resourced
+kubectl scale deployment aragora -n aragora --replicas=5
+```
 
 ---
 

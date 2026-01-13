@@ -356,3 +356,122 @@ groups:
         annotations:
           summary: "Stale jobs detected"
           description: "{{ $value }} jobs are stale and may need recovery."
+
+  - name: aragora_certificates
+    interval: 3600s  # Check hourly
+    rules:
+      # Certificate expiring within 7 days - Critical
+      - alert: TLSCertificateExpiringSoon
+        expr: |
+          (probe_ssl_earliest_cert_expiry - time()) / 86400 < 7
+        for: 5m
+        labels:
+          severity: critical
+          component: tls
+        annotations:
+          summary: "TLS certificate expiring within 7 days"
+          description: "Certificate for {{ $labels.instance }} expires in {{ $value | printf \"%.1f\" }} days."
+          runbook_url: "https://docs.aragora.ai/runbook/certificate-renewal"
+
+      # Certificate expiring within 30 days - Warning
+      - alert: TLSCertificateExpiringWarning
+        expr: |
+          (probe_ssl_earliest_cert_expiry - time()) / 86400 < 30
+        for: 5m
+        labels:
+          severity: warning
+          component: tls
+        annotations:
+          summary: "TLS certificate expiring within 30 days"
+          description: "Certificate for {{ $labels.instance }} expires in {{ $value | printf \"%.1f\" }} days. Plan renewal."
+
+      # Certificate expired
+      - alert: TLSCertificateExpired
+        expr: |
+          probe_ssl_earliest_cert_expiry - time() < 0
+        for: 1m
+        labels:
+          severity: critical
+          component: tls
+        annotations:
+          summary: "TLS certificate has EXPIRED"
+          description: "Certificate for {{ $labels.instance }} has expired! Immediate action required."
+
+      # Kubernetes cert-manager certificate not ready
+      - alert: CertManagerCertificateNotReady
+        expr: |
+          certmanager_certificate_ready_status{condition="False"} == 1
+        for: 15m
+        labels:
+          severity: warning
+          component: tls
+        annotations:
+          summary: "cert-manager certificate not ready"
+          description: "Certificate {{ $labels.name }} in namespace {{ $labels.namespace }} is not ready."
+
+      # Kubernetes cert-manager certificate renewal failed
+      - alert: CertManagerCertificateRenewalFailed
+        expr: |
+          certmanager_certificate_renewal_timestamp_seconds - time() > 0
+          and certmanager_certificate_ready_status{condition="False"} == 1
+        for: 30m
+        labels:
+          severity: critical
+          component: tls
+        annotations:
+          summary: "cert-manager certificate renewal failed"
+          description: "Certificate {{ $labels.name }} renewal appears to have failed."
+
+  - name: aragora_billing
+    interval: 60s
+    rules:
+      # Stripe webhook failures
+      - alert: StripeWebhookFailures
+        expr: |
+          sum(rate(aragora_stripe_webhook_errors_total[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: billing
+        annotations:
+          summary: "High Stripe webhook failure rate"
+          description: "Stripe webhooks are failing. Check billing integration."
+
+      # Subscription sync issues
+      - alert: BillingSubscriptionSyncLag
+        expr: |
+          time() - aragora_billing_last_sync_timestamp > 3600
+        for: 5m
+        labels:
+          severity: warning
+          component: billing
+        annotations:
+          summary: "Billing subscription sync is stale"
+          description: "Last billing sync was more than 1 hour ago."
+
+  - name: aragora_nomic_loop
+    interval: 60s
+    rules:
+      # Nomic loop stuck
+      - alert: NomicLoopStuck
+        expr: |
+          aragora_nomic_loop_phase_duration_seconds > 1800
+        for: 5m
+        labels:
+          severity: warning
+          component: nomic
+        annotations:
+          summary: "Nomic loop phase taking too long"
+          description: "Nomic loop phase {{ $labels.phase }} has been running for {{ $value | humanizeDuration }}."
+
+      # Nomic loop failures
+      - alert: NomicLoopFailureRate
+        expr: |
+          sum(rate(aragora_nomic_loop_failures_total[1h])) / sum(rate(aragora_nomic_loop_cycles_total[1h])) > 0.5
+        for: 30m
+        labels:
+          severity: warning
+          component: nomic
+        annotations:
+          summary: "High Nomic loop failure rate"
+          description: "More than 50% of Nomic loop cycles are failing."
