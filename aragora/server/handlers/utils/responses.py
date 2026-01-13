@@ -32,7 +32,7 @@ class HandlerResult:
     status_code: int
     content_type: str
     body: bytes
-    headers: dict = None
+    headers: dict | None = None
 
     def __post_init__(self):
         if self.headers is None:

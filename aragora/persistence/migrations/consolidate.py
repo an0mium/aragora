@@ -50,7 +50,7 @@ class MigrationStats:
     rows_read: int = 0
     rows_written: int = 0
     rows_skipped: int = 0
-    errors: list[str] = None
+    errors: list[str] | None = None
 
     def __post_init__(self):
         if self.errors is None:

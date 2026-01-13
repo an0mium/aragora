@@ -55,9 +55,9 @@ class AuditResult:
 
     approved: bool
     confidence: float = 0.0
-    unanimous_issues: list[str] = None
-    split_opinions: list[str] = None
-    risk_areas: list[str] = None
+    unanimous_issues: list[str] | None = None
+    split_opinions: list[str] | None = None
+    risk_areas: list[str] | None = None
     message: str = ""
 
     def __post_init__(self):
@@ -91,7 +91,7 @@ class DeepAuditRunner:
 
     def __init__(
         self,
-        agents: list[Any] = None,
+        agents: list[Any] | None = None,
         run_deep_audit_fn: Optional[Callable] = None,
         audit_config: Any = None,
         log_fn: Optional[Callable[[str], None]] = None,

@@ -23,7 +23,7 @@ from aragora.config import ALLOWED_AGENT_TYPES
 try:
     from aragora.agents.local_llm_detector import LocalLLMDetector
 except (ImportError, ModuleNotFoundError):
-    LocalLLMDetector = None  # type: ignore[assignment]
+    LocalLLMDetector = None  # type: ignore[misc,assignment]
 
 if TYPE_CHECKING:
     from aragora.agents.api_agents import APIAgent

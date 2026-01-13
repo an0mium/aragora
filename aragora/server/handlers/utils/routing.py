@@ -113,7 +113,7 @@ class RouteDispatcher:
 
         return self
 
-    def dispatch(self, path: str, query_params: dict = None) -> Any:
+    def dispatch(self, path: str, query_params: dict | None = None) -> Any:
         """Dispatch a path to its handler.
 
         Args:

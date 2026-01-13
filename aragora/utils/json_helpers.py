@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-def safe_json_loads(data: str | None, default: T = None, context: str | None = None) -> T | Any:
+def safe_json_loads(data: str | None, default: T | None = None, context: str | None = None) -> T | Any:
     """Safely parse JSON string with fallback to default.
 
     Args:
@@ -133,7 +133,7 @@ def extract_json_from_text(text: str) -> str:
 
 def extract_and_parse_json(
     text: str,
-    default: T = None,
+    default: T | None = None,
     context: str | None = None,
 ) -> T | Any:
     """Extract JSON from text and parse it safely.
@@ -154,7 +154,7 @@ def extract_and_parse_json(
 
 def parse_json_env(
     env_var: str,
-    default: T = None,
+    default: T | None = None,
     context: str | None = None,
 ) -> T | Any:
     """Safely parse JSON from an environment variable.

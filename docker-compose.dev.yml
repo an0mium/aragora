@@ -41,6 +41,9 @@ services:
       - ARAGORA_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000
       # Redis
       - REDIS_URL=redis://redis:6379/0
+      # PostgreSQL (optional - set USE_POSTGRES=1 to enable)
+      - DATABASE_URL=${DATABASE_URL:-postgresql://aragora:aragora_dev_password@postgres:5432/aragora}
+      - USE_POSTGRES=${USE_POSTGRES:-0}
     volumes:
       # Mount source code for hot reload
       - ./aragora:/app/aragora:ro
@@ -149,10 +152,34 @@ services:
     networks:
       - aragora-dev
 
+  # ==========================================================================
+  # PostgreSQL (optional - for production-like testing)
+  # ==========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: aragora-postgres-dev
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: aragora
+      POSTGRES_PASSWORD: aragora_dev_password
+      POSTGRES_DB: aragora
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aragora -d aragora"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - aragora-dev
+
 volumes:
   aragora-dev-data:
   aragora-dev-nomic:
   redis-dev-data:
+  postgres-dev-data:
 
 networks:
   aragora-dev:

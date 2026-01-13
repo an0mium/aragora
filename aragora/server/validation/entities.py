@@ -26,7 +26,7 @@ SAFE_SESSION_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{8,64}$")
 def validate_path_segment(
     value: str,
     name: str,
-    pattern: re.Pattern = None,
+    pattern: re.Pattern | None = None,
 ) -> Tuple[bool, Optional[str]]:
     """Validate a path segment against a pattern.
 

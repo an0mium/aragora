@@ -146,6 +146,219 @@ psql -U aragora -d aragora_prod -f aragora/persistence/schemas/agents.sql
 
 ---
 
+## Encryption
+
+### Encryption at Rest
+
+Data at rest encryption protects database files from unauthorized access if storage media is compromised.
+
+#### SQLite Encryption
+
+**Option 1: SQLCipher (Recommended for sensitive data)**
+
+SQLCipher provides transparent 256-bit AES encryption for SQLite databases.
+
+```bash
+# Install SQLCipher
+pip install sqlcipher3
+
+# Or use system SQLCipher
+brew install sqlcipher  # macOS
+apt-get install sqlcipher  # Debian/Ubuntu
+```
+
+Configuration:
+```bash
+export ARAGORA_SQLITE_ENCRYPTION=1
+export ARAGORA_SQLITE_KEY="your-32-character-encryption-key"
+```
+
+Usage:
+```python
+from aragora.storage.encrypted import get_encrypted_connection
+
+# Opens database with encryption
+conn = get_encrypted_connection("/path/to/secure.db")
+```
+
+**Option 2: OS-Level Encryption**
+
+For less sensitive deployments, use filesystem-level encryption:
+- **macOS**: FileVault (enabled by default)
+- **Linux**: LUKS dm-crypt for volume encryption
+- **Windows**: BitLocker
+
+```bash
+# Linux LUKS example
+cryptsetup luksFormat /dev/sdb1
+cryptsetup luksOpen /dev/sdb1 aragora_data
+mkfs.ext4 /dev/mapper/aragora_data
+mount /dev/mapper/aragora_data /var/lib/aragora
+```
+
+#### PostgreSQL Encryption
+
+**Transparent Data Encryption (TDE)**
+
+For PostgreSQL 16+, use TDE for full database encryption:
+
+```sql
+-- Enable TDE (requires PostgreSQL Enterprise or contrib)
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Encrypt sensitive columns
+ALTER TABLE users
+  ALTER COLUMN password_hash
+  SET DATA TYPE bytea
+  USING pgp_sym_encrypt(password_hash::text, current_setting('app.encryption_key'))::bytea;
+```
+
+**AWS RDS Encryption**
+
+For AWS-hosted PostgreSQL:
+```bash
+# Enable encryption when creating RDS instance
+aws rds create-db-instance \
+  --db-instance-identifier aragora-prod \
+  --storage-encrypted \
+  --kms-key-id alias/aws/rds
+```
+
+**Column-Level Encryption**
+
+For specific sensitive fields:
+```python
+from cryptography.fernet import Fernet
+
+# Generate key (store securely)
+key = Fernet.generate_key()
+cipher = Fernet(key)
+
+# Encrypt before storage
+encrypted_data = cipher.encrypt(sensitive_data.encode())
+
+# Decrypt when reading
+decrypted_data = cipher.decrypt(encrypted_data).decode()
+```
+
+#### Redis Encryption
+
+**TLS for Redis Connections**
+
+```bash
+# Use rediss:// scheme for TLS
+export REDIS_URL="rediss://user:password@redis-host:6379/0"
+```
+
+Redis configuration (`redis.conf`):
+```
+tls-port 6379
+port 0
+tls-cert-file /path/to/redis.crt
+tls-key-file /path/to/redis.key
+tls-ca-cert-file /path/to/ca.crt
+```
+
+**AWS ElastiCache Encryption**
+
+```bash
+# Enable encryption in transit and at rest
+aws elasticache create-replication-group \
+  --replication-group-id aragora-cache \
+  --transit-encryption-enabled \
+  --at-rest-encryption-enabled
+```
+
+### Encryption in Transit
+
+All database connections should use encrypted transport:
+
+| Database | Protocol | Configuration |
+|----------|----------|---------------|
+| PostgreSQL | TLS/SSL | `?sslmode=require` in connection string |
+| Redis | TLS | `rediss://` scheme |
+| Supabase | HTTPS | Automatic (always encrypted) |
+
+PostgreSQL SSL configuration:
+```bash
+export ARAGORA_DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=verify-full&sslrootcert=/path/to/ca.crt"
+```
+
+### Key Management
+
+**Environment Variables (Development)**
+```bash
+export ARAGORA_ENCRYPTION_KEY="base64-encoded-32-byte-key"
+export ARAGORA_SQLITE_KEY="another-encryption-key"
+```
+
+**Kubernetes Secrets (Production)**
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aragora-encryption
+type: Opaque
+stringData:
+  encryption-key: "your-base64-encoded-key"
+  sqlite-key: "your-sqlite-encryption-key"
+```
+
+**External Secret Managers**
+
+AWS Secrets Manager:
+```python
+import boto3
+
+def get_encryption_key():
+    client = boto3.client('secretsmanager')
+    response = client.get_secret_value(SecretId='aragora/encryption-key')
+    return response['SecretString']
+```
+
+HashiCorp Vault:
+```python
+import hvac
+
+def get_encryption_key():
+    client = hvac.Client(url='https://vault.example.com')
+    secret = client.secrets.kv.read_secret_version(path='aragora/encryption')
+    return secret['data']['data']['key']
+```
+
+### Key Rotation
+
+**Rotating SQLCipher Keys**
+```bash
+# Export data with old key
+sqlite3 encrypted.db "PRAGMA key = 'old-key'; .dump" > backup.sql
+
+# Create new database with new key
+sqlite3 new_encrypted.db "PRAGMA key = 'new-key';"
+sqlite3 new_encrypted.db < backup.sql
+
+# Replace old database
+mv new_encrypted.db encrypted.db
+```
+
+**Rotating PostgreSQL Keys**
+
+For column-level encryption, re-encrypt data:
+```python
+from cryptography.fernet import Fernet
+
+old_cipher = Fernet(old_key)
+new_cipher = Fernet(new_key)
+
+# Re-encrypt all sensitive data
+for row in get_all_encrypted_rows():
+    decrypted = old_cipher.decrypt(row.encrypted_data)
+    new_encrypted = new_cipher.encrypt(decrypted)
+    update_row(row.id, new_encrypted)
+```
+
+---
+
 ## Local Development (SQLite)
 
 ### Database Location

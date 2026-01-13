@@ -149,6 +149,7 @@ class JsonFormatter(logging.Formatter):
         self.include_hostname = include_hostname
         self.service_name = service_name
 
+        self._hostname: str | None
         if include_hostname:
             import socket
 

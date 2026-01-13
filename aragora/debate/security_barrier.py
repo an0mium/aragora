@@ -33,7 +33,7 @@ class SecurityBarrier:
         r"-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----",
     ]
 
-    def __init__(self, patterns: list[str] = None, redaction_marker: str = "[REDACTED]"):
+    def __init__(self, patterns: list[str] | None = None, redaction_marker: str = "[REDACTED]"):
         """
         Initialize SecurityBarrier.
 
@@ -149,7 +149,7 @@ class TelemetryVerifier:
         self._verification_results: list[dict] = []
 
     def verify_agent(
-        self, agent, required_capabilities: list[str] = None
+        self, agent, required_capabilities: list[str] | None = None
     ) -> tuple[bool, list[str]]:
         """
         Verify an agent has required capabilities.

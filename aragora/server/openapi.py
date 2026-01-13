@@ -191,7 +191,7 @@ COMMON_SCHEMAS = {
 
 
 # Helper functions for common response patterns
-def _ok_response(description: str, schema_ref: str = None) -> dict:
+def _ok_response(description: str, schema_ref: str | None = None) -> dict:
     resp: dict = {"description": description}
     if schema_ref:
         resp["content"] = {
