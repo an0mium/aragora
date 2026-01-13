@@ -174,7 +174,9 @@ Use `DATABASE_URL` for managed Postgres, or set backend-specific settings for lo
 
 Note: `ARAGORA_DB_MODE` defaults to `legacy` in the legacy config, while
 `aragora.persistence.db_config` defaults to `consolidated` if unset. Set it
-explicitly to avoid ambiguity.
+explicitly to avoid ambiguity. The storage backend also honors the
+`ARAGORA_SQLITE_POOL_SIZE` / `ARAGORA_POSTGRESQL_*` pool settings; set them
+explicitly if you need consistent pooling across subsystems.
 
 ## Server Configuration
 
@@ -626,9 +628,12 @@ STRIPE_PRICE_STARTER=price_xxx
 STRIPE_PRICE_PROFESSIONAL=price_xxx
 STRIPE_PRICE_ENTERPRISE=price_xxx
 
+# Optional: Redis (rate limiting, queues, oauth state)
+ARAGORA_REDIS_URL=redis://localhost:6379/0
+REDIS_URL=redis://localhost:6379
+
 # Optional: Webhooks
-WEBHOOK_URL=https://myserver.com/aragora-events
-WEBHOOK_SECRET=hmac-secret
+ARAGORA_WEBHOOKS_CONFIG=/etc/aragora/webhooks.json
 
 # Optional: Social Media (Pulse module)
 TWITTER_BEARER_TOKEN=AAAA...  # For trending topics
