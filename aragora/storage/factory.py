@@ -153,9 +153,7 @@ def storage_info() -> dict[str, object]:
                 dsn = f"{user_pass[0]}:***@{parts[1]}"
         info["dsn_redacted"] = dsn
     else:
-        default_dir = os.environ.get("ARAGORA_NOMIC_DIR") or str(
-            Path.home() / ".nomic" / "aragora"
-        )
+        default_dir = os.environ.get("ARAGORA_NOMIC_DIR") or str(Path.home() / ".nomic" / "aragora")
         info["default_db_dir"] = str(Path(default_dir) / "db")
 
     return info

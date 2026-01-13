@@ -217,7 +217,7 @@ For production deployments with >100 concurrent users:
 
 ```bash
 # Switch to PostgreSQL
-export ARAGORA_DATABASE_URL=postgresql://user:pass@host:5432/aragora
+export DATABASE_URL=postgresql://user:pass@host:5432/aragora
 
 # Run migrations
 python -m aragora.persistence.migrate

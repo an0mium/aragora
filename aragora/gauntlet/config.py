@@ -12,7 +12,7 @@ from typing import Optional
 from .types import (
     GauntletPhase,
     GauntletSeverity,  # Alias for SeverityLevel
-    )
+)
 
 
 class AttackCategory(Enum):

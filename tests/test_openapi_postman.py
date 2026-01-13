@@ -105,7 +105,10 @@ class TestPostmanCollection:
 
         assert "info" in collection
         assert "item" in collection
-        assert collection["info"]["schema"] == "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+        assert (
+            collection["info"]["schema"]
+            == "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+        )
 
     def test_collection_info(self):
         """Test collection info section."""
@@ -148,10 +151,7 @@ class TestPostmanCollection:
         """Test collection has correct request count."""
         collection = generate_postman_collection()
 
-        request_count = sum(
-            len(folder.get("item", []))
-            for folder in collection.get("item", [])
-        )
+        request_count = sum(len(folder.get("item", [])) for folder in collection.get("item", []))
 
         # Should match OpenAPI endpoint count
         assert request_count > 50
@@ -200,9 +200,7 @@ class TestRequestConversion:
         """Test path parameter conversion."""
         details = {
             "summary": "Get debate by ID",
-            "parameters": [
-                {"name": "id", "in": "path", "required": True}
-            ],
+            "parameters": [{"name": "id", "in": "path", "required": True}],
         }
 
         request = _openapi_to_postman_request(
@@ -243,13 +241,7 @@ class TestRequestConversion:
         """Test POST request with request body."""
         details = {
             "summary": "Create debate",
-            "requestBody": {
-                "content": {
-                    "application/json": {
-                        "schema": {"type": "object"}
-                    }
-                }
-            },
+            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
         }
 
         request = _openapi_to_postman_request(
@@ -340,15 +332,13 @@ class TestIntegration:
 
         # Count endpoints in each
         openapi_count = sum(
-            1 for methods in schema["paths"].values()
+            1
+            for methods in schema["paths"].values()
             for method in methods
             if method not in ("parameters", "servers")
         )
 
-        postman_count = sum(
-            len(folder.get("item", []))
-            for folder in collection.get("item", [])
-        )
+        postman_count = sum(len(folder.get("item", [])) for folder in collection.get("item", []))
 
         # Should match
         assert postman_count == openapi_count

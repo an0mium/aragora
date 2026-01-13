@@ -450,12 +450,8 @@ class EventBus:
         return {
             "total_events_emitted": self._events_emitted,
             "events_by_type": self._events_by_type.copy(),
-            "async_subscribers": {
-                k: len(v) for k, v in self._async_handlers.items()
-            },
-            "sync_subscribers": {
-                k: len(v) for k, v in self._sync_handlers.items()
-            },
+            "async_subscribers": {k: len(v) for k, v in self._async_handlers.items()},
+            "sync_subscribers": {k: len(v) for k, v in self._sync_handlers.items()},
             "pending_user_events": self._user_event_queue.qsize(),
         }
 

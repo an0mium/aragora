@@ -23,16 +23,13 @@ This document provides operational guidance for running, monitoring, and trouble
 
 ```bash
 # Production mode
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 
-# Development mode with hot reload
-python -m aragora.server.unified_server --port 8080 --dev
+# Development mode (same entrypoint; use env vars for local tuning)
+aragora serve --api-port 8080 --ws-port 8765
 
-# With custom database paths
-python -m aragora.server.unified_server \
-  --port 8080 \
-  --db-path /data/aragora_memory.db \
-  --elo-path /data/aragora_elo.db
+# With custom data directory
+ARAGORA_DATA_DIR=/data/aragora aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ### Verifying Server Health
@@ -67,19 +64,22 @@ wscat -c ws://localhost:8765
 |----------|----------|---------|-------------|
 | `ARAGORA_DATA_DIR` | No | `.nomic` | Runtime data directory (databases, backups) |
 | `ARAGORA_API_TOKEN` | No | - | API authentication token |
-| `ARAGORA_ALLOWED_ORIGINS` | No | `*` | CORS allowed origins |
+| `ARAGORA_ALLOWED_ORIGINS` | No | See ENVIRONMENT.md | CORS allowed origins (wildcard disallowed) |
 | `ARAGORA_LOG_LEVEL` | No | `INFO` | Log level (DEBUG, INFO, WARNING, ERROR) |
 
 **Authentication** (required for production):
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `JWT_SECRET` | Prod | - | Secret for JWT signing (min 32 chars) |
-| `JWT_ALGORITHM` | No | `HS256` | JWT algorithm |
-| `JWT_EXPIRY_HOURS` | No | `24` | Token expiration in hours |
+| `ARAGORA_JWT_SECRET` | Prod | - | Secret for JWT signing (min 32 chars) |
+| `ARAGORA_JWT_EXPIRY_HOURS` | No | `24` | Token expiration in hours |
+| `ARAGORA_REFRESH_TOKEN_EXPIRY_DAYS` | No | `30` | Refresh token expiration in days |
 | `GOOGLE_OAUTH_CLIENT_ID` | No | - | Google OAuth client ID |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | No | - | Google OAuth client secret |
 | `GOOGLE_OAUTH_REDIRECT_URI` | No | - | OAuth callback URL |
+| `OAUTH_SUCCESS_URL` | No | - | Post-login redirect |
+| `OAUTH_ERROR_URL` | No | - | Auth error redirect |
+| `OAUTH_ALLOWED_REDIRECT_HOSTS` | No | - | Allowed redirect hosts |
 
 **Persistence** (optional):
 
@@ -87,7 +87,7 @@ wscat -c ws://localhost:8765
 |----------|----------|---------|-------------|
 | `SUPABASE_URL` | No | - | Supabase project URL |
 | `SUPABASE_KEY` | No | - | Supabase anon key |
-| `REDIS_URL` | No | - | Redis URL for distributed caching |
+| `ARAGORA_REDIS_URL` | No | - | Redis URL for distributed caching |
 
 *At least one AI provider key is required.
 
@@ -111,7 +111,7 @@ User=aragora
 WorkingDirectory=/opt/aragora
 Environment=PYTHONPATH=/opt/aragora
 EnvironmentFile=/opt/aragora/.env
-ExecStart=/opt/aragora/venv/bin/python -m aragora.server.unified_server --port 8080
+ExecStart=/opt/aragora/venv/bin/aragora serve --api-port 8080 --ws-port 8765
 Restart=always
 RestartSec=5
 
@@ -334,8 +334,8 @@ sqlite3 /data/aragora_memory.db "VACUUM;"
 # Check process memory
 ps aux | grep aragora
 
-# Profile memory (dev mode)
-python -m aragora.server.unified_server --profile-memory
+# Profile memory (example)
+python -m memray run -m aragora.server --http-port 8080 --port 8765
 ```
 
 **Resolution:**

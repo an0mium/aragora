@@ -503,9 +503,7 @@ class TestRateLimiting:
 
     def test_handle_rate_limit_exceeded(self, notifications_handler, mock_handler):
         """Test rate limit returns 429 for GET requests."""
-        with patch(
-            "aragora.server.handlers.notifications._notifications_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.notifications._notifications_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
 
             mock_handler.path = "/api/notifications/status"
@@ -515,13 +513,9 @@ class TestRateLimiting:
             body = json.loads(result.body.decode())
             assert "rate limit" in body["error"].lower()
 
-    def test_handle_post_rate_limit_exceeded(
-        self, notifications_handler, mock_handler, mock_auth
-    ):
+    def test_handle_post_rate_limit_exceeded(self, notifications_handler, mock_handler, mock_auth):
         """Test rate limit returns 429 for POST requests."""
-        with patch(
-            "aragora.server.handlers.notifications._notifications_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.notifications._notifications_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
 
             mock_handler.path = "/api/notifications/email/config"
@@ -698,9 +692,7 @@ class TestExtendedNotificationSending:
             # Email should not be in results when type is telegram
             assert "email" not in body["results"]
 
-    def test_send_notification_with_channel(
-        self, notifications_handler, mock_handler, mock_auth
-    ):
+    def test_send_notification_with_channel(self, notifications_handler, mock_handler, mock_auth):
         """Test sending notification with channel specified."""
         mock_handler.path = "/api/notifications/send"
 
@@ -740,9 +732,7 @@ class TestSchemaValidation:
                 mock_validate.return_value = MagicMock(
                     is_valid=False, error="smtp_host is required"
                 )
-                result = notifications_handler.handle_post(
-                    mock_handler.path, {}, mock_handler
-                )
+                result = notifications_handler.handle_post(mock_handler.path, {}, mock_handler)
                 body, status = parse_result(result)
 
                 assert status == 400
@@ -759,12 +749,8 @@ class TestSchemaValidation:
             with patch(
                 "aragora.server.handlers.notifications.validate_against_schema"
             ) as mock_validate:
-                mock_validate.return_value = MagicMock(
-                    is_valid=False, error="chat_id is required"
-                )
-                result = notifications_handler.handle_post(
-                    mock_handler.path, {}, mock_handler
-                )
+                mock_validate.return_value = MagicMock(is_valid=False, error="chat_id is required")
+                result = notifications_handler.handle_post(mock_handler.path, {}, mock_handler)
                 body, status = parse_result(result)
 
                 assert status == 400

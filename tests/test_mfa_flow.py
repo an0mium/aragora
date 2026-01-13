@@ -31,6 +31,7 @@ from unittest.mock import Mock, MagicMock, patch
 # Import pyotp for generating valid TOTP codes in tests
 try:
     import pyotp
+
     PYOTP_AVAILABLE = True
 except ImportError:
     PYOTP_AVAILABLE = False
@@ -43,8 +44,7 @@ from aragora.server.handlers.auth import AuthHandler
 # ============================================================================
 
 pytestmark = pytest.mark.skipif(
-    not PYOTP_AVAILABLE,
-    reason="pyotp not installed - MFA tests require pyotp"
+    not PYOTP_AVAILABLE, reason="pyotp not installed - MFA tests require pyotp"
 )
 
 
@@ -143,6 +143,7 @@ def mock_user_with_mfa_enabled():
 @pytest.fixture
 def mock_user_store_factory():
     """Factory for creating mock user stores with configurable users."""
+
     def _create_store(user):
         store = Mock()
         store.get_user_by_email = Mock(return_value=user)
@@ -154,6 +155,7 @@ def mock_user_store_factory():
         store.record_failed_login = Mock(return_value=(1, None))
         store.reset_failed_login_attempts = Mock()
         return store
+
     return _create_store
 
 
@@ -176,6 +178,7 @@ def clear_rate_limiters():
     """Clear rate limiters before each test."""
     try:
         from aragora.server.handlers.utils.rate_limit import _limiters
+
         for limiter in _limiters.values():
             limiter._buckets.clear()
         yield
@@ -188,12 +191,14 @@ def clear_rate_limiters():
 @pytest.fixture
 def mock_auth_context_factory():
     """Factory for creating mock auth contexts."""
+
     def _create_context(user_id: str, is_authenticated: bool = True):
         ctx = Mock()
         ctx.is_authenticated = is_authenticated
         ctx.user_id = user_id
         ctx.email = f"{user_id}@example.com"
         return ctx
+
     return _create_context
 
 
@@ -241,8 +246,12 @@ class TestMFASetup:
         assert "Aragora" in data["provisioning_uri"]
         # Email is URL-encoded in the provisioning URI (@ becomes %40)
         from urllib.parse import quote
-        email_encoded = quote(mock_user_without_mfa.email, safe='')
-        assert email_encoded in data["provisioning_uri"] or mock_user_without_mfa.email in data["provisioning_uri"]
+
+        email_encoded = quote(mock_user_without_mfa.email, safe="")
+        assert (
+            email_encoded in data["provisioning_uri"]
+            or mock_user_without_mfa.email in data["provisioning_uri"]
+        )
 
         # Verify secret was stored (but MFA not enabled yet)
         store.update_user.assert_called_once()
@@ -772,7 +781,10 @@ class TestBackupCodes:
         # Check response indicates backup code was used
         if "backup_codes_remaining" in data:
             # Should have one less backup code
-            assert data["backup_codes_remaining"] == len(mock_user_with_mfa_enabled._test_backup_codes) - 1
+            assert (
+                data["backup_codes_remaining"]
+                == len(mock_user_with_mfa_enabled._test_backup_codes) - 1
+            )
 
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
     def test_backup_code_single_use_enforcement(
@@ -1286,35 +1298,45 @@ class TestTOTPTimeWindow:
 class TestMFARoutes:
     """Tests for MFA route handling."""
 
-    def test_handler_recognizes_mfa_setup_route(self, mock_user_store_factory, mock_user_without_mfa):
+    def test_handler_recognizes_mfa_setup_route(
+        self, mock_user_store_factory, mock_user_without_mfa
+    ):
         """Test handler can handle /api/auth/mfa/setup route."""
         store = mock_user_store_factory(mock_user_without_mfa)
         handler = AuthHandler({"user_store": store})
 
         assert handler.can_handle("/api/auth/mfa/setup")
 
-    def test_handler_recognizes_mfa_enable_route(self, mock_user_store_factory, mock_user_without_mfa):
+    def test_handler_recognizes_mfa_enable_route(
+        self, mock_user_store_factory, mock_user_without_mfa
+    ):
         """Test handler can handle /api/auth/mfa/enable route."""
         store = mock_user_store_factory(mock_user_without_mfa)
         handler = AuthHandler({"user_store": store})
 
         assert handler.can_handle("/api/auth/mfa/enable")
 
-    def test_handler_recognizes_mfa_disable_route(self, mock_user_store_factory, mock_user_without_mfa):
+    def test_handler_recognizes_mfa_disable_route(
+        self, mock_user_store_factory, mock_user_without_mfa
+    ):
         """Test handler can handle /api/auth/mfa/disable route."""
         store = mock_user_store_factory(mock_user_without_mfa)
         handler = AuthHandler({"user_store": store})
 
         assert handler.can_handle("/api/auth/mfa/disable")
 
-    def test_handler_recognizes_mfa_verify_route(self, mock_user_store_factory, mock_user_without_mfa):
+    def test_handler_recognizes_mfa_verify_route(
+        self, mock_user_store_factory, mock_user_without_mfa
+    ):
         """Test handler can handle /api/auth/mfa/verify route."""
         store = mock_user_store_factory(mock_user_without_mfa)
         handler = AuthHandler({"user_store": store})
 
         assert handler.can_handle("/api/auth/mfa/verify")
 
-    def test_handler_recognizes_mfa_backup_codes_route(self, mock_user_store_factory, mock_user_without_mfa):
+    def test_handler_recognizes_mfa_backup_codes_route(
+        self, mock_user_store_factory, mock_user_without_mfa
+    ):
         """Test handler can handle /api/auth/mfa/backup-codes route."""
         store = mock_user_store_factory(mock_user_without_mfa)
         handler = AuthHandler({"user_store": store})

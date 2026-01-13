@@ -83,8 +83,13 @@ class PluginsHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in ("/api/plugins", "/api/plugins/installed", "/api/plugins/marketplace",
-                    "/api/plugins/submit", "/api/plugins/submissions"):
+        if path in (
+            "/api/plugins",
+            "/api/plugins/installed",
+            "/api/plugins/marketplace",
+            "/api/plugins/submit",
+            "/api/plugins/submissions",
+        ):
             return True
         # Match /api/plugins/{name}, /api/plugins/{name}/run, /api/plugins/{name}/install
         if path.startswith("/api/plugins/"):
@@ -445,11 +450,12 @@ class PluginsHandler(BaseHandler):
 
         # Validate name format (alphanumeric with hyphens)
         import re
+
         name = manifest.get("name", "")
         if not re.match(r"^[a-z][a-z0-9-]*$", name):
             return error_response(
                 "Plugin name must start with lowercase letter and contain only lowercase letters, numbers, and hyphens",
-                400
+                400,
             )
 
         # Check for duplicate name
@@ -460,12 +466,13 @@ class PluginsHandler(BaseHandler):
 
         # Check if user already has a pending submission with this name
         for sub_id, sub in _plugin_submissions.items():
-            if (sub.get("submitted_by") == user_id and
-                sub.get("manifest", {}).get("name") == name and
-                sub.get("status") == SUBMISSION_STATUS_PENDING):
+            if (
+                sub.get("submitted_by") == user_id
+                and sub.get("manifest", {}).get("name") == name
+                and sub.get("status") == SUBMISSION_STATUS_PENDING
+            ):
                 return error_response(
-                    f"You already have a pending submission for '{name}' (ID: {sub_id})",
-                    409
+                    f"You already have a pending submission for '{name}' (ID: {sub_id})", 409
                 )
 
         # Create submission
@@ -508,8 +515,7 @@ class PluginsHandler(BaseHandler):
             return error_response("User ID not found", 401)
 
         user_submissions = [
-            sub for sub in _plugin_submissions.values()
-            if sub.get("submitted_by") == user_id
+            sub for sub in _plugin_submissions.values() if sub.get("submitted_by") == user_id
         ]
 
         # Sort by submission date (newest first)

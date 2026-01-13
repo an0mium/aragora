@@ -797,8 +797,6 @@ class StaticHTMLExporter:
 
     def _generate_stats(self) -> str:
         """Generate statistics section."""
-        consensus = self.artifact.consensus_proof
-
         return f"""
 <div class="stats">
     <div class="stat">

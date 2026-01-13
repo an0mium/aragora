@@ -33,7 +33,7 @@ from aragora.debate.event_bridge import EventEmitterBridge
 from aragora.debate.event_bus import EventBus
 from aragora.debate.extensions import ArenaExtensions
 from aragora.debate.immune_system import get_immune_system
-from aragora.debate.judge_selector import JudgeScoringMixin, JudgeSelector
+from aragora.debate.judge_selector import JudgeSelector
 from aragora.debate.optional_imports import OptionalImports
 from aragora.debate.phase_executor import PhaseExecutor
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol
@@ -41,13 +41,11 @@ from aragora.debate.result_formatter import ResultFormatter
 from aragora.debate.roles_manager import RolesManager
 from aragora.debate.safety import resolve_auto_evolve, resolve_prompt_evolution
 from aragora.debate.sanitization import OutputSanitizer
-from aragora.debate.team_selector import TeamSelector
 from aragora.debate.termination_checker import TerminationChecker
-from aragora.debate.topology import TopologySelector
 from aragora.exceptions import EarlyStopError
 from aragora.observability.logging import correlation_context
 from aragora.observability.logging import get_logger as get_structured_logger
-from aragora.observability.tracing import add_span_attributes, get_tracer, trace_debate_phase
+from aragora.observability.tracing import add_span_attributes, get_tracer
 from aragora.server.metrics import (
     ACTIVE_DEBATES,
     track_circuit_breaker_state,
@@ -589,12 +587,20 @@ class Arena:
         self.immune_system.set_broadcast_callback(self._broadcast_health_event)
 
     def _broadcast_health_event(self, event: dict) -> None:
-        """Broadcast health events to WebSocket clients via event bridge."""
+        """Broadcast health events to WebSocket clients via EventBus."""
         try:
-            self.event_bridge.notify(
-                event_type="health_event",
-                **event.get("data", event),
-            )
+            if self.event_bus:
+                self.event_bus.emit_sync(
+                    event_type="health_event",
+                    debate_id=getattr(self, "_current_debate_id", ""),
+                    **event.get("data", event),
+                )
+            else:
+                # Fallback to event_bridge if event_bus not initialized yet
+                self.event_bridge.notify(
+                    event_type="health_event",
+                    **event.get("data", event),
+                )
         except (KeyError, TypeError, AttributeError, RuntimeError) as e:
             logger.debug(f"health_broadcast_failed error={e}")
 
@@ -652,6 +658,10 @@ class Arena:
                 elo_system=self.elo_system,
                 calibration_tracker=self.calibration_tracker,
             )
+
+        # Sync topology setting from protocol to AgentPool
+        topology = getattr(self.protocol, "topology", "full_mesh")
+        self.agent_pool._config.topology = topology
 
         # Auto-initialize PositionLedger when enable_position_ledger is True
         if self._enable_position_ledger and self.position_ledger is None:
@@ -997,7 +1007,7 @@ class Arena:
     def _select_debate_team(self, requested_agents: list[Agent]) -> list[Agent]:
         """Select debate team using performance metrics if enabled.
 
-        Delegates to TeamSelector for scoring based on ELO, calibration,
+        Delegates to AgentPool for scoring based on ELO, calibration,
         and circuit breaker filtering.
 
         Args:
@@ -1010,42 +1020,49 @@ class Arena:
         if not self.use_performance_selection:
             return requested_agents
 
-        if not self.agent_selector:
-            logger.debug("performance_selection enabled but no agent_selector configured")
-            return requested_agents
-
-        selector = TeamSelector(
-            elo_system=self.elo_system,
-            calibration_tracker=self.calibration_tracker,
-            circuit_breaker=self.circuit_breaker,
-        )
-
+        # Delegate to AgentPool for centralized team selection
         domain = self._extract_debate_domain()
-        return selector.select(requested_agents, domain=domain)
+        return self.agent_pool.select_team(
+            domain=domain,
+            team_size=len(requested_agents),
+        )
 
     def _get_calibration_weight(self, agent_name: str) -> float:
         """Get agent weight based on calibration score (0.5-1.5 range).
 
-        Delegates to JudgeScoringMixin. For new code, use:
-            JudgeScoringMixin(elo_system).get_calibration_weight(agent_name)
+        Delegates to AgentPool for centralized scoring.
         """
-        scorer = JudgeScoringMixin(self.elo_system)
-        return scorer.get_calibration_weight(agent_name)
+        return self.agent_pool._get_calibration_weight(agent_name)
 
     def _compute_composite_judge_score(self, agent_name: str) -> float:
-        """Compute composite judge score (ELO + calibration)."""
-        scorer = JudgeScoringMixin(self.elo_system)
-        return scorer.compute_composite_score(agent_name)
+        """Compute composite judge score (ELO + calibration).
+
+        Delegates to AgentPool for centralized scoring.
+        """
+        domain = self._extract_debate_domain()
+        return self.agent_pool._compute_composite_score(agent_name, domain)
 
     def _select_critics_for_proposal(
         self, proposal_agent: str, all_critics: list[Agent]
     ) -> list[Agent]:
         """Select which critics should critique the given proposal based on topology.
 
-        Delegates to TopologySelector for cleaner topology strategy implementation.
+        Delegates to AgentPool for centralized critic selection.
         """
-        selector = TopologySelector.from_protocol(self.protocol, self._require_agents())
-        return selector.select_critics(proposal_agent, all_critics)
+        # Find the proposer agent object
+        proposer = None
+        for agent in all_critics:
+            if getattr(agent, "name", str(agent)) == proposal_agent:
+                proposer = agent
+                break
+
+        if proposer is None:
+            proposer = all_critics[0] if all_critics else None
+
+        return self.agent_pool.select_critics(
+            proposer=proposer,
+            candidates=all_critics,
+        )
 
     def _handle_user_event(self, event) -> None:
         """Handle incoming user participation events (thread-safe).
@@ -1063,12 +1080,29 @@ class Arena:
         self.audience_manager.drain_events()
 
     def _notify_spectator(self, event_type: str, **kwargs) -> None:
-        """Delegate to event bridge for spectator/websocket emission."""
-        self.event_bridge.notify(event_type, **kwargs)
+        """Delegate to EventBus for spectator/websocket emission."""
+        if self.event_bus:
+            debate_id = kwargs.pop("debate_id", getattr(self, "_current_debate_id", ""))
+            self.event_bus.emit_sync(event_type, debate_id=debate_id, **kwargs)
+        else:
+            # Fallback to event_bridge if event_bus not initialized yet
+            self.event_bridge.notify(event_type, **kwargs)
 
     def _emit_moment_event(self, moment) -> None:
-        """Delegate to event bridge for moment emission."""
-        self.event_bridge.emit_moment(moment)
+        """Delegate to EventBus for moment emission."""
+        if self.event_bus and hasattr(moment, "to_dict"):
+            # Use EventBus for unified event handling with tracing
+            moment_data = moment.to_dict()
+            self.event_bus.emit_sync(
+                event_type="moment",
+                debate_id=getattr(self, "_current_debate_id", ""),
+                moment_type=getattr(moment, "moment_type", "unknown"),
+                agent=getattr(moment, "agent_name", None),
+                **moment_data,
+            )
+        else:
+            # Fallback to event_bridge for backward compatibility
+            self.event_bridge.emit_moment(moment)
 
     def _record_grounded_position(
         self,
@@ -1487,33 +1521,20 @@ class Arena:
             )
 
             try:
-                # Phase 0: Context Initialization
-                with trace_debate_phase("context_init", debate_id) as phase_span:
-                    await self.context_initializer.initialize(ctx)
+                # Execute all phases via PhaseExecutor with OpenTelemetry tracing
+                execution_result = await self.phase_executor.execute(
+                    ctx,
+                    debate_id=debate_id,
+                )
 
-                # Phase 1: Initial Proposals
-                with trace_debate_phase("proposals", debate_id) as phase_span:
-                    await self.proposal_phase.execute(ctx)
-
-                # Phase 2: Debate Rounds (critique/revision loop)
-                with trace_debate_phase("debate_rounds", debate_id) as phase_span:
-                    await self.debate_rounds_phase.execute(ctx)
-                    phase_span.set_attribute("debate.rounds_used", ctx.result.rounds_used)
-
-                # Phase 3: Consensus Resolution
-                with trace_debate_phase("consensus", debate_id) as phase_span:
-                    await self.consensus_phase.execute(ctx)
-                    phase_span.set_attribute(
-                        "debate.consensus_reached", ctx.result.consensus_reached
-                    )
-
-                # Phases 4-6: Analytics
-                with trace_debate_phase("analytics", debate_id) as phase_span:
-                    await self.analytics_phase.execute(ctx)
-
-                # Phase 7: Feedback Loops
-                with trace_debate_phase("feedback", debate_id) as phase_span:
-                    await self.feedback_phase.execute(ctx)
+                # Check for phase failures
+                if not execution_result.success:
+                    error_phases = [
+                        p.phase_name for p in execution_result.phases
+                        if p.status.value == "failed"
+                    ]
+                    if error_phases:
+                        logger.warning(f"Phase failures: {error_phases}")
 
             except asyncio.TimeoutError:
                 # Timeout recovery - use partial results from context
@@ -1706,41 +1727,17 @@ class Arena:
             return ""
 
     def _update_role_assignments(self, round_num: int) -> None:
-        """Update cognitive role assignments for the current round."""
-        agent_names = [a.name for a in self.agents]
+        """Update cognitive role assignments for the current round.
 
-        # Use role matcher if available (calibration-based)
-        if self.role_matcher:
-            debate_domain = getattr(self, "current_domain", None)
-            result = self.role_matcher.match_roles(
-                agent_names=agent_names,
-                round_num=round_num,
-                debate_domain=debate_domain,
-            )
-            self.current_role_assignments = result.assignments
+        Delegates to RolesManager for centralized role management.
+        """
+        debate_domain = self._extract_debate_domain()
+        self.roles_manager.update_role_assignments(round_num, debate_domain)
 
-            if result.assignments:
-                roles_str = ", ".join(
-                    f"{name}: {assign.role.value}" for name, assign in result.assignments.items()
-                )
-                logger.debug(
-                    f"role_assignments round={round_num} strategy={result.strategy_used} "
-                    f"roles={roles_str}"
-                )
-                if result.developmental_assignments:
-                    logger.debug(
-                        f"developmental_assignments agents={result.developmental_assignments}"
-                    )
-            return
+        # Sync role assignments back to orchestrator for backward compatibility
+        self.current_role_assignments = self.roles_manager.current_role_assignments
 
-        # Fallback to simple rotation
-        if not self.role_rotator:
-            return
-
-        self.current_role_assignments = self.role_rotator.get_assignments(
-            agent_names, round_num, self.protocol.rounds
-        )
-
+        # Log role assignments
         if self.current_role_assignments:
             roles_str = ", ".join(
                 f"{name}: {assign.role.value}"
@@ -1749,12 +1746,11 @@ class Arena:
             logger.debug(f"role_assignments round={round_num} roles={roles_str}")
 
     def _get_role_context(self, agent: Agent) -> str:
-        """Get cognitive role context for an agent in the current round."""
-        if not self.role_rotator or agent.name not in self.current_role_assignments:
-            return ""
+        """Get cognitive role context for an agent in the current round.
 
-        assignment = self.current_role_assignments[agent.name]
-        return self.role_rotator.format_role_context(assignment)
+        Delegates to RolesManager for centralized role management.
+        """
+        return self.roles_manager.get_role_context(agent)
 
     def _get_persona_context(self, agent: Agent) -> str:
         """Get persona context for agent specialization."""
@@ -1830,96 +1826,6 @@ class Arena:
         except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
             logger.warning(f"Flip context error for {agent.name}: {e}")
             return ""
-
-    async def _check_breakpoint(
-        self,
-        round_num: int,
-        proposals: dict[str, str],
-        context: list,
-        confidence: float = 0.0,
-    ) -> Optional[str]:
-        """
-        Check for breakpoint triggers and handle human intervention if needed.
-
-        Args:
-            round_num: Current debate round
-            proposals: Current proposals from agents
-            context: Conversation context
-            confidence: Current consensus confidence (0.0-1.0)
-
-        Returns:
-            Optional guidance string from human if breakpoint triggered,
-            None otherwise
-        """
-        if not self.breakpoint_manager or not self.protocol.enable_breakpoints:
-            return None
-
-        try:
-            from aragora.debate.breakpoints import BreakpointTrigger, DebateSnapshot
-
-            # Create debate snapshot for breakpoint evaluation
-            snapshot = DebateSnapshot(
-                debate_id=self.env.debate_id if hasattr(self.env, "debate_id") else "",
-                task=self.env.task,
-                current_round=round_num,
-                total_rounds=self.protocol.rounds,
-                latest_messages=[],  # Would need message history
-                active_proposals=(
-                    list(proposals.values()) if isinstance(proposals, dict) else proposals
-                ),
-                open_critiques=[],
-                current_consensus=None,
-                confidence=confidence,
-                agent_positions={a.name: "" for a in self.agents},
-                unresolved_issues=[],
-                key_disagreements=[],
-            )
-
-            # Check for triggers
-            breakpoint = self.breakpoint_manager.check_triggers(
-                snapshot=snapshot,
-                confidence=confidence,
-                round_num=round_num,
-                total_rounds=self.protocol.rounds,
-            )
-
-            if breakpoint:
-                # Emit breakpoint event
-                self.event_bridge.notify(
-                    event_type="breakpoint",
-                    breakpoint_id=breakpoint.breakpoint_id,
-                    trigger=breakpoint.trigger.value,
-                    round=round_num,
-                    message=breakpoint.message,
-                )
-
-                # Wait for human guidance
-                guidance = await self.breakpoint_manager.handle_breakpoint(breakpoint)
-
-                if guidance:
-                    # Emit resolution event
-                    self.event_bridge.notify(
-                        event_type="breakpoint_resolved",
-                        breakpoint_id=breakpoint.breakpoint_id,
-                        action=guidance.action,
-                        reasoning=guidance.reasoning,
-                    )
-
-                    # Handle abort action
-                    if guidance.action == "abort":
-                        raise EarlyStopError(
-                            reason=f"Debate aborted by human: {guidance.reasoning}",
-                            round_stopped=round_num,
-                        )
-
-                    return guidance.reasoning or guidance.decision
-
-        except ImportError:
-            logger.debug("Breakpoints module not available")
-        except (AttributeError, TypeError, ValueError, KeyError) as e:
-            logger.warning(f"Breakpoint check failed: {e}")
-
-        return None
 
     def _prepare_audience_context(self, emit_event: bool = False) -> str:
         """Prepare audience context for prompt building.

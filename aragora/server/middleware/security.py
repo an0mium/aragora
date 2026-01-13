@@ -223,7 +223,8 @@ class SecurityConfig:
 
     # CSP configuration (enabled by default in production)
     enable_csp: bool = field(
-        default_factory=lambda: os.getenv("ARAGORA_ENABLE_CSP", "true").lower() in ("true", "1", "yes")
+        default_factory=lambda: os.getenv("ARAGORA_ENABLE_CSP", "true").lower()
+        in ("true", "1", "yes")
     )
     csp_mode: str = field(
         default_factory=lambda: os.getenv("ARAGORA_CSP_MODE", "standard")
@@ -232,7 +233,8 @@ class SecurityConfig:
         default_factory=lambda: os.getenv("ARAGORA_CSP_REPORT_URI")
     )
     csp_report_only: bool = field(
-        default_factory=lambda: os.getenv("ARAGORA_CSP_REPORT_ONLY", "false").lower() in ("true", "1", "yes")
+        default_factory=lambda: os.getenv("ARAGORA_CSP_REPORT_ONLY", "false").lower()
+        in ("true", "1", "yes")
     )
 
     # Query parameter whitelist

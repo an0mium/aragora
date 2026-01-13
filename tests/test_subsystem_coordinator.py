@@ -299,9 +299,7 @@ class TestQueryMethods:
         result = coordinator.get_historical_dissent("Best programming language")
 
         assert len(result) == 1
-        dissent_retriever.retrieve.assert_called_once_with(
-            "Best programming language", limit=3
-        )
+        dissent_retriever.retrieve.assert_called_once_with("Best programming language", limit=3)
 
     def test_get_historical_dissent_without_retriever(self):
         """Test get_historical_dissent returns empty when no retriever."""
@@ -313,9 +311,7 @@ class TestQueryMethods:
 
     def test_get_agent_calibration_weight(self, mock_calibration_tracker):
         """Test get_agent_calibration_weight returns correct weight."""
-        coordinator = SubsystemCoordinator(
-            calibration_tracker=mock_calibration_tracker
-        )
+        coordinator = SubsystemCoordinator(calibration_tracker=mock_calibration_tracker)
 
         weight = coordinator.get_agent_calibration_weight("claude")
 
@@ -385,10 +381,7 @@ class TestDiagnostics:
         status = coordinator.get_status()
 
         assert status["initialized"] is True
-        assert all(
-            v is False
-            for v in status["subsystems"].values()
-        )
+        assert all(v is False for v in status["subsystems"].values())
 
 
 # ============================================================================

@@ -11,10 +11,11 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from aragora.queue.base import Job
+from aragora.serialization import SerializableMixin
 
 
 @dataclass
-class DebateJobPayload:
+class DebateJobPayload(SerializableMixin):
     """
     Payload for a debate job.
 
@@ -34,36 +35,7 @@ class DebateJobPayload:
     user_id: Optional[str] = None
     organization_id: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        return {
-            "question": self.question,
-            "agents": self.agents,
-            "rounds": self.rounds,
-            "consensus": self.consensus,
-            "protocol": self.protocol,
-            "metadata": self.metadata,
-            "timeout_seconds": self.timeout_seconds,
-            "webhook_url": self.webhook_url,
-            "user_id": self.user_id,
-            "organization_id": self.organization_id,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DebateJobPayload":
-        """Create from dictionary."""
-        return cls(
-            question=data["question"],
-            agents=data.get("agents", []),
-            rounds=data.get("rounds", 3),
-            consensus=data.get("consensus", "majority"),
-            protocol=data.get("protocol", "standard"),
-            metadata=data.get("metadata", {}),
-            timeout_seconds=data.get("timeout_seconds"),
-            webhook_url=data.get("webhook_url"),
-            user_id=data.get("user_id"),
-            organization_id=data.get("organization_id"),
-        )
+    # to_dict() and from_dict() inherited from SerializableMixin
 
 
 def create_debate_job(

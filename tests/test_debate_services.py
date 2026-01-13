@@ -79,7 +79,9 @@ def mock_agents():
 def mock_phases():
     """Create mock phases for testing."""
     return {
-        "context_initializer": MockPhase(name="context_initializer", output={"context": "initialized"}),
+        "context_initializer": MockPhase(
+            name="context_initializer", output={"context": "initialized"}
+        ),
         "proposal": MockPhase(name="proposal", output={"proposals": ["p1", "p2"]}),
         "debate_rounds": MockPhase(name="debate_rounds", output={"rounds": 3}),
         "consensus": MockPhase(name="consensus", output={"consensus": True, "answer": "final"}),
@@ -285,7 +287,14 @@ class TestAgentPool:
     def test_select_team_performance_based(self, mock_agents):
         """Test performance-based team selection."""
         mock_elo = Mock()
-        mock_elo.get_rating = Mock(side_effect=lambda n: {"agent_1": 1200, "agent_2": 1100, "agent_3": 900, "agent_4": 1000}.get(n, 1000))
+        mock_elo.get_rating = Mock(
+            side_effect=lambda n: {
+                "agent_1": 1200,
+                "agent_2": 1100,
+                "agent_3": 900,
+                "agent_4": 1000,
+            }.get(n, 1000)
+        )
 
         config = AgentPoolConfig(
             use_performance_selection=True,

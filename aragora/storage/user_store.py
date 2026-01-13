@@ -278,7 +278,10 @@ class UserStore:
             ("mfa_enabled", "ALTER TABLE users ADD COLUMN mfa_enabled INTEGER DEFAULT 0"),
             ("mfa_backup_codes", "ALTER TABLE users ADD COLUMN mfa_backup_codes TEXT"),
             ("token_version", "ALTER TABLE users ADD COLUMN token_version INTEGER DEFAULT 1"),
-            ("failed_login_attempts", "ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0"),
+            (
+                "failed_login_attempts",
+                "ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0",
+            ),
             ("lockout_until", "ALTER TABLE users ADD COLUMN lockout_until TEXT"),
             ("last_failed_login_at", "ALTER TABLE users ADD COLUMN last_failed_login_at TEXT"),
             ("preferences", "ALTER TABLE users ADD COLUMN preferences TEXT DEFAULT '{}'"),
@@ -403,7 +406,9 @@ class UserStore:
         """Get organization by slug."""
         return self._org_repo.get_by_slug(slug)
 
-    def get_organization_by_stripe_customer(self, stripe_customer_id: str) -> Optional[Organization]:
+    def get_organization_by_stripe_customer(
+        self, stripe_customer_id: str
+    ) -> Optional[Organization]:
         """Get organization by Stripe customer ID."""
         return self._org_repo.get_by_stripe_customer(stripe_customer_id)
 
@@ -729,14 +734,10 @@ class UserStore:
         result = cursor.fetchone()
         stats["total_debates_this_month"] = result["total"] or 0
 
-        cursor.execute(
-            "SELECT COUNT(*) FROM users WHERE last_login_at > datetime('now', '-1 day')"
-        )
+        cursor.execute("SELECT COUNT(*) FROM users WHERE last_login_at > datetime('now', '-1 day')")
         stats["users_active_24h"] = cursor.fetchone()[0]
 
-        cursor.execute(
-            "SELECT COUNT(*) FROM users WHERE created_at > datetime('now', '-7 days')"
-        )
+        cursor.execute("SELECT COUNT(*) FROM users WHERE created_at > datetime('now', '-7 days')")
         stats["new_users_7d"] = cursor.fetchone()[0]
 
         cursor.execute(

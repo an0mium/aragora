@@ -447,9 +447,7 @@ class TestAnalyticsEndpoint:
 
     def test_analytics_returns_503_without_module(self, handler):
         """Returns 503 when pulse module not available."""
-        with patch(
-            "aragora.server.handlers.pulse.get_pulse_manager", return_value=None
-        ):
+        with patch("aragora.server.handlers.pulse.get_pulse_manager", return_value=None):
             result = handler._get_analytics()
             assert result.status_code == 503
 
@@ -483,9 +481,7 @@ class TestSchedulerStatusEndpoint:
 
     def test_scheduler_status_returns_503_without_scheduler(self, handler):
         """Returns 503 when scheduler not available."""
-        with patch(
-            "aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None
-        ):
+        with patch("aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None):
             result = handler._get_scheduler_status()
             assert result.status_code == 503
 
@@ -575,9 +571,7 @@ class TestSchedulerHistoryEndpoint:
         ):
             handler._get_scheduler_history(50, 0, "reddit")
 
-            mock_store.get_history.assert_called_with(
-                limit=50, offset=0, platform="reddit"
-            )
+            mock_store.get_history.assert_called_with(limit=50, offset=0, platform="reddit")
 
 
 class TestDebateTopicEndpoint:
@@ -599,7 +593,7 @@ class TestDebateTopicEndpoint:
             import json as json_module
             from io import BytesIO
 
-            mock_handler.rfile = BytesIO(b'{}')
+            mock_handler.rfile = BytesIO(b"{}")
             mock_handler.headers = {"Content-Length": "2"}
 
             # The actual validation happens in the method
@@ -654,9 +648,7 @@ class TestSchedulerControlEndpoints:
         """Returns 503 when scheduler not available."""
         mock_handler = Mock()
 
-        with patch(
-            "aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None
-        ):
+        with patch("aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None):
             with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
                 with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
                     result = handler._start_scheduler.__wrapped__.__wrapped__.__wrapped__(
@@ -669,9 +661,7 @@ class TestSchedulerControlEndpoints:
         mock_handler = Mock()
         mock_handler.headers = {"Content-Length": "0"}
 
-        with patch(
-            "aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None
-        ):
+        with patch("aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None):
             with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
                 with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
                     result = handler._stop_scheduler.__wrapped__.__wrapped__.__wrapped__(
@@ -683,9 +673,7 @@ class TestSchedulerControlEndpoints:
         """Returns 503 when scheduler not available."""
         mock_handler = Mock()
 
-        with patch(
-            "aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None
-        ):
+        with patch("aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None):
             with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
                 with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
                     result = handler._pause_scheduler.__wrapped__.__wrapped__.__wrapped__(
@@ -697,9 +685,7 @@ class TestSchedulerControlEndpoints:
         """Returns 503 when scheduler not available."""
         mock_handler = Mock()
 
-        with patch(
-            "aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None
-        ):
+        with patch("aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None):
             with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
                 with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
                     result = handler._resume_scheduler.__wrapped__.__wrapped__.__wrapped__(
@@ -719,9 +705,7 @@ class TestSchedulerConfigEndpoint:
         mock_handler.headers = {"Content-Length": "2"}
         mock_handler.rfile = BytesIO(b"{}")
 
-        with patch(
-            "aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None
-        ):
+        with patch("aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None):
             with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
                 with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
                     result = handler._update_scheduler_config.__wrapped__.__wrapped__.__wrapped__(
@@ -810,7 +794,7 @@ class TestHandlePostRouting:
         mock_handler = Mock()
 
         with patch.object(handler, "_start_debate_on_topic") as mock_method:
-            mock_method.return_value = Mock(status_code=200, body=b'{}')
+            mock_method.return_value = Mock(status_code=200, body=b"{}")
             handler.handle_post("/api/pulse/debate-topic", {}, mock_handler)
             mock_method.assert_called_once()
 
@@ -819,7 +803,7 @@ class TestHandlePostRouting:
         mock_handler = Mock()
 
         with patch.object(handler, "_start_scheduler") as mock_method:
-            mock_method.return_value = Mock(status_code=200, body=b'{}')
+            mock_method.return_value = Mock(status_code=200, body=b"{}")
             handler.handle_post("/api/pulse/scheduler/start", {}, mock_handler)
             mock_method.assert_called_once()
 
@@ -837,7 +821,7 @@ class TestHandlePatchRouting:
         mock_handler = Mock()
 
         with patch.object(handler, "_update_scheduler_config") as mock_method:
-            mock_method.return_value = Mock(status_code=200, body=b'{}')
+            mock_method.return_value = Mock(status_code=200, body=b"{}")
             handler.handle_patch("/api/pulse/scheduler/config", {}, mock_handler)
             mock_method.assert_called_once()
 

@@ -239,7 +239,9 @@ class HackerNewsConnector(BaseConnector):
             logger.error(f"HackerNews JSON parsing error for {evidence_id}: {e}")
             return None
         except Exception as e:
-            logger.error(f"HackerNews fetch failed unexpectedly for {evidence_id} ({type(e).__name__}): {e}")
+            logger.error(
+                f"HackerNews fetch failed unexpectedly for {evidence_id} ({type(e).__name__}): {e}"
+            )
             return None
 
     def _parse_search_results(self, data: dict) -> list[Evidence]:

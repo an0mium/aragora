@@ -421,9 +421,9 @@ ARAGORA_ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `JWT_SECRET_KEY` | Secret for signing JWTs | Yes (production) |
-| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL | No (default: 60) |
-| `JWT_REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token TTL | No (default: 30) |
+| `ARAGORA_JWT_SECRET` | Secret for signing JWTs | Yes (production) |
+| `ARAGORA_JWT_EXPIRY_HOURS` | Access token TTL (hours) | No (default: 24) |
+| `ARAGORA_REFRESH_TOKEN_EXPIRY_DAYS` | Refresh token TTL (days) | No (default: 30) |
 
 ### OAuth
 
@@ -432,6 +432,8 @@ ARAGORA_ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
 | `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth client ID | For OAuth |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth client secret | For OAuth |
 | `GOOGLE_OAUTH_REDIRECT_URI` | Callback URL | For OAuth |
+| `OAUTH_SUCCESS_URL` | Post-login redirect | Recommended |
+| `OAUTH_ERROR_URL` | Auth error redirect | Recommended |
 | `OAUTH_ALLOWED_REDIRECT_HOSTS` | Allowed redirect domains | Recommended |
 
 ### Rate Limiting
@@ -449,7 +451,7 @@ ARAGORA_ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
 ### Production Checklist
 
 1. **Use HTTPS**: Always use TLS in production
-2. **Set JWT_SECRET_KEY**: Use a strong, random secret
+2. **Set ARAGORA_JWT_SECRET**: Use a strong, random secret
 3. **Configure CORS**: Restrict to known origins
 4. **Enable Rate Limiting**: Prevent abuse
 5. **Configure OAuth Allowlist**: Prevent open redirects
@@ -461,7 +463,7 @@ ARAGORA_ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
 
 ```bash
 # Production environment
-export JWT_SECRET_KEY=$(openssl rand -base64 32)
+export ARAGORA_JWT_SECRET=$(openssl rand -base64 32)
 export ARAGORA_ALLOWED_ORIGINS=https://yourdomain.com
 export OAUTH_ALLOWED_REDIRECT_HOSTS=yourdomain.com
 export ARAGORA_RATE_LIMIT=60

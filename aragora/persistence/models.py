@@ -2,13 +2,15 @@
 Data models for persistent storage.
 """
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import ClassVar, Optional
+
+from aragora.serialization import SerializableMixin
 
 
 @dataclass
-class NomicCycle:
+class NomicCycle(SerializableMixin):
     """A single nomic loop cycle."""
 
     loop_id: str
@@ -25,17 +27,14 @@ class NomicCycle:
     error_message: Optional[str] = None
     id: Optional[str] = None  # Set by database
 
-    def to_dict(self) -> dict:
-        d = asdict(self)
-        d["started_at"] = self.started_at.isoformat()
-        if self.completed_at:
-            d["completed_at"] = self.completed_at.isoformat()
-        return d
+    # to_dict() inherited from SerializableMixin (handles datetime serialization)
 
 
 @dataclass
-class DebateArtifact:
+class DebateArtifact(SerializableMixin):
     """A debate transcript and result."""
+
+    _exclude_fields: ClassVar[tuple[str, ...]] = ("id",)
 
     loop_id: str
     cycle_number: int
@@ -50,25 +49,14 @@ class DebateArtifact:
     created_at: datetime = field(default_factory=datetime.utcnow)
     id: Optional[str] = None
 
-    def to_dict(self) -> dict:
-        return {
-            "loop_id": self.loop_id,
-            "cycle_number": self.cycle_number,
-            "phase": self.phase,
-            "task": self.task,
-            "agents": self.agents,
-            "transcript": self.transcript,
-            "consensus_reached": self.consensus_reached,
-            "confidence": self.confidence,
-            "winning_proposal": self.winning_proposal,
-            "vote_tally": self.vote_tally,
-            "created_at": self.created_at.isoformat(),
-        }
+    # to_dict() inherited from SerializableMixin (excludes id, handles datetime)
 
 
 @dataclass
-class StreamEvent:
+class StreamEvent(SerializableMixin):
     """A real-time event from the nomic loop."""
+
+    _exclude_fields: ClassVar[tuple[str, ...]] = ("id",)
 
     loop_id: str
     cycle: int
@@ -78,20 +66,14 @@ class StreamEvent:
     timestamp: datetime = field(default_factory=datetime.utcnow)
     id: Optional[str] = None
 
-    def to_dict(self) -> dict:
-        return {
-            "loop_id": self.loop_id,
-            "cycle": self.cycle,
-            "event_type": self.event_type,
-            "event_data": self.event_data,
-            "agent": self.agent,
-            "timestamp": self.timestamp.isoformat(),
-        }
+    # to_dict() inherited from SerializableMixin (excludes id, handles datetime)
 
 
 @dataclass
-class AgentMetrics:
+class AgentMetrics(SerializableMixin):
     """Performance metrics for an agent in a cycle."""
+
+    _exclude_fields: ClassVar[tuple[str, ...]] = ("id",)
 
     loop_id: str
     cycle: int
@@ -108,26 +90,11 @@ class AgentMetrics:
     timestamp: datetime = field(default_factory=datetime.utcnow)
     id: Optional[str] = None
 
-    def to_dict(self) -> dict:
-        return {
-            "loop_id": self.loop_id,
-            "cycle": self.cycle,
-            "agent_name": self.agent_name,
-            "model": self.model,
-            "phase": self.phase,
-            "messages_sent": self.messages_sent,
-            "proposals_made": self.proposals_made,
-            "critiques_given": self.critiques_given,
-            "votes_won": self.votes_won,
-            "votes_received": self.votes_received,
-            "consensus_contributions": self.consensus_contributions,
-            "avg_response_time_ms": self.avg_response_time_ms,
-            "timestamp": self.timestamp.isoformat(),
-        }
+    # to_dict() inherited from SerializableMixin (excludes id, handles datetime)
 
 
 @dataclass
-class NomicRollback:
+class NomicRollback(SerializableMixin):
     """
     Records a rollback event in the nomic loop.
 
@@ -148,25 +115,11 @@ class NomicRollback:
     error_message: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "loop_id": self.loop_id,
-            "cycle_number": self.cycle_number,
-            "phase": self.phase,
-            "reason": self.reason,
-            "severity": self.severity,
-            "rolled_back_commit": self.rolled_back_commit,
-            "preserved_branch": self.preserved_branch,
-            "files_affected": self.files_affected,
-            "diff_summary": self.diff_summary,
-            "error_message": self.error_message,
-            "created_at": self.created_at.isoformat(),
-        }
+    # to_dict() inherited from SerializableMixin (handles datetime)
 
 
 @dataclass
-class CycleEvolution:
+class CycleEvolution(SerializableMixin):
     """
     Tracks the evolution of the codebase through nomic cycles.
 
@@ -184,22 +137,11 @@ class CycleEvolution:
     rollback_id: Optional[str] = None  # If this cycle was rolled back
     created_at: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "loop_id": self.loop_id,
-            "cycle_number": self.cycle_number,
-            "debate_artifact_id": self.debate_artifact_id,
-            "winning_proposal_summary": self.winning_proposal_summary,
-            "files_changed": self.files_changed,
-            "git_commit": self.git_commit,
-            "rollback_id": self.rollback_id,
-            "created_at": self.created_at.isoformat(),
-        }
+    # to_dict() inherited from SerializableMixin (handles datetime)
 
 
 @dataclass
-class CycleFileChange:
+class CycleFileChange(SerializableMixin):
     """
     Tracks individual file changes within a cycle.
 
@@ -213,12 +155,4 @@ class CycleFileChange:
     insertions: int = 0
     deletions: int = 0
 
-    def to_dict(self) -> dict:
-        return {
-            "loop_id": self.loop_id,
-            "cycle_number": self.cycle_number,
-            "file_path": self.file_path,
-            "change_type": self.change_type,
-            "insertions": self.insertions,
-            "deletions": self.deletions,
-        }
+    # to_dict() inherited from SerializableMixin

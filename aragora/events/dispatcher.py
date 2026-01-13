@@ -67,6 +67,7 @@ USER_AGENT = "Aragora-Webhooks/1.0"
 # Webhook Delivery
 # =============================================================================
 
+
 @dataclass
 class DeliveryResult:
     """Result of a webhook delivery attempt."""
@@ -228,6 +229,7 @@ def dispatch_webhook_with_retry(
 # Webhook Dispatcher
 # =============================================================================
 
+
 class WebhookDispatcher:
     """
     Async webhook event dispatcher.
@@ -257,6 +259,7 @@ class WebhookDispatcher:
         Args:
             event_emitter: SyncEventEmitter instance to subscribe to
         """
+
         def on_event(event: "StreamEvent"):
             if not self._shutdown:
                 self.dispatch_event(event.type.value, event.to_dict())
@@ -337,9 +340,7 @@ class WebhookDispatcher:
                 "successes": self._successes,
                 "failures": self._failures,
                 "success_rate": (
-                    self._successes / self._deliveries
-                    if self._deliveries > 0
-                    else 1.0
+                    self._successes / self._deliveries if self._deliveries > 0 else 1.0
                 ),
                 "active_workers": len(self._executor._threads),
             }

@@ -384,7 +384,7 @@ def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
                     span.set_attribute("response_length", len(result) if result else 0)
                     span.set_attribute("success", True)
                     return result
-                except Exception:
+                except Exception:  # noqa: BLE001 - Re-raised after recording span attribute
                     span.set_attribute("success", False)
                     raise
 
@@ -401,7 +401,7 @@ def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
                     span.set_attribute("response_length", len(result) if result else 0)
                     span.set_attribute("success", True)
                     return result
-                except Exception:
+                except Exception:  # noqa: BLE001 - Re-raised after recording span attribute
                     span.set_attribute("success", False)
                     raise
 

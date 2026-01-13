@@ -131,7 +131,9 @@ class DatabaseConfig:
             pg_database=os.getenv("ARAGORA_PG_DATABASE", "aragora"),
             pg_user=os.getenv("ARAGORA_PG_USER", "aragora"),
             pg_password=os.getenv("ARAGORA_PG_PASSWORD", ""),
-            pg_ssl_mode=os.getenv("ARAGORA_PG_SSL_MODE", "require"),  # Default to require for managed
+            pg_ssl_mode=os.getenv(
+                "ARAGORA_PG_SSL_MODE", "require"
+            ),  # Default to require for managed
             pool_size=int(os.getenv("ARAGORA_DB_POOL_SIZE", "10")),
             pool_max_overflow=int(os.getenv("ARAGORA_DB_POOL_MAX_OVERFLOW", "5")),
             pool_timeout=float(os.getenv("ARAGORA_DB_POOL_TIMEOUT", "30.0")),

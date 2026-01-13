@@ -399,8 +399,10 @@ class MigrationRunner:
                 and not line.strip().startswith("def ")
             ]
             # Filter out docstrings
-            non_doc_lines = [l for l in lines if not l.startswith('"') and not l.startswith("'")]
-            return len(non_doc_lines) == 0 or all(l == "pass" for l in non_doc_lines)
+            non_doc_lines = [
+                line for line in lines if not line.startswith('"') and not line.startswith("'")
+            ]
+            return len(non_doc_lines) == 0 or all(line == "pass" for line in non_doc_lines)
         except Exception:
             # If we can't inspect, assume it's not empty
             return False

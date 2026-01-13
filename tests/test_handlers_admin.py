@@ -144,10 +144,12 @@ def mock_user_store(mock_admin_user, mock_target_user, mock_organization):
     store = Mock()
 
     # User lookups
-    store.get_user_by_id = Mock(side_effect=lambda uid: {
-        "admin-123": mock_admin_user,
-        "target-456": mock_target_user,
-    }.get(uid))
+    store.get_user_by_id = Mock(
+        side_effect=lambda uid: {
+            "admin-123": mock_admin_user,
+            "target-456": mock_target_user,
+        }.get(uid)
+    )
     store.get_user_by_email = Mock(return_value=None)
 
     # Organization listing
@@ -157,16 +159,18 @@ def mock_user_store(mock_admin_user, mock_target_user, mock_organization):
     store.list_all_users = Mock(return_value=([mock_admin_user, mock_target_user], 2))
 
     # Admin stats
-    store.get_admin_stats = Mock(return_value={
-        "total_users": 100,
-        "total_organizations": 20,
-        "tier_distribution": {
-            "free": 10,
-            "pro": 8,
-            "enterprise": 2,
-        },
-        "active_users": 85,
-    })
+    store.get_admin_stats = Mock(
+        return_value={
+            "total_users": 100,
+            "total_organizations": 20,
+            "tier_distribution": {
+                "free": 10,
+                "pro": 8,
+                "enterprise": 2,
+            },
+            "active_users": 85,
+        }
+    )
 
     # User updates
     store.update_user = Mock(return_value=True)
@@ -206,6 +210,7 @@ def clear_rate_limiters():
     """Clear rate limiters before each test."""
     try:
         from aragora.server.handlers.utils.rate_limit import _limiters
+
         for limiter in _limiters.values():
             limiter._buckets.clear()
     except (ImportError, AttributeError):
@@ -213,6 +218,7 @@ def clear_rate_limiters():
     yield
     try:
         from aragora.server.handlers.utils.rate_limit import _limiters
+
         for limiter in _limiters.values():
             limiter._buckets.clear()
     except (ImportError, AttributeError):
@@ -240,7 +246,9 @@ class TestAdminAuthorization:
             body = json.loads(result.body)
             assert "authenticated" in body.get("error", "").lower()
 
-    def test_non_admin_user_rejected(self, admin_handler, mock_handler, mock_user_store, mock_regular_user):
+    def test_non_admin_user_rejected(
+        self, admin_handler, mock_handler, mock_user_store, mock_regular_user
+    ):
         """Test that non-admin users are rejected with 403."""
         mock_user_store.get_user_by_id = Mock(return_value=mock_regular_user)
 
@@ -268,7 +276,9 @@ class TestAdminAuthorization:
 
             assert result.status_code == 200
 
-    def test_owner_user_allowed(self, admin_handler, mock_handler, mock_user_store, mock_owner_user):
+    def test_owner_user_allowed(
+        self, admin_handler, mock_handler, mock_user_store, mock_owner_user
+    ):
         """Test that owner users can access admin endpoints."""
         mock_user_store.get_user_by_id = Mock(return_value=mock_owner_user)
 
@@ -407,16 +417,20 @@ class TestListUsers:
             assert "users" in body
             assert "total" in body
 
-    def test_list_users_excludes_sensitive_fields(self, admin_handler, mock_handler, mock_user_store, mock_admin_user):
+    def test_list_users_excludes_sensitive_fields(
+        self, admin_handler, mock_handler, mock_user_store, mock_admin_user
+    ):
         """Test that sensitive fields are excluded from user listing."""
-        mock_admin_user.to_dict = Mock(return_value={
-            "id": "admin-123",
-            "email": "admin@example.com",
-            "password_hash": "secret",
-            "password_salt": "salt",
-            "api_key": "key123",
-            "api_key_hash": "hash123",
-        })
+        mock_admin_user.to_dict = Mock(
+            return_value={
+                "id": "admin-123",
+                "email": "admin@example.com",
+                "password_hash": "secret",
+                "password_salt": "salt",
+                "api_key": "key123",
+                "api_key_hash": "hash123",
+            }
+        )
 
         with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
             mock_auth_ctx = Mock()
@@ -447,8 +461,7 @@ class TestListUsers:
 
             assert result.status_code == 200
             mock_user_store.list_all_users.assert_called_with(
-                limit=50, offset=0, org_id_filter="org-456",
-                role_filter=None, active_only=False
+                limit=50, offset=0, org_id_filter="org-456", role_filter=None, active_only=False
             )
 
     def test_list_users_with_role_filter(self, admin_handler, mock_handler, mock_user_store):
@@ -464,8 +477,7 @@ class TestListUsers:
 
             assert result.status_code == 200
             mock_user_store.list_all_users.assert_called_with(
-                limit=50, offset=0, org_id_filter=None,
-                role_filter="admin", active_only=False
+                limit=50, offset=0, org_id_filter=None, role_filter="admin", active_only=False
             )
 
     def test_list_users_active_only(self, admin_handler, mock_handler, mock_user_store):
@@ -481,8 +493,7 @@ class TestListUsers:
 
             assert result.status_code == 200
             mock_user_store.list_all_users.assert_called_with(
-                limit=50, offset=0, org_id_filter=None,
-                role_filter=None, active_only=True
+                limit=50, offset=0, org_id_filter=None, role_filter=None, active_only=True
             )
 
 
@@ -627,13 +638,17 @@ class TestGetRevenueStats:
 class TestImpersonateUser:
     """Tests for POST /api/admin/impersonate/:user_id."""
 
-    def test_impersonate_user_success(self, admin_handler, mock_handler, mock_user_store, mock_target_user):
+    def test_impersonate_user_success(
+        self, admin_handler, mock_handler, mock_user_store, mock_target_user
+    ):
         """Test successful user impersonation."""
         mock_handler.command = "POST"
-        mock_user_store.get_user_by_id = Mock(side_effect=lambda uid: {
-            "admin-123": Mock(id="admin-123", role="admin"),
-            "target-456": mock_target_user,
-        }.get(uid))
+        mock_user_store.get_user_by_id = Mock(
+            side_effect=lambda uid: {
+                "admin-123": Mock(id="admin-123", role="admin"),
+                "target-456": mock_target_user,
+            }.get(uid)
+        )
 
         with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
             mock_auth_ctx = Mock()
@@ -658,9 +673,11 @@ class TestImpersonateUser:
     def test_impersonate_user_not_found(self, admin_handler, mock_handler, mock_user_store):
         """Test impersonation of non-existent user."""
         mock_handler.command = "POST"
-        mock_user_store.get_user_by_id = Mock(side_effect=lambda uid: {
-            "admin-123": Mock(id="admin-123", role="admin"),
-        }.get(uid))
+        mock_user_store.get_user_by_id = Mock(
+            side_effect=lambda uid: {
+                "admin-123": Mock(id="admin-123", role="admin"),
+            }.get(uid)
+        )
 
         with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
             mock_auth_ctx = Mock()
@@ -688,13 +705,17 @@ class TestImpersonateUser:
         # Should reject with either 400 (validation) or 401 (auth)
         assert result.status_code in (400, 401)
 
-    def test_impersonate_logs_audit_event(self, admin_handler, mock_handler, mock_user_store, mock_target_user):
+    def test_impersonate_logs_audit_event(
+        self, admin_handler, mock_handler, mock_user_store, mock_target_user
+    ):
         """Test that impersonation is logged for audit."""
         mock_handler.command = "POST"
-        mock_user_store.get_user_by_id = Mock(side_effect=lambda uid: {
-            "admin-123": Mock(id="admin-123", role="admin"),
-            "target-456": mock_target_user,
-        }.get(uid))
+        mock_user_store.get_user_by_id = Mock(
+            side_effect=lambda uid: {
+                "admin-123": Mock(id="admin-123", role="admin"),
+                "target-456": mock_target_user,
+            }.get(uid)
+        )
 
         with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
             mock_auth_ctx = Mock()
@@ -705,9 +726,7 @@ class TestImpersonateUser:
             with patch("aragora.server.handlers.admin.create_access_token") as mock_token:
                 mock_token.return_value = "impersonation-token-123"
 
-                admin_handler.handle(
-                    "/api/admin/impersonate/target-456", {}, mock_handler, "POST"
-                )
+                admin_handler.handle("/api/admin/impersonate/target-456", {}, mock_handler, "POST")
 
                 # Verify audit event was recorded
                 mock_user_store.record_audit_event.assert_called_once()
@@ -721,13 +740,17 @@ class TestImpersonateUser:
 class TestDeactivateUser:
     """Tests for POST /api/admin/users/:user_id/deactivate."""
 
-    def test_deactivate_user_success(self, admin_handler, mock_handler, mock_user_store, mock_target_user):
+    def test_deactivate_user_success(
+        self, admin_handler, mock_handler, mock_user_store, mock_target_user
+    ):
         """Test successful user deactivation."""
         mock_handler.command = "POST"
-        mock_user_store.get_user_by_id = Mock(side_effect=lambda uid: {
-            "admin-123": Mock(id="admin-123", role="admin"),
-            "target-456": mock_target_user,
-        }.get(uid))
+        mock_user_store.get_user_by_id = Mock(
+            side_effect=lambda uid: {
+                "admin-123": Mock(id="admin-123", role="admin"),
+                "target-456": mock_target_user,
+            }.get(uid)
+        )
 
         with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
             mock_auth_ctx = Mock()
@@ -750,9 +773,11 @@ class TestDeactivateUser:
     def test_deactivate_nonexistent_user(self, admin_handler, mock_handler, mock_user_store):
         """Test deactivating a non-existent user."""
         mock_handler.command = "POST"
-        mock_user_store.get_user_by_id = Mock(side_effect=lambda uid: {
-            "admin-123": Mock(id="admin-123", role="admin"),
-        }.get(uid))
+        mock_user_store.get_user_by_id = Mock(
+            side_effect=lambda uid: {
+                "admin-123": Mock(id="admin-123", role="admin"),
+            }.get(uid)
+        )
 
         with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
             mock_auth_ctx = Mock()
@@ -766,7 +791,9 @@ class TestDeactivateUser:
 
             assert result.status_code == 404
 
-    def test_cannot_deactivate_self(self, admin_handler, mock_handler, mock_user_store, mock_admin_user):
+    def test_cannot_deactivate_self(
+        self, admin_handler, mock_handler, mock_user_store, mock_admin_user
+    ):
         """Test that admin cannot deactivate themselves."""
         mock_handler.command = "POST"
         mock_user_store.get_user_by_id = Mock(return_value=mock_admin_user)
@@ -789,14 +816,18 @@ class TestDeactivateUser:
 class TestActivateUser:
     """Tests for POST /api/admin/users/:user_id/activate."""
 
-    def test_activate_user_success(self, admin_handler, mock_handler, mock_user_store, mock_target_user):
+    def test_activate_user_success(
+        self, admin_handler, mock_handler, mock_user_store, mock_target_user
+    ):
         """Test successful user activation."""
         mock_handler.command = "POST"
         mock_target_user.is_active = False  # User is currently deactivated
-        mock_user_store.get_user_by_id = Mock(side_effect=lambda uid: {
-            "admin-123": Mock(id="admin-123", role="admin"),
-            "target-456": mock_target_user,
-        }.get(uid))
+        mock_user_store.get_user_by_id = Mock(
+            side_effect=lambda uid: {
+                "admin-123": Mock(id="admin-123", role="admin"),
+                "target-456": mock_target_user,
+            }.get(uid)
+        )
 
         with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
             mock_auth_ctx = Mock()
@@ -819,9 +850,11 @@ class TestActivateUser:
     def test_activate_nonexistent_user(self, admin_handler, mock_handler, mock_user_store):
         """Test activating a non-existent user."""
         mock_handler.command = "POST"
-        mock_user_store.get_user_by_id = Mock(side_effect=lambda uid: {
-            "admin-123": Mock(id="admin-123", role="admin"),
-        }.get(uid))
+        mock_user_store.get_user_by_id = Mock(
+            side_effect=lambda uid: {
+                "admin-123": Mock(id="admin-123", role="admin"),
+            }.get(uid)
+        )
 
         with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
             mock_auth_ctx = Mock()

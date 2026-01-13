@@ -33,7 +33,7 @@ from __future__ import annotations
 from dataclasses import fields, is_dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, ClassVar, Dict, List, Optional, Type, TypeVar, get_type_hints
+from typing import Any, ClassVar, Dict, Type, TypeVar, get_type_hints
 
 T = TypeVar("T", bound="SerializableMixin")
 
@@ -220,7 +220,8 @@ class SerializableMixin:
         # Get type hints for field type detection
         try:
             hints = get_type_hints(cls)
-        except Exception:
+        except (NameError, AttributeError, TypeError):
+            # Forward references or missing imports - fall back to no type hints
             hints = {}
 
         kwargs: Dict[str, Any] = {}

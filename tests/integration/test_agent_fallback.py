@@ -27,8 +27,10 @@ class TestQuotaErrorDetection:
     @pytest.fixture
     def quota_detector(self):
         """Create a QuotaFallbackMixin instance for testing."""
+
         class TestDetector(QuotaFallbackMixin):
             pass
+
         return TestDetector()
 
     def test_detects_rate_limit_error(self, quota_detector):

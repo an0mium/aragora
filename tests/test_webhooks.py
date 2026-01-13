@@ -437,6 +437,7 @@ class TestWebhookCircuitBreaker:
         d.stop(timeout=1.0)
         # Reset circuit breaker after test
         from aragora.resilience import get_circuit_breaker
+
         cb = get_circuit_breaker("webhook:cb-test-hook")
         cb.reset()
 

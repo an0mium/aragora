@@ -82,8 +82,6 @@ class BeliefHandler(BaseHandler):
 
         # Get nomic_dir from server context
         nomic_dir = self.ctx.get("nomic_dir")
-        persona_manager = self.ctx.get("persona_manager")
-
         # Note: /api/laboratory/emergent-traits handled by LaboratoryHandler
 
         if path.startswith("/api/belief-network/") and path.endswith("/cruxes"):

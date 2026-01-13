@@ -176,7 +176,7 @@ curl -vI https://your-domain.com/api/health 2>&1 | grep -E "SSL|subject|expire"
 # REQUIRED for OAuth in production
 GOOGLE_OAUTH_CLIENT_ID=1234567890-abc.apps.googleusercontent.com
 GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
-GOOGLE_OAUTH_REDIRECT_URI=https://api.yourdomain.com/api/oauth/google/callback
+GOOGLE_OAUTH_REDIRECT_URI=https://api.yourdomain.com/api/auth/oauth/google/callback
 OAUTH_SUCCESS_URL=https://yourdomain.com/auth/success
 OAUTH_ERROR_URL=https://yourdomain.com/auth/error
 OAUTH_ALLOWED_REDIRECT_HOSTS=yourdomain.com,api.yourdomain.com
@@ -357,7 +357,7 @@ SUPABASE_KEY=<service_role_key>
 ARAGORA_REDIS_URL=redis://redis:6379/0
 
 # OAuth URLs (required for authentication)
-GOOGLE_OAUTH_REDIRECT_URI=https://api.yourdomain.com/api/oauth/google/callback
+GOOGLE_OAUTH_REDIRECT_URI=https://api.yourdomain.com/api/auth/oauth/google/callback
 OAUTH_SUCCESS_URL=https://yourdomain.com/auth/success
 OAUTH_ERROR_URL=https://yourdomain.com/auth/error
 OAUTH_ALLOWED_REDIRECT_HOSTS=yourdomain.com,api.yourdomain.com

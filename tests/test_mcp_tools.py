@@ -517,7 +517,9 @@ class TestListAgentsTool:
     @pytest.mark.asyncio
     async def test_fallback_on_registry_error(self):
         """Test fallback list when registry fails."""
-        with patch("aragora.agents.base.list_available_agents", side_effect=ImportError("Not found")):
+        with patch(
+            "aragora.agents.base.list_available_agents", side_effect=ImportError("Not found")
+        ):
             from aragora.mcp.tools import list_agents_tool
 
             result = await list_agents_tool()

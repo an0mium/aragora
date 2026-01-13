@@ -20,6 +20,17 @@ logger = logging.getLogger(__name__)
 # Import shared sanitization utilities - re-exported for backwards compatibility
 from aragora.utils.error_sanitizer import sanitize_error, sanitize_error_text
 
+__all__ = [
+    "APIError",
+    "ErrorCode",
+    "ErrorContext",
+    "sanitize_error",
+    "sanitize_error_text",
+    "safe_error_message",
+    "with_error_handling",
+    "log_and_suppress",
+]
+
 
 # =============================================================================
 # Error Codes

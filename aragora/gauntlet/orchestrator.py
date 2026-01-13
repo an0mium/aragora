@@ -32,9 +32,7 @@ from .templates import GauntletTemplate, get_template
 # Try to import real mode integrations
 try:
     from aragora.modes.redteam import (
-        AttackType,
         RedTeamMode,
-        RedTeamResult,
     )
 
     REDTEAM_AVAILABLE = True
@@ -44,8 +42,6 @@ except ImportError:
 try:
     from aragora.modes.prober import (
         CapabilityProber,
-        ProbeType,
-        VulnerabilityReport,
         VulnerabilitySeverity,
     )
 
@@ -56,7 +52,6 @@ except ImportError:
 try:
     from aragora.modes.deep_audit import (
         DeepAuditConfig,
-        DeepAuditVerdict,
     )
     from aragora.modes.deep_audit import (
         DeepAuditOrchestrator as DeepAuditOrc,
@@ -307,12 +302,9 @@ class GauntletOrchestrator:
     async def _run_scenario_analysis(self, input_text: str, config: GauntletConfig) -> PhaseResult:
         """Run scenario matrix analysis phase."""
         start = time.time()
-        findings: list[GauntletFinding] = []
-
         try:
             from aragora.debate.scenarios import (
                 OutcomeCategory,
-                ScenarioComparator,
                 ScenarioMatrix,
             )
 

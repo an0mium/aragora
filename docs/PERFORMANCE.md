@@ -651,11 +651,11 @@ jobs:
 ```bash
 # CPU profiling with py-spy
 pip install py-spy
-py-spy record -o profile.svg -- python -m aragora.server.unified_server
+py-spy record -o profile.svg -- aragora serve --api-port 8080 --ws-port 8765
 
 # Memory profiling with memray
 pip install memray
-memray run python -m aragora.server.unified_server
+memray run aragora serve --api-port 8080 --ws-port 8765
 memray flamegraph memray-*.bin
 
 # Database query analysis

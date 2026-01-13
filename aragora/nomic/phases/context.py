@@ -9,7 +9,6 @@ Phase 0: Gather codebase understanding
 
 import asyncio
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional, Tuple
 
@@ -93,8 +92,6 @@ class ContextPhase:
             ContextResult with gathered codebase context
         """
         phase_start = time.perf_counter()
-        phase_start_dt = datetime.now()
-
         # Determine how many agents will participate
         use_kilocode = self.kilocode_available and not self.skip_kilocode
         agents_count = 2  # Claude + Codex always
@@ -115,9 +112,6 @@ class ContextPhase:
             self._log("=" * 70)
 
         self._stream_emit("on_phase_start", "context", self.cycle_count, {"agents": agents_count})
-
-        # Build exploration prompt
-        explore_prompt = self._build_explore_prompt()
 
         # Build list of exploration tasks
         exploration_tasks = [

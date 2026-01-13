@@ -72,6 +72,7 @@ from aragora.modes.tool_groups import ToolGroup, can_use_tool, get_required_grou
 
 __all__ = [
     # Operational Mode System
+    "custom",
     "ToolGroup",
     "can_use_tool",
     "get_required_group",

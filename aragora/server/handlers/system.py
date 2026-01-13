@@ -9,6 +9,7 @@ Endpoints:
 - GET /api/health/deep - Deep health check with all external dependencies
 - GET /api/nomic/state - Get nomic loop state
 - GET /api/nomic/health - Get nomic loop health with stall detection
+- GET /api/nomic/metrics - Get nomic loop Prometheus metrics summary
 - GET /api/nomic/log - Get nomic loop logs
 - GET /api/nomic/risk-register - Get risk register entries
 - GET /api/modes - Get available operational modes
@@ -78,6 +79,7 @@ class SystemHandler(BaseHandler):
         "/api/health/deep",
         "/api/nomic/state",
         "/api/nomic/health",
+        "/api/nomic/metrics",
         "/api/nomic/log",
         "/api/nomic/risk-register",
         "/api/modes",
@@ -173,6 +175,7 @@ class SystemHandler(BaseHandler):
             "/api/health/deep": self._deep_health_check,
             "/api/nomic/state": self._get_nomic_state,
             "/api/nomic/health": self._get_nomic_health,
+            "/api/nomic/metrics": self._get_nomic_metrics,
             "/api/modes": self._get_modes,
             "/api/auth/stats": self._get_auth_stats,
             "/metrics": self._get_prometheus_metrics,
@@ -215,23 +218,17 @@ class SystemHandler(BaseHandler):
     def _handle_debug_test(self, handler) -> HandlerResult:
         """Handle debug test endpoint."""
         method = getattr(handler, "command", "GET")
-        return json_response(
-            {"status": "ok", "method": method, "message": "Modular handler works"}
-        )
+        return json_response({"status": "ok", "method": method, "message": "Modular handler works"})
 
     def _handle_maintenance(self, query_params: dict) -> HandlerResult:
         """Handle system maintenance endpoint."""
         task = get_string_param(query_params, "task", "status")
         valid_tasks = ("status", "vacuum", "analyze", "checkpoint", "full")
         if task not in valid_tasks:
-            return error_response(
-                f"Invalid task. Use: {', '.join(valid_tasks)}", 400
-            )
+            return error_response(f"Invalid task. Use: {', '.join(valid_tasks)}", 400)
         return self._run_maintenance(task)
 
-    def _handle_history_endpoint(
-        self, path: str, query_params: dict, handler
-    ) -> HandlerResult:
+    def _handle_history_endpoint(self, path: str, query_params: dict, handler) -> HandlerResult:
         """Handle history endpoints with common auth and validation pattern."""
         # Require auth for history endpoints
         auth_error = self._check_history_auth(handler)
@@ -1039,6 +1036,47 @@ class SystemHandler(BaseHandler):
                     "cycle": 0,
                 }
             )
+
+    def _get_nomic_metrics(self) -> HandlerResult:
+        """Get nomic loop Prometheus metrics summary.
+
+        Returns aggregated metrics for the nomic loop including:
+        - Phase transitions counts
+        - Cycle outcomes (success/failure)
+        - Current phase
+        - Circuit breaker states
+        - Stuck phase detection
+
+        This is useful for monitoring dashboards and alerting.
+        """
+        try:
+            from aragora.nomic.metrics import (
+                check_stuck_phases,
+                get_nomic_metrics_summary,
+            )
+
+            summary = get_nomic_metrics_summary()
+            stuck_info = check_stuck_phases(max_idle_seconds=1800)  # 30 min threshold
+
+            return json_response(
+                {
+                    "summary": summary,
+                    "stuck_detection": stuck_info,
+                    "status": "stuck" if stuck_info.get("is_stuck") else "healthy",
+                }
+            )
+        except ImportError:
+            return json_response(
+                {
+                    "summary": {},
+                    "stuck_detection": {"is_stuck": False},
+                    "status": "metrics_unavailable",
+                    "message": "Nomic metrics module not available",
+                }
+            )
+        except Exception as e:
+            logger.error("Error getting nomic metrics: %s", e, exc_info=True)
+            return error_response(f"Failed to get nomic metrics: {e}", 500)
 
     def _get_risk_register(self, limit: int) -> HandlerResult:
         """Get risk register entries.

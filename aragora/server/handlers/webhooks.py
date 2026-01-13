@@ -44,29 +44,22 @@ WEBHOOK_EVENTS: Set[str] = {
     "debate_end",
     "consensus",
     "round_start",
-
     # Agent events
     "agent_message",
     "vote",
-
     # Memory/learning
     "insight_extracted",
-
     # Verification
     "claim_verification_result",
     "formal_verification_result",
-
     # Gauntlet
     "gauntlet_complete",
     "gauntlet_verdict",
-
     # Graph debates
     "graph_branch_created",
     "graph_branch_merged",
-
     # Genesis evolution
     "genesis_evolution",
-
     # Breakpoints
     "breakpoint",
     "breakpoint_resolved",
@@ -248,6 +241,7 @@ def get_webhook_store() -> WebhookStore:
 # Webhook Signature Utilities
 # =============================================================================
 
+
 def generate_signature(payload: str, secret: str) -> str:
     """
     Generate HMAC-SHA256 signature for webhook payload.
@@ -260,9 +254,7 @@ def generate_signature(payload: str, secret: str) -> str:
         Hex-encoded signature with sha256= prefix
     """
     signature = hmac.new(
-        secret.encode("utf-8"),
-        payload.encode("utf-8"),
-        hashlib.sha256
+        secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
     ).hexdigest()
     return f"sha256={signature}"
 
@@ -286,6 +278,7 @@ def verify_signature(payload: str, signature: str, secret: str) -> bool:
 # =============================================================================
 # Webhook Handler
 # =============================================================================
+
 
 class WebhookHandler(BaseHandler):
     """Handler for webhook management API endpoints."""
@@ -403,32 +396,32 @@ class WebhookHandler(BaseHandler):
     def _handle_list_events(self) -> HandlerResult:
         """Handle GET /api/webhooks/events - list available event types."""
         events = sorted(WEBHOOK_EVENTS)
-        return json_response({
-            "events": events,
-            "count": len(events),
-            "description": {
-                "debate_start": "Fired when a debate begins",
-                "debate_end": "Fired when a debate completes",
-                "consensus": "Fired when consensus is reached",
-                "round_start": "Fired at the start of each debate round",
-                "agent_message": "Fired when an agent sends a message",
-                "vote": "Fired when a vote is cast",
-                "insight_extracted": "Fired when a new insight is extracted",
-                "claim_verification_result": "Fired when a claim is verified",
-                "formal_verification_result": "Fired when formal verification completes",
-                "gauntlet_complete": "Fired when gauntlet stress-test completes",
-                "gauntlet_verdict": "Fired when gauntlet verdict is determined",
-                "graph_branch_created": "Fired when a graph debate branches",
-                "graph_branch_merged": "Fired when graph branches merge",
-                "genesis_evolution": "Fired when agent population evolves",
-                "breakpoint": "Fired when a human intervention breakpoint triggers",
-                "breakpoint_resolved": "Fired when a breakpoint is resolved",
-            },
-        })
+        return json_response(
+            {
+                "events": events,
+                "count": len(events),
+                "description": {
+                    "debate_start": "Fired when a debate begins",
+                    "debate_end": "Fired when a debate completes",
+                    "consensus": "Fired when consensus is reached",
+                    "round_start": "Fired at the start of each debate round",
+                    "agent_message": "Fired when an agent sends a message",
+                    "vote": "Fired when a vote is cast",
+                    "insight_extracted": "Fired when a new insight is extracted",
+                    "claim_verification_result": "Fired when a claim is verified",
+                    "formal_verification_result": "Fired when formal verification completes",
+                    "gauntlet_complete": "Fired when gauntlet stress-test completes",
+                    "gauntlet_verdict": "Fired when gauntlet verdict is determined",
+                    "graph_branch_created": "Fired when a graph debate branches",
+                    "graph_branch_merged": "Fired when graph branches merge",
+                    "genesis_evolution": "Fired when agent population evolves",
+                    "breakpoint": "Fired when a human intervention breakpoint triggers",
+                    "breakpoint_resolved": "Fired when a breakpoint is resolved",
+                },
+            }
+        )
 
-    def _handle_list_webhooks(
-        self, query_params: dict, handler: Any
-    ) -> HandlerResult:
+    def _handle_list_webhooks(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/webhooks - list all webhooks."""
         # Get optional user context for filtering
         user = self.get_current_user(handler)
@@ -439,14 +432,14 @@ class WebhookHandler(BaseHandler):
         store = self._get_webhook_store()
         webhooks = store.list(user_id=user_id, active_only=active_only)
 
-        return json_response({
-            "webhooks": [w.to_dict(include_secret=False) for w in webhooks],
-            "count": len(webhooks),
-        })
+        return json_response(
+            {
+                "webhooks": [w.to_dict(include_secret=False) for w in webhooks],
+                "count": len(webhooks),
+            }
+        )
 
-    def _handle_get_webhook(
-        self, webhook_id: str, handler: Any
-    ) -> HandlerResult:
+    def _handle_get_webhook(self, webhook_id: str, handler: Any) -> HandlerResult:
         """Handle GET /api/webhooks/:id - get specific webhook."""
         store = self._get_webhook_store()
         webhook = store.get(webhook_id)
@@ -461,9 +454,7 @@ class WebhookHandler(BaseHandler):
 
         return json_response({"webhook": webhook.to_dict(include_secret=False)})
 
-    def _handle_register_webhook(
-        self, body: dict, handler: Any
-    ) -> HandlerResult:
+    def _handle_register_webhook(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/webhooks - register new webhook."""
         url = body.get("url", "").strip()
         if not url:
@@ -483,7 +474,7 @@ class WebhookHandler(BaseHandler):
             return error_response(
                 f"Invalid event types: {', '.join(invalid_events)}. "
                 f"Use GET /api/webhooks/events for available types.",
-                400
+                400,
             )
 
         # Get user context
@@ -500,14 +491,15 @@ class WebhookHandler(BaseHandler):
         )
 
         # Return with secret (only on creation)
-        return json_response({
-            "webhook": webhook.to_dict(include_secret=True),
-            "message": "Webhook registered successfully. Save the secret - it won't be shown again.",
-        }, status=201)
+        return json_response(
+            {
+                "webhook": webhook.to_dict(include_secret=True),
+                "message": "Webhook registered successfully. Save the secret - it won't be shown again.",
+            },
+            status=201,
+        )
 
-    def _handle_delete_webhook(
-        self, webhook_id: str, handler: Any
-    ) -> HandlerResult:
+    def _handle_delete_webhook(self, webhook_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/webhooks/:id - delete webhook."""
         store = self._get_webhook_store()
         webhook = store.get(webhook_id)
@@ -521,14 +513,14 @@ class WebhookHandler(BaseHandler):
             return error_response("Access denied", 403)
 
         store.delete(webhook_id)
-        return json_response({
-            "deleted": True,
-            "webhook_id": webhook_id,
-        })
+        return json_response(
+            {
+                "deleted": True,
+                "webhook_id": webhook_id,
+            }
+        )
 
-    def _handle_update_webhook(
-        self, webhook_id: str, body: dict, handler: Any
-    ) -> HandlerResult:
+    def _handle_update_webhook(self, webhook_id: str, body: dict, handler: Any) -> HandlerResult:
         """Handle PATCH /api/webhooks/:id - update webhook."""
         store = self._get_webhook_store()
         webhook = store.get(webhook_id)
@@ -546,10 +538,7 @@ class WebhookHandler(BaseHandler):
         if events:
             invalid_events = [e for e in events if e != "*" and e not in WEBHOOK_EVENTS]
             if invalid_events:
-                return error_response(
-                    f"Invalid event types: {', '.join(invalid_events)}",
-                    400
-                )
+                return error_response(f"Invalid event types: {', '.join(invalid_events)}", 400)
 
         updated = store.update(
             webhook_id=webhook_id,
@@ -562,9 +551,7 @@ class WebhookHandler(BaseHandler):
 
         return json_response({"webhook": updated.to_dict(include_secret=False)})
 
-    def _handle_test_webhook(
-        self, webhook_id: str, handler: Any
-    ) -> HandlerResult:
+    def _handle_test_webhook(self, webhook_id: str, handler: Any) -> HandlerResult:
         """Handle POST /api/webhooks/:id/test - send test event."""
         store = self._get_webhook_store()
         webhook = store.get(webhook_id)
@@ -595,18 +582,23 @@ class WebhookHandler(BaseHandler):
         success, status_code, error = dispatch_webhook(webhook, test_event)
 
         if success:
-            return json_response({
-                "success": True,
-                "status_code": status_code,
-                "message": "Test webhook delivered successfully",
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "status_code": status_code,
+                    "message": "Test webhook delivered successfully",
+                }
+            )
         else:
-            return json_response({
-                "success": False,
-                "status_code": status_code,
-                "error": error,
-                "message": "Test webhook delivery failed",
-            }, status=502)
+            return json_response(
+                {
+                    "success": False,
+                    "status_code": status_code,
+                    "error": error,
+                    "message": "Test webhook delivery failed",
+                },
+                status=502,
+            )
 
 
 # =============================================================================

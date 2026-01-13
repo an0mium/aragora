@@ -112,9 +112,7 @@ class VoteWeighter:
                 continue
 
             try:
-                summary = self.deps.calibration_tracker.get_calibration_summary(
-                    vote.agent
-                )
+                summary = self.deps.calibration_tracker.get_calibration_summary(vote.agent)
                 original_conf = vote.confidence
                 adjusted_conf = adjust_agent_confidence(original_conf, summary)
 

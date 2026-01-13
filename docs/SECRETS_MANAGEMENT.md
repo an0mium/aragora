@@ -14,8 +14,9 @@ Aragora requires various secrets for operation:
 | `SUPABASE_KEY` | Database access | Production |
 | `STRIPE_SECRET_KEY` | Billing | If billing enabled |
 | `STRIPE_WEBHOOK_SECRET` | Webhook verification | If billing enabled |
-| `JWT_SECRET` | Token signing | Production |
-| `OAUTH_CLIENT_SECRET` | SSO authentication | If SSO enabled |
+| `ARAGORA_JWT_SECRET` | Token signing | Production |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth client secret | If Google OAuth enabled |
+| `ARAGORA_SSO_CLIENT_SECRET` | SSO client secret (OIDC/SAML) | If SSO enabled |
 
 ## Local Development
 
@@ -33,7 +34,7 @@ SUPABASE_KEY=eyJ...
 
 Load automatically with:
 ```bash
-python -m aragora.server.unified_server  # Auto-loads .env
+aragora serve  # Auto-loads .env
 ```
 
 ### Using direnv
@@ -61,7 +62,7 @@ kubectl create secret generic aragora-secrets \
   --from-literal=ANTHROPIC_API_KEY=sk-ant-... \
   --from-literal=OPENAI_API_KEY=sk-... \
   --from-literal=SUPABASE_KEY=eyJ... \
-  --from-literal=JWT_SECRET=$(openssl rand -base64 32)
+  --from-literal=ARAGORA_JWT_SECRET=$(openssl rand -base64 32)
 ```
 
 Reference in deployment:

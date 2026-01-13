@@ -401,7 +401,8 @@ class SubsystemCoordinator:
                 score = stats["calibration_score"]
                 return 0.5 + score  # Range: 0.5 to 2.0
             return 1.0
-        except Exception:
+        except (KeyError, AttributeError, TypeError) as e:
+            logger.debug(f"Could not get calibration weight for {agent_name}: {e}")
             return 1.0
 
     def get_continuum_context(self, task: str, limit: int = 5) -> str:

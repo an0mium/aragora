@@ -41,7 +41,6 @@ from aragora.reasoning.belief import (
     BeliefDistribution,
     BeliefNetwork,
     BeliefNode,
-    BeliefPropagationAnalyzer,
     BeliefStatus,
 )
 from aragora.reasoning.claims import ClaimsKernel, ClaimType, TypedClaim
@@ -323,7 +322,6 @@ class NomicIntegration:
         centralities = prop_result.centralities
 
         # Identify contested claims
-        analyzer = BeliefPropagationAnalyzer(network)
         contested = []
         crux = []
 
@@ -664,15 +662,6 @@ class NomicIntegration:
 
         debate_id = debate_id or self._current_debate_id or "unknown"
         cycle = cycle if cycle is not None else self._current_cycle
-
-        # Build complete checkpoint state
-        checkpoint_state = {
-            "phase": phase,
-            "cycle": cycle,
-            "state": state,
-            "belief_network": self._belief_network.to_dict() if self._belief_network else None,
-            "agent_weights": self._agent_weights,
-        }
 
         try:
             # Create checkpoint

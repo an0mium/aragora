@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 try:
     import asyncpg
     from asyncpg import Connection, Pool
+
     ASYNCPG_AVAILABLE = True
 except ImportError:
     asyncpg = None
@@ -184,18 +185,19 @@ class PostgresStore(ABC):
 
         async with self.connection() as conn:
             # Create schema version tracking table
-            await conn.execute("""
+            await conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS _schema_versions (
                     module TEXT PRIMARY KEY,
                     version INTEGER NOT NULL,
                     updated_at TIMESTAMPTZ DEFAULT NOW()
                 )
-            """)
+            """
+            )
 
             # Check current version
             row = await conn.fetchrow(
-                "SELECT version FROM _schema_versions WHERE module = $1",
-                self.SCHEMA_NAME
+                "SELECT version FROM _schema_versions WHERE module = $1", self.SCHEMA_NAME
             )
             current_version = row["version"] if row else 0
 
@@ -203,11 +205,15 @@ class PostgresStore(ABC):
                 # New database - run initial schema
                 logger.info(f"[{self.SCHEMA_NAME}] Creating initial schema v{self.SCHEMA_VERSION}")
                 await conn.execute(self.INITIAL_SCHEMA)
-                await conn.execute("""
+                await conn.execute(
+                    """
                     INSERT INTO _schema_versions (module, version)
                     VALUES ($1, $2)
                     ON CONFLICT (module) DO UPDATE SET version = $2, updated_at = NOW()
-                """, self.SCHEMA_NAME, self.SCHEMA_VERSION)
+                """,
+                    self.SCHEMA_NAME,
+                    self.SCHEMA_VERSION,
+                )
 
             elif current_version < self.SCHEMA_VERSION:
                 # Run migrations
@@ -215,10 +221,14 @@ class PostgresStore(ABC):
                     f"[{self.SCHEMA_NAME}] Migrating from v{current_version} to v{self.SCHEMA_VERSION}"
                 )
                 await self._run_migrations(conn, current_version)
-                await conn.execute("""
+                await conn.execute(
+                    """
                     UPDATE _schema_versions SET version = $1, updated_at = NOW()
                     WHERE module = $2
-                """, self.SCHEMA_VERSION, self.SCHEMA_NAME)
+                """,
+                    self.SCHEMA_VERSION,
+                    self.SCHEMA_NAME,
+                )
 
         self._initialized = True
         logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized at version {self.SCHEMA_VERSION}")
@@ -358,10 +368,7 @@ class PostgresStore(ABC):
         if not id_column.replace("_", "").isalnum():
             raise ValueError(f"Invalid column name: {id_column}")
 
-        row = await self.fetch_one(
-            f"SELECT 1 FROM {table} WHERE {id_column} = $1",
-            id_value
-        )
+        row = await self.fetch_one(f"SELECT 1 FROM {table} WHERE {id_column} = $1", id_value)
         return row is not None
 
     async def count(
@@ -413,10 +420,7 @@ class PostgresStore(ABC):
         if not id_column.replace("_", "").isalnum():
             raise ValueError(f"Invalid column name: {id_column}")
 
-        result = await self.execute(
-            f"DELETE FROM {table} WHERE {id_column} = $1",
-            id_value
-        )
+        result = await self.execute(f"DELETE FROM {table} WHERE {id_column} = $1", id_value)
         # Result is like "DELETE 1" or "DELETE 0"
         return result.endswith(" 0") is False
 
@@ -429,11 +433,12 @@ class PostgresStore(ABC):
         """
         try:
             row = await self.fetch_one(
-                "SELECT version FROM _schema_versions WHERE module = $1",
-                self.SCHEMA_NAME
+                "SELECT version FROM _schema_versions WHERE module = $1", self.SCHEMA_NAME
             )
             return row[0] if row else 0
-        except Exception:
+        except (OSError, RuntimeError) as e:
+            # Table may not exist yet, or connection issue
+            logger.debug(f"Could not fetch schema version: {e}")
             return 0
 
 

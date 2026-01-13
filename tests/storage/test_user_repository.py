@@ -26,7 +26,8 @@ def temp_db():
     conn.execute("PRAGMA journal_mode=WAL")
 
     # Create users table
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
@@ -51,7 +52,8 @@ def temp_db():
             token_version INTEGER DEFAULT 1,
             preferences TEXT
         )
-    """)
+    """
+    )
     conn.commit()
 
     @contextmanager

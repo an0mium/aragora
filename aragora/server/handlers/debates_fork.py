@@ -36,7 +36,9 @@ class _DebatesHandlerProtocol(Protocol):
 
     ctx: Dict[str, Any]
 
-    def read_json_body(self, handler: Any, max_size: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    def read_json_body(
+        self, handler: Any, max_size: Optional[int] = None
+    ) -> Optional[Dict[str, Any]]:
         """Read and parse JSON body from request handler."""
         ...
 
@@ -182,7 +184,9 @@ class ForkOperationsMixin:
 
     @rate_limit(rpm=10, limiter_name="debates_verify_outcome")
     @handle_errors("verify debate outcome")
-    def _verify_outcome(self: _DebatesHandlerProtocol, handler: Any, debate_id: str) -> HandlerResult:
+    def _verify_outcome(
+        self: _DebatesHandlerProtocol, handler: Any, debate_id: str
+    ) -> HandlerResult:
         """Record verification of whether a debate's winning position was correct.
 
         POST body:
@@ -357,7 +361,9 @@ class ForkOperationsMixin:
 
     @rate_limit(rpm=5, limiter_name="debates_followup")
     @require_storage
-    def _create_followup_debate(self: _DebatesHandlerProtocol, handler: Any, debate_id: str) -> HandlerResult:
+    def _create_followup_debate(
+        self: _DebatesHandlerProtocol, handler: Any, debate_id: str
+    ) -> HandlerResult:
         """Create a follow-up debate to resolve a specific crux.
 
         POST body:

@@ -17,7 +17,7 @@ These variables **MUST** be set in production (`ARAGORA_ENV=production`). The ap
 |----------|-------------|---------|
 | `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth client ID | `1234567890-abc.apps.googleusercontent.com` |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth client secret | `your-client-secret` |
-| `GOOGLE_OAUTH_REDIRECT_URI` | OAuth callback URL | `https://api.aragora.ai/api/oauth/google/callback` |
+| `GOOGLE_OAUTH_REDIRECT_URI` | OAuth callback URL | `https://api.aragora.ai/api/auth/oauth/google/callback` |
 | `OAUTH_SUCCESS_URL` | Post-login redirect | `https://aragora.ai/auth/success` |
 | `OAUTH_ERROR_URL` | Auth error page | `https://aragora.ai/auth/error` |
 | `OAUTH_ALLOWED_REDIRECT_HOSTS` | Comma-separated allowed hosts | `aragora.ai,api.aragora.ai` |
@@ -34,7 +34,7 @@ These variables **MUST** be set in production (`ARAGORA_ENV=production`). The ap
 # OAuth (required in production)
 GOOGLE_OAUTH_CLIENT_ID=1234567890-abc.apps.googleusercontent.com
 GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
-GOOGLE_OAUTH_REDIRECT_URI=https://api.aragora.ai/api/oauth/google/callback
+GOOGLE_OAUTH_REDIRECT_URI=https://api.aragora.ai/api/auth/oauth/google/callback
 OAUTH_SUCCESS_URL=https://aragora.ai/auth/success
 OAUTH_ERROR_URL=https://aragora.ai/auth/error
 OAUTH_ALLOWED_REDIRECT_HOSTS=aragora.ai,api.aragora.ai,www.aragora.ai
@@ -43,6 +43,13 @@ OAUTH_ALLOWED_REDIRECT_HOSTS=aragora.ai,api.aragora.ai,www.aragora.ai
 NEXT_PUBLIC_API_URL=https://api.aragora.ai
 NEXT_PUBLIC_WS_URL=wss://api.aragora.ai
 ```
+
+### OAuth Runtime Controls
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `OAUTH_STATE_TTL_SECONDS` | Optional | OAuth state TTL (seconds) | `600` |
+| `OAUTH_MAX_STATES` | Optional | Max in-memory OAuth states | `10000` |
 
 ## AI Provider Keys
 
@@ -53,6 +60,7 @@ At least one AI provider key is required.
 | `ANTHROPIC_API_KEY` | One required | Anthropic Claude API key | - |
 | `OPENAI_API_KEY` | One required | OpenAI API key | - |
 | `GEMINI_API_KEY` | Optional | Google Gemini API key | - |
+| `GOOGLE_API_KEY` | Optional | Alias for `GEMINI_API_KEY` | - |
 | `XAI_API_KEY` | Optional | Grok/XAI API key | - |
 | `GROK_API_KEY` | Optional | Alias for XAI_API_KEY | - |
 | `MISTRAL_API_KEY` | Optional | Mistral AI API key (Large, Codestral) | - |
@@ -78,6 +86,14 @@ For best performance with Mistral models, use the direct API:
 - `mistral-api` agent uses `MISTRAL_API_KEY` directly
 - `codestral` agent for code-specialized tasks
 - Falls back to OpenRouter if direct API fails
+
+## Web Research (Experimental)
+
+Enable external web research during debates (requires `aragora[research]`):
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `TAVILY_API_KEY` | Optional | Tavily search API key for web research | - |
 
 ## Ollama (Local Models)
 
@@ -130,6 +146,33 @@ Enables:
 - Cross-session learning
 - Live dashboard at aragora.ai
 
+## Database Connection (PostgreSQL/SQLite)
+
+Use `DATABASE_URL` for managed Postgres, or set backend-specific settings for local control.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `DATABASE_URL` | Optional | Postgres connection string (primary) | - |
+| `ARAGORA_DATABASE_URL` | Optional | Legacy alias for `DATABASE_URL` | - |
+| `ARAGORA_DB_BACKEND` | Optional | Backend: `sqlite`, `postgres`, `postgresql` | `sqlite` |
+| `ARAGORA_DB_MODE` | Optional | Database layout: `legacy` or `consolidated` | `legacy` |
+| `ARAGORA_DB_TIMEOUT` | Optional | Connection timeout (seconds) | `30` |
+| `ARAGORA_DB_POOL_SIZE` | Optional | Connection pool size | `10` |
+| `ARAGORA_DB_POOL_MAX_OVERFLOW` | Optional | Extra pool connections | `5` |
+| `ARAGORA_DB_POOL_OVERFLOW` | Optional | Legacy alias for overflow (settings) | - |
+| `ARAGORA_DB_POOL_TIMEOUT` | Optional | Pool wait timeout (seconds) | `30` |
+| `ARAGORA_SQLITE_PATH` | Optional | SQLite path for the DB backend | `aragora.db` |
+| `ARAGORA_PG_HOST` | Optional | Postgres host | `localhost` |
+| `ARAGORA_PG_PORT` | Optional | Postgres port | `5432` |
+| `ARAGORA_PG_DATABASE` | Optional | Postgres database name | `aragora` |
+| `ARAGORA_PG_USER` | Optional | Postgres user | `aragora` |
+| `ARAGORA_PG_PASSWORD` | Optional | Postgres password | - |
+| `ARAGORA_PG_SSL_MODE` | Optional | Postgres SSL mode | `require` |
+
+Note: `ARAGORA_DB_MODE` defaults to `legacy` in the legacy config, while
+`aragora.persistence.db_config` defaults to `consolidated` if unset. Set it
+explicitly to avoid ambiguity.
+
 ## Server Configuration
 
 | Variable | Required | Description | Default |
@@ -142,6 +185,16 @@ Enables:
 | `ARAGORA_WS_MAX_MESSAGE_SIZE` | Optional | Max WebSocket message size | `65536` |
 | `ARAGORA_WS_HEARTBEAT` | Optional | WebSocket heartbeat interval (seconds) | `30` |
 | `ARAGORA_DEFAULT_HOST` | Optional | Fallback host for link generation | `localhost:8080` |
+
+## Debate Defaults
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_DEFAULT_ROUNDS` | Optional | Default debate rounds | `3` |
+| `ARAGORA_MAX_ROUNDS` | Optional | Max debate rounds | `10` |
+| `ARAGORA_DEFAULT_CONSENSUS` | Optional | Consensus mode | `hybrid` |
+| `ARAGORA_DEBATE_TIMEOUT` | Optional | Debate timeout (seconds) | `900` |
+| `ARAGORA_AGENT_TIMEOUT` | Optional | Per-agent timeout (seconds) | `240` |
 
 ## Agent Defaults
 
@@ -218,7 +271,9 @@ Related directories:
 
 **Production recommended:** `/var/lib/aragora` or `~/.aragora` for `ARAGORA_DATA_DIR`
 
-Use `get_db_path()` from `aragora.config.legacy` to get consolidated database paths.
+Use `aragora.config.resolve_db_path()` to keep legacy SQLite files under
+`ARAGORA_DATA_DIR`. For consolidated mapping, use
+`aragora.persistence.db_config.get_db_path()`.
 
 ### Cleanup (repo root artifacts)
 
@@ -355,6 +410,7 @@ Single Sign-On configuration for enterprise authentication. Supports OIDC and SA
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
 | `ARAGORA_SSO_ALLOWED_DOMAINS` | Optional | Comma-separated allowed email domains | - (all allowed) |
+| `ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS` | Optional | Allowed redirect hosts for SSO callbacks | - |
 | `ARAGORA_SSO_AUTO_PROVISION` | Optional | Auto-create users on first login | `true` |
 | `ARAGORA_SSO_SESSION_DURATION` | Optional | Session duration in seconds (300-604800) | `28800` (8h) |
 

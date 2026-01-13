@@ -13,6 +13,12 @@ Endpoints:
 - POST /api/admin/users/:user_id/deactivate - Deactivate a user
 - POST /api/admin/users/:user_id/activate - Activate a user
 - POST /api/admin/users/:user_id/unlock - Unlock a locked user account
+- GET /api/admin/nomic/status - Get detailed nomic status
+- GET /api/admin/nomic/circuit-breakers - Get circuit breaker status
+- POST /api/admin/nomic/reset - Reset nomic to a specific phase
+- POST /api/admin/nomic/pause - Pause the nomic loop
+- POST /api/admin/nomic/resume - Resume the nomic loop
+- POST /api/admin/nomic/circuit-breakers/reset - Reset all circuit breakers
 """
 
 from __future__ import annotations
@@ -52,6 +58,13 @@ class AdminHandler(BaseHandler):
         "/api/admin/system/metrics",
         "/api/admin/impersonate",
         "/api/admin/revenue",
+        # Nomic admin endpoints
+        "/api/admin/nomic/status",
+        "/api/admin/nomic/circuit-breakers",
+        "/api/admin/nomic/reset",
+        "/api/admin/nomic/pause",
+        "/api/admin/nomic/resume",
+        "/api/admin/nomic/circuit-breakers/reset",
     ]
 
     @staticmethod
@@ -82,9 +95,7 @@ class AdminHandler(BaseHandler):
         # Check if user has admin role
         user = user_store.get_user_by_id(auth_ctx.user_id)
         if not user or user.role not in ADMIN_ROLES:
-            logger.warning(
-                f"Non-admin user {auth_ctx.user_id} attempted admin access"
-            )
+            logger.warning(f"Non-admin user {auth_ctx.user_id} attempted admin access")
             return None, error_response("Admin access required", 403)
 
         return auth_ctx, None
@@ -113,6 +124,13 @@ class AdminHandler(BaseHandler):
 
             if path == "/api/admin/revenue":
                 return self._get_revenue_stats(handler)
+
+            # Nomic admin GET routes
+            if path == "/api/admin/nomic/status":
+                return self._get_nomic_status(handler)
+
+            if path == "/api/admin/nomic/circuit-breakers":
+                return self._get_nomic_circuit_breakers(handler)
 
         # POST routes
         if method == "POST":
@@ -147,12 +165,23 @@ class AdminHandler(BaseHandler):
                     return error_response("Invalid user ID format", 400)
                 return self._unlock_user(handler, user_id)
 
+            # Nomic admin POST routes
+            if path == "/api/admin/nomic/reset":
+                return self._reset_nomic_phase(handler)
+
+            if path == "/api/admin/nomic/pause":
+                return self._pause_nomic(handler)
+
+            if path == "/api/admin/nomic/resume":
+                return self._resume_nomic(handler)
+
+            if path == "/api/admin/nomic/circuit-breakers/reset":
+                return self._reset_nomic_circuit_breakers(handler)
+
         return error_response("Method not allowed", 405)
 
     @handle_errors("list organizations")
-    def _list_organizations(
-        self, handler, query_params: dict
-    ) -> HandlerResult:
+    def _list_organizations(self, handler, query_params: dict) -> HandlerResult:
         """List all organizations with pagination."""
         auth_ctx, err = self._require_admin(handler)
         if err:
@@ -171,12 +200,14 @@ class AdminHandler(BaseHandler):
             tier_filter=tier_filter,
         )
 
-        return json_response({
-            "organizations": [org.to_dict() for org in organizations],
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "organizations": [org.to_dict() for org in organizations],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     @handle_errors("list users")
     def _list_users(self, handler, query_params: dict) -> HandlerResult:
@@ -213,12 +244,14 @@ class AdminHandler(BaseHandler):
             user_dict.pop("api_key_hash", None)
             user_dicts.append(user_dict)
 
-        return json_response({
-            "users": user_dicts,
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "users": user_dicts,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     @handle_errors("get admin stats")
     def _get_stats(self, handler) -> HandlerResult:
@@ -260,6 +293,7 @@ class AdminHandler(BaseHandler):
         # Get circuit breaker stats if available
         try:
             from aragora.resilience import get_circuit_breaker_status
+
             metrics["circuit_breakers"] = get_circuit_breaker_status()
         except ImportError:
             pass
@@ -269,6 +303,7 @@ class AdminHandler(BaseHandler):
         # Get cache stats if available
         try:
             from aragora.server.handlers.cache import get_cache_stats
+
             metrics["cache"] = get_cache_stats()
         except Exception as e:
             logger.warning(f"Failed to get cache stats: {e}")
@@ -276,6 +311,7 @@ class AdminHandler(BaseHandler):
         # Get rate limit stats if available
         try:
             from aragora.server.middleware.rate_limit import get_rate_limiter
+
             limiter = get_rate_limiter()
             if limiter and hasattr(limiter, "get_stats"):
                 metrics["rate_limits"] = limiter.get_stats()
@@ -313,19 +349,20 @@ class AdminHandler(BaseHandler):
                 }
                 mrr_cents += tier_mrr
 
-        return json_response({
-            "revenue": {
-                "mrr_cents": mrr_cents,
-                "mrr_dollars": mrr_cents / 100,
-                "arr_dollars": (mrr_cents * 12) / 100,
-                "tier_breakdown": tier_revenue,
-                "total_organizations": stats.get("total_organizations", 0),
-                "paying_organizations": sum(
-                    count for tier, count in tier_distribution.items()
-                    if tier != "free"
-                ),
+        return json_response(
+            {
+                "revenue": {
+                    "mrr_cents": mrr_cents,
+                    "mrr_dollars": mrr_cents / 100,
+                    "arr_dollars": (mrr_cents * 12) / 100,
+                    "tier_breakdown": tier_revenue,
+                    "total_organizations": stats.get("total_organizations", 0),
+                    "paying_organizations": sum(
+                        count for tier, count in tier_distribution.items() if tier != "free"
+                    ),
+                }
             }
-        })
+        )
 
     @handle_errors("impersonate user")
     @log_request("admin impersonate")
@@ -358,9 +395,7 @@ class AdminHandler(BaseHandler):
         )
 
         # Log the impersonation for audit
-        logger.info(
-            f"Admin {auth_ctx.user_id} impersonating user {target_user_id}"
-        )
+        logger.info(f"Admin {auth_ctx.user_id} impersonating user {target_user_id}")
 
         # Record in audit log if available
         try:
@@ -377,17 +412,19 @@ class AdminHandler(BaseHandler):
         except Exception as e:
             logger.warning(f"Failed to record audit event: {e}")
 
-        return json_response({
-            "token": impersonation_token,
-            "expires_in": 3600,
-            "target_user": {
-                "id": target_user.id,
-                "email": target_user.email,
-                "name": target_user.name,
-                "role": target_user.role,
-            },
-            "warning": "This token grants full access as the target user. Use responsibly.",
-        })
+        return json_response(
+            {
+                "token": impersonation_token,
+                "expires_in": 3600,
+                "target_user": {
+                    "id": target_user.id,
+                    "email": target_user.email,
+                    "name": target_user.name,
+                    "role": target_user.role,
+                },
+                "warning": "This token grants full access as the target user. Use responsibly.",
+            }
+        )
 
     @handle_errors("deactivate user")
     @log_request("admin deactivate user")
@@ -413,11 +450,13 @@ class AdminHandler(BaseHandler):
 
         logger.info(f"Admin {auth_ctx.user_id} deactivated user {target_user_id}")
 
-        return json_response({
-            "success": True,
-            "user_id": target_user_id,
-            "is_active": False,
-        })
+        return json_response(
+            {
+                "success": True,
+                "user_id": target_user_id,
+                "is_active": False,
+            }
+        )
 
     @handle_errors("activate user")
     @log_request("admin activate user")
@@ -439,11 +478,13 @@ class AdminHandler(BaseHandler):
 
         logger.info(f"Admin {auth_ctx.user_id} activated user {target_user_id}")
 
-        return json_response({
-            "success": True,
-            "user_id": target_user_id,
-            "is_active": True,
-        })
+        return json_response(
+            {
+                "success": True,
+                "user_id": target_user_id,
+                "is_active": True,
+            }
+        )
 
     @handle_errors("unlock user")
     @log_request("admin unlock user")
@@ -506,14 +547,430 @@ class AdminHandler(BaseHandler):
         except Exception as e:
             logger.warning(f"Failed to record audit event: {e}")
 
-        return json_response({
-            "success": True,
-            "user_id": target_user_id,
-            "email": email,
-            "lockout_cleared": lockout_cleared or db_cleared,
-            "previous_lockout_info": lockout_info,
-            "message": f"Account lockout cleared for {email}",
-        })
+        return json_response(
+            {
+                "success": True,
+                "user_id": target_user_id,
+                "email": email,
+                "lockout_cleared": lockout_cleared or db_cleared,
+                "previous_lockout_info": lockout_info,
+                "message": f"Account lockout cleared for {email}",
+            }
+        )
+
+    # =========================================================================
+    # Nomic Admin Endpoints
+    # =========================================================================
+
+    def _get_nomic_dir(self):
+        """Get nomic directory from context or default."""
+        return self.ctx.get("nomic_dir", ".nomic")
+
+    @handle_errors("get nomic status")
+    def _get_nomic_status(self, handler) -> HandlerResult:
+        """
+        Get detailed nomic loop status including state machine state.
+
+        Returns comprehensive status for admin monitoring and intervention.
+        """
+        auth_ctx, err = self._require_admin(handler)
+        if err:
+            return err
+
+        import json
+        from pathlib import Path
+
+        nomic_dir = Path(self._get_nomic_dir())
+        status = {
+            "running": False,
+            "current_phase": None,
+            "cycle_id": None,
+            "state_machine": None,
+            "metrics": None,
+            "circuit_breakers": None,
+            "last_checkpoint": None,
+            "errors": [],
+        }
+
+        # Read state file
+        state_file = nomic_dir / "nomic_state.json"
+        if state_file.exists():
+            try:
+                with open(state_file) as f:
+                    state_data = json.load(f)
+                status["running"] = state_data.get("running", False)
+                status["current_phase"] = state_data.get("phase")
+                status["cycle_id"] = state_data.get("cycle_id")
+                status["state_machine"] = state_data
+            except Exception as e:
+                status["errors"].append(f"Failed to read state: {e}")
+
+        # Get metrics
+        try:
+            from aragora.nomic.metrics import (
+                check_stuck_phases,
+                get_nomic_metrics_summary,
+            )
+
+            status["metrics"] = get_nomic_metrics_summary()
+            stuck_info = check_stuck_phases(max_idle_seconds=1800)
+            status["stuck_detection"] = stuck_info
+        except ImportError:
+            status["errors"].append("Metrics module not available")
+        except Exception as e:
+            status["errors"].append(f"Failed to get metrics: {e}")
+
+        # Get circuit breaker status
+        try:
+            from aragora.nomic.recovery import CircuitBreakerRegistry
+
+            registry = CircuitBreakerRegistry()
+            status["circuit_breakers"] = {
+                "open": registry.all_open(),
+                "details": registry.to_dict(),
+            }
+        except Exception as e:
+            status["errors"].append(f"Failed to get circuit breakers: {e}")
+
+        # Find latest checkpoint
+        checkpoint_dir = nomic_dir / "checkpoints"
+        if checkpoint_dir.exists():
+            try:
+                from aragora.nomic.checkpoints import list_checkpoints
+
+                checkpoints = list_checkpoints(str(checkpoint_dir))
+                if checkpoints:
+                    status["last_checkpoint"] = checkpoints[0]
+            except Exception as e:
+                status["errors"].append(f"Failed to list checkpoints: {e}")
+
+        return json_response(status)
+
+    @handle_errors("get nomic circuit breakers")
+    def _get_nomic_circuit_breakers(self, handler) -> HandlerResult:
+        """Get detailed circuit breaker status for the nomic loop."""
+        auth_ctx, err = self._require_admin(handler)
+        if err:
+            return err
+
+        try:
+            from aragora.nomic.recovery import CircuitBreakerRegistry
+
+            registry = CircuitBreakerRegistry()
+            return json_response(
+                {
+                    "circuit_breakers": registry.to_dict(),
+                    "open_circuits": registry.all_open(),
+                    "total_count": len(registry._breakers),
+                }
+            )
+        except ImportError:
+            return error_response("Nomic recovery module not available", 503)
+        except Exception as e:
+            logger.error(f"Failed to get circuit breakers: {e}", exc_info=True)
+            return error_response(f"Failed to get circuit breakers: {e}", 500)
+
+    @handle_errors("reset nomic phase")
+    @log_request("admin reset nomic")
+    def _reset_nomic_phase(self, handler) -> HandlerResult:
+        """
+        Reset nomic loop to a specific phase.
+
+        This is a recovery action for stuck or failed nomic cycles.
+        Supports resetting to: idle, context, debate, design, implement, verify, commit.
+
+        Request body:
+            {
+                "target_phase": "context",  # Phase to reset to
+                "clear_errors": true,       # Clear error history
+                "reason": "Manual recovery" # Audit reason
+            }
+        """
+        auth_ctx, err = self._require_admin(handler)
+        if err:
+            return err
+
+        import json
+        from pathlib import Path
+
+        # Parse request body
+        try:
+            body = getattr(handler, "request_body", b"{}")
+            if isinstance(body, bytes):
+                body = body.decode("utf-8")
+            data = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            return error_response("Invalid JSON body", 400)
+
+        target_phase = data.get("target_phase", "idle").lower()
+        clear_errors = data.get("clear_errors", False)
+        reason = data.get("reason", "Admin manual reset")
+
+        # Validate target phase
+        valid_phases = {"idle", "context", "debate", "design", "implement", "verify", "commit"}
+        if target_phase not in valid_phases:
+            return error_response(
+                f"Invalid target phase. Must be one of: {', '.join(valid_phases)}", 400
+            )
+
+        nomic_dir = Path(self._get_nomic_dir())
+        state_file = nomic_dir / "nomic_state.json"
+
+        # Read current state
+        current_state = {}
+        if state_file.exists():
+            try:
+                with open(state_file) as f:
+                    current_state = json.load(f)
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"Could not read nomic state file: {e}")
+                # Continue with empty state
+
+        # Update state
+        from datetime import datetime
+
+        new_state = {
+            "phase": target_phase,
+            "running": target_phase != "idle",
+            "cycle_id": current_state.get(
+                "cycle_id", "reset-" + datetime.utcnow().strftime("%Y%m%d%H%M%S")
+            ),
+            "last_update": datetime.utcnow().isoformat() + "Z",
+            "reset_by": auth_ctx.user_id,
+            "reset_reason": reason,
+            "previous_phase": current_state.get("phase"),
+            "errors": [] if clear_errors else current_state.get("errors", []),
+        }
+
+        # Ensure directory exists
+        nomic_dir.mkdir(parents=True, exist_ok=True)
+
+        # Write new state
+        try:
+            with open(state_file, "w") as f:
+                json.dump(new_state, f, indent=2)
+        except Exception as e:
+            return error_response(f"Failed to write state: {e}", 500)
+
+        # Track metric
+        try:
+            from aragora.nomic.metrics import track_phase_transition
+
+            track_phase_transition(
+                from_phase=current_state.get("phase", "unknown"),
+                to_phase=target_phase,
+                cycle_id=new_state["cycle_id"],
+            )
+        except (ImportError, AttributeError, TypeError) as e:
+            logger.debug(f"Metrics tracking skipped: {e}")
+
+        logger.info(f"Admin {auth_ctx.user_id} reset nomic phase to {target_phase}: {reason}")
+
+        return json_response(
+            {
+                "success": True,
+                "previous_phase": current_state.get("phase"),
+                "new_phase": target_phase,
+                "cycle_id": new_state["cycle_id"],
+                "message": f"Nomic reset to {target_phase}",
+            }
+        )
+
+    @handle_errors("pause nomic")
+    @log_request("admin pause nomic")
+    def _pause_nomic(self, handler) -> HandlerResult:
+        """
+        Pause the nomic loop for manual intervention.
+
+        This sets the state to 'paused' and prevents further phase transitions
+        until resumed.
+        """
+        auth_ctx, err = self._require_admin(handler)
+        if err:
+            return err
+
+        import json
+        from datetime import datetime
+        from pathlib import Path
+
+        # Parse reason from body
+        try:
+            body = getattr(handler, "request_body", b"{}")
+            if isinstance(body, bytes):
+                body = body.decode("utf-8")
+            data = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            data = {}
+
+        reason = data.get("reason", "Admin requested pause")
+
+        nomic_dir = Path(self._get_nomic_dir())
+        state_file = nomic_dir / "nomic_state.json"
+
+        # Read current state
+        current_state = {}
+        if state_file.exists():
+            try:
+                with open(state_file) as f:
+                    current_state = json.load(f)
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"Could not read nomic state file: {e}")
+                # Continue with empty state
+
+        # Update state
+        new_state = {
+            **current_state,
+            "phase": "paused",
+            "running": False,
+            "paused_at": datetime.utcnow().isoformat() + "Z",
+            "paused_by": auth_ctx.user_id,
+            "pause_reason": reason,
+            "previous_phase": current_state.get("phase"),
+            "last_update": datetime.utcnow().isoformat() + "Z",
+        }
+
+        nomic_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            with open(state_file, "w") as f:
+                json.dump(new_state, f, indent=2)
+        except Exception as e:
+            return error_response(f"Failed to pause nomic: {e}", 500)
+
+        logger.info(f"Admin {auth_ctx.user_id} paused nomic: {reason}")
+
+        return json_response(
+            {
+                "success": True,
+                "status": "paused",
+                "previous_phase": current_state.get("phase"),
+                "paused_by": auth_ctx.user_id,
+                "reason": reason,
+            }
+        )
+
+    @handle_errors("resume nomic")
+    @log_request("admin resume nomic")
+    def _resume_nomic(self, handler) -> HandlerResult:
+        """
+        Resume a paused nomic loop.
+
+        Resumes from the phase that was active before the pause, or from
+        a specified target phase.
+        """
+        auth_ctx, err = self._require_admin(handler)
+        if err:
+            return err
+
+        import json
+        from datetime import datetime
+        from pathlib import Path
+
+        # Parse body
+        try:
+            body = getattr(handler, "request_body", b"{}")
+            if isinstance(body, bytes):
+                body = body.decode("utf-8")
+            data = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            data = {}
+
+        target_phase = data.get("target_phase")  # Optional override
+
+        nomic_dir = Path(self._get_nomic_dir())
+        state_file = nomic_dir / "nomic_state.json"
+
+        # Read current state
+        current_state = {}
+        if state_file.exists():
+            try:
+                with open(state_file) as f:
+                    current_state = json.load(f)
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"Could not read nomic state file: {e}")
+                # Continue with empty state
+
+        if current_state.get("phase") != "paused":
+            return error_response("Nomic is not currently paused", 400)
+
+        # Determine resume phase
+        resume_phase = target_phase or current_state.get("previous_phase", "context")
+
+        # Update state
+        new_state = {
+            **current_state,
+            "phase": resume_phase,
+            "running": True,
+            "resumed_at": datetime.utcnow().isoformat() + "Z",
+            "resumed_by": auth_ctx.user_id,
+            "last_update": datetime.utcnow().isoformat() + "Z",
+        }
+        # Clean up pause-specific fields
+        new_state.pop("paused_at", None)
+        new_state.pop("paused_by", None)
+        new_state.pop("pause_reason", None)
+
+        try:
+            with open(state_file, "w") as f:
+                json.dump(new_state, f, indent=2)
+        except Exception as e:
+            return error_response(f"Failed to resume nomic: {e}", 500)
+
+        logger.info(f"Admin {auth_ctx.user_id} resumed nomic to phase {resume_phase}")
+
+        return json_response(
+            {
+                "success": True,
+                "status": "resumed",
+                "phase": resume_phase,
+                "resumed_by": auth_ctx.user_id,
+            }
+        )
+
+    @handle_errors("reset nomic circuit breakers")
+    @log_request("admin reset circuit breakers")
+    def _reset_nomic_circuit_breakers(self, handler) -> HandlerResult:
+        """
+        Reset all nomic circuit breakers.
+
+        This clears the failure counts and closes all open circuit breakers,
+        allowing the nomic loop to retry previously failing operations.
+        """
+        auth_ctx, err = self._require_admin(handler)
+        if err:
+            return err
+
+        try:
+            from aragora.nomic.recovery import CircuitBreakerRegistry
+
+            registry = CircuitBreakerRegistry()
+            open_before = registry.all_open()
+            registry.reset_all()
+
+            # Also update the metrics
+            try:
+                from aragora.nomic.metrics import update_circuit_breaker_count
+
+                update_circuit_breaker_count(0)
+            except Exception:
+                pass  # Best effort
+
+            logger.info(
+                f"Admin {auth_ctx.user_id} reset circuit breakers. Previously open: {open_before}"
+            )
+
+            return json_response(
+                {
+                    "success": True,
+                    "previously_open": open_before,
+                    "message": "All circuit breakers have been reset",
+                }
+            )
+        except ImportError:
+            return error_response("Nomic recovery module not available", 503)
+        except Exception as e:
+            logger.error(f"Failed to reset circuit breakers: {e}", exc_info=True)
+            return error_response(f"Failed to reset circuit breakers: {e}", 500)
 
 
 __all__ = ["AdminHandler"]

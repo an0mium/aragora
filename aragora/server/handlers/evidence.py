@@ -241,21 +241,21 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
         return json_response({"evidence": evidence})
 
-    def _handle_get_debate_evidence(
-        self, debate_id: str, query_params: dict
-    ) -> HandlerResult:
+    def _handle_get_debate_evidence(self, debate_id: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/evidence/debate/:debate_id - get evidence for debate."""
         round_number = get_int_param(query_params, "round", None)
 
         store = self._get_evidence_store()
         evidence_list = store.get_debate_evidence(debate_id, round_number)
 
-        return json_response({
-            "debate_id": debate_id,
-            "round": round_number,
-            "evidence": evidence_list,
-            "count": len(evidence_list),
-        })
+        return json_response(
+            {
+                "debate_id": debate_id,
+                "round": round_number,
+                "evidence": evidence_list,
+                "count": len(evidence_list),
+            }
+        )
 
     def _handle_search(self, body: dict) -> HandlerResult:
         """Handle POST /api/evidence/search - full-text search."""
@@ -275,7 +275,9 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 query=ctx_data.get("topic", ctx_data.get("query", "")),
                 keywords=ctx_data.get("keywords", []),
                 required_topics=set(ctx_data.get("required_topics", [])),
-                preferred_sources=set(ctx_data.get("preferred_sources", ctx_data.get("required_sources", []))),
+                preferred_sources=set(
+                    ctx_data.get("preferred_sources", ctx_data.get("required_sources", []))
+                ),
                 blocked_sources=set(ctx_data.get("blocked_sources", [])),
                 max_age_days=ctx_data.get("max_age_days", 365),
                 min_word_count=ctx_data.get("min_word_count", 50),
@@ -291,11 +293,13 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             context=context,
         )
 
-        return json_response({
-            "query": query,
-            "results": results,
-            "count": len(results),
-        })
+        return json_response(
+            {
+                "query": query,
+                "results": results,
+                "count": len(results),
+            }
+        )
 
     def _handle_collect(self, body: dict) -> HandlerResult:
         """Handle POST /api/evidence/collect - collect evidence for topic."""
@@ -332,17 +336,19 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             store = self._get_evidence_store()
             saved_ids = store.save_evidence_pack(evidence_pack, debate_id, round_number)
 
-        return json_response({
-            "task": task,
-            "keywords": evidence_pack.topic_keywords,
-            "snippets": [s.to_dict() for s in evidence_pack.snippets],
-            "count": len(evidence_pack.snippets),
-            "total_searched": evidence_pack.total_searched,
-            "average_reliability": evidence_pack.average_reliability,
-            "average_freshness": evidence_pack.average_freshness,
-            "saved_ids": saved_ids,
-            "debate_id": debate_id,
-        })
+        return json_response(
+            {
+                "task": task,
+                "keywords": evidence_pack.topic_keywords,
+                "snippets": [s.to_dict() for s in evidence_pack.snippets],
+                "count": len(evidence_pack.snippets),
+                "total_searched": evidence_pack.total_searched,
+                "average_reliability": evidence_pack.average_reliability,
+                "average_freshness": evidence_pack.average_freshness,
+                "saved_ids": saved_ids,
+                "debate_id": debate_id,
+            }
+        )
 
     def _handle_associate_evidence(self, debate_id: str, body: dict) -> HandlerResult:
         """Handle POST /api/evidence/debate/:debate_id - associate evidence."""
@@ -376,11 +382,13 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 )
                 associated.append(evidence_id)
 
-        return json_response({
-            "debate_id": debate_id,
-            "associated": associated,
-            "count": len(associated),
-        })
+        return json_response(
+            {
+                "debate_id": debate_id,
+                "associated": associated,
+                "count": len(associated),
+            }
+        )
 
     def _handle_delete_evidence(self, evidence_id: str) -> HandlerResult:
         """Handle DELETE /api/evidence/:id - delete evidence."""
@@ -390,16 +398,20 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         if not deleted:
             return error_response(f"Evidence not found: {evidence_id}", 404)
 
-        return json_response({
-            "deleted": True,
-            "evidence_id": evidence_id,
-        })
+        return json_response(
+            {
+                "deleted": True,
+                "evidence_id": evidence_id,
+            }
+        )
 
     def _handle_statistics(self) -> HandlerResult:
         """Handle GET /api/evidence/statistics - get store stats."""
         store = self._get_evidence_store()
         stats = store.get_statistics()
 
-        return json_response({
-            "statistics": stats,
-        })
+        return json_response(
+            {
+                "statistics": stats,
+            }
+        )

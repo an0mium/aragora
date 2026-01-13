@@ -301,12 +301,7 @@ class ElevenLabsBackend(TTSBackend):
         if not self.config.elevenlabs_api_key:
             return False
 
-        try:
-            import elevenlabs
-
-            return True
-        except ImportError:
-            return False
+        return importlib.util.find_spec("elevenlabs") is not None
 
     def _get_client(self):
         """Get or create ElevenLabs client."""
@@ -407,13 +402,10 @@ class XTTSBackend(TTSBackend):
 
     def is_available(self) -> bool:
         """Check if XTTS is available."""
-        try:
-            import torch
-            from TTS.api import TTS
-
-            return True
-        except ImportError:
-            return False
+        return (
+            importlib.util.find_spec("torch") is not None
+            and importlib.util.find_spec("TTS.api") is not None
+        )
 
     def _get_device(self) -> str:
         """Determine the device to use."""
@@ -763,12 +755,7 @@ class Pyttsx3Backend(TTSBackend):
 
     def is_available(self) -> bool:
         """Check if pyttsx3 is available."""
-        try:
-            import pyttsx3
-
-            return True
-        except ImportError:
-            return False
+        return importlib.util.find_spec("pyttsx3") is not None
 
     async def synthesize(
         self,

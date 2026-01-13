@@ -29,23 +29,28 @@ Aragora supports multiple authentication methods:
 | Generic SAML | SAML 2.0 | Any SAML-compatible IdP |
 | Generic OIDC | OpenID Connect | Any OIDC-compatible IdP |
 
+Note: The built-in OAuth handler currently supports Google only. For Azure AD,
+Okta, and other enterprise IdPs, use the SSO handler (OIDC or SAML) with
+`ARAGORA_SSO_*` variables.
+
 ### Environment Variables
 
 ```bash
-# General OAuth settings
-ARAGORA_OAUTH_ENABLED=true
-ARAGORA_OAUTH_CALLBACK_URL=https://aragora.example.com/api/auth/callback
+# Google OAuth (only built-in OAuth provider)
+GOOGLE_OAUTH_CLIENT_ID=...
+GOOGLE_OAUTH_CLIENT_SECRET=...
+GOOGLE_OAUTH_REDIRECT_URI=https://aragora.example.com/api/auth/oauth/google/callback
+OAUTH_SUCCESS_URL=https://aragora.example.com/auth/callback
+OAUTH_ERROR_URL=https://aragora.example.com/auth/error
+OAUTH_ALLOWED_REDIRECT_HOSTS=aragora.example.com,localhost
 
-# Provider-specific (configure as needed)
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-
-AZURE_CLIENT_ID=...
-AZURE_CLIENT_SECRET=...
-AZURE_TENANT_ID=...
-
-GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...
+# SSO (OIDC/SAML) for other providers
+ARAGORA_SSO_ENABLED=true
+ARAGORA_SSO_PROVIDER_TYPE=oidc
+ARAGORA_SSO_CLIENT_ID=...
+ARAGORA_SSO_CLIENT_SECRET=...
+ARAGORA_SSO_ISSUER_URL=https://idp.example.com
+ARAGORA_SSO_CALLBACK_URL=https://aragora.example.com/auth/sso/callback
 ```
 
 ---
@@ -79,20 +84,22 @@ GITHUB_CLIENT_SECRET=...
 4. Configure:
    - Name: `Aragora Production`
    - Authorized JavaScript origins: `https://aragora.example.com`
-   - Authorized redirect URIs: `https://aragora.example.com/api/auth/google/callback`
+   - Authorized redirect URIs: `https://aragora.example.com/api/auth/oauth/google/callback`
 5. Save the **Client ID** and **Client Secret**
 
 ### Step 4: Configure Aragora
 
 ```bash
 # .env
-ARAGORA_OAUTH_ENABLED=true
-GOOGLE_CLIENT_ID=123456789-abcdefg.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxx
-GOOGLE_OAUTH_CALLBACK=https://aragora.example.com/api/auth/google/callback
+GOOGLE_OAUTH_CLIENT_ID=123456789-abcdefg.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxx
+GOOGLE_OAUTH_REDIRECT_URI=https://aragora.example.com/api/auth/oauth/google/callback
+OAUTH_SUCCESS_URL=https://aragora.example.com/auth/callback
+OAUTH_ERROR_URL=https://aragora.example.com/auth/error
+OAUTH_ALLOWED_REDIRECT_HOSTS=aragora.example.com
 
-# Optional: Restrict to specific domain
-GOOGLE_HOSTED_DOMAIN=example.com
+# Domain restrictions are not enforced by Google OAuth in Aragora.
+# Use IdP-level policies or SSO allowed domains instead.
 ```
 
 ### Step 5: Test Integration
@@ -102,7 +109,7 @@ GOOGLE_HOSTED_DOMAIN=example.com
 aragora serve
 
 # OAuth login URL
-open "https://aragora.example.com/api/auth/google"
+open "https://aragora.example.com/api/auth/oauth/google"
 
 # Should redirect to Google, then back to your callback URL
 ```
@@ -110,11 +117,9 @@ open "https://aragora.example.com/api/auth/google"
 ### Google Workspace Restrictions
 
 ```bash
-# Only allow users from specific domains
-GOOGLE_ALLOWED_DOMAINS=example.com,company.org
-
-# Require Google Workspace accounts (no personal Gmail)
-GOOGLE_HOSTED_DOMAIN=example.com
+# Domain restrictions are not enforced by the Google OAuth handler.
+# Enforce at the IdP or use SSO with ARAGORA_SSO_ALLOWED_DOMAINS.
+ARAGORA_SSO_ALLOWED_DOMAINS=example.com,company.org
 ```
 
 ---
@@ -132,7 +137,7 @@ GOOGLE_HOSTED_DOMAIN=example.com
      - Single tenant (your org only)
      - Multitenant (any Azure AD)
      - Personal Microsoft accounts
-   - Redirect URI: `https://aragora.example.com/api/auth/azure/callback`
+   - Redirect URI: `https://aragora.example.com/auth/sso/callback`
 
 ### Step 2: Configure API Permissions
 
@@ -161,22 +166,24 @@ From the **Overview** page, note:
 ### Step 5: Configure Aragora
 
 ```bash
-# .env
-ARAGORA_OAUTH_ENABLED=true
-AZURE_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-AZURE_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-AZURE_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-AZURE_OAUTH_CALLBACK=https://aragora.example.com/api/auth/azure/callback
+# .env (SSO via OIDC)
+ARAGORA_SSO_ENABLED=true
+ARAGORA_SSO_PROVIDER_TYPE=azure_ad
+ARAGORA_SSO_ENTITY_ID=https://aragora.example.com/auth/sso
+ARAGORA_SSO_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+ARAGORA_SSO_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ARAGORA_SSO_ISSUER_URL=https://login.microsoftonline.com/your-tenant-id/v2.0
+ARAGORA_SSO_CALLBACK_URL=https://aragora.example.com/auth/sso/callback
 
 # For multitenant apps, use 'common' or 'organizations'
-# AZURE_TENANT_ID=common
+# ARAGORA_SSO_ISSUER_URL=https://login.microsoftonline.com/common/v2.0
 ```
 
 ### Step 6: Test Integration
 
 ```bash
-# OAuth login URL
-open "https://aragora.example.com/api/auth/azure"
+# SSO login URL
+open "https://aragora.example.com/auth/sso/login"
 ```
 
 ### Advanced: Conditional Access
@@ -190,51 +197,24 @@ Configure in Azure AD:
 
 ## GitHub OAuth
 
-### Step 1: Register OAuth App
-
-1. Go to GitHub **Settings > Developer settings > OAuth Apps**
-2. Click **New OAuth App**
-3. Configure:
-   - Application name: `Aragora`
-   - Homepage URL: `https://aragora.example.com`
-   - Authorization callback URL: `https://aragora.example.com/api/auth/github/callback`
-
-### Step 2: Get Credentials
-
-After registration, note:
-- Client ID (shown on app page)
-- Generate a new Client Secret
-
-### Step 3: Configure Aragora
+The built-in OAuth handler does not implement GitHub OAuth yet.
+If you want GitHub login, use SSO with explicit OIDC endpoints
+(GitHub does not expose standard discovery).
 
 ```bash
-# .env
-ARAGORA_OAUTH_ENABLED=true
-GITHUB_CLIENT_ID=Iv1.xxxxxxxxxxxx
-GITHUB_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-GITHUB_OAUTH_CALLBACK=https://aragora.example.com/api/auth/github/callback
-
-# Optional: Restrict to org members
-GITHUB_ALLOWED_ORGS=your-org,another-org
+# .env (SSO via OIDC with manual endpoints)
+ARAGORA_SSO_ENABLED=true
+ARAGORA_SSO_PROVIDER_TYPE=github
+ARAGORA_SSO_ENTITY_ID=https://aragora.example.com/auth/sso
+ARAGORA_SSO_CLIENT_ID=Iv1.xxxxxxxxxxxx
+ARAGORA_SSO_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ARAGORA_SSO_AUTH_ENDPOINT=https://github.com/login/oauth/authorize
+ARAGORA_SSO_TOKEN_ENDPOINT=https://github.com/login/oauth/access_token
+ARAGORA_SSO_USERINFO_ENDPOINT=https://api.github.com/user
+ARAGORA_SSO_CALLBACK_URL=https://aragora.example.com/auth/sso/callback
 ```
 
-### Step 4: Organization Restrictions
-
-```bash
-# Only allow members of specific organizations
-GITHUB_ALLOWED_ORGS=acme-corp,internal-tools
-
-# Require specific team membership
-GITHUB_REQUIRED_TEAMS=acme-corp/engineering,acme-corp/platform
-```
-
-### GitHub Enterprise
-
-```bash
-# For GitHub Enterprise Server
-GITHUB_ENTERPRISE_URL=https://github.company.com
-GITHUB_API_URL=https://github.company.com/api/v3
-```
+Use IdP policies or application-side checks to enforce org or team membership.
 
 ---
 
@@ -253,7 +233,7 @@ GITHUB_API_URL=https://github.company.com/api/v3
 
 1. App integration name: `Aragora`
 2. Grant type: **Authorization Code**
-3. Sign-in redirect URIs: `https://aragora.example.com/api/auth/okta/callback`
+3. Sign-in redirect URIs: `https://aragora.example.com/auth/sso/callback`
 4. Sign-out redirect URIs: `https://aragora.example.com`
 5. Assignments: Configure user/group access
 
@@ -267,15 +247,14 @@ After creation, note:
 ### Step 4: Configure Aragora
 
 ```bash
-# .env
-ARAGORA_OAUTH_ENABLED=true
-OKTA_CLIENT_ID=0oaxxxxxxxxxx
-OKTA_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-OKTA_DOMAIN=dev-123456.okta.com
-OKTA_OAUTH_CALLBACK=https://aragora.example.com/api/auth/okta/callback
-
-# Optional: Use custom authorization server
-OKTA_ISSUER=https://dev-123456.okta.com/oauth2/default
+# .env (SSO via OIDC)
+ARAGORA_SSO_ENABLED=true
+ARAGORA_SSO_PROVIDER_TYPE=okta
+ARAGORA_SSO_ENTITY_ID=https://aragora.example.com/auth/sso
+ARAGORA_SSO_CLIENT_ID=0oaxxxxxxxxxx
+ARAGORA_SSO_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ARAGORA_SSO_ISSUER_URL=https://dev-123456.okta.com/oauth2/default
+ARAGORA_SSO_CALLBACK_URL=https://aragora.example.com/auth/sso/callback
 ```
 
 ### Step 5: Configure Groups (Optional)
@@ -289,9 +268,8 @@ OKTA_ISSUER=https://dev-123456.okta.com/oauth2/default
    - Filter: Matches regex `.*` (or specific filter)
 
 ```bash
-# Map Okta groups to Aragora roles
-OKTA_ADMIN_GROUPS=Aragora-Admins,IT-Admins
-OKTA_USER_GROUPS=Aragora-Users,All-Employees
+# Group-to-role mapping is not exposed via env vars yet.
+# Use IdP policies or customize SSO provider code for role mapping.
 ```
 
 ---
@@ -306,16 +284,16 @@ Aragora supports any SAML 2.0 compliant Identity Provider.
 
 ```bash
 # Download SP metadata
-curl https://aragora.example.com/api/auth/saml/metadata > sp-metadata.xml
+curl https://aragora.example.com/auth/sso/metadata > sp-metadata.xml
 ```
 
 Or manually configure with these values:
 
 | Setting | Value |
 |---------|-------|
-| Entity ID | `https://aragora.example.com/api/auth/saml` |
-| ACS URL | `https://aragora.example.com/api/auth/saml/callback` |
-| SLO URL | `https://aragora.example.com/api/auth/saml/logout` |
+| Entity ID | `https://aragora.example.com/auth/sso` |
+| ACS URL | `https://aragora.example.com/auth/sso/callback` |
+| SLO URL | `https://aragora.example.com/auth/sso/logout` |
 | NameID Format | `urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress` |
 
 ### Step 2: Configure Identity Provider
@@ -339,28 +317,23 @@ Download metadata from your IdP, typically at:
 ### Step 4: Configure Aragora
 
 ```bash
-# .env
-ARAGORA_SAML_ENABLED=true
+# .env (SSO via SAML)
+ARAGORA_SSO_ENABLED=true
+ARAGORA_SSO_PROVIDER_TYPE=saml
+ARAGORA_SSO_ENTITY_ID=https://aragora.example.com/auth/sso
+ARAGORA_SSO_CALLBACK_URL=https://aragora.example.com/auth/sso/callback
 
-# Option 1: Metadata URL (recommended)
-SAML_IDP_METADATA_URL=https://idp.example.com/metadata
+# IdP configuration
+ARAGORA_SSO_IDP_ENTITY_ID=https://idp.example.com
+ARAGORA_SSO_IDP_SSO_URL=https://idp.example.com/sso
+ARAGORA_SSO_IDP_SLO_URL=https://idp.example.com/slo
+ARAGORA_SSO_IDP_CERTIFICATE=/path/to/idp-cert.pem
 
-# Option 2: Manual configuration
-SAML_IDP_ENTITY_ID=https://idp.example.com
-SAML_IDP_SSO_URL=https://idp.example.com/sso
-SAML_IDP_SLO_URL=https://idp.example.com/slo
-SAML_IDP_CERTIFICATE=/path/to/idp-cert.pem
+# SP certificates (required if IdP expects signed requests)
+ARAGORA_SSO_SP_PRIVATE_KEY=/path/to/sp-key.pem
+ARAGORA_SSO_SP_CERTIFICATE=/path/to/sp-cert.pem
 
-# SP configuration
-SAML_SP_ENTITY_ID=https://aragora.example.com/api/auth/saml
-SAML_SP_PRIVATE_KEY=/path/to/sp-key.pem
-SAML_SP_CERTIFICATE=/path/to/sp-cert.pem
-
-# Attribute mapping
-SAML_ATTR_EMAIL=http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress
-SAML_ATTR_FIRST_NAME=http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname
-SAML_ATTR_LAST_NAME=http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname
-SAML_ATTR_GROUPS=http://schemas.xmlsoap.org/claims/Group
+# Attribute mapping uses Aragora defaults; customize in code if needed.
 ```
 
 ### Step 5: Generate SP Certificates
@@ -399,54 +372,41 @@ For Active Directory Federation Services:
 For any OIDC-compliant provider:
 
 ```bash
-# .env
-ARAGORA_OIDC_ENABLED=true
+# .env (SSO via OIDC)
+ARAGORA_SSO_ENABLED=true
+ARAGORA_SSO_PROVIDER_TYPE=oidc
+ARAGORA_SSO_ENTITY_ID=https://aragora.example.com/auth/sso
+ARAGORA_SSO_CLIENT_ID=aragora-client
+ARAGORA_SSO_CLIENT_SECRET=xxxxxxxxxxxxx
+ARAGORA_SSO_ISSUER_URL=https://idp.example.com
+ARAGORA_SSO_CALLBACK_URL=https://aragora.example.com/auth/sso/callback
+ARAGORA_SSO_SCOPES=openid,email,profile
 
-# Discovery URL (recommended)
-OIDC_ISSUER=https://idp.example.com
-
-# OR manual configuration
-OIDC_AUTHORIZATION_URL=https://idp.example.com/authorize
-OIDC_TOKEN_URL=https://idp.example.com/token
-OIDC_USERINFO_URL=https://idp.example.com/userinfo
-OIDC_JWKS_URL=https://idp.example.com/.well-known/jwks.json
-
-# Credentials
-OIDC_CLIENT_ID=aragora-client
-OIDC_CLIENT_SECRET=xxxxxxxxxxxxx
-OIDC_CALLBACK_URL=https://aragora.example.com/api/auth/oidc/callback
-
-# Scopes
-OIDC_SCOPES=openid,email,profile
-
-# Attribute mapping
-OIDC_CLAIM_EMAIL=email
-OIDC_CLAIM_NAME=name
-OIDC_CLAIM_GROUPS=groups
+# Optional manual endpoints (override discovery)
+ARAGORA_SSO_AUTH_ENDPOINT=https://idp.example.com/authorize
+ARAGORA_SSO_TOKEN_ENDPOINT=https://idp.example.com/token
+ARAGORA_SSO_USERINFO_ENDPOINT=https://idp.example.com/userinfo
+ARAGORA_SSO_JWKS_URI=https://idp.example.com/.well-known/jwks.json
 ```
 
 ### Keycloak Configuration
 
 ```bash
 # Keycloak-specific settings
-OIDC_ISSUER=https://keycloak.example.com/realms/aragora
-OIDC_CLIENT_ID=aragora
-OIDC_CLIENT_SECRET=xxxxxxxxxxxxx
-
-# Enable PKCE (recommended)
-OIDC_USE_PKCE=true
+ARAGORA_SSO_ISSUER_URL=https://keycloak.example.com/realms/aragora
+ARAGORA_SSO_CLIENT_ID=aragora
+ARAGORA_SSO_CLIENT_SECRET=xxxxxxxxxxxxx
 ```
 
 ### Auth0 Configuration
 
 ```bash
 # Auth0-specific settings
-OIDC_ISSUER=https://your-tenant.auth0.com
-OIDC_CLIENT_ID=xxxxxxxxxxxxx
-OIDC_CLIENT_SECRET=xxxxxxxxxxxxx
+ARAGORA_SSO_ISSUER_URL=https://your-tenant.auth0.com
+ARAGORA_SSO_CLIENT_ID=xxxxxxxxxxxxx
+ARAGORA_SSO_CLIENT_SECRET=xxxxxxxxxxxxx
 
-# Auth0 audience (API identifier)
-OIDC_AUDIENCE=https://aragora.example.com/api
+# Audience / PKCE / claim mapping require code-level changes today.
 ```
 
 ---
@@ -466,7 +426,7 @@ OIDC_AUDIENCE=https://aragora.example.com/api
 
 ```bash
 # Check configured callback
-echo $GOOGLE_OAUTH_CALLBACK
+echo $GOOGLE_OAUTH_REDIRECT_URI
 # Must match exactly what's registered in Google Console
 ```
 
@@ -519,16 +479,13 @@ date -u
 2. Verify IdP and SP clocks are aligned
 3. Increase clock skew tolerance
 
-```bash
-# .env
-ARAGORA_JWT_CLOCK_SKEW=300  # 5 minutes tolerance
-```
+Aragora does not expose a clock-skew override; ensure NTP is configured on
+your hosts and review `ARAGORA_JWT_EXPIRY_HOURS` if tokens expire too quickly.
 
 ### Debug Mode
 
 ```bash
 # Enable OAuth debug logging
-export ARAGORA_OAUTH_DEBUG=true
 export ARAGORA_LOG_LEVEL=DEBUG
 
 # View OAuth flow details
@@ -539,7 +496,7 @@ tail -f logs/aragora.log | grep -i oauth
 
 ```bash
 # Test OAuth authorization URL generation
-curl -v "https://aragora.example.com/api/auth/google"
+curl -v "https://aragora.example.com/api/auth/oauth/google"
 
 # Should return 302 redirect to Google
 
@@ -583,14 +540,12 @@ print(decoded)
 ### Secret Rotation
 
 ```bash
-# Rotate secrets without downtime:
+# Rotate secrets:
 # 1. Generate new secret in IdP
-# 2. Update both secrets in config
-GOOGLE_CLIENT_SECRET_OLD=old_secret
-GOOGLE_CLIENT_SECRET=new_secret
+# 2. Update the configured secret
+GOOGLE_OAUTH_CLIENT_SECRET=new_secret
 
-# 3. Deploy with both secrets active
-# 4. After all sessions rotate, remove old secret
+# 3. Redeploy and revoke the old secret at the IdP
 ```
 
 ---

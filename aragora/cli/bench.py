@@ -90,7 +90,7 @@ async def benchmark_agent(
             start = time.time()
 
             # Run with timeout
-            response = await asyncio.wait_for(
+            await asyncio.wait_for(
                 agent.generate(task),
                 timeout=timeout,
             )

@@ -213,7 +213,7 @@ class AuthHandler(BaseHandler):
 
         # Create organization if name provided
         if org_name:
-            org = user_store.create_organization(
+            user_store.create_organization(
                 name=org_name,
                 owner_id=user.id,
             )

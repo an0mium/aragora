@@ -41,6 +41,7 @@ def get_sso_provider() -> Any:
         raise ImportError("SSO auth module not available")
     return _get_sso_provider()
 
+
 try:
     from aragora.server.auth import auth_config as auth_config
 except ImportError:  # pragma: no cover - optional dependency
@@ -49,6 +50,7 @@ except ImportError:  # pragma: no cover - optional dependency
 try:
     from aragora.auth.sso import SSOProviderType as _SSOProviderType
     from aragora.auth.sso import SSOUser as _SSOUser
+
     SSOUser: Any = _SSOUser
     SSOProviderType: Any = _SSOProviderType
 except ImportError:  # pragma: no cover - optional dependency
@@ -57,6 +59,7 @@ except ImportError:  # pragma: no cover - optional dependency
 
 try:
     from aragora.auth.saml import SAMLProvider as _SAMLProvider
+
     SAMLProvider: Any = _SAMLProvider
 except ImportError:  # pragma: no cover - optional dependency
     SAMLProvider = None
@@ -168,7 +171,9 @@ class SSOHandler(BaseHandler):
             ("GET", "/auth/sso/status", "handle_status"),
         ]
 
-    async def handle_login(self, handler: Any, params: Dict[str, Any]) -> Union[HandlerResult, Dict[str, Any]]:
+    async def handle_login(
+        self, handler: Any, params: Dict[str, Any]
+    ) -> Union[HandlerResult, Dict[str, Any]]:
         """
         Initiate SSO login flow.
 
@@ -250,7 +255,9 @@ class SSOHandler(BaseHandler):
                 handler, error_response(f"SSO login failed: {e}", 500, code="SSO_LOGIN_ERROR")
             )
 
-    async def handle_callback(self, handler: Any, params: Dict[str, Any]) -> Union[HandlerResult, Dict[str, Any]]:
+    async def handle_callback(
+        self, handler: Any, params: Dict[str, Any]
+    ) -> Union[HandlerResult, Dict[str, Any]]:
         """
         Handle IdP callback after authentication.
 
@@ -389,7 +396,9 @@ class SSOHandler(BaseHandler):
                 handler, error_response(f"Authentication failed: {e}", 401, code="SSO_AUTH_FAILED")
             )
 
-    async def handle_logout(self, handler: Any, params: Dict[str, Any]) -> Union[HandlerResult, Dict[str, Any]]:
+    async def handle_logout(
+        self, handler: Any, params: Dict[str, Any]
+    ) -> Union[HandlerResult, Dict[str, Any]]:
         """
         Handle SSO logout.
 
@@ -460,7 +469,9 @@ class SSOHandler(BaseHandler):
                 ),
             )
 
-    async def handle_metadata(self, handler: Any, params: Dict[str, Any]) -> Union[HandlerResult, Dict[str, Any]]:
+    async def handle_metadata(
+        self, handler: Any, params: Dict[str, Any]
+    ) -> Union[HandlerResult, Dict[str, Any]]:
         """
         Get SAML SP metadata.
 
@@ -513,7 +524,9 @@ class SSOHandler(BaseHandler):
 
         return self._format_response(handler, error_response("Metadata not available", 400))
 
-    async def handle_status(self, handler: Any, params: Dict[str, Any]) -> Union[HandlerResult, Dict[str, Any]]:
+    async def handle_status(
+        self, handler: Any, params: Dict[str, Any]
+    ) -> Union[HandlerResult, Dict[str, Any]]:
         """
         Get SSO configuration status.
 

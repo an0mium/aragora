@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 # Import gauntlet types for vulnerability recording
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.core import Agent, DebateResult

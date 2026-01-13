@@ -121,7 +121,11 @@ async def run_gauntlet_tool(
     elif profile == "code":
         attack_categories = [AttackCategory.LOGIC, AttackCategory.EDGE_CASE]
     else:  # quick/thorough/gdpr/hipaa
-        attack_categories = [AttackCategory.SECURITY, AttackCategory.LOGIC, AttackCategory.ARCHITECTURE]
+        attack_categories = [
+            AttackCategory.SECURITY,
+            AttackCategory.LOGIC,
+            AttackCategory.ARCHITECTURE,
+        ]
 
     config = GauntletConfig(
         name=f"{profile}_gauntlet",
@@ -669,7 +673,6 @@ async def fork_debate_tool(
     try:
         import uuid
 
-        from aragora.debate.counterfactual import CounterfactualOrchestrator, PivotClaim
         from aragora.server.storage import get_debates_db
 
         db = get_debates_db()
@@ -699,7 +702,7 @@ async def fork_debate_tool(
             "parent_debate_id": debate_id,
             "branch_point": branch_point,
             "task": modified_context or f"Fork of: {debate.get('task', 'Unknown task')}",
-            "messages": messages[:branch_point + 1],  # Inherit messages up to branch point
+            "messages": messages[: branch_point + 1],  # Inherit messages up to branch point
             "consensus_reached": False,
             "confidence": 0.0,
             "status": "forked",
@@ -830,15 +833,17 @@ async def get_agent_lineage_tool(
                 break
 
             visited.add(current.genome_id)
-            lineage.append({
-                "genome_id": current.genome_id,
-                "name": current.name,
-                "generation": current.generation,
-                "fitness_score": current.fitness_score,
-                "parent_genomes": current.parent_genomes,
-                "model_preference": current.model_preference,
-                "birth_debate_id": current.birth_debate_id,
-            })
+            lineage.append(
+                {
+                    "genome_id": current.genome_id,
+                    "name": current.name,
+                    "generation": current.generation,
+                    "fitness_score": current.fitness_score,
+                    "parent_genomes": current.parent_genomes,
+                    "model_preference": current.model_preference,
+                    "birth_debate_id": current.birth_debate_id,
+                }
+            )
 
             # Get first parent for next iteration
             if current.parent_genomes:
@@ -972,8 +977,6 @@ async def create_checkpoint_tool(
     try:
         from aragora.core import Critique, Message, Vote
         from aragora.debate.checkpoint import (
-            AgentState,
-            CheckpointConfig,
             CheckpointManager,
             CheckpointStore,
             DatabaseCheckpointStore,
@@ -1002,35 +1005,41 @@ async def create_checkpoint_tool(
         # Convert stored messages to Message objects
         messages = []
         for m in debate.get("messages", []):
-            messages.append(Message(
-                role=m.get("role", "assistant"),
-                agent=m.get("agent", "unknown"),
-                content=m.get("content", ""),
-                round=m.get("round", 0),
-            ))
+            messages.append(
+                Message(
+                    role=m.get("role", "assistant"),
+                    agent=m.get("agent", "unknown"),
+                    content=m.get("content", ""),
+                    round=m.get("round", 0),
+                )
+            )
 
         # Convert stored votes to Vote objects
         votes = []
         for v in debate.get("votes", []):
-            votes.append(Vote(
-                agent=v.get("agent", "unknown"),
-                choice=v.get("choice", ""),
-                confidence=v.get("confidence", 0.5),
-                reasoning=v.get("reasoning", ""),
-            ))
+            votes.append(
+                Vote(
+                    agent=v.get("agent", "unknown"),
+                    choice=v.get("choice", ""),
+                    confidence=v.get("confidence", 0.5),
+                    reasoning=v.get("reasoning", ""),
+                )
+            )
 
         # Convert stored critiques to Critique objects
         critiques = []
         for c in debate.get("critiques", []):
-            critiques.append(Critique(
-                agent=c.get("agent", "unknown"),
-                target_agent=c.get("target_agent", ""),
-                target_content=c.get("target_content", ""),
-                issues=c.get("issues", []),
-                suggestions=c.get("suggestions", []),
-                severity=c.get("severity", "low"),
-                reasoning=c.get("reasoning", ""),
-            ))
+            critiques.append(
+                Critique(
+                    agent=c.get("agent", "unknown"),
+                    target_agent=c.get("target_agent", ""),
+                    target_content=c.get("target_content", ""),
+                    issues=c.get("issues", []),
+                    suggestions=c.get("suggestions", []),
+                    severity=c.get("severity", "low"),
+                    reasoning=c.get("reasoning", ""),
+                )
+            )
 
         # Create simple agent states from debate metadata
         # Use a simple class to hold agent info for checkpoint creation
@@ -1047,11 +1056,13 @@ async def create_checkpoint_tool(
                 # Just agent name string
                 agents.append(_SimpleAgentHolder(a))
             elif isinstance(a, dict):
-                agents.append(_SimpleAgentHolder(
-                    name=a.get("name", "unknown"),
-                    model=a.get("model", "unknown"),
-                    role=a.get("role", "participant"),
-                ))
+                agents.append(
+                    _SimpleAgentHolder(
+                        name=a.get("name", "unknown"),
+                        model=a.get("model", "unknown"),
+                        role=a.get("role", "participant"),
+                    )
+                )
 
         # Create checkpoint
         checkpoint = await manager.create_checkpoint(

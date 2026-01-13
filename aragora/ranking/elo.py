@@ -66,6 +66,7 @@ __all__ = [
     "RedTeamIntegrator",
     "RedTeamResult",
     "VulnerabilitySummary",
+    "_escape_like_pattern",
 ]
 
 # Use centralized config values (can be overridden via environment variables)

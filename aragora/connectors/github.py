@@ -212,7 +212,7 @@ class GitHubConnector(BaseConnector):
         results = []
         for issue in issues:
             # Calculate authority based on labels
-            labels = [l.get("name", "") for l in issue.get("labels", [])]
+            labels = [label.get("name", "") for label in issue.get("labels", [])]
             authority = 0.6
             if "bug" in labels or "critical" in labels:
                 authority = 0.8

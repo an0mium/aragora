@@ -143,6 +143,8 @@ __all__ = [
     "safe_error_message",
     "safe_error_response",
     "async_ttl_cache",
+    "BoundedTTLCache",
+    "_cache",
     "clear_cache",
     "get_cache_stats",
     "CACHE_INVALIDATION_MAP",
@@ -154,6 +156,7 @@ __all__ = [
     "PathMatcher",
     "RouteDispatcher",
     "safe_fetch",
+    "with_error_recovery",
     "get_db_connection",
     "table_exists",
     "safe_get",
@@ -166,6 +169,8 @@ __all__ = [
     "SAFE_ID_PATTERN",
     "SAFE_SLUG_PATTERN",
     "SAFE_AGENT_PATTERN",
+    "validate_agent_name",
+    "validate_debate_id",
     "feature_unavailable_response",
     # Parameter extraction helpers
     "get_int_param",
@@ -175,6 +180,7 @@ __all__ = [
     "get_clamped_int_param",
     "get_bounded_float_param",
     "get_bounded_string_param",
+    "parse_query_params",
     # Handler mixins
     "PaginatedHandlerMixin",
     "CachedHandlerMixin",

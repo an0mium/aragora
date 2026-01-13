@@ -207,15 +207,13 @@ class DebateHooks:
         try:
             # Extract vote choices
             vote_choices = {
-                v.agent: v.choice
-                for v in votes
-                if hasattr(v, "agent") and hasattr(v, "choice")
+                v.agent: v.choice for v in votes if hasattr(v, "agent") and hasattr(v, "choice")
             }
 
             # Build batch of relationship updates
             updates = []
             for i, agent_a in enumerate(participants):
-                for agent_b in participants[i + 1:]:
+                for agent_b in participants[i + 1 :]:
                     agreed = (
                         agent_a in vote_choices
                         and agent_b in vote_choices
@@ -223,14 +221,16 @@ class DebateHooks:
                     )
                     a_win = 1 if winner == agent_a else 0
                     b_win = 1 if winner == agent_b else 0
-                    updates.append({
-                        "agent_a": agent_a,
-                        "agent_b": agent_b,
-                        "debate_increment": 1,
-                        "agreement_increment": 1 if agreed else 0,
-                        "a_win": a_win,
-                        "b_win": b_win,
-                    })
+                    updates.append(
+                        {
+                            "agent_a": agent_a,
+                            "agent_b": agent_b,
+                            "debate_increment": 1,
+                            "agreement_increment": 1 if agreed else 0,
+                            "a_win": a_win,
+                            "b_win": b_win,
+                        }
+                    )
 
             # Single transaction for all updates
             if updates:
@@ -262,9 +262,7 @@ class DebateHooks:
             if belief_cruxes:
                 belief_cruxes = [str(c) for c in belief_cruxes[:10]]
 
-            self.memory_manager.store_debate_outcome(
-                result, task, belief_cruxes=belief_cruxes
-            )
+            self.memory_manager.store_debate_outcome(result, task, belief_cruxes=belief_cruxes)
         except Exception as e:
             logger.warning(f"Memory storage error: {e}")
 
@@ -312,9 +310,7 @@ class DebateHooks:
             return
 
         try:
-            await self.evidence_grounder.verify_claims_formally(
-                result.grounded_verdict
-            )
+            await self.evidence_grounder.verify_claims_formally(result.grounded_verdict)
         except Exception as e:
             logger.debug(f"Formal verification error: {e}")
 

@@ -797,7 +797,6 @@ def classify_cli_error(
         Appropriate CLIAgentError subclass instance
     """
     stderr_lower = stderr.lower() if stderr else ""
-    stdout_lower = stdout.lower() if stdout else ""
 
     # Rate limit detection using centralized patterns
     if ErrorClassifier.is_rate_limit(stderr_lower):

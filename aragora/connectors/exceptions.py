@@ -429,8 +429,7 @@ def classify_exception(
 
     # Auth detection from error messages
     if any(
-        x in error_msg
-        for x in ["401", "403", "unauthorized", "forbidden", "invalid.*key", "auth"]
+        x in error_msg for x in ["401", "403", "unauthorized", "forbidden", "invalid.*key", "auth"]
     ):
         return ConnectorAuthError(
             str(error),

@@ -121,9 +121,15 @@ def temp_e2e_dir():
 def e2e_agents():
     """Create a set of E2E agents with different personalities."""
     return [
-        E2EAgent("analyst", position="systematic_approach", personality="analytical", stubbornness=0.3),
-        E2EAgent("innovator", position="creative_solution", personality="creative", stubbornness=0.4),
-        E2EAgent("pragmatist", position="practical_approach", personality="neutral", stubbornness=0.5),
+        E2EAgent(
+            "analyst", position="systematic_approach", personality="analytical", stubbornness=0.3
+        ),
+        E2EAgent(
+            "innovator", position="creative_solution", personality="creative", stubbornness=0.4
+        ),
+        E2EAgent(
+            "pragmatist", position="practical_approach", personality="neutral", stubbornness=0.5
+        ),
     ]
 
 
@@ -132,7 +138,7 @@ def e2e_environment():
     """Create an environment for E2E testing."""
     return Environment(
         task="Design a scalable microservices architecture for a real-time collaboration platform",
-        context="The platform needs to support 10,000 concurrent users with sub-100ms latency."
+        context="The platform needs to support 10,000 concurrent users with sub-100ms latency.",
     )
 
 

@@ -127,6 +127,7 @@ def clear_rate_limiters():
     # Clear global rate limiters
     try:
         from aragora.server.handlers.utils.rate_limit import _limiters
+
         for limiter in _limiters.values():
             limiter._buckets.clear()
     except (ImportError, AttributeError):
@@ -135,9 +136,10 @@ def clear_rate_limiters():
     # Clear evidence handler module-level rate limiters
     try:
         import aragora.server.handlers.evidence as evidence_module
-        if hasattr(evidence_module, '_evidence_read_limiter'):
+
+        if hasattr(evidence_module, "_evidence_read_limiter"):
             evidence_module._evidence_read_limiter._buckets.clear()
-        if hasattr(evidence_module, '_evidence_write_limiter'):
+        if hasattr(evidence_module, "_evidence_write_limiter"):
             evidence_module._evidence_write_limiter._buckets.clear()
     except (ImportError, AttributeError):
         pass
@@ -147,15 +149,17 @@ def clear_rate_limiters():
     # Cleanup
     try:
         from aragora.server.handlers.utils.rate_limit import _limiters
+
         for limiter in _limiters.values():
             limiter._buckets.clear()
     except (ImportError, AttributeError):
         pass
     try:
         import aragora.server.handlers.evidence as evidence_module
-        if hasattr(evidence_module, '_evidence_read_limiter'):
+
+        if hasattr(evidence_module, "_evidence_read_limiter"):
             evidence_module._evidence_read_limiter._buckets.clear()
-        if hasattr(evidence_module, '_evidence_write_limiter'):
+        if hasattr(evidence_module, "_evidence_write_limiter"):
             evidence_module._evidence_write_limiter._buckets.clear()
     except (ImportError, AttributeError):
         pass
@@ -217,35 +221,31 @@ class TestListEvidence:
         assert "evidence" in parse_body(result)
         assert "total" in parse_body(result)
 
-    def test_list_evidence_with_pagination(self, evidence_handler, mock_evidence_store, mock_handler):
+    def test_list_evidence_with_pagination(
+        self, evidence_handler, mock_evidence_store, mock_handler
+    ):
         """Test listing evidence with limit and offset."""
         result = evidence_handler.handle(
-            "/api/evidence",
-            {"limit": "10", "offset": "20"},
-            mock_handler
+            "/api/evidence", {"limit": "10", "offset": "20"}, mock_handler
         )
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_list_evidence_with_source_filter(self, evidence_handler, mock_evidence_store, mock_handler):
+    def test_list_evidence_with_source_filter(
+        self, evidence_handler, mock_evidence_store, mock_handler
+    ):
         """Test listing evidence filtered by source."""
-        result = evidence_handler.handle(
-            "/api/evidence",
-            {"source": "article"},
-            mock_handler
-        )
+        result = evidence_handler.handle("/api/evidence", {"source": "article"}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_list_evidence_with_min_reliability(self, evidence_handler, mock_evidence_store, mock_handler):
+    def test_list_evidence_with_min_reliability(
+        self, evidence_handler, mock_evidence_store, mock_handler
+    ):
         """Test listing evidence filtered by minimum reliability."""
-        result = evidence_handler.handle(
-            "/api/evidence",
-            {"min_reliability": "0.7"},
-            mock_handler
-        )
+        result = evidence_handler.handle("/api/evidence", {"min_reliability": "0.7"}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -325,12 +325,12 @@ class TestGetDebateEvidence:
         assert "evidence" in parse_body(result)
         assert "debate_id" in parse_body(result)
 
-    def test_get_debate_evidence_with_round(self, evidence_handler, mock_evidence_store, mock_handler):
+    def test_get_debate_evidence_with_round(
+        self, evidence_handler, mock_evidence_store, mock_handler
+    ):
         """Test getting evidence for a specific debate round."""
         result = evidence_handler.handle(
-            "/api/evidence/debate/debate-123",
-            {"round": "2"},
-            mock_handler
+            "/api/evidence/debate/debate-123", {"round": "2"}, mock_handler
         )
 
         assert result is not None
@@ -361,7 +361,11 @@ class TestSearchEvidence:
         mock_handler.rfile.read.return_value = b'{"query": "climate change"}'
         mock_handler.headers = {"Content-Length": "28", "Content-Type": "application/json"}
 
-        with patch.object(evidence_handler, 'read_json_body_validated', return_value=({"query": "climate change"}, None)):
+        with patch.object(
+            evidence_handler,
+            "read_json_body_validated",
+            return_value=({"query": "climate change"}, None),
+        ):
             result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
 
         assert result is not None
@@ -370,14 +374,18 @@ class TestSearchEvidence:
 
     def test_search_evidence_empty_query(self, evidence_handler, mock_handler):
         """Test searching with empty query returns error."""
-        with patch.object(evidence_handler, 'read_json_body_validated', return_value=({"query": ""}, None)):
+        with patch.object(
+            evidence_handler, "read_json_body_validated", return_value=({"query": ""}, None)
+        ):
             result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
         assert "required" in parse_body(result).get("error", "").lower()
 
-    def test_search_evidence_with_filters(self, evidence_handler, mock_evidence_store, mock_handler):
+    def test_search_evidence_with_filters(
+        self, evidence_handler, mock_evidence_store, mock_handler
+    ):
         """Test searching with source filter and min reliability."""
         body = {
             "query": "AI safety",
@@ -385,13 +393,15 @@ class TestSearchEvidence:
             "min_reliability": 0.8,
             "limit": 5,
         }
-        with patch.object(evidence_handler, 'read_json_body_validated', return_value=(body, None)):
+        with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
             result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_search_evidence_with_context(self, evidence_handler, mock_evidence_store, mock_handler):
+    def test_search_evidence_with_context(
+        self, evidence_handler, mock_evidence_store, mock_handler
+    ):
         """Test searching with quality context."""
         body = {
             "query": "machine learning",
@@ -401,7 +411,7 @@ class TestSearchEvidence:
                 "preferred_sources": ["arxiv", "acm"],
             },
         }
-        with patch.object(evidence_handler, 'read_json_body_validated', return_value=(body, None)):
+        with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
             result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
 
         assert result is not None
@@ -416,10 +426,12 @@ class TestSearchEvidence:
 class TestCollectEvidence:
     """Tests for POST /api/evidence/collect endpoint."""
 
-    def test_collect_evidence_success(self, evidence_handler, mock_evidence_collector, mock_handler):
+    def test_collect_evidence_success(
+        self, evidence_handler, mock_evidence_collector, mock_handler
+    ):
         """Test collecting evidence for a topic."""
         body = {"task": "Research quantum computing advances"}
-        with patch.object(evidence_handler, 'read_json_body_validated', return_value=(body, None)):
+        with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
             result = evidence_handler.handle_post("/api/evidence/collect", {}, mock_handler)
 
         assert result is not None
@@ -428,32 +440,38 @@ class TestCollectEvidence:
 
     def test_collect_evidence_missing_task(self, evidence_handler, mock_handler):
         """Test collecting without task returns error."""
-        with patch.object(evidence_handler, 'read_json_body_validated', return_value=({"task": ""}, None)):
+        with patch.object(
+            evidence_handler, "read_json_body_validated", return_value=({"task": ""}, None)
+        ):
             result = evidence_handler.handle_post("/api/evidence/collect", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
         assert "required" in parse_body(result).get("error", "").lower()
 
-    def test_collect_evidence_with_connectors(self, evidence_handler, mock_evidence_collector, mock_handler):
+    def test_collect_evidence_with_connectors(
+        self, evidence_handler, mock_evidence_collector, mock_handler
+    ):
         """Test collecting with specific connectors enabled."""
         body = {
             "task": "Find recent papers",
             "connectors": ["arxiv", "semantic_scholar"],
         }
-        with patch.object(evidence_handler, 'read_json_body_validated', return_value=(body, None)):
+        with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
             result = evidence_handler.handle_post("/api/evidence/collect", {}, mock_handler)
 
         assert result is not None
 
-    def test_collect_evidence_with_debate_association(self, evidence_handler, mock_evidence_collector, mock_handler):
+    def test_collect_evidence_with_debate_association(
+        self, evidence_handler, mock_evidence_collector, mock_handler
+    ):
         """Test collecting and associating with debate."""
         body = {
             "task": "Research topic",
             "debate_id": "debate-789",
             "round": 1,
         }
-        with patch.object(evidence_handler, 'read_json_body_validated', return_value=(body, None)):
+        with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
             result = evidence_handler.handle_post("/api/evidence/collect", {}, mock_handler)
 
         assert result is not None
@@ -470,8 +488,10 @@ class TestAssociateEvidence:
     def test_associate_evidence_success(self, evidence_handler, mock_evidence_store, mock_handler):
         """Test associating evidence with a debate."""
         body = {"evidence_ids": ["ev-123", "ev-456"]}
-        with patch.object(evidence_handler, 'read_json_body_validated', return_value=(body, None)):
-            result = evidence_handler.handle_post("/api/evidence/debate/debate-123", {}, mock_handler)
+        with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
+            result = evidence_handler.handle_post(
+                "/api/evidence/debate/debate-123", {}, mock_handler
+            )
 
         assert result is not None
         # Should return success or appropriate status
@@ -480,8 +500,10 @@ class TestAssociateEvidence:
     def test_associate_evidence_empty_list(self, evidence_handler, mock_handler):
         """Test associating empty evidence list."""
         body = {"evidence_ids": []}
-        with patch.object(evidence_handler, 'read_json_body_validated', return_value=(body, None)):
-            result = evidence_handler.handle_post("/api/evidence/debate/debate-123", {}, mock_handler)
+        with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
+            result = evidence_handler.handle_post(
+                "/api/evidence/debate/debate-123", {}, mock_handler
+            )
 
         # May succeed with empty list or return validation error
         assert result is not None

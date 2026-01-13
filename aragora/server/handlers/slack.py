@@ -103,7 +103,9 @@ class SlackHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle(
+        self, path: str, query_params: Dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
         """Route Slack requests to appropriate methods."""
         logger.debug(f"Slack request: {path}")
 
@@ -668,7 +670,9 @@ class SlackHandler(BaseHandler):
 
         return json_response({"text": "Vote recorded"})
 
-    def _handle_view_details(self, payload: Dict[str, Any], action: Dict[str, Any]) -> HandlerResult:
+    def _handle_view_details(
+        self, payload: Dict[str, Any], action: Dict[str, Any]
+    ) -> HandlerResult:
         """Handle view details button clicks."""
         debate_id = action.get("value", "")
 

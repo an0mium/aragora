@@ -51,7 +51,7 @@ def _validate_manifest_path(path: Path, operation: str = "access") -> tuple[bool
 
     # Resolve the path to check for symlink attacks
     try:
-        resolved = path.resolve()
+        path.resolve()
     except (OSError, RuntimeError) as e:
         return False, f"Cannot resolve path {path}: {e}"
 

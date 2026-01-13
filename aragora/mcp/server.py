@@ -75,7 +75,9 @@ class AragoraMCPServer:
                 properties = {}
                 required = []
 
-                for param_name, param_info in cast(Dict[str, Any], meta.get("parameters", {})).items():
+                for param_name, param_info in cast(
+                    Dict[str, Any], meta.get("parameters", {})
+                ).items():
                     prop: Dict[str, Any] = {"type": param_info.get("type", "string")}
                     if "default" in param_info:
                         prop["default"] = param_info["default"]
@@ -119,7 +121,9 @@ class AragoraMCPServer:
                 tool_func: Optional[Callable[..., Coroutine[Any, Any, Dict[str, Any]]]] = None
                 for meta in TOOLS_METADATA:
                     if meta["name"] == name:
-                        tool_func = cast(Callable[..., Coroutine[Any, Any, Dict[str, Any]]], meta["function"])
+                        tool_func = cast(
+                            Callable[..., Coroutine[Any, Any, Dict[str, Any]]], meta["function"]
+                        )
                         break
 
                 if tool_func is None:
@@ -314,7 +318,6 @@ class AragoraMCPServer:
         )
 
         content = args.get("content", "")
-        content_type = args.get("content_type", "spec")
         profile = args.get("profile", "quick")
 
         if not content:
@@ -462,7 +465,9 @@ class AragoraMCPServer:
                         "task": debate_meta.task[:100] if debate_meta.task else "",
                         "consensus_reached": debate_meta.consensus_reached,
                         "confidence": debate_meta.confidence,
-                        "timestamp": debate_meta.created_at.isoformat() if debate_meta.created_at else "",
+                        "timestamp": (
+                            debate_meta.created_at.isoformat() if debate_meta.created_at else ""
+                        ),
                     }
                     if debate_dict["debate_id"] not in [r["debate_id"] for r in results]:
                         results.append(debate_dict)
@@ -682,8 +687,8 @@ class AragoraMCPServer:
 async def run_server() -> None:
     """Run the Aragora MCP server."""
     if not MCP_AVAILABLE:
-        print("Error: MCP package not installed.", file=sys.stderr)
-        print("Install with: pip install mcp", file=sys.stderr)
+        logger.error("Error: MCP package not installed.")
+        logger.error("Install with: pip install mcp")
         sys.exit(1)
 
     server = AragoraMCPServer()

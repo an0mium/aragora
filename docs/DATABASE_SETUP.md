@@ -23,7 +23,7 @@ export DATABASE_URL="postgresql://user:pass@host:5432/aragora?sslmode=require"
 python scripts/migrate_sqlite_to_postgres.py
 
 # Start server (auto-detects PostgreSQL from DATABASE_URL)
-python -m aragora.server.unified_server
+aragora serve
 ```
 
 ## Managed PostgreSQL Options

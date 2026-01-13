@@ -248,7 +248,7 @@ class CLIAgent(CritiqueMixin, Agent):
                     error_msg = f"CLI command failed with return code {proc.returncode}"
                     if stderr_text:
                         # For verbose CLIs (like Codex), extract last meaningful line
-                        lines = [l.strip() for l in stderr_text.split("\n") if l.strip()]
+                        lines = [line.strip() for line in stderr_text.split("\n") if line.strip()]
                         if lines:
                             last_line = lines[-1][:200]
                             error_msg += f": {last_line}"
@@ -517,7 +517,7 @@ class GeminiCLIAgent(CLIAgent):
     def _extract_gemini_response(self, result: str) -> str:
         """Filter out YOLO mode message from gemini output."""
         lines = result.split("\n")
-        filtered = [l for l in lines if not l.startswith("YOLO mode is enabled")]
+        filtered = [line for line in lines if not line.startswith("YOLO mode is enabled")]
         return "\n".join(filtered).strip()
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:

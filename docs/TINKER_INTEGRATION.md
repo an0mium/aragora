@@ -330,23 +330,23 @@ registry.archive("very-old-model")
 
 ```bash
 # Data export
-aragora training export-sft --help
-aragora training export-dpo --help
-aragora training export-gauntlet --help
-aragora training export-all --help
+python -m aragora.cli.training export-sft --help
+python -m aragora.cli.training export-dpo --help
+python -m aragora.cli.training export-gauntlet --help
+python -m aragora.cli.training export-all --help
 
 # Training
-aragora training train-sft --help
-aragora training train-dpo --help
-aragora training train-combined --help
+python -m aragora.cli.training train-sft --help
+python -m aragora.cli.training train-dpo --help
+python -m aragora.cli.training train-combined --help
 
 # Model management
-aragora training list-models
-aragora training sample --model-id <id> "Your prompt"
-aragora training stats
+python -m aragora.cli.training list-models
+python -m aragora.cli.training sample --model-id <id> "Your prompt"
+python -m aragora.cli.training stats
 
 # API testing
-aragora training test-connection
+python -m aragora.cli.training test-connection
 ```
 
 ## Environment Variables

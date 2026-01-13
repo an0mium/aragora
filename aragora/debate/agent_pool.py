@@ -89,9 +89,7 @@ class AgentPool:
         self._config = config or AgentPoolConfig()
 
         # Agent name to agent mapping
-        self._agent_map: Dict[str, Any] = {
-            getattr(a, "name", str(a)): a for a in self._agents
-        }
+        self._agent_map: Dict[str, Any] = {getattr(a, "name", str(a)): a for a in self._agents}
 
         # Metrics cache
         self._metrics: Dict[str, AgentMetrics] = {}
@@ -118,10 +116,7 @@ class AgentPool:
         if self._config.circuit_breaker is None:
             return self._agents.copy()
 
-        return [
-            a for a in self._agents
-            if not self._is_circuit_broken(getattr(a, "name", str(a)))
-        ]
+        return [a for a in self._agents if not self._is_circuit_broken(getattr(a, "name", str(a)))]
 
     def get_agent(self, name: str) -> Optional[Any]:
         """Get an agent by name."""
@@ -190,10 +185,7 @@ class AgentPool:
             List of selected agents
         """
         exclude = exclude or set()
-        available = [
-            a for a in self.available_agents
-            if getattr(a, "name", str(a)) not in exclude
-        ]
+        available = [a for a in self.available_agents if getattr(a, "name", str(a)) not in exclude]
 
         if not available:
             logger.warning("No available agents for team selection")
@@ -271,9 +263,7 @@ class AgentPool:
         # Domain expertise bonus (if available)
         if domain and self._config.elo_system is not None:
             try:
-                domain_rating = self._config.elo_system.get_domain_rating(
-                    agent_name, domain
-                )
+                domain_rating = self._config.elo_system.get_domain_rating(agent_name, domain)
                 if domain_rating:
                     composite = (composite + domain_rating) / 2
             except (KeyError, AttributeError, TypeError, ValueError) as e:
@@ -334,10 +324,7 @@ class AgentPool:
         count = count or self._config.critic_count
 
         # Exclude proposer from critics
-        critics_pool = [
-            a for a in candidates
-            if getattr(a, "name", str(a)) != proposer_name
-        ]
+        critics_pool = [a for a in candidates if getattr(a, "name", str(a)) != proposer_name]
 
         if not critics_pool:
             return []
@@ -390,9 +377,7 @@ class AgentPool:
         # If not enough neighbors, fall back to mesh
         if len(neighbors) < count:
             remaining = [a for a in pool if a not in neighbors]
-            neighbors.extend(
-                random.sample(remaining, min(count - len(neighbors), len(remaining)))
-            )
+            neighbors.extend(random.sample(remaining, min(count - len(neighbors), len(remaining))))
 
         return neighbors[:count]
 

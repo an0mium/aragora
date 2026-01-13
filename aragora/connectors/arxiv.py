@@ -266,7 +266,9 @@ class ArXivConnector(BaseConnector):
             logger.error(f"ArXiv XML parsing error for {evidence_id}: {e}")
             return None
         except Exception as e:
-            logger.error(f"ArXiv fetch failed unexpectedly for {evidence_id} ({type(e).__name__}): {e}")
+            logger.error(
+                f"ArXiv fetch failed unexpectedly for {evidence_id} ({type(e).__name__}): {e}"
+            )
             return None
 
     def _parse_arxiv_response(self, xml_text: str) -> list[Evidence]:

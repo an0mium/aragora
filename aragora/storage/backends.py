@@ -27,7 +27,7 @@ import threading
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 from typing import Any, ContextManager, Optional, Union
 
 logger = logging.getLogger(__name__)
@@ -212,12 +212,12 @@ class SQLiteBackend(DatabaseBackend):
         try:
             # Try to put back in pool
             self._pool.put_nowait(conn)
-        except Exception:
+        except Full:
             # Pool is full (overflow connection), close it
             try:
                 conn.close()
-            except Exception:
-                pass
+            except sqlite3.Error:
+                pass  # Best-effort close
 
     @contextmanager  # type: ignore[override]
     def connection(self):  # type: ignore[override]
@@ -265,8 +265,8 @@ class SQLiteBackend(DatabaseBackend):
                     closed += 1
                 except Empty:
                     break
-                except Exception:
-                    pass
+                except sqlite3.Error:
+                    pass  # Best-effort close during shutdown
 
             self._initialized = False
             if closed > 0:

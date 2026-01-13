@@ -367,9 +367,7 @@ class TestScoreComputationUtilities:
             RelationshipScores,
         )
 
-        scores = compute_relationship_scores(
-            debate_count=10, agreement_count=2, a_wins=5, b_wins=5
-        )
+        scores = compute_relationship_scores(debate_count=10, agreement_count=2, a_wins=5, b_wins=5)
 
         assert isinstance(scores, RelationshipScores)
         assert 0 <= scores.rivalry_score <= 1
@@ -418,9 +416,7 @@ class TestGraphEndpointEdgeCases:
         mock_tracker_class.return_value = mock_tracker
 
         # With high min_score, edge should be filtered
-        result = handler.handle(
-            "/api/relationships/graph", {"min_score": "0.9"}, Mock()
-        )
+        result = handler.handle("/api/relationships/graph", {"min_score": "0.9"}, Mock())
         assert result.status_code == 200
         data = json.loads(result.body)
         # The edge might be filtered due to high threshold
@@ -481,9 +477,7 @@ class TestRateLimiting:
     def test_rate_limit_returns_429(self, handler):
         """Should return 429 when rate limit exceeded."""
         # Mock the rate limiter to always return False (limit exceeded)
-        with patch(
-            "aragora.server.handlers.relationship._relationship_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.relationship._relationship_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
 
             mock_handler = Mock()

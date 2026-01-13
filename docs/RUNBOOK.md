@@ -1597,6 +1597,9 @@ cat .nomic/sessions/*/transcript.md | tail -50
 
 # Check constitution signature
 python scripts/sign_constitution.py verify
+
+# Check nomic metrics endpoint
+curl http://localhost:8080/api/nomic/metrics | jq
 ```
 
 **Recovery:**
@@ -1615,6 +1618,94 @@ git checkout main
 
 # Restore from backup if needed
 python scripts/nomic_loop.py rollback --backup .nomic/backups/cycle_5/
+```
+
+### Nomic Admin Endpoints (New)
+
+Admin endpoints for nomic loop management require `admin` or `owner` role.
+
+**Check Nomic Status:**
+```bash
+# Get detailed nomic status including state machine, metrics, circuit breakers
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+  http://localhost:8080/api/admin/nomic/status | jq
+```
+
+**Pause Nomic Loop:**
+```bash
+# Pause for manual intervention
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  http://localhost:8080/api/admin/nomic/pause \
+  -d '{"reason": "Manual investigation"}'
+```
+
+**Resume Nomic Loop:**
+```bash
+# Resume from paused state
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  http://localhost:8080/api/admin/nomic/resume
+```
+
+**Reset Nomic Phase:**
+```bash
+# Reset to specific phase (context, debate, design, implement, verify, commit, idle)
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  http://localhost:8080/api/admin/nomic/reset \
+  -d '{"target_phase": "context", "clear_errors": true, "reason": "Manual recovery"}'
+```
+
+**Circuit Breaker Management:**
+```bash
+# View circuit breaker status
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+  http://localhost:8080/api/admin/nomic/circuit-breakers
+
+# Reset all circuit breakers
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+  http://localhost:8080/api/admin/nomic/circuit-breakers/reset
+```
+
+### Nomic Prometheus Metrics
+
+The nomic loop exposes metrics at `/metrics`:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `aragora_nomic_phase_transitions_total` | Counter | Phase transition counts |
+| `aragora_nomic_current_phase` | Gauge | Current phase (encoded: 0=idle, 1=context, etc) |
+| `aragora_nomic_phase_duration_seconds` | Histogram | Duration per phase |
+| `aragora_nomic_cycles_total` | Counter | Cycle outcomes (success/failure/aborted) |
+| `aragora_nomic_cycles_in_progress` | Gauge | Currently running cycles |
+| `aragora_nomic_phase_last_transition_timestamp` | Gauge | Last transition time (for staleness) |
+| `aragora_nomic_circuit_breakers_open` | Gauge | Open circuit breakers |
+| `aragora_nomic_errors_total` | Counter | Errors by phase and type |
+| `aragora_nomic_recovery_decisions_total` | Counter | Recovery strategy usage |
+| `aragora_nomic_retries_total` | Counter | Retry attempts by phase |
+
+**Grafana Alert Examples:**
+
+```yaml
+# Alert for stuck nomic loop (no transition in 30 minutes)
+- alert: NomicLoopStuck
+  expr: (time() - aragora_nomic_phase_last_transition_timestamp) > 1800
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Nomic loop appears stuck"
+    description: "No phase transition in {{ $value | humanizeDuration }}"
+
+# Alert for high failure rate
+- alert: NomicHighFailureRate
+  expr: rate(aragora_nomic_cycles_total{outcome="failure"}[1h]) > 0.5
+  for: 10m
+  labels:
+    severity: warning
+  annotations:
+    summary: "High nomic cycle failure rate"
 ```
 
 ---

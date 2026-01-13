@@ -218,9 +218,6 @@ class DebateArtifact:
         """Verify artifact integrity."""
         errors = []
 
-        # Recompute and check hash
-        stored_hash = self.content_hash
-
         # Check provenance chain if present
         if self.provenance_data:
             from aragora.reasoning.provenance import ProvenanceChain

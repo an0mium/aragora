@@ -17,7 +17,7 @@ See settings.py for the full validated configuration schema.
 
 # Re-export Pydantic settings for convenient access
 # Re-export legacy constants for backward compatibility
-from .legacy import (
+from .legacy import (  # noqa: F401
     AGENT_TIMEOUT_SECONDS,
     BELIEF_CONVERGENCE_THRESHOLD,
     # Belief Network

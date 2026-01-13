@@ -49,24 +49,19 @@ logger = logging.getLogger(__name__)
 # Configuration
 # =============================================================================
 
+
 @dataclass
 class RequestTimeoutConfig:
     """Configuration for request timeouts."""
 
     # Default timeout in seconds
-    default_timeout: float = float(
-        os.environ.get("ARAGORA_REQUEST_TIMEOUT", "30")
-    )
+    default_timeout: float = float(os.environ.get("ARAGORA_REQUEST_TIMEOUT", "30"))
 
     # Timeout for known slow endpoints (debates, batch operations)
-    slow_timeout: float = float(
-        os.environ.get("ARAGORA_SLOW_REQUEST_TIMEOUT", "120")
-    )
+    slow_timeout: float = float(os.environ.get("ARAGORA_SLOW_REQUEST_TIMEOUT", "120"))
 
     # Maximum allowed timeout (hard cap)
-    max_timeout: float = float(
-        os.environ.get("ARAGORA_MAX_REQUEST_TIMEOUT", "600")
-    )
+    max_timeout: float = float(os.environ.get("ARAGORA_MAX_REQUEST_TIMEOUT", "600"))
 
     # Per-endpoint timeout overrides
     endpoint_timeouts: Dict[str, float] = field(default_factory=dict)
@@ -151,6 +146,7 @@ def configure_timeout(
 # =============================================================================
 # Timeout Error
 # =============================================================================
+
 
 class RequestTimeoutError(Exception):
     """Exception raised when a request times out."""
@@ -242,9 +238,7 @@ def with_timeout(
 
             except FuturesTimeoutError:
                 path = args[1] if len(args) >= 2 else "unknown"
-                logger.warning(
-                    f"Request timeout after {effective_timeout}s: {path}"
-                )
+                logger.warning(f"Request timeout after {effective_timeout}s: {path}")
 
                 # Cancel the running task if possible
                 future.cancel()
@@ -254,12 +248,16 @@ def with_timeout(
                     return error_response(effective_timeout, path)
 
                 # Default 504 response
-                return {
-                    "error": "Request timed out",
-                    "code": "request_timeout",
-                    "timeout_seconds": effective_timeout,
-                    "path": path,
-                }, 504, {"X-Timeout": str(effective_timeout)}
+                return (
+                    {
+                        "error": "Request timed out",
+                        "code": "request_timeout",
+                        "timeout_seconds": effective_timeout,
+                        "path": path,
+                    },
+                    504,
+                    {"X-Timeout": str(effective_timeout)},
+                )
 
         return wrapper  # type: ignore
 
@@ -316,21 +314,23 @@ def async_with_timeout(
 
             except asyncio.TimeoutError:
                 path = args[1] if len(args) >= 2 else "unknown"
-                logger.warning(
-                    f"Async request timeout after {effective_timeout}s: {path}"
-                )
+                logger.warning(f"Async request timeout after {effective_timeout}s: {path}")
 
                 # Return custom error response or default 504
                 if error_response:
                     return error_response(effective_timeout, path)
 
                 # Default 504 response
-                return {
-                    "error": "Request timed out",
-                    "code": "request_timeout",
-                    "timeout_seconds": effective_timeout,
-                    "path": path,
-                }, 504, {"X-Timeout": str(effective_timeout)}
+                return (
+                    {
+                        "error": "Request timed out",
+                        "code": "request_timeout",
+                        "timeout_seconds": effective_timeout,
+                        "path": path,
+                    },
+                    504,
+                    {"X-Timeout": str(effective_timeout)},
+                )
 
         return wrapper  # type: ignore
 
@@ -361,6 +361,7 @@ def timeout_context(
     import platform
 
     if platform.system() != "Windows":
+
         def timeout_handler(signum, frame):
             raise RequestTimeoutError(
                 "Request timed out",

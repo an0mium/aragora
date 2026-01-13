@@ -77,7 +77,7 @@ class TestDebateExecution:
 
         assert result is not None
         # Should have messages from agents
-        if hasattr(result, 'messages') and result.messages:
+        if hasattr(result, "messages") and result.messages:
             assert len(result.messages) > 0
 
     @pytest.mark.asyncio
@@ -89,7 +89,7 @@ class TestDebateExecution:
         result = await arena.run()
 
         assert result is not None
-        assert hasattr(result, 'rounds_completed')
+        assert hasattr(result, "rounds_completed")
         assert result.rounds_completed >= 1
 
     @pytest.mark.asyncio
@@ -163,9 +163,9 @@ class TestConsensusAndOutcome:
 
         assert result is not None
         # Check required fields
-        assert hasattr(result, 'consensus_reached')
-        assert hasattr(result, 'rounds_completed')
-        assert hasattr(result, 'final_answer')
+        assert hasattr(result, "consensus_reached")
+        assert hasattr(result, "rounds_completed")
+        assert hasattr(result, "final_answer")
 
 
 class TestDebateWithMemory:
@@ -217,10 +217,7 @@ class TestDebateWithELO:
         for agent in e2e_agents:
             elo_system.initialize_agent(agent.name)
 
-        initial_ratings = {
-            agent.name: elo_system.get_rating(agent.name)
-            for agent in e2e_agents
-        }
+        initial_ratings = {agent.name: elo_system.get_rating(agent.name) for agent in e2e_agents}
 
         arena = Arena(e2e_environment, e2e_agents, e2e_protocol)
         result = await arena.run()
@@ -271,9 +268,7 @@ class TestMultiDebateScenarios:
     """Tests for running multiple debates."""
 
     @pytest.mark.asyncio
-    async def test_sequential_debates(
-        self, e2e_agents, e2e_protocol, mock_external_apis
-    ):
+    async def test_sequential_debates(self, e2e_agents, e2e_protocol, mock_external_apis):
         """Multiple debates should run sequentially without interference."""
         results = []
 
@@ -314,9 +309,7 @@ class TestDebateEdgeCases:
     """Tests for edge cases and error handling."""
 
     @pytest.mark.asyncio
-    async def test_debate_with_minimum_agents(
-        self, e2e_protocol, mock_external_apis
-    ):
+    async def test_debate_with_minimum_agents(self, e2e_protocol, mock_external_apis):
         """Debate should work with minimum 2 agents."""
         agents = [
             E2EAgent("agent_1", position="option_a"),

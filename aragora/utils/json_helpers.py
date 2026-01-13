@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-def safe_json_loads(data: str | None, default: T | None = None, context: str | None = None) -> T | Any:
+def safe_json_loads(
+    data: str | None, default: T | None = None, context: str | None = None
+) -> T | Any:
     """Safely parse JSON string with fallback to default.
 
     Args:

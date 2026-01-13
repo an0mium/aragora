@@ -490,8 +490,8 @@ pip install -e .
 | `DEEPSEEK_API_KEY` | DeepSeek API key | - |
 | `OPENROUTER_API_KEY` | OpenRouter key (Qwen/DeepSeek/Yi) | - |
 | `KIMI_API_KEY` | Kimi (Moonshot) API key | - |
-| `ARAGORA_DEBATE_TIMEOUT` | Debate timeout (seconds) | 600 |
-| `ARAGORA_API_PORT` | Server port | 8080 |
+| `ARAGORA_DEBATE_TIMEOUT` | Debate timeout (seconds) | 900 |
+| `ARAGORA_API_URL` | API base URL for CLI/SDK | http://localhost:8080 |
 
 ### Health Endpoints
 

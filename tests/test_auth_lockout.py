@@ -377,9 +377,7 @@ class TestAuthHandlerLockout:
         yield
         reset_lockout_tracker()
 
-    def test_login_blocked_when_locked(
-        self, mock_user_store, mock_user, mock_handler
-    ):
+    def test_login_blocked_when_locked(self, mock_user_store, mock_user, mock_handler):
         """Test that login is blocked when account is locked."""
         from aragora.server.handlers.auth import AuthHandler
         from aragora.auth.lockout import get_lockout_tracker
@@ -406,9 +404,7 @@ class TestAuthHandlerLockout:
         assert result.status_code == 429
         assert b"Too many failed attempts" in result.body
 
-    def test_failed_login_records_failure(
-        self, mock_user_store, mock_user, mock_handler
-    ):
+    def test_failed_login_records_failure(self, mock_user_store, mock_user, mock_handler):
         """Test that failed login records failure in tracker."""
         from aragora.server.handlers.auth import AuthHandler
         from aragora.auth.lockout import get_lockout_tracker
@@ -436,9 +432,7 @@ class TestAuthHandlerLockout:
         info = tracker.get_info(email=mock_user.email)
         assert info["email"]["failed_attempts"] == 1
 
-    def test_successful_login_resets_lockout(
-        self, mock_user_store, mock_user, mock_handler
-    ):
+    def test_successful_login_resets_lockout(self, mock_user_store, mock_user, mock_handler):
         """Test that successful login resets lockout state."""
         from aragora.server.handlers.auth import AuthHandler
         from aragora.auth.lockout import get_lockout_tracker
@@ -522,9 +516,7 @@ class TestAdminUnlockEndpoint:
         handler = AdminHandler(ctx)
 
         # Mock authentication - patch at the module where it's imported
-        with patch(
-            "aragora.server.handlers.admin.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
             mock_auth_ctx = Mock()
             mock_auth_ctx.is_authenticated = True
             mock_auth_ctx.user_id = "admin-001"
@@ -538,9 +530,7 @@ class TestAdminUnlockEndpoint:
         # Lockout should be cleared
         assert not tracker.is_locked(email=mock_user.email)
 
-    def test_admin_unlock_requires_admin_role(
-        self, mock_user_store, mock_user, mock_handler
-    ):
+    def test_admin_unlock_requires_admin_role(self, mock_user_store, mock_user, mock_handler):
         """Test that non-admin users cannot unlock accounts."""
         from aragora.server.handlers.admin import AdminHandler
 
@@ -552,9 +542,7 @@ class TestAdminUnlockEndpoint:
         handler = AdminHandler(ctx)
 
         # Patch at the module where it's imported
-        with patch(
-            "aragora.server.handlers.admin.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
             mock_auth_ctx = Mock()
             mock_auth_ctx.is_authenticated = True
             mock_auth_ctx.user_id = mock_user.id
@@ -564,9 +552,7 @@ class TestAdminUnlockEndpoint:
 
         assert result.status_code == 403
 
-    def test_admin_unlock_user_not_found(
-        self, mock_user_store, mock_admin_user, mock_handler
-    ):
+    def test_admin_unlock_user_not_found(self, mock_user_store, mock_admin_user, mock_handler):
         """Test that unlock returns 404 for non-existent user."""
         from aragora.server.handlers.admin import AdminHandler
 
@@ -578,9 +564,7 @@ class TestAdminUnlockEndpoint:
         handler = AdminHandler(ctx)
 
         # Patch at the module where it's imported
-        with patch(
-            "aragora.server.handlers.admin.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
             mock_auth_ctx = Mock()
             mock_auth_ctx.is_authenticated = True
             mock_auth_ctx.user_id = "admin-001"

@@ -81,7 +81,7 @@ aragora/live/
 
 - Node.js 18+
 - npm or pnpm
-- Running Aragora backend (`python -m aragora.server.unified_server`)
+- Running Aragora backend (`aragora serve`)
 
 ### Setup
 

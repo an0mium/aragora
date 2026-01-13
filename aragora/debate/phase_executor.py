@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
+from aragora.observability.tracing import trace_debate_phase
+
 logger = logging.getLogger(__name__)
 
 
@@ -109,11 +111,11 @@ class PhaseConfig:
 # Phase ordering for standard debate flow
 STANDARD_PHASE_ORDER = [
     "context_initializer",  # Phase 0: Gather context
-    "proposal",            # Phase 1: Initial proposals
-    "debate_rounds",       # Phase 2: Critique/revise cycles
-    "consensus",           # Phase 3: Voting and agreement
-    "analytics",           # Phases 4-6: Analytics and learning
-    "feedback",            # Phase 7: Memory storage
+    "proposal",  # Phase 1: Initial proposals
+    "debate_rounds",  # Phase 2: Critique/revise cycles
+    "consensus",  # Phase 3: Voting and agreement
+    "analytics",  # Phases 4-6: Analytics and learning
+    "feedback",  # Phase 7: Memory storage
 ]
 
 # Optional phases that can be skipped
@@ -237,9 +239,7 @@ class PhaseExecutor:
                 break
 
             # Execute phase
-            result = await self._execute_single_phase(
-                phase_name, context, debate_id
-            )
+            result = await self._execute_single_phase(phase_name, context, debate_id)
             self._results.append(result)
 
             # Track final output from consensus phase
@@ -263,7 +263,7 @@ class PhaseExecutor:
         context: Any,
         debate_id: str,
     ) -> PhaseResult:
-        """Execute a single phase with error handling."""
+        """Execute a single phase with error handling and OpenTelemetry tracing."""
         self._current_phase = phase_name
         phase = self._phases.get(phase_name)
 
@@ -277,34 +277,120 @@ class PhaseExecutor:
         started_at = datetime.now(timezone.utc)
         start_time = time.time()
 
-        # Trace start
-        if self._config.enable_tracing and self._config.trace_callback:
-            self._config.trace_callback("phase_start", {
-                "phase": phase_name,
-                "debate_id": debate_id,
-            })
-
         logger.debug(f"Starting phase: {phase_name}")
 
+        # Use OpenTelemetry tracing when enabled
+        if self._config.enable_tracing:
+            return await self._execute_with_tracing(
+                phase, phase_name, context, debate_id, started_at, start_time
+            )
+        else:
+            return await self._execute_without_tracing(
+                phase, phase_name, context, started_at, start_time
+            )
+
+    async def _execute_with_tracing(
+        self,
+        phase: Phase,
+        phase_name: str,
+        context: Any,
+        debate_id: str,
+        started_at: datetime,
+        start_time: float,
+    ) -> PhaseResult:
+        """Execute phase with OpenTelemetry tracing."""
+        with trace_debate_phase(phase_name, debate_id) as span:
+            try:
+                output = await asyncio.wait_for(
+                    phase.execute(context),
+                    timeout=self._config.phase_timeout_seconds,
+                )
+
+                duration_ms = (time.time() - start_time) * 1000
+                logger.debug(f"Completed phase '{phase_name}' in {duration_ms:.1f}ms")
+
+                # Add phase-specific attributes to span
+                self._add_phase_span_attributes(span, phase_name, context)
+
+                # Report metrics
+                if self._config.metrics_callback:
+                    self._config.metrics_callback(f"phase_{phase_name}_duration_ms", duration_ms)
+
+                return PhaseResult(
+                    phase_name=phase_name,
+                    status=PhaseStatus.COMPLETED,
+                    started_at=started_at,
+                    completed_at=datetime.now(timezone.utc),
+                    duration_ms=duration_ms,
+                    output=output,
+                )
+
+            except asyncio.TimeoutError:
+                duration_ms = (time.time() - start_time) * 1000
+                span.set_attribute("phase.timeout", True)
+
+                if phase_name in OPTIONAL_PHASES and self._config.skip_optional_on_timeout:
+                    logger.warning(f"Optional phase '{phase_name}' timed out, skipping")
+                    return PhaseResult(
+                        phase_name=phase_name,
+                        status=PhaseStatus.SKIPPED,
+                        started_at=started_at,
+                        completed_at=datetime.now(timezone.utc),
+                        duration_ms=duration_ms,
+                        error=f"Timed out after {self._config.phase_timeout_seconds}s",
+                    )
+                else:
+                    logger.error(f"Phase '{phase_name}' timed out")
+                    return PhaseResult(
+                        phase_name=phase_name,
+                        status=PhaseStatus.FAILED,
+                        started_at=started_at,
+                        completed_at=datetime.now(timezone.utc),
+                        duration_ms=duration_ms,
+                        error=f"Timed out after {self._config.phase_timeout_seconds}s",
+                    )
+
+            except Exception as e:
+                duration_ms = (time.time() - start_time) * 1000
+                logger.exception(f"Phase '{phase_name}' failed: {e}")
+                span.record_exception(e)
+
+                return PhaseResult(
+                    phase_name=phase_name,
+                    status=PhaseStatus.FAILED,
+                    started_at=started_at,
+                    completed_at=datetime.now(timezone.utc),
+                    duration_ms=duration_ms,
+                    error=str(e),
+                )
+
+            finally:
+                self._current_phase = None
+
+    async def _execute_without_tracing(
+        self,
+        phase: Phase,
+        phase_name: str,
+        context: Any,
+        started_at: datetime,
+        start_time: float,
+    ) -> PhaseResult:
+        """Execute phase without tracing (for testing or when tracing disabled)."""
         try:
-            # Execute with per-phase timeout
             output = await asyncio.wait_for(
                 phase.execute(context),
                 timeout=self._config.phase_timeout_seconds,
             )
 
             duration_ms = (time.time() - start_time) * 1000
-            status = PhaseStatus.COMPLETED
-
             logger.debug(f"Completed phase '{phase_name}' in {duration_ms:.1f}ms")
 
-            # Report metrics
             if self._config.metrics_callback:
                 self._config.metrics_callback(f"phase_{phase_name}_duration_ms", duration_ms)
 
             return PhaseResult(
                 phase_name=phase_name,
-                status=status,
+                status=PhaseStatus.COMPLETED,
                 started_at=started_at,
                 completed_at=datetime.now(timezone.utc),
                 duration_ms=duration_ms,
@@ -314,7 +400,6 @@ class PhaseExecutor:
         except asyncio.TimeoutError:
             duration_ms = (time.time() - start_time) * 1000
 
-            # Skip optional phases on timeout
             if phase_name in OPTIONAL_PHASES and self._config.skip_optional_on_timeout:
                 logger.warning(f"Optional phase '{phase_name}' timed out, skipping")
                 return PhaseResult(
@@ -352,12 +437,20 @@ class PhaseExecutor:
         finally:
             self._current_phase = None
 
-            # Trace end
-            if self._config.enable_tracing and self._config.trace_callback:
-                self._config.trace_callback("phase_end", {
-                    "phase": phase_name,
-                    "debate_id": debate_id,
-                })
+    def _add_phase_span_attributes(self, span: Any, phase_name: str, context: Any) -> None:
+        """Add phase-specific attributes to the tracing span."""
+        result = getattr(context, "result", None)
+        if result is None:
+            return
+
+        if phase_name == "debate_rounds":
+            rounds_used = getattr(result, "rounds_used", None)
+            if rounds_used is not None:
+                span.set_attribute("debate.rounds_used", rounds_used)
+        elif phase_name == "consensus":
+            consensus_reached = getattr(result, "consensus_reached", None)
+            if consensus_reached is not None:
+                span.set_attribute("debate.consensus_reached", consensus_reached)
 
     # =========================================================================
     # Termination Control
@@ -452,9 +545,7 @@ class PhaseExecutor:
             "failed_phases": failed,
             "skipped_phases": skipped,
             "total_duration_ms": total_duration,
-            "phase_durations": {
-                r.phase_name: r.duration_ms for r in self._results
-            },
+            "phase_durations": {r.phase_name: r.duration_ms for r in self._results},
             "current_phase": self._current_phase,
             "terminated_early": self._should_terminate,
             "termination_reason": self._termination_reason,

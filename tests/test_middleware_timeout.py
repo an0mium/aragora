@@ -174,9 +174,7 @@ class TestConfigureFunctions:
 
     def test_configure_timeout_endpoint_overrides(self):
         """Test configure_timeout adds endpoint overrides."""
-        config = configure_timeout(
-            endpoint_overrides={"/api/fast": 5.0, "/api/slow": 60.0}
-        )
+        config = configure_timeout(endpoint_overrides={"/api/fast": 5.0, "/api/slow": 60.0})
         assert config.endpoint_timeouts["/api/fast"] == 5.0
         assert config.endpoint_timeouts["/api/slow"] == 60.0
 
@@ -217,6 +215,7 @@ class TestWithTimeoutDecorator:
 
     def test_fast_function_completes(self):
         """Test function that completes quickly returns result."""
+
         @with_timeout(5.0)
         def fast_func(self, path, query_params, handler):
             return {"success": True}
@@ -226,6 +225,7 @@ class TestWithTimeoutDecorator:
 
     def test_slow_function_times_out(self):
         """Test function that exceeds timeout returns 504."""
+
         @with_timeout(0.1)  # Very short timeout
         def slow_func(self, path, query_params, handler):
             time.sleep(1.0)  # Sleep longer than timeout
@@ -239,6 +239,7 @@ class TestWithTimeoutDecorator:
 
     def test_custom_error_response(self):
         """Test custom error response function."""
+
         def custom_error(timeout, path):
             return {"custom_error": True, "timeout": timeout}
 
@@ -274,6 +275,7 @@ class TestAsyncWithTimeoutDecorator:
     @pytest.mark.asyncio
     async def test_fast_async_completes(self):
         """Test async function that completes quickly returns result."""
+
         @async_with_timeout(5.0)
         async def fast_async(self, path, query_params, handler):
             await asyncio.sleep(0.01)
@@ -285,6 +287,7 @@ class TestAsyncWithTimeoutDecorator:
     @pytest.mark.asyncio
     async def test_slow_async_times_out(self):
         """Test async function that exceeds timeout returns 504."""
+
         @async_with_timeout(0.1)
         async def slow_async(self, path, query_params, handler):
             await asyncio.sleep(1.0)
@@ -298,6 +301,7 @@ class TestAsyncWithTimeoutDecorator:
     @pytest.mark.asyncio
     async def test_async_custom_error_response(self):
         """Test custom error response for async timeout."""
+
         def custom_error(timeout, path):
             return {"async_error": True, "path": path}
 
@@ -420,6 +424,7 @@ class TestTimeoutIntegration:
 
     def test_timeout_preserves_function_metadata(self):
         """Test decorator preserves function name and docstring."""
+
         @with_timeout(10.0)
         def my_handler(self, path, query_params, handler):
             """My handler docstring."""
@@ -431,6 +436,7 @@ class TestTimeoutIntegration:
     @pytest.mark.asyncio
     async def test_async_timeout_preserves_metadata(self):
         """Test async decorator preserves function metadata."""
+
         @async_with_timeout(10.0)
         async def my_async_handler(self, path, query_params, handler):
             """My async handler docstring."""
@@ -441,6 +447,7 @@ class TestTimeoutIntegration:
 
     def test_timeout_with_exception(self):
         """Test timeout handling when function raises exception."""
+
         @with_timeout(5.0)
         def error_func(self, path, query_params, handler):
             raise ValueError("Test error")
@@ -451,6 +458,7 @@ class TestTimeoutIntegration:
     @pytest.mark.asyncio
     async def test_async_timeout_with_exception(self):
         """Test async timeout handling when function raises exception."""
+
         @async_with_timeout(5.0)
         async def async_error_func(self, path, query_params, handler):
             raise ValueError("Async test error")

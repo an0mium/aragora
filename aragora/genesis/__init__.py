@@ -63,6 +63,8 @@ from aragora.genesis.ledger import (
 )
 
 __all__ = [
+    # Submodules
+    "breeding",
     # Genome
     "AgentGenome",
     "GenomeStore",

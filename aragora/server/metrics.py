@@ -706,7 +706,8 @@ def generate_metrics() -> str:
 
     This combines:
     1. Built-in server metrics (billing, API, agent)
-    2. Observability metrics from aragora.observability.metrics (if available)
+    2. Nomic loop metrics
+    3. Observability metrics from aragora.observability.metrics (if available)
     """
     lines = []
 
@@ -748,6 +749,43 @@ def generate_metrics() -> str:
         DEBATE_DURATION,
         DEBATE_CONFIDENCE,
     ]
+
+    # Add nomic loop metrics if available
+    try:
+        from aragora.nomic.metrics import (
+            NOMIC_CIRCUIT_BREAKERS_OPEN,
+            NOMIC_CURRENT_PHASE,
+            NOMIC_CYCLES_IN_PROGRESS,
+            NOMIC_CYCLES_TOTAL,
+            NOMIC_ERRORS,
+            NOMIC_PHASE_DURATION,
+            NOMIC_PHASE_LAST_TRANSITION,
+            NOMIC_PHASE_TRANSITIONS,
+            NOMIC_RECOVERY_DECISIONS,
+            NOMIC_RETRIES,
+        )
+
+        counters.extend(
+            [
+                NOMIC_PHASE_TRANSITIONS,
+                NOMIC_CYCLES_TOTAL,
+                NOMIC_ERRORS,
+                NOMIC_RECOVERY_DECISIONS,
+                NOMIC_RETRIES,
+            ]
+        )
+        gauges.extend(
+            [
+                NOMIC_CURRENT_PHASE,
+                NOMIC_CYCLES_IN_PROGRESS,
+                NOMIC_PHASE_LAST_TRANSITION,
+                NOMIC_CIRCUIT_BREAKERS_OPEN,
+            ]
+        )
+        histograms.append(NOMIC_PHASE_DURATION)
+    except ImportError:
+        # Nomic metrics not available
+        pass
 
     # Export counters
     for counter in counters:

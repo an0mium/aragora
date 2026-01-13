@@ -179,9 +179,7 @@ def parse_artifact_timestamp(name: str) -> datetime | None:
     return None
 
 
-def should_clean_backup(
-    path: Path, max_age_days: int, keep_latest: int = 5
-) -> tuple[bool, str]:
+def should_clean_backup(path: Path, max_age_days: int, keep_latest: int = 5) -> tuple[bool, str]:
     """Determine if a backup directory should be cleaned up."""
     timestamp = parse_backup_timestamp(path.name)
     if timestamp is None:

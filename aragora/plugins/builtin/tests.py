@@ -52,7 +52,6 @@ async def run(context: PluginContext) -> dict:
 
     # Extract input
     paths = context.input_data.get("paths", ["tests/"])
-    pattern = context.input_data.get("pattern", "test_*.py")
     keyword = context.input_data.get("keyword")
 
     # Extract config

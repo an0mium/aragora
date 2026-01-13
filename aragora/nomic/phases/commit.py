@@ -137,7 +137,9 @@ class CommitPhase:
                     capture_output=True,
                     text=True,
                 )
-                files_changed = len([l for l in stat_result.stdout.split("\n") if "|" in l])
+                files_changed = len(
+                    [line for line in stat_result.stdout.split("\n") if "|" in line]
+                )
                 self._stream_emit("on_commit", commit_hash, summary, files_changed)
             else:
                 self._log(f"  Commit failed: {result.stderr}")

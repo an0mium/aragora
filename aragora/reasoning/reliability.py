@@ -371,7 +371,7 @@ class ReliabilityScorer:
         scores = [r.reliability_score for r in results.values()]
         levels = [r.level for r in results.values()]
 
-        speculative_count = sum(1 for l in levels if l == ReliabilityLevel.SPECULATIVE)
+        speculative_count = sum(1 for level in levels if level == ReliabilityLevel.SPECULATIVE)
         low_count = sum(1 for s in scores if s < 0.5)
         high_count = sum(1 for s in scores if s >= 0.7)
 

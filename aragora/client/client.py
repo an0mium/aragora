@@ -96,6 +96,7 @@ class RetryConfig:
         retry_statuses: HTTP status codes that trigger retry (default: 429, 500, 502, 503, 504)
         jitter: Add random jitter to backoff (default: True)
     """
+
     max_retries: int = 3
     backoff_factor: float = 0.5
     max_backoff: float = 30.0
@@ -104,7 +105,7 @@ class RetryConfig:
 
     def get_delay(self, attempt: int) -> float:
         """Calculate delay for a retry attempt with exponential backoff."""
-        delay = min(self.backoff_factor * (2 ** attempt), self.max_backoff)
+        delay = min(self.backoff_factor * (2**attempt), self.max_backoff)
         if self.jitter:
             delay = delay * (0.5 + random.random())
         return delay
@@ -463,6 +464,7 @@ class DebatesAPI:
             # Add small delay every max_concurrent requests
             if (i + 1) % max_concurrent == 0 and i < len(debate_ids) - 1:
                 import time
+
                 time.sleep(0.1)
         return results
 
@@ -1306,7 +1308,9 @@ class AragoraClient:
                 if self.retry_config and e.code in self.retry_config.retry_statuses:
                     if attempt < max_attempts - 1:
                         delay = self.retry_config.get_delay(attempt)
-                        logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})")
+                        logger.debug(
+                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})"
+                        )
                         time_module.sleep(delay)
                         continue
                 self._handle_http_error(e)
@@ -1345,7 +1349,9 @@ class AragoraClient:
                 if self.retry_config and e.code in self.retry_config.retry_statuses:
                     if attempt < max_attempts - 1:
                         delay = self.retry_config.get_delay(attempt)
-                        logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})")
+                        logger.debug(
+                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})"
+                        )
                         time_module.sleep(delay)
                         continue
                 self._handle_http_error(e)
@@ -1383,7 +1389,9 @@ class AragoraClient:
                 if self.retry_config and e.code in self.retry_config.retry_statuses:
                     if attempt < max_attempts - 1:
                         delay = self.retry_config.get_delay(attempt)
-                        logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})")
+                        logger.debug(
+                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})"
+                        )
                         time_module.sleep(delay)
                         continue
                 self._handle_http_error(e)
@@ -1424,7 +1432,9 @@ class AragoraClient:
                         if self.retry_config and resp.status in self.retry_config.retry_statuses:
                             if attempt < max_attempts - 1:
                                 delay = self.retry_config.get_delay(attempt)
-                                logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status})")
+                                logger.debug(
+                                    f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status})"
+                                )
                                 await asyncio.sleep(delay)
                                 continue
                         raise AragoraAPIError(
@@ -1437,13 +1447,17 @@ class AragoraClient:
                 last_error = e
                 if self.retry_config and attempt < max_attempts - 1:
                     delay = self.retry_config.get_delay(attempt)
-                    logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)")
+                    logger.debug(
+                        f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)"
+                    )
                     await asyncio.sleep(delay)
                     continue
                 raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
 
         # Should not reach here
-        raise AragoraAPIError(str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0)
+        raise AragoraAPIError(
+            str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0
+        )
 
     def _handle_http_error(self, e: Any) -> NoReturn:
         """Handle HTTP errors."""
@@ -1490,7 +1504,9 @@ class AragoraClient:
                         if self.retry_config and resp.status in self.retry_config.retry_statuses:
                             if attempt < max_attempts - 1:
                                 delay = self.retry_config.get_delay(attempt)
-                                logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status})")
+                                logger.debug(
+                                    f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status})"
+                                )
                                 await asyncio.sleep(delay)
                                 continue
                         raise AragoraAPIError(
@@ -1503,13 +1519,17 @@ class AragoraClient:
                 last_error = e
                 if self.retry_config and attempt < max_attempts - 1:
                     delay = self.retry_config.get_delay(attempt)
-                    logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)")
+                    logger.debug(
+                        f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)"
+                    )
                     await asyncio.sleep(delay)
                     continue
                 raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
 
         # Should not reach here
-        raise AragoraAPIError(str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0)
+        raise AragoraAPIError(
+            str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0
+        )
 
     async def _post_async(self, path: str, data: dict) -> dict:
         """Make an asynchronous POST request with retry and rate limiting."""
@@ -1542,7 +1562,9 @@ class AragoraClient:
                         if self.retry_config and resp.status in self.retry_config.retry_statuses:
                             if attempt < max_attempts - 1:
                                 delay = self.retry_config.get_delay(attempt)
-                                logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status})")
+                                logger.debug(
+                                    f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status})"
+                                )
                                 await asyncio.sleep(delay)
                                 continue
                         raise AragoraAPIError(
@@ -1555,13 +1577,17 @@ class AragoraClient:
                 last_error = e
                 if self.retry_config and attempt < max_attempts - 1:
                     delay = self.retry_config.get_delay(attempt)
-                    logger.debug(f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)")
+                    logger.debug(
+                        f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)"
+                    )
                     await asyncio.sleep(delay)
                     continue
                 raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
 
         # Should not reach here
-        raise AragoraAPIError(str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0)
+        raise AragoraAPIError(
+            str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0
+        )
 
     def health(self) -> HealthCheck:
         """Check API health."""

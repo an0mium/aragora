@@ -600,6 +600,415 @@ class VerificationBackendProtocol(Protocol):
 
 
 # =============================================================================
+# Feedback Phase Protocols
+# =============================================================================
+
+
+@runtime_checkable
+class DebateEmbeddingsProtocol(Protocol):
+    """Protocol for debate embedding/indexing systems.
+
+    Provides semantic indexing of debates for similarity search
+    and retrieval-augmented debate preparation.
+    """
+
+    def embed(self, text: str) -> List[float]:
+        """Generate embedding vector for text."""
+        ...
+
+    def index_debate(
+        self,
+        debate_id: str,
+        content: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Index a debate for future retrieval."""
+        ...
+
+    def search_similar(
+        self,
+        query: str,
+        limit: int = 10,
+        threshold: float = 0.7,
+    ) -> List[Dict[str, Any]]:
+        """Find debates similar to query."""
+        ...
+
+
+@runtime_checkable
+class FlipDetectorProtocol(Protocol):
+    """Protocol for position flip/change detection.
+
+    Identifies when agents significantly change their positions
+    during or between debates.
+    """
+
+    def detect_flip(
+        self,
+        agent: str,
+        old_position: str,
+        new_position: str,
+        threshold: float = 0.3,
+    ) -> Optional[Dict[str, Any]]:
+        """Detect if positions represent a significant flip."""
+        ...
+
+    def get_flip_history(
+        self,
+        agent: str,
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """Get recent position flips for an agent."""
+        ...
+
+    def get_consistency_score(self, agent: str) -> float:
+        """Get position consistency score (1.0 = fully consistent)."""
+        ...
+
+
+@runtime_checkable
+class ConsensusMemoryProtocol(Protocol):
+    """Protocol for storing and retrieving historical consensus outcomes.
+
+    Maintains a knowledge base of settled debates and consensus
+    positions for reference in future debates.
+    """
+
+    def store_outcome(
+        self,
+        topic: str,
+        position: str,
+        confidence: float,
+        supporting_agents: List[str],
+        debate_id: str,
+        domain: Optional[str] = None,
+    ) -> str:
+        """Store a consensus outcome. Returns outcome ID."""
+        ...
+
+    def get_consensus(
+        self,
+        topic: str,
+        domain: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Get current consensus on a topic."""
+        ...
+
+    def search_similar_topics(
+        self,
+        query: str,
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Find similar previously debated topics."""
+        ...
+
+
+@runtime_checkable
+class PopulationManagerProtocol(Protocol):
+    """Protocol for Genesis agent population management.
+
+    Manages the population of agent genomes for evolutionary
+    optimization of debate strategies.
+    """
+
+    def get_population(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get current population of genomes."""
+        ...
+
+    def update_fitness(
+        self,
+        genome_id: str,
+        fitness_delta: float,
+        context: Optional[str] = None,
+    ) -> None:
+        """Update fitness score for a genome."""
+        ...
+
+    def breed(
+        self,
+        parent_a: str,
+        parent_b: str,
+        mutation_rate: float = 0.1,
+    ) -> str:
+        """Create offspring from two parent genomes. Returns new genome ID."""
+        ...
+
+    def select_for_breeding(
+        self,
+        count: int = 2,
+        threshold: float = 0.8,
+    ) -> List[str]:
+        """Select top genomes for breeding."""
+        ...
+
+
+@runtime_checkable
+class PulseManagerProtocol(Protocol):
+    """Protocol for Pulse trending topic management.
+
+    Tracks trending topics and manages automatic debate scheduling
+    based on current events.
+    """
+
+    def get_trending(
+        self,
+        sources: Optional[List[str]] = None,
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """Get trending topics from specified sources."""
+        ...
+
+    def record_debate_outcome(
+        self,
+        topic: str,
+        outcome: Dict[str, Any],
+        debate_id: str,
+    ) -> None:
+        """Record outcome of a debate on a trending topic."""
+        ...
+
+    def get_topic_analytics(
+        self,
+        days: int = 30,
+    ) -> Dict[str, Any]:
+        """Get analytics on debated trending topics."""
+        ...
+
+
+@runtime_checkable
+class PromptEvolverProtocol(Protocol):
+    """Protocol for prompt evolution/optimization.
+
+    Learns from debate outcomes to improve agent prompts
+    over time.
+    """
+
+    def get_current_prompt(self, agent: str) -> str:
+        """Get current evolved prompt for an agent."""
+        ...
+
+    def record_outcome(
+        self,
+        agent: str,
+        prompt_variant: str,
+        success: bool,
+        score: float,
+        context: Optional[str] = None,
+    ) -> None:
+        """Record outcome for prompt variant."""
+        ...
+
+    def evolve(self, agent: str) -> Optional[str]:
+        """Generate new prompt variant based on learnings."""
+        ...
+
+    def get_evolution_history(
+        self,
+        agent: str,
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """Get prompt evolution history for an agent."""
+        ...
+
+
+@runtime_checkable
+class InsightStoreProtocol(Protocol):
+    """Protocol for storing and tracking insight application.
+
+    Tracks which insights have been applied from debates
+    and their effectiveness.
+    """
+
+    def store_insight(
+        self,
+        insight_type: str,
+        content: str,
+        source_debate_id: str,
+        confidence: float,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Store an insight. Returns insight ID."""
+        ...
+
+    def mark_applied(
+        self,
+        insight_id: str,
+        target_debate_id: str,
+        success: Optional[bool] = None,
+    ) -> None:
+        """Mark an insight as applied to a debate."""
+        ...
+
+    def get_recent_insights(
+        self,
+        insight_type: Optional[str] = None,
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """Get recent insights."""
+        ...
+
+    def get_effectiveness(
+        self,
+        insight_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get effectiveness metrics for insights."""
+        ...
+
+
+@runtime_checkable
+class BroadcastPipelineProtocol(Protocol):
+    """Protocol for debate broadcast/publication pipeline.
+
+    Handles automatic broadcasting of high-quality debates
+    to various platforms.
+    """
+
+    def should_broadcast(
+        self,
+        debate_result: Any,
+        min_confidence: float = 0.8,
+    ) -> bool:
+        """Check if debate qualifies for broadcast."""
+        ...
+
+    def queue_broadcast(
+        self,
+        debate_id: str,
+        platforms: Optional[List[str]] = None,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Queue a debate for broadcast. Returns job ID."""
+        ...
+
+    def get_broadcast_status(
+        self,
+        job_id: str,
+    ) -> Dict[str, Any]:
+        """Get status of a broadcast job."""
+        ...
+
+    def get_supported_platforms(self) -> List[str]:
+        """Get list of supported broadcast platforms."""
+        ...
+
+
+@runtime_checkable
+class ContinuumMemoryProtocol(Protocol):
+    """Protocol for cross-debate learning memory.
+
+    ContinuumMemory provides multi-tier memory for long-term learning across debates.
+    Used by Arena to provide historical context and cross-debate learning.
+    """
+
+    def store(
+        self,
+        key: str,
+        value: Any,
+        tier: str = "medium",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Store a value in the specified memory tier."""
+        ...
+
+    def retrieve(
+        self,
+        key: str,
+        tier: Optional[str] = None,
+    ) -> Optional[Any]:
+        """Retrieve a value, searching tiers if not specified."""
+        ...
+
+    def search(
+        self,
+        query: str,
+        limit: int = 10,
+        tier: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Search for relevant memories."""
+        ...
+
+    def get_context(
+        self,
+        task: str,
+        limit: int = 5,
+    ) -> str:
+        """Get formatted context for a task from historical memories."""
+        ...
+
+
+@runtime_checkable
+class PositionTrackerProtocol(Protocol):
+    """Protocol for tracking agent positions over time.
+
+    PositionTracker monitors agent stances and belief changes during debates.
+    Used for understanding how agents evolve their positions.
+    """
+
+    def record_position(
+        self,
+        agent_name: str,
+        position: str,
+        confidence: float = 1.0,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Record an agent's position."""
+        ...
+
+    def get_position(
+        self,
+        agent_name: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Get an agent's current position."""
+        ...
+
+    def get_position_history(
+        self,
+        agent_name: str,
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """Get history of an agent's positions."""
+        ...
+
+    def has_changed(
+        self,
+        agent_name: str,
+        threshold: float = 0.3,
+    ) -> bool:
+        """Check if agent's position has changed significantly."""
+        ...
+
+
+@runtime_checkable
+class EvidenceCollectorProtocol(Protocol):
+    """Protocol for automatic evidence collection.
+
+    EvidenceCollector gathers supporting evidence from various sources
+    during debates to support claims.
+    """
+
+    def collect(
+        self,
+        query: str,
+        sources: Optional[List[str]] = None,
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Collect evidence for a query."""
+        ...
+
+    def verify(
+        self,
+        claim: str,
+        evidence: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Verify a claim against collected evidence."""
+        ...
+
+    def get_sources(self) -> List[str]:
+        """Get list of available evidence sources."""
+        ...
+
+
+# =============================================================================
 # Callback Types
 # =============================================================================
 
@@ -648,8 +1057,6 @@ class Result(Generic[T]):
         return cls(success=False, error=error)
 
 
-
-
 __all__ = [
     # Type variables
     "T",
@@ -687,6 +1094,19 @@ __all__ = [
     "UserStoreProtocol",
     # Verification protocols
     "VerificationBackendProtocol",
+    # Feedback phase protocols
+    "DebateEmbeddingsProtocol",
+    "FlipDetectorProtocol",
+    "ConsensusMemoryProtocol",
+    "PopulationManagerProtocol",
+    "PulseManagerProtocol",
+    "PromptEvolverProtocol",
+    "InsightStoreProtocol",
+    "BroadcastPipelineProtocol",
+    # Arena config protocols
+    "ContinuumMemoryProtocol",
+    "PositionTrackerProtocol",
+    "EvidenceCollectorProtocol",
     # Callback types
     "EventCallback",
     "AsyncEventCallback",

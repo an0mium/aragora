@@ -665,8 +665,6 @@ class BeliefNetwork:
             return {}
 
         sensitivities = {}
-        baseline = target_node.posterior.p_true
-
         for claim_id in self.claim_to_node:
             if claim_id == target_claim_id:
                 continue
@@ -913,7 +911,7 @@ class BeliefPropagationAnalyzer:
                 else:
                     node.posterior = BeliefDistribution(p_true=0.01, p_false=0.99)
 
-        result = self.network.propagate()
+        self.network.propagate()
 
         # Compute changes
         changes = []

@@ -80,7 +80,8 @@ class TestCSPNonce:
         assert len(nonce) > 0
         # Base64 chars plus padding
         import re
-        assert re.match(r'^[A-Za-z0-9+/]+=*$', nonce)
+
+        assert re.match(r"^[A-Za-z0-9+/]+=*$", nonce)
 
     def test_generate_nonce_is_unique(self):
         """Each nonce should be unique."""

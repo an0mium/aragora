@@ -333,9 +333,7 @@ def check_circuit_breakers() -> list[CheckResult]:
 
         if not open_circuits:
             results.append(
-                CheckResult(
-                    "circuit_breakers", "pass", f"All {cb_count} circuit breakers closed"
-                )
+                CheckResult("circuit_breakers", "pass", f"All {cb_count} circuit breakers closed")
             )
         else:
             results.append(
@@ -454,14 +452,8 @@ def run_validate() -> int:
         if use_color:
             symbol = f"{colors[result.status]}{symbol}{reset}"
 
-        # Use checkmark/x for cleaner output
-        if result.status == "pass":
-            icon = "✓" if use_color else "OK"
-        elif result.status == "fail":
-            icon = "✗" if use_color else "FAIL"
+        if result.status == "fail":
             has_failures = True
-        else:
-            icon = "?" if use_color else "WARN"
 
         print(f"  {symbol} {result.message}")
 

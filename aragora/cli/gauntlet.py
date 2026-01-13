@@ -9,7 +9,6 @@ import asyncio
 import hashlib
 import logging
 import sys
-import time
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -229,10 +228,8 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
             sys.stderr.flush()
 
     # Run gauntlet with progress callback
-    start = time.time()
     orchestrator = GauntletOrchestrator(agents, on_progress=on_progress)
     result = asyncio.run(orchestrator.run(config))
-    elapsed = time.time() - start
 
     # Print summary
     print("\n" + result.summary())

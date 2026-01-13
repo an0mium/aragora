@@ -414,8 +414,6 @@ class RhetoricalAnalysisObserver:
     def _find_excerpt(self, content: str, pattern: RhetoricalPattern) -> str:
         """Find a relevant excerpt for the pattern."""
         indicators = self.PATTERN_INDICATORS.get(pattern, {})
-        content_lower = content.lower()
-
         # Try to find a sentence containing pattern indicators
         sentences = re.split(r"[.!?]+", content)
 

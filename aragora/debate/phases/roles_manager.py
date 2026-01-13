@@ -82,8 +82,6 @@ class RolesManager:
             return
 
         stances = ["affirmative", "negative", "neutral"]
-        n_agents = len(self.agents)
-
         for i, agent in enumerate(self.agents):
             if self.protocol.rotate_stances:
                 stance_idx = (i + round_num) % len(stances)

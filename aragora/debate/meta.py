@@ -49,7 +49,6 @@ class MetaCritique:
     def summary(self) -> str:
         """Generate summary of meta-critique."""
         issues = [o for o in self.observations if o.observation_type == "issue"]
-        patterns = [o for o in self.observations if o.observation_type == "pattern"]
 
         parts = []
         parts.append(f"Debate Quality: {self.overall_quality:.0%}")

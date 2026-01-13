@@ -283,7 +283,14 @@ class WikipediaConnector(BaseConnector):
                     data = response.json()
                     return data.get("extract", "")
                 return None
-        except Exception:
+        except httpx.TimeoutException:
+            logger.debug(f"Timeout fetching Wikipedia summary for: {title}")
+            return None
+        except httpx.HTTPError as e:
+            logger.debug(f"HTTP error fetching Wikipedia summary: {e}")
+            return None
+        except (ValueError, KeyError) as e:
+            logger.debug(f"Parse error in Wikipedia summary: {e}")
             return None
 
     def _parse_summary_response(self, data: dict) -> Optional[Evidence]:
@@ -313,8 +320,9 @@ class WikipediaConnector(BaseConnector):
                 try:
                     created_at = timestamp
                     freshness = self.calculate_freshness(timestamp)
-                except Exception:
-                    pass
+                except (ValueError, TypeError) as e:
+                    logger.debug(f"Could not parse Wikipedia timestamp: {e}")
+                    # Keep default freshness
 
             return Evidence(
                 id=evidence_id,

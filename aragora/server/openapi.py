@@ -1898,11 +1898,13 @@ def generate_postman_collection(base_url: str = "{{base_url}}") -> dict[str, Any
                 (t for t in schema.get("tags", []) if t["name"] == tag_name),
                 {"name": tag_name, "description": ""},
             )
-            folders.append({
-                "name": tag_name,
-                "description": tag_info.get("description", ""),
-                "item": items,
-            })
+            folders.append(
+                {
+                    "name": tag_name,
+                    "description": tag_info.get("description", ""),
+                    "item": items,
+                }
+            )
 
     return {
         "info": {
@@ -1952,22 +1954,26 @@ def _openapi_to_postman_request(
     for part in url_parts:
         if part.startswith(":"):
             var_name = part[1:]
-            path_variables.append({
-                "key": var_name,
-                "value": "",
-                "description": f"Path parameter: {var_name}",
-            })
+            path_variables.append(
+                {
+                    "key": var_name,
+                    "value": "",
+                    "description": f"Path parameter: {var_name}",
+                }
+            )
 
     # Extract query parameters
     query_params = []
     for param in details.get("parameters", []):
         if param.get("in") == "query":
-            query_params.append({
-                "key": param["name"],
-                "value": "",
-                "description": param.get("description", ""),
-                "disabled": not param.get("required", False),
-            })
+            query_params.append(
+                {
+                    "key": param["name"],
+                    "value": "",
+                    "description": param.get("description", ""),
+                    "disabled": not param.get("required", False),
+                }
+            )
 
     # Build request body if present
     body = None
@@ -2032,10 +2038,7 @@ def save_postman_collection(
         json.dump(collection, f, indent=2)
 
     # Count requests
-    request_count = sum(
-        len(folder.get("item", []))
-        for folder in collection.get("item", [])
-    )
+    request_count = sum(len(folder.get("item", [])) for folder in collection.get("item", []))
     return str(output.absolute()), request_count
 
 

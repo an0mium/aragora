@@ -295,7 +295,7 @@ class RedTeamMode:
 
             # Defense phase - proposer defends
             if round_result.attacks:
-                defend_prompt = self.protocol.generate_defend_prompt(
+                self.protocol.generate_defend_prompt(
                     current_proposal,
                     round_result.attacks,
                     round_num,
@@ -351,8 +351,6 @@ class RedTeamMode:
 
         # Simple parsing - would use structured output in production
         lines = response.split("\n")
-        current_attack = None
-
         for line in lines:
             line = line.strip()
 

@@ -6,6 +6,7 @@ Enables persistence and playback of past debates for review and learning.
 
 import json
 import logging
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -160,11 +161,14 @@ class DebateReplayer:
         if not result:
             return None
 
-        print(f"\n{'='*80}")
-        print(f"REPLAYING DEBATE: {result.task[:80]}...")
-        print(f"Recorded: {len(result.messages)} messages, {result.rounds_used} rounds")
-        print(f"Consensus: {'Yes' if result.consensus_reached else 'No'} ({result.confidence:.0%})")
-        print(f"{'='*80}\n")
+        sys.stdout.write(f"\n{'='*80}\n")
+        sys.stdout.write(f"REPLAYING DEBATE: {result.task[:80]}...\n")
+        sys.stdout.write(f"Recorded: {len(result.messages)} messages, {result.rounds_used} rounds\n")
+        sys.stdout.write(
+            f"Consensus: {'Yes' if result.consensus_reached else 'No'} "
+            f"({result.confidence:.0%})\n"
+        )
+        sys.stdout.write(f"{'='*80}\n\n")
 
         # Replay messages in sequence
         import time
@@ -177,10 +181,10 @@ class DebateReplayer:
             else:
                 agent = message.agent
                 content = message.content
-            print(f"[{i:2d}] {agent}: {content}")
+            sys.stdout.write(f"[{i:2d}] {agent}: {content}\n")
             if speed < 10.0:  # Don't delay for very fast replays
                 time.sleep(0.5 / speed)  # Brief pause between messages
 
-        print(f"\nFinal Answer: {result.final_answer}")
-        print(f"Duration: {result.duration_seconds:.1f}s")
+        sys.stdout.write(f"\nFinal Answer: {result.final_answer}\n")
+        sys.stdout.write(f"Duration: {result.duration_seconds:.1f}s\n")
         return result

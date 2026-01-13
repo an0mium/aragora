@@ -70,6 +70,7 @@ Welcome to Aragora's documentation. This index helps you find the right document
 | [DEPLOYMENT](./DEPLOYMENT.md) | Deployment guide |
 | [OPERATIONS](./OPERATIONS.md) | Operations runbook |
 | [RUNBOOK](./RUNBOOK.md) | Incident response procedures |
+| [PRODUCTION_READINESS](./PRODUCTION_READINESS.md) | Production readiness checklist |
 | [OBSERVABILITY](./OBSERVABILITY.md) | Monitoring and telemetry |
 | [RATE_LIMITING](./RATE_LIMITING.md) | Rate limit configuration |
 | [QUEUE](./QUEUE.md) | Debate queue management |
@@ -128,6 +129,12 @@ Welcome to Aragora's documentation. This index helps you find the right document
 | [TROUBLESHOOTING](./TROUBLESHOOTING.md) | Common issues and solutions |
 | [NOMIC_LOOP_TROUBLESHOOTING](./NOMIC_LOOP_TROUBLESHOOTING.md) | Nomic loop specific issues |
 
+## Case Studies
+
+| Document | Description |
+|----------|-------------|
+| [case-studies/README](./case-studies/README.md) | Real-world applications and audits |
+
 ---
 
 ## Archived/Historical Documents
@@ -156,7 +163,9 @@ These documents are kept for historical reference but may contain outdated infor
 
 ## Contributing
 
-See [FRONTEND_DEVELOPMENT.md](./FRONTEND_DEVELOPMENT.md) for frontend contributions and [AGENT_DEVELOPMENT.md](./AGENT_DEVELOPMENT.md) for adding new agents.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for the full contribution guide. For
+frontend contributions, also see [FRONTEND_DEVELOPMENT.md](./FRONTEND_DEVELOPMENT.md),
+and for new agents, see [AGENT_DEVELOPMENT.md](./AGENT_DEVELOPMENT.md).
 
 ## Support
 

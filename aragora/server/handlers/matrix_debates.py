@@ -49,7 +49,9 @@ class MatrixDebatesHandler(BaseHandler):
         return path.startswith("/api/debates/matrix")
 
     @handle_errors("matrix debates GET")
-    async def handle_get(self, handler: Any, path: str, query_params: dict[str, Any]) -> HandlerResult:
+    async def handle_get(
+        self, handler: Any, path: str, query_params: dict[str, Any]
+    ) -> HandlerResult:
         """Handle GET requests for matrix debates."""
         parts = path.rstrip("/").split("/")
 
@@ -213,7 +215,9 @@ class MatrixDebatesHandler(BaseHandler):
             logger.exception(f"Matrix debate failed: {e}")
             return error_response(safe_error_message(e, "matrix debate"), 500)
 
-    async def _run_matrix_debate_fallback(self, handler: Any, data: dict[str, Any]) -> HandlerResult:
+    async def _run_matrix_debate_fallback(
+        self, handler: Any, data: dict[str, Any]
+    ) -> HandlerResult:
         """Fallback implementation using Arena directly for each scenario."""
         from aragora.core import DebateProtocol, Environment
         from aragora.debate.orchestrator import Arena

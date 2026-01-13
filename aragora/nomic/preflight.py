@@ -162,7 +162,6 @@ class PreflightHealthCheck:
                                 result.warnings.append(c.message)
 
             # Determine available agents
-            available_keys = self._get_available_api_keys()
             for agent_name, provider in self.AGENT_PROVIDERS.items():
                 # Check which providers have keys
                 provider_env = next((e for e, p, _ in self.PROVIDER_CHECKS if p == provider), None)

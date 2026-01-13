@@ -114,9 +114,7 @@ class TestDebateHooksInit:
         assert hooks.memory_manager is None
         assert hooks.evidence_grounder is None
 
-    def test_init_with_subsystems(
-        self, mock_position_ledger, mock_elo_system, mock_memory_manager
-    ):
+    def test_init_with_subsystems(self, mock_position_ledger, mock_elo_system, mock_memory_manager):
         """Test hooks accepts subsystems."""
         hooks = DebateHooks(
             position_ledger=mock_position_ledger,
@@ -137,9 +135,7 @@ class TestDebateHooksInit:
 class TestRoundCompletionHooks:
     """Tests for round completion hooks."""
 
-    def test_on_round_complete_records_positions(
-        self, mock_context, mock_position_ledger
-    ):
+    def test_on_round_complete_records_positions(self, mock_context, mock_position_ledger):
         """Test on_round_complete records all agent positions."""
         hooks = DebateHooks(position_ledger=mock_position_ledger)
 
@@ -161,24 +157,18 @@ class TestRoundCompletionHooks:
         # Should not raise
         hooks.on_round_complete(mock_context, round_num=1, proposals=proposals)
 
-    def test_on_round_complete_with_domain(
-        self, mock_context, mock_position_ledger
-    ):
+    def test_on_round_complete_with_domain(self, mock_context, mock_position_ledger):
         """Test on_round_complete passes domain to ledger."""
         hooks = DebateHooks(position_ledger=mock_position_ledger)
 
         proposals = {"claude": "Security best practices"}
 
-        hooks.on_round_complete(
-            mock_context, round_num=1, proposals=proposals, domain="security"
-        )
+        hooks.on_round_complete(mock_context, round_num=1, proposals=proposals, domain="security")
 
         call_args = mock_position_ledger.record_position.call_args
         assert call_args.kwargs.get("domain") == "security"
 
-    def test_record_position_truncates_long_content(
-        self, mock_position_ledger
-    ):
+    def test_record_position_truncates_long_content(self, mock_position_ledger):
         """Test position content is truncated to 1000 chars."""
         hooks = DebateHooks(position_ledger=mock_position_ledger)
 
@@ -400,9 +390,7 @@ class TestEvidenceStorage:
 
         hooks.store_evidence(evidence, task="Test task")
 
-        mock_memory_manager.store_evidence.assert_called_once_with(
-            evidence, "Test task"
-        )
+        mock_memory_manager.store_evidence.assert_called_once_with(evidence, "Test task")
 
     def test_store_evidence_without_manager(self):
         """Test evidence storage handles missing manager gracefully."""

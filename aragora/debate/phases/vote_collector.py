@@ -108,9 +108,7 @@ class VoteCollector:
             """Cast a vote for a single agent with timeout protection."""
             logger.debug(f"agent_voting agent={agent.name}")
             try:
-                timeout = get_complexity_governor().get_scaled_timeout(
-                    self.config.agent_timeout
-                )
+                timeout = get_complexity_governor().get_scaled_timeout(self.config.agent_timeout)
                 if self.callbacks.with_timeout:
                     vote_result = await self.callbacks.with_timeout(
                         self.callbacks.vote_with_agent(agent, ctx.proposals, task),
@@ -118,14 +116,10 @@ class VoteCollector:
                         timeout_seconds=timeout,
                     )
                 else:
-                    vote_result = await self.callbacks.vote_with_agent(
-                        agent, ctx.proposals, task
-                    )
+                    vote_result = await self.callbacks.vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
             except Exception as e:
-                logger.warning(
-                    f"vote_exception agent={agent.name} error={type(e).__name__}: {e}"
-                )
+                logger.warning(f"vote_exception agent={agent.name} error={type(e).__name__}: {e}")
                 return (agent, e)
 
         async def collect_all_votes() -> None:
@@ -145,17 +139,13 @@ class VoteCollector:
                     if isinstance(vote_result, Exception):
                         logger.error(f"vote_error agent={agent.name} error={vote_result}")
                     else:
-                        logger.error(
-                            f"vote_error agent={agent.name} error=vote returned None"
-                        )
+                        logger.error(f"vote_error agent={agent.name} error=vote returned None")
                 else:
                     votes.append(vote_result)
                     self._handle_vote_success(ctx, agent, vote_result)
 
         try:
-            await asyncio.wait_for(
-                collect_all_votes(), timeout=self.config.vote_collection_timeout
-            )
+            await asyncio.wait_for(collect_all_votes(), timeout=self.config.vote_collection_timeout)
         except asyncio.TimeoutError:
             logger.warning(
                 f"vote_collection_timeout collected={len(votes)} "
@@ -164,9 +154,7 @@ class VoteCollector:
 
         return votes
 
-    async def collect_votes_with_errors(
-        self, ctx: "DebateContext"
-    ) -> tuple[list["Vote"], int]:
+    async def collect_votes_with_errors(self, ctx: "DebateContext") -> tuple[list["Vote"], int]:
         """Collect votes with error tracking for unanimity mode.
 
         Uses outer timeout to prevent runaway collection time.
@@ -189,9 +177,7 @@ class VoteCollector:
             """Cast a vote for unanimous consensus with timeout protection."""
             logger.debug(f"agent_voting_unanimous agent={agent.name}")
             try:
-                timeout = get_complexity_governor().get_scaled_timeout(
-                    self.config.agent_timeout
-                )
+                timeout = get_complexity_governor().get_scaled_timeout(self.config.agent_timeout)
                 if self.callbacks.with_timeout:
                     vote_result = await self.callbacks.with_timeout(
                         self.callbacks.vote_with_agent(agent, ctx.proposals, task),
@@ -199,14 +185,11 @@ class VoteCollector:
                         timeout_seconds=timeout,
                     )
                 else:
-                    vote_result = await self.callbacks.vote_with_agent(
-                        agent, ctx.proposals, task
-                    )
+                    vote_result = await self.callbacks.vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
             except Exception as e:
                 logger.warning(
-                    f"vote_exception_unanimous agent={agent.name} "
-                    f"error={type(e).__name__}: {e}"
+                    f"vote_exception_unanimous agent={agent.name} " f"error={type(e).__name__}: {e}"
                 )
                 return (agent, e)
 
@@ -227,13 +210,10 @@ class VoteCollector:
 
                 if vote_result is None or isinstance(vote_result, Exception):
                     if isinstance(vote_result, Exception):
-                        logger.error(
-                            f"vote_error_unanimous agent={agent.name} error={vote_result}"
-                        )
+                        logger.error(f"vote_error_unanimous agent={agent.name} error={vote_result}")
                     else:
                         logger.error(
-                            f"vote_error_unanimous agent={agent.name} "
-                            "error=vote returned None"
+                            f"vote_error_unanimous agent={agent.name} " "error=vote returned None"
                         )
                     voting_errors += 1
                 else:
@@ -241,9 +221,7 @@ class VoteCollector:
                     self._handle_vote_success(ctx, agent, vote_result, unanimous=True)
 
         try:
-            await asyncio.wait_for(
-                collect_all_votes(), timeout=self.config.vote_collection_timeout
-            )
+            await asyncio.wait_for(collect_all_votes(), timeout=self.config.vote_collection_timeout)
         except asyncio.TimeoutError:
             missing = len(ctx.agents) - len(votes) - voting_errors
             voting_errors += missing
@@ -301,9 +279,7 @@ class VoteCollector:
         if self.deps.position_tracker:
             try:
                 debate_id = (
-                    result.id
-                    if hasattr(result, "id")
-                    else (ctx.env.task[:50] if ctx.env else "")
+                    result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
                 )
                 self.deps.position_tracker.record_position(
                     debate_id=debate_id,

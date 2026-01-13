@@ -26,7 +26,9 @@ class AuditRepository:
     - Billing events (payments, invoices)
     """
 
-    def __init__(self, transaction_fn: Callable[[], AbstractContextManager[sqlite3.Cursor]]) -> None:
+    def __init__(
+        self, transaction_fn: Callable[[], AbstractContextManager[sqlite3.Cursor]]
+    ) -> None:
         """
         Initialize the audit repository.
 

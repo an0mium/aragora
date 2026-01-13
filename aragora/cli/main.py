@@ -87,7 +87,6 @@ async def run_debate(
     agent_specs = parse_agents(agents_str)
 
     # Assign default roles
-    roles = ["proposer", "critic", "synthesizer"]
     agents = []
     for i, (agent_type, role) in enumerate(agent_specs):
         if role is None:

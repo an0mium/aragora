@@ -44,6 +44,7 @@ class RedisClientProtocol(Protocol):
     def setex(self, key: str, ttl: int, value: str) -> Any: ...
     def delete(self, key: str) -> Any: ...
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -276,14 +277,14 @@ class LockoutTracker:
     """
 
     # Lockout thresholds (attempts)
-    THRESHOLD_1 = 5   # First lockout threshold
+    THRESHOLD_1 = 5  # First lockout threshold
     THRESHOLD_2 = 10  # Second lockout threshold
     THRESHOLD_3 = 15  # Third lockout threshold
 
     # Lockout durations in seconds
-    DURATION_1 = 60           # 1 minute
-    DURATION_2 = 15 * 60      # 15 minutes
-    DURATION_3 = 60 * 60      # 1 hour
+    DURATION_1 = 60  # 1 minute
+    DURATION_2 = 15 * 60  # 15 minutes
+    DURATION_3 = 60 * 60  # 1 hour
 
     # Maximum TTL for entries (cleanup after this time)
     MAX_TTL = 24 * 60 * 60  # 24 hours

@@ -34,12 +34,20 @@ if not TYPE_CHECKING:
 
 from aragora.agents.errors import _build_error_action
 from aragora.typing import (
+    BroadcastPipelineProtocol,
     CalibrationTrackerProtocol,
+    ConsensusMemoryProtocol,
+    DebateEmbeddingsProtocol,
     EloSystemProtocol,
     EventEmitterProtocol,
+    FlipDetectorProtocol,
+    InsightStoreProtocol,
     MomentDetectorProtocol,
     PersonaManagerProtocol,
+    PopulationManagerProtocol,
     PositionLedgerProtocol,
+    PromptEvolverProtocol,
+    PulseManagerProtocol,
     RelationshipTrackerProtocol,
     TieredMemoryProtocol,
 )
@@ -81,8 +89,8 @@ class FeedbackPhase:
         position_ledger: Optional[PositionLedgerProtocol] = None,
         relationship_tracker: Optional[RelationshipTrackerProtocol] = None,
         moment_detector: Optional[MomentDetectorProtocol] = None,
-        debate_embeddings: Any = None,  # TODO: Add DebateEmbeddingsProtocol
-        flip_detector: Any = None,  # TODO: Add FlipDetectorProtocol
+        debate_embeddings: Optional[DebateEmbeddingsProtocol] = None,
+        flip_detector: Optional[FlipDetectorProtocol] = None,
         continuum_memory: Optional[TieredMemoryProtocol] = None,
         event_emitter: Optional[EventEmitterProtocol] = None,
         loop_id: Optional[str] = None,
@@ -92,23 +100,23 @@ class FeedbackPhase:
         update_continuum_memory_outcomes: Optional[Callable[[Any], None]] = None,
         index_debate_async: Optional[Callable[[Dict[str, Any]], Any]] = None,
         # ConsensusMemory for storing historical outcomes
-        consensus_memory: Any = None,  # TODO: Add ConsensusMemoryProtocol
+        consensus_memory: Optional[ConsensusMemoryProtocol] = None,
         # CalibrationTracker for prediction accuracy
         calibration_tracker: Optional[CalibrationTrackerProtocol] = None,
         # Genesis evolution
-        population_manager: Any = None,  # TODO: Add PopulationManagerProtocol
+        population_manager: Optional[PopulationManagerProtocol] = None,
         auto_evolve: bool = True,
         breeding_threshold: float = 0.8,
         # Pulse manager for trending topic analytics
-        pulse_manager: Any = None,  # TODO: Add PulseManagerProtocol
+        pulse_manager: Optional[PulseManagerProtocol] = None,
         # Prompt evolution for learning from debates
-        prompt_evolver: Any = None,  # TODO: Add PromptEvolverProtocol
+        prompt_evolver: Optional[PromptEvolverProtocol] = None,
         # Insight store for tracking applied insights
-        insight_store: Any = None,  # TODO: Add InsightStoreProtocol
+        insight_store: Optional[InsightStoreProtocol] = None,
         # Training data export for Tinker integration
         training_exporter: Optional[Callable[[List[Dict[str, Any]], str], Any]] = None,
         # Broadcast auto-trigger for high-quality debates
-        broadcast_pipeline: Any = None,  # TODO: Add BroadcastPipelineProtocol
+        broadcast_pipeline: Optional[BroadcastPipelineProtocol] = None,
         auto_broadcast: bool = False,
         broadcast_min_confidence: float = 0.8,
     ):
@@ -658,7 +666,9 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug(f"Trait emergence check error: {e}")
 
-    def _detect_emerging_traits(self, agent_name: str, ctx: "DebateContext") -> list[dict[str, Any]]:
+    def _detect_emerging_traits(
+        self, agent_name: str, ctx: "DebateContext"
+    ) -> list[dict[str, Any]]:
         """Detect traits based on agent performance patterns.
 
         Returns list of trait dicts with name, description, confidence.

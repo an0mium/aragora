@@ -464,16 +464,6 @@ class TwitterPosterConnector:
             # Read file and encode
             media_data = base64.b64encode(file_path.read_bytes()).decode()
 
-            # Determine media type
-            suffix = file_path.suffix.lower()
-            media_types = {
-                ".png": "image/png",
-                ".jpg": "image/jpeg",
-                ".jpeg": "image/jpeg",
-                ".gif": "image/gif",
-            }
-            media_type = media_types.get(suffix, "image/png")
-
             params = {
                 "media_data": media_data,
                 "media_category": "tweet_image",

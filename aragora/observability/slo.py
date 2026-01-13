@@ -36,6 +36,7 @@ See docs/OBSERVABILITY.md for configuration guide.
 
 from __future__ import annotations
 
+import importlib.util
 import logging
 import os
 from dataclasses import dataclass, field
@@ -363,14 +364,12 @@ def check_availability_slo(
 
     # Try to get values from Prometheus if not provided
     if total_requests is None or successful_requests is None:
-        try:
-            from prometheus_client import REGISTRY
-
+        if importlib.util.find_spec("prometheus_client") is not None:
             # Query Prometheus for request counts
             # This is a simplified approach - in production you'd use PromQL
             total_requests = total_requests or 1000  # Fallback
             successful_requests = successful_requests or 999  # Fallback
-        except ImportError:
+        else:
             # Use in-memory measurements
             if _measurement_window:
                 total_requests = sum(m["total_requests"] for m in _measurement_window)
@@ -421,12 +420,10 @@ def check_latency_slo(latency_p99: Optional[float] = None) -> SLOResult:
 
     # Try to get value from Prometheus if not provided
     if latency_p99 is None:
-        try:
-            from prometheus_client import REGISTRY
-
+        if importlib.util.find_spec("prometheus_client") is not None:
             # This would normally query Prometheus histogram quantile
             latency_p99 = latency_p99 or 0.1  # Fallback
-        except ImportError:
+        else:
             if _measurement_window:
                 latency_p99 = max(m["latency_p99"] for m in _measurement_window)
             else:
@@ -472,12 +469,10 @@ def check_debate_success_slo(
 
     # Try to get values from Prometheus if not provided
     if total_debates is None or successful_debates is None:
-        try:
-            from prometheus_client import REGISTRY
-
+        if importlib.util.find_spec("prometheus_client") is not None:
             total_debates = total_debates or 100  # Fallback
             successful_debates = successful_debates or 96  # Fallback
-        except ImportError:
+        else:
             if _measurement_window:
                 total_debates = sum(m["total_debates"] for m in _measurement_window)
                 successful_debates = sum(m["successful_debates"] for m in _measurement_window)

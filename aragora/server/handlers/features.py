@@ -10,6 +10,7 @@ in the current Aragora installation. This enables the frontend to:
 
 from __future__ import annotations
 
+import importlib
 import logging
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -275,8 +276,7 @@ def _check_requirement(requirement: str) -> tuple[bool, Optional[str]]:
 # Individual requirement checks
 def _check_pulse() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.pulse.manager import PulseManager
-
+        importlib.import_module("aragora.pulse.manager")
         return True, None
     except ImportError:
         return False, "Pulse module not installed"
@@ -284,8 +284,7 @@ def _check_pulse() -> tuple[bool, Optional[str]]:
 
 def _check_genesis() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.genesis.ledger import GenesisLedger
-
+        importlib.import_module("aragora.genesis.ledger")
         return True, None
     except ImportError:
         return False, "Genesis module not installed"
@@ -293,8 +292,7 @@ def _check_genesis() -> tuple[bool, Optional[str]]:
 
 def _check_z3() -> tuple[bool, Optional[str]]:
     try:
-        import z3
-
+        importlib.import_module("z3")
         return True, None
     except ImportError:
         return False, "z3-solver not installed"
@@ -325,8 +323,7 @@ def _check_lean() -> tuple[bool, Optional[str]]:
 
 def _check_laboratory() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.genesis.laboratory import PersonaLaboratory
-
+        importlib.import_module("aragora.genesis.laboratory")
         return True, None
     except ImportError:
         return False, "PersonaLaboratory not available"
@@ -334,8 +331,7 @@ def _check_laboratory() -> tuple[bool, Optional[str]]:
 
 def _check_calibration() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.ranking.calibration import CalibrationTracker
-
+        importlib.import_module("aragora.ranking.calibration")
         return True, None
     except ImportError:
         return False, "CalibrationTracker not available"
@@ -343,8 +339,7 @@ def _check_calibration() -> tuple[bool, Optional[str]]:
 
 def _check_evolution() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.genesis.prompt_evolver import PromptEvolver
-
+        importlib.import_module("aragora.genesis.prompt_evolver")
         return True, None
     except ImportError:
         return False, "PromptEvolver not available"
@@ -352,8 +347,7 @@ def _check_evolution() -> tuple[bool, Optional[str]]:
 
 def _check_red_team() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.debate.red_team import RedTeamMode
-
+        importlib.import_module("aragora.debate.red_team")
         return True, None
     except ImportError:
         return False, "RedTeamMode not available"
@@ -361,8 +355,7 @@ def _check_red_team() -> tuple[bool, Optional[str]]:
 
 def _check_probes() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.debate.capability_probes import ProbeRunner
-
+        importlib.import_module("aragora.debate.capability_probes")
         return True, None
     except ImportError:
         return False, "ProbeRunner not available"
@@ -370,8 +363,7 @@ def _check_probes() -> tuple[bool, Optional[str]]:
 
 def _check_continuum() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.memory.continuum import ContinuumMemory
-
+        importlib.import_module("aragora.memory.continuum")
         return True, None
     except ImportError:
         return False, "ContinuumMemory not available"
@@ -379,8 +371,7 @@ def _check_continuum() -> tuple[bool, Optional[str]]:
 
 def _check_consensus() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.memory.consensus import ConsensusMemory
-
+        importlib.import_module("aragora.memory.consensus")
         return True, None
     except ImportError:
         return False, "ConsensusMemory not available"
@@ -388,8 +379,7 @@ def _check_consensus() -> tuple[bool, Optional[str]]:
 
 def _check_insights() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.memory.insights import InsightStore
-
+        importlib.import_module("aragora.memory.insights")
         return True, None
     except ImportError:
         return False, "InsightStore not available"
@@ -397,8 +387,7 @@ def _check_insights() -> tuple[bool, Optional[str]]:
 
 def _check_moments() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.debate.moments import MomentDetector
-
+        importlib.import_module("aragora.debate.moments")
         return True, None
     except ImportError:
         return False, "MomentDetector not available"
@@ -406,8 +395,7 @@ def _check_moments() -> tuple[bool, Optional[str]]:
 
 def _check_tournaments() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.ranking.tournaments import TournamentManager
-
+        importlib.import_module("aragora.ranking.tournaments")
         return True, None
     except ImportError:
         return False, "TournamentManager not available"
@@ -415,8 +403,7 @@ def _check_tournaments() -> tuple[bool, Optional[str]]:
 
 def _check_elo() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.ranking.elo import EloSystem
-
+        importlib.import_module("aragora.ranking.elo")
         return True, None
     except ImportError:
         return False, "EloSystem not available"
@@ -424,8 +411,7 @@ def _check_elo() -> tuple[bool, Optional[str]]:
 
 def _check_crux() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.reasoning.crux import CruxAnalyzer
-
+        importlib.import_module("aragora.reasoning.crux")
         return True, None
     except ImportError:
         return False, "CruxAnalyzer not available"
@@ -433,8 +419,7 @@ def _check_crux() -> tuple[bool, Optional[str]]:
 
 def _check_rhetorical() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.debate.rhetorical_observer import RhetoricalAnalysisObserver
-
+        importlib.import_module("aragora.debate.rhetorical_observer")
         return True, None
     except ImportError:
         return False, "RhetoricalAnalysisObserver not available"
@@ -442,8 +427,7 @@ def _check_rhetorical() -> tuple[bool, Optional[str]]:
 
 def _check_trickster() -> tuple[bool, Optional[str]]:
     try:
-        from aragora.debate.trickster import EvidencePoweredTrickster
-
+        importlib.import_module("aragora.debate.trickster")
         return True, None
     except ImportError:
         return False, "Trickster not available"

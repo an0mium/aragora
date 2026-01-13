@@ -18,11 +18,13 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
+from aragora.serialization import SerializableMixin
+
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class RecoveryNarrative:
+class RecoveryNarrative(SerializableMixin):
     """A narrative for a recovery event."""
 
     event_type: str
@@ -32,15 +34,7 @@ class RecoveryNarrative:
     mood: str  # "tense", "triumphant", "cautionary", "neutral"
     timestamp: float = field(default_factory=time.time)
 
-    def to_dict(self) -> dict:
-        return {
-            "event_type": self.event_type,
-            "agent": self.agent,
-            "headline": self.headline,
-            "narrative": self.narrative,
-            "mood": self.mood,
-            "timestamp": self.timestamp,
-        }
+    # to_dict() inherited from SerializableMixin
 
 
 class RecoveryNarrator:
@@ -245,7 +239,9 @@ class RecoveryNarrator:
 
         # Pick templates (avoiding recent repeats)
         headline = self._pick_template(event_type, "headlines", list(templates["headlines"]), agent)
-        narrative = self._pick_template(event_type, "narratives", list(templates["narratives"]), agent)
+        narrative = self._pick_template(
+            event_type, "narratives", list(templates["narratives"]), agent
+        )
         mood_value = templates.get("mood", "neutral")
         mood = mood_value if isinstance(mood_value, str) else "neutral"
 

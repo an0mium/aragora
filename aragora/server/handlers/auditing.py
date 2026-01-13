@@ -868,7 +868,6 @@ class AuditingHandler(BaseHandler):
 
             logger.info("Starting red team analysis: debate_id=%s", debate_id)
 
-
             attack_type_names = data.get(
                 "attack_types",
                 [

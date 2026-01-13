@@ -1032,9 +1032,7 @@ class UnifiedServer:
         UnifiedHandler.persona_manager = init_persona_manager(nomic_dir)
         UnifiedHandler.position_ledger = init_position_ledger(nomic_dir)
         UnifiedHandler.debate_embeddings = init_debate_embeddings(nomic_dir)
-        UnifiedHandler.consensus_memory, UnifiedHandler.dissent_retriever = (
-            init_consensus_memory()
-        )
+        UnifiedHandler.consensus_memory, UnifiedHandler.dissent_retriever = init_consensus_memory()
         UnifiedHandler.moment_detector = init_moment_detector(
             elo_system=UnifiedHandler.elo_system,
             position_ledger=UnifiedHandler.position_ledger,

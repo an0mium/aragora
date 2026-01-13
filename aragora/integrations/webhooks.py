@@ -25,7 +25,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
 from urllib.parse import urlparse
 
-from aragora.resilience import CircuitOpenError, get_circuit_breaker
+from aragora.resilience import get_circuit_breaker
 
 logger = logging.getLogger(__name__)
 

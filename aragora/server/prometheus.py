@@ -630,7 +630,7 @@ def timed_http_request(endpoint: str) -> Callable[[Callable], Callable]:
                 result = func(*args, **kwargs)
                 status = getattr(result, "status_code", 200) if result else 200
                 return result
-            except Exception:
+            except Exception:  # noqa: BLE001 - Re-raised after recording status
                 status = 500
                 raise
             finally:
@@ -847,7 +847,7 @@ def timed_nomic_phase(phase: str) -> Callable[[Callable], Callable]:
                 if hasattr(result, "get") and not result.get("success", True):
                     outcome = "failure"
                 return result
-            except Exception:
+            except Exception:  # noqa: BLE001 - Re-raised after recording outcome
                 outcome = "failure"
                 raise
             finally:

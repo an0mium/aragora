@@ -206,9 +206,7 @@ class FileAuditBackend:
             max_file_size_mb: Max size before rotation
             retention_days: Days to retain old logs
         """
-        self._log_dir = Path(
-            log_dir or os.environ.get("AUDIT_LOG_DIR", "logs/audit")
-        )
+        self._log_dir = Path(log_dir or os.environ.get("AUDIT_LOG_DIR", "logs/audit"))
         self._log_dir.mkdir(parents=True, exist_ok=True)
 
         self._file_prefix = file_prefix

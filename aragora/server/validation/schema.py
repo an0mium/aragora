@@ -5,7 +5,6 @@ Provides schema definitions for common endpoints and a function
 to validate data against these schemas.
 """
 
-
 from .core import (
     ValidationResult,
     validate_enum_field,

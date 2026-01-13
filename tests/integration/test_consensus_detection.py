@@ -415,21 +415,75 @@ class TestConsensusWithMultipleRounds:
         round_votes = [
             # Round 1: Split votes
             [
-                Vote(agent="agent_0", choice="agent_0", reasoning="A", confidence=0.7, continue_debate=True),
-                Vote(agent="agent_1", choice="agent_1", reasoning="B", confidence=0.7, continue_debate=True),
-                Vote(agent="agent_2", choice="agent_2", reasoning="C", confidence=0.7, continue_debate=True),
+                Vote(
+                    agent="agent_0",
+                    choice="agent_0",
+                    reasoning="A",
+                    confidence=0.7,
+                    continue_debate=True,
+                ),
+                Vote(
+                    agent="agent_1",
+                    choice="agent_1",
+                    reasoning="B",
+                    confidence=0.7,
+                    continue_debate=True,
+                ),
+                Vote(
+                    agent="agent_2",
+                    choice="agent_2",
+                    reasoning="C",
+                    confidence=0.7,
+                    continue_debate=True,
+                ),
             ],
             # Round 2: Converging to A
             [
-                Vote(agent="agent_0", choice="agent_0", reasoning="A", confidence=0.8, continue_debate=True),
-                Vote(agent="agent_1", choice="agent_0", reasoning="A convinced me", confidence=0.75, continue_debate=False),
-                Vote(agent="agent_2", choice="agent_2", reasoning="C still", confidence=0.6, continue_debate=True),
+                Vote(
+                    agent="agent_0",
+                    choice="agent_0",
+                    reasoning="A",
+                    confidence=0.8,
+                    continue_debate=True,
+                ),
+                Vote(
+                    agent="agent_1",
+                    choice="agent_0",
+                    reasoning="A convinced me",
+                    confidence=0.75,
+                    continue_debate=False,
+                ),
+                Vote(
+                    agent="agent_2",
+                    choice="agent_2",
+                    reasoning="C still",
+                    confidence=0.6,
+                    continue_debate=True,
+                ),
             ],
             # Round 3: Full convergence
             [
-                Vote(agent="agent_0", choice="agent_0", reasoning="A", confidence=0.9, continue_debate=False),
-                Vote(agent="agent_1", choice="agent_0", reasoning="A", confidence=0.85, continue_debate=False),
-                Vote(agent="agent_2", choice="agent_0", reasoning="A makes sense", confidence=0.7, continue_debate=False),
+                Vote(
+                    agent="agent_0",
+                    choice="agent_0",
+                    reasoning="A",
+                    confidence=0.9,
+                    continue_debate=False,
+                ),
+                Vote(
+                    agent="agent_1",
+                    choice="agent_0",
+                    reasoning="A",
+                    confidence=0.85,
+                    continue_debate=False,
+                ),
+                Vote(
+                    agent="agent_2",
+                    choice="agent_0",
+                    reasoning="A makes sense",
+                    confidence=0.7,
+                    continue_debate=False,
+                ),
             ],
         ]
 

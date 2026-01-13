@@ -289,7 +289,7 @@ export OTEL_ENABLED=true
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 export METRICS_ENABLED=true
 
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ### View Traces

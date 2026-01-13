@@ -59,14 +59,16 @@ def clean_test_schema(pg_backend, test_table_name):
     """Create and cleanup a test table."""
     # Create test table
     with pg_backend.connection() as conn:
-        conn.execute(f"""
+        conn.execute(
+            f"""
             CREATE TABLE IF NOT EXISTS {test_table_name} (
                 id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
                 value INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
         conn.commit()
 
     yield test_table_name

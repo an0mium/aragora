@@ -234,5 +234,49 @@ and building on others' ideas."""
             self.current_role_assignments = result.assignments
         return self.current_role_assignments
 
+    def update_role_assignments(self, round_num: int, debate_domain: Optional[str] = None) -> None:
+        """Update cognitive role assignments for the current round.
+
+        Uses role matcher if available (calibration-based), otherwise
+        falls back to simple role rotation.
+
+        Args:
+            round_num: Current round number
+            debate_domain: Optional domain hint for role matching
+        """
+        agent_names = [a.name for a in self.agents]
+
+        # Use role matcher if available (calibration-based)
+        if self.role_matcher:
+            result = self.role_matcher.match_roles(
+                agent_names=agent_names,
+                round_num=round_num,
+                debate_domain=debate_domain,
+            )
+            self.current_role_assignments = result.assignments
+            logger.debug(f"Role matcher assigned: {list(self.current_role_assignments.keys())}")
+        # Fall back to simple role rotation
+        elif self.role_rotator:
+            total_rounds = getattr(self.protocol, "rounds", 3)
+            self.current_role_assignments = self.role_rotator.get_assignments(
+                agent_names, round_num, total_rounds
+            )
+            logger.debug(f"Role rotator assigned: {list(self.current_role_assignments.keys())}")
+
+    def get_role_context(self, agent: "Agent") -> str:
+        """Get cognitive role context for an agent in the current round.
+
+        Args:
+            agent: The agent to get role context for
+
+        Returns:
+            Role context string for prompt injection, or empty string if not available
+        """
+        if not self.role_rotator or agent.name not in self.current_role_assignments:
+            return ""
+
+        assignment = self.current_role_assignments[agent.name]
+        return self.role_rotator.format_role_context(assignment)
+
 
 __all__ = ["RolesManager"]

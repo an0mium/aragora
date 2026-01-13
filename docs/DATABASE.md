@@ -6,8 +6,8 @@ Aragora uses a dual-storage architecture: SQLite for local development and persi
 
 | Aspect | Value |
 |--------|-------|
-| **Default Mode** | `consolidated` (4 databases) |
-| **Legacy Mode** | `legacy` (32 databases) |
+| **Default Mode** | `legacy` (multiple SQLite files) |
+| **Consolidated Mode** | `consolidated` (4 databases, optional) |
 | **PostgreSQL** | Full support via `psycopg2` |
 | **Connection Pooling** | Built-in (10-20 per DB) |
 
@@ -20,26 +20,34 @@ Aragora uses a dual-storage architecture: SQLite for local development and persi
 | **analytics.db** | ELO ratings, insights | ratings, matches, elo_history, insights |
 | **agents.db** | Agent personas, genesis | personas, genomes, relationships |
 
-### Legacy Databases (32 individual files)
+### Legacy Databases (multiple individual files)
 
 | Database | Purpose | Default Path |
 |----------|---------|--------------|
-| `aragora_elo.db` | Agent ELO rankings | `ARAGORA_DATA_DIR` (default `.nomic/`) |
-| `aragora_memory.db` | Memory tiers | `ARAGORA_DATA_DIR` (default `.nomic/`) |
-| `aragora_users.db` | User accounts | `ARAGORA_DATA_DIR` (default `.nomic/`) |
-| `aragora_positions.db` | Agent positions | `ARAGORA_DATA_DIR` (default `.nomic/`) |
-| `aragora_replay.db` | Debate replays | `ARAGORA_DATA_DIR` (default `.nomic/`) |
-| `aragora_tokens.db` | Token blacklist | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `agent_elo.db` | Agent ELO rankings | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `continuum.db` | Continuum memory tiers | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `consensus_memory.db` | Consensus history | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `agora_memory.db` | CritiqueStore patterns (CLI) | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `agent_calibration.db` | Calibration tracking | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `aragora_insights.db` | Insights and analytics | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `agent_personas.db` | Personas | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `grounded_positions.db` | Truth-grounded positions | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `genesis.db` | Genesis ledger / genomes | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `token_blacklist.db` | JWT revocation store | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `users.db` | User/org accounts | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+
+Other legacy files are created on demand (e.g., `persona_lab.db`, `agent_relationships.db`).
+Use `ARAGORA_DB_*` overrides or `aragora.config.legacy.DB_NAMES` for the full list.
 
 ---
 
 ## Database Mode Configuration
 
 ```bash
-# Use consolidated mode (default, recommended)
+# Use consolidated mode (optional)
 export ARAGORA_DB_MODE=consolidated
 
-# Use legacy mode (32 individual databases)
+# Use legacy mode (default)
 export ARAGORA_DB_MODE=legacy
 ```
 
@@ -108,13 +116,15 @@ pip install psycopg2-binary  # or psycopg2 for production
 
 ```bash
 # Required
-export ARAGORA_DATABASE_URL="postgresql://user:password@host:5432/aragora"
+export DATABASE_URL="postgresql://user:password@host:5432/aragora"
 
-# Optional
-export ARAGORA_DB_POOL_MIN=5      # Minimum pool connections
-export ARAGORA_DB_POOL_MAX=20     # Maximum pool connections
-export ARAGORA_DB_TIMEOUT=30      # Connection timeout
+# Optional (pool tuning)
+export ARAGORA_DB_POOL_SIZE=10        # Pool size
+export ARAGORA_DB_POOL_MAX_OVERFLOW=5 # Extra connections
+export ARAGORA_DB_POOL_TIMEOUT=30     # Connection timeout
 ```
+
+`ARAGORA_DATABASE_URL` is accepted as a legacy alias for `DATABASE_URL`.
 
 ### Connection String Format
 
@@ -281,7 +291,7 @@ All database connections should use encrypted transport:
 
 PostgreSQL SSL configuration:
 ```bash
-export ARAGORA_DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=verify-full&sslrootcert=/path/to/ca.crt"
+export DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=verify-full&sslrootcert=/path/to/ca.crt"
 ```
 
 ### Key Management
@@ -613,11 +623,11 @@ def upgrade(conn: sqlite3.Connection) -> None:
 
 ```bash
 # Manual backup
-cp "${ARAGORA_DATA_DIR:-.nomic}/aragora_users.db" \
+cp "${ARAGORA_DATA_DIR:-.nomic}/users.db" \
   "${ARAGORA_DATA_DIR:-.nomic}/backups/users_$(date +%Y%m%d).db"
 
 # Using sqlite3 backup command
-sqlite3 "${ARAGORA_DATA_DIR:-.nomic}/aragora_users.db" \
+sqlite3 "${ARAGORA_DATA_DIR:-.nomic}/users.db" \
   ".backup '${ARAGORA_DATA_DIR:-.nomic}/backups/users.db'"
 ```
 
@@ -631,10 +641,12 @@ BACKUP_DIR="${ARAGORA_DATA_DIR:-.nomic}/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
 mkdir -p "$BACKUP_DIR"
 
-for db in elo memory users positions replay tokens; do
-    src="${ARAGORA_DATA_DIR:-.nomic}/aragora_${db}.db"
+for db in agent_elo.db continuum.db consensus_memory.db agent_calibration.db \
+         aragora_insights.db agent_personas.db grounded_positions.db genesis.db \
+         token_blacklist.db users.db agora_memory.db; do
+    src="${ARAGORA_DATA_DIR:-.nomic}/${db}"
     if [ -f "$src" ]; then
-        sqlite3 "$src" ".backup '$BACKUP_DIR/${db}_${DATE}.db'"
+        sqlite3 "$src" ".backup '$BACKUP_DIR/${db%.db}_${DATE}.db'"
         echo "Backed up: $db"
     fi
 done
@@ -648,7 +660,7 @@ find "$BACKUP_DIR" -name "*.db" -mtime +7 -delete
 ```bash
 # Stop the server first
 cp "${ARAGORA_DATA_DIR:-.nomic}/backups/users_20240101.db" \
-  "${ARAGORA_DATA_DIR:-.nomic}/aragora_users.db"
+  "${ARAGORA_DATA_DIR:-.nomic}/users.db"
 ```
 
 ## Performance Monitoring
@@ -736,7 +748,7 @@ If migration fails with version mismatch:
 python -m aragora.persistence.migrations.runner --status
 
 # View schema_version table directly
-sqlite3 "${ARAGORA_DATA_DIR:-.nomic}/aragora_users.db" "SELECT * FROM schema_version"
+sqlite3 "${ARAGORA_DATA_DIR:-.nomic}/users.db" "SELECT * FROM schema_version"
 ```
 
 ### Corrupted Database

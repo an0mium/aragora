@@ -38,7 +38,9 @@ class SecurityRepository:
     LOCKOUT_DURATION_2 = 60 * 60  # 1 hour
     LOCKOUT_DURATION_3 = 24 * 60 * 60  # 24 hours
 
-    def __init__(self, transaction_fn: Callable[[], AbstractContextManager[sqlite3.Cursor]]) -> None:
+    def __init__(
+        self, transaction_fn: Callable[[], AbstractContextManager[sqlite3.Cursor]]
+    ) -> None:
         """
         Initialize the security repository.
 

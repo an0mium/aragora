@@ -369,8 +369,6 @@ class StrategyIdentifier:
         winner = debate_outcome.get("winner")
         messages = debate_outcome.get("messages", [])
         consensus_reached = debate_outcome.get("consensus_reached", False)
-        votes = debate_outcome.get("votes", {})
-
         # Get winning agent's messages
         winner_messages = [m.get("content", "") for m in messages if m.get("agent") == winner]
 

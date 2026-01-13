@@ -17,6 +17,7 @@ from typing import Any, Optional
 from uuid import uuid4
 
 from aragora.exceptions import ConfigurationError
+from aragora.serialization import SerializableMixin
 
 # Try to import bcrypt for secure password hashing
 try:
@@ -55,7 +56,7 @@ class SubscriptionTier(Enum):
 
 
 @dataclass
-class TierLimits:
+class TierLimits(SerializableMixin):
     """Limits for a subscription tier."""
 
     debates_per_month: int
@@ -77,26 +78,7 @@ class TierLimits:
     unlimited_api_calls: bool = False
     token_based_billing: bool = False
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary."""
-        return {
-            "debates_per_month": self.debates_per_month,
-            "users_per_org": self.users_per_org,
-            "api_access": self.api_access,
-            "all_agents": self.all_agents,
-            "custom_agents": self.custom_agents,
-            "sso_enabled": self.sso_enabled,
-            "audit_logs": self.audit_logs,
-            "priority_support": self.priority_support,
-            "price_monthly_cents": self.price_monthly_cents,
-            "dedicated_infrastructure": self.dedicated_infrastructure,
-            "sla_guarantee": self.sla_guarantee,
-            "custom_model_training": self.custom_model_training,
-            "private_model_deployment": self.private_model_deployment,
-            "compliance_certifications": self.compliance_certifications,
-            "unlimited_api_calls": self.unlimited_api_calls,
-            "token_based_billing": self.token_based_billing,
-        }
+    # to_dict() inherited from SerializableMixin
 
 
 # Tier configurations

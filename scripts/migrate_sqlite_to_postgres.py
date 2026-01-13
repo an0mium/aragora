@@ -272,9 +272,7 @@ def migrate_table(
 
         converted_batch = []
         for row in batch:
-            converted_row = tuple(
-                convert_value(val, col_types[i]) for i, val in enumerate(row)
-            )
+            converted_row = tuple(convert_value(val, col_types[i]) for i, val in enumerate(row))
             converted_batch.append(converted_row)
 
         try:
@@ -312,9 +310,7 @@ def migrate_database(
             # Apply prefix if needed
             pg_table_name = f"{prefix}{table_name}" if prefix else table_name
 
-            rows, failed = migrate_table(
-                sqlite_conn, pg_conn, table_name, dry_run=dry_run
-            )
+            rows, failed = migrate_table(sqlite_conn, pg_conn, table_name, dry_run=dry_run)
 
             if failed:
                 stats.tables_failed += 1
@@ -345,9 +341,7 @@ def create_postgres_connection(database_url: str) -> Any:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Migrate SQLite databases to PostgreSQL"
-    )
+    parser = argparse.ArgumentParser(description="Migrate SQLite databases to PostgreSQL")
     parser.add_argument(
         "--source-dir",
         type=Path,
