@@ -358,11 +358,19 @@ class SystemHandler(BaseHandler):
                 elo.get_leaderboard(limit=1)
                 checks["elo_system"] = {"healthy": True}
             else:
-                checks["elo_system"] = {"healthy": False, "error": "ELO system not initialized"}
-                all_healthy = False
+                # ELO is optional - service functions without it
+                checks["elo_system"] = {
+                    "healthy": True,  # Downgrade to warning, not failure
+                    "warning": "ELO system not initialized",
+                    "initialized": False,
+                }
         except (OSError, RuntimeError, ValueError, KeyError) as e:
-            checks["elo_system"] = {"healthy": False, "error": f"{type(e).__name__}: {str(e)[:80]}"}
-            all_healthy = False
+            # ELO errors are non-critical - service still functions
+            checks["elo_system"] = {
+                "healthy": True,  # Downgrade to warning
+                "warning": f"{type(e).__name__}: {str(e)[:80]}",
+                "initialized": False,
+            }
 
         # Check nomic directory
         nomic_dir = self.get_nomic_dir()
