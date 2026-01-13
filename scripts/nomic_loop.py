@@ -104,8 +104,8 @@ try:
         NOMIC_MAX_CYCLE_SECONDS as _NOMIC_MAX_CYCLE_SECONDS,
         NOMIC_STALL_THRESHOLD as _NOMIC_STALL_THRESHOLD,
     )
-    # Import extracted phase classes
-    from scripts.nomic.phases import (
+    # Import extracted phase classes from aragora.nomic package
+    from aragora.nomic.phases import (
         ContextPhase,
         DebatePhase,
         DesignPhase,
@@ -1922,7 +1922,7 @@ class NomicLoop:
         """
         try:
             from aragora.server.prometheus import record_nomic_phase, record_nomic_agent_phase
-            from scripts.nomic.phases import set_metrics_recorder
+            from aragora.nomic.phases import set_metrics_recorder
 
             set_metrics_recorder(
                 phase_recorder=record_nomic_phase,
@@ -6876,7 +6876,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             debate_team = debate_phase.agents  # Get the team for hooks
             hooks = self._create_post_debate_hooks(debate_team=debate_team)
             # Build learning context
-            from scripts.nomic.phases.debate import LearningContext
+            from aragora.nomic.phases.debate import LearningContext
             learning = LearningContext(
                 failure_lessons=self._analyze_failed_branches(),
                 successful_patterns=self._format_successful_patterns(),
@@ -6914,7 +6914,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
             design_phase = self._create_design_phase()
             # Build belief context from analysis
-            from scripts.nomic.phases.design import BeliefContext
+            from aragora.nomic.phases.design import BeliefContext
             belief_ctx = None
             if belief_analysis:
                 belief_ctx = BeliefContext(
@@ -8334,14 +8334,14 @@ async def main():
         print("STREAMING IS REQUIRED")
         print("=" * 70)
         print()
-        print("The nomic loop MUST stream to live.aragora.ai for transparency.")
+        print("The nomic loop MUST stream to aragora.ai for transparency.")
         print()
         print("Please use the streaming script instead:")
         print()
         print("    python scripts/run_nomic_with_stream.py run --cycles 3")
         print()
         print("This ensures that all nomic loop activity is visible in real-time")
-        print("at https://live.aragora.ai")
+        print("at https://aragora.ai")
         print()
         print("If you MUST run without streaming (not recommended), use:")
         print()
@@ -8355,7 +8355,7 @@ async def main():
     print("WARNING: Running WITHOUT live streaming")
     print("=" * 70)
     print()
-    print("Activity will NOT be visible at https://live.aragora.ai")
+    print("Activity will NOT be visible at https://aragora.ai")
     print("This is strongly discouraged for transparency reasons.")
     print()
     print("Press Ctrl+C within 5 seconds to cancel...")

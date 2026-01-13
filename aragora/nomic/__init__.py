@@ -85,6 +85,23 @@ from aragora.nomic.handlers import (
     create_commit_handler,
 )
 
+# Phase implementations
+from aragora.nomic.phases import (
+    ContextPhase,
+    DebatePhase,
+    DesignPhase,
+    ImplementPhase,
+    VerifyPhase,
+    CommitPhase,
+    DebateConfig,
+    DesignConfig,
+    LearningContext,
+    BeliefContext,
+    PostDebateHooks,
+    ScopeLimiter,
+    check_design_scope,
+)
+
 # Legacy Integration (lazy imports to avoid circular dependencies)
 def __getattr__(name):
     """Lazy import legacy integration modules."""
@@ -177,4 +194,18 @@ __all__ = [
     "CheckResult",
     "CheckStatus",
     "run_preflight",
+    # Phase implementations
+    "ContextPhase",
+    "DebatePhase",
+    "DesignPhase",
+    "ImplementPhase",
+    "VerifyPhase",
+    "CommitPhase",
+    "DebateConfig",
+    "DesignConfig",
+    "LearningContext",
+    "BeliefContext",
+    "PostDebateHooks",
+    "ScopeLimiter",
+    "check_design_scope",
 ]
