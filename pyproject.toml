@@ -35,13 +35,16 @@ classifiers = [
 ]
 
 dependencies = [
-    "aiohttp>=3.9,<4.0",
+    "aiohttp>=3.13.3,<4.0",  # CVE fixes in 3.13.3
     "websockets>=12.0,<14.0",
     "pyyaml>=6.0,<7.0",
     "pydantic>=2.0,<3.0",
     "pydantic-settings>=2.0,<3.0",
     "bcrypt>=4.0,<5.0",  # Secure password hashing
     "markupsafe>=2.1.0,<3.0",  # HTML escaping for XSS prevention
+    "pyotp>=2.9,<3.0",  # TOTP/HOTP for MFA
+    "jinja2>=3.1.6,<4.0",  # CVE-2024-56326 fix
+    "urllib3>=2.6.3,<3.0",  # CVE fix
 ]
 
 [project.optional-dependencies]
@@ -78,7 +81,7 @@ postgres = [
     "asyncpg>=0.29.0,<1.0",
 ]
 documents = [
-    "pypdf>=3.0,<5.0",
+    "pypdf>=6.6,<7.0",  # CVE fixes require 6.6+
     "python-docx>=0.8,<2.0",
 ]
 broadcast = [
@@ -138,10 +141,12 @@ target-version = ["py310", "py311", "py312"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "T201", "BLE001"]  # T201 = print, BLE001 = bare except
 ignore = ["E501"]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 # Allow print statements in CLI modules, migrations, and scripts
 "aragora/cli/*" = ["T201"]
 "aragora/migrations/*" = ["T201"]
@@ -198,10 +203,10 @@ disallow_untyped_defs = false
 [[tool.mypy.overrides]]
 module = [
     "aragora.core",
-    "aragora.config",
+    "aragora.config.*",
     "aragora.persistence.db_config",
     "aragora.persistence.models",
-    "aragora.server.validation",
+    "aragora.server.validation.*",
     "aragora.protocols",
     "aragora.ranking.elo_core",
     "aragora.debate.autonomic_executor",
@@ -210,8 +215,9 @@ module = [
     # Added strict - clean modules (Jan 2026)
     "aragora.debate.termination_checker",
     "aragora.debate.team_selector",
-    "aragora.debate.convergence",
+    "aragora.debate.convergence.*",
     "aragora.exceptions",
+    "aragora.auth.lockout",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
