@@ -13,17 +13,17 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
-    from aragora.debate.orchestrator import Arena
+    from aragora.debate.orchestrator import Arena as ArenaType
     from aragora.core import Environment, DebateProtocol
 
 # Lazy imports for optional dependencies
-Arena = None
+_Arena: Optional[type] = None
 create_arena_hooks = None
 
 try:
     from aragora.debate.orchestrator import Arena as ArenaClass
 
-    Arena = ArenaClass
+    _Arena = ArenaClass
 except ImportError:
     pass
 
@@ -133,7 +133,7 @@ class ArenaFactory:
         Returns:
             Configured Arena instance, or None if Arena is unavailable
         """
-        if Arena is None:
+        if _Arena is None:
             self._log("Arena not available - cannot create instance")
             return None
 
@@ -192,7 +192,7 @@ class ArenaFactory:
         # Merge any extra kwargs
         kwargs.update(extra_kwargs)
 
-        return Arena(environment, agents, protocol, **kwargs)
+        return _Arena(environment, agents, protocol, **kwargs)
 
     def _create_hooks(self, phase_name: str) -> dict:
         """Create event hooks for real-time Arena logging and streaming.

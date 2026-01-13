@@ -94,6 +94,19 @@ class DatabaseBackend(ABC):
         """Return the backend type ('sqlite' or 'postgresql')."""
         pass
 
+    @abstractmethod
+    def get_table_columns(self, table: str) -> list[dict[str, Any]]:
+        """
+        Get column information for a table.
+
+        Args:
+            table: Table name (must be alphanumeric + underscore)
+
+        Returns:
+            List of dicts with keys: name, type, notnull, default, pk
+        """
+        pass
+
     def convert_placeholder(self, sql: str) -> str:
         """
         Convert SQL placeholders between SQLite (?) and PostgreSQL (%s).
@@ -263,6 +276,23 @@ class SQLiteBackend(DatabaseBackend):
     def backend_type(self) -> str:
         return "sqlite"
 
+    def get_table_columns(self, table: str) -> list[dict[str, Any]]:
+        """Get column information for a SQLite table."""
+        if not table.replace("_", "").isalnum():
+            raise ValueError(f"Invalid table name: {table}")
+
+        rows = self.fetch_all(f"PRAGMA table_info({table})")
+        return [
+            {
+                "name": row[1],
+                "type": row[2],
+                "notnull": bool(row[3]),
+                "default": row[4],
+                "pk": bool(row[5]),
+            }
+            for row in rows
+        ]
+
     def __repr__(self) -> str:
         return f"SQLiteBackend({self.db_path!r})"
 
@@ -368,6 +398,43 @@ class PostgreSQLBackend(DatabaseBackend):
     @property
     def backend_type(self) -> str:
         return "postgresql"
+
+    def get_table_columns(self, table: str) -> list[dict[str, Any]]:
+        """Get column information for a PostgreSQL table."""
+        if not table.replace("_", "").isalnum():
+            raise ValueError(f"Invalid table name: {table}")
+
+        # Use information_schema for PostgreSQL-compatible introspection
+        sql = """
+            SELECT
+                column_name,
+                data_type,
+                is_nullable,
+                column_default,
+                CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END as is_primary_key
+            FROM information_schema.columns c
+            LEFT JOIN (
+                SELECT ku.column_name
+                FROM information_schema.table_constraints tc
+                JOIN information_schema.key_column_usage ku
+                    ON tc.constraint_name = ku.constraint_name
+                WHERE tc.constraint_type = 'PRIMARY KEY'
+                    AND tc.table_name = %s
+            ) pk ON c.column_name = pk.column_name
+            WHERE c.table_name = %s
+            ORDER BY c.ordinal_position
+        """
+        rows = self.fetch_all(sql, (table, table))
+        return [
+            {
+                "name": row[0],
+                "type": row[1],
+                "notnull": row[2] == "NO",
+                "default": row[3],
+                "pk": row[4],
+            }
+            for row in rows
+        ]
 
     def __repr__(self) -> str:
         # Hide credentials in URL

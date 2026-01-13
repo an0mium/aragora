@@ -6,6 +6,7 @@ Default endpoint: http://localhost:1234/v1
 """
 
 import aiohttp
+import asyncio
 import json
 import logging
 import os

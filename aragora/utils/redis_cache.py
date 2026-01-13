@@ -249,29 +249,30 @@ class RedisTTLCache(Generic[T]):
         return len(self._memory_cache)
 
 
-class HybridTTLCache(Generic[T]):
+def HybridTTLCache(
+    prefix: str = "cache",
+    ttl_seconds: float = 300.0,
+    maxsize: int = 1000,
+) -> "RedisTTLCache[Any]":
     """
-    Convenience class that selects the best available cache implementation.
+    Factory function that returns the best available cache implementation.
 
     Uses RedisTTLCache (with Redis backend) if Redis is available,
     otherwise uses a standard in-memory TTLCache.
+
+    Args:
+        prefix: Key prefix for Redis (namespace isolation)
+        ttl_seconds: Time-to-live for entries
+        maxsize: Max entries for in-memory fallback
+
+    Returns:
+        RedisTTLCache instance which handles Redis availability internally.
     """
-
-    def __new__(
-        cls,
-        prefix: str = "cache",
-        ttl_seconds: float = 300.0,
-        maxsize: int = 1000,
-    ) -> "RedisTTLCache[T]":
-        """Create a new cache instance.
-
-        Always returns RedisTTLCache which handles Redis availability internally.
-        """
-        return RedisTTLCache(
-            prefix=prefix,
-            ttl_seconds=ttl_seconds,
-            maxsize=maxsize,
-        )
+    return RedisTTLCache(
+        prefix=prefix,
+        ttl_seconds=ttl_seconds,
+        maxsize=maxsize,
+    )
 
 
 __all__ = [

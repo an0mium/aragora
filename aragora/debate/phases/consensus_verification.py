@@ -114,8 +114,9 @@ class ConsensusVerifier:
                     disproven_count = 0
 
                 # Store verification counts for feedback loop
+                # Note: verification_results accepts both int (legacy) and dict (new format)
                 if hasattr(result, "verification_results"):
-                    result.verification_results[agent_name] = {
+                    result.verification_results[agent_name] = {  # type: ignore[assignment]
                         "verified": verified_count,
                         "disproven": disproven_count,
                     }
@@ -125,7 +126,7 @@ class ConsensusVerifier:
                     # Apply bonus: boost votes for this proposal
                     current_count = vote_counts[canonical]
                     bonus = current_count * verification_bonus * verified_count
-                    vote_counts[canonical] = current_count + bonus
+                    vote_counts[canonical] = current_count + bonus  # type: ignore[assignment]
 
                     # Store bonus for feedback loop
                     if hasattr(result, "verification_bonuses"):

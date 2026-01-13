@@ -110,18 +110,30 @@ def validate_token(token: str) -> bool:
     """
     Validate an authentication token.
 
+    Checks both token validity and revocation status.
+
     Args:
         token: Token to validate.
 
     Returns:
-        True if valid, False otherwise.
+        True if valid and not revoked, False otherwise.
     """
     from aragora.server.auth import auth_config
+    from aragora.server.middleware.token_revocation import is_token_revoked
 
     if not token:
         return False
 
-    return auth_config.validate_token(token)
+    # Check if token is valid
+    if not auth_config.validate_token(token):
+        return False
+
+    # Check if token has been revoked
+    if is_token_revoked(token):
+        logger.debug("Token validation failed: token has been revoked")
+        return False
+
+    return True
 
 
 def _extract_handler(*args, **kwargs) -> Any:

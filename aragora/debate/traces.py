@@ -17,6 +17,7 @@ import random
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.storage.base_store import SQLiteStore
+from aragora.debate.traces_database import TracesDatabase
 
 
 class EventType(Enum):

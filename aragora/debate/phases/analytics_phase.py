@@ -328,12 +328,12 @@ class AnalyticsPhase:
                 proposals=proposals,
             )
 
-            # Attach uncertainty metrics to result
-            result.uncertainty_metrics = metrics.to_dict()
+            # Attach uncertainty metrics to result (using setattr for optional attributes)
+            setattr(result, "uncertainty_metrics", metrics.to_dict())
 
             # Update result confidence with calibrated value
             if metrics.collective_confidence > 0:
-                result.calibrated_confidence = metrics.collective_confidence
+                setattr(result, "calibrated_confidence", metrics.collective_confidence)
 
             # Log uncertainty analysis
             logger.info(

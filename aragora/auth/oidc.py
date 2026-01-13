@@ -55,8 +55,8 @@ try:
 
     HAS_JWT = True
 except ImportError:
-    jwt = None
-    PyJWKClient = None
+    jwt = None  # type: ignore[assignment]
+    PyJWKClient = None  # type: ignore[assignment, misc]
     HAS_JWT = False
 
 # Optional: httpx for async HTTP
@@ -327,8 +327,9 @@ class OIDCProvider(SSOProvider):
     async def authenticate(
         self,
         code: Optional[str] = None,
+        saml_response: Optional[str] = None,
         state: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> SSOUser:
         """
         Authenticate user from OIDC callback.

@@ -10,8 +10,11 @@ Pre-built debate structures for high-value use cases:
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Callable, Any
+from typing import Optional, Callable, Any, TYPE_CHECKING
 from enum import Enum
+
+if TYPE_CHECKING:
+    from aragora.debate.protocol import DebateProtocol
 
 
 class TemplateType(Enum):

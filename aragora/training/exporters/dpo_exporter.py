@@ -205,7 +205,7 @@ class DPOExporter(BaseExporter):
 
     def _export_calibration_pairs(self, limit: int) -> list[dict[str, Any]]:
         """Export preference pairs based on calibration quality."""
-        records = []
+        records: list[dict[str, Any]] = []
 
         # Get calibration leaderboard
         calibration_lb = self.elo.get_calibration_leaderboard(limit=50)

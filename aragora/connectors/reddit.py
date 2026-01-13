@@ -155,7 +155,7 @@ class RedditConnector(BaseConnector):
         # Build URL and params
         if subreddit:
             url = f"https://www.reddit.com/r/{subreddit}/search.json"
-            params = {
+            params: dict[str, str | int] = {
                 "q": query,
                 "limit": limit,
                 "sort": sort,
@@ -404,7 +404,7 @@ class RedditConnector(BaseConnector):
         limit = min(limit, 100)
 
         url = f"https://www.reddit.com/r/{subreddit}/{sort}.json"
-        params = {"limit": limit}
+        params: dict[str, str | int] = {"limit": limit}
         if sort == "top":
             params["t"] = time_filter
 

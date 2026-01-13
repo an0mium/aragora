@@ -680,7 +680,7 @@ def get_debates_db() -> Optional[DebateStorage]:
     global _debate_storage
     if _debate_storage is None:
         try:
-            from aragora.config import get_db_path
+            from aragora.config.legacy import get_db_path
 
             db_path = get_db_path("aragora_debates.db")
             _debate_storage = DebateStorage(str(db_path))

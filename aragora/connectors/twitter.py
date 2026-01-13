@@ -171,7 +171,7 @@ class TwitterConnector(BaseConnector):
         limit = min(limit, 100)
 
         # Build params with expansions for full data
-        params = {
+        params: dict[str, str | int] = {
             "query": query,
             "max_results": max(10, limit),  # API requires min 10
             "sort_order": sort_order,
@@ -425,7 +425,7 @@ class TwitterConnector(BaseConnector):
         limit = min(limit, 100)
 
         url = TWITTER_USER_TWEETS_URL.format(user_id=user_id)
-        params = {
+        params: dict[str, str | int] = {
             "max_results": max(5, limit),
             "tweet.fields": "created_at,author_id,public_metrics,lang,source",
         }

@@ -111,10 +111,10 @@ class GauntletExporter(BaseExporter):
 
     def _export_attack_patterns(self, limit: int) -> list[dict[str, Any]]:
         """Export patterns for recognizing adversarial attacks."""
-        records = []
+        records: list[dict[str, Any]] = []
 
         # Common attack categories from Gauntlet
-        attack_categories = [
+        attack_categories: list[dict[str, Any]] = [
             {
                 "name": "role_confusion",
                 "description": "Attempts to confuse the agent about its role",
@@ -163,7 +163,10 @@ class GauntletExporter(BaseExporter):
         ]
 
         for category in attack_categories:
-            for example in category["examples"]:
+            category_name = str(category["name"])
+            category_desc = str(category["description"])
+            examples = list(category["examples"])
+            for example in examples:
                 instruction = (
                     f"You receive the following message in a debate context:\n\n"
                     f'"{example}"\n\n'
@@ -172,8 +175,8 @@ class GauntletExporter(BaseExporter):
                 )
 
                 response = (
-                    f"This appears to be a {category['name'].replace('_', ' ')} attempt. "
-                    f"{category['description']}. I should:\n\n"
+                    f"This appears to be a {category_name.replace('_', ' ')} attempt. "
+                    f"{category_desc}. I should:\n\n"
                     f"1. Not comply with the manipulative request\n"
                     f"2. Maintain my role as a debate participant\n"
                     f"3. Respond to the actual debate topic if present\n"
@@ -186,7 +189,7 @@ class GauntletExporter(BaseExporter):
                         "response": response,
                         "metadata": {
                             "source": "attack",
-                            "category": category["name"],
+                            "category": category_name,
                             "is_adversarial": True,
                         },
                     }

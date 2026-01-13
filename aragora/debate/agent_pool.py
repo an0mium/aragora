@@ -462,6 +462,55 @@ class AgentPool:
         """Get metrics for an agent."""
         return self._metrics.get(agent_name)
 
+    def set_scoring_systems(
+        self,
+        elo_system: Optional[Any] = None,
+        calibration_tracker: Optional[Any] = None,
+    ) -> None:
+        """
+        Update scoring systems for performance-based selection.
+
+        Called after initialization when ELO/calibration systems become available.
+
+        Args:
+            elo_system: Optional EloSystem for agent ratings
+            calibration_tracker: Optional CalibrationTracker for prediction accuracy
+        """
+        if elo_system:
+            self._config.elo_system = elo_system
+            self._config.use_performance_selection = True
+        if calibration_tracker:
+            self._config.calibration_tracker = calibration_tracker
+
+        # Refresh metrics with new scoring systems
+        if elo_system or calibration_tracker:
+            self._refresh_metrics_from_systems()
+
+    def _refresh_metrics_from_systems(self) -> None:
+        """Refresh agent metrics from ELO/calibration systems."""
+        for agent in self._agents:
+            name = getattr(agent, "name", str(agent))
+            metrics = self._metrics.get(name)
+            if not metrics:
+                continue
+
+            # Update ELO rating
+            if self._config.elo_system:
+                try:
+                    rating = self._config.elo_system.get_rating(name)
+                    metrics.elo_rating = rating.elo
+                except (KeyError, AttributeError):
+                    pass
+
+            # Update calibration score
+            if self._config.calibration_tracker:
+                try:
+                    cal = self._config.calibration_tracker.get_calibration(name)
+                    if hasattr(cal, "brier_score"):
+                        metrics.calibration_score = 1.0 - min(cal.brier_score, 1.0)
+                except (KeyError, AttributeError):
+                    pass
+
     def get_pool_status(self) -> Dict[str, Any]:
         """
         Get overall pool status.

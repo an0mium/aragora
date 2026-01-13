@@ -380,7 +380,7 @@ def get_sso_provider() -> Optional[SSOProvider]:
         if sso_settings.provider_type == "saml":
             from .saml import SAMLProvider, SAMLConfig
 
-            config = SAMLConfig(
+            saml_config = SAMLConfig(
                 provider_type=SSOProviderType.SAML,
                 enabled=True,
                 callback_url=sso_settings.callback_url,
@@ -394,12 +394,12 @@ def get_sso_provider() -> Optional[SSOProvider]:
                 allowed_domains=sso_settings.allowed_domains,
                 auto_provision=sso_settings.auto_provision,
             )
-            _sso_provider = SAMLProvider(config)
+            _sso_provider = SAMLProvider(saml_config)
 
         elif sso_settings.provider_type in ("oidc", "azure_ad", "okta", "google"):
             from .oidc import OIDCProvider, OIDCConfig
 
-            config = OIDCConfig(
+            oidc_config = OIDCConfig(
                 provider_type=SSOProviderType(sso_settings.provider_type),
                 enabled=True,
                 callback_url=sso_settings.callback_url,
@@ -415,7 +415,7 @@ def get_sso_provider() -> Optional[SSOProvider]:
                 allowed_domains=sso_settings.allowed_domains,
                 auto_provision=sso_settings.auto_provision,
             )
-            _sso_provider = OIDCProvider(config)
+            _sso_provider = OIDCProvider(oidc_config)
 
         else:
             logger.warning(f"Unknown SSO provider type: {sso_settings.provider_type}")

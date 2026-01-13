@@ -31,7 +31,8 @@ from aragora.exceptions import EarlyStopError
 from aragora.debate.convergence import ConvergenceDetector
 from aragora.debate.event_bridge import EventEmitterBridge
 from aragora.debate.event_bus import EventBus
-from aragora.debate.agent_pool import AgentPool
+from aragora.debate.agent_pool import AgentPool, AgentPoolConfig
+from aragora.debate.phase_executor import PhaseExecutor
 from aragora.debate.immune_system import TransparentImmuneSystem, get_immune_system
 from aragora.debate.chaos_theater import ChaosDirector, get_chaos_director, DramaLevel
 from aragora.debate.audience_manager import AudienceManager
@@ -495,6 +496,12 @@ class Arena:
         self.strict_loop_scoping = strict_loop_scoping
         self.circuit_breaker = circuit_breaker or CircuitBreaker()
 
+        # Agent pool for lifecycle management and team selection
+        self.agent_pool = AgentPool(
+            agents=self.agents,
+            config=AgentPoolConfig(circuit_breaker=self.circuit_breaker),
+        )
+
         # Transparent immune system for health monitoring and broadcasting
         self.immune_system = get_immune_system()
 
@@ -647,6 +654,13 @@ class Arena:
         # Auto-initialize DissentRetriever when consensus_memory is available
         if self.consensus_memory and self.dissent_retriever is None:
             self._auto_init_dissent_retriever()
+
+        # Update AgentPool with ELO and calibration systems if available
+        if self.elo_system or self.calibration_tracker:
+            self.agent_pool.set_scoring_systems(
+                elo_system=self.elo_system,
+                calibration_tracker=self.calibration_tracker,
+            )
 
         # Auto-initialize PositionLedger when enable_position_ledger is True
         if self._enable_position_ledger and self.position_ledger is None:
@@ -828,6 +842,16 @@ class Arena:
     def _init_phases(self) -> None:
         """Initialize phase classes for orchestrator decomposition."""
         init_phases(self)
+
+        # Initialize PhaseExecutor for future gradual migration
+        # Currently phases are executed directly in run() method
+        from aragora.debate.phase_executor import PhaseConfig
+
+        timeout = getattr(self.protocol, "timeout", 300.0)
+        self.phase_executor = PhaseExecutor(
+            phases={},  # Phases are currently executed directly in run()
+            config=PhaseConfig(total_timeout_seconds=timeout),
+        )
 
     def _init_termination_checker(self) -> None:
         """Initialize the termination checker for early debate termination."""

@@ -17,7 +17,7 @@ from typing import Any, Callable, Optional, TYPE_CHECKING
 try:
     from aragora.agents.registry import AgentRegistry
 except (ImportError, ModuleNotFoundError):
-    AgentRegistry = None  # type: ignore[assignment]
+    AgentRegistry = None  # type: ignore[assignment, misc]
 
 if TYPE_CHECKING:
     from .api_agents import OpenRouterAgent
@@ -707,8 +707,13 @@ def build_fallback_chain_with_local(
         result.extend(local_providers)
 
     # Deduplicate while preserving order
-    seen = set()
-    return [p for p in result if not (p in seen or seen.add(p))]
+    seen: set[str] = set()
+    unique_result: list[str] = []
+    for p in result:
+        if p not in seen:
+            seen.add(p)
+            unique_result.append(p)
+    return unique_result
 
 
 def is_local_llm_available() -> bool:

@@ -142,7 +142,7 @@ class WikipediaConnector(BaseConnector):
         limit = min(limit, 50)
 
         # Use opensearch API for quick search
-        params = {
+        params: dict[str, str | int] = {
             "action": "opensearch",
             "search": query,
             "limit": limit,
@@ -401,7 +401,7 @@ class WikipediaConnector(BaseConnector):
         await self._rate_limit()
 
         try:
-            params = {
+            params: dict[str, str | int] = {
                 "action": "query",
                 "titles": title,
                 "prop": "links",

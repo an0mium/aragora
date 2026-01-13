@@ -439,8 +439,8 @@ CIRCUIT_BREAKERS_OPEN = Gauge(
 
 AGENT_ERRORS = Counter(
     name="aragora_agent_errors_total",
-    help="Agent error count by agent name",
-    label_names=["agent"],
+    help="Agent error count by agent name and error type",
+    label_names=["agent", "error_type"],
 )
 
 
@@ -595,13 +595,42 @@ def track_circuit_breaker_state(open_count: int) -> None:
     CIRCUIT_BREAKERS_OPEN.set(open_count)
 
 
-def track_agent_error(agent: str) -> None:
-    """Track an agent error.
+def track_agent_error(agent: str, error_type: str = "unknown") -> None:
+    """Track an agent error with type classification.
 
     Args:
         agent: Name of the agent that encountered an error
+        error_type: Type of error (timeout, rate_limit, auth, network, api, validation, unknown)
     """
-    AGENT_ERRORS.inc(agent=agent)
+    AGENT_ERRORS.inc(agent=agent, error_type=error_type)
+
+
+def classify_agent_error(error: Exception) -> str:
+    """Classify an exception into an error type for metrics.
+
+    Args:
+        error: The exception to classify
+
+    Returns:
+        Error type string for metrics labeling
+    """
+    error_class = type(error).__name__.lower()
+
+    # Check for common error patterns
+    if "timeout" in error_class:
+        return "timeout"
+    if "ratelimit" in error_class or "429" in str(error):
+        return "rate_limit"
+    if "auth" in error_class or "401" in str(error) or "403" in str(error):
+        return "auth"
+    if "connection" in error_class or "network" in error_class:
+        return "network"
+    if "validation" in error_class or "value" in error_class:
+        return "validation"
+    if "api" in error_class or "500" in str(error):
+        return "api"
+
+    return "unknown"
 
 
 def track_agent_participation(agent_name: str, outcome: str) -> None:
@@ -817,6 +846,7 @@ __all__ = [
     "track_debate_outcome",
     "track_circuit_breaker_state",
     "track_agent_error",
+    "classify_agent_error",
     "track_agent_participation",
     "track_debate_execution",
     # Export

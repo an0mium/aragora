@@ -406,8 +406,7 @@ class GauntletRunner:
 
                 # Configure arena
                 arena_config = ArenaConfig(
-                    enable_evolution=False,  # No learning during scenarios
-                    enable_memory=False,  # Don't store scenario debates
+                    enable_prompt_evolution=False,  # No learning during scenarios
                 )
 
                 # Run the debate

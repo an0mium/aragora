@@ -12,6 +12,7 @@ Endpoints:
 - POST /api/admin/impersonate/:user_id - Create impersonation token
 - POST /api/admin/users/:user_id/deactivate - Deactivate a user
 - POST /api/admin/users/:user_id/activate - Activate a user
+- POST /api/admin/users/:user_id/unlock - Unlock a locked user account
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ from .base import (
     SAFE_ID_PATTERN,
 )
 from aragora.billing.jwt_auth import extract_user_from_request, create_access_token
+from aragora.auth.lockout import get_lockout_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +139,14 @@ class AdminHandler(BaseHandler):
                 if not validate_path_segment(user_id, "user_id", SAFE_ID_PATTERN)[0]:
                     return error_response("Invalid user ID format", 400)
                 return self._activate_user(handler, user_id)
+
+            # POST /api/admin/users/:user_id/unlock
+            if "/users/" in path and path.endswith("/unlock"):
+                parts = path.split("/")
+                user_id = parts[-2]
+                if not validate_path_segment(user_id, "user_id", SAFE_ID_PATTERN)[0]:
+                    return error_response("Invalid user ID format", 400)
+                return self._unlock_user(handler, user_id)
 
         return error_response("Method not allowed", 405)
 
@@ -434,6 +444,76 @@ class AdminHandler(BaseHandler):
             "success": True,
             "user_id": target_user_id,
             "is_active": True,
+        })
+
+    @handle_errors("unlock user")
+    @log_request("admin unlock user")
+    def _unlock_user(self, handler, target_user_id: str) -> HandlerResult:
+        """
+        Unlock a user account that has been locked due to failed login attempts.
+
+        This clears both the in-memory/Redis lockout tracker and the database
+        lockout state. Use this to help users who have been locked out.
+
+        Endpoint: POST /api/admin/users/:user_id/unlock
+        """
+        auth_ctx, err = self._require_admin(handler)
+        if err:
+            return err
+
+        user_store = self._get_user_store()
+
+        # Verify target user exists
+        target_user = user_store.get_user_by_id(target_user_id)
+        if not target_user:
+            return error_response("User not found", 404)
+
+        email = target_user.email
+
+        # Get lockout info before clearing
+        lockout_tracker = get_lockout_tracker()
+        lockout_info = lockout_tracker.get_info(email=email)
+
+        # Clear lockout tracker (in-memory/Redis)
+        lockout_cleared = lockout_tracker.admin_unlock(
+            email=email,
+            user_id=target_user_id,
+        )
+
+        # Clear database lockout state if user store supports it
+        db_cleared = False
+        if hasattr(user_store, "reset_failed_login_attempts"):
+            db_cleared = user_store.reset_failed_login_attempts(email)
+
+        logger.info(
+            f"Admin {auth_ctx.user_id} unlocked user {target_user_id} "
+            f"(email={email}, tracker_cleared={lockout_cleared}, db_cleared={db_cleared})"
+        )
+
+        # Log audit event
+        try:
+            if hasattr(user_store, "log_audit_event"):
+                user_store.log_audit_event(
+                    action="admin_unlock_user",
+                    resource_type="user",
+                    resource_id=target_user_id,
+                    user_id=auth_ctx.user_id,
+                    metadata={
+                        "target_email": email,
+                        "lockout_info": lockout_info,
+                    },
+                    ip_address=getattr(handler, "client_address", ("unknown",))[0],
+                )
+        except Exception as e:
+            logger.warning(f"Failed to record audit event: {e}")
+
+        return json_response({
+            "success": True,
+            "user_id": target_user_id,
+            "email": email,
+            "lockout_cleared": lockout_cleared or db_cleared,
+            "previous_lockout_info": lockout_info,
+            "message": f"Account lockout cleared for {email}",
         })
 
 

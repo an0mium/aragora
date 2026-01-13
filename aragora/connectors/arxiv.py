@@ -170,7 +170,7 @@ class ArXivConnector(BaseConnector):
             search_query = f"cat:{category} AND ({query})"
 
         # Construct API URL
-        params = {
+        params: dict[str, str | int] = {
             "search_query": search_query,
             "start": 0,
             "max_results": limit,
@@ -224,7 +224,7 @@ class ArXivConnector(BaseConnector):
         arxiv_id = evidence_id.replace("arxiv:", "").replace("arXiv:", "")
 
         # Build query for specific paper
-        params = {
+        params: dict[str, str | int] = {
             "id_list": arxiv_id,
             "max_results": 1,
         }

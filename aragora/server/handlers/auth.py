@@ -32,10 +32,13 @@ from .base import (
     json_response,
     log_request,
 )
-from .utils.rate_limit import rate_limit
+from .utils.rate_limit import rate_limit, get_client_ip
 
 # Module-level imports for test mocking compatibility
 from aragora.billing.jwt_auth import extract_user_from_request, validate_refresh_token
+
+# Lockout tracker for brute-force protection
+from aragora.auth.lockout import get_lockout_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -255,19 +258,32 @@ class AuthHandler(BaseHandler):
         if not email or not password:
             return error_response("Email and password required", 400)
 
+        # Get client IP for lockout tracking
+        client_ip = get_client_ip(handler)
+
         # Get user store
         user_store = self._get_user_store()
         if not user_store:
             return error_response("Authentication service unavailable", 503)
 
-        # Check if account is locked (before revealing if user exists)
+        # Check lockout tracker (tracks by email AND IP)
+        lockout_tracker = get_lockout_tracker()
+        if lockout_tracker.is_locked(email=email, ip=client_ip):
+            remaining_seconds = lockout_tracker.get_remaining_time(email=email, ip=client_ip)
+            remaining_minutes = max(1, remaining_seconds // 60)
+            logger.warning(f"Login attempt on locked account/IP: email={email}, ip={client_ip}")
+            return error_response(
+                f"Too many failed attempts. Try again in {remaining_minutes} minute(s).", 429
+            )
+
+        # Also check database-based account lockout (legacy support)
         if hasattr(user_store, "is_account_locked"):
             is_locked, lockout_until, failed_attempts = user_store.is_account_locked(email)
             if is_locked and lockout_until:
                 remaining_minutes = max(
                     1, int((lockout_until - datetime.utcnow()).total_seconds() / 60)
                 )
-                logger.warning(f"Login attempt on locked account: {email}")
+                logger.warning(f"Login attempt on locked account (db): {email}")
                 return error_response(
                     f"Account temporarily locked. Try again in {remaining_minutes} minute(s).", 429
                 )
@@ -275,10 +291,8 @@ class AuthHandler(BaseHandler):
         # Find user
         user = user_store.get_user_by_email(email)
         if not user:
-            # Record failed attempt (even for non-existent users to prevent enumeration timing)
-            if hasattr(user_store, "record_failed_login"):
-                # Create placeholder entry for rate limiting if needed
-                pass
+            # Record failed attempt to lockout tracker (prevents enumeration attacks)
+            lockout_tracker.record_failure(email=email, ip=client_ip)
             # Use same error to prevent email enumeration
             return error_response("Invalid email or password", 401)
 
@@ -288,20 +302,23 @@ class AuthHandler(BaseHandler):
 
         # Verify password
         if not user.verify_password(password):
-            # Record failed login attempt
+            # Record failed login attempt to both trackers
+            attempts, lockout_seconds = lockout_tracker.record_failure(email=email, ip=client_ip)
+
+            # Also record in database for persistence across restarts
             if hasattr(user_store, "record_failed_login"):
-                attempts, lockout_until = user_store.record_failed_login(email)
-                if lockout_until:
-                    remaining_minutes = max(
-                        1, int((lockout_until - datetime.utcnow()).total_seconds() / 60)
-                    )
-                    return error_response(
-                        f"Too many failed attempts. Account locked for {remaining_minutes} minute(s).",
-                        429,
-                    )
+                db_attempts, lockout_until = user_store.record_failed_login(email)
+
+            if lockout_seconds:
+                remaining_minutes = max(1, lockout_seconds // 60)
+                return error_response(
+                    f"Too many failed attempts. Account locked for {remaining_minutes} minute(s).",
+                    429,
+                )
             return error_response("Invalid email or password", 401)
 
-        # Successful login - reset failed attempts
+        # Successful login - reset failed attempts in both trackers
+        lockout_tracker.reset(email=email, ip=client_ip)
         if hasattr(user_store, "reset_failed_login_attempts"):
             user_store.reset_failed_login_attempts(email)
 

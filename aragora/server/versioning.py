@@ -44,6 +44,12 @@ class APIVersion(Enum):
     V2 = "v2"  # Current version (V1 deprecated, sunset 2026-06-01)
 
 
+# Calendar-based API release version (for breaking change tracking)
+# Format: YYYY-MM (e.g., "2026-01" for January 2026 release)
+# This is used alongside v1/v2 versioning to track breaking changes within a major version
+API_RELEASE_VERSION = "2026-01"
+
+
 # Version path prefix pattern
 VERSION_PATTERN = re.compile(r"^/api/(v\d+)/")
 
@@ -175,6 +181,7 @@ def version_response_headers(
 
     headers = {
         "X-API-Version": version.value,
+        "X-API-Release": API_RELEASE_VERSION,  # Calendar-based release version
         "X-API-Supported-Versions": ",".join(v.value for v in config.supported),
     }
 
@@ -279,6 +286,7 @@ def get_path_version(path: str) -> Optional[APIVersion]:
 
 __all__ = [
     "APIVersion",
+    "API_RELEASE_VERSION",
     "VersionConfig",
     "get_version_config",
     "set_version_config",

@@ -321,7 +321,8 @@ class ConsensusPhase:
         # Fallback to vote_tally if available
         if not winner_agent and ctx.vote_tally:
             winner_agent = max(ctx.vote_tally.items(), key=lambda x: x[1])[0]
-            total_votes = sum(ctx.vote_tally.values())
+            # Note: vote_tally is dict[str, float], sum() works correctly
+            total_votes = sum(ctx.vote_tally.values())  # type: ignore[arg-type]
             winner_confidence = (
                 ctx.vote_tally[winner_agent] / total_votes if total_votes > 0 else 0.5
             )
@@ -1078,8 +1079,9 @@ class ConsensusPhase:
                     disproven_count = 0
 
                 # Store verification counts for feedback loop (Phase 11A: now includes disproven)
+                # Note: verification_results accepts both int (legacy) and dict (new format)
                 if hasattr(result, "verification_results"):
-                    result.verification_results[agent_name] = {
+                    result.verification_results[agent_name] = {  # type: ignore[assignment]
                         "verified": verified_count,
                         "disproven": disproven_count,
                     }
