@@ -47,7 +47,7 @@ def _get_release_version() -> str:
         return "aragora@unknown"
 
 
-def _before_send(event: dict, hint: dict) -> dict | None:
+def _before_send(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] | None:
     """Filter and sanitize events before sending to Sentry.
 
     Removes sensitive data, adds context, and improves error grouping.
@@ -132,7 +132,7 @@ def init_monitoring() -> bool:
             # Attach stack trace to log messages
             attach_stacktrace=True,
             # Sanitize events before sending
-            before_send=_before_send,
+            before_send=_before_send,  # type: ignore[arg-type]  # sentry stubs too strict
             # Filter out health check transactions
             before_send_transaction=_filter_health_checks,
             # Enable source context

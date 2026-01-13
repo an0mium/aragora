@@ -1,20 +1,29 @@
 # Aragora Project Status
 
-*Last updated: January 13, 2026 (22:00 UTC)*
+*Last updated: January 13, 2026 (23:30 UTC)*
 
 ## Current Release
 
-### v1.0.0 - First Stable Release (January 13, 2026)
+### v1.0.1 - Patch Release (January 13, 2026)
 
-**Production Ready** - Aragora 1.0.0 marks the first stable release of the multi-agent debate framework.
+**Production Ready** - Aragora 1.0.1 includes type safety improvements and documentation updates.
 
 #### Key Highlights
-- **22,516 tests** collected and passing
-- **89 documentation files** with comprehensive coverage
+- **22,543 tests** collected and passing
+- **91 documentation files** with comprehensive coverage
 - **41 modular HTTP handlers** for clean API architecture
 - **63 fully integrated features** including memory systems, ELO rankings, and formal verification
+- **0 mypy errors** in aragora codebase
 
-#### What's Included
+#### What's New in 1.0.1
+- Type safety: Fixed all mypy errors (error_monitoring.py Sentry callback types)
+- Extended DebateStorageProtocol with 8 new methods
+- Fixed AgentRating attribute names (elo, debates_count)
+- Fixed EloSystem.get_elo_history method name
+- Nomic loop phased workflow documentation
+- .env.example with nomic loop settings
+
+#### What's Included (from 1.0.0)
 - Multi-agent debate orchestration with consensus detection
 - Memory systems: ContinuumMemory, ConsensusMemory with LRU caching
 - ELO rankings and tournament system
@@ -23,13 +32,6 @@
 - WebSocket event streaming
 - Formal verification with Z3 backend
 - Gauntlet mode for adversarial stress-testing
-
-### v1.0.1 Patch (In Progress)
-
-Fixes:
-- OpenAPI schema: Added missing `BadRequest` response component
-- Type safety: Fixed implicit Optional patterns across codebase
-- Removed unused type:ignore comments
 
 ## Previous State
 
