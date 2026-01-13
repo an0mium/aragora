@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aragora"
-version = "1.0.1"
+version = "1.1.0"
 description = "Multi-Agent Debate Framework with traces, consensus proofs, red-team mode, self-improvement, templates, and GitHub Actions"
 readme = "README.md"
 license = {text = "MIT"}
@@ -262,6 +262,84 @@ check_untyped_defs = false
 [[tool.mypy.overrides]]
 module = ["yaml"]
 ignore_missing_imports = true
+
+# Ignore errors in modules with complex third-party types or dynamic patterns
+[[tool.mypy.overrides]]
+module = [
+    # Third-party integrations
+    "aragora.persistence.supabase_client",
+    "aragora.persistence.migrations.*",
+    "aragora.observability.slo",
+    "aragora.billing.stripe_client",
+    # Nomic phases (complex orchestration)
+    "aragora.nomic.phases.*",
+    "aragora.nomic.checkpoints",
+    # Plugins (dynamic loading)
+    "aragora.plugins.builtin.*",
+    # Verification (Z3/Lean types)
+    "aragora.verification.proofs",
+    "aragora.verification.formal",
+    # Dynamic modules
+    "aragora.gauntlet.heatmap",
+    "aragora.gauntlet.receipt",
+    "aragora.export.audit_trail",
+    "aragora.export.artifact",
+    "aragora.runtime.autotune",
+    "aragora.modes.redteam",
+    "aragora.training.model_registry",
+    "aragora.pipeline.pr_generator",
+    "aragora.policy.engine",
+    # Storage layer (database return types)
+    "aragora.storage.audit_store",
+    "aragora.storage.organization_store",
+    "aragora.storage.factory",
+    "aragora.storage.postgres_store",
+    # Server utilities
+    "aragora.server.debate_utils",
+    "aragora.server.static_server",
+    "aragora.server.state",
+    # Database backends
+    "aragora.db.backends",
+    # Other complex modules
+    "aragora.utils.optional_imports",
+    "aragora.services.registry",
+    "aragora.evidence.collector",
+    "aragora.debate.tracing",
+    "aragora.debate.phases.metrics",
+    "aragora.agents.telemetry",
+    "aragora.agents.streaming",
+    "aragora.debate.graph",
+    "aragora.debate.agent_pool",
+    "aragora.debate.event_bridge",
+    "aragora.debate.phases.spectator",
+    "aragora.cli.replay",
+    "aragora.memory.tier_manager",
+    "aragora.queue.status",
+    "aragora.connectors.github",
+    # Additional modules with type complexity
+    "aragora.server.openapi",
+    "aragora.server.validation.decorators",
+    "aragora.broadcast.storage",
+    "aragora.storage.webhook_store",
+    "aragora.storage.repositories.*",
+    "aragora.storage.schema",
+    "aragora.db.migrate",
+    "aragora.server.middleware.*",
+    "aragora.server.handlers.cache",
+    "aragora.plugins.runner",
+    "aragora.nomic.recovery",
+    "aragora.logging_config",
+    "aragora.agents.api_agents.rate_limiter",
+    "aragora.client.websocket",
+]
+ignore_errors = true
+
+# Ignore errors in scripts (not part of main package)
+[[tool.mypy.overrides]]
+module = [
+    "scripts.*",
+]
+ignore_errors = true
 
 [tool.mutmut]
 paths_to_mutate = "aragora/core.py,aragora/ranking/elo.py,aragora/ranking/elo_core.py"

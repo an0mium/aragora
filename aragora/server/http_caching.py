@@ -93,11 +93,11 @@ def generate_etag(data: Any) -> str:
     try:
         # Serialize with sorted keys for consistent hashing
         serialized = json.dumps(data, sort_keys=True, default=str)
-        hash_value = hashlib.md5(serialized.encode()).hexdigest()[:16]
+        hash_value = hashlib.md5(serialized.encode(), usedforsecurity=False).hexdigest()[:16]
         return f'"{hash_value}"'
     except (TypeError, ValueError) as e:
         logger.debug(f"ETag generation failed: {e}")
-        return f'"{hashlib.md5(str(data).encode()).hexdigest()[:16]}"'
+        return f'"{hashlib.md5(str(data).encode(), usedforsecurity=False).hexdigest()[:16]}"'
 
 
 def generate_weak_etag(data: Any) -> str:

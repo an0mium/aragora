@@ -168,7 +168,7 @@ class WikipediaConnector(BaseConnector):
             results = []
             for i, title in enumerate(titles):
                 # Generate evidence ID from title
-                evidence_id = f"wiki:{hashlib.md5(title.encode()).hexdigest()[:12]}"
+                evidence_id = f"wiki:{hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[:12]}"
 
                 # Get description if available
                 description = descriptions[i] if i < len(descriptions) else ""
@@ -297,7 +297,7 @@ class WikipediaConnector(BaseConnector):
             evidence_id = (
                 f"wiki:{page_id}"
                 if page_id
-                else f"wiki:{hashlib.md5(title.encode()).hexdigest()[:12]}"
+                else f"wiki:{hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[:12]}"
             )
 
             # Get URL

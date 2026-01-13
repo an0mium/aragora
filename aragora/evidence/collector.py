@@ -602,7 +602,7 @@ class EvidenceCollector:
         seen_hashes: set = set()
         unique_snippets: List[EvidenceSnippet] = []
         for snippet in all_snippets:
-            content_hash = hashlib.md5(snippet.snippet.encode()).hexdigest()
+            content_hash = hashlib.md5(snippet.snippet.encode(), usedforsecurity=False).hexdigest()
             if content_hash not in seen_hashes:
                 seen_hashes.add(content_hash)
                 unique_snippets.append(snippet)

@@ -147,7 +147,7 @@ class ImplementPhase:
         if not use_hybrid:
             return await self._legacy_implement(design)
 
-        design_hash = hashlib.md5(design.encode()).hexdigest()
+        design_hash = hashlib.md5(design.encode(), usedforsecurity=False).hexdigest()
 
         # Check for crash recovery
         progress = self._progress_loader(self.aragora_path) if self._progress_loader else None
