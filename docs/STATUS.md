@@ -1,13 +1,22 @@
 # Aragora Project Status
 
-*Last updated: January 10, 2026 (00:30 UTC)*
+*Last updated: January 13, 2026 (16:30 UTC)*
 
 ## Current State
 
-### Stabilization Target (0.8.1)
-- Canonical onboarding path (START_HERE -> GETTING_STARTED) and doc consistency
-- Test tiers + CI alignment for fast/local vs full runs
-- Runtime data hygiene (prefer `.nomic` via `ARAGORA_DATA_DIR`, cleanup script)
+### Stabilization Target (0.8.1) - COMPLETE
+
+All stabilization items addressed:
+
+- [x] Canonical onboarding path (START_HERE -> GETTING_STARTED) and doc consistency
+- [x] Test tiers + CI alignment for fast/local vs full runs
+- [x] Runtime data hygiene (prefer `.nomic` via `ARAGORA_DATA_DIR`, cleanup script)
+- [x] Prometheus metrics and Grafana dashboards (deploy/grafana/)
+- [x] OpenAPI spec regenerated (1285 endpoints)
+- [x] PhaseValidator integrated into Nomic loop
+- [x] WebSocket reconnection with exponential backoff
+- [x] Plugin submission flow added
+- [x] aragora doctor bug fixed (circuit breaker metadata handling)
 
 ### Test Status
 - **Total Tests**: 12,349 collected (massive expansion via parametrized tests)
@@ -87,6 +96,17 @@
 - **Dependency Alignment**:
   - Standardized installs on `pyproject.toml` + `uv.lock` (pip install .)
   - Removed legacy requirements.txt usage from deploy/docs paths
+
+### Recent Changes (2026-01-13)
+- **0.8.1 Stabilization Verification**:
+  - Verified EvidenceHandler integration (8 endpoints, STABLE status)
+  - Verified timeout middleware exports
+  - Added 35 EvidenceHandler tests (34 passing, 1 skipped pending handler fix)
+  - Confirmed legacy /api/auth/revoke already migrated to AuthHandler
+- **Test Coverage**:
+  - New test file: `tests/test_handlers_evidence.py` (35 tests)
+  - Covers: list, get, search, collect, associate, statistics, delete endpoints
+  - Proper rate limiter isolation via fixture
 
 ### Recent Changes (2026-01-09 Evening)
 - **Feature Integration Sprint**:
