@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from aragora.debate.breakpoints import BreakpointManager, BreakpointConfig
     from aragora.insights.flip_detector import FlipDetector
     from aragora.memory.consensus import ConsensusMemory, DissentRetriever
-    from aragora.ranking.elo import EloRatingSystem
+    from aragora.ranking.elo import EloSystem
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class TrackerBundle:
 
     position_tracker: Any  # PositionTracker
     position_ledger: Optional["PositionLedger"]
-    elo_system: Optional["EloRatingSystem"]
+    elo_system: Optional["EloSystem"]
     flip_detector: Optional["FlipDetector"]
     calibration_tracker: Optional["CalibrationTracker"]
     dissent_retriever: Optional["DissentRetriever"]
@@ -107,7 +107,7 @@ class TrackerFactory:
 
     @staticmethod
     def create_moment_detector(
-        elo_system: Optional["EloRatingSystem"],
+        elo_system: Optional["EloSystem"],
         position_ledger: Optional["PositionLedger"] = None,
         relationship_tracker: Any = None,
     ) -> Optional["MomentDetector"]:
@@ -177,7 +177,7 @@ class TrackerFactory:
         moment_detector: Optional["MomentDetector"],
         breakpoint_manager: Optional["BreakpointManager"],
         # Dependencies for auto-init
-        elo_system: Optional["EloRatingSystem"] = None,
+        elo_system: Optional["EloSystem"] = None,
         consensus_memory: Optional["ConsensusMemory"] = None,
         relationship_tracker: Any = None,
         # Config flags
@@ -197,7 +197,7 @@ class TrackerFactory:
             dissent_retriever: Existing DissentRetriever or None
             moment_detector: Existing MomentDetector or None
             breakpoint_manager: Existing BreakpointManager or None
-            elo_system: EloRatingSystem for MomentDetector
+            elo_system: EloSystem for MomentDetector
             consensus_memory: ConsensusMemory for DissentRetriever
             relationship_tracker: RelationshipTracker for MomentDetector
             enable_position_ledger: Create PositionLedger if missing
@@ -208,7 +208,7 @@ class TrackerFactory:
         Returns:
             Dict with keys for any trackers that were created
         """
-        created = {}
+        created: dict[str, Any] = {}
 
         # Auto-init PositionLedger
         if enable_position_ledger and position_ledger is None:

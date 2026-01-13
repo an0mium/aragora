@@ -16,10 +16,13 @@ import logging
 import secrets
 import time
 from pathlib import Path
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager
+
+if TYPE_CHECKING:
+    from aragora.server.handlers.sharing import ShareSettings
 
 logger = logging.getLogger(__name__)
 

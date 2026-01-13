@@ -246,7 +246,7 @@ class ContinuumMemory(SQLiteStore):
         storage_path: Optional[str] = None,
         base_dir: Optional[str] = None,
     ):
-        resolved_path = db_path
+        resolved_path: str | Path = db_path
         base_path = storage_path or base_dir
         if base_path:
             base = Path(base_path)
@@ -1178,7 +1178,7 @@ class ContinuumMemory(SQLiteStore):
         Returns:
             Float between 0.0 and 1.0 indicating memory pressure level.
         """
-        max_entries = self.hyperparams.get("max_entries_per_tier", {})
+        max_entries = self.hyperparams["max_entries_per_tier"]
         if not max_entries:
             return 0.0
 
@@ -1191,11 +1191,13 @@ class ContinuumMemory(SQLiteStore):
                 GROUP BY tier
             """
             )
-            tier_counts = {row[0]: row[1] for row in cursor.fetchall()}
+            tier_counts: Dict[str, int] = {row[0]: row[1] for row in cursor.fetchall()}
 
         # Calculate utilization for each tier
         max_pressure = 0.0
-        for tier_name, limit in max_entries.items():
+        tier_names = ["fast", "medium", "slow", "glacial"]
+        for tier_name in tier_names:
+            limit: int = max_entries[tier_name]  # type: ignore[literal-required]
             if limit <= 0:
                 continue
             count = tier_counts.get(tier_name, 0)
@@ -1379,14 +1381,14 @@ class ContinuumMemory(SQLiteStore):
         """
         results: Dict[str, int] = {}
         tiers_to_process = [tier] if tier else list(MemoryTier)
-        max_entries = self.hyperparams["max_entries_per_tier"]
+        max_entries: MaxEntriesPerTier = self.hyperparams["max_entries_per_tier"]
 
         with self.connection() as conn:
             cursor = conn.cursor()
 
             for t in tiers_to_process:
                 tier_name = t.value
-                limit = max_entries.get(tier_name, 10000)
+                limit: int = max_entries.get(tier_name, 10000)  # type: ignore[assignment]
 
                 # Count current entries
                 cursor.execute(
@@ -1394,13 +1396,13 @@ class ContinuumMemory(SQLiteStore):
                     (tier_name,),
                 )
                 row = cursor.fetchone()
-                count = row[0] if row else 0
+                count: int = row[0] if row else 0
 
                 if count <= limit:
                     results[tier_name] = 0
                     continue
 
-                excess = count - limit
+                excess: int = count - limit
 
                 if archive:
                     # Archive lowest importance entries

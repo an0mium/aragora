@@ -16,10 +16,8 @@ from __future__ import annotations
 
 import json
 import logging
-
-logger = logging.getLogger(__name__)
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .base import (
     BaseHandler,
@@ -31,6 +29,8 @@ from .base import (
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
 
+logger = logging.getLogger(__name__)
+
 # Rate limiter for tournament endpoints (30 requests per minute)
 _tournament_limiter = RateLimiter(requests_per_minute=30)
 
@@ -38,15 +38,21 @@ _tournament_limiter = RateLimiter(requests_per_minute=30)
 MAX_TOURNAMENTS_TO_LIST = 100  # Prevent unbounded directory iteration
 
 # Optional import for tournament functionality
+# Use Any type for optional imports to avoid mypy "Cannot assign to a type" errors
+_TournamentManager: Any = None
+_Tournament: Any = None
+_TournamentMatch: Any = None
+TOURNAMENT_AVAILABLE = False
+
 try:
     from aragora.ranking.tournaments import TournamentManager, Tournament, TournamentMatch
 
+    _TournamentManager = TournamentManager
+    _Tournament = Tournament
+    _TournamentMatch = TournamentMatch
     TOURNAMENT_AVAILABLE = True
 except ImportError:
-    TOURNAMENT_AVAILABLE = False
-    TournamentManager = None
-    Tournament = None
-    TournamentMatch = None
+    pass
 
 
 class TournamentHandler(BaseHandler):
@@ -189,7 +195,7 @@ class TournamentHandler(BaseHandler):
 
                 tournament_id = db_file.stem
                 try:
-                    manager = TournamentManager(db_path=str(db_file))
+                    manager = _TournamentManager(db_path=str(db_file))
                     standings = manager.get_current_standings()
                     tournaments.append(
                         {
@@ -229,7 +235,7 @@ class TournamentHandler(BaseHandler):
         if not tournament_path.exists():
             return error_response("Tournament not found", 404)
 
-        manager = TournamentManager(db_path=str(tournament_path))
+        manager = _TournamentManager(db_path=str(tournament_path))
         standings = manager.get_current_standings()
 
         logger.info(
@@ -268,7 +274,7 @@ class TournamentHandler(BaseHandler):
         if not tournament_path.exists():
             return error_response("Tournament not found", 404)
 
-        manager = TournamentManager(db_path=str(tournament_path))
+        manager = _TournamentManager(db_path=str(tournament_path))
         tournament = manager.get_tournament(tournament_id)
 
         if not tournament:
@@ -307,7 +313,7 @@ class TournamentHandler(BaseHandler):
         if not tournament_path.exists():
             return error_response("Tournament not found", 404)
 
-        manager = TournamentManager(db_path=str(tournament_path))
+        manager = _TournamentManager(db_path=str(tournament_path))
         tournament = manager.get_tournament(tournament_id)
         matches = manager.get_matches(tournament_id=tournament_id)
 
@@ -365,7 +371,7 @@ class TournamentHandler(BaseHandler):
         if not tournament_path.exists():
             return error_response("Tournament not found", 404)
 
-        manager = TournamentManager(db_path=str(tournament_path))
+        manager = _TournamentManager(db_path=str(tournament_path))
         matches = manager.get_matches(tournament_id=tournament_id, round_num=round_num)
 
         logger.info(f"Retrieved {len(matches)} matches for tournament {tournament_id}")
@@ -427,7 +433,7 @@ class TournamentHandler(BaseHandler):
         db_name = f"{uuid.uuid4().hex[:8]}.db"
         db_path = tournaments_dir / db_name
 
-        manager = TournamentManager(db_path=str(db_path))
+        manager = _TournamentManager(db_path=str(db_path))
         tournament = manager.create_tournament(
             name=name,
             participants=participants,
@@ -445,7 +451,7 @@ class TournamentHandler(BaseHandler):
                 "status": tournament.status,
                 "created_at": tournament.created_at,
             },
-            status_code=201,
+            status=201,
         )
 
     @handle_errors("tournament advancement")
@@ -462,7 +468,7 @@ class TournamentHandler(BaseHandler):
         if not tournament_path.exists():
             return error_response("Tournament not found", 404)
 
-        manager = TournamentManager(db_path=str(tournament_path))
+        manager = _TournamentManager(db_path=str(tournament_path))
         advanced = manager.advance_round(tournament_id)
 
         if advanced:
@@ -509,7 +515,7 @@ class TournamentHandler(BaseHandler):
         score2 = float(params.get("score2", 0.0))
         debate_id = params.get("debate_id")
 
-        manager = TournamentManager(db_path=str(tournament_path))
+        manager = _TournamentManager(db_path=str(tournament_path))
         manager.record_match_result(
             match_id=match_id,
             winner=winner,

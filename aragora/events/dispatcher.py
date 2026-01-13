@@ -31,11 +31,16 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
 from aragora.server.middleware.tracing import get_trace_id
+
+if TYPE_CHECKING:
+    from aragora.server.handlers.webhooks import WebhookConfig
+    from aragora.server.stream.emitter import SyncEventEmitter
+    from aragora.server.stream.events import StreamEvent
 
 logger = logging.getLogger(__name__)
 

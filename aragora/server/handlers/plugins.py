@@ -55,6 +55,20 @@ SUBMISSION_STATUS_REJECTED = "rejected"
 class PluginsHandler(BaseHandler):
     """Handler for plugins endpoints."""
 
+    def get_user_id(self, handler) -> Optional[str]:
+        """Extract user ID from authenticated request.
+
+        Args:
+            handler: HTTP request handler with headers
+
+        Returns:
+            User ID string if authenticated, None otherwise
+        """
+        user = self.get_current_user(handler)
+        if user is None:
+            return None
+        return getattr(user, "user_id", None)
+
     ROUTES = [
         "/api/plugins",
         "/api/plugins/installed",

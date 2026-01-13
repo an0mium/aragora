@@ -5,6 +5,14 @@ Provides CRUD operations for:
 - Users (registration, authentication, API keys)
 - Organizations (team management, billing)
 - Usage tracking (debate counts, monthly resets)
+
+This class serves as a facade over specialized repositories:
+- AuditRepository: Audit logging for compliance
+- InvitationRepository: Organization invitation workflow
+- SecurityRepository: Account lockout and login security
+
+The repositories are created internally and methods delegate to them,
+maintaining backward compatibility while enabling modular testing.
 """
 
 from __future__ import annotations
@@ -21,6 +29,7 @@ from pathlib import Path
 from typing import Any, Iterator, Optional
 
 from aragora.billing.models import Organization, OrganizationInvitation, SubscriptionTier, User
+from aragora.storage.repositories import AuditRepository, InvitationRepository, SecurityRepository
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +56,11 @@ class UserStore:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._local = threading.local()
         self._init_schema()
+
+        # Initialize specialized repositories (delegates for modular operations)
+        self._audit_repo = AuditRepository(self._transaction)
+        self._invitation_repo = InvitationRepository(self._transaction)
+        self._security_repo = SecurityRepository(self._transaction)
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get thread-local database connection.
@@ -1091,97 +1105,34 @@ class UserStore:
         )
 
     # =========================================================================
-    # Organization Invitations
+    # Organization Invitations (delegated to InvitationRepository)
     # =========================================================================
 
     def create_invitation(self, invitation: "OrganizationInvitation") -> bool:
-        """
-        Create a new organization invitation.
-
-        Args:
-            invitation: OrganizationInvitation instance
-
-        Returns:
-            True if created successfully
-        """
-        with self._transaction() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO org_invitations
-                (id, org_id, email, role, token, invited_by, status, created_at, expires_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    invitation.id,
-                    invitation.org_id,
-                    invitation.email.lower(),
-                    invitation.role,
-                    invitation.token,
-                    invitation.invited_by,
-                    invitation.status,
-                    invitation.created_at.isoformat(),
-                    invitation.expires_at.isoformat(),
-                ),
-            )
-        return True
+        """Create a new organization invitation."""
+        return self._invitation_repo.create_invitation(invitation)
 
     def get_invitation_by_id(self, invitation_id: str) -> Optional["OrganizationInvitation"]:
         """Get invitation by ID."""
-        with self._transaction() as cursor:
-            cursor.execute(
-                "SELECT * FROM org_invitations WHERE id = ?",
-                (invitation_id,),
-            )
-            row = cursor.fetchone()
-            return self._row_to_invitation(row) if row else None
+        return self._invitation_repo.get_by_id(invitation_id)
 
     def get_invitation_by_token(self, token: str) -> Optional["OrganizationInvitation"]:
         """Get invitation by token."""
-        with self._transaction() as cursor:
-            cursor.execute(
-                "SELECT * FROM org_invitations WHERE token = ?",
-                (token,),
-            )
-            row = cursor.fetchone()
-            return self._row_to_invitation(row) if row else None
+        return self._invitation_repo.get_by_token(token)
 
     def get_invitation_by_email(
         self, org_id: str, email: str
     ) -> Optional["OrganizationInvitation"]:
         """Get pending invitation by org and email."""
-        with self._transaction() as cursor:
-            cursor.execute(
-                """
-                SELECT * FROM org_invitations
-                WHERE org_id = ? AND email = ? AND status = 'pending'
-                ORDER BY created_at DESC LIMIT 1
-                """,
-                (org_id, email.lower()),
-            )
-            row = cursor.fetchone()
-            return self._row_to_invitation(row) if row else None
+        return self._invitation_repo.get_by_email(org_id, email)
 
     def get_invitations_for_org(self, org_id: str) -> list["OrganizationInvitation"]:
         """Get all invitations for an organization."""
-        with self._transaction() as cursor:
-            cursor.execute(
-                "SELECT * FROM org_invitations WHERE org_id = ? ORDER BY created_at DESC",
-                (org_id,),
-            )
-            return [self._row_to_invitation(row) for row in cursor.fetchall()]
+        return self._invitation_repo.get_for_org(org_id)
 
     def get_pending_invitations_by_email(self, email: str) -> list["OrganizationInvitation"]:
         """Get all pending invitations for an email address."""
-        with self._transaction() as cursor:
-            cursor.execute(
-                """
-                SELECT * FROM org_invitations
-                WHERE email = ? AND status = 'pending'
-                ORDER BY created_at DESC
-                """,
-                (email.lower(),),
-            )
-            return [self._row_to_invitation(row) for row in cursor.fetchall()]
+        return self._invitation_repo.get_pending_by_email(email)
 
     def update_invitation_status(
         self,
@@ -1189,77 +1140,16 @@ class UserStore:
         status: str,
         accepted_at: Optional[datetime] = None,
     ) -> bool:
-        """
-        Update invitation status.
-
-        Args:
-            invitation_id: Invitation ID
-            status: New status (pending, accepted, expired, revoked)
-            accepted_at: Timestamp when accepted (for accepted status)
-
-        Returns:
-            True if updated
-        """
-        with self._transaction() as cursor:
-            if accepted_at:
-                cursor.execute(
-                    """
-                    UPDATE org_invitations
-                    SET status = ?, accepted_at = ?
-                    WHERE id = ?
-                    """,
-                    (status, accepted_at.isoformat(), invitation_id),
-                )
-            else:
-                cursor.execute(
-                    "UPDATE org_invitations SET status = ? WHERE id = ?",
-                    (status, invitation_id),
-                )
-            return cursor.rowcount > 0
+        """Update invitation status."""
+        return self._invitation_repo.update_status(invitation_id, status, accepted_at)
 
     def delete_invitation(self, invitation_id: str) -> bool:
         """Delete an invitation."""
-        with self._transaction() as cursor:
-            cursor.execute(
-                "DELETE FROM org_invitations WHERE id = ?",
-                (invitation_id,),
-            )
-            return cursor.rowcount > 0
+        return self._invitation_repo.delete(invitation_id)
 
     def cleanup_expired_invitations(self) -> int:
-        """
-        Mark expired invitations as expired.
-
-        Returns:
-            Number of invitations marked as expired
-        """
-        with self._transaction() as cursor:
-            cursor.execute(
-                """
-                UPDATE org_invitations
-                SET status = 'expired'
-                WHERE status = 'pending' AND expires_at < ?
-                """,
-                (datetime.utcnow().isoformat(),),
-            )
-            return cursor.rowcount
-
-    def _row_to_invitation(self, row: sqlite3.Row) -> "OrganizationInvitation":
-        """Convert database row to OrganizationInvitation object."""
-        from aragora.billing.models import OrganizationInvitation
-
-        return OrganizationInvitation(
-            id=row["id"],
-            org_id=row["org_id"],
-            email=row["email"],
-            role=row["role"],
-            token=row["token"],
-            invited_by=row["invited_by"],
-            status=row["status"],
-            created_at=datetime.fromisoformat(row["created_at"]),
-            expires_at=datetime.fromisoformat(row["expires_at"]),
-            accepted_at=datetime.fromisoformat(row["accepted_at"]) if row["accepted_at"] else None,
-        )
+        """Mark expired invitations as expired."""
+        return self._invitation_repo.cleanup_expired()
 
     # =========================================================================
     # Usage Tracking
@@ -1477,7 +1367,7 @@ class UserStore:
             ]
 
     # =========================================================================
-    # Audit Logging Operations
+    # Audit Logging Operations (delegated to AuditRepository)
     # =========================================================================
 
     def log_audit_event(
@@ -1493,47 +1383,19 @@ class UserStore:
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> int:
-        """
-        Log an audit event.
-
-        Args:
-            action: Action performed (e.g., 'subscription.created', 'tier.changed')
-            resource_type: Type of resource (e.g., 'subscription', 'user', 'organization')
-            resource_id: ID of the affected resource
-            user_id: User who performed the action
-            org_id: Organization context
-            old_value: Previous value (for changes)
-            new_value: New value (for changes)
-            metadata: Additional context
-            ip_address: Client IP address
-            user_agent: Client user agent
-
-        Returns:
-            Audit log entry ID
-        """
-        with self._transaction() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO audit_log
-                (timestamp, user_id, org_id, action, resource_type, resource_id,
-                 old_value, new_value, metadata, ip_address, user_agent)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    datetime.utcnow().isoformat(),
-                    user_id,
-                    org_id,
-                    action,
-                    resource_type,
-                    resource_id,
-                    json.dumps(old_value) if old_value else None,
-                    json.dumps(new_value) if new_value else None,
-                    json.dumps(metadata or {}),
-                    ip_address,
-                    user_agent,
-                ),
-            )
-            return cursor.lastrowid
+        """Log an audit event."""
+        return self._audit_repo.log_event(
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            user_id=user_id,
+            org_id=org_id,
+            old_value=old_value,
+            new_value=new_value,
+            metadata=metadata,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
 
     def get_audit_log(
         self,
@@ -1546,80 +1408,17 @@ class UserStore:
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict]:
-        """
-        Query audit log entries.
-
-        Args:
-            org_id: Filter by organization
-            user_id: Filter by user
-            action: Filter by action (supports prefix match with *)
-            resource_type: Filter by resource type
-            since: Filter entries after this time
-            until: Filter entries before this time
-            limit: Maximum entries to return
-            offset: Pagination offset
-
-        Returns:
-            List of audit log entries
-        """
-        conditions: list[str] = []
-        params: list[Any] = []
-
-        if org_id:
-            conditions.append("org_id = ?")
-            params.append(org_id)
-        if user_id:
-            conditions.append("user_id = ?")
-            params.append(user_id)
-        if action:
-            if action.endswith("*"):
-                conditions.append("action LIKE ?")
-                params.append(action[:-1] + "%")
-            else:
-                conditions.append("action = ?")
-                params.append(action)
-        if resource_type:
-            conditions.append("resource_type = ?")
-            params.append(resource_type)
-        if since:
-            conditions.append("timestamp >= ?")
-            params.append(since.isoformat())
-        if until:
-            conditions.append("timestamp <= ?")
-            params.append(until.isoformat())
-
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
-        params.extend([limit, offset])
-
-        with self._transaction() as cursor:
-            cursor.execute(
-                f"""
-                SELECT id, timestamp, user_id, org_id, action, resource_type,
-                       resource_id, old_value, new_value, metadata, ip_address, user_agent
-                FROM audit_log
-                WHERE {where_clause}
-                ORDER BY timestamp DESC
-                LIMIT ? OFFSET ?
-                """,
-                params,
-            )
-            return [
-                {
-                    "id": row[0],
-                    "timestamp": row[1],
-                    "user_id": row[2],
-                    "org_id": row[3],
-                    "action": row[4],
-                    "resource_type": row[5],
-                    "resource_id": row[6],
-                    "old_value": json.loads(row[7]) if row[7] else None,
-                    "new_value": json.loads(row[8]) if row[8] else None,
-                    "metadata": json.loads(row[9]) if row[9] else {},
-                    "ip_address": row[10],
-                    "user_agent": row[11],
-                }
-                for row in cursor.fetchall()
-            ]
+        """Query audit log entries."""
+        return self._audit_repo.get_log(
+            org_id=org_id,
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            since=since,
+            until=until,
+            limit=limit,
+            offset=offset,
+        )
 
     def get_audit_log_count(
         self,
@@ -1629,208 +1428,40 @@ class UserStore:
         resource_type: Optional[str] = None,
     ) -> int:
         """Get count of audit log entries matching filters."""
-        conditions = []
-        params = []
-
-        if org_id:
-            conditions.append("org_id = ?")
-            params.append(org_id)
-        if user_id:
-            conditions.append("user_id = ?")
-            params.append(user_id)
-        if action:
-            if action.endswith("*"):
-                conditions.append("action LIKE ?")
-                params.append(action[:-1] + "%")
-            else:
-                conditions.append("action = ?")
-                params.append(action)
-        if resource_type:
-            conditions.append("resource_type = ?")
-            params.append(resource_type)
-
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
-
-        with self._transaction() as cursor:
-            cursor.execute(
-                f"SELECT COUNT(*) FROM audit_log WHERE {where_clause}",
-                params,
-            )
-            return cursor.fetchone()[0]
+        return self._audit_repo.get_log_count(
+            org_id=org_id,
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+        )
 
     # =========================================================================
-    # Account Lockout Methods
+    # Account Lockout Methods (delegated to SecurityRepository)
     # =========================================================================
 
-    # Lockout policy constants
-    LOCKOUT_THRESHOLD_1 = 5  # 5 attempts -> 15 min lockout
-    LOCKOUT_THRESHOLD_2 = 10  # 10 attempts -> 1 hour lockout
-    LOCKOUT_THRESHOLD_3 = 20  # 20 attempts -> 24 hour lockout
-
-    LOCKOUT_DURATION_1 = 15 * 60  # 15 minutes
-    LOCKOUT_DURATION_2 = 60 * 60  # 1 hour
-    LOCKOUT_DURATION_3 = 24 * 60 * 60  # 24 hours
+    # Lockout policy constants (kept for backward compatibility)
+    LOCKOUT_THRESHOLD_1 = SecurityRepository.LOCKOUT_THRESHOLD_1
+    LOCKOUT_THRESHOLD_2 = SecurityRepository.LOCKOUT_THRESHOLD_2
+    LOCKOUT_THRESHOLD_3 = SecurityRepository.LOCKOUT_THRESHOLD_3
+    LOCKOUT_DURATION_1 = SecurityRepository.LOCKOUT_DURATION_1
+    LOCKOUT_DURATION_2 = SecurityRepository.LOCKOUT_DURATION_2
+    LOCKOUT_DURATION_3 = SecurityRepository.LOCKOUT_DURATION_3
 
     def is_account_locked(self, email: str) -> tuple[bool, Optional[datetime], int]:
-        """
-        Check if an account is currently locked.
-
-        Args:
-            email: User's email address
-
-        Returns:
-            Tuple of (is_locked, lockout_until, failed_attempts)
-        """
-        with self._transaction() as cursor:
-            cursor.execute(
-                """
-                SELECT failed_login_attempts, lockout_until
-                FROM users
-                WHERE email = ?
-                """,
-                (email,),
-            )
-            row = cursor.fetchone()
-
-            if not row:
-                return False, None, 0
-
-            failed_attempts = row[0] or 0
-            lockout_until_str = row[1]
-
-            if not lockout_until_str:
-                return False, None, failed_attempts
-
-            lockout_until = datetime.fromisoformat(lockout_until_str)
-            now = datetime.now()
-
-            if now < lockout_until:
-                return True, lockout_until, failed_attempts
-            else:
-                # Lockout expired
-                return False, None, failed_attempts
+        """Check if an account is currently locked."""
+        return self._security_repo.is_account_locked(email)
 
     def record_failed_login(self, email: str) -> tuple[int, Optional[datetime]]:
-        """
-        Record a failed login attempt and potentially lock the account.
-
-        Args:
-            email: User's email address
-
-        Returns:
-            Tuple of (new_attempt_count, lockout_until_if_locked)
-        """
-        now = datetime.now()
-
-        with self._transaction() as cursor:
-            # Increment failed attempts
-            cursor.execute(
-                """
-                UPDATE users
-                SET failed_login_attempts = COALESCE(failed_login_attempts, 0) + 1,
-                    last_failed_login_at = ?,
-                    updated_at = ?
-                WHERE email = ?
-                """,
-                (now.isoformat(), now.isoformat(), email),
-            )
-
-            # Get new count
-            cursor.execute(
-                "SELECT failed_login_attempts FROM users WHERE email = ?",
-                (email,),
-            )
-            row = cursor.fetchone()
-
-            if not row:
-                return 0, None
-
-            failed_attempts = row[0]
-            lockout_until = None
-
-            # Determine if lockout is needed
-            if failed_attempts >= self.LOCKOUT_THRESHOLD_3:
-                lockout_until = now + timedelta(seconds=self.LOCKOUT_DURATION_3)
-            elif failed_attempts >= self.LOCKOUT_THRESHOLD_2:
-                lockout_until = now + timedelta(seconds=self.LOCKOUT_DURATION_2)
-            elif failed_attempts >= self.LOCKOUT_THRESHOLD_1:
-                lockout_until = now + timedelta(seconds=self.LOCKOUT_DURATION_1)
-
-            if lockout_until:
-                cursor.execute(
-                    """
-                    UPDATE users
-                    SET lockout_until = ?
-                    WHERE email = ?
-                    """,
-                    (lockout_until.isoformat(), email),
-                )
-                logger.warning(
-                    f"Account locked: email={email}, attempts={failed_attempts}, "
-                    f"locked_until={lockout_until.isoformat()}"
-                )
-
-            return failed_attempts, lockout_until
+        """Record a failed login attempt and potentially lock the account."""
+        return self._security_repo.record_failed_login(email)
 
     def reset_failed_login_attempts(self, email: str) -> bool:
-        """
-        Reset failed login attempts after successful login.
-
-        Args:
-            email: User's email address
-
-        Returns:
-            True if reset was successful
-        """
-        now = datetime.now()
-
-        with self._transaction() as cursor:
-            cursor.execute(
-                """
-                UPDATE users
-                SET failed_login_attempts = 0,
-                    lockout_until = NULL,
-                    last_login_at = ?,
-                    updated_at = ?
-                WHERE email = ?
-                """,
-                (now.isoformat(), now.isoformat(), email),
-            )
-            return cursor.rowcount > 0
+        """Reset failed login attempts after successful login."""
+        return self._security_repo.reset_failed_login_attempts(email)
 
     def get_lockout_info(self, email: str) -> dict:
-        """
-        Get detailed lockout information for an account.
-
-        Args:
-            email: User's email address
-
-        Returns:
-            Dict with lockout details
-        """
-        is_locked, lockout_until, failed_attempts = self.is_account_locked(email)
-
-        info = {
-            "email": email,
-            "is_locked": is_locked,
-            "failed_attempts": failed_attempts,
-            "lockout_until": lockout_until.isoformat() if lockout_until else None,
-        }
-
-        # Calculate remaining lockout time
-        if is_locked and lockout_until:
-            remaining = (lockout_until - datetime.now()).total_seconds()
-            info["lockout_remaining_seconds"] = max(0, int(remaining))
-            info["lockout_remaining_minutes"] = max(0, int(remaining / 60))
-
-        # Warn if approaching lockout
-        if not is_locked:
-            if failed_attempts >= self.LOCKOUT_THRESHOLD_1 - 2:
-                info["warning"] = (
-                    f"Account will be locked after {self.LOCKOUT_THRESHOLD_1 - failed_attempts} more failed attempts"
-                )
-
-        return info
+        """Get detailed lockout information for an account."""
+        return self._security_repo.get_lockout_info(email)
 
     # =========================================================================
     # Admin Methods (for admin panel)

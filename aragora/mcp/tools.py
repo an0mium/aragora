@@ -704,9 +704,9 @@ async def fork_debate_tool(
             "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
 
-        # Save the fork to storage
-        if hasattr(db, "save"):
-            db.save(fork_id, fork_data)
+        # Save the fork to storage using save_dict
+        if hasattr(db, "save_dict"):
+            db.save_dict(fork_data)
 
         return {
             "success": True,
@@ -801,15 +801,14 @@ async def get_agent_lineage_tool(
 
     try:
         from aragora.genesis.genome import GenomeStore
-        from aragora.genesis.database import GenesisDatabase
 
-        # Try to get genome from the genesis database
-        db = GenesisDatabase()
-        genome = db.get_genome_by_name(agent_name)
+        # Try to get genome from the genome store
+        store = GenomeStore()
+        genome = store.get_by_name(agent_name)
 
         if not genome:
             # Try looking up by genome_id directly
-            genome = db.get_genome(agent_name)
+            genome = store.get(agent_name)
 
         if not genome:
             return {
@@ -842,7 +841,7 @@ async def get_agent_lineage_tool(
             # Get first parent for next iteration
             if current.parent_genomes:
                 parent_id = current.parent_genomes[0]
-                current = db.get_genome(parent_id)
+                current = store.get(parent_id)
             else:
                 break
 
@@ -883,13 +882,13 @@ async def breed_agents_tool(
 
     try:
         from aragora.genesis.breeding import GenomeBreeder
-        from aragora.genesis.database import GenesisDatabase
+        from aragora.genesis.genome import GenomeStore
 
-        db = GenesisDatabase()
+        store = GenomeStore()
 
         # Look up parent genomes (by name or genome_id)
-        genome_a = db.get_genome_by_name(parent_a) or db.get_genome(parent_a)
-        genome_b = db.get_genome_by_name(parent_b) or db.get_genome(parent_b)
+        genome_a = store.get_by_name(parent_a) or store.get(parent_a)
+        genome_b = store.get_by_name(parent_b) or store.get(parent_b)
 
         if not genome_a:
             return {"error": f"Parent agent '{parent_a}' not found in genesis database"}
@@ -910,8 +909,8 @@ async def breed_agents_tool(
         if mutation_rate > 0:
             offspring = breeder.mutate(offspring, rate=mutation_rate)
 
-        # Save to database
-        db.save_genome(offspring)
+        # Save to store
+        store.save(offspring)
 
         return {
             "success": True,
@@ -973,6 +972,7 @@ async def create_checkpoint_tool(
         from aragora.debate.checkpoint import (
             CheckpointManager,
             CheckpointConfig,
+            CheckpointStore,
             FileCheckpointStore,
             DatabaseCheckpointStore,
             AgentState,
@@ -989,12 +989,13 @@ async def create_checkpoint_tool(
             return {"error": f"Debate {debate_id} not found"}
 
         # Choose storage backend
+        checkpoint_store: CheckpointStore
         if storage_backend == "database":
-            store = DatabaseCheckpointStore()
+            checkpoint_store = DatabaseCheckpointStore()
         else:
-            store = FileCheckpointStore()
+            checkpoint_store = FileCheckpointStore()
 
-        manager = CheckpointManager(store=store)
+        manager = CheckpointManager(store=checkpoint_store)
 
         # Convert stored messages to Message objects
         messages = []
@@ -1030,24 +1031,25 @@ async def create_checkpoint_tool(
             ))
 
         # Create simple agent states from debate metadata
+        # Use a simple class to hold agent info for checkpoint creation
+        class _SimpleAgentHolder:
+            def __init__(self, name: str, model: str = "unknown", role: str = "participant"):
+                self.name = name
+                self.model = model
+                self.role = role
+
         agents_info = debate.get("agents", [])
         agents = []
         for a in agents_info:
             if isinstance(a, str):
                 # Just agent name string
-                class SimpleAgent:
-                    def __init__(self, name):
-                        self.name = name
-                        self.model = "unknown"
-                        self.role = "participant"
-                agents.append(SimpleAgent(a))
+                agents.append(_SimpleAgentHolder(a))
             elif isinstance(a, dict):
-                class SimpleAgent:
-                    def __init__(self, data):
-                        self.name = data.get("name", "unknown")
-                        self.model = data.get("model", "unknown")
-                        self.role = data.get("role", "participant")
-                agents.append(SimpleAgent(a))
+                agents.append(_SimpleAgentHolder(
+                    name=a.get("name", "unknown"),
+                    model=a.get("model", "unknown"),
+                    role=a.get("role", "participant"),
+                ))
 
         # Create checkpoint
         checkpoint = await manager.create_checkpoint(

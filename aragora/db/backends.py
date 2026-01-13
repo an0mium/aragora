@@ -98,25 +98,85 @@ class DatabaseConfig:
 
     # Connection pool settings
     pool_size: int = 10
+    pool_max_overflow: int = 5
     pool_timeout: float = 30.0
+
+    # Raw connection URL (takes precedence over individual settings)
+    database_url: Optional[str] = None
 
     @classmethod
     def from_env(cls) -> "DatabaseConfig":
-        """Create config from environment variables."""
-        backend = os.getenv("ARAGORA_DB_BACKEND", "sqlite")
+        """Create config from environment variables.
 
-        return cls(
+        Supports two configuration methods:
+        1. DATABASE_URL: Standard connection string (preferred for managed PostgreSQL)
+           Example: postgresql://user:pass@host:5432/dbname?sslmode=require
+        2. Individual ARAGORA_PG_* variables for fine-grained control
+        """
+        # Check for DATABASE_URL first (standard for managed services)
+        database_url = os.getenv("DATABASE_URL") or os.getenv("ARAGORA_DATABASE_URL")
+
+        # Auto-detect backend from URL if provided
+        backend = os.getenv("ARAGORA_DB_BACKEND", "sqlite")
+        if database_url:
+            if database_url.startswith(("postgresql://", "postgres://")):
+                backend = "postgres"
+            logger.info(f"Using DATABASE_URL, backend auto-detected as: {backend}")
+
+        config = cls(
             backend=backend,
+            database_url=database_url,
             sqlite_path=os.getenv("ARAGORA_SQLITE_PATH", "aragora.db"),
             pg_host=os.getenv("ARAGORA_PG_HOST", "localhost"),
             pg_port=int(os.getenv("ARAGORA_PG_PORT", "5432")),
             pg_database=os.getenv("ARAGORA_PG_DATABASE", "aragora"),
             pg_user=os.getenv("ARAGORA_PG_USER", "aragora"),
             pg_password=os.getenv("ARAGORA_PG_PASSWORD", ""),
-            pg_ssl_mode=os.getenv("ARAGORA_PG_SSL_MODE", "prefer"),
+            pg_ssl_mode=os.getenv("ARAGORA_PG_SSL_MODE", "require"),  # Default to require for managed
             pool_size=int(os.getenv("ARAGORA_DB_POOL_SIZE", "10")),
+            pool_max_overflow=int(os.getenv("ARAGORA_DB_POOL_MAX_OVERFLOW", "5")),
             pool_timeout=float(os.getenv("ARAGORA_DB_POOL_TIMEOUT", "30.0")),
         )
+
+        # Parse DATABASE_URL if provided
+        if database_url:
+            config._parse_database_url(database_url)
+
+        return config
+
+    def _parse_database_url(self, url: str) -> None:
+        """Parse DATABASE_URL and populate individual fields."""
+        import urllib.parse
+
+        # Normalize postgres:// to postgresql://
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+
+        try:
+            parsed = urllib.parse.urlparse(url)
+
+            if parsed.hostname:
+                self.pg_host = parsed.hostname
+            if parsed.port:
+                self.pg_port = parsed.port
+            if parsed.path and parsed.path != "/":
+                self.pg_database = parsed.path.lstrip("/")
+            if parsed.username:
+                self.pg_user = urllib.parse.unquote(parsed.username)
+            if parsed.password:
+                self.pg_password = urllib.parse.unquote(parsed.password)
+
+            # Parse query parameters for SSL mode
+            query_params = urllib.parse.parse_qs(parsed.query)
+            if "sslmode" in query_params:
+                self.pg_ssl_mode = query_params["sslmode"][0]
+
+            logger.debug(
+                f"Parsed DATABASE_URL: host={self.pg_host}, port={self.pg_port}, "
+                f"database={self.pg_database}, sslmode={self.pg_ssl_mode}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to parse DATABASE_URL: {e}")
 
     @property
     def pg_dsn(self) -> str:

@@ -10,7 +10,9 @@ import logging
 import readline
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
+
+from aragora.agents.base import AgentType
 
 logger = logging.getLogger(__name__)
 
@@ -166,17 +168,19 @@ class AragoraREPL:
             from aragora.memory.store import CritiqueStore
 
             store = CritiqueStore(db_path=self.db_path)
-            recent = store.get_recent_debates(limit=5)
+            # Use get_recent() which returns recent critiques - there's no get_recent_debates
+            recent = store.get_recent(limit=5)
 
             if not recent:
-                print("\nNo recent debates found.")
+                print("\nNo recent critiques found.")
                 return
 
-            print("\nRecent debates:")
-            for debate in recent:
-                task = debate.get("task", "Unknown")[:50]
-                confidence = debate.get("confidence", 0)
-                print(f"  - {task}... (confidence: {confidence:.2f})")
+            print("\nRecent critiques:")
+            for critique in recent:
+                agent = critique.agent
+                target = critique.target_agent
+                severity = critique.severity
+                print(f"  - {agent} -> {target} (severity: {severity:.2f})")
             print()
         except Exception as e:
             print(f"Could not load history: {e}")
@@ -195,16 +199,18 @@ class AragoraREPL:
             from aragora.memory.store import CritiqueStore
 
             store = CritiqueStore(db_path=self.db_path)
-            results = store.search(query, limit=5)
+            # CritiqueStore doesn't have a search method - use get_relevant patterns instead
+            # which searches for patterns by issue type
+            patterns = store.get_relevant(issue_type=query, limit=5)
 
-            if not results:
-                print(f"\nNo memories found for: {query}")
+            if not patterns:
+                print(f"\nNo patterns found for: {query}")
                 return
 
-            print(f"\nMemories related to '{query}':")
-            for r in results:
-                content = r.get("content", "")[:80]
-                print(f"  - {content}...")
+            print(f"\nPatterns related to '{query}':")
+            for p in patterns:
+                issue_text = p.issue_text[:80] if p.issue_text else ""
+                print(f"  - [{p.issue_type}] {issue_text}...")
             print()
         except Exception as e:
             print(f"Memory query failed: {e}")
@@ -217,25 +223,25 @@ class AragoraREPL:
         try:
             from aragora.agents.base import create_agent
             from aragora.debate.orchestrator import Arena, DebateProtocol
-            from aragora.core import Environment
+            from aragora.core import Agent, Environment
             from aragora.spectate.stream import SpectatorStream
 
             # Parse agents
             agent_specs = self.agents.split(",")
             roles = ["proposer", "critic", "synthesizer"]
-            agents = []
-            for i, agent_type in enumerate(agent_specs):
+            agents: list[Agent] = []
+            for i, agent_type_str in enumerate(agent_specs):
                 role = roles[i % len(roles)]
                 agent = create_agent(
-                    model_type=agent_type.strip(),
-                    name=f"{agent_type}_{role}",
+                    model_type=cast(AgentType, agent_type_str.strip()),
+                    name=f"{agent_type_str}_{role}",
                     role=role,
                 )
                 agents.append(agent)
 
             # Setup
             env = Environment(task=task)
-            protocol = DebateProtocol(rounds=self.rounds, consensus_type="majority")
+            protocol = DebateProtocol(rounds=self.rounds, consensus="majority")
             spectator = SpectatorStream(enabled=True, format="plain")
 
             arena = Arena(env, agents, protocol, spectator=spectator)

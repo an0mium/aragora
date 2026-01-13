@@ -45,6 +45,17 @@ from aragora.debate.phases.metrics import MetricsHelper, build_relationship_upda
 from aragora.debate.phases.consensus_verification import ConsensusVerifier
 from aragora.debate.phases.vote_aggregator import VoteAggregator, AggregatedVotes
 from aragora.debate.phases.weight_calculator import WeightCalculator
+from aragora.debate.phases.vote_collector import (
+    VoteCollector,
+    VoteCollectorConfig,
+    VoteCollectorCallbacks,
+    VoteCollectorDeps,
+)
+from aragora.debate.phases.vote_weighter import (
+    VoteWeighter,
+    VoteWeighterConfig,
+    VoteWeighterDeps,
+)
 
 __all__ = [
     "DebateContext",
@@ -69,4 +80,11 @@ __all__ = [
     "VoteAggregator",
     "AggregatedVotes",
     "WeightCalculator",
+    "VoteCollector",
+    "VoteCollectorConfig",
+    "VoteCollectorCallbacks",
+    "VoteCollectorDeps",
+    "VoteWeighter",
+    "VoteWeighterConfig",
+    "VoteWeighterDeps",
 ]
