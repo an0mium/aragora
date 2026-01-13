@@ -13,7 +13,9 @@ _EXPORT_MAP = {
     'AgentState': ('aragora.debate.checkpoint', 'AgentState'),
     'AgentStatus': ('aragora.debate.immune_system', 'AgentStatus'),
     'Arena': ('aragora.debate.orchestrator', 'Arena'),
+    'ArenaBuilder': ('aragora.debate.arena_builder', 'ArenaBuilder'),
     'ArenaConfig': ('aragora.debate.arena_config', 'ArenaConfig'),
+    'InitPhase': ('aragora.debate.arena_builder', 'InitPhase'),
     'BlackboxEvent': ('aragora.debate.blackbox', 'BlackboxEvent'),
     'BlackboxRecorder': ('aragora.debate.blackbox', 'BlackboxRecorder'),
     'BlackboxSnapshot': ('aragora.debate.blackbox', 'BlackboxSnapshot'),
@@ -127,7 +129,9 @@ def __dir__() -> list[str]:
 
 __all__ = [
     "Arena",
+    "ArenaBuilder",
     "ArenaConfig",
+    "InitPhase",
     "DebateProtocol",
     # Graph-based debates
     "DebateGraph",

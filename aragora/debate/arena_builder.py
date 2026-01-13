@@ -1,9 +1,52 @@
 """
-Builder pattern for Arena construction.
+Builder pattern for Arena construction with explicit dependency DAG.
 
 Provides a fluent interface for configuring and constructing Arena instances
 with many optional components. This simplifies Arena creation and makes the
 configuration more readable.
+
+Initialization DAG
+------------------
+The Arena initialization follows this dependency graph:
+
+    ┌─────────────────────────────────────────────┐
+    │            CORE (Required)                  │
+    │  environment, agents, protocol              │
+    └─────────────────┬───────────────────────────┘
+                      │
+    ┌─────────────────┼───────────────────────────┐
+    │                 ▼                           │
+    │  ┌──────────────────────────────────────┐  │
+    │  │          Extensions                   │  │
+    │  │  billing, broadcast, training         │  │
+    │  └──────────────────────────────────────┘  │
+    │                 │                           │
+    │  ┌──────────────▼──────────────────────┐   │
+    │  │          Trackers                    │   │
+    │  │  elo, calibration, position, etc.   │   │
+    │  └──────────────────────────────────────┘  │
+    │                 │                           │
+    │  ┌──────────────▼──────────────────────┐   │
+    │  │       User Participation             │   │
+    │  │  event_emitter → audience_manager   │   │
+    │  └──────────────────────────────────────┘  │
+    │                 │                           │
+    │  ┌──────────────▼──────────────────────┐   │
+    │  │       Roles and Stances             │   │
+    │  │  role_rotator, stance assignment    │   │
+    │  └──────────────────────────────────────┘  │
+    │                 │                           │
+    │  ┌──────────────▼──────────────────────┐   │
+    │  │       Convergence Detection          │   │
+    │  │  semantic similarity backend         │   │
+    │  └──────────────────────────────────────┘  │
+    │                 │                           │
+    │  ┌──────────────▼──────────────────────┐   │
+    │  │       Phase Initialization           │   │
+    │  │  proposal, critique, consensus, etc. │   │
+    │  └──────────────────────────────────────┘  │
+    │                                            │
+    └────────────────────────────────────────────┘
 
 Example:
     arena = (
@@ -19,11 +62,41 @@ Example:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from enum import Enum, auto
+from typing import Any, TYPE_CHECKING, Optional
 
 from aragora.core import Agent, Environment
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol
 from aragora.spectate.stream import SpectatorStream
+
+
+class InitPhase(Enum):
+    """Initialization phases in dependency order.
+
+    Used for tracking which phases have been configured and
+    validating prerequisites before building.
+    """
+
+    CORE = auto()
+    EXTENSIONS = auto()
+    TRACKERS = auto()
+    USER_PARTICIPATION = auto()
+    ROLES = auto()
+    CONVERGENCE = auto()
+    PHASES = auto()
+
+    @classmethod
+    def dependencies(cls) -> dict["InitPhase", list["InitPhase"]]:
+        """Return the dependency graph for each phase."""
+        return {
+            cls.CORE: [],
+            cls.EXTENSIONS: [cls.CORE],
+            cls.TRACKERS: [cls.CORE],
+            cls.USER_PARTICIPATION: [cls.CORE],
+            cls.ROLES: [cls.CORE, cls.TRACKERS],
+            cls.CONVERGENCE: [cls.CORE],
+            cls.PHASES: [cls.CORE, cls.TRACKERS, cls.ROLES, cls.CONVERGENCE],
+        }
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
@@ -119,12 +192,59 @@ class ArenaBuilder:
         self._dissent_retriever: Optional["DissentRetriever"] = None
         self._evidence_collector: Optional["EvidenceCollector"] = None
         self._trending_topic: Optional["TrendingTopic"] = None
+        self._consensus_memory: Any = None
+        self._tier_analytics_tracker: Any = None
 
         # Loop configuration
         self._loop_id: str = ""
         self._strict_loop_scoping: bool = False
         self._circuit_breaker: Optional[CircuitBreaker] = None
         self._initial_messages: list = []
+
+        # Airlock configuration
+        self._use_airlock: bool = False
+        self._airlock_config: Any = None
+
+        # Performance monitoring
+        self._performance_monitor: Any = None
+        self._enable_performance_monitor: bool = False
+        self._enable_telemetry: bool = False
+
+        # Evolution
+        self._population_manager: Any = None
+        self._auto_evolve: bool = False
+        self._breeding_threshold: float = 0.8
+        self._prompt_evolver: Any = None
+        self._enable_prompt_evolution: bool = False
+
+        # Pulse / trending
+        self._pulse_manager: Any = None
+        self._auto_fetch_trending: bool = False
+
+        # Checkpointing
+        self._checkpoint_manager: Any = None
+        self._enable_checkpointing: bool = False
+        self._breakpoint_manager: Any = None
+
+        # Agent selection
+        self._agent_selector: Any = None
+        self._use_performance_selection: bool = False
+        self._enable_position_ledger: bool = False
+
+        # Extensions: Billing
+        self._org_id: str = ""
+        self._user_id: str = ""
+        self._usage_tracker: Any = None
+
+        # Extensions: Broadcast
+        self._broadcast_pipeline: Any = None
+        self._auto_broadcast: bool = False
+        self._broadcast_min_confidence: float = 0.8
+
+        # Extensions: Training export
+        self._training_exporter: Any = None
+        self._auto_export_training: bool = False
+        self._training_export_min_confidence: float = 0.75
 
     # =========================================================================
     # Protocol Configuration
@@ -426,6 +546,245 @@ class ArenaBuilder:
         return self
 
     # =========================================================================
+    # Airlock Resilience
+    # =========================================================================
+
+    def with_airlock(
+        self,
+        enabled: bool = True,
+        config: Any = None,
+    ) -> ArenaBuilder:
+        """Enable airlock resilience layer for agents.
+
+        Airlock wraps agents with timeout protection and fallback handling.
+
+        Args:
+            enabled: Whether to enable airlock protection
+            config: Optional AirlockConfig for customization
+        """
+        self._use_airlock = enabled
+        if config is not None:
+            self._airlock_config = config
+        return self
+
+    # =========================================================================
+    # Performance Monitoring
+    # =========================================================================
+
+    def with_telemetry(
+        self,
+        performance_monitor: Any = None,
+        enable_performance_monitor: bool = False,
+        enable_telemetry: bool = False,
+    ) -> ArenaBuilder:
+        """Configure performance monitoring and telemetry.
+
+        Args:
+            performance_monitor: AgentPerformanceMonitor instance
+            enable_performance_monitor: Auto-create monitor if True
+            enable_telemetry: Enable Prometheus/Blackbox emission
+        """
+        if performance_monitor is not None:
+            self._performance_monitor = performance_monitor
+        self._enable_performance_monitor = enable_performance_monitor
+        self._enable_telemetry = enable_telemetry
+        return self
+
+    # =========================================================================
+    # Evolution and Self-Improvement
+    # =========================================================================
+
+    def with_evolution(
+        self,
+        population_manager: Any = None,
+        auto_evolve: bool = False,
+        breeding_threshold: float = 0.8,
+        prompt_evolver: Any = None,
+        enable_prompt_evolution: bool = False,
+    ) -> ArenaBuilder:
+        """Configure evolution and self-improvement.
+
+        Args:
+            population_manager: PopulationManager for genome evolution
+            auto_evolve: Trigger evolution after high-quality debates
+            breeding_threshold: Min confidence to trigger evolution
+            prompt_evolver: PromptEvolver for pattern extraction
+            enable_prompt_evolution: Auto-create PromptEvolver if True
+        """
+        if population_manager is not None:
+            self._population_manager = population_manager
+        self._auto_evolve = auto_evolve
+        self._breeding_threshold = breeding_threshold
+        if prompt_evolver is not None:
+            self._prompt_evolver = prompt_evolver
+        self._enable_prompt_evolution = enable_prompt_evolution
+        return self
+
+    # =========================================================================
+    # Checkpointing and Breakpoints
+    # =========================================================================
+
+    def with_checkpointing(
+        self,
+        checkpoint_manager: Any = None,
+        enable_checkpointing: bool = False,
+        breakpoint_manager: Any = None,
+    ) -> ArenaBuilder:
+        """Configure debate checkpointing and breakpoints.
+
+        Args:
+            checkpoint_manager: CheckpointManager for pause/resume
+            enable_checkpointing: Auto-create CheckpointManager if True
+            breakpoint_manager: BreakpointManager for human-in-the-loop
+        """
+        if checkpoint_manager is not None:
+            self._checkpoint_manager = checkpoint_manager
+        self._enable_checkpointing = enable_checkpointing
+        if breakpoint_manager is not None:
+            self._breakpoint_manager = breakpoint_manager
+        return self
+
+    # =========================================================================
+    # Agent Selection
+    # =========================================================================
+
+    def with_agent_selection(
+        self,
+        agent_selector: Any = None,
+        use_performance_selection: bool = False,
+    ) -> ArenaBuilder:
+        """Configure agent selection strategy.
+
+        Args:
+            agent_selector: AgentSelector for performance-based selection
+            use_performance_selection: Enable ELO/calibration-based selection
+        """
+        if agent_selector is not None:
+            self._agent_selector = agent_selector
+        self._use_performance_selection = use_performance_selection
+        return self
+
+    def with_enable_position_ledger(self, enabled: bool = True) -> ArenaBuilder:
+        """Enable auto-creation of PositionLedger.
+
+        Args:
+            enabled: Auto-create PositionLedger if not provided
+        """
+        self._enable_position_ledger = enabled
+        return self
+
+    # =========================================================================
+    # Pulse / Trending
+    # =========================================================================
+
+    def with_pulse(
+        self,
+        pulse_manager: Any = None,
+        auto_fetch_trending: bool = False,
+    ) -> ArenaBuilder:
+        """Configure Pulse for trending topics.
+
+        Args:
+            pulse_manager: PulseManager for auto-fetching trending topics
+            auto_fetch_trending: Auto-fetch if no topic provided
+        """
+        if pulse_manager is not None:
+            self._pulse_manager = pulse_manager
+        self._auto_fetch_trending = auto_fetch_trending
+        return self
+
+    # =========================================================================
+    # Extensions: Billing
+    # =========================================================================
+
+    def with_billing(
+        self,
+        org_id: str = "",
+        user_id: str = "",
+        usage_tracker: Any = None,
+    ) -> ArenaBuilder:
+        """Configure billing and usage tracking.
+
+        Args:
+            org_id: Organization ID for multi-tenancy
+            user_id: User ID for usage attribution
+            usage_tracker: UsageTracker for recording token usage
+        """
+        self._org_id = org_id
+        self._user_id = user_id
+        if usage_tracker is not None:
+            self._usage_tracker = usage_tracker
+        return self
+
+    # =========================================================================
+    # Extensions: Broadcast
+    # =========================================================================
+
+    def with_broadcast(
+        self,
+        pipeline: Any = None,
+        auto_broadcast: bool = False,
+        min_confidence: float = 0.8,
+    ) -> ArenaBuilder:
+        """Configure broadcast auto-trigger.
+
+        Args:
+            pipeline: BroadcastPipeline for audio/video generation
+            auto_broadcast: Auto-trigger after high-quality debates
+            min_confidence: Minimum confidence to trigger broadcast
+        """
+        if pipeline is not None:
+            self._broadcast_pipeline = pipeline
+        self._auto_broadcast = auto_broadcast
+        self._broadcast_min_confidence = min_confidence
+        return self
+
+    # =========================================================================
+    # Extensions: Training Export
+    # =========================================================================
+
+    def with_training_export(
+        self,
+        exporter: Any = None,
+        auto_export: bool = False,
+        min_confidence: float = 0.75,
+    ) -> ArenaBuilder:
+        """Configure training data export (Tinker integration).
+
+        Args:
+            exporter: DebateTrainingExporter for auto-export
+            auto_export: Auto-export training data after debates
+            min_confidence: Min confidence to export as SFT
+        """
+        if exporter is not None:
+            self._training_exporter = exporter
+        self._auto_export_training = auto_export
+        self._training_export_min_confidence = min_confidence
+        return self
+
+    # =========================================================================
+    # Historical Memory
+    # =========================================================================
+
+    def with_consensus_memory(self, memory: Any) -> ArenaBuilder:
+        """Set consensus memory for historical outcomes.
+
+        Args:
+            memory: ConsensusMemory instance
+        """
+        self._consensus_memory = memory
+        return self
+
+    def with_tier_analytics_tracker(self, tracker: Any) -> ArenaBuilder:
+        """Set tier analytics tracker for memory ROI.
+
+        Args:
+            tracker: TierAnalyticsTracker instance
+        """
+        self._tier_analytics_tracker = tracker
+        return self
+
+    # =========================================================================
     # Composite Configuration
     # =========================================================================
 
@@ -504,20 +863,49 @@ class ArenaBuilder:
             agent_weights=self._agent_weights,
             position_tracker=self._position_tracker,
             position_ledger=self._position_ledger,
+            enable_position_ledger=self._enable_position_ledger,
             elo_system=self._elo_system,
             persona_manager=self._persona_manager,
             dissent_retriever=self._dissent_retriever,
+            consensus_memory=self._consensus_memory,
             flip_detector=self._flip_detector,
             calibration_tracker=self._calibration_tracker,
             continuum_memory=self._continuum_memory,
             relationship_tracker=self._relationship_tracker,
             moment_detector=self._moment_detector,
+            tier_analytics_tracker=self._tier_analytics_tracker,
             loop_id=self._loop_id,
             strict_loop_scoping=self._strict_loop_scoping,
             circuit_breaker=self._circuit_breaker,
             initial_messages=self._initial_messages,
             trending_topic=self._trending_topic,
+            pulse_manager=self._pulse_manager,
+            auto_fetch_trending=self._auto_fetch_trending,
+            population_manager=self._population_manager,
+            auto_evolve=self._auto_evolve,
+            breeding_threshold=self._breeding_threshold,
             evidence_collector=self._evidence_collector,
+            breakpoint_manager=self._breakpoint_manager,
+            checkpoint_manager=self._checkpoint_manager,
+            enable_checkpointing=self._enable_checkpointing,
+            performance_monitor=self._performance_monitor,
+            enable_performance_monitor=self._enable_performance_monitor,
+            enable_telemetry=self._enable_telemetry,
+            use_airlock=self._use_airlock,
+            airlock_config=self._airlock_config,
+            agent_selector=self._agent_selector,
+            use_performance_selection=self._use_performance_selection,
+            prompt_evolver=self._prompt_evolver,
+            enable_prompt_evolution=self._enable_prompt_evolution,
+            org_id=self._org_id,
+            user_id=self._user_id,
+            usage_tracker=self._usage_tracker,
+            broadcast_pipeline=self._broadcast_pipeline,
+            auto_broadcast=self._auto_broadcast,
+            broadcast_min_confidence=self._broadcast_min_confidence,
+            training_exporter=self._training_exporter,
+            auto_export_training=self._auto_export_training,
+            training_export_min_confidence=self._training_export_min_confidence,
         )
 
 
