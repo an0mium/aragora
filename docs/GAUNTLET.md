@@ -408,7 +408,7 @@ aragora gauntlet input.md --timeout 1800  # Increase timeout to 30 min
 Use OpenRouter fallback:
 ```bash
 export OPENROUTER_API_KEY=your_key
-aragora gauntlet input.md --agents anthropic-api,openrouter-api
+aragora gauntlet input.md --agents anthropic-api,openrouter
 ```
 
 ## Related Documentation

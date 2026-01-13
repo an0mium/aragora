@@ -70,7 +70,7 @@ Multi-agent code review that posts findings directly to your PR.
 
 | Topic | For | Against |
 |-------|-----|---------|
-| Add rate limiting | anthropic-api, openai-api | gemini-api |
+| Add rate limiting | anthropic-api, openai-api | gemini |
 
 ---
 *Agreement score: 85% | Powered by Aragora - AI Red Team*
@@ -140,8 +140,8 @@ env:
 | `anthropic-api` | Claude 3.5 Sonnet | Security analysis, nuanced review |
 | `openai-api` | GPT-4 | Code quality, performance |
 | `mistral-api` | Mistral Large | European compliance, fast |
-| `gemini-api` | Gemini Pro | Architecture, scalability |
-| `openrouter-api` | Various (fallback) | Cost-effective fallback |
+| `gemini` | Gemini Pro | Architecture, scalability |
+| `openrouter` | Various (fallback) | Cost-effective fallback |
 
 ### Scheduled Audits
 

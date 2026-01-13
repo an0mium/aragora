@@ -12,7 +12,7 @@ Perspective coverage note: Mistral adds an EU lens, and Chinese models like Deep
 |----------|----------|-------|----------|------|
 | `anthropic-api` | Anthropic | Claude 3.5 Sonnet | Code review, reasoning | $$ |
 | `openai-api` | OpenAI | GPT-4 Turbo | General tasks, creativity | $$ |
-| `gemini-api` | Google | Gemini Pro | Long context, analysis | $ |
+| `gemini` | Google | Gemini Pro | Long context, analysis | $ |
 | `mistral-api` | Mistral | Mistral Large | European compliance, multilingual | $$ |
 | `grok-api` | xAI | Grok | Real-time knowledge | $$ |
 
@@ -20,9 +20,9 @@ Perspective coverage note: Mistral adds an EU lens, and Chinese models like Deep
 
 | Agent ID | Model | Best For | Cost |
 |----------|-------|----------|------|
-| `openrouter-api` | Auto-routes | Fallback when primary fails | Varies |
-| `deepseek-api` | DeepSeek V3 | Code, math, reasoning | $ |
-| `qwen-api` | Qwen 2.5 | Multilingual, code | $ |
+| `openrouter` | Auto-routes | Fallback when primary fails | Varies |
+| `deepseek` | DeepSeek V3 | Code, math, reasoning | $ |
+| `qwen` | Qwen 2.5 | Multilingual, code | $ |
 | `llama-api` | Llama 3.3 70B | General, open weights | $ |
 | `yi-api` | Yi 34B | Chinese/English | $ |
 
@@ -43,16 +43,16 @@ Why:
 - GPT-4 provides creative edge case detection
 - Consensus between them = high confidence findings
 
-**Budget alternative:** `anthropic-api,deepseek-api`
+**Budget alternative:** `anthropic-api,deepseek`
 - DeepSeek V3 is excellent at code for 1/10th the cost
 
 ### Architecture Design
 
-**Recommended:** `anthropic-api,openai-api,gemini-api`
+**Recommended:** `anthropic-api,openai-api,gemini`
 
 ```bash
 aragora ask "Review this microservices architecture" \
-  --agents anthropic-api,openai-api,gemini-api \
+  --agents anthropic-api,openai-api,gemini \
   --rounds 3
 ```
 
@@ -90,11 +90,11 @@ Why:
 
 ### High-Stakes Decisions
 
-**Recommended:** `anthropic-api,openai-api,gemini-api,mistral-api`
+**Recommended:** `anthropic-api,openai-api,gemini,mistral-api`
 
 ```bash
 aragora gauntlet critical_spec.md \
-  --agents anthropic-api,openai-api,gemini-api,mistral-api \
+  --agents anthropic-api,openai-api,gemini,mistral-api \
   --profile thorough
 ```
 
@@ -125,12 +125,12 @@ Use OpenRouter for cost-effective multi-agent:
 
 ```bash
 export OPENROUTER_API_KEY=your_key
-aragora review --agents deepseek-api,qwen-api
+aragora review --agents deepseek,qwen
 ```
 
 Estimated costs per 10K token stress-test:
 - `anthropic-api,openai-api`: ~$0.30
-- `deepseek-api,qwen-api`: ~$0.03 (10x cheaper)
+- `deepseek,qwen`: ~$0.03 (10x cheaper)
 
 ### Automatic Fallback
 
@@ -164,7 +164,7 @@ aragora review --agents anthropic-api,openai-api
 Aragora auto-assigns roles based on agent order:
 
 ```bash
-aragora ask "Design auth system" --agents anthropic-api,openai-api,gemini-api
+aragora ask "Design auth system" --agents anthropic-api,openai-api,gemini
 ```
 
 | Position | Role | Best Agent Type |
@@ -175,7 +175,7 @@ aragora ask "Design auth system" --agents anthropic-api,openai-api,gemini-api
 
 You can also specify roles explicitly:
 ```bash
---agents anthropic-api:proposer,openai-api:critic,gemini-api:synthesizer
+--agents anthropic-api:proposer,openai-api:critic,gemini:synthesizer
 ```
 
 ## Environment Variables
@@ -198,10 +198,10 @@ export OPENROUTER_API_KEY=sk-or-...
 |----------|--------|--------|---------|
 | Quick PR review | `anthropic-api,openai-api` | 2 | - |
 | Security audit | `anthropic-api,openai-api,mistral-api` | 3 | `thorough` |
-| Architecture review | `anthropic-api,openai-api,gemini-api` | 3 | `thorough` |
+| Architecture review | `anthropic-api,openai-api,gemini` | 3 | `thorough` |
 | GDPR compliance | `anthropic-api,mistral-api` | 2 | `policy` |
-| Code refactoring | `anthropic-api,deepseek-api` | 2 | `code` |
-| Budget review | `deepseek-api,qwen-api` | 2 | `quick` |
+| Code refactoring | `anthropic-api,deepseek` | 2 | `code` |
+| Budget review | `deepseek,qwen` | 2 | `quick` |
 | High-stakes decision | All 4 primary | 4 | `thorough` |
 
 ## Troubleshooting
@@ -221,7 +221,7 @@ export OPENROUTER_API_KEY=fallback_key
 ### Slow responses
 - Use fewer agents
 - Use `--rounds 1` for faster results
-- Use `gemini-api` (fastest response time)
+- Use `gemini` (fastest response time)
 
 ### Inconsistent results
 - Add more agents for consensus
