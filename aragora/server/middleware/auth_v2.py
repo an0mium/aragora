@@ -387,7 +387,6 @@ class APIKeyValidator:
             import hashlib
 
             key_hash = hashlib.sha256(key.encode()).hexdigest()
-            prefix = key[:12]  # "ara_" + 8 chars
 
             # Query storage for key
             if self._storage:

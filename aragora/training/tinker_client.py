@@ -515,6 +515,7 @@ class TinkerAPIError(Exception):
 # CLI support for testing
 if __name__ == "__main__":
     import argparse
+    import sys
 
     parser = argparse.ArgumentParser(description="Tinker API client")
     parser.add_argument("--test-connection", action="store_true", help="Test API connection")
@@ -526,9 +527,9 @@ if __name__ == "__main__":
             client = TinkerClient()
             try:
                 await client.test_connection()
-                print("Connection successful!")
+                sys.stdout.write("Connection successful!\n")
             except TinkerAPIError as e:
-                print(f"Connection failed: {e}")
+                sys.stderr.write(f"Connection failed: {e}\n")
             finally:
                 await client.close()
 

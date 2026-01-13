@@ -768,7 +768,7 @@ class SystemHandler(BaseHandler):
                 # Try a simple query to verify connectivity
                 ping_start = time.time()
                 # Use a lightweight query via the underlying client
-                result = supabase_wrapper.client.table("debates").select("id").limit(1).execute()
+                supabase_wrapper.client.table("debates").select("id").limit(1).execute()
                 ping_latency = round((time.time() - ping_start) * 1000, 2)
                 checks["supabase"] = {
                     "healthy": True,

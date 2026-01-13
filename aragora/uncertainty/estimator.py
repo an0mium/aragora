@@ -475,8 +475,8 @@ class UncertaintyAggregator:
     ) -> UncertaintyMetrics:
         """Compute comprehensive uncertainty metrics for a debate."""
 
-        # Collect confidences
-        confidences = await self.confidence_estimator.collect_confidences(agents, proposals, "")
+        # Collect confidences (triggers calibration tracking)
+        await self.confidence_estimator.collect_confidences(agents, proposals, "")
 
         # Analyze disagreement
         metrics = self.disagreement_analyzer.analyze_disagreement(messages, votes, proposals)

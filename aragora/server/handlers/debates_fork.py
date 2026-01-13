@@ -98,7 +98,6 @@ class ForkOperationsMixin:
             try:
                 from aragora.debate.counterfactual import (
                     CounterfactualBranch,
-                    CounterfactualOrchestrator,
                     PivotClaim,
                 )
             except ImportError as e:
@@ -138,11 +137,11 @@ class ForkOperationsMixin:
 
             # Store the branch info
             branch_data = {
-                "branch_id": branch_id,
-                "parent_debate_id": debate_id,
+                "branch_id": branch.branch_id,
+                "parent_debate_id": branch.parent_debate_id,
                 "branch_point": branch_point,
                 "modified_context": modified_context,
-                "pivot_claim": pivot.statement,
+                "pivot_claim": branch.pivot_claim.statement,
                 "status": "created",
                 "messages_inherited": branch_point,
             }

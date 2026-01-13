@@ -167,9 +167,9 @@ class ParamSpec:
             return self.default
 
         try:
-            if self.param_type == int:
+            if self.param_type is int:
                 return _convert_int(value)
-            elif self.param_type == float:
+            elif self.param_type is float:
                 return _convert_float(value)
             return value
         except ParameterConversionError as e:

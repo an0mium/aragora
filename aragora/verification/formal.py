@@ -815,10 +815,6 @@ class Z3Backend:
         2. Try pattern-based translation for simple claims
         3. Use LLM translator if available
         """
-        import time
-
-        start = time.time()
-
         # Already in SMT-LIB2 format
         if self._is_smtlib2(claim):
             if self._validate_smtlib2(claim):

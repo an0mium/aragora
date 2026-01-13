@@ -213,7 +213,6 @@ def generate_standalone_html(cartographer: ArgumentCartographer) -> str:
 <body>
     <div class="container">
         <h1>🏛️ {cartographer.topic or 'Aragora Debate'}</h1>
-        
         <div class="stats">
             <div class="stat">
                 <div class="stat-value">{stats['node_count']}</div>
@@ -232,11 +231,9 @@ def generate_standalone_html(cartographer: ArgumentCartographer) -> str:
                 <div class="stat-label">Agents</div>
             </div>
         </div>
-        
         <div class="mermaid">
 {mermaid_code}
         </div>
-        
         <div class="legend">
             <div class="legend-item">
                 <div class="legend-color" style="background: #4CAF50"></div>
@@ -260,7 +257,6 @@ def generate_standalone_html(cartographer: ArgumentCartographer) -> str:
             </div>
         </div>
     </div>
-    
     <script>
         mermaid.initialize({{ startOnLoad: true, theme: 'default' }});
     </script>

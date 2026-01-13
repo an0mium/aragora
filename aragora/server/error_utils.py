@@ -27,7 +27,6 @@ __all__ = [
     "sanitize_error",
     "sanitize_error_text",
     "safe_error_message",
-    "with_error_handling",
     "log_and_suppress",
 ]
 

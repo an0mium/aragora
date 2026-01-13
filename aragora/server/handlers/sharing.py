@@ -15,7 +15,6 @@ Endpoints:
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import secrets
 import threading
@@ -482,10 +481,6 @@ class SharingHandler(BaseHandler):
     def _generate_share_token(self, debate_id: str) -> str:
         """Generate a secure share token."""
         # Use secrets for cryptographically secure token
-        random_bytes = secrets.token_bytes(16)
-        # Include debate_id hash for additional uniqueness
-        debate_hash = hashlib.sha256(debate_id.encode()).digest()[:4]
-        combined = random_bytes + debate_hash
         return secrets.token_urlsafe(16)
 
     def _get_debate_data(self, debate_id: str) -> Optional[Dict[str, Any]]:

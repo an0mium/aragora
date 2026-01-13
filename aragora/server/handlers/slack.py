@@ -620,7 +620,6 @@ class SlackHandler(BaseHandler):
     def _handle_vote_action(self, payload: Dict[str, Any], action: Dict[str, Any]) -> HandlerResult:
         """Handle vote button clicks."""
         action_id = action.get("action_id", "")
-        value = action.get("value", "")
         user = payload.get("user", {})
         user_id = user.get("id", "unknown")
 

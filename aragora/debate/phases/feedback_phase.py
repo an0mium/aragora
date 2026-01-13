@@ -29,9 +29,6 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
-if not TYPE_CHECKING:
-    from aragora.memory.consensus import ConsensusStrength
-
 from aragora.agents.errors import _build_error_action
 from aragora.typing import (
     BroadcastPipelineProtocol,
@@ -954,8 +951,6 @@ class FeedbackPhase:
             return
 
         try:
-            from aragora.memory.consensus import ConsensusStrength, DissentType
-
             # Determine consensus strength from confidence
             strength = self._confidence_to_strength(result.confidence)
 

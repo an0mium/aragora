@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Optional
+from typing import TYPE_CHECKING, Callable, NamedTuple, Optional
 
 if TYPE_CHECKING:
     from aragora.agents.grounded import RelationshipTracker
@@ -283,7 +283,6 @@ class RelationshipHandler(BaseHandler):
         try:
             # Collect all unique agents and their relationships
             all_agents: set[str] = set()
-            all_relationships: list[dict[str, Any]] = []
             agent_relationship_counts: dict[str, int] = {}
 
             # We need to query the DB directly to get all relationships

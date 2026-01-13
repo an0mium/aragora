@@ -979,7 +979,6 @@ class ConnectionPool:
                 raise DatabaseError("Connection pool is closed")
 
             # Wait for an available connection
-            start_time = threading.Event()  # Just for timing
             waited = 0.0
 
             while True:

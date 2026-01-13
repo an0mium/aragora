@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *No unreleased changes*
 
+## [1.2.0] - 2026-01-13
+
+### Changed
+- **Linting cleanup**: Reduced ruff errors from 793 to 0
+  - Fixed all unused variable warnings (F841)
+  - Fixed all unused import warnings (F401)
+  - Fixed type comparison issues (E721) using `is` instead of `==`
+  - Cleaned up trailing whitespace (W293)
+- **Code cleanup**: Removed dead code and unused assignments across 25+ files
+- **Ruff configuration**: Added per-file ignores for intentional print statements in CLI utilities
+
+### Fixed
+- **Type comparisons**: Changed `param_type == int` to `param_type is int` in routing.py and decorators.py
+- **Undefined exports**: Removed non-existent `with_error_handling` from error_utils.py `__all__`
+- **Unused code removal**:
+  - Removed unused `results` list in matrix_debates.py
+  - Removed unused `all_relationships` in relationship.py
+  - Removed unused `combined` variable in sharing.py
+  - Simplified `_generate_share_token` to use `secrets.token_urlsafe` directly
+
 ## [1.1.0] - 2026-01-13
 
 ### Changed

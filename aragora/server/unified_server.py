@@ -367,7 +367,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         Sends 429 error response if rate limited.
         Also stores the result for inclusion in response headers.
         """
-        from aragora.server.middleware.rate_limit import check_tier_rate_limit, rate_limit_headers
+        from aragora.server.middleware.rate_limit import check_tier_rate_limit
 
         result = check_tier_rate_limit(self, UnifiedHandler.user_store)
 
@@ -375,7 +375,6 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         self._rate_limit_result = result
 
         if not result.allowed:
-            headers = rate_limit_headers(result)
             self._send_json(
                 {
                     "error": "Rate limit exceeded for your subscription tier",
@@ -1126,7 +1125,7 @@ class UnifiedServer:
             from aragora.observability.tracing import get_tracer
 
             if is_tracing_enabled():
-                tracer = get_tracer()
+                get_tracer()  # Initialize tracer singleton
                 logger.info("OpenTelemetry tracing enabled")
             else:
                 logger.debug("OpenTelemetry tracing disabled (set OTEL_ENABLED=true to enable)")

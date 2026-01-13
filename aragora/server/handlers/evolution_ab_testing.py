@@ -31,11 +31,7 @@ logger = logging.getLogger(__name__)
 
 # Try to import A/B testing module
 try:
-    from aragora.evolution.ab_testing import (
-        ABTest,
-        ABTestManager,
-        ABTestStatus,
-    )
+    from aragora.evolution.ab_testing import ABTestManager
 
     AB_TESTING_AVAILABLE = True
 except ImportError as e:

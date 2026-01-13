@@ -357,8 +357,6 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response("evidence_ids is required", 400)
 
         round_number = body.get("round")
-        relevance_score = body.get("relevance_score", 0.5)
-
         store = self._get_evidence_store()
 
         associated = []

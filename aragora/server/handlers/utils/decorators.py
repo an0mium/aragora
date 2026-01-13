@@ -162,21 +162,21 @@ def validate_params(
             for name, spec in param_specs.items():
                 param_type, default, min_val, max_val = spec
 
-                if param_type == int:
+                if param_type is int:
                     val = get_int_param(params, name, default)
                     if min_val is not None:
                         val = max(val, min_val)
                     if max_val is not None:
                         val = min(val, max_val)
-                elif param_type == float:
+                elif param_type is float:
                     val = get_float_param(params, name, default)
                     if min_val is not None:
                         val = max(val, min_val)
                     if max_val is not None:
                         val = min(val, max_val)
-                elif param_type == bool:
+                elif param_type is bool:
                     val = get_bool_param(params, name, default)
-                elif param_type == str:
+                elif param_type is str:
                     val = get_string_param(params, name, default)
                     if val is not None and max_val is not None:
                         val = val[:max_val]

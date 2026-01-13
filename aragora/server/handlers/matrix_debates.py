@@ -233,7 +233,6 @@ class MatrixDebatesHandler(BaseHandler):
                 return error_response("No valid agents found", 400)
 
             matrix_id = str(uuid.uuid4())
-            results: list[dict[str, Any]] = []
             all_conclusions: list[dict[str, Any]] = []
 
             # Run scenarios in parallel

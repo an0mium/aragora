@@ -10,6 +10,7 @@ Provides structured mechanics for human oversight in debates:
 
 import asyncio
 import logging
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -438,7 +439,7 @@ class BreakpointManager:
     async def _default_human_input(self, breakpoint: Breakpoint) -> HumanGuidance:
         """Default handler that prompts on CLI.
 
-        Note: Uses print() for interactive CLI prompts. For non-CLI contexts,
+        Note: Uses stdout for interactive CLI prompts. For non-CLI contexts,
         override this method or use a custom human_input_handler.
         """
         snapshot = breakpoint.debate_snapshot
@@ -452,7 +453,7 @@ How would you like to proceed?
 3. redirect - Give hints to agents
 4. abort - Stop the debate
 ----------------------------------------"""
-        print(menu)
+        sys.stdout.write(f"{menu}\n")
 
         try:
             choice = input("Enter choice (1-4): ").strip()

@@ -40,7 +40,7 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
     try:
         # Check if there's a running loop (avoids deprecation warning)
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # If we get here, there's a running loop - can't use run_until_complete
             # Use ThreadPoolExecutor to run in a new thread with its own loop
             with concurrent.futures.ThreadPoolExecutor() as pool:

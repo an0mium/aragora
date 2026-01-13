@@ -234,7 +234,6 @@ class Tournament:
         )
 
         # Pair adjacent agents
-        paired: set[str] = set()
         for i in range(0, len(sorted_agents), 2):
             if i + 1 < len(sorted_agents):
                 agent_a = sorted_agents[i].agent_name

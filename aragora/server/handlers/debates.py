@@ -19,6 +19,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import importlib
 import logging
 from typing import Optional
 
@@ -1271,8 +1272,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         # Check if debate orchestrator is available
         debate_available = False
         try:
-            from aragora.debate.orchestrator import Arena
-
+            importlib.import_module("aragora.debate.orchestrator")
             debate_available = True
         except ImportError:
             pass

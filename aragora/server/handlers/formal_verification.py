@@ -305,7 +305,7 @@ class FormalVerificationHandler(BaseHandler):
         context = data.get("context", "")
         target = data.get("target_language", "lean4")
 
-        mods = _init_verification()
+        _init_verification()  # Ensure verification module is loaded
 
         if target == "lean4":
             # Try DeepSeek-Prover first

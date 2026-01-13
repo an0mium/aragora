@@ -74,7 +74,6 @@ def _create_verify_claims_callback(arena: "Arena"):
         if _formal_manager is None:
             try:
                 from aragora.verification.formal import (
-                    FormalProofStatus,
                     get_formal_verification_manager,
                 )
 
