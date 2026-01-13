@@ -211,8 +211,12 @@ class AutonomicExecutor:
             _emit_telemetry(telemetry)
         except ImportError:
             pass  # Telemetry not available
-        except Exception as e:
+        except (TypeError, ValueError, OSError) as e:
+            # Expected telemetry issues: serialization, I/O
             logger.debug(f"[telemetry] Emission failed: {e}")
+        except Exception as e:
+            # Unexpected errors - log at warning level
+            logger.warning(f"[telemetry] Unexpected emission error: {type(e).__name__}: {e}")
 
     def _get_wisdom_fallback(self, failed_agent: str) -> Optional[str]:
         """
@@ -241,8 +245,13 @@ class AutonomicExecutor:
                 f"[System: This response was provided by the audience after "
                 f"{failed_agent} failed to respond]"
             )
-        except Exception as e:
+        except (KeyError, OSError, IOError) as e:
+            # Expected database/storage issues
             logger.warning(f"[wisdom] Failed to retrieve wisdom: {e}")
+            return None
+        except Exception as e:
+            # Unexpected errors - log with more detail
+            logger.error(f"[wisdom] Unexpected error retrieving wisdom: {type(e).__name__}: {e}")
             return None
 
     def get_escalated_timeout(self, agent_name: str, base_timeout: Optional[float] = None) -> float:

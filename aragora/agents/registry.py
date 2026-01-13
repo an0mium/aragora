@@ -21,6 +21,11 @@ from typing import TYPE_CHECKING, Any, Callable, Union
 from aragora.config import ALLOWED_AGENT_TYPES
 from aragora.agents.types import T
 
+try:
+    from aragora.agents.local_llm_detector import LocalLLMDetector
+except (ImportError, ModuleNotFoundError):
+    LocalLLMDetector = None  # type: ignore[assignment]
+
 if TYPE_CHECKING:
     from aragora.agents.api_agents import APIAgent
     from aragora.agents.cli_agents import CLIAgent
@@ -328,7 +333,9 @@ class AgentRegistry:
             [{"name": "ollama", "models": ["llama3.1", ...], "available": True}, ...]
         """
         import asyncio
-        from aragora.agents.local_llm_detector import LocalLLMDetector
+
+        if LocalLLMDetector is None:
+            return []
 
         detector = LocalLLMDetector()
 
@@ -368,7 +375,16 @@ class AgentRegistry:
             Dict with availability status and recommendations
         """
         import asyncio
-        from aragora.agents.local_llm_detector import LocalLLMDetector
+
+        if LocalLLMDetector is None:
+            return {
+                "any_available": False,
+                "total_models": 0,
+                "recommended_server": None,
+                "recommended_model": None,
+                "available_agents": [],
+                "servers": [],
+            }
 
         detector = LocalLLMDetector()
 

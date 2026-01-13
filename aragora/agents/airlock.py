@@ -269,7 +269,41 @@ class AirlockProxy:
 
                 raise
 
+            except (ConnectionError, OSError, RuntimeError) as e:
+                # Retryable errors - network/connection issues
+                logger.warning(
+                    f"airlock_retryable agent={self._agent.name} "
+                    f"op={operation} error={type(e).__name__}: {e}"
+                )
+
+                if attempt < self._config.max_retries:
+                    await asyncio.sleep(self._config.retry_delay)
+                    continue
+
+                if self._config.fallback_on_error:
+                    self._metrics.fallback_responses += 1
+                    logger.info(
+                        f"airlock_fallback agent={self._agent.name} "
+                        f"op={operation} reason=retryable_error"
+                    )
+                    return fallback
+
+                raise
+
+            except (ValueError, TypeError, AttributeError) as e:
+                # Non-retryable errors - validation/programming issues
+                logger.error(
+                    f"airlock_error agent={self._agent.name} "
+                    f"op={operation} error={type(e).__name__}: {e} (non-retryable)"
+                )
+                # Don't retry - raise immediately or fallback
+                if self._config.fallback_on_error:
+                    self._metrics.fallback_responses += 1
+                    return fallback
+                raise
+
             except Exception as e:
+                # Unknown errors - log and treat as retryable
                 logger.error(
                     f"airlock_error agent={self._agent.name} "
                     f"op={operation} error={type(e).__name__}: {e}"

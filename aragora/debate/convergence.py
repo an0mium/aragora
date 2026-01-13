@@ -134,8 +134,12 @@ class EmbeddingCache:
 
             if row and row[0]:
                 return np.frombuffer(row[0], dtype=np.float32)
-        except Exception as e:
+        except (OSError, IOError) as e:
+            # Expected: DB file issues, permissions
             logger.debug(f"Failed to load embedding from DB: {e}")
+        except Exception as e:
+            # Unexpected: log at warning for visibility
+            logger.warning(f"Unexpected error loading embedding: {type(e).__name__}: {e}")
 
         return None
 
@@ -164,8 +168,12 @@ class EmbeddingCache:
             )
             conn.commit()
             conn.close()
-        except Exception as e:
+        except (OSError, IOError) as e:
+            # Expected: DB file issues, disk full, permissions
             logger.debug(f"Failed to save embedding to DB: {e}")
+        except Exception as e:
+            # Unexpected: log at warning for visibility
+            logger.warning(f"Unexpected error saving embedding: {type(e).__name__}: {e}")
 
     def get_stats(self) -> dict:
         """Get cache statistics."""

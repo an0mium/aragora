@@ -111,8 +111,15 @@ class EventEmitterBridge:
                 loop_id=self.loop_id,
             )
             self.event_emitter.emit(stream_event)
+        except (TypeError, ValueError) as e:
+            # Serialization issues with event data
+            logger.warning(f"Event emission serialization error (non-fatal): {e}")
+        except (ConnectionError, RuntimeError) as e:
+            # Network/event system issues
+            logger.warning(f"Event emission connection error (non-fatal): {e}")
         except Exception as e:
-            logger.warning(f"Event emission error (non-fatal): {e}")
+            # Unexpected - log with type info
+            logger.warning(f"Event emission unexpected error (non-fatal): {type(e).__name__}: {e}")
 
         # Update cartographer with this event
         self._update_cartographer(event_type, **kwargs)

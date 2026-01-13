@@ -14,6 +14,11 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
+try:
+    from aragora.agents.registry import AgentRegistry
+except (ImportError, ModuleNotFoundError):
+    AgentRegistry = None  # type: ignore[assignment]
+
 if TYPE_CHECKING:
     from .api_agents import OpenRouterAgent
     from aragora.resilience import CircuitBreaker
@@ -644,8 +649,9 @@ def get_local_fallback_providers() -> list[str]:
     Returns:
         List of provider names (e.g., ["ollama", "lm-studio"])
     """
+    if AgentRegistry is None:
+        return []
     try:
-        from aragora.agents.registry import AgentRegistry
         local_agents = AgentRegistry.detect_local_agents()
         return [
             agent["name"] for agent in local_agents
@@ -723,14 +729,12 @@ def is_local_llm_available() -> bool:
     Returns:
         True if Ollama, LM Studio, or compatible server is running
     """
-    try:
-        from aragora.agents.registry import AgentRegistry
-        status = AgentRegistry.get_local_status()
-        return status.get("any_available", False)
-    except ImportError:
-        # AgentRegistry not available - expected in some configurations
+    if AgentRegistry is None:
         logger.debug("AgentRegistry not available for local LLM check")
         return False
+    try:
+        status = AgentRegistry.get_local_status()
+        return status.get("any_available", False)
     except Exception as e:
         logger.warning(f"Failed to check local LLM availability: {e}")
         return False

@@ -164,8 +164,12 @@ class TransparentImmuneSystem:
         if self.broadcast_callback:
             try:
                 self.broadcast_callback(event.to_broadcast())
-            except Exception as e:
+            except (ConnectionError, RuntimeError, AttributeError) as e:
+                # Expected: network/event system issues
                 logger.error(f"immune_broadcast_failed error={e}")
+            except Exception as e:
+                # Unexpected: log with more detail
+                logger.error(f"immune_broadcast_failed unexpected error={type(e).__name__}: {e}")
 
         logger.debug(f"immune_event type={event.event_type} component={event.component}")
 

@@ -192,8 +192,13 @@ class LocalLLMDetector:
         except asyncio.TimeoutError:
             logger.debug(f"{name} timed out at {base_url}")
             return server
+        except (ValueError, KeyError, TypeError) as e:
+            # JSON parsing or data extraction issues
+            logger.debug(f"Error parsing {name} response: {e}")
+            return server
         except Exception as e:
-            logger.debug(f"Error probing {name}: {e}")
+            # Unexpected - log at info level
+            logger.info(f"Unexpected error probing {name}: {type(e).__name__}: {e}")
             return server
 
     def _pick_best_model(self, models: list[str]) -> str:
