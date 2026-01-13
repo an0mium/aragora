@@ -57,6 +57,7 @@ from aragora.spectate.stream import SpectatorStream
 
 from aragora.debate.context import DebateContext
 from aragora.debate.arena_config import ArenaConfig
+from aragora.debate.extensions import ArenaExtensions
 
 # Optional evolution import for prompt self-improvement
 try:
@@ -520,6 +521,20 @@ class Arena:
         self.training_exporter = training_exporter
         self.auto_export_training = auto_export_training
         self.training_export_min_confidence = training_export_min_confidence
+
+        # Create extensions handler (billing, broadcast, training)
+        # Extensions are triggered after debate completion
+        self.extensions = ArenaExtensions(
+            org_id=org_id,
+            user_id=user_id,
+            usage_tracker=usage_tracker,
+            broadcast_pipeline=broadcast_pipeline,
+            auto_broadcast=auto_broadcast,
+            broadcast_min_confidence=broadcast_min_confidence,
+            training_exporter=training_exporter,
+            auto_export_training=auto_export_training,
+            training_export_min_confidence=training_export_min_confidence,
+        )
 
         # Auto-initialize BreakpointManager if enable_breakpoints is True
         if self.protocol.enable_breakpoints and self.breakpoint_manager is None:
@@ -1400,11 +1415,9 @@ class Arena:
                 )
                 track_circuit_breaker_state(open_count)
 
-        # Record token usage for billing (before returning)
-        self._record_token_usage(ctx)
-
-        # Export training data if configured (Tinker integration)
-        self._export_training_data(ctx)
+        # Trigger extensions (billing, training export)
+        # Extensions handle their own error handling and won't fail the debate
+        self.extensions.on_debate_complete(ctx, ctx.result, self.agents)
 
         return ctx.finalize_result()
 
