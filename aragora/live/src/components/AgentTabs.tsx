@@ -8,6 +8,38 @@ import { getAgentColors } from '@/utils/agentColors';
 import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
 
+// Agent status types derived from event stream
+type AgentStatus = 'idle' | 'thinking' | 'active' | 'rate_limited' | 'failed';
+
+// Status indicator component
+function StatusBadge({ status, compact = false }: { status: AgentStatus; compact?: boolean }) {
+  const config: Record<AgentStatus, { color: string; label: string; animate?: boolean }> = {
+    idle: { color: 'bg-text-muted/30', label: 'IDLE' },
+    thinking: { color: 'bg-acid-cyan', label: 'THINKING', animate: true },
+    active: { color: 'bg-acid-green', label: 'ACTIVE' },
+    rate_limited: { color: 'bg-yellow-500', label: 'LIMITED' },
+    failed: { color: 'bg-red-500', label: 'FAILED' },
+  };
+  const { color, label, animate } = config[status];
+
+  if (compact) {
+    return (
+      <span
+        className={`w-2 h-2 rounded-full ${color} ${animate ? 'animate-pulse' : ''}`}
+        title={label}
+      />
+    );
+  }
+
+  return (
+    <span className={`px-1.5 py-0.5 text-[10px] font-mono uppercase rounded ${color} ${
+      status === 'thinking' || status === 'active' ? 'text-background' : 'text-text'
+    } ${animate ? 'animate-pulse' : ''}`}>
+      {label}
+    </span>
+  );
+}
+
 interface AgentTabsProps {
   events: StreamEvent[];
   apiBase?: string;
@@ -46,6 +78,8 @@ interface AgentData {
   confidence?: number;
   citations?: string[];
   timestamp: number;
+  status: AgentStatus;
+  lastActivity: number;
   allMessages: Array<{ content: string; round: number; role: string; timestamp: number }>;
 }
 
@@ -86,10 +120,35 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
     }
   }, [selectedAgent, fetchPositions]);
 
-  // Extract agent data from events
+  // Extract agent data from events, including status tracking
   const agentData = useMemo(() => {
     const agents: Record<string, AgentData> = {};
+    const streamingAgents = new Set<string>();
+    const failedAgents = new Set<string>();
+    const rateLimitedAgents = new Set<string>();
+    const now = Date.now() / 1000;
 
+    // First pass: track streaming and error states
+    events.forEach((event) => {
+      const agentName = event.agent;
+      if (!agentName) return;
+
+      if (event.type === 'token_start' || event.type === 'token_delta') {
+        streamingAgents.add(agentName);
+      } else if (event.type === 'token_end') {
+        streamingAgents.delete(agentName);
+      } else if (event.type === 'error') {
+        const errorData = event.data as Record<string, unknown>;
+        const errorMsg = String(errorData.error || errorData.message || '').toLowerCase();
+        if (errorMsg.includes('rate') || errorMsg.includes('429') || errorMsg.includes('quota')) {
+          rateLimitedAgents.add(agentName);
+        } else {
+          failedAgents.add(agentName);
+        }
+      }
+    });
+
+    // Second pass: extract agent messages
     events.filter(isAgentMessage).forEach((event) => {
       if (!event.agent) return;
 
@@ -111,6 +170,8 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
           confidence,
           citations,
           timestamp: event.timestamp,
+          status: 'idle',
+          lastActivity: event.timestamp,
           allMessages: [],
         };
       }
@@ -131,6 +192,23 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
         agents[agentName].confidence = confidence;
         agents[agentName].citations = citations;
         agents[agentName].timestamp = event.timestamp;
+        agents[agentName].lastActivity = event.timestamp;
+      }
+    });
+
+    // Determine final status for each agent
+    Object.values(agents).forEach((agent) => {
+      if (failedAgents.has(agent.name)) {
+        agent.status = 'failed';
+      } else if (rateLimitedAgents.has(agent.name)) {
+        agent.status = 'rate_limited';
+      } else if (streamingAgents.has(agent.name)) {
+        agent.status = 'thinking';
+      } else if (now - agent.lastActivity < 5) {
+        // Consider active if responded within last 5 seconds
+        agent.status = 'active';
+      } else {
+        agent.status = 'idle';
       }
     });
 
@@ -224,9 +302,7 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
               `}
             >
               <span className="flex items-center gap-2">
-                <span
-                  className={`w-2 h-2 rounded-full ${colors.tab}`}
-                />
+                <StatusBadge status={agent.status} compact />
                 {agent.name}
                 {agent.round > 0 && (
                   <span className="text-xs opacity-60">R{agent.round}</span>
@@ -325,6 +401,7 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
           {/* Agent Header */}
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <StatusBadge status={currentAgent.status} />
               <RoleBadge role={currentAgent.role} cognitiveRole={currentAgent.cognitiveRole} />
               {currentAgent.round > 0 && (
                 <span className="px-2 py-0.5 text-xs bg-surface rounded border border-border">

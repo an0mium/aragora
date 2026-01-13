@@ -370,8 +370,8 @@ function LiveDebateView({
             onScroll={onScroll}
             className={`p-4 space-y-4 overflow-y-auto ${
               status === 'streaming'
-                ? 'h-[calc(100vh-200px)]'  // Fixed height during streaming for better scroll control
-                : 'max-h-[calc(100vh-280px)]'
+                ? 'h-[calc(100vh-150px)] md:h-[calc(100vh-200px)]'  // Adjust height for mobile header
+                : 'max-h-[calc(100vh-200px)] md:max-h-[calc(100vh-280px)]'
             }`}
           >
             {messages.length === 0 && streamingMessages.size === 0 && status === 'streaming' && (

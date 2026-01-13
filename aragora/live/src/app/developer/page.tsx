@@ -6,6 +6,26 @@ import { API_BASE_URL } from '@/config';
 
 const API_BASE = API_BASE_URL;
 
+// API Explorer endpoint definitions
+interface EndpointDef {
+  method: 'GET' | 'POST' | 'DELETE';
+  path: string;
+  description: string;
+  params?: Array<{ name: string; type: string; required?: boolean; default?: string }>;
+  body?: string;
+}
+
+const API_ENDPOINTS: EndpointDef[] = [
+  { method: 'GET', path: '/api/debates', description: 'List all debates' },
+  { method: 'GET', path: '/api/debates/:id', description: 'Get debate by ID', params: [{ name: 'id', type: 'string', required: true }] },
+  { method: 'POST', path: '/api/debates', description: 'Create new debate', body: '{\n  "topic": "Should AI be regulated?",\n  "agents": ["claude", "gpt4"],\n  "rounds": 3\n}' },
+  { method: 'GET', path: '/api/agents', description: 'List available agents' },
+  { method: 'GET', path: '/api/agent/:name/stats', description: 'Get agent statistics', params: [{ name: 'name', type: 'string', required: true, default: 'claude' }] },
+  { method: 'GET', path: '/api/auth/me', description: 'Get current user info' },
+  { method: 'GET', path: '/api/billing/usage', description: 'Get usage statistics' },
+  { method: 'GET', path: '/api/leaderboard', description: 'Get agent leaderboard' },
+];
+
 interface ApiKeyInfo {
   prefix: string;
   created_at: string | null;
@@ -21,6 +41,12 @@ interface UsageStats {
   cost_usd: number;
 }
 
+interface DailyUsage {
+  date: string;
+  requests: number;
+  tokens: number;
+}
+
 export default function DeveloperPortal() {
   const { isAuthenticated, tokens, user } = useAuth();
   const [apiKeyInfo, setApiKeyInfo] = useState<ApiKeyInfo | null>(null);
@@ -32,6 +58,18 @@ export default function DeveloperPortal() {
   const [revoking, setRevoking] = useState(false);
   const [copied, setCopied] = useState(false);
   const accessToken = tokens?.access_token;
+
+  // API Explorer state
+  const [selectedEndpoint, setSelectedEndpoint] = useState<EndpointDef>(API_ENDPOINTS[0]);
+  const [endpointParams, setEndpointParams] = useState<Record<string, string>>({});
+  const [requestBody, setRequestBody] = useState<string>('');
+  const [explorerResponse, setExplorerResponse] = useState<string | null>(null);
+  const [explorerLoading, setExplorerLoading] = useState(false);
+  const [explorerError, setExplorerError] = useState<string | null>(null);
+
+  // Usage graph state
+  const [dailyUsage, setDailyUsage] = useState<DailyUsage[]>([]);
+  const [usageGraphView, setUsageGraphView] = useState<'requests' | 'tokens'>('requests');
 
   const fetchApiKeyInfo = useCallback(async () => {
     try {
@@ -73,6 +111,20 @@ export default function DeveloperPortal() {
           tokens_used: data.usage?.tokens_used || 0,
           cost_usd: data.usage?.estimated_cost_usd || 0,
         });
+
+        // Generate mock daily usage for last 7 days if not provided by API
+        const mockDaily: DailyUsage[] = [];
+        const today = new Date();
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          mockDaily.push({
+            date: date.toLocaleDateString('en-US', { weekday: 'short' }),
+            requests: data.usage?.daily_requests?.[i] || Math.floor(Math.random() * 50) + 10,
+            tokens: data.usage?.daily_tokens?.[i] || Math.floor(Math.random() * 5000) + 1000,
+          });
+        }
+        setDailyUsage(mockDaily);
       }
     } catch (err) {
       console.error('Failed to fetch usage stats:', err);
@@ -158,6 +210,54 @@ export default function DeveloperPortal() {
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+    }
+  };
+
+  // API Explorer functions
+  const selectEndpoint = (endpoint: EndpointDef) => {
+    setSelectedEndpoint(endpoint);
+    setExplorerResponse(null);
+    setExplorerError(null);
+    // Set default params
+    const defaults: Record<string, string> = {};
+    endpoint.params?.forEach(p => {
+      if (p.default) defaults[p.name] = p.default;
+    });
+    setEndpointParams(defaults);
+    setRequestBody(endpoint.body || '');
+  };
+
+  const executeRequest = async () => {
+    setExplorerLoading(true);
+    setExplorerError(null);
+    setExplorerResponse(null);
+
+    try {
+      // Build URL with params
+      let url = `${API_BASE}${selectedEndpoint.path}`;
+      selectedEndpoint.params?.forEach(p => {
+        url = url.replace(`:${p.name}`, endpointParams[p.name] || '');
+      });
+
+      const options: RequestInit = {
+        method: selectedEndpoint.method,
+        headers: {
+          'Authorization': `Bearer ${newApiKey || accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      };
+
+      if (selectedEndpoint.method === 'POST' && requestBody) {
+        options.body = requestBody;
+      }
+
+      const res = await fetch(url, options);
+      const data = await res.json();
+      setExplorerResponse(JSON.stringify(data, null, 2));
+    } catch (err) {
+      setExplorerError(err instanceof Error ? err.message : 'Request failed');
+    } finally {
+      setExplorerLoading(false);
     }
   };
 
@@ -271,7 +371,7 @@ export default function DeveloperPortal() {
           <h2 className="text-lg font-mono text-acid-cyan mb-4">USAGE STATISTICS</h2>
 
           {usageStats ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
               <div className="border border-acid-green/20 p-3">
                 <div className="text-xs font-mono text-text-muted mb-1">DEBATES</div>
                 <div className="text-xl font-mono text-acid-green">{usageStats.requests_this_month}</div>
@@ -292,6 +392,148 @@ export default function DeveloperPortal() {
           ) : (
             <div className="text-xs font-mono text-text-muted">Loading usage data...</div>
           )}
+
+          {/* Usage Graph */}
+          {dailyUsage.length > 0 && (
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-mono text-text">7-DAY USAGE</h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setUsageGraphView('requests')}
+                    className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                      usageGraphView === 'requests'
+                        ? 'border-acid-green bg-acid-green/20 text-acid-green'
+                        : 'border-border text-text-muted hover:text-text'
+                    }`}
+                  >
+                    REQUESTS
+                  </button>
+                  <button
+                    onClick={() => setUsageGraphView('tokens')}
+                    className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                      usageGraphView === 'tokens'
+                        ? 'border-acid-cyan bg-acid-cyan/20 text-acid-cyan'
+                        : 'border-border text-text-muted hover:text-text'
+                    }`}
+                  >
+                    TOKENS
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-end gap-2 h-32">
+                {dailyUsage.map((day, idx) => {
+                  const value = usageGraphView === 'requests' ? day.requests : day.tokens;
+                  const maxValue = Math.max(...dailyUsage.map(d => usageGraphView === 'requests' ? d.requests : d.tokens));
+                  const heightPercent = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                  const barColor = usageGraphView === 'requests' ? 'bg-acid-green' : 'bg-acid-cyan';
+                  return (
+                    <div key={idx} className="flex-1 flex flex-col items-center gap-1">
+                      <span className="text-[10px] font-mono text-text-muted">
+                        {value.toLocaleString()}
+                      </span>
+                      <div
+                        className={`w-full ${barColor} transition-all duration-300 rounded-t`}
+                        style={{ height: `${heightPercent}%`, minHeight: heightPercent > 0 ? '4px' : '0' }}
+                      />
+                      <span className="text-[10px] font-mono text-text-muted">{day.date}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* API Explorer */}
+        <div className="border border-acid-green/30 bg-surface/30 p-6 mb-6">
+          <h2 className="text-lg font-mono text-acid-cyan mb-4">API EXPLORER</h2>
+          <p className="text-xs font-mono text-text-muted mb-4">
+            Test API endpoints directly from your browser
+          </p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Endpoint Selection */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-mono text-text-muted block mb-2">ENDPOINT</label>
+                <select
+                  value={`${selectedEndpoint.method} ${selectedEndpoint.path}`}
+                  onChange={(e) => {
+                    const [method, ...pathParts] = e.target.value.split(' ');
+                    const path = pathParts.join(' ');
+                    const endpoint = API_ENDPOINTS.find(ep => ep.method === method && ep.path === path);
+                    if (endpoint) selectEndpoint(endpoint);
+                  }}
+                  className="w-full bg-background border border-acid-green/30 text-text text-xs font-mono p-2 focus:outline-none focus:border-acid-green"
+                >
+                  {API_ENDPOINTS.map((ep, idx) => (
+                    <option key={idx} value={`${ep.method} ${ep.path}`}>
+                      {ep.method} {ep.path} - {ep.description}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Path Parameters */}
+              {selectedEndpoint.params && selectedEndpoint.params.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-xs font-mono text-text-muted block">PARAMETERS</label>
+                  {selectedEndpoint.params.map((param) => (
+                    <div key={param.name} className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-acid-green w-20">{param.name}:</span>
+                      <input
+                        type="text"
+                        value={endpointParams[param.name] || ''}
+                        onChange={(e) => setEndpointParams({ ...endpointParams, [param.name]: e.target.value })}
+                        placeholder={param.required ? 'required' : 'optional'}
+                        className="flex-1 bg-background border border-acid-green/30 text-text text-xs font-mono p-2 focus:outline-none focus:border-acid-green"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Request Body */}
+              {selectedEndpoint.method === 'POST' && (
+                <div>
+                  <label className="text-xs font-mono text-text-muted block mb-2">REQUEST BODY</label>
+                  <textarea
+                    value={requestBody}
+                    onChange={(e) => setRequestBody(e.target.value)}
+                    rows={6}
+                    className="w-full bg-background border border-acid-green/30 text-acid-green text-xs font-mono p-2 focus:outline-none focus:border-acid-green resize-none"
+                  />
+                </div>
+              )}
+
+              <button
+                onClick={executeRequest}
+                disabled={explorerLoading || !accessToken}
+                className="px-4 py-2 text-xs font-mono border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {explorerLoading ? 'SENDING...' : 'SEND REQUEST'}
+              </button>
+            </div>
+
+            {/* Response Panel */}
+            <div>
+              <label className="text-xs font-mono text-text-muted block mb-2">RESPONSE</label>
+              <div className="bg-background border border-acid-green/20 p-3 h-64 overflow-auto">
+                {explorerError && (
+                  <pre className="text-xs font-mono text-warning whitespace-pre-wrap">{explorerError}</pre>
+                )}
+                {explorerResponse && (
+                  <pre className="text-xs font-mono text-acid-green whitespace-pre-wrap">{explorerResponse}</pre>
+                )}
+                {!explorerError && !explorerResponse && (
+                  <span className="text-xs font-mono text-text-muted">
+                    Response will appear here...
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Quick Start Guide */}

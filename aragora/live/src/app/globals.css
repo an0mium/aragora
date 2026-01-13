@@ -197,12 +197,28 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--acid-green);
-  opacity: 0.3;
+  opacity: 0.4;
   border-radius: 0;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--terminal-green);
+  opacity: 0.7;
+}
+
+/* Focus states for accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--acid-cyan);
+  outline-offset: 2px;
+}
+
+/* Remove default focus outline */
+:focus:not(:focus-visible) {
+  outline: none;
 }
 
 /* ==========================================================================
