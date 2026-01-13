@@ -1,0 +1,60 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SSMSessionManager",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:StartSession",
+        "ssm:TerminateSession",
+        "ssm:ResumeSession",
+        "ssm:DescribeSessions",
+        "ssm:GetConnectionStatus"
+      ],
+      "Resource": [
+        "arn:aws:ec2:*:ACCOUNT_ID:instance/*",
+        "arn:aws:ssm:*:ACCOUNT_ID:document/AWS-StartSSHSession",
+        "arn:aws:ssm:*::document/AWS-StartSSHSession"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/Environment": ["production", "staging"]
+        }
+      }
+    },
+    {
+      "Sid": "EC2Describe",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeInstances",
+        "ec2:DescribeTags"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SSMSendCommand",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:SendCommand",
+        "ssm:GetCommandInvocation",
+        "ssm:ListCommandInvocations"
+      ],
+      "Resource": [
+        "arn:aws:ec2:*:ACCOUNT_ID:instance/*",
+        "arn:aws:ssm:*:ACCOUNT_ID:document/*",
+        "arn:aws:ssm:*::document/AWS-RunShellScript"
+      ]
+    },
+    {
+      "Sid": "LightsailAccess",
+      "Effect": "Allow",
+      "Action": [
+        "lightsail:GetInstance",
+        "lightsail:GetInstances",
+        "lightsail:CreateContainerServiceDeployment",
+        "lightsail:GetContainerServices"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

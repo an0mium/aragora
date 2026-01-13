@@ -1,0 +1,55 @@
+# Cert-Manager ClusterIssuers for Aragora
+#
+# Prerequisites:
+#   1. Install cert-manager: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.0/cert-manager.yaml
+#   2. Wait for cert-manager pods: kubectl wait --for=condition=ready pod -l app=cert-manager -n cert-manager --timeout=120s
+#   3. Apply this file: kubectl apply -f cert-manager.yaml
+#
+# Usage:
+#   - Use letsencrypt-staging for testing (avoids rate limits)
+#   - Use letsencrypt-prod for production
+
+---
+# Staging issuer (for testing - issues untrusted certs)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    # Let's Encrypt staging server
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: admin@aragora.ai  # UPDATE: Your email for cert notifications
+    privateKeySecretRef:
+      name: letsencrypt-staging-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+
+---
+# Production issuer (for real certificates)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    # Let's Encrypt production server
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@aragora.ai  # UPDATE: Your email for cert notifications
+    privateKeySecretRef:
+      name: letsencrypt-prod-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+
+---
+# Alternative: Self-signed issuer (for local/dev environments)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}

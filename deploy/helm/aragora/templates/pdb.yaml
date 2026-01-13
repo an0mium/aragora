@@ -1,0 +1,24 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+---
+# Aragora Pod Disruption Budget
+# Ensures high availability during cluster maintenance
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "aragora.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aragora.labels" . | nindent 4 }}
+    app.kubernetes.io/component: availability
+spec:
+  {{- if .Values.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  {{- else if .Values.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+  {{- else }}
+  minAvailable: 1
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "aragora.selectorLabels" . | nindent 6 }}
+{{- end }}

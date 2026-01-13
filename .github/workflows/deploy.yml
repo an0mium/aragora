@@ -354,6 +354,12 @@ jobs:
             fi
           EOF
 
+      - name: Fail deploy on health check failure
+        if: steps.ec2_verify.outputs.health_ok == 'false'
+        run: |
+          echo "::error::EC2 health check failed after deploy; rollback attempted."
+          exit 1
+
   notify:
     needs: [deploy-cloudflare, deploy-lightsail, deploy-ec2]
     if: always()

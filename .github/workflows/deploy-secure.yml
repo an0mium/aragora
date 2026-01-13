@@ -1,0 +1,315 @@
+name: Deploy (Secure)
+
+# This workflow uses AWS OIDC authentication instead of long-lived SSH keys.
+# It provides:
+# - No long-lived credentials stored in GitHub secrets
+# - Temporary, scoped credentials via STS AssumeRoleWithWebIdentity
+# - Audit trail in AWS CloudTrail
+# - Fine-grained IAM permissions
+#
+# Prerequisites:
+# 1. Create OIDC identity provider in AWS IAM (see docs/CI_CD_SECURITY.md)
+# 2. Create IAM role with trust policy (deploy/aws/oidc-trust-policy.json)
+# 3. Attach permissions policy (deploy/aws/deploy-role-policy.json)
+# 4. Install SSM agent on target instances
+# 5. Set repository secrets: AWS_ACCOUNT_ID, AWS_DEPLOY_ROLE_NAME
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - cloudflare
+          - ec2-staging
+          - ec2-production
+
+concurrency:
+  group: deploy-secure-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # Required for OIDC
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt || true
+          pip install -e ".[dev]"
+          pip install pytest-timeout httpx
+
+      - name: Run quick tests
+        run: |
+          pytest tests/test_handlers_debates.py tests/test_api_handler.py \
+            --timeout=60 -x --tb=short
+        env:
+          PYTHONPATH: .
+
+  deploy-cloudflare:
+    needs: test
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'cloudflare' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: Deploy to Cloudflare Pages
+        run: |
+          cd aragora/live
+          npm ci
+          npm run build:export
+          wrangler pages deploy out --project-name=aragora --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  deploy-ec2-staging:
+    needs: test
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2-staging' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_DEPLOY_ROLE_NAME }}
+          role-session-name: github-actions-deploy-${{ github.run_id }}
+          aws-region: us-east-1
+
+      - name: Get staging instance ID
+        id: get-instance
+        run: |
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Environment,Values=staging" "Name=tag:Application,Values=aragora" "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' \
+            --output text)
+
+          if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
+            echo "::error::No staging instance found with tags Environment=staging, Application=aragora"
+            exit 1
+          fi
+
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+          echo "Found staging instance: $INSTANCE_ID"
+
+      - name: Deploy via SSM
+        id: deploy
+        run: |
+          # Send deployment command via SSM Run Command
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy aragora from GitHub Actions run ${{ github.run_id }}" \
+            --parameters 'commands=[
+              "set -e",
+              "cd /home/ubuntu/aragora || cd /home/ec2-user/aragora",
+              "PREVIOUS_COMMIT=$(git rev-parse HEAD)",
+              "echo \"Rollback point: $PREVIOUS_COMMIT\" > /tmp/aragora_deploy_state",
+              "git stash --include-untracked || true",
+              "git fetch origin main",
+              "git checkout origin/main",
+              "source venv/bin/activate",
+              "pip install -e . --quiet --no-cache-dir",
+              "python -c \"from aragora.server.unified_server import UnifiedServer; print(\\\"Import OK\\\")\"",
+              "sudo systemctl restart aragora-staging || sudo systemctl restart aragora",
+              "sleep 5",
+              "systemctl is-active --quiet aragora-staging || systemctl is-active --quiet aragora",
+              "echo \"Deploy complete\""
+            ]' \
+            --timeout-seconds 300 \
+            --query 'Command.CommandId' \
+            --output text)
+
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+          echo "Started deployment command: $COMMAND_ID"
+
+          # Wait for command to complete
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" || true
+
+          # Get command result
+          RESULT=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+            --query '[Status, StatusDetails]' \
+            --output text)
+
+          echo "Command result: $RESULT"
+
+          if [[ "$RESULT" == *"Success"* ]]; then
+            echo "deploy_success=true" >> $GITHUB_OUTPUT
+          else
+            echo "deploy_success=false" >> $GITHUB_OUTPUT
+            # Get output for debugging
+            aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+              --query 'StandardOutputContent' \
+              --output text || true
+            aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+              --query 'StandardErrorContent' \
+              --output text || true
+          fi
+
+      - name: Verify deployment health
+        id: health
+        if: steps.deploy.outputs.deploy_success == 'true'
+        run: |
+          # Get instance public IP
+          PUBLIC_IP=$(aws ec2 describe-instances \
+            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
+
+          echo "Checking health at $PUBLIC_IP:8765"
+
+          for i in {1..12}; do
+            if curl -sf "http://$PUBLIC_IP:8765/api/health" -o /dev/null 2>/dev/null; then
+              echo "Health check passed"
+              echo "health_ok=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            echo "Waiting for server... attempt $i/12"
+            sleep 5
+          done
+
+          echo "health_ok=false" >> $GITHUB_OUTPUT
+          echo "::warning::Health check failed"
+
+      - name: Rollback on failure
+        if: steps.deploy.outputs.deploy_success != 'true' || steps.health.outputs.health_ok == 'false'
+        run: |
+          echo "::warning::Deployment failed - initiating rollback"
+
+          aws ssm send-command \
+            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Rollback aragora from GitHub Actions run ${{ github.run_id }}" \
+            --parameters 'commands=[
+              "set -e",
+              "cd /home/ubuntu/aragora || cd /home/ec2-user/aragora",
+              "if [ -f /tmp/aragora_deploy_state ]; then source /tmp/aragora_deploy_state; fi",
+              "if [ -n \"$PREVIOUS_COMMIT\" ]; then git checkout $PREVIOUS_COMMIT; fi",
+              "source venv/bin/activate",
+              "pip install -e . --quiet --no-cache-dir",
+              "sudo systemctl restart aragora-staging || sudo systemctl restart aragora",
+              "rm -f /tmp/aragora_deploy_state",
+              "echo \"Rollback complete\""
+            ]' \
+            --timeout-seconds 120
+
+  deploy-ec2-production:
+    needs: [test, deploy-ec2-staging]
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2-production'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_DEPLOY_ROLE_NAME }}
+          role-session-name: github-actions-deploy-prod-${{ github.run_id }}
+          aws-region: us-east-1
+
+      - name: Get production instance ID
+        id: get-instance
+        run: |
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Environment,Values=production" "Name=tag:Application,Values=aragora" "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' \
+            --output text)
+
+          if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
+            echo "::error::No production instance found"
+            exit 1
+          fi
+
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+
+      - name: Deploy via SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy aragora PRODUCTION from GitHub Actions run ${{ github.run_id }}" \
+            --parameters 'commands=[
+              "set -e",
+              "cd /home/ubuntu/aragora",
+              "PREVIOUS_COMMIT=$(git rev-parse HEAD)",
+              "echo \"Rollback point: $PREVIOUS_COMMIT\" > /tmp/aragora_deploy_state",
+              "git stash --include-untracked || true",
+              "git fetch origin main",
+              "git checkout origin/main",
+              "source venv/bin/activate",
+              "pip install -e . --quiet --no-cache-dir",
+              "python -c \"from aragora.server.unified_server import UnifiedServer; print(\\\"Import OK\\\")\"",
+              "sudo systemctl restart aragora",
+              "sleep 5",
+              "systemctl is-active --quiet aragora",
+              "echo \"Production deploy complete\""
+            ]' \
+            --timeout-seconds 300 \
+            --query 'Command.CommandId' \
+            --output text)
+
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}"
+
+  notify:
+    needs: [deploy-cloudflare, deploy-ec2-staging, deploy-ec2-production]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Summarize deployment status
+        run: |
+          echo "## Secure Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Target | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Cloudflare Pages | ${{ needs.deploy-cloudflare.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| EC2 Staging | ${{ needs.deploy-ec2-staging.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| EC2 Production | ${{ needs.deploy-ec2-production.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Authentication:** AWS OIDC (no long-lived secrets)" >> $GITHUB_STEP_SUMMARY
+          echo "**Execution:** SSM Run Command (no SSH keys)" >> $GITHUB_STEP_SUMMARY

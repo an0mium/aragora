@@ -1,0 +1,183 @@
+# Kubernetes Job for Database Migrations
+#
+# This job runs database migrations before the main application starts.
+# Use with Argo CD PreSync hooks or run manually before deployment.
+#
+# Usage:
+#   # Run migrations
+#   kubectl apply -f deploy/k8s/migration-job.yaml
+#
+#   # Check status
+#   kubectl -n aragora logs job/aragora-migrate
+#
+#   # Delete completed job (to re-run)
+#   kubectl -n aragora delete job aragora-migrate
+#
+# For Argo CD:
+#   The hook annotations ensure this runs before app sync.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: aragora-migrate
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora-migrate
+    app.kubernetes.io/component: migration
+    app.kubernetes.io/part-of: aragora
+  annotations:
+    # Argo CD hook annotations (optional)
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 3600  # Clean up after 1 hour
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aragora-migrate
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: Never
+      serviceAccountName: aragora
+
+      # Init container to wait for database
+      initContainers:
+        - name: wait-for-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for database to be ready..."
+              # Extract host and port from DATABASE_URL
+              DB_HOST=$(echo $DATABASE_URL | sed -E 's|.*@([^:/]+).*|\1|')
+              DB_PORT=$(echo $DATABASE_URL | sed -E 's|.*:([0-9]+)/.*|\1|' || echo "5432")
+
+              for i in $(seq 1 60); do
+                if nc -z $DB_HOST $DB_PORT 2>/dev/null; then
+                  echo "Database is ready!"
+                  exit 0
+                fi
+                echo "Attempt $i/60: Database not ready, waiting..."
+                sleep 2
+              done
+
+              echo "Database not ready after 120 seconds"
+              exit 1
+          envFrom:
+            - secretRef:
+                name: aragora-secrets
+                optional: true
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aragora-secrets
+                  key: database-url
+                  optional: true
+
+      containers:
+        - name: migrate
+          image: aragora:latest  # Will be overridden by kustomize
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -m
+            - aragora.migrations
+            - upgrade
+          envFrom:
+            - configMapRef:
+                name: aragora-config
+                optional: true
+            - secretRef:
+                name: aragora-secrets
+                optional: true
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aragora-secrets
+                  key: database-url
+                  optional: true
+            - name: ARAGORA_LOG_LEVEL
+              value: INFO
+            - name: ARAGORA_LOG_FORMAT
+              value: json
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          # Security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+
+---
+# Migration status check (optional - for debugging)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: aragora-migrate-status
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora-migrate-status
+    app.kubernetes.io/component: migration
+    app.kubernetes.io/part-of: aragora
+spec:
+  ttlSecondsAfterFinished: 300  # Clean up after 5 minutes
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aragora-migrate-status
+    spec:
+      restartPolicy: Never
+      serviceAccountName: aragora
+      containers:
+        - name: status
+          image: aragora:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -m
+            - aragora.migrations
+            - status
+          envFrom:
+            - configMapRef:
+                name: aragora-config
+                optional: true
+            - secretRef:
+                name: aragora-secrets
+                optional: true
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aragora-secrets
+                  key: database-url
+                  optional: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL

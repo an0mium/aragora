@@ -48,13 +48,16 @@ jobs:
           PYTHONPATH: .
 
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.11'
+        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
           verbose: true
-        continue-on-error: true
+          flags: unittests
+          name: aragora-coverage
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   smoke:
     name: CLI Smoke

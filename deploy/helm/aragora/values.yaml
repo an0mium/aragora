@@ -64,13 +64,30 @@ resources:
     cpu: 100m
     memory: 256Mi
 
-# Autoscaling
+# Autoscaling (Horizontal Pod Autoscaler)
 autoscaling:
-  enabled: false
-  minReplicas: 1
+  enabled: false  # Set to true for production
+  minReplicas: 2
   maxReplicas: 10
-  targetCPUUtilizationPercentage: 80
+  targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 80
+  # Scale down behavior (conservative to prevent flapping)
+  scaleDown:
+    stabilizationWindowSeconds: 300  # 5 min cooldown before scaling down
+    percentValue: 25  # Scale down by max 25% at a time
+    periodSeconds: 60
+  # Scale up behavior (aggressive to handle load spikes)
+  scaleUp:
+    stabilizationWindowSeconds: 60  # Quick scale up on demand
+    percentValue: 100  # Can double pods if needed
+    podsValue: 4  # Or add up to 4 pods
+    periodSeconds: 15
+
+# Pod Disruption Budget (ensures HA during maintenance)
+podDisruptionBudget:
+  enabled: false  # Set to true for production
+  minAvailable: 1
+  # Alternative: maxUnavailable: 1
 
 # Node selector
 nodeSelector: {}
@@ -165,3 +182,25 @@ persistence:
     - ReadWriteOnce
   size: 10Gi
   annotations: {}
+
+# ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: false  # Set to true when using Prometheus Operator
+  port: metrics
+  path: /metrics
+  interval: 15s
+  scrapeTimeout: 10s
+  honorLabels: false
+  labels: {}
+  # Additional labels for ServiceMonitor (e.g., for Prometheus selector)
+  # labels:
+  #   release: prometheus
+  metricRelabelings: []
+  relabelings: []
+
+# PrometheusRule for alerts (requires Prometheus Operator)
+prometheusRule:
+  enabled: false
+  labels: {}
+  # Alerting rules - see deploy/monitoring/alerts.yaml for examples
+  rules: []

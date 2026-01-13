@@ -1,6 +1,16 @@
 name: Load Tests
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/load/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/load/**'
   schedule:
     # Run nightly at 3am UTC
     - cron: '0 3 * * *'
@@ -139,10 +149,20 @@ jobs:
           avg = duration_values.get('avg', 0)
 
           # Calculate error rate and RPS
-          reqs = metrics.get('http_reqs', {}).get('values', {}).get('count', 1)
+          reqs = metrics.get('http_reqs', {}).get('values', {}).get('count', 0)
           rate = metrics.get('http_reqs', {}).get('values', {}).get('rate', 0)
-          fails = metrics.get('http_req_failed', {}).get('values', {}).get('passes', 0)
-          error_rate = (fails / reqs) * 100 if reqs > 0 else 0
+          failed_values = metrics.get('http_req_failed', {}).get('values', {})
+          fail_rate = failed_values.get('rate')
+          if fail_rate is None:
+              fails = failed_values.get('fails')
+              if fails is None:
+                  passes = failed_values.get('passes')
+                  if passes is None:
+                      fails = 0
+                  else:
+                      fails = max(0, reqs - passes)
+              fail_rate = (fails / reqs) if reqs > 0 else 0
+          error_rate = fail_rate * 100
 
           # Print metrics summary
           print('=' * 60)

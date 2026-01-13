@@ -177,3 +177,182 @@ groups:
         annotations:
           summary: "Redis high memory usage"
           description: "Redis is using more than 90% of max memory."
+
+  - name: aragora_slo
+    interval: 30s
+    rules:
+      - alert: SLOAvailabilityBreach
+        expr: |
+          1 - (
+            sum(rate(http_requests_total{job="aragora-api", status=~"5.."}[1h]))
+            /
+            sum(rate(http_requests_total{job="aragora-api"}[1h]))
+          ) < 0.999
+        for: 15m
+        labels:
+          severity: critical
+          slo: availability
+        annotations:
+          summary: "SLO Availability breach"
+          description: "Availability SLO (99.9%) is breached. Current: {{ $value | printf \"%.4f\" }}"
+          runbook_url: "https://docs.aragora.io/runbooks/slo-availability"
+
+      - alert: SLOLatencyBreach
+        expr: |
+          histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="aragora-api"}[1h])) * 1000 > 500
+        for: 15m
+        labels:
+          severity: warning
+          slo: latency
+        annotations:
+          summary: "SLO Latency P99 breach"
+          description: "P99 latency SLO (500ms) is breached. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      - alert: SLODebateSuccessBreach
+        expr: |
+          sum(rate(aragora_debates_total{status="completed"}[1h]))
+          /
+          sum(rate(aragora_debates_total[1h])) < 0.95
+        for: 30m
+        labels:
+          severity: warning
+          slo: debate_success
+        annotations:
+          summary: "SLO Debate success rate breach"
+          description: "Debate success SLO (95%) is breached. Current: {{ $value | printf \"%.2f\" }}"
+
+  - name: aragora_database
+    interval: 60s
+    rules:
+      - alert: DatabaseConnectionPoolExhausted
+        expr: aragora_db_pool_available == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection pool exhausted"
+          description: "No available database connections. New requests may fail."
+
+      - alert: DatabaseConnectionPoolLow
+        expr: aragora_db_pool_available / aragora_db_pool_size < 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connection pool running low"
+          description: "Less than 20% of database connections available."
+
+      - alert: DatabaseSlowQueries
+        expr: |
+          histogram_quantile(0.95, rate(aragora_db_query_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow database queries"
+          description: "P95 database query time exceeds 1 second. Current: {{ $value | printf \"%.2f\" }}s"
+
+      - alert: PostgreSQLDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database is unreachable."
+
+  - name: aragora_agents
+    interval: 30s
+    rules:
+      - alert: AgentCircuitOpen
+        expr: aragora_agent_circuit_state{state="open"} == 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent {{ $labels.agent }} circuit breaker open"
+          description: "Agent {{ $labels.agent }} has circuit breaker open due to failures."
+
+      - alert: AllAgentsUnavailable
+        expr: |
+          count(aragora_agent_circuit_state{state="closed"} == 1) == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "All agents unavailable"
+          description: "No agents have closed circuit breakers. System cannot process debates."
+
+      - alert: AgentHighLatency
+        expr: |
+          histogram_quantile(0.95, rate(aragora_agent_response_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent {{ $labels.agent }} high latency"
+          description: "Agent {{ $labels.agent }} P95 response time exceeds 30 seconds."
+
+      - alert: AgentQuotaExhausted
+        expr: aragora_agent_quota_remaining{agent=~".+"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent {{ $labels.agent }} quota exhausted"
+          description: "Agent {{ $labels.agent }} has exhausted its API quota."
+
+  - name: aragora_websocket
+    interval: 30s
+    rules:
+      - alert: WebSocketConnectionSpike
+        expr: |
+          rate(aragora_ws_connections_total[5m]) > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WebSocket connection spike"
+          description: "Unusual spike in WebSocket connections. Potential DoS or misconfigured client."
+
+      - alert: WebSocketHighDropRate
+        expr: |
+          sum(rate(aragora_ws_errors_total{type="dropped"}[5m]))
+          /
+          sum(rate(aragora_ws_messages_total[5m])) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High WebSocket message drop rate"
+          description: "More than 1% of WebSocket messages are being dropped."
+
+  - name: aragora_queue
+    interval: 30s
+    rules:
+      - alert: JobQueueBacklog
+        expr: aragora_job_queue_size > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Job queue backlog growing"
+          description: "More than 100 jobs waiting in queue for 10+ minutes."
+
+      - alert: JobQueueCritical
+        expr: aragora_job_queue_size > 500
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical job queue backlog"
+          description: "More than 500 jobs waiting in queue. Workers may be down or overwhelmed."
+
+      - alert: StaleJobs
+        expr: aragora_stale_jobs_count > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Stale jobs detected"
+          description: "{{ $value }} jobs are stale and may need recovery."
