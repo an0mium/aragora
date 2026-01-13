@@ -1764,4 +1764,245 @@ kubectl scale deployment aragora -n aragora --replicas=5
 
 ---
 
+## Alert Response Decision Trees
+
+### Critical Alert Response Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     CRITICAL ALERT RECEIVED                      │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │ Service Up?     │
+                    │ curl /api/health│
+                    └────────┬────────┘
+                     NO ─────┴───── YES
+                      │             │
+                      ▼             ▼
+             ┌────────────┐ ┌─────────────────┐
+             │Check logs  │ │Error rate high? │
+             │journalctl  │ │Check metrics    │
+             └─────┬──────┘ └────────┬────────┘
+                   │          YES ───┴─── NO
+                   ▼           │         │
+          ┌─────────────┐     │         │
+          │Dependencies?│     ▼         ▼
+          │Redis? DB?   │ ┌────────┐ ┌────────────┐
+          └─────┬───────┘ │Identify│ │Single user?│
+                │         │pattern │ │Rate limit? │
+          ┌─────┴─────┐   └───┬────┘ └─────┬──────┘
+          │Fix deps   │       │             │
+          │then       │       ▼             ▼
+          │restart    │   ┌────────┐   ┌──────────┐
+          └───────────┘   │Rollback│   │Continue  │
+                          │or fix  │   │monitoring│
+                          └────────┘   └──────────┘
+```
+
+### Agent Failure Decision Tree
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              AGENT ERROR RATE HIGH / CIRCUIT OPEN                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │Single or Multi? │
+                    │Check CB status  │
+                    └────────┬────────┘
+                   SINGLE ───┴─── MULTIPLE
+                      │             │
+                      ▼             ▼
+             ┌────────────┐ ┌─────────────────┐
+             │Check agent │ │Network issue?   │
+             │provider    │ │DNS resolution?  │
+             │status page │ │Firewall?        │
+             └─────┬──────┘ └────────┬────────┘
+              DOWN ┴ UP              │
+               │    │         ┌──────┴──────┐
+               ▼    ▼         ▼             ▼
+          ┌────────┐ ┌───────────┐  ┌───────────┐
+          │Wait for│ │Test agent │  │Fix network│
+          │recovery│ │directly   │  │then test  │
+          │Monitor │ │curl test  │  └───────────┘
+          └────────┘ └─────┬─────┘
+                           │
+                    PASS ──┴── FAIL
+                      │        │
+                      ▼        ▼
+               ┌─────────┐ ┌─────────────┐
+               │Reset CB │ │Check API key│
+               │Monitor  │ │Check quota  │
+               └─────────┘ └─────────────┘
+```
+
+### Database Issue Decision Tree
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    DATABASE ALERT RECEIVED                       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │ Type of Issue?  │
+                    └────────┬────────┘
+              ┌──────────────┼──────────────┐
+              │              │              │
+              ▼              ▼              ▼
+      ┌───────────┐  ┌───────────┐  ┌───────────────┐
+      │Connection │  │Slow Query │  │DB Down        │
+      │Pool       │  │Alert      │  │Alert          │
+      └─────┬─────┘  └─────┬─────┘  └───────┬───────┘
+            │              │                │
+            ▼              ▼                ▼
+    ┌─────────────┐ ┌──────────────┐ ┌─────────────┐
+    │Kill idle    │ │Find slow    │ │Check disk   │
+    │connections  │ │queries      │ │Check memory │
+    │Increase pool│ │Add indexes  │ │Check logs   │
+    └─────────────┘ │Kill blockers│ │Restart DB   │
+                    └──────────────┘ └─────────────┘
+```
+
+---
+
+## Operational Checklists
+
+### Daily Health Check (5 min)
+
+```bash
+#!/bin/bash
+# daily_health.sh - Run at start of shift
+
+echo "=== Aragora Daily Health Check ==="
+echo ""
+
+# 1. Service health
+echo "1. Service Health:"
+curl -sf http://localhost:8080/api/health | jq '{status, uptime_seconds, checks}' || echo "FAILED"
+echo ""
+
+# 2. Alert status
+echo "2. Active Alerts:"
+curl -sf http://prometheus:9090/api/v1/alerts | jq '.data.alerts | length' || echo "FAILED"
+echo ""
+
+# 3. Error rate (last hour)
+echo "3. Error Rate (1h):"
+curl -sf 'http://prometheus:9090/api/v1/query?query=sum(rate(http_requests_total{status=~"5.."}[1h]))/sum(rate(http_requests_total[1h]))' \
+  | jq '.data.result[0].value[1]' || echo "FAILED"
+echo ""
+
+# 4. Active debates
+echo "4. Active Debates:"
+curl -sf http://localhost:8080/api/debates?status=running | jq 'length' || echo "FAILED"
+echo ""
+
+# 5. Circuit breaker status
+echo "5. Circuit Breakers:"
+curl -sf http://localhost:8080/api/agents/circuit-breakers | jq '[.[] | select(.state == "open")] | length' || echo "FAILED"
+echo ""
+
+echo "=== Health Check Complete ==="
+```
+
+### Weekly Maintenance Checklist
+
+- [ ] Review error logs for new patterns
+- [ ] Check database connection pool usage trends
+- [ ] Verify backup integrity (test restore)
+- [ ] Review agent quota usage vs budget
+- [ ] Check certificate expiration dates
+- [ ] Review rate limit false positives
+- [ ] Archive old debate data (if needed)
+- [ ] Update dependencies (security patches)
+
+### Monthly Tasks
+
+- [ ] Rotate API keys and secrets
+- [ ] Review access logs for anomalies
+- [ ] Capacity planning review
+- [ ] Update runbook with new scenarios
+- [ ] Test disaster recovery procedure
+- [ ] Review and update alert thresholds
+- [ ] Clean up old backups
+
+---
+
+## Environment-Specific Notes
+
+### Development
+
+```bash
+# Quick dev setup
+export ARAGORA_ENV=development
+export ARAGORA_LOG_LEVEL=DEBUG
+export ARAGORA_RATE_LIMIT_DISABLED=1
+
+# Start with hot reload
+python -m aragora.server.unified_server --reload
+```
+
+### Staging
+
+```bash
+# Staging mimics production but with:
+# - Lower rate limits
+# - Test AI provider accounts
+# - Separate database
+export ARAGORA_ENV=staging
+export ARAGORA_RATE_LIMIT_MULTIPLIER=0.5
+```
+
+### Production
+
+```bash
+# Production requires:
+# - All secrets in secret manager (not env vars)
+# - TLS enabled
+# - Rate limiting enabled
+# - Monitoring enabled
+export ARAGORA_ENV=production
+export ARAGORA_JWT_SECRET_FILE=/run/secrets/jwt_secret
+```
+
+---
+
+## SLI/SLO Definitions
+
+### Service Level Indicators (SLIs)
+
+| SLI | Measurement | Target |
+|-----|-------------|--------|
+| Availability | Successful requests / Total requests | 99.9% |
+| Latency (P50) | Request duration at 50th percentile | <100ms |
+| Latency (P95) | Request duration at 95th percentile | <300ms |
+| Latency (P99) | Request duration at 99th percentile | <500ms |
+| Debate Success | Completed debates / Started debates | 95% |
+| Agent Availability | Agents with closed CB / Total agents | 80% |
+
+### Service Level Objectives (SLOs)
+
+| SLO | Objective | Error Budget (30 days) |
+|-----|-----------|------------------------|
+| Availability | 99.9% | 43.2 minutes downtime |
+| P99 Latency | <500ms | 1% of requests can exceed |
+| Debate Success | 95% | 5% debates can fail |
+
+### Error Budget Monitoring
+
+```bash
+# Calculate remaining error budget
+curl -sf 'http://prometheus:9090/api/v1/query?query=
+  (1 - sum(increase(http_requests_total{status=~"5.."}[30d]))
+    / sum(increase(http_requests_total[30d])))
+  - 0.999
+' | jq '.data.result[0].value[1]'
+```
+
+---
+
 *Last updated: 2026-01-13*

@@ -475,3 +475,133 @@ groups:
         annotations:
           summary: "High Nomic loop failure rate"
           description: "More than 50% of Nomic loop cycles are failing."
+
+  - name: aragora_security
+    interval: 30s
+    rules:
+      # Brute force detection - many failed logins
+      - alert: AuthBruteForceAttempt
+        expr: |
+          sum(rate(aragora_auth_failures_total[5m])) > 10
+        for: 2m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "Possible brute force attack"
+          description: "High rate of authentication failures detected. {{ $value | printf \"%.0f\" }} failures/min."
+          runbook_url: "https://docs.aragora.ai/runbook/brute-force"
+
+      # Account lockouts
+      - alert: AccountLockoutSpike
+        expr: |
+          sum(rate(aragora_account_lockouts_total[15m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "Account lockout spike"
+          description: "Multiple accounts being locked out. Possible attack or misconfigured client."
+
+      # Invalid API tokens
+      - alert: InvalidTokenSpike
+        expr: |
+          sum(rate(aragora_auth_invalid_token_total[5m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High invalid token rate"
+          description: "Many requests with invalid API tokens. Possible credential stuffing."
+
+      # SSO failures
+      - alert: SSOAuthFailures
+        expr: |
+          sum(rate(aragora_sso_failures_total[15m])) > 5
+        for: 10m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High SSO authentication failure rate"
+          description: "SSO authentication is failing. Check IdP connectivity."
+
+      # Suspicious user activity (high request rate from single user)
+      - alert: SuspiciousUserActivity
+        expr: |
+          sum by (user_id) (rate(aragora_requests_by_user_total[5m])) > 100
+        for: 5m
+        labels:
+          severity: info
+          component: security
+        annotations:
+          summary: "Suspicious user activity"
+          description: "User {{ $labels.user_id }} has unusually high request rate."
+
+      # Admin API access from unusual IP
+      - alert: AdminAPIFromNewIP
+        expr: |
+          increase(aragora_admin_api_new_ip_total[1h]) > 0
+        for: 1m
+        labels:
+          severity: info
+          component: security
+        annotations:
+          summary: "Admin API accessed from new IP"
+          description: "Admin API was accessed from a new IP address. Verify legitimacy."
+
+  - name: aragora_rate_limiting
+    interval: 30s
+    rules:
+      # Rate limit near exhaustion for user
+      - alert: UserRateLimitNearExhaustion
+        expr: |
+          aragora_user_rate_limit_remaining / aragora_user_rate_limit_max < 0.1
+        for: 5m
+        labels:
+          severity: info
+          component: rate_limit
+        annotations:
+          summary: "User rate limit nearly exhausted"
+          description: "User {{ $labels.user_id }} has used 90%+ of their rate limit."
+
+      # Global rate limiter at capacity
+      - alert: GlobalRateLimiterAtCapacity
+        expr: |
+          aragora_global_rate_limit_capacity < 0.2
+        for: 5m
+        labels:
+          severity: warning
+          component: rate_limit
+        annotations:
+          summary: "Global rate limiter nearing capacity"
+          description: "System is approaching global rate limit capacity."
+
+  - name: aragora_memory_store
+    interval: 60s
+    rules:
+      # Memory tier full
+      - alert: MemoryTierFull
+        expr: |
+          aragora_memory_tier_size{tier="fast"} > aragora_memory_tier_max{tier="fast"} * 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: memory
+        annotations:
+          summary: "Memory tier {{ $labels.tier }} nearly full"
+          description: "Memory tier {{ $labels.tier }} is at 90% capacity. Consider cleanup."
+
+      # Memory eviction rate high
+      - alert: HighMemoryEvictionRate
+        expr: |
+          sum(rate(aragora_memory_evictions_total[15m])) > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: memory
+        annotations:
+          summary: "High memory eviction rate"
+          description: "Memory is being evicted at a high rate. May affect debate continuity."

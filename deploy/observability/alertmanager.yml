@@ -1,93 +1,244 @@
 # Alertmanager configuration for Aragora
 #
-# Configure notification receivers for production use:
-# - Slack webhooks
-# - PagerDuty integration keys
-# - Email settings
+# Production Configuration Guide:
+# 1. Set environment variables for sensitive values (see below)
+# 2. Enable your preferred notification channels by uncommenting
+# 3. Test with `amtool check-config alertmanager.yml`
+#
+# Environment variables to set in production:
+#   SLACK_WEBHOOK_URL - Slack incoming webhook URL
+#   PAGERDUTY_SERVICE_KEY - PagerDuty Events API v2 routing key
+#   OPSGENIE_API_KEY - Opsgenie API key
+#   SMTP_PASSWORD - SMTP password for email notifications
 
 global:
-  # Global SMTP settings (for email notifications)
-  # smtp_smarthost: 'smtp.example.com:587'
-  # smtp_from: 'alertmanager@aragora.ai'
-  # smtp_auth_username: 'alertmanager@aragora.ai'
-  # smtp_auth_password: 'secret'
+  # SMTP settings for email notifications
+  smtp_smarthost: 'smtp.sendgrid.net:587'
+  smtp_from: 'alertmanager@aragora.ai'
+  smtp_auth_username: 'apikey'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  smtp_require_tls: true
 
-  # Slack webhook URL (uncomment and configure)
-  # slack_api_url: 'https://hooks.slack.com/services/xxx/yyy/zzz'
+  # Slack webhook URL (use environment variable)
+  slack_api_url: '${SLACK_WEBHOOK_URL}'
+
+  # PagerDuty URL (default is correct for most setups)
+  pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
+
+  # OpsGenie API URL
+  opsgenie_api_url: 'https://api.opsgenie.com/'
+  opsgenie_api_key: '${OPSGENIE_API_KEY}'
 
   # Resolve timeout - how long before marking alert as resolved
   resolve_timeout: 5m
 
+# Templates for notification formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
 # Route tree for alert routing
 route:
-  # Default receiver
-  receiver: 'default-receiver'
+  # Default receiver - catches anything not matched by child routes
+  receiver: 'slack-warnings'
 
-  # Group alerts by alertname and job
-  group_by: ['alertname', 'job']
+  # Group alerts by these labels
+  group_by: ['alertname', 'severity', 'component']
 
-  # Wait before sending first notification
+  # Wait before sending first notification (allow grouping)
   group_wait: 30s
 
-  # Wait before sending updates
+  # Wait before sending updates to existing groups
   group_interval: 5m
 
   # Wait before resending
   repeat_interval: 4h
 
-  # Child routes for specific alerts
+  # Child routes - processed in order, first match wins
   routes:
-    # Critical alerts - immediate notification
+    # Critical alerts - Page immediately
     - match:
         severity: critical
-      receiver: 'critical-receiver'
+      receiver: 'pagerduty-critical'
+      group_wait: 10s
+      repeat_interval: 15m
+      continue: true  # Also send to Slack
+
+    # Critical alerts - Also to Slack #aragora-critical
+    - match:
+        severity: critical
+      receiver: 'slack-critical'
       group_wait: 10s
       repeat_interval: 1h
 
-    # Warning alerts - normal cadence
+    # Security alerts - Dedicated channel
+    - match:
+        component: security
+      receiver: 'slack-security'
+      group_wait: 30s
+      repeat_interval: 2h
+
+    # SLO breaches - Ops channel
+    - match_re:
+        slo: '.+'
+      receiver: 'slack-slo'
+      group_wait: 1m
+      repeat_interval: 1h
+
+    # TLS/Certificate alerts - Ops channel
+    - match:
+        component: tls
+      receiver: 'slack-ops'
+      group_wait: 5m
+      repeat_interval: 12h
+
+    # Billing alerts - Business alerts
+    - match:
+        component: billing
+      receiver: 'slack-billing'
+      group_wait: 5m
+      repeat_interval: 6h
+
+    # Warning alerts - Standard warnings channel
     - match:
         severity: warning
-      receiver: 'warning-receiver'
+      receiver: 'slack-warnings'
       group_wait: 1m
       repeat_interval: 4h
 
-    # Info alerts - less urgent
+    # Info alerts - Low priority, daily digest
     - match:
         severity: info
-      receiver: 'info-receiver'
+      receiver: 'slack-info'
       group_wait: 5m
       repeat_interval: 24h
 
 receivers:
-  # Default receiver (logs to stdout in development)
-  - name: 'default-receiver'
-    # In production, configure webhook_configs, slack_configs, or email_configs
+  # PagerDuty for critical alerts (pages on-call)
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - routing_key: '${PAGERDUTY_SERVICE_KEY}'
+        severity: critical
+        description: '{{ .CommonAnnotations.summary }}'
+        details:
+          firing: '{{ template "pagerduty.default.instances" .Alerts.Firing }}'
+          resolved: '{{ template "pagerduty.default.instances" .Alerts.Resolved }}'
+          num_firing: '{{ .Alerts.Firing | len }}'
+          num_resolved: '{{ .Alerts.Resolved | len }}'
 
-  # Critical alerts - consider PagerDuty or phone
-  - name: 'critical-receiver'
-    # Uncomment for Slack integration:
-    # slack_configs:
-    #   - channel: '#aragora-critical'
-    #     title: 'CRITICAL: {{ .GroupLabels.alertname }}'
-    #     text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}'
-    #     send_resolved: true
+  # Slack - Critical alerts
+  - name: 'slack-critical'
+    slack_configs:
+      - channel: '#aragora-critical'
+        send_resolved: true
+        icon_emoji: ':rotating_light:'
+        title: ':fire: CRITICAL: {{ .GroupLabels.alertname }}'
+        text: |-
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          {{ if .Annotations.runbook_url }}*Runbook:* {{ .Annotations.runbook_url }}{{ end }}
+          {{ end }}
+        color: '#FF0000'
 
-  # Warning alerts
-  - name: 'warning-receiver'
-    # Uncomment for Slack integration:
-    # slack_configs:
-    #   - channel: '#aragora-alerts'
-    #     title: 'Warning: {{ .GroupLabels.alertname }}'
-    #     text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}'
-    #     send_resolved: true
+  # Slack - Security alerts
+  - name: 'slack-security'
+    slack_configs:
+      - channel: '#aragora-security'
+        send_resolved: true
+        icon_emoji: ':shield:'
+        title: ':warning: Security Alert: {{ .GroupLabels.alertname }}'
+        text: |-
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ if .Annotations.runbook_url }}*Runbook:* {{ .Annotations.runbook_url }}{{ end }}
+          {{ end }}
+        color: '#FFA500'
 
-  # Info alerts
-  - name: 'info-receiver'
-    # Low priority notifications
+  # Slack - SLO breaches
+  - name: 'slack-slo'
+    slack_configs:
+      - channel: '#aragora-slo'
+        send_resolved: true
+        icon_emoji: ':chart_with_downwards_trend:'
+        title: ':warning: SLO Breach: {{ .GroupLabels.alertname }}'
+        text: |-
+          {{ range .Alerts }}
+          *SLO:* {{ .Labels.slo }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+        color: '#FF6600'
 
-# Inhibition rules - suppress alerts when higher-priority alerts fire
+  # Slack - Ops (TLS, infra)
+  - name: 'slack-ops'
+    slack_configs:
+      - channel: '#aragora-ops'
+        send_resolved: true
+        icon_emoji: ':gear:'
+        title: 'Ops Alert: {{ .GroupLabels.alertname }}'
+        text: |-
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ if .Annotations.runbook_url }}*Runbook:* {{ .Annotations.runbook_url }}{{ end }}
+          {{ end }}
+        color: '#0066FF'
+
+  # Slack - Billing
+  - name: 'slack-billing'
+    slack_configs:
+      - channel: '#aragora-billing'
+        send_resolved: true
+        icon_emoji: ':moneybag:'
+        title: 'Billing Alert: {{ .GroupLabels.alertname }}'
+        text: |-
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+        color: '#009933'
+
+  # Slack - Warning alerts
+  - name: 'slack-warnings'
+    slack_configs:
+      - channel: '#aragora-alerts'
+        send_resolved: true
+        icon_emoji: ':warning:'
+        title: 'Warning: {{ .GroupLabels.alertname }}'
+        text: |-
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Component:* {{ .Labels.component }}
+          {{ end }}
+        color: '#FFCC00'
+
+  # Slack - Info alerts (low priority)
+  - name: 'slack-info'
+    slack_configs:
+      - channel: '#aragora-info'
+        send_resolved: false  # Don't notify on resolve for info alerts
+        icon_emoji: ':information_source:'
+        title: 'Info: {{ .GroupLabels.alertname }}'
+        text: |-
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          {{ end }}
+        color: '#3366FF'
+
+  # Email fallback (for critical when Slack/PagerDuty fails)
+  - name: 'email-critical'
+    email_configs:
+      - to: 'oncall@aragora.ai'
+        send_resolved: true
+        headers:
+          Subject: '[CRITICAL] Aragora Alert: {{ .GroupLabels.alertname }}'
+
+# Inhibition rules - suppress lower-priority alerts when higher ones fire
 inhibit_rules:
-  # If service is down, suppress other alerts about it
+  # If Aragora is completely down, suppress all other Aragora alerts
   - source_match:
       alertname: 'AragoraDown'
     target_match_re:
@@ -100,3 +251,31 @@ inhibit_rules:
     target_match_re:
       alertname: 'Redis.*'
     equal: ['job']
+
+  # If PostgreSQL is down, suppress database alerts
+  - source_match:
+      alertname: 'PostgreSQLDown'
+    target_match_re:
+      alertname: 'Database.*'
+    equal: ['job']
+
+  # If all agents unavailable, suppress individual agent alerts
+  - source_match:
+      alertname: 'AllAgentsUnavailable'
+    target_match_re:
+      alertname: 'Agent.*'
+    equal: ['job']
+
+  # Critical alerts suppress warnings for same component
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'component']
+
+  # Warning alerts suppress info for same component
+  - source_match:
+      severity: 'warning'
+    target_match:
+      severity: 'info'
+    equal: ['alertname', 'component']
