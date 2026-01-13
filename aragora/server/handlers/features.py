@@ -291,8 +291,21 @@ def _check_z3() -> tuple[bool, Optional[str]]:
 
 
 def _check_lean() -> tuple[bool, Optional[str]]:
-    # Lean connector is still in development
-    return False, "Lean connector not yet implemented"
+    """Check if Lean 4 theorem prover is available."""
+    import shutil
+    lean_path = shutil.which("lean")
+    if lean_path is None:
+        return False, "Lean 4 not installed (install from https://leanprover.github.io/lean4/doc/setup.html)"
+    try:
+        from aragora.verification.formal import LeanBackend
+        backend = LeanBackend()
+        if backend.is_available:
+            return True, None
+        return False, "Lean backend not available"
+    except ImportError:
+        return False, "Lean verification module not available"
+    except Exception as e:
+        return False, f"Lean initialization error: {e}"
 
 
 def _check_laboratory() -> tuple[bool, Optional[str]]:
