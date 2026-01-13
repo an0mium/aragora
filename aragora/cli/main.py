@@ -55,9 +55,9 @@ def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Optiona
     return None
 
 
-def parse_agents(agents_str: str) -> list[tuple[str, str]]:
+def parse_agents(agents_str: str) -> list[tuple[str, str | None]]:
     """Parse agent string like 'codex,claude:critic,openai'."""
-    agents = []
+    agents: list[tuple[str, str | None]] = []
     for spec in agents_str.split(","):
         spec = spec.strip()
         if ":" in spec:
@@ -638,7 +638,7 @@ def _batch_via_server(items: list, args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def _poll_batch_status(server_url: str, batch_id: str, token: str = None) -> None:
+def _poll_batch_status(server_url: str, batch_id: str, token: str | None = None) -> None:
     """Poll batch status until completion."""
     import json
     import time

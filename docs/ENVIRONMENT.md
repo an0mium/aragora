@@ -162,12 +162,15 @@ Use `DATABASE_URL` for managed Postgres, or set backend-specific settings for lo
 | `ARAGORA_DB_POOL_OVERFLOW` | Optional | Legacy alias for overflow (settings) | - |
 | `ARAGORA_DB_POOL_TIMEOUT` | Optional | Pool wait timeout (seconds) | `30` |
 | `ARAGORA_SQLITE_PATH` | Optional | SQLite path for the DB backend | `aragora.db` |
+| `ARAGORA_SQLITE_POOL_SIZE` | Optional | SQLite pool size (storage backend) | `10` |
 | `ARAGORA_PG_HOST` | Optional | Postgres host | `localhost` |
 | `ARAGORA_PG_PORT` | Optional | Postgres port | `5432` |
 | `ARAGORA_PG_DATABASE` | Optional | Postgres database name | `aragora` |
 | `ARAGORA_PG_USER` | Optional | Postgres user | `aragora` |
 | `ARAGORA_PG_PASSWORD` | Optional | Postgres password | - |
 | `ARAGORA_PG_SSL_MODE` | Optional | Postgres SSL mode | `require` |
+| `ARAGORA_POSTGRESQL_POOL_SIZE` | Optional | Postgres pool size (storage backend) | `5` |
+| `ARAGORA_POSTGRESQL_POOL_MAX_OVERFLOW` | Optional | Postgres overflow (storage backend) | `10` |
 
 Note: `ARAGORA_DB_MODE` defaults to `legacy` in the legacy config, while
 `aragora.persistence.db_config` defaults to `consolidated` if unset. Set it
@@ -306,10 +309,18 @@ ARAGORA_ALLOWED_ORIGINS=https://myapp.com,https://staging.myapp.com
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `WEBHOOK_URL` | Optional | External webhook endpoint | - |
-| `WEBHOOK_SECRET` | Optional | HMAC secret for signing | - |
+| `ARAGORA_WEBHOOKS` | Optional | JSON array of webhook configs | - |
+| `ARAGORA_WEBHOOKS_CONFIG` | Optional | Path to JSON config file | - |
 | `ARAGORA_WEBHOOK_QUEUE_SIZE` | Optional | Max queued events | `1000` |
 | `ARAGORA_WEBHOOK_ALLOW_LOCALHOST` | Optional | Allow localhost webhook targets (dev only) | `false` |
+| `ARAGORA_WEBHOOK_WORKERS` | Optional | Max concurrent deliveries | `10` |
+| `ARAGORA_WEBHOOK_MAX_RETRIES` | Optional | Delivery retry attempts | `3` |
+| `ARAGORA_WEBHOOK_RETRY_DELAY` | Optional | Initial retry delay (seconds) | `1.0` |
+| `ARAGORA_WEBHOOK_MAX_RETRY_DELAY` | Optional | Max retry delay (seconds) | `60.0` |
+| `ARAGORA_WEBHOOK_TIMEOUT` | Optional | Request timeout (seconds) | `30.0` |
+
+`ARAGORA_WEBHOOKS` and `ARAGORA_WEBHOOKS_CONFIG` accept a JSON array of configs with:
+`name`, `url`, optional `secret`, optional `event_types`, and optional `loop_ids`.
 
 ## Rate Limiting
 
@@ -319,6 +330,7 @@ ARAGORA_ALLOWED_ORIGINS=https://myapp.com,https://staging.myapp.com
 | `ARAGORA_IP_RATE_LIMIT` | Optional | Requests per minute per IP | `120` |
 | `ARAGORA_BURST_MULTIPLIER` | Optional | Burst multiplier for short spikes | `2.0` |
 | `ARAGORA_REDIS_URL` | Optional | Redis URL for distributed rate limits | `redis://localhost:6379/0` |
+| `REDIS_URL` | Optional | Legacy Redis URL used by queues/oauth/token revocation | `redis://localhost:6379` |
 | `ARAGORA_REDIS_KEY_PREFIX` | Optional | Redis key prefix | `aragora:ratelimit:` |
 | `ARAGORA_REDIS_TTL` | Optional | Redis TTL for limiter keys (seconds) | `120` |
 | `ARAGORA_REDIS_MAX_CONNECTIONS` | Optional | Redis connection pool max size | `50` |
@@ -334,8 +346,10 @@ JWT authentication and Stripe integration for paid tiers.
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_JWT_SECRET` | **Required (prod)** | Secret key for JWT signing (min 32 chars) | Auto-generated |
+| `ARAGORA_JWT_SECRET` | **Required (prod)** | Secret key for JWT signing (min 32 chars) | - |
 | `ARAGORA_JWT_SECRET_PREVIOUS` | Optional | Previous secret for rotation | - |
+| `ARAGORA_JWT_SECRET_ROTATED_AT` | Optional | Unix timestamp of rotation | - |
+| `ARAGORA_JWT_ROTATION_GRACE_HOURS` | Optional | Grace period for previous secret | `24` |
 | `ARAGORA_JWT_EXPIRY_HOURS` | Optional | Access token expiry (max 168h/7d) | `24` |
 | `ARAGORA_REFRESH_TOKEN_EXPIRY_DAYS` | Optional | Refresh token expiry (max 90d) | `30` |
 | `ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS` | Optional | Allow API key format-only validation (dev only) | `0` |
@@ -343,8 +357,8 @@ JWT authentication and Stripe integration for paid tiers.
 **Security Notes:**
 - In **production** (`ARAGORA_ENVIRONMENT=production`), `ARAGORA_JWT_SECRET` is **required** and must be at least 32 characters.
 - Generate a secure secret: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
-- In development, auto-generated secrets are invalidated on restart.
-- Use `ARAGORA_JWT_SECRET_PREVIOUS` during key rotation to allow existing tokens to remain valid.
+- `ARAGORA_JWT_SECRET_PREVIOUS` is only honored if `ARAGORA_JWT_SECRET_ROTATED_AT` is set.
+- Set `ARAGORA_JWT_ROTATION_GRACE_HOURS` to control the previous-secret window.
 - `ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS` is blocked in production regardless of setting.
 
 ### Token Blacklist Configuration

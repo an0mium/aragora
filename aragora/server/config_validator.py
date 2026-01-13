@@ -51,7 +51,7 @@ class ConfigValidator:
     """
 
     # Environment variables that are required in production mode
-    PRODUCTION_REQUIRED = ["ARAGORA_API_TOKEN"]
+    PRODUCTION_REQUIRED = ["ARAGORA_API_TOKEN", "DATABASE_URL"]
 
     # At least one of these LLM API keys should be present
     LLM_API_KEYS = [
@@ -158,6 +158,23 @@ class ConfigValidator:
                 except ValueError:
                     errors.append(f"{var} must be an integer, got: {value}")
 
+        # Check database configuration in production
+        if is_production:
+            db_url = os.getenv("DATABASE_URL", "")
+            if db_url:
+                # Ensure PostgreSQL is used in production (not SQLite)
+                if "sqlite" in db_url.lower():
+                    errors.append(
+                        "SQLite is not supported in production. "
+                        "Set DATABASE_URL to a PostgreSQL connection string "
+                        "(e.g., postgresql://user:pass@host:5432/dbname)"
+                    )
+                elif not db_url.startswith(("postgresql://", "postgres://")):
+                    errors.append(
+                        "DATABASE_URL must be a PostgreSQL connection string in production "
+                        "(starting with postgresql:// or postgres://)"
+                    )
+
         # Check CORS configuration
         allowed_origins = os.getenv("ARAGORA_ALLOWED_ORIGINS", "")
         if is_production and not allowed_origins:
@@ -235,6 +252,30 @@ class ConfigValidator:
             return False, f"Database connectivity check failed: {e}"
 
     @classmethod
+    def check_postgresql_connectivity(cls) -> tuple[bool, Optional[str]]:
+        """
+        Check if PostgreSQL is accessible (if configured).
+
+        Returns:
+            (success, error_message) tuple
+        """
+        database_url = os.getenv("DATABASE_URL")
+
+        if not database_url:
+            return True, None  # Not configured, not an error
+
+        if not database_url.startswith(("postgresql://", "postgres://")):
+            return True, None  # Not PostgreSQL
+
+        try:
+            import asyncpg  # noqa: F401 - check availability
+
+            # Don't actually connect during validation - just verify config format
+            return True, None
+        except ImportError:
+            return False, "asyncpg package required for PostgreSQL support"
+
+    @classmethod
     def check_redis_connectivity(cls) -> tuple[bool, Optional[str]]:
         """
         Check if Redis is accessible (if configured).
@@ -273,12 +314,21 @@ class ConfigValidator:
                 return "*" * len(value)
             return value[:4] + "*" * (len(value) - 8) + value[-4:]
 
+        db_url = os.getenv("DATABASE_URL", "")
+        db_backend = "sqlite"
+        if db_url.startswith(("postgresql://", "postgres://")):
+            db_backend = "postgresql"
+        elif db_url:
+            db_backend = "unknown"
+
         return {
             "environment": os.getenv("ARAGORA_ENV", "development"),
             "api_token_set": bool(os.getenv("ARAGORA_API_TOKEN")),
             "jwt_secret_set": bool(os.getenv("JWT_SECRET")),
             "jwt_secret_length": len(os.getenv("JWT_SECRET", "")),
             "llm_keys": {key: bool(os.getenv(key)) for key in cls.LLM_API_KEYS},
+            "database_backend": db_backend,
+            "database_url_set": bool(db_url),
             "supabase_configured": bool(os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_KEY")),
             "redis_configured": bool(os.getenv("REDIS_URL")),
             "rate_limit": os.getenv("ARAGORA_RATE_LIMIT", "60"),

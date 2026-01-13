@@ -744,9 +744,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
         # Parse and validate request
         config, error = self._parse_debate_request(data)
-        if error:
+        if error or config is None:
             return web.json_response(
-                {"error": error}, status=400, headers=self._cors_headers(origin)
+                {"error": error or "Invalid request"}, status=400, headers=self._cors_headers(origin)
             )
 
         question = config["question"]
@@ -1127,9 +1127,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
         try:
             async for msg in ws:
-                if msg.type == aiohttp.WSMsgType.TEXT:  # type: ignore[union-attr]
+                if msg.type == aiohttp.WSMsgType.TEXT:
                     # Defense-in-depth: check message size before parsing
-                    msg_data = msg.data  # type: ignore[union-attr]
+                    msg_data = msg.data
                     if len(msg_data) > WS_MAX_MESSAGE_SIZE:
                         logger.warning(
                             f"[ws] Message too large: {len(msg_data)} bytes (max {WS_MAX_MESSAGE_SIZE})"
@@ -1199,8 +1199,8 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
                             # Validate payload
                             payload, error = self._validate_audience_payload(data)
-                            if error:
-                                await ws.send_json({"type": "error", "data": {"message": error}})
+                            if error or payload is None:
+                                await ws.send_json({"type": "error", "data": {"message": error or "Invalid payload"}})
                                 continue
 
                             # Check rate limit
@@ -1230,15 +1230,15 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                             }
                         )
 
-                elif msg.type == aiohttp.WSMsgType.ERROR:  # type: ignore[union-attr]
+                elif msg.type == aiohttp.WSMsgType.ERROR:
                     logger.error(f"[ws] Error: {ws.exception()}")
                     break
 
-                elif msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED):  # type: ignore[union-attr]
+                elif msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED):
                     logger.debug(f"[ws] Client {client_id[:8]}... closed connection")
                     break
 
-                elif msg.type == aiohttp.WSMsgType.BINARY:  # type: ignore[union-attr]
+                elif msg.type == aiohttp.WSMsgType.BINARY:
                     logger.warning(f"[ws] Binary message rejected from {client_id[:8]}...")
                     await ws.send_json(
                         {
@@ -1251,11 +1251,11 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                     )
 
                 # PING/PONG handled automatically by aiohttp, but log if we see them
-                elif msg.type in (aiohttp.WSMsgType.PING, aiohttp.WSMsgType.PONG):  # type: ignore[union-attr]
+                elif msg.type in (aiohttp.WSMsgType.PING, aiohttp.WSMsgType.PONG):
                     pass  # Handled by aiohttp automatically
 
                 else:
-                    logger.warning(f"[ws] Unhandled message type: {msg.type}")  # type: ignore[union-attr]
+                    logger.warning(f"[ws] Unhandled message type: {msg.type}")
 
         finally:
             self.clients.discard(ws)

@@ -13,6 +13,7 @@ Key Features:
 """
 
 import asyncio
+import inspect
 import logging
 import time
 import uuid
@@ -78,6 +79,7 @@ class NomicStateMachine:
         self,
         checkpoint_dir: str = ".nomic/checkpoints",
         enable_checkpoints: bool = True,
+        enable_metrics: bool = True,
     ):
         """
         Initialize the state machine.
@@ -88,6 +90,7 @@ class NomicStateMachine:
         """
         self.checkpoint_dir = checkpoint_dir
         self.enable_checkpoints = enable_checkpoints
+        self.enable_metrics = enable_metrics
 
         # State
         self.context = StateContext()
@@ -98,12 +101,21 @@ class NomicStateMachine:
         self._handlers: Dict[NomicState, StateHandler] = {}
         self._on_transition_callbacks: list[Callable] = []
         self._on_error_callbacks: list[Callable] = []
+        self._transition_callback_supports_metrics: dict[Callable, bool] = {}
 
         # Metrics
         self._state_entry_time: Optional[float] = None
         self._total_cycles = 0
         self._successful_cycles = 0
         self._failed_cycles = 0
+
+        if self.enable_metrics:
+            try:
+                from aragora.nomic.metrics import nomic_metrics_callback
+
+                self.on_transition(nomic_metrics_callback)
+            except Exception as e:
+                logger.debug("Nomic metrics unavailable: %s", e)
 
     def register_handler(self, state: NomicState, handler: StateHandler) -> None:
         """
@@ -117,6 +129,30 @@ class NomicStateMachine:
     def on_transition(self, callback: Callable) -> None:
         """Register a callback to be called on every transition."""
         self._on_transition_callbacks.append(callback)
+
+    def _callback_supports_metrics(self, callback: Callable) -> bool:
+        """Check whether a callback can accept duration and cycle_id args."""
+        try:
+            signature = inspect.signature(callback)
+        except (TypeError, ValueError):
+            return False
+
+        params = list(signature.parameters.values())
+        if any(param.kind == inspect.Parameter.VAR_POSITIONAL for param in params):
+            return True
+        if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in params):
+            return True
+
+        positional = [
+            param
+            for param in params
+            if param.kind
+            in (
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            )
+        ]
+        return len(positional) >= 5
 
     def on_error(self, callback: Callable) -> None:
         """Register a callback to be called on errors."""
@@ -152,8 +188,17 @@ class NomicStateMachine:
         self.event_log = EventLog(cycle_id=self.context.cycle_id)
         self.running = True
         self._total_cycles += 1
+        self._state_entry_time = time.time()
 
         logger.info(f"Starting nomic cycle {self.context.cycle_id}")
+
+        if self.enable_metrics:
+            try:
+                from aragora.nomic.metrics import track_cycle_start
+
+                track_cycle_start(self.context.cycle_id)
+            except Exception as e:
+                logger.debug("Nomic metrics unavailable: %s", e)
 
         # Send start event
         event = start_event(trigger="start", config=config)
@@ -303,6 +348,7 @@ class NomicStateMachine:
             raise TransitionError(f"Invalid transition from {current.name} to {next_state.name}")
 
         # Record state duration
+        duration = 0.0
         if self._state_entry_time:
             duration = time.time() - self._state_entry_time
             self.context.state_durations[current.name] = duration
@@ -317,10 +363,33 @@ class NomicStateMachine:
         # Call transition callbacks
         for callback in self._on_transition_callbacks:
             try:
+                supports_metrics = self._transition_callback_supports_metrics.get(callback)
+                if supports_metrics is None:
+                    supports_metrics = self._callback_supports_metrics(callback)
+                    self._transition_callback_supports_metrics[callback] = supports_metrics
+
                 if asyncio.iscoroutinefunction(callback):
-                    await callback(current, next_state, trigger_event)
+                    if supports_metrics:
+                        await callback(
+                            current,
+                            next_state,
+                            trigger_event,
+                            duration,
+                            self.cycle_id,
+                        )
+                    else:
+                        await callback(current, next_state, trigger_event)
                 else:
-                    callback(current, next_state, trigger_event)
+                    if supports_metrics:
+                        callback(
+                            current,
+                            next_state,
+                            trigger_event,
+                            duration,
+                            self.cycle_id,
+                        )
+                    else:
+                        callback(current, next_state, trigger_event)
             except Exception as e:
                 logger.error(f"Transition callback error: {e}")
 
@@ -501,6 +570,7 @@ class NomicStateMachine:
 def create_nomic_state_machine(
     checkpoint_dir: str = ".nomic/checkpoints",
     enable_checkpoints: bool = True,
+    enable_metrics: bool = True,
 ) -> NomicStateMachine:
     """
     Create a nomic state machine with default configuration.
@@ -510,4 +580,5 @@ def create_nomic_state_machine(
     return NomicStateMachine(
         checkpoint_dir=checkpoint_dir,
         enable_checkpoints=enable_checkpoints,
+        enable_metrics=enable_metrics,
     )

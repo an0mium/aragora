@@ -31,6 +31,11 @@ import {
   FollowupRequest,
   FollowupResponse,
   DebateExportResponse,
+  DebateSearchResponse,
+  DebateVerificationReport,
+  DebateShareResponse,
+  DebateBroadcastResponse,
+  DebatePublishResponse,
   // Batch debate types
   BatchDebateRequest,
   BatchDebateResponse,
@@ -61,12 +66,29 @@ import {
   MemoryPressureResponse,
   // Agent types
   AgentProfile,
+  AgentDetailedProfile,
+  AgentCalibrationData,
+  AgentPerformanceMetrics,
+  AgentConsistencyData,
+  AgentFlipEvent,
+  AgentNetworkGraph,
+  AgentMoment,
+  AgentPosition,
+  AgentDomainExpertise,
+  AgentHeadToHead,
+  AgentOpponentBriefing,
+  AgentComparisonResult,
+  AgentGroundedPersona,
   LeaderboardEntry,
   LeaderboardResponse,
   // Gauntlet types
   GauntletRunRequest,
   GauntletRunResponse,
   GauntletReceipt,
+  GauntletResultsResponse,
+  GauntletPersonaInfo,
+  GauntletHeatmap,
+  GauntletComparisonResult,
   // Replay types
   ReplaySummary,
   Replay,
@@ -102,6 +124,12 @@ import {
   OrganizationUpdateRequest,
   // Analytics types
   AnalyticsResponse,
+  DisagreementAnalysis,
+  RoleRotationStats,
+  EarlyStopAnalysis,
+  ConsensusQualityMetrics,
+  RankingStatistics,
+  MemoryStatistics,
   // Auth types
   RegisterRequest,
   RegisterResponse,
@@ -123,6 +151,8 @@ import {
   MfaVerifyRequest,
   MfaVerifyResponse,
   MfaBackupCodesResponse,
+  OAuthProvidersResponse,
+  OAuthInitResponse,
   // Billing types
   BillingPlan,
   BillingPlansResponse,
@@ -200,6 +230,35 @@ import {
   FeatureFlag,
   FeaturesListResponse,
   FeatureStatusResponse,
+  // Checkpoint types
+  Checkpoint,
+  CheckpointListResponse,
+  ResumableDebate,
+  // Webhook types
+  Webhook,
+  WebhookEventType,
+  WebhookCreateRequest,
+  WebhookUpdateRequest,
+  WebhookTestResult,
+  // Training types
+  TrainingExportOptions,
+  TrainingExportResponse,
+  TrainingStats,
+  TrainingFormat,
+  // Metrics types
+  SystemMetrics,
+  HealthMetrics,
+  CacheMetrics,
+  VerificationMetrics,
+  SystemResourceMetrics,
+  BackgroundJobMetrics,
+  // Routing types
+  TeamRecommendation,
+  RoutingRecommendation,
+  AutoRouteRequest,
+  AutoRouteResponse,
+  DomainDetectionResult,
+  DomainLeaderboardEntry,
 } from './types';
 
 // =============================================================================
@@ -735,6 +794,109 @@ class DebatesAPI {
   async export(debateId: string, format: 'json' | 'markdown' | 'pdf' = 'json'): Promise<DebateExportResponse> {
     return this.http.get<DebateExportResponse>(`/api/debates/${debateId}/export/${format}`);
   }
+
+  /**
+   * Search across debates using full-text search.
+   *
+   * @param query - Search query string
+   * @param options - Optional search parameters
+   * @returns Promise resolving to search results
+   */
+  async search(
+    query: string,
+    options?: { limit?: number; offset?: number; status?: string }
+  ): Promise<DebateSearchResponse> {
+    const params = new URLSearchParams({ q: query });
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.status) params.set('status', options.status);
+
+    return this.http.get<DebateSearchResponse>(`/api/search?${params}`);
+  }
+
+  /**
+   * Get a debate by its URL slug.
+   *
+   * @param slug - The debate's URL-friendly slug
+   * @returns Promise resolving to the debate
+   */
+  async getBySlug(slug: string): Promise<Debate> {
+    const response = await this.http.get<Debate>(`/api/debates/slug/${slug}`);
+    return normalizeDebateResponse(response);
+  }
+
+  /**
+   * Get verification feedback report for a debate.
+   *
+   * @param debateId - The debate ID
+   * @returns Promise resolving to the verification report
+   */
+  async verificationReport(debateId: string): Promise<DebateVerificationReport> {
+    return this.http.get<DebateVerificationReport>(`/api/debates/${debateId}/verification-report`);
+  }
+
+  /**
+   * List all forks created from a debate.
+   *
+   * @param debateId - The parent debate ID
+   * @returns Promise resolving to list of forked debates
+   */
+  async listForks(debateId: string): Promise<Debate[]> {
+    const response = await this.http.get<{ forks: Debate[] }>(`/api/debates/${debateId}/forks`);
+    return response.forks.map(normalizeDebateResponse);
+  }
+
+  /**
+   * Share a debate with a shareable link.
+   *
+   * @param debateId - The debate ID to share
+   * @param options - Sharing options
+   * @returns Promise resolving to share response with link
+   */
+  async share(
+    debateId: string,
+    options?: { expires_in_days?: number }
+  ): Promise<DebateShareResponse> {
+    return this.http.post<DebateShareResponse>(`/api/debates/${debateId}/share`, options || {});
+  }
+
+  /**
+   * Revoke a shared debate link.
+   *
+   * @param debateId - The debate ID
+   * @returns Promise resolving to success status
+   */
+  async revokeShare(debateId: string): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>(`/api/debates/${debateId}/share/revoke`, {});
+  }
+
+  /**
+   * Get broadcast-ready content for a debate.
+   *
+   * @param debateId - The debate ID
+   * @returns Promise resolving to broadcast content
+   */
+  async broadcast(debateId: string): Promise<DebateBroadcastResponse> {
+    return this.http.get<DebateBroadcastResponse>(`/api/debates/${debateId}/broadcast`);
+  }
+
+  /**
+   * Publish a debate to a social platform.
+   *
+   * @param debateId - The debate ID
+   * @param platform - Target platform ('twitter' | 'youtube')
+   * @returns Promise resolving to publish result
+   */
+  async publish(
+    debateId: string,
+    platform: 'twitter' | 'youtube',
+    options?: { message?: string }
+  ): Promise<DebatePublishResponse> {
+    return this.http.post<DebatePublishResponse>(
+      `/api/debates/${debateId}/publish/${platform}`,
+      options || {}
+    );
+  }
 }
 
 class BatchDebatesAPI {
@@ -1053,6 +1215,120 @@ class AgentsAPI {
     );
     return response.allies;
   }
+
+  /**
+   * Get detailed profile for an agent.
+   */
+  async profile(agentId: string): Promise<AgentDetailedProfile> {
+    return this.http.get<AgentDetailedProfile>(`/api/agent/${agentId}/profile`);
+  }
+
+  /**
+   * Get calibration data for an agent.
+   */
+  async calibration(agentId: string): Promise<AgentCalibrationData> {
+    return this.http.get<AgentCalibrationData>(`/api/agent/${agentId}/calibration`);
+  }
+
+  /**
+   * Get performance metrics for an agent.
+   */
+  async performance(agentId: string, days = 30): Promise<AgentPerformanceMetrics> {
+    return this.http.get<AgentPerformanceMetrics>(`/api/agent/${agentId}/performance?days=${days}`);
+  }
+
+  /**
+   * Get consistency analysis for an agent.
+   */
+  async consistency(agentId: string): Promise<AgentConsistencyData> {
+    return this.http.get<AgentConsistencyData>(`/api/agent/${agentId}/consistency`);
+  }
+
+  /**
+   * Get position flips/changes for an agent.
+   */
+  async flips(agentId: string, limit = 20): Promise<AgentFlipEvent[]> {
+    const response = await this.http.get<{ flips: AgentFlipEvent[] }>(
+      `/api/agent/${agentId}/flips?limit=${limit}`
+    );
+    return response.flips;
+  }
+
+  /**
+   * Get relationship network graph for an agent.
+   */
+  async network(agentId: string): Promise<AgentNetworkGraph> {
+    return this.http.get<AgentNetworkGraph>(`/api/agent/${agentId}/network`);
+  }
+
+  /**
+   * Get key moments for an agent across debates.
+   */
+  async moments(agentId: string, limit = 10): Promise<AgentMoment[]> {
+    const response = await this.http.get<{ moments: AgentMoment[] }>(
+      `/api/agent/${agentId}/moments?limit=${limit}`
+    );
+    return response.moments;
+  }
+
+  /**
+   * Get positions held by an agent.
+   */
+  async positions(agentId: string, options?: { domain?: string; limit?: number }): Promise<AgentPosition[]> {
+    const params = new URLSearchParams();
+    if (options?.domain) params.set('domain', options.domain);
+    if (options?.limit) params.set('limit', String(options.limit));
+
+    const query = params.toString();
+    const path = query ? `/api/agent/${agentId}/positions?${query}` : `/api/agent/${agentId}/positions`;
+    const response = await this.http.get<{ positions: AgentPosition[] }>(path);
+    return response.positions;
+  }
+
+  /**
+   * Get domain expertise for an agent.
+   */
+  async domains(agentId: string): Promise<AgentDomainExpertise[]> {
+    const response = await this.http.get<{ domains: AgentDomainExpertise[] }>(
+      `/api/agent/${agentId}/domains`
+    );
+    return response.domains;
+  }
+
+  /**
+   * Get head-to-head comparison between two agents.
+   */
+  async headToHead(agentId: string, opponentId: string): Promise<AgentHeadToHead> {
+    return this.http.get<AgentHeadToHead>(`/api/agent/${agentId}/head-to-head/${opponentId}`);
+  }
+
+  /**
+   * Get tactical briefing about an opponent.
+   */
+  async opponentBriefing(agentId: string, opponentId: string): Promise<AgentOpponentBriefing> {
+    return this.http.get<AgentOpponentBriefing>(`/api/agent/${agentId}/opponent-briefing/${opponentId}`);
+  }
+
+  /**
+   * Compare multiple agents.
+   */
+  async compare(agentIds: string[]): Promise<AgentComparisonResult> {
+    return this.http.post<AgentComparisonResult>('/api/agent/compare', { agents: agentIds });
+  }
+
+  /**
+   * Get grounded persona for an agent.
+   */
+  async groundedPersona(agentId: string): Promise<AgentGroundedPersona> {
+    return this.http.get<AgentGroundedPersona>(`/api/agent/${agentId}/grounded-persona`);
+  }
+
+  /**
+   * Get identity prompt for an agent.
+   */
+  async identityPrompt(agentId: string): Promise<{ prompt: string }> {
+    return this.http.get<{ prompt: string }>(`/api/agent/${agentId}/identity-prompt`);
+  }
 }
 
 class LeaderboardAPI {
@@ -1107,6 +1383,56 @@ class GauntletAPI {
       'TIMEOUT',
       408
     );
+  }
+
+  /**
+   * Get a specific gauntlet by ID.
+   */
+  async get(gauntletId: string): Promise<GauntletReceipt> {
+    return this.http.get<GauntletReceipt>(`/api/gauntlet/${gauntletId}`);
+  }
+
+  /**
+   * List all gauntlet results.
+   */
+  async results(options?: { limit?: number; offset?: number; persona?: string }): Promise<GauntletResultsResponse> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.persona) params.set('persona', options.persona);
+
+    const query = params.toString();
+    const path = query ? `/api/gauntlet/results?${query}` : '/api/gauntlet/results';
+    return this.http.get<GauntletResultsResponse>(path);
+  }
+
+  /**
+   * Get available gauntlet personas.
+   */
+  async personas(): Promise<GauntletPersonaInfo[]> {
+    const response = await this.http.get<{ personas: GauntletPersonaInfo[] }>('/api/gauntlet/personas');
+    return response.personas;
+  }
+
+  /**
+   * Get performance heatmap for a gauntlet run.
+   */
+  async heatmap(gauntletId: string): Promise<GauntletHeatmap> {
+    return this.http.get<GauntletHeatmap>(`/api/gauntlet/${gauntletId}/heatmap`);
+  }
+
+  /**
+   * Compare two gauntlet runs.
+   */
+  async compare(gauntletId1: string, gauntletId2: string): Promise<GauntletComparisonResult> {
+    return this.http.get<GauntletComparisonResult>(`/api/gauntlet/${gauntletId1}/compare/${gauntletId2}`);
+  }
+
+  /**
+   * Delete a gauntlet run.
+   */
+  async delete(gauntletId: string): Promise<{ message: string }> {
+    return this.http.delete<{ message: string }>(`/api/gauntlet/${gauntletId}`);
   }
 }
 
@@ -1466,6 +1792,54 @@ class AnalyticsAPI {
     const path = query ? `/api/analytics/debates?${query}` : '/api/analytics/debates';
     return this.http.get<Record<string, unknown>>(path);
   }
+
+  /**
+   * Get disagreement analysis across debates.
+   */
+  async disagreements(options?: { days?: number; limit?: number }): Promise<DisagreementAnalysis> {
+    const params = new URLSearchParams();
+    if (options?.days) params.set('days', String(options.days));
+    if (options?.limit) params.set('limit', String(options.limit));
+
+    const query = params.toString();
+    const path = query ? `/api/analytics/disagreements?${query}` : '/api/analytics/disagreements';
+    return this.http.get<DisagreementAnalysis>(path);
+  }
+
+  /**
+   * Get role rotation statistics.
+   */
+  async roleRotation(days = 30): Promise<RoleRotationStats> {
+    return this.http.get<RoleRotationStats>(`/api/analytics/role-rotation?days=${days}`);
+  }
+
+  /**
+   * Get early stop analysis.
+   */
+  async earlyStops(days = 30): Promise<EarlyStopAnalysis> {
+    return this.http.get<EarlyStopAnalysis>(`/api/analytics/early-stops?days=${days}`);
+  }
+
+  /**
+   * Get consensus quality metrics.
+   */
+  async consensusQuality(days = 30): Promise<ConsensusQualityMetrics> {
+    return this.http.get<ConsensusQualityMetrics>(`/api/analytics/consensus-quality?days=${days}`);
+  }
+
+  /**
+   * Get ranking statistics.
+   */
+  async rankingStats(): Promise<RankingStatistics> {
+    return this.http.get<RankingStatistics>('/api/ranking/stats');
+  }
+
+  /**
+   * Get memory statistics.
+   */
+  async memoryStats(): Promise<MemoryStatistics> {
+    return this.http.get<MemoryStatistics>('/api/memory/stats');
+  }
 }
 
 class AuthAPI {
@@ -1586,6 +1960,47 @@ class AuthAPI {
    */
   async mfaBackupCodes(): Promise<MfaBackupCodesResponse> {
     return this.http.post<MfaBackupCodesResponse>('/api/auth/mfa/backup-codes', {});
+  }
+
+  // =========================================================================
+  // OAuth Methods
+  // =========================================================================
+
+  /**
+   * Get available OAuth providers.
+   */
+  async oauthProviders(): Promise<OAuthProvidersResponse> {
+    return this.http.get<OAuthProvidersResponse>('/api/auth/oauth/providers');
+  }
+
+  /**
+   * Initiate OAuth flow with Google.
+   * Returns a redirect URL to Google's OAuth consent screen.
+   */
+  async oauthGoogle(returnUrl?: string): Promise<OAuthInitResponse> {
+    const params = returnUrl ? { return_url: returnUrl } : {};
+    return this.http.get<OAuthInitResponse>(`/api/auth/oauth/google?${new URLSearchParams(params as Record<string, string>)}`);
+  }
+
+  /**
+   * Complete OAuth callback from Google.
+   */
+  async oauthGoogleCallback(code: string, state?: string): Promise<LoginResponse> {
+    return this.http.post<LoginResponse>('/api/auth/oauth/google/callback', { code, state });
+  }
+
+  /**
+   * Link an OAuth provider to the current account.
+   */
+  async linkOauth(provider: string, code: string): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>('/api/auth/oauth/link', { provider, code });
+  }
+
+  /**
+   * Unlink an OAuth provider from the current account.
+   */
+  async unlinkOauth(provider: string): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>('/api/auth/oauth/unlink', { provider });
   }
 }
 
@@ -2264,6 +2679,258 @@ class FeaturesAPI {
 }
 
 // =============================================================================
+// Checkpoints API
+// =============================================================================
+
+class CheckpointsAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List all checkpoints.
+   */
+  async list(options?: { limit?: number; offset?: number }): Promise<CheckpointListResponse> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+
+    const query = params.toString();
+    const path = query ? `/api/checkpoints?${query}` : '/api/checkpoints';
+    return this.http.get<CheckpointListResponse>(path);
+  }
+
+  /**
+   * Get resumable debates.
+   */
+  async resumable(): Promise<ResumableDebate[]> {
+    const response = await this.http.get<{ debates: ResumableDebate[] }>('/api/checkpoints/resumable');
+    return response.debates;
+  }
+
+  /**
+   * Create a checkpoint for a debate.
+   */
+  async create(debateId: string, options?: { name?: string }): Promise<Checkpoint> {
+    return this.http.post<Checkpoint>('/api/checkpoints', { debate_id: debateId, ...options });
+  }
+
+  /**
+   * Resume a debate from a checkpoint.
+   */
+  async resume(checkpointId: string): Promise<DebateCreateResponse> {
+    return this.http.post<DebateCreateResponse>(`/api/checkpoints/${checkpointId}/resume`, {});
+  }
+
+  /**
+   * Delete a checkpoint.
+   */
+  async delete(checkpointId: string): Promise<{ message: string }> {
+    return this.http.delete<{ message: string }>(`/api/checkpoints/${checkpointId}`);
+  }
+}
+
+// =============================================================================
+// Webhooks API
+// =============================================================================
+
+class WebhooksAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List all webhooks.
+   */
+  async list(): Promise<Webhook[]> {
+    const response = await this.http.get<{ webhooks: Webhook[] }>('/api/webhooks');
+    return response.webhooks;
+  }
+
+  /**
+   * Get webhook event types.
+   */
+  async eventTypes(): Promise<WebhookEventType[]> {
+    const response = await this.http.get<{ events: WebhookEventType[] }>('/api/webhooks/events');
+    return response.events;
+  }
+
+  /**
+   * Create a new webhook.
+   */
+  async create(request: WebhookCreateRequest): Promise<Webhook> {
+    return this.http.post<Webhook>('/api/webhooks', request);
+  }
+
+  /**
+   * Update a webhook.
+   */
+  async update(webhookId: string, request: WebhookUpdateRequest): Promise<Webhook> {
+    return this.http.put<Webhook>(`/api/webhooks/${webhookId}`, request);
+  }
+
+  /**
+   * Delete a webhook.
+   */
+  async delete(webhookId: string): Promise<{ message: string }> {
+    return this.http.delete<{ message: string }>(`/api/webhooks/${webhookId}`);
+  }
+
+  /**
+   * Test a webhook.
+   */
+  async test(webhookId: string): Promise<WebhookTestResult> {
+    return this.http.post<WebhookTestResult>(`/api/webhooks/${webhookId}/test`, {});
+  }
+}
+
+// =============================================================================
+// Training Export API
+// =============================================================================
+
+class TrainingAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Export training data in SFT format.
+   */
+  async exportSft(options?: TrainingExportOptions): Promise<TrainingExportResponse> {
+    return this.http.post<TrainingExportResponse>('/api/training/export/sft', options || {});
+  }
+
+  /**
+   * Export training data in DPO format.
+   */
+  async exportDpo(options?: TrainingExportOptions): Promise<TrainingExportResponse> {
+    return this.http.post<TrainingExportResponse>('/api/training/export/dpo', options || {});
+  }
+
+  /**
+   * Export adversarial training data from gauntlet runs.
+   */
+  async exportGauntlet(options?: TrainingExportOptions): Promise<TrainingExportResponse> {
+    return this.http.post<TrainingExportResponse>('/api/training/export/gauntlet', options || {});
+  }
+
+  /**
+   * Get training data statistics.
+   */
+  async stats(): Promise<TrainingStats> {
+    return this.http.get<TrainingStats>('/api/training/stats');
+  }
+
+  /**
+   * Get supported export formats.
+   */
+  async formats(): Promise<TrainingFormat[]> {
+    const response = await this.http.get<{ formats: TrainingFormat[] }>('/api/training/formats');
+    return response.formats;
+  }
+}
+
+// =============================================================================
+// Metrics API
+// =============================================================================
+
+class MetricsAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get overall system metrics.
+   */
+  async get(): Promise<SystemMetrics> {
+    return this.http.get<SystemMetrics>('/api/metrics');
+  }
+
+  /**
+   * Get health metrics.
+   */
+  async health(): Promise<HealthMetrics> {
+    return this.http.get<HealthMetrics>('/api/metrics/health');
+  }
+
+  /**
+   * Get cache metrics.
+   */
+  async cache(): Promise<CacheMetrics> {
+    return this.http.get<CacheMetrics>('/api/metrics/cache');
+  }
+
+  /**
+   * Get verification metrics.
+   */
+  async verification(): Promise<VerificationMetrics> {
+    return this.http.get<VerificationMetrics>('/api/metrics/verification');
+  }
+
+  /**
+   * Get system resource metrics.
+   */
+  async system(): Promise<SystemResourceMetrics> {
+    return this.http.get<SystemResourceMetrics>('/api/metrics/system');
+  }
+
+  /**
+   * Get background job metrics.
+   */
+  async background(): Promise<BackgroundJobMetrics> {
+    return this.http.get<BackgroundJobMetrics>('/api/metrics/background');
+  }
+
+  /**
+   * Get Prometheus-formatted metrics.
+   */
+  async prometheus(): Promise<string> {
+    const response = await this.http.get<{ metrics: string }>('/metrics');
+    return response.metrics;
+  }
+}
+
+// =============================================================================
+// Routing API
+// =============================================================================
+
+class RoutingAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get recommended agent teams for a task.
+   */
+  async bestTeams(task: string, options?: { limit?: number }): Promise<TeamRecommendation[]> {
+    const params = new URLSearchParams({ task });
+    if (options?.limit) params.set('limit', String(options.limit));
+    const response = await this.http.get<{ teams: TeamRecommendation[] }>(`/api/routing/best-teams?${params}`);
+    return response.teams;
+  }
+
+  /**
+   * Get routing recommendations.
+   */
+  async recommendations(task: string): Promise<RoutingRecommendation> {
+    return this.http.get<RoutingRecommendation>(`/api/routing/recommendations?task=${encodeURIComponent(task)}`);
+  }
+
+  /**
+   * Auto-route a task to the best agents.
+   */
+  async autoRoute(request: AutoRouteRequest): Promise<AutoRouteResponse> {
+    return this.http.post<AutoRouteResponse>('/api/routing/auto-route', request);
+  }
+
+  /**
+   * Detect domain for a task.
+   */
+  async detectDomain(task: string): Promise<DomainDetectionResult> {
+    return this.http.post<DomainDetectionResult>('/api/routing/detect-domain', { task });
+  }
+
+  /**
+   * Get domain leaderboard.
+   */
+  async domainLeaderboard(domain?: string): Promise<DomainLeaderboardEntry[]> {
+    const params = domain ? `?domain=${encodeURIComponent(domain)}` : '';
+    const response = await this.http.get<{ entries: DomainLeaderboardEntry[] }>(`/api/routing/domain-leaderboard${params}`);
+    return response.entries;
+  }
+}
+
+// =============================================================================
 // Main Client
 // =============================================================================
 
@@ -2297,6 +2964,11 @@ export class AragoraClient {
   readonly dashboard: DashboardAPI;
   readonly system: SystemAPI;
   readonly features: FeaturesAPI;
+  readonly checkpoints: CheckpointsAPI;
+  readonly webhooks: WebhooksAPI;
+  readonly training: TrainingAPI;
+  readonly metrics: MetricsAPI;
+  readonly routing: RoutingAPI;
 
   /**
    * Create a new Aragora client.
@@ -2352,6 +3024,11 @@ export class AragoraClient {
     this.dashboard = new DashboardAPI(this.http);
     this.system = new SystemAPI(this.http);
     this.features = new FeaturesAPI(this.http);
+    this.checkpoints = new CheckpointsAPI(this.http);
+    this.webhooks = new WebhooksAPI(this.http);
+    this.training = new TrainingAPI(this.http);
+    this.metrics = new MetricsAPI(this.http);
+    this.routing = new RoutingAPI(this.http);
   }
 
   /**

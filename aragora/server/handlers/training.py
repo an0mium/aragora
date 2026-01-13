@@ -15,7 +15,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from .base import (
     BaseHandler,
@@ -63,7 +63,8 @@ class TrainingHandler(BaseHandler):
         """Route training requests to appropriate methods."""
         method_name = self.ROUTES.get(path)
         if method_name and hasattr(self, method_name):
-            return getattr(self, method_name)(path, query_params, handler)
+            result = getattr(self, method_name)(path, query_params, handler)
+            return cast(Optional[HandlerResult], result)
         return None
 
     def _get_sft_exporter(self):
