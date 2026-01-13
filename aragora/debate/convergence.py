@@ -12,6 +12,7 @@ Uses a 3-tier fallback for similarity computation:
 Inspired by ai-counsel's convergence detection system.
 """
 
+import hashlib
 import logging
 import os
 import threading
@@ -20,7 +21,213 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any, Optional
 
+import numpy as np
+
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Embedding Cache
+# =============================================================================
+
+
+class EmbeddingCache:
+    """
+    LRU cache for text embeddings with optional persistence.
+
+    Caches embeddings at the text level, so the same text encoded in
+    different pairs only requires one model.encode() call.
+
+    Performance impact:
+        - Without cache: O(n²) encode calls for n texts
+        - With cache: O(n) encode calls (amortized)
+        - Expected speedup: 10-100x for repeated text comparisons
+    """
+
+    def __init__(
+        self,
+        max_size: int = 1024,
+        persist: bool = False,
+        db_path: Optional[str] = None,
+    ):
+        """
+        Initialize embedding cache.
+
+        Args:
+            max_size: Maximum entries in memory cache (default 1024)
+            persist: Whether to persist to database (default False)
+            db_path: Path to embeddings database (uses core.db if None)
+        """
+        self.max_size = max_size
+        self.persist = persist
+        self.db_path = db_path
+        self._cache: dict[str, np.ndarray] = {}
+        self._access_order: list[str] = []
+        self._lock = threading.RLock()
+        self._hits = 0
+        self._misses = 0
+
+    def _hash_text(self, text: str) -> str:
+        """Generate hash key for text."""
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()[:32]
+
+    def get(self, text: str) -> Optional[np.ndarray]:
+        """Get embedding from cache."""
+        key = self._hash_text(text)
+
+        with self._lock:
+            if key in self._cache:
+                self._hits += 1
+                # Move to end of access order (LRU)
+                if key in self._access_order:
+                    self._access_order.remove(key)
+                self._access_order.append(key)
+                return self._cache[key]
+
+        # Try persistent cache
+        if self.persist:
+            embedding = self._load_from_db(key)
+            if embedding is not None:
+                self._hits += 1
+                with self._lock:
+                    self._store_in_memory(key, embedding)
+                return embedding
+
+        self._misses += 1
+        return None
+
+    def put(self, text: str, embedding: np.ndarray) -> None:
+        """Store embedding in cache."""
+        key = self._hash_text(text)
+
+        with self._lock:
+            self._store_in_memory(key, embedding)
+
+        if self.persist:
+            self._save_to_db(key, text[:1000], embedding)  # Truncate text
+
+    def _store_in_memory(self, key: str, embedding: np.ndarray) -> None:
+        """Store in memory cache with LRU eviction."""
+        # Evict oldest entries if at capacity
+        while len(self._cache) >= self.max_size and self._access_order:
+            oldest = self._access_order.pop(0)
+            self._cache.pop(oldest, None)
+
+        self._cache[key] = embedding
+        if key not in self._access_order:
+            self._access_order.append(key)
+
+    def _load_from_db(self, key: str) -> Optional[np.ndarray]:
+        """Load embedding from database."""
+        if not self.db_path:
+            return None
+
+        try:
+            import sqlite3
+
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.execute(
+                "SELECT embedding FROM embeddings WHERE text_hash = ?", (key,)
+            )
+            row = cursor.fetchone()
+            conn.close()
+
+            if row and row[0]:
+                return np.frombuffer(row[0], dtype=np.float32)
+        except Exception as e:
+            logger.debug(f"Failed to load embedding from DB: {e}")
+
+        return None
+
+    def _save_to_db(self, key: str, text: str, embedding: np.ndarray) -> None:
+        """Save embedding to database."""
+        if not self.db_path:
+            return
+
+        try:
+            import sqlite3
+            import uuid
+
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO embeddings (id, text_hash, text, embedding, provider, created_at)
+                VALUES (?, ?, ?, ?, ?, datetime('now'))
+                """,
+                (
+                    str(uuid.uuid4()),
+                    key,
+                    text,
+                    embedding.astype(np.float32).tobytes(),
+                    "sentence-transformer",
+                ),
+            )
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logger.debug(f"Failed to save embedding to DB: {e}")
+
+    def get_stats(self) -> dict:
+        """Get cache statistics."""
+        total = self._hits + self._misses
+        return {
+            "hits": self._hits,
+            "misses": self._misses,
+            "hit_rate": self._hits / total if total > 0 else 0.0,
+            "size": len(self._cache),
+            "max_size": self.max_size,
+        }
+
+    def clear(self) -> None:
+        """Clear the cache."""
+        with self._lock:
+            self._cache.clear()
+            self._access_order.clear()
+            self._hits = 0
+            self._misses = 0
+
+
+# Global embedding cache instance
+_embedding_cache: Optional[EmbeddingCache] = None
+_embedding_cache_lock = threading.Lock()
+
+
+def get_embedding_cache(
+    max_size: int = 1024,
+    persist: bool = False,
+    db_path: Optional[str] = None,
+) -> EmbeddingCache:
+    """
+    Get or create global embedding cache.
+
+    Args:
+        max_size: Maximum cache entries
+        persist: Enable database persistence
+        db_path: Database path for persistence
+
+    Returns:
+        EmbeddingCache instance
+    """
+    global _embedding_cache
+
+    with _embedding_cache_lock:
+        if _embedding_cache is None:
+            # Default to core.db for persistence
+            if persist and db_path is None:
+                from aragora.persistence.db_config import (
+                    get_db_path_str,
+                    DatabaseType,
+                )
+
+                db_path = get_db_path_str(DatabaseType.EMBEDDINGS)
+
+            _embedding_cache = EmbeddingCache(
+                max_size=max_size,
+                persist=persist,
+                db_path=db_path,
+            )
+
+        return _embedding_cache
 
 _ENV_SIMILARITY_BACKEND = "ARAGORA_SIMILARITY_BACKEND"
 _ENV_CONVERGENCE_BACKEND = "ARAGORA_CONVERGENCE_BACKEND"
@@ -250,7 +457,9 @@ class SentenceTransformerBackend(SimilarityBackend):
 
     Performance optimization:
         - Model is cached at class level (avoids reloading)
-        - Individual similarity computations are cached with LRU (256 pairs)
+        - Embeddings are cached at text level (EmbeddingCache)
+        - Similarity results are cached at pair level (256 pairs)
+        - Expected speedup: 10-100x for repeated text comparisons
     """
 
     _model_cache: Optional[Any] = None
@@ -261,9 +470,22 @@ class SentenceTransformerBackend(SimilarityBackend):
 
     model: Any
     cosine_similarity: Any
+    embedding_cache: Optional[EmbeddingCache]
 
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
-        """Initialize sentence transformer backend."""
+    def __init__(
+        self,
+        model_name: str = "all-MiniLM-L6-v2",
+        use_embedding_cache: bool = True,
+        persist_embeddings: bool = False,
+    ):
+        """
+        Initialize sentence transformer backend.
+
+        Args:
+            model_name: Sentence transformer model name
+            use_embedding_cache: Enable embedding-level caching (default True)
+            persist_embeddings: Persist embeddings to database (default False)
+        """
         try:
             from sentence_transformers import SentenceTransformer
             from sklearn.metrics.pairwise import cosine_similarity
@@ -282,6 +504,15 @@ class SentenceTransformerBackend(SimilarityBackend):
 
             self.cosine_similarity = cosine_similarity
 
+            # Initialize embedding cache
+            if use_embedding_cache:
+                self.embedding_cache = get_embedding_cache(
+                    max_size=1024,
+                    persist=persist_embeddings,
+                )
+            else:
+                self.embedding_cache = None
+
         except (ImportError, RuntimeError) as e:
             # RuntimeError can occur from transformers/Keras compatibility issues
             raise ImportError(
@@ -289,11 +520,29 @@ class SentenceTransformerBackend(SimilarityBackend):
                 f"Install with: pip install sentence-transformers. Error: {e}"
             ) from e
 
+    def _get_embedding(self, text: str) -> np.ndarray:
+        """Get embedding for text, using cache if available."""
+        if self.embedding_cache:
+            cached = self.embedding_cache.get(text)
+            if cached is not None:
+                return cached
+
+        # Compute embedding
+        embedding = self.model.encode([text])[0]
+
+        # Cache it
+        if self.embedding_cache:
+            self.embedding_cache.put(text, embedding)
+
+        return embedding
+
     def compute_similarity(self, text1: str, text2: str) -> float:
         """Compute semantic similarity using sentence embeddings (thread-safe).
 
-        Results are cached using (text1, text2) as key to avoid
-        recomputing similarity for the same text pairs.
+        Uses multi-level caching:
+        1. Similarity cache (pair level) - fastest
+        2. Embedding cache (text level) - avoids re-encoding same text
+        3. Model encode (slowest) - only for cache misses
         """
         if not text1 or not text2:
             return 0.0
@@ -301,19 +550,22 @@ class SentenceTransformerBackend(SimilarityBackend):
         # Normalize key order for symmetric cache hits
         cache_key = (text1, text2) if text1 <= text2 else (text2, text1)
 
-        # Check cache first (with lock)
+        # Check similarity cache first (with lock)
         with SentenceTransformerBackend._cache_lock:
             if cache_key in SentenceTransformerBackend._similarity_cache:
                 return SentenceTransformerBackend._similarity_cache[cache_key]
 
-        # Compute similarity (outside lock)
-        embeddings = self.model.encode([text1, text2])
+        # Get embeddings (checks embedding cache internally)
+        emb1 = self._get_embedding(text1)
+        emb2 = self._get_embedding(text2)
+
+        # Compute cosine similarity
         similarity = self.cosine_similarity(
-            embeddings[0].reshape(1, -1), embeddings[1].reshape(1, -1)
+            emb1.reshape(1, -1), emb2.reshape(1, -1)
         )[0][0]
         result = float(similarity)
 
-        # Cache result (with lock and simple size limit)
+        # Cache similarity result (with lock and simple size limit)
         with SentenceTransformerBackend._cache_lock:
             if len(SentenceTransformerBackend._similarity_cache) >= SentenceTransformerBackend._cache_max_size:
                 # Clear oldest half when full

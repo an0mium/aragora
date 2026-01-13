@@ -1,26 +1,171 @@
 # Database Architecture
 
-Aragora uses a dual-storage architecture: SQLite for local development and persistent state, Supabase for cloud deployment.
+Aragora uses a dual-storage architecture: SQLite for local development and persistent state, Supabase for cloud deployment. PostgreSQL is supported for production deployments.
 
 ## Quick Reference
 
+| Aspect | Value |
+|--------|-------|
+| **Default Mode** | `consolidated` (4 databases) |
+| **Legacy Mode** | `legacy` (32 databases) |
+| **PostgreSQL** | Full support via `psycopg2` |
+| **Connection Pooling** | Built-in (10-20 per DB) |
+
+### Consolidated Databases (Default)
+
+| Database | Purpose | Key Tables |
+|----------|---------|------------|
+| **core.db** | Debates, traces, tournaments | debates, traces, positions, embeddings |
+| **memory.db** | Agent memory systems | continuum_memory, consensus, patterns |
+| **analytics.db** | ELO ratings, insights | ratings, matches, elo_history, insights |
+| **agents.db** | Agent personas, genesis | personas, genomes, relationships |
+
+### Legacy Databases (32 individual files)
+
 | Database | Purpose | Default Path |
 |----------|---------|--------------|
-| `aragora_elo.db` | Agent ELO rankings | `~/.aragora/` |
-| `aragora_memory.db` | Memory tiers | `~/.aragora/` |
-| `aragora_users.db` | User accounts | `~/.aragora/` |
-| `aragora_positions.db` | Agent positions | `~/.aragora/` |
-| `aragora_replay.db` | Debate replays | `~/.aragora/` |
-| `aragora_tokens.db` | Token blacklist | `~/.aragora/` |
+| `aragora_elo.db` | Agent ELO rankings | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `aragora_memory.db` | Memory tiers | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `aragora_users.db` | User accounts | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `aragora_positions.db` | Agent positions | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `aragora_replay.db` | Debate replays | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `aragora_tokens.db` | Token blacklist | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+
+---
+
+## Database Mode Configuration
+
+```bash
+# Use consolidated mode (default, recommended)
+export ARAGORA_DB_MODE=consolidated
+
+# Use legacy mode (32 individual databases)
+export ARAGORA_DB_MODE=legacy
+```
+
+### Programmatic Access
+
+```python
+from aragora.persistence.db_config import (
+    get_db_path,
+    DatabaseType,
+    get_db_mode,
+    DatabaseMode,
+)
+
+# Get path for a specific database type
+elo_path = get_db_path(DatabaseType.ELO)  # -> analytics.db in consolidated mode
+
+# Check current mode
+mode = get_db_mode()
+if mode == DatabaseMode.CONSOLIDATED:
+    print("Using consolidated databases")
+```
+
+---
+
+## Migration: Legacy to Consolidated
+
+### Running the Migration
+
+```bash
+# 1. Dry run - see what would be migrated
+python -m aragora.persistence.migrations.consolidate --dry-run --source .nomic
+
+# 2. Execute migration (creates backup automatically)
+python -m aragora.persistence.migrations.consolidate --migrate --source .nomic
+
+# 3. Verify migration
+python -m aragora.persistence.migrations.consolidate --verify --source .nomic
+```
+
+### Migration Options
+
+| Option | Description |
+|--------|-------------|
+| `--dry-run` | Show what would be migrated |
+| `--migrate` | Execute the consolidation |
+| `--verify` | Verify consolidated databases |
+| `--source DIR` | Source directory (default: .nomic) |
+| `--target DIR` | Target directory (default: same as source) |
+| `--no-backup` | Skip backup (not recommended) |
+
+Backups are created at `.nomic/backup/YYYYMMDD_HHMMSS/`
+
+---
+
+## PostgreSQL Production Setup
+
+For high-concurrency or distributed deployments.
+
+### Prerequisites
+
+```bash
+pip install psycopg2-binary  # or psycopg2 for production
+```
+
+### Environment Configuration
+
+```bash
+# Required
+export ARAGORA_DATABASE_URL="postgresql://user:password@host:5432/aragora"
+
+# Optional
+export ARAGORA_DB_POOL_MIN=5      # Minimum pool connections
+export ARAGORA_DB_POOL_MAX=20     # Maximum pool connections
+export ARAGORA_DB_TIMEOUT=30      # Connection timeout
+```
+
+### Connection String Format
+
+```
+postgresql://[user]:[password]@[host]:[port]/[database]
+
+# Examples:
+postgresql://aragora:secret@localhost:5432/aragora_prod
+postgresql://user:pass@db.example.com:5432/aragora?sslmode=require
+```
+
+### Database Setup
+
+```sql
+-- Create database
+CREATE DATABASE aragora_prod;
+CREATE USER aragora WITH ENCRYPTED PASSWORD 'your-secure-password';
+GRANT ALL PRIVILEGES ON DATABASE aragora_prod TO aragora;
+```
+
+### Apply Schemas
+
+```bash
+psql -U aragora -d aragora_prod -f aragora/persistence/schemas/core.sql
+psql -U aragora -d aragora_prod -f aragora/persistence/schemas/memory.sql
+psql -U aragora -d aragora_prod -f aragora/persistence/schemas/analytics.sql
+psql -U aragora -d aragora_prod -f aragora/persistence/schemas/agents.sql
+```
+
+---
 
 ## Local Development (SQLite)
 
 ### Database Location
 
-By default, databases are stored in `~/.aragora/`. Override with:
+By default, databases are stored in `ARAGORA_DATA_DIR` (default `.nomic/`). Override with:
 
 ```bash
-export NOMIC_DIR=/path/to/data
+export ARAGORA_DATA_DIR=/path/to/data
+```
+
+Legacy aliases:
+```bash
+export ARAGORA_NOMIC_DIR=/path/to/data  # used by some migration tooling
+export NOMIC_DIR=/path/to/data          # older env var
+```
+
+If you ran Aragora in the repo root and created stray `.db` files, move them under `ARAGORA_DATA_DIR` with:
+
+```bash
+scripts/cleanup_runtime_artifacts.sh
 ```
 
 ### Connection Configuration
@@ -255,10 +400,12 @@ def upgrade(conn: sqlite3.Connection) -> None:
 
 ```bash
 # Manual backup
-cp ~/.aragora/aragora_users.db ~/.aragora/backups/users_$(date +%Y%m%d).db
+cp "${ARAGORA_DATA_DIR:-.nomic}/aragora_users.db" \
+  "${ARAGORA_DATA_DIR:-.nomic}/backups/users_$(date +%Y%m%d).db"
 
 # Using sqlite3 backup command
-sqlite3 ~/.aragora/aragora_users.db ".backup '~/.aragora/backups/users.db'"
+sqlite3 "${ARAGORA_DATA_DIR:-.nomic}/aragora_users.db" \
+  ".backup '${ARAGORA_DATA_DIR:-.nomic}/backups/users.db'"
 ```
 
 ### Automated Backup Script
@@ -267,12 +414,12 @@ sqlite3 ~/.aragora/aragora_users.db ".backup '~/.aragora/backups/users.db'"
 #!/bin/bash
 # scripts/backup_dbs.sh
 
-BACKUP_DIR="${NOMIC_DIR:-$HOME/.aragora}/backups"
+BACKUP_DIR="${ARAGORA_DATA_DIR:-.nomic}/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
 mkdir -p "$BACKUP_DIR"
 
 for db in elo memory users positions replay tokens; do
-    src="${NOMIC_DIR:-$HOME/.aragora}/aragora_${db}.db"
+    src="${ARAGORA_DATA_DIR:-.nomic}/aragora_${db}.db"
     if [ -f "$src" ]; then
         sqlite3 "$src" ".backup '$BACKUP_DIR/${db}_${DATE}.db'"
         echo "Backed up: $db"
@@ -287,7 +434,8 @@ find "$BACKUP_DIR" -name "*.db" -mtime +7 -delete
 
 ```bash
 # Stop the server first
-cp ~/.aragora/backups/users_20240101.db ~/.aragora/aragora_users.db
+cp "${ARAGORA_DATA_DIR:-.nomic}/backups/users_20240101.db" \
+  "${ARAGORA_DATA_DIR:-.nomic}/aragora_users.db"
 ```
 
 ## Performance Monitoring
@@ -375,7 +523,7 @@ If migration fails with version mismatch:
 python -m aragora.persistence.migrations.runner --status
 
 # View schema_version table directly
-sqlite3 ~/.aragora/aragora_users.db "SELECT * FROM schema_version"
+sqlite3 "${ARAGORA_DATA_DIR:-.nomic}/aragora_users.db" "SELECT * FROM schema_version"
 ```
 
 ### Corrupted Database
@@ -457,7 +605,8 @@ class StreamEvent:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `NOMIC_DIR` | `~/.aragora` | Database directory |
+| `ARAGORA_DATA_DIR` | `.nomic` | Database directory |
+| `ARAGORA_NOMIC_DIR` | `.nomic` | Legacy alias for some migration tooling |
 | `SUPABASE_URL` | - | Supabase project URL |
 | `SUPABASE_KEY` | - | Supabase service key |
 | `ARAGORA_SLOW_QUERY_MS` | `500` | Slow query threshold |
