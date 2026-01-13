@@ -139,46 +139,9 @@ jobs:
             fi
 
             # Configure nginx for WebSocket routing if nginx is installed
-            if command -v nginx &> /dev/null; then
+            if command -v nginx &> /dev/null && [ -f deploy/nginx-aragora.conf ]; then
               echo "Configuring nginx for WebSocket routing..."
-              sudo tee /etc/nginx/sites-available/aragora > /dev/null << 'NGINXEOF'
-upstream aragora_api {
-    server 127.0.0.1:8080;
-}
-upstream aragora_ws {
-    server 127.0.0.1:8765;
-}
-server {
-    listen 80;
-    server_name api.aragora.ai _;
-    return 301 https://$host$request_uri;
-}
-server {
-    listen 443 ssl http2;
-    server_name api.aragora.ai _;
-    ssl_certificate /etc/ssl/certs/cloudflare-origin.pem;
-    ssl_certificate_key /etc/ssl/private/cloudflare-origin-key.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    location /ws {
-        proxy_pass http://aragora_ws;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_read_timeout 86400;
-    }
-    location / {
-        proxy_pass http://aragora_api;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_read_timeout 300;
-    }
-}
-NGINXEOF
+              sudo cp deploy/nginx-aragora.conf /etc/nginx/sites-available/aragora
               sudo ln -sf /etc/nginx/sites-available/aragora /etc/nginx/sites-enabled/aragora
               sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
               sudo nginx -t && sudo systemctl reload nginx
@@ -325,46 +288,9 @@ NGINXEOF
             fi
 
             # Configure nginx for WebSocket routing if nginx is installed
-            if command -v nginx &> /dev/null; then
+            if command -v nginx &> /dev/null && [ -f deploy/nginx-aragora.conf ]; then
               echo "Configuring nginx for WebSocket routing..."
-              sudo tee /etc/nginx/sites-available/aragora > /dev/null << 'NGINXEOF'
-upstream aragora_api {
-    server 127.0.0.1:8080;
-}
-upstream aragora_ws {
-    server 127.0.0.1:8765;
-}
-server {
-    listen 80;
-    server_name api.aragora.ai _;
-    return 301 https://$host$request_uri;
-}
-server {
-    listen 443 ssl http2;
-    server_name api.aragora.ai _;
-    ssl_certificate /etc/ssl/certs/cloudflare-origin.pem;
-    ssl_certificate_key /etc/ssl/private/cloudflare-origin-key.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    location /ws {
-        proxy_pass http://aragora_ws;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_read_timeout 86400;
-    }
-    location / {
-        proxy_pass http://aragora_api;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_read_timeout 300;
-    }
-}
-NGINXEOF
+              sudo cp deploy/nginx-aragora.conf /etc/nginx/sites-available/aragora
               sudo ln -sf /etc/nginx/sites-available/aragora /etc/nginx/sites-enabled/aragora
               sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
               sudo nginx -t && sudo systemctl reload nginx
