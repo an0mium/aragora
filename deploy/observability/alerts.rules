@@ -1,0 +1,179 @@
+# Prometheus alerting rules for Aragora
+#
+# These rules define when to trigger alerts based on metrics.
+# Configure Alertmanager to route these to Slack, PagerDuty, etc.
+
+groups:
+  - name: aragora_availability
+    interval: 30s
+    rules:
+      - alert: AragoraDown
+        expr: up{job="aragora-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Aragora API is down"
+          description: "Aragora API server has been unreachable for more than 1 minute."
+
+      - alert: AragoraHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="aragora-api"}[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency detected"
+          description: "P95 latency is above 500ms for 5 minutes. Current: {{ $value | printf \"%.2f\" }}s"
+
+      - alert: AragoraCriticalLatency
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="aragora-api"}[5m])) > 2
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical API latency"
+          description: "P99 latency is above 2s for 2 minutes. Current: {{ $value | printf \"%.2f\" }}s"
+
+  - name: aragora_errors
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{job="aragora-api", status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="aragora-api"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "More than 5% of requests are failing. Current: {{ $value | printf \"%.2f\" }}%"
+
+      - alert: RateLimitExhaustion
+        expr: sum(rate(http_requests_total{job="aragora-api", status="429"}[5m])) > 0.83
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate limit rejections"
+          description: "More than 50 rate limit rejections per minute for 5 minutes."
+
+      - alert: DebateTimeoutRate
+        expr: |
+          sum(rate(aragora_debates_total{status="timeout"}[15m]))
+          /
+          sum(rate(aragora_debates_total[15m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High debate timeout rate"
+          description: "More than 10% of debates are timing out. Current: {{ $value | printf \"%.1f\" }}%"
+
+  - name: aragora_resources
+    interval: 60s
+    rules:
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes{job="aragora-api"} / 1024 / 1024 / 1024 > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Aragora is using more than 2GB of memory. Current: {{ $value | printf \"%.1f\" }}GB"
+
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="aragora-api"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "Aragora CPU usage above 80% for 5 minutes. Current: {{ $value | printf \"%.0f\" }}%"
+
+      - alert: TooManyOpenConnections
+        expr: aragora_active_connections > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Too many open connections"
+          description: "More than 1000 active connections. Current: {{ $value }}"
+
+  - name: aragora_debates
+    interval: 60s
+    rules:
+      - alert: NoActiveDebates
+        expr: aragora_active_debates == 0
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "No active debates"
+          description: "No debates have been running for 30 minutes. This may be expected during low traffic."
+
+      - alert: LowConsensusRate
+        expr: |
+          sum(rate(aragora_consensus_reached[1h]))
+          /
+          sum(rate(aragora_debates_total{status="completed"}[1h])) < 0.5
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "Low consensus rate"
+          description: "Less than 50% of debates are reaching consensus in the last hour."
+
+      - alert: AgentHighErrorRate
+        expr: |
+          sum by (agent) (rate(aragora_agent_errors_total[15m]))
+          /
+          sum by (agent) (rate(aragora_agent_requests_total[15m])) > 0.2
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent {{ $labels.agent }} has high error rate"
+          description: "Agent {{ $labels.agent }} is failing more than 20% of requests."
+
+  - name: aragora_circuit_breakers
+    interval: 30s
+    rules:
+      - alert: CircuitBreakerOpen
+        expr: aragora_circuit_breakers_open > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Circuit breaker(s) open"
+          description: "{{ $value }} circuit breaker(s) are in open state. Some agents may be unavailable."
+
+      - alert: MultipleCircuitBreakersOpen
+        expr: aragora_circuit_breakers_open > 3
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Multiple circuit breakers open"
+          description: "{{ $value }} circuit breakers are open. Service degradation likely."
+
+  - name: aragora_redis
+    interval: 30s
+    rules:
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis server is unreachable. Rate limiting will fall back to in-memory."
+
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis is using more than 90% of max memory."

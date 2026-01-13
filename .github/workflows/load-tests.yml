@@ -1,0 +1,263 @@
+name: Load Tests
+
+on:
+  schedule:
+    # Run nightly at 3am UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      concurrent_users:
+        description: 'Number of concurrent users'
+        required: false
+        default: '50'
+      duration:
+        description: 'Test duration (e.g., 60s, 5m)'
+        required: false
+        default: '60s'
+      api_url:
+        description: 'API URL to test'
+        required: false
+        default: 'http://localhost:8080'
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  load-test:
+    name: Load Test Suite
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Start Aragora server
+        run: |
+          aragora serve --api-port 8080 --ws-port 8766 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+
+          # Wait for server to be healthy
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
+              echo "Server is healthy"
+              break
+            fi
+            echo "Waiting for server... ($i/30)"
+            sleep 1
+          done
+
+          # Final health check
+          curl -fsS http://127.0.0.1:8080/api/health
+        env:
+          ARAGORA_REDIS_URL: redis://localhost:6379/0
+          ARAGORA_ENABLE_REDIS_RATE_LIMIT: "1"
+
+      - name: Run API load tests
+        run: |
+          k6 run tests/load/api_load.js \
+            --vus ${{ github.event.inputs.concurrent_users || '50' }} \
+            --duration ${{ github.event.inputs.duration || '60s' }} \
+            --out json=load-results.json \
+            --summary-export=load-summary.json
+        env:
+          API_URL: ${{ github.event.inputs.api_url || 'http://localhost:8080' }}
+
+      - name: Run WebSocket burst test
+        run: |
+          k6 run tests/load/websocket_burst.js \
+            --vus 100 \
+            --duration 30s \
+            --out json=ws-results.json
+        env:
+          WS_URL: ws://localhost:8766
+
+      - name: Run rate limit validation
+        run: |
+          k6 run tests/load/rate_limit_test.js \
+            --vus 10 \
+            --duration 30s
+        env:
+          API_URL: http://localhost:8080
+
+      - name: Check thresholds
+        run: |
+          python -c "
+          import json
+          import sys
+
+          with open('load-summary.json') as f:
+              summary = json.load(f)
+
+          metrics = summary.get('metrics', {})
+
+          # Check p95 latency < 500ms
+          p95 = metrics.get('http_req_duration', {}).get('values', {}).get('p(95)', 0)
+          if p95 > 500:
+              print(f'FAIL: p95 latency {p95:.2f}ms > 500ms')
+              sys.exit(1)
+          print(f'PASS: p95 latency {p95:.2f}ms')
+
+          # Check error rate < 1%
+          reqs = metrics.get('http_reqs', {}).get('values', {}).get('count', 1)
+          fails = metrics.get('http_req_failed', {}).get('values', {}).get('count', 0)
+          error_rate = (fails / reqs) * 100 if reqs > 0 else 0
+          if error_rate > 1:
+              print(f'FAIL: error rate {error_rate:.2f}% > 1%')
+              sys.exit(1)
+          print(f'PASS: error rate {error_rate:.2f}%')
+
+          print('All load test thresholds passed!')
+          "
+
+      - name: Upload load test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-test-results
+          path: |
+            load-results.json
+            load-summary.json
+            ws-results.json
+            /tmp/aragora-server.log
+          retention-days: 14
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -n "$SERVER_PID" ]; then
+            kill $SERVER_PID || true
+          fi
+
+  memory-stress:
+    name: Memory Stress Test
+    runs-on: ubuntu-latest
+    needs: load-test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install memory_profiler
+
+      - name: Start server with memory monitoring
+        run: |
+          python -c "
+          import subprocess
+          import time
+          import psutil
+          import sys
+
+          # Start server
+          proc = subprocess.Popen(
+              ['aragora', 'serve', '--api-port', '8080', '--host', '127.0.0.1'],
+              stdout=subprocess.PIPE,
+              stderr=subprocess.PIPE
+          )
+
+          # Wait for startup
+          time.sleep(5)
+
+          # Monitor memory for 60 seconds under simulated load
+          max_memory = 0
+          for _ in range(60):
+              try:
+                  p = psutil.Process(proc.pid)
+                  mem = p.memory_info().rss / (1024 * 1024)  # MB
+                  max_memory = max(max_memory, mem)
+                  print(f'Memory: {mem:.1f}MB')
+              except psutil.NoSuchProcess:
+                  break
+              time.sleep(1)
+
+          proc.terminate()
+
+          # Check memory threshold (2GB)
+          if max_memory > 2048:
+              print(f'FAIL: Max memory {max_memory:.1f}MB > 2048MB')
+              sys.exit(1)
+          print(f'PASS: Max memory {max_memory:.1f}MB')
+          "
+
+      - name: Check for memory leaks
+        run: |
+          python -c "
+          import subprocess
+          import time
+          import psutil
+
+          # Start server
+          proc = subprocess.Popen(
+              ['aragora', 'serve', '--api-port', '8080', '--host', '127.0.0.1'],
+              stdout=subprocess.PIPE,
+              stderr=subprocess.PIPE
+          )
+
+          time.sleep(3)
+
+          # Get initial memory
+          p = psutil.Process(proc.pid)
+          initial_mem = p.memory_info().rss / (1024 * 1024)
+
+          # Make 1000 requests
+          import urllib.request
+          for _ in range(1000):
+              try:
+                  urllib.request.urlopen('http://localhost:8080/api/health', timeout=1)
+              except:
+                  pass
+
+          # Check memory growth
+          final_mem = p.memory_info().rss / (1024 * 1024)
+          growth = final_mem - initial_mem
+
+          proc.terminate()
+
+          print(f'Initial memory: {initial_mem:.1f}MB')
+          print(f'Final memory: {final_mem:.1f}MB')
+          print(f'Growth: {growth:.1f}MB')
+
+          # Allow up to 100MB growth for caches
+          if growth > 100:
+              print(f'WARNING: Memory grew by {growth:.1f}MB (possible leak)')
+          else:
+              print('PASS: No significant memory leak detected')
+          "

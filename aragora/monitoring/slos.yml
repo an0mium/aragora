@@ -1,0 +1,252 @@
+# Aragora Service Level Objectives (SLOs)
+#
+# This file defines the service level objectives for the Aragora platform.
+# These SLOs are used to:
+#   1. Set expectations with users
+#   2. Guide engineering priorities
+#   3. Configure error budgets and alerting
+#
+# Format compatible with:
+#   - Sloth (https://github.com/slok/sloth)
+#   - Pyrra (https://github.com/pyrra-dev/pyrra)
+#   - Google SLO Generator
+
+version: "prometheus/v1"
+service: "aragora"
+
+slos:
+  # =========================================================================
+  # API Availability SLO
+  # =========================================================================
+  - name: api_availability
+    description: "API requests complete successfully"
+    objective: 99.9  # 99.9% availability = 43.8 minutes downtime/month
+    window: 30d
+
+    sli:
+      events:
+        # Good events: successful API responses (2xx, 3xx, 4xx client errors)
+        error_query: |
+          sum(rate(aragora_api_requests_total{status="error"}[{{.window}}]))
+        total_query: |
+          sum(rate(aragora_api_requests_total[{{.window}}]))
+
+    alerting:
+      name: "APIAvailabilitySLOBreach"
+      labels:
+        severity: critical
+        slo: api_availability
+      annotations:
+        summary: "API availability SLO is at risk"
+        description: "Error budget for API availability is depleted. Current availability: {{ $value | humanizePercentage }}"
+
+    page_alert:
+      labels:
+        severity: critical
+      annotations:
+        summary: "API availability SLO breach imminent"
+
+    ticket_alert:
+      labels:
+        severity: warning
+      annotations:
+        summary: "API availability SLO trending down"
+
+  # =========================================================================
+  # API Latency SLO
+  # =========================================================================
+  - name: api_latency
+    description: "API requests complete within acceptable time"
+    objective: 99.0  # 99% of requests under threshold
+    window: 30d
+
+    sli:
+      events:
+        # Good events: requests completing under 2 seconds
+        error_query: |
+          sum(rate(aragora_api_latency_seconds_bucket{le="2.0"}[{{.window}}]))
+          -
+          sum(rate(aragora_api_latency_seconds_count[{{.window}}]))
+        total_query: |
+          sum(rate(aragora_api_latency_seconds_count[{{.window}}]))
+
+    alerting:
+      name: "APILatencySLOBreach"
+      labels:
+        severity: warning
+        slo: api_latency
+      annotations:
+        summary: "API latency SLO is at risk"
+
+  # =========================================================================
+  # Debate Completion SLO
+  # =========================================================================
+  - name: debate_completion
+    description: "Debates complete successfully without errors"
+    objective: 99.5  # 99.5% success rate
+    window: 30d
+
+    sli:
+      events:
+        error_query: |
+          sum(rate(aragora_debates_completed_total{status=~"error|timeout"}[{{.window}}]))
+        total_query: |
+          sum(rate(aragora_debates_completed_total[{{.window}}]))
+
+    alerting:
+      name: "DebateCompletionSLOBreach"
+      labels:
+        severity: critical
+        slo: debate_completion
+      annotations:
+        summary: "Debate completion SLO is at risk"
+        description: "Too many debates are failing or timing out."
+
+  # =========================================================================
+  # Debate Duration SLO
+  # =========================================================================
+  - name: debate_duration
+    description: "Debates complete within reasonable time"
+    objective: 95.0  # 95% complete within 5 minutes
+    window: 30d
+
+    sli:
+      events:
+        # Good: debates completing under 300 seconds (5 minutes)
+        error_query: |
+          sum(rate(aragora_debate_duration_seconds_bucket{le="300.0"}[{{.window}}]))
+          -
+          sum(rate(aragora_debate_duration_seconds_count[{{.window}}]))
+        total_query: |
+          sum(rate(aragora_debate_duration_seconds_count[{{.window}}]))
+
+    alerting:
+      name: "DebateDurationSLOBreach"
+      labels:
+        severity: warning
+        slo: debate_duration
+      annotations:
+        summary: "Debate duration SLO is at risk"
+        description: "Debates are taking longer than expected."
+
+  # =========================================================================
+  # Consensus Quality SLO
+  # =========================================================================
+  - name: consensus_quality
+    description: "Debates produce high-confidence consensus"
+    objective: 80.0  # 80% of completed debates reach consensus
+    window: 30d
+
+    sli:
+      events:
+        # Good: debates that reach consensus
+        error_query: |
+          sum(rate(aragora_debates_completed_total{status="completed"}[{{.window}}]))
+          -
+          sum(rate(aragora_consensus_reached_total[{{.window}}]))
+        total_query: |
+          sum(rate(aragora_debates_completed_total{status="completed"}[{{.window}}]))
+
+    alerting:
+      name: "ConsensusQualitySLOBreach"
+      labels:
+        severity: info
+        slo: consensus_quality
+      annotations:
+        summary: "Consensus quality SLO trending down"
+        description: "Fewer debates are reaching consensus. Consider reviewing agent configurations."
+
+  # =========================================================================
+  # Agent Reliability SLO
+  # =========================================================================
+  - name: agent_reliability
+    description: "Agent API calls succeed"
+    objective: 98.0  # 98% agent call success rate
+    window: 7d
+
+    sli:
+      events:
+        error_query: |
+          sum(rate(aragora_agent_requests_total{status="error"}[{{.window}}]))
+        total_query: |
+          sum(rate(aragora_agent_requests_total[{{.window}}]))
+
+    alerting:
+      name: "AgentReliabilitySLOBreach"
+      labels:
+        severity: warning
+        slo: agent_reliability
+      annotations:
+        summary: "Agent reliability SLO is at risk"
+        description: "Agent API calls are failing at an elevated rate."
+
+  # =========================================================================
+  # Authentication SLO
+  # =========================================================================
+  - name: authentication
+    description: "Authentication requests succeed for valid credentials"
+    objective: 99.9
+    window: 30d
+
+    sli:
+      events:
+        # Errors: auth failures excluding invalid credentials (those are expected)
+        error_query: |
+          sum(rate(aragora_auth_failures_total{reason!~"invalid_credentials|expired_token"}[{{.window}}]))
+        total_query: |
+          sum(rate(aragora_api_requests_total{endpoint=~"/api/auth/.*"}[{{.window}}]))
+
+    alerting:
+      name: "AuthenticationSLOBreach"
+      labels:
+        severity: critical
+        slo: authentication
+      annotations:
+        summary: "Authentication SLO is at risk"
+        description: "Authentication system may be experiencing issues."
+
+---
+# Error Budget Configuration
+# These settings determine how aggressively to alert as error budget depletes
+
+error_budget:
+  # Burn rate windows (multi-window, multi-burn-rate alerting)
+  windows:
+    - name: fast
+      duration: 1h
+      burn_rate: 14.4  # 14.4x burn = budget exhausted in ~2 days
+      severity: critical
+
+    - name: slow
+      duration: 6h
+      burn_rate: 6.0   # 6x burn = budget exhausted in ~5 days
+      severity: critical
+
+    - name: gradual
+      duration: 3d
+      burn_rate: 1.0   # 1x burn = on track to exhaust budget
+      severity: warning
+
+  # Reset period for error budget (typically monthly)
+  reset_period: monthly
+
+---
+# SLO Dashboard Configuration
+# Use with Grafana SLO dashboard templates
+
+dashboards:
+  - name: "Aragora SLO Overview"
+    refresh: 5m
+    panels:
+      - title: "Error Budget Remaining"
+        type: gauge
+        slos: [api_availability, debate_completion]
+
+      - title: "SLO Compliance"
+        type: table
+        slos: all
+
+      - title: "Burn Rate"
+        type: graph
+        slos: [api_availability, api_latency]
+        windows: [1h, 6h, 24h]

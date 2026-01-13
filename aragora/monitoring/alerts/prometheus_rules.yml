@@ -1,0 +1,296 @@
+# Aragora Prometheus Alert Rules
+#
+# These rules define alerting conditions for the Aragora platform.
+# Load with: promtool check rules prometheus_rules.yml
+#
+# Alert Severity Levels:
+#   - critical: Page on-call immediately (service down, data loss risk)
+#   - warning: Notify team during business hours (degraded performance)
+#   - info: Log for review (anomalous but not urgent)
+
+groups:
+  # =========================================================================
+  # Availability Alerts
+  # =========================================================================
+  - name: aragora_availability
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(aragora_api_requests_total{status="error"}[5m]))
+            /
+            sum(rate(aragora_api_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: aragora
+        annotations:
+          summary: "High API error rate ({{ $value | humanizePercentage }})"
+          description: "More than 5% of API requests are failing. Check logs for error details."
+          runbook_url: "https://docs.aragora.io/runbooks/high-error-rate"
+
+      - alert: ServiceDown
+        expr: up{job="aragora"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: aragora
+        annotations:
+          summary: "Aragora service is down"
+          description: "The Aragora service has been unreachable for more than 1 minute."
+          runbook_url: "https://docs.aragora.io/runbooks/service-down"
+
+      - alert: NoRecentDebates
+        expr: |
+          increase(aragora_debates_completed_total[1h]) == 0
+          and
+          time() - aragora_last_debate_timestamp > 3600
+        for: 30m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "No debates completed in the last hour"
+          description: "The system may be stuck or experiencing issues accepting new debates."
+
+  # =========================================================================
+  # Latency Alerts
+  # =========================================================================
+  - name: aragora_latency
+    rules:
+      - alert: HighAPILatency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(aragora_api_latency_seconds_bucket[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "High API latency (p99 > 2s)"
+          description: "99th percentile API latency is {{ $value | humanizeDuration }}. Investigate slow endpoints."
+
+      - alert: HighAgentLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aragora_agent_latency_seconds_bucket[5m])) by (le, agent)
+          ) > 30
+        for: 10m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "Agent {{ $labels.agent }} has high latency"
+          description: "Agent response time p95 is {{ $value | humanizeDuration }}. May indicate provider issues."
+
+      - alert: DebateTakingTooLong
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aragora_debate_duration_seconds_bucket[1h])) by (le)
+          ) > 600
+        for: 30m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "Debates taking unusually long (p95 > 10 minutes)"
+          description: "Most debates are taking over 10 minutes. Check for agent bottlenecks."
+
+  # =========================================================================
+  # Debate Quality Alerts
+  # =========================================================================
+  - name: aragora_debate_quality
+    rules:
+      - alert: HighDebateFailureRate
+        expr: |
+          (
+            sum(rate(aragora_debates_completed_total{status="error"}[1h]))
+            /
+            sum(rate(aragora_debates_completed_total[1h]))
+          ) > 0.1
+        for: 15m
+        labels:
+          severity: critical
+          service: aragora
+        annotations:
+          summary: "High debate failure rate ({{ $value | humanizePercentage }})"
+          description: "More than 10% of debates are failing. Check agent connectivity and circuit breakers."
+
+      - alert: LowConsensusRate
+        expr: |
+          (
+            sum(rate(aragora_consensus_reached_total[6h]))
+            /
+            sum(rate(aragora_debates_completed_total{status="completed"}[6h]))
+          ) < 0.5
+        for: 1h
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "Low consensus rate ({{ $value | humanizePercentage }})"
+          description: "Less than 50% of debates are reaching consensus. May indicate agent quality issues."
+
+      - alert: LowConsensusConfidence
+        expr: avg(aragora_consensus_quality) < 0.6
+        for: 2h
+        labels:
+          severity: info
+          service: aragora
+        annotations:
+          summary: "Low average consensus confidence"
+          description: "Average consensus confidence is {{ $value | humanize }}. Quality may be degraded."
+
+  # =========================================================================
+  # Resource and Capacity Alerts
+  # =========================================================================
+  - name: aragora_resources
+    rules:
+      - alert: AgentCircuitBreakerOpen
+        expr: aragora_circuit_breakers_open > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "{{ $value }} circuit breaker(s) open"
+          description: "One or more agent circuit breakers are open, indicating repeated failures."
+
+      - alert: HighAgentErrorRate
+        expr: |
+          (
+            sum(rate(aragora_agent_requests_total{status="error"}[5m])) by (agent)
+            /
+            sum(rate(aragora_agent_requests_total[5m])) by (agent)
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "High error rate for agent {{ $labels.agent }}"
+          description: "Agent {{ $labels.agent }} has {{ $value | humanizePercentage }} error rate."
+
+      - alert: TooManyActiveDebates
+        expr: aragora_active_debates > 50
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "High number of concurrent debates ({{ $value }})"
+          description: "More than 50 debates running concurrently. May need to scale."
+
+      - alert: TooManyWebSocketConnections
+        expr: aragora_websocket_connections > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "High WebSocket connection count ({{ $value }})"
+          description: "Consider horizontal scaling or connection limits."
+
+  # =========================================================================
+  # Security Alerts
+  # =========================================================================
+  - name: aragora_security
+    rules:
+      - alert: HighAuthFailureRate
+        expr: |
+          sum(rate(aragora_auth_failures_total[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "High authentication failure rate"
+          description: "{{ $value }} auth failures per second. Possible brute force attack."
+
+      - alert: RateLimitingActive
+        expr: |
+          sum(rate(aragora_rate_limit_hits_total[5m])) > 100
+        for: 5m
+        labels:
+          severity: info
+          service: aragora
+        annotations:
+          summary: "Heavy rate limiting activity"
+          description: "{{ $value }} rate limit hits per second. May indicate abuse or misonfiguration."
+
+      - alert: SecurityViolationDetected
+        expr: |
+          sum(rate(aragora_security_violations_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "Security violation detected"
+          description: "Security violations of type {{ $labels.type }} detected. Review security logs."
+
+  # =========================================================================
+  # Billing Alerts
+  # =========================================================================
+  - name: aragora_billing
+    rules:
+      - alert: HighPaymentFailureRate
+        expr: |
+          (
+            sum(rate(aragora_payment_failures_total[1h]))
+            /
+            sum(rate(aragora_subscription_events_total{event="payment_attempt"}[1h]))
+          ) > 0.1
+        for: 30m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "High payment failure rate ({{ $value | humanizePercentage }})"
+          description: "More than 10% of payment attempts are failing. Check Stripe integration."
+
+      - alert: NoRevenueRecorded
+        expr: |
+          increase(aragora_revenue_cents_total[24h]) == 0
+          and
+          increase(aragora_subscription_events_total{event="created"}[24h]) > 0
+        for: 1h
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "New subscriptions but no revenue recorded"
+          description: "Billing may not be properly tracking revenue."
+
+  # =========================================================================
+  # Token Usage Alerts
+  # =========================================================================
+  - name: aragora_tokens
+    rules:
+      - alert: HighTokenUsage
+        expr: |
+          sum(rate(aragora_agent_tokens_total[1h])) > 1000000
+        for: 30m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "High token usage rate"
+          description: "Using {{ $value | humanize }} tokens/hour. Check for runaway debates."
+
+      - alert: UnbalancedAgentUsage
+        expr: |
+          (
+            max(sum(rate(aragora_agent_tokens_total[1h])) by (agent))
+            /
+            avg(sum(rate(aragora_agent_tokens_total[1h])) by (agent))
+          ) > 5
+        for: 1h
+        labels:
+          severity: info
+          service: aragora
+        annotations:
+          summary: "Unbalanced agent token usage"
+          description: "One agent is using 5x more tokens than average. Consider rebalancing."

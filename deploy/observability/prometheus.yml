@@ -1,0 +1,64 @@
+# Prometheus configuration for Aragora
+#
+# Usage:
+#   docker run -p 9090:9090 \
+#     -v $(pwd)/deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml \
+#     -v $(pwd)/deploy/observability/alerts.rules:/etc/prometheus/alerts.rules \
+#     prom/prometheus
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'aragora-monitor'
+
+# Alertmanager configuration (optional)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Load alerting rules
+rule_files:
+  - "alerts.rules"
+
+scrape_configs:
+  # Aragora API server metrics
+  - job_name: 'aragora-api'
+    static_configs:
+      - targets: ['localhost:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    # Relabel to add environment tag
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '(.+):\d+'
+        replacement: '${1}'
+
+  # Aragora WebSocket server (if separate metrics endpoint)
+  - job_name: 'aragora-ws'
+    static_configs:
+      - targets: ['localhost:8765']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # Redis metrics (if redis_exporter is running)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['localhost:9121']
+    scrape_interval: 30s
+
+  # Node exporter for system metrics (optional)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['localhost:9100']
+    scrape_interval: 30s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

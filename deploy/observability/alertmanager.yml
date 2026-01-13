@@ -1,0 +1,102 @@
+# Alertmanager configuration for Aragora
+#
+# Configure notification receivers for production use:
+# - Slack webhooks
+# - PagerDuty integration keys
+# - Email settings
+
+global:
+  # Global SMTP settings (for email notifications)
+  # smtp_smarthost: 'smtp.example.com:587'
+  # smtp_from: 'alertmanager@aragora.ai'
+  # smtp_auth_username: 'alertmanager@aragora.ai'
+  # smtp_auth_password: 'secret'
+
+  # Slack webhook URL (uncomment and configure)
+  # slack_api_url: 'https://hooks.slack.com/services/xxx/yyy/zzz'
+
+  # Resolve timeout - how long before marking alert as resolved
+  resolve_timeout: 5m
+
+# Route tree for alert routing
+route:
+  # Default receiver
+  receiver: 'default-receiver'
+
+  # Group alerts by alertname and job
+  group_by: ['alertname', 'job']
+
+  # Wait before sending first notification
+  group_wait: 30s
+
+  # Wait before sending updates
+  group_interval: 5m
+
+  # Wait before resending
+  repeat_interval: 4h
+
+  # Child routes for specific alerts
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-receiver'
+      group_wait: 10s
+      repeat_interval: 1h
+
+    # Warning alerts - normal cadence
+    - match:
+        severity: warning
+      receiver: 'warning-receiver'
+      group_wait: 1m
+      repeat_interval: 4h
+
+    # Info alerts - less urgent
+    - match:
+        severity: info
+      receiver: 'info-receiver'
+      group_wait: 5m
+      repeat_interval: 24h
+
+receivers:
+  # Default receiver (logs to stdout in development)
+  - name: 'default-receiver'
+    # In production, configure webhook_configs, slack_configs, or email_configs
+
+  # Critical alerts - consider PagerDuty or phone
+  - name: 'critical-receiver'
+    # Uncomment for Slack integration:
+    # slack_configs:
+    #   - channel: '#aragora-critical'
+    #     title: 'CRITICAL: {{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}'
+    #     send_resolved: true
+
+  # Warning alerts
+  - name: 'warning-receiver'
+    # Uncomment for Slack integration:
+    # slack_configs:
+    #   - channel: '#aragora-alerts'
+    #     title: 'Warning: {{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}'
+    #     send_resolved: true
+
+  # Info alerts
+  - name: 'info-receiver'
+    # Low priority notifications
+
+# Inhibition rules - suppress alerts when higher-priority alerts fire
+inhibit_rules:
+  # If service is down, suppress other alerts about it
+  - source_match:
+      alertname: 'AragoraDown'
+    target_match_re:
+      alertname: 'Aragora.*'
+    equal: ['job']
+
+  # If Redis is down, suppress Redis-related alerts
+  - source_match:
+      alertname: 'RedisDown'
+    target_match_re:
+      alertname: 'Redis.*'
+    equal: ['job']
