@@ -666,7 +666,7 @@ class UserStore:
                 # Build parameter tuples for executemany
                 params_list = []
                 for update in group:
-                    values = []
+                    values: list[Any] = []
                     for field in valid_fields:
                         value = update[field]
                         if isinstance(value, bool):
@@ -1513,7 +1513,7 @@ class UserStore:
 
         organizations = []
         for row in cursor.fetchall():
-            organizations.append(self._row_to_organization(row))
+            organizations.append(self._row_to_org(row))
 
         return organizations, total
 
@@ -1643,4 +1643,30 @@ class UserStore:
         return stats
 
 
-__all__ = ["UserStore"]
+# Singleton instance for global access
+_user_store_instance: Optional[UserStore] = None
+
+
+def get_user_store() -> Optional[UserStore]:
+    """Get the global UserStore singleton instance.
+
+    Returns:
+        The UserStore instance if initialized, None otherwise.
+
+    Note:
+        Initialize with set_user_store() before calling this function.
+    """
+    return _user_store_instance
+
+
+def set_user_store(store: UserStore) -> None:
+    """Set the global UserStore singleton instance.
+
+    Args:
+        store: The UserStore instance to use globally.
+    """
+    global _user_store_instance
+    _user_store_instance = store
+
+
+__all__ = ["UserStore", "get_user_store", "set_user_store"]

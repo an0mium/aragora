@@ -228,8 +228,8 @@ class GraphDebatesHandler(BaseHandler):
                         {
                             "merged_node_id": m.merged_node_id,
                             "source_branch_ids": m.source_branch_ids,
-                            "strategy_used": m.strategy_used,
-                            "conflict_resolutions": m.conflict_resolutions,
+                            "strategy": m.strategy.value,
+                            "conflicts_resolved": m.conflicts_resolved,
                             "insights_preserved": m.insights_preserved,
                         }
                         for m in graph.merge_history
@@ -250,11 +250,13 @@ class GraphDebatesHandler(BaseHandler):
         """Load agents by name."""
         try:
             from aragora.agents import create_agent
+            from aragora.agents.base import AgentType
 
             agents = []
             for name in agent_names or ["claude", "gpt4"]:
                 try:
-                    agent = create_agent(model_type=name, name=name)
+                    # Cast to AgentType - validation already done in handle_post
+                    agent = create_agent(model_type=name, name=name)  # type: ignore[arg-type]
                     agents.append(agent)
                 except Exception as e:
                     logger.warning(f"Failed to create agent {name}: {e}")

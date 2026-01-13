@@ -143,9 +143,13 @@ def increment_org_usage(
         except ImportError:
             return False
 
+    if user_store is None:
+        return False
+
     try:
         if resource == "debate":
-            return user_store.increment_usage(org_id, count)
+            user_store.increment_usage(org_id, count)
+            return True
         return True
     except Exception as e:
         logger.error(f"Failed to increment usage for org {org_id}: {e}")

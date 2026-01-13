@@ -33,26 +33,31 @@ logger = logging.getLogger(__name__)
 try:
     from aragora.auth import get_sso_provider as _get_sso_provider
 except ImportError:  # pragma: no cover - optional dependency
+    _get_sso_provider = None  # type: ignore[assignment, misc]
 
-    def _get_sso_provider():
+
+def get_sso_provider() -> Any:
+    """Get SSO provider, raising ImportError if not available."""
+    if _get_sso_provider is None:
         raise ImportError("SSO auth module not available")
-
-
-get_sso_provider = _get_sso_provider
+    return _get_sso_provider()
 
 try:
     from aragora.server.auth import auth_config as auth_config
 except ImportError:  # pragma: no cover - optional dependency
-    auth_config = None
+    auth_config = None  # type: ignore[assignment]
 
 try:
-    from aragora.auth.sso import SSOUser, SSOProviderType
+    from aragora.auth.sso import SSOUser as _SSOUser, SSOProviderType as _SSOProviderType
+    SSOUser: Any = _SSOUser
+    SSOProviderType: Any = _SSOProviderType
 except ImportError:  # pragma: no cover - optional dependency
     SSOUser = None
     SSOProviderType = None
 
 try:
-    from aragora.auth.saml import SAMLProvider
+    from aragora.auth.saml import SAMLProvider as _SAMLProvider
+    SAMLProvider: Any = _SAMLProvider
 except ImportError:  # pragma: no cover - optional dependency
     SAMLProvider = None
 

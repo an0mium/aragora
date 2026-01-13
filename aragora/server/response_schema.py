@@ -361,7 +361,7 @@ def v2_paginated_response(
         HandlerResult with V2 paginated response
     """
     data = {item_key: items}
-    meta = {
+    meta: dict[str, Any] = {
         "total": total,
         "limit": limit,
         "has_more": next_cursor is not None,
@@ -472,7 +472,7 @@ def v2_error_response(
     Returns:
         HandlerResult with V2 error structure
     """
-    error = {
+    error: dict[str, Any] = {
         "code": code,
         "message": message,
     }

@@ -353,10 +353,12 @@ async def run_sandboxed(
 
     except subprocess.TimeoutExpired as e:
         logger.warning(f"Command timed out after {timeout}s: {shlex.join(cmd)}")
+        stdout_val = e.stdout if hasattr(e, "stdout") else None
+        stderr_val = e.stderr if hasattr(e, "stderr") else None
         return SandboxedResult(
             returncode=-1,
-            stdout=e.stdout or "" if hasattr(e, "stdout") else "",
-            stderr=e.stderr or "" if hasattr(e, "stderr") else "",
+            stdout=stdout_val.decode() if isinstance(stdout_val, bytes) else (stdout_val or ""),
+            stderr=stderr_val.decode() if isinstance(stderr_val, bytes) else (stderr_val or ""),
             command=list(cmd),
             timed_out=True,
         )
@@ -445,10 +447,12 @@ def run_sandboxed_sync(
 
     except subprocess.TimeoutExpired as e:
         logger.warning(f"Command timed out after {timeout}s: {shlex.join(cmd)}")
+        stdout_val = e.stdout if hasattr(e, "stdout") else None
+        stderr_val = e.stderr if hasattr(e, "stderr") else None
         return SandboxedResult(
             returncode=-1,
-            stdout=e.stdout or "" if hasattr(e, "stdout") else "",
-            stderr=e.stderr or "" if hasattr(e, "stderr") else "",
+            stdout=stdout_val.decode() if isinstance(stdout_val, bytes) else (stdout_val or ""),
+            stderr=stderr_val.decode() if isinstance(stderr_val, bytes) else (stderr_val or ""),
             command=list(cmd),
             timed_out=True,
         )

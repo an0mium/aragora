@@ -22,6 +22,14 @@ module.exports = {
     'line-clamp-2', 'line-clamp-3', 'line-clamp-4', 'line-clamp-5',
   ],
   theme: {
+    screens: {
+      'xs': '320px',    // Mobile-first breakpoint
+      'sm': '640px',
+      'md': '768px',
+      'lg': '1024px',
+      'xl': '1280px',
+      '2xl': '1536px',
+    },
     extend: {
       fontFamily: {
         mono: [

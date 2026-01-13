@@ -626,7 +626,7 @@ class DashboardHandler(BaseHandler):
         }
 
         try:
-            calibration_tracker = self._context.get("calibration_tracker")
+            calibration_tracker = self.ctx.get("calibration_tracker")
             if not calibration_tracker:
                 return metrics
 
@@ -708,7 +708,7 @@ class DashboardHandler(BaseHandler):
         }
 
         try:
-            performance_monitor = self._context.get("performance_monitor")
+            performance_monitor = self.ctx.get("performance_monitor")
             if performance_monitor:
                 insights = performance_monitor.get_performance_insights()
                 if insights:
@@ -731,7 +731,7 @@ class DashboardHandler(BaseHandler):
         }
 
         try:
-            prompt_evolver = self._context.get("prompt_evolver")
+            prompt_evolver = self.ctx.get("prompt_evolver")
             if prompt_evolver:
                 # Get version counts per agent
                 for agent_name in ["claude", "gemini", "codex", "grok"]:
@@ -767,7 +767,7 @@ class DashboardHandler(BaseHandler):
 
         try:
             # Get from ELO system
-            elo_system = self._context.get("elo_system")
+            elo_system = self.ctx.get("elo_system")
             if elo_system:
                 recent = elo_system.get_recent_matches(limit=10)
                 if recent:

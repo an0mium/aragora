@@ -46,8 +46,8 @@ try:
     PIPELINE_AVAILABLE = True
 except ImportError:
     PIPELINE_AVAILABLE = False
-    BroadcastPipeline: Optional[type] = None
-    BroadcastOptions: Optional[type] = None
+    BroadcastPipeline = None  # type: ignore[misc, assignment]
+    BroadcastOptions = None  # type: ignore[misc, assignment]
 
 try:
     from mutagen.mp3 import MP3
@@ -182,12 +182,16 @@ class BroadcastHandler(BaseHandler):
 
                 config = PodcastConfig()
                 generator = PodcastFeedGenerator(config)
-                feed_xml = generator.generate()
+                feed_xml = generator.generate_feed([])
             except ImportError:
                 return error_response("RSS generator not available", status=503)
 
         # Return XML with correct content type
-        return (feed_xml.encode("utf-8"), 200, "application/rss+xml; charset=utf-8")
+        return HandlerResult(
+            status_code=200,
+            content_type="application/rss+xml; charset=utf-8",
+            body=feed_xml.encode("utf-8"),
+        )
 
     @rate_limit(requests_per_minute=3, burst=2, limiter_name="broadcast_generation")
     def _generate_broadcast(self, debate_id: str, handler) -> HandlerResult:

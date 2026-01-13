@@ -244,9 +244,10 @@ class RecoveryNarrator:
             )
 
         # Pick templates (avoiding recent repeats)
-        headline = self._pick_template(event_type, "headlines", templates["headlines"], agent)
-        narrative = self._pick_template(event_type, "narratives", templates["narratives"], agent)
-        mood = templates.get("mood", "neutral")
+        headline = self._pick_template(event_type, "headlines", list(templates["headlines"]), agent)
+        narrative = self._pick_template(event_type, "narratives", list(templates["narratives"]), agent)
+        mood_value = templates.get("mood", "neutral")
+        mood = mood_value if isinstance(mood_value, str) else "neutral"
 
         result = RecoveryNarrative(
             event_type=event_type,
@@ -338,7 +339,7 @@ class RecoveryNarrator:
             return {"mood": "neutral", "distribution": {}}
 
         moods = [n.mood for n in self.recent_narratives[-20:]]
-        distribution = {}
+        distribution: dict[str, int] = {}
         for mood in moods:
             distribution[mood] = distribution.get(mood, 0) + 1
 

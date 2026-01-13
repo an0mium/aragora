@@ -632,7 +632,7 @@ def track_debate_execution(domain: str = "general") -> Generator[dict, None, Non
         Dict to populate with outcome data (consensus, confidence, status)
     """
     start = time.perf_counter()
-    ctx = {
+    ctx: dict[str, Any] = {
         "status": "completed",
         "consensus": False,
         "confidence": 0.0,
@@ -650,11 +650,11 @@ def track_debate_execution(domain: str = "general") -> Generator[dict, None, Non
         ACTIVE_DEBATES.dec()
         duration = time.perf_counter() - start
         track_debate_outcome(
-            status=ctx["status"],
+            status=str(ctx["status"]),
             domain=domain,
             duration_seconds=duration,
-            consensus_reached=ctx["consensus"],
-            confidence=ctx["confidence"],
+            consensus_reached=bool(ctx["consensus"]),
+            confidence=float(ctx["confidence"]),
         )
 
 

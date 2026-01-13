@@ -336,7 +336,7 @@ class CognitiveLoadLimiter:
         critiques: Optional[list] = None,
         patterns: Optional[str] = None,
         extra_context: Optional[str] = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Limit all context components to fit within total budget.
 
@@ -349,7 +349,7 @@ class CognitiveLoadLimiter:
         Returns:
             Dict with limited versions of each component
         """
-        result = {}
+        result: dict[str, Any] = {}
 
         # Allocate budget (messages get most)
         message_budget = int(self.budget.max_context_chars * 0.6)

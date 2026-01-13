@@ -218,7 +218,7 @@ class FormalVerificationHandler(BaseHandler):
         summary = {"total": len(results), "verified": 0, "failed": 0, "timeout": 0}
 
         for r in results:
-            if isinstance(r, Exception):
+            if isinstance(r, BaseException):
                 processed.append(
                     {
                         "status": "error",
@@ -333,8 +333,8 @@ class FormalVerificationHandler(BaseHandler):
             # Fallback to LeanBackend
             from aragora.verification.formal import LeanBackend
 
-            backend = LeanBackend()
-            formal_statement = await backend.translate(claim, context)
+            lean_backend = LeanBackend()
+            formal_statement = await lean_backend.translate(claim, context)
             return json_response(
                 {
                     "success": formal_statement is not None,
@@ -350,8 +350,8 @@ class FormalVerificationHandler(BaseHandler):
         elif target == "z3_smt":
             from aragora.verification.formal import Z3Backend
 
-            backend = Z3Backend()
-            formal_statement = await backend.translate(claim, context)
+            z3_backend = Z3Backend()
+            formal_statement = await z3_backend.translate(claim, context)
             return json_response(
                 {
                     "success": formal_statement is not None,
