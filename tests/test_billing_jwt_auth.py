@@ -436,7 +436,7 @@ class TestJWTDecoding:
     def test_decode_expired_token_returns_none(self, mock_env_secret):
         """Test decoding expired token returns None."""
         # Create token with past expiry
-        with patch("aragora.billing.jwt_auth.time") as mock_time:
+        with patch("aragora.billing.auth.tokens.time") as mock_time:
             # First call is for token creation, make it in the past
             mock_time.time.return_value = 1000
 

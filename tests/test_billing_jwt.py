@@ -266,7 +266,7 @@ class TestTokenValidation:
         token = create_access_token("user", "email", expiry_hours=1)
 
         # Fast-forward time to make token expired
-        with patch("aragora.billing.jwt_auth.time") as mock_time:
+        with patch("aragora.billing.auth.tokens.time") as mock_time:
             # Set time to 2 hours in the future (past the 1-hour expiry)
             mock_time.time.return_value = time.time() + 7200
             payload = decode_jwt(token)
