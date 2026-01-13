@@ -438,3 +438,61 @@ def assert_consensus_reached(result: DebateResult):
 def assert_no_consensus(result: DebateResult):
     """Assert that consensus was not reached."""
     assert not result.consensus_reached
+
+
+# =============================================================================
+# PostgreSQL Fixtures
+# =============================================================================
+
+
+@pytest.fixture(scope="session")
+def postgres_url():
+    """Get PostgreSQL URL from environment if available."""
+    import os
+
+    url = os.environ.get("DATABASE_URL", "")
+    if url.startswith("postgresql://"):
+        return url
+    return None
+
+
+@pytest.fixture
+def postgres_backend(postgres_url):
+    """Create a PostgreSQL backend for testing (skips if not configured)."""
+    if not postgres_url:
+        pytest.skip("PostgreSQL not configured (set DATABASE_URL)")
+
+    from aragora.db.backends import PostgreSQLBackend
+
+    backend = PostgreSQLBackend(postgres_url)
+    yield backend
+    backend.close()
+
+
+@pytest.fixture
+def db_backend(request, temp_db_path, postgres_url):
+    """
+    Parametrized database backend fixture.
+
+    Returns SQLite by default, or PostgreSQL if DATABASE_URL is set.
+    Use with @pytest.mark.parametrize to test both backends:
+
+        @pytest.mark.parametrize("backend_type", ["sqlite", "postgres"])
+        def test_something(db_backend, backend_type):
+            ...
+    """
+    backend_type = getattr(request, "param", "sqlite")
+
+    if backend_type == "postgres":
+        if not postgres_url:
+            pytest.skip("PostgreSQL not configured")
+        from aragora.db.backends import PostgreSQLBackend
+
+        backend = PostgreSQLBackend(postgres_url)
+    else:
+        from aragora.db.backends import SQLiteBackend
+
+        backend = SQLiteBackend(str(temp_db_path))
+
+    yield backend
+    backend.close()

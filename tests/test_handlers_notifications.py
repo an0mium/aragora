@@ -491,3 +491,281 @@ class TestPathRouting:
         mock_handler.path = "/api/notifications/unknown"
         result = notifications_handler.handle_delete(mock_handler.path, {}, mock_handler)
         assert result is None
+
+
+# ============================================================================
+# Rate Limiting Tests
+# ============================================================================
+
+
+class TestRateLimiting:
+    """Test rate limiting behavior."""
+
+    def test_handle_rate_limit_exceeded(self, notifications_handler, mock_handler):
+        """Test rate limit returns 429 for GET requests."""
+        with patch(
+            "aragora.server.handlers.notifications._notifications_limiter"
+        ) as mock_limiter:
+            mock_limiter.is_allowed.return_value = False
+
+            mock_handler.path = "/api/notifications/status"
+            result = notifications_handler.handle(mock_handler.path, {}, mock_handler)
+
+            assert result.status_code == 429
+            body = json.loads(result.body.decode())
+            assert "rate limit" in body["error"].lower()
+
+    def test_handle_post_rate_limit_exceeded(
+        self, notifications_handler, mock_handler, mock_auth
+    ):
+        """Test rate limit returns 429 for POST requests."""
+        with patch(
+            "aragora.server.handlers.notifications._notifications_limiter"
+        ) as mock_limiter:
+            mock_limiter.is_allowed.return_value = False
+
+            mock_handler.path = "/api/notifications/email/config"
+            result = notifications_handler.handle_post(mock_handler.path, {}, mock_handler)
+
+            assert result.status_code == 429
+
+
+# ============================================================================
+# Extended Status Tests
+# ============================================================================
+
+
+class TestExtendedStatus:
+    """Extended status endpoint tests."""
+
+    def test_get_status_telegram_configured(self, notifications_handler, mock_handler):
+        """Test status when telegram is configured."""
+        from aragora.server.handlers.notifications import configure_telegram_integration
+        from aragora.integrations.telegram import TelegramConfig
+
+        config = TelegramConfig(
+            bot_token="test-token-12345",
+            chat_id="12345678",
+        )
+        configure_telegram_integration(config)
+
+        mock_handler.path = "/api/notifications/status"
+        result = notifications_handler.handle(mock_handler.path, {}, mock_handler)
+        body, status = parse_result(result)
+
+        assert status == 200
+        assert body["telegram"]["configured"] is True
+        # Chat ID should be truncated for security
+        assert body["telegram"]["chat_id"] == "12345678..."[:11]
+
+    def test_get_status_both_configured(self, notifications_handler, mock_handler):
+        """Test status when both integrations are configured."""
+        from aragora.server.handlers.notifications import (
+            configure_email_integration,
+            configure_telegram_integration,
+        )
+        from aragora.integrations.email import EmailConfig
+        from aragora.integrations.telegram import TelegramConfig
+
+        email_config = EmailConfig(
+            smtp_host="smtp.test.com",
+            smtp_port=587,
+            smtp_username="user",
+            smtp_password="pass",
+            from_email="test@test.com",
+        )
+        configure_email_integration(email_config)
+
+        telegram_config = TelegramConfig(
+            bot_token="test-token",
+            chat_id="test-chat",
+        )
+        configure_telegram_integration(telegram_config)
+
+        mock_handler.path = "/api/notifications/status"
+        result = notifications_handler.handle(mock_handler.path, {}, mock_handler)
+        body, status = parse_result(result)
+
+        assert status == 200
+        assert body["email"]["configured"] is True
+        assert body["telegram"]["configured"] is True
+
+
+# ============================================================================
+# Extended Email Recipient Tests
+# ============================================================================
+
+
+class TestExtendedEmailRecipients:
+    """Extended email recipient tests."""
+
+    def test_get_recipients_with_recipients(self, notifications_handler, mock_handler):
+        """Test getting recipients when some are configured."""
+        from aragora.server.handlers.notifications import configure_email_integration
+        from aragora.integrations.email import EmailConfig, EmailRecipient
+
+        config = EmailConfig(
+            smtp_host="smtp.test.com",
+            smtp_port=587,
+            smtp_username="user",
+            smtp_password="pass",
+            from_email="test@test.com",
+        )
+        integration = configure_email_integration(config)
+        integration.add_recipient(EmailRecipient(email="user1@test.com", name="User 1"))
+        integration.add_recipient(EmailRecipient(email="user2@test.com", name="User 2"))
+
+        mock_handler.path = "/api/notifications/email/recipients"
+        result = notifications_handler.handle(mock_handler.path, {}, mock_handler)
+        body, status = parse_result(result)
+
+        assert status == 200
+        assert body["count"] == 2
+        assert len(body["recipients"]) == 2
+
+    def test_remove_recipient_email_not_configured(
+        self, notifications_handler, mock_handler, mock_auth
+    ):
+        """Test removing recipient when email not configured."""
+        mock_handler.path = "/api/notifications/email/recipient"
+        result = notifications_handler.handle_delete(
+            mock_handler.path, {"email": "user@test.com"}, mock_handler
+        )
+        body, status = parse_result(result)
+
+        assert status == 503
+        assert "not configured" in body["error"]
+
+    def test_remove_recipient_missing_email_param(
+        self, notifications_handler, mock_handler, mock_auth
+    ):
+        """Test removing recipient without email parameter."""
+        from aragora.server.handlers.notifications import configure_email_integration
+        from aragora.integrations.email import EmailConfig
+
+        config = EmailConfig(
+            smtp_host="smtp.test.com",
+            smtp_port=587,
+            smtp_username="user",
+            smtp_password="pass",
+            from_email="test@test.com",
+        )
+        configure_email_integration(config)
+
+        mock_handler.path = "/api/notifications/email/recipient"
+        result = notifications_handler.handle_delete(
+            mock_handler.path, {}, mock_handler  # Missing email param
+        )
+        body, status = parse_result(result)
+
+        assert status == 400
+        assert "email" in body["error"].lower()
+
+
+# ============================================================================
+# Extended Test Notification Tests
+# ============================================================================
+
+
+class TestExtendedNotificationSending:
+    """Extended notification sending tests."""
+
+    def test_send_test_email_only(self, notifications_handler, mock_handler, mock_auth):
+        """Test sending test notification to email only."""
+        mock_handler.path = "/api/notifications/test"
+
+        with patch.object(notifications_handler, "read_json_body_validated") as mock_read:
+            mock_read.return_value = ({"type": "email"}, None)
+            result = notifications_handler.handle_post(mock_handler.path, {}, mock_handler)
+            body, status = parse_result(result)
+
+            assert status == 200
+            assert "email" in body["results"]
+            # Telegram should not be in results when type is email
+            assert "telegram" not in body["results"]
+
+    def test_send_test_telegram_only(self, notifications_handler, mock_handler, mock_auth):
+        """Test sending test notification to telegram only."""
+        mock_handler.path = "/api/notifications/test"
+
+        with patch.object(notifications_handler, "read_json_body_validated") as mock_read:
+            mock_read.return_value = ({"type": "telegram"}, None)
+            result = notifications_handler.handle_post(mock_handler.path, {}, mock_handler)
+            body, status = parse_result(result)
+
+            assert status == 200
+            assert "telegram" in body["results"]
+            # Email should not be in results when type is telegram
+            assert "email" not in body["results"]
+
+    def test_send_notification_with_channel(
+        self, notifications_handler, mock_handler, mock_auth
+    ):
+        """Test sending notification with channel specified."""
+        mock_handler.path = "/api/notifications/send"
+
+        with patch.object(notifications_handler, "read_json_body_validated") as mock_read:
+            mock_read.return_value = (
+                {"message": "Test message", "channel": "email"},
+                None,
+            )
+            result = notifications_handler.handle_post(mock_handler.path, {}, mock_handler)
+            body, status = parse_result(result)
+
+            # Should work or return appropriate error (no email configured)
+            assert status in (200, 500)
+
+
+# ============================================================================
+# Schema Validation Tests
+# ============================================================================
+
+
+class TestSchemaValidation:
+    """Test schema validation for configuration."""
+
+    def test_email_config_schema_validation_fails(
+        self, notifications_handler, mock_handler, mock_auth
+    ):
+        """Test email config fails with invalid schema."""
+        mock_handler.path = "/api/notifications/email/config"
+
+        with patch.object(notifications_handler, "read_json_body_validated") as mock_read:
+            # Missing required smtp_host
+            mock_read.return_value = ({"smtp_port": "not-a-number"}, None)
+            # Patch schema validation to return error
+            with patch(
+                "aragora.server.handlers.notifications.validate_against_schema"
+            ) as mock_validate:
+                mock_validate.return_value = MagicMock(
+                    is_valid=False, error="smtp_host is required"
+                )
+                result = notifications_handler.handle_post(
+                    mock_handler.path, {}, mock_handler
+                )
+                body, status = parse_result(result)
+
+                assert status == 400
+                assert "smtp_host" in body["error"]
+
+    def test_telegram_config_schema_validation_fails(
+        self, notifications_handler, mock_handler, mock_auth
+    ):
+        """Test telegram config fails with invalid schema."""
+        mock_handler.path = "/api/notifications/telegram/config"
+
+        with patch.object(notifications_handler, "read_json_body_validated") as mock_read:
+            mock_read.return_value = ({"bot_token": "token"}, None)  # Missing chat_id
+            with patch(
+                "aragora.server.handlers.notifications.validate_against_schema"
+            ) as mock_validate:
+                mock_validate.return_value = MagicMock(
+                    is_valid=False, error="chat_id is required"
+                )
+                result = notifications_handler.handle_post(
+                    mock_handler.path, {}, mock_handler
+                )
+                body, status = parse_result(result)
+
+                assert status == 400
+                assert "chat_id" in body["error"]

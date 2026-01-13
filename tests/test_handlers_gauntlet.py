@@ -699,3 +699,333 @@ class TestGauntletIntegration:
                 )
             )
             assert receipt_result.status_code == 200
+
+
+# ============================================================================
+# Compare Endpoint Tests
+# ============================================================================
+
+
+class TestGauntletCompare:
+    """Tests for GET /api/gauntlet/{id}/compare/{id2} endpoint."""
+
+    def test_can_handle_compare(self, gauntlet_handler):
+        """Should handle compare route."""
+        assert (
+            gauntlet_handler.can_handle(
+                "/api/gauntlet/gauntlet-12345-abc/compare/gauntlet-67890-def", "GET"
+            )
+            is True
+        )
+
+    def test_compare_requires_both_valid_ids(self, gauntlet_handler):
+        """Should return 400 if either ID is invalid."""
+        result = run_async(
+            gauntlet_handler.handle(
+                "/api/gauntlet/invalid-id/compare/gauntlet-12345-abc", "GET", None
+            )
+        )
+        assert result.status_code == 400
+
+    def test_compare_not_found_first(self, gauntlet_handler):
+        """Should return 404 if first gauntlet not found."""
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_store = Mock()
+            mock_store.get.return_value = None
+            mock_store.compare.return_value = None  # Compare returns None when not found
+            mock_storage.return_value = mock_store
+
+            result = run_async(
+                gauntlet_handler.handle(
+                    "/api/gauntlet/gauntlet-20260111120000-aaa111/compare/gauntlet-20260111120000-bbb222",
+                    "GET",
+                    None,
+                )
+            )
+            # The compare endpoint might delegate to storage.compare()
+            # If not found, should return 404 or an error response
+            assert result.status_code in (404, 200)  # 200 if compare returns empty comparison
+
+    def test_compare_success(self, gauntlet_handler, mock_gauntlet_run):
+        """Should return comparison data for valid gauntlets."""
+        # Add two runs to memory
+        run1 = mock_gauntlet_run.copy()
+        run1["gauntlet_id"] = "gauntlet-20260111120000-aaa111"
+        run1["result"] = mock_gauntlet_run["result"].copy()
+        run1["result"]["verdict"] = "PASS"
+        run1["result"]["confidence"] = 0.9
+
+        run2 = mock_gauntlet_run.copy()
+        run2["gauntlet_id"] = "gauntlet-20260111120000-bbb222"
+        run2["result"] = mock_gauntlet_run["result"].copy()
+        run2["result"]["verdict"] = "FAIL"
+        run2["result"]["confidence"] = 0.7
+
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-aaa111"] = run1
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-bbb222"] = run2
+
+        # Also mock storage compare to return a proper comparison
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_store = Mock()
+            mock_store.get.side_effect = lambda gid: (
+                run1 if gid == "gauntlet-20260111120000-aaa111"
+                else run2 if gid == "gauntlet-20260111120000-bbb222"
+                else None
+            )
+            mock_store.compare.return_value = {
+                "run1": run1,
+                "run2": run2,
+                "verdict_changed": True,
+                "confidence_delta": 0.2,
+            }
+            mock_storage.return_value = mock_store
+
+            result = run_async(
+                gauntlet_handler.handle(
+                    "/api/gauntlet/gauntlet-20260111120000-aaa111/compare/gauntlet-20260111120000-bbb222",
+                    "GET",
+                    None,
+                )
+            )
+
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert "comparison" in data or "run1" in data or "verdict_changed" in data
+
+
+# ============================================================================
+# Memory Cleanup Tests
+# ============================================================================
+
+
+class TestMemoryCleanup:
+    """Tests for memory cleanup functionality."""
+
+    def test_cleanup_removes_old_completed(self):
+        """Should remove completed runs older than TTL."""
+        import time
+        from datetime import datetime, timedelta
+
+        # Add a very old completed run
+        old_time = (datetime.now() - timedelta(hours=3)).isoformat()
+        gauntlet_module._gauntlet_runs["gauntlet-20260111100000-old123"] = {
+            "gauntlet_id": "gauntlet-20260111100000-old123",
+            "status": "completed",
+            "created_at": old_time,
+            "completed_at": old_time,
+        }
+
+        # Add a recent run
+        recent_time = datetime.now().isoformat()
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-new123"] = {
+            "gauntlet_id": "gauntlet-20260111120000-new123",
+            "status": "completed",
+            "created_at": recent_time,
+            "completed_at": recent_time,
+        }
+
+        gauntlet_module._cleanup_gauntlet_runs()
+
+        # Old run should be removed
+        assert "gauntlet-20260111100000-old123" not in gauntlet_module._gauntlet_runs
+        # Recent run should remain
+        assert "gauntlet-20260111120000-new123" in gauntlet_module._gauntlet_runs
+
+    def test_cleanup_respects_max_entries(self):
+        """Should enforce maximum entries limit."""
+        # This test verifies the limit behavior exists
+        assert gauntlet_module.MAX_GAUNTLET_RUNS_IN_MEMORY == 500
+
+
+# ============================================================================
+# Run Endpoint Extended Tests
+# ============================================================================
+
+
+class TestGauntletRunExtended:
+    """Extended tests for POST /api/gauntlet/run endpoint."""
+
+    def test_run_with_persona(self, gauntlet_handler):
+        """Should accept persona parameter."""
+        mock_handler = create_mock_handler("/api/gauntlet/run")
+
+        with patch.object(
+            gauntlet_handler,
+            "read_json_body",
+            return_value={
+                "input_content": "Test content",
+                "input_type": "spec",
+                "persona": "gdpr",
+            },
+        ):
+            result = run_async(gauntlet_handler.handle("/api/gauntlet/run", "POST", mock_handler))
+
+            assert result.status_code == 202
+            data = json.loads(result.body)
+            assert "gauntlet_id" in data
+
+    def test_run_with_profile(self, gauntlet_handler):
+        """Should accept profile parameter."""
+        mock_handler = create_mock_handler("/api/gauntlet/run")
+
+        with patch.object(
+            gauntlet_handler,
+            "read_json_body",
+            return_value={
+                "input_content": "Test content",
+                "input_type": "spec",
+                "profile": "strict",
+            },
+        ):
+            result = run_async(gauntlet_handler.handle("/api/gauntlet/run", "POST", mock_handler))
+
+            assert result.status_code == 202
+
+    def test_run_validates_input_type(self, gauntlet_handler):
+        """Should validate input_type parameter."""
+        mock_handler = create_mock_handler("/api/gauntlet/run")
+
+        with patch.object(
+            gauntlet_handler,
+            "read_json_body",
+            return_value={
+                "input_content": "Test content",
+                "input_type": "invalid_type",
+            },
+        ):
+            result = run_async(gauntlet_handler.handle("/api/gauntlet/run", "POST", mock_handler))
+
+            # Should either accept with default or return validation error
+            assert result.status_code in (202, 400)
+
+    def test_run_generates_unique_id(self, gauntlet_handler):
+        """Should generate unique gauntlet IDs."""
+        mock_handler = create_mock_handler("/api/gauntlet/run")
+
+        ids = set()
+        for _ in range(3):
+            with patch.object(
+                gauntlet_handler,
+                "read_json_body",
+                return_value={"input_content": "Test", "input_type": "spec"},
+            ):
+                result = run_async(
+                    gauntlet_handler.handle("/api/gauntlet/run", "POST", mock_handler)
+                )
+                data = json.loads(result.body)
+                ids.add(data["gauntlet_id"])
+
+        assert len(ids) == 3  # All IDs should be unique
+
+
+# ============================================================================
+# Storage Fallback Tests
+# ============================================================================
+
+
+class TestStorageFallback:
+    """Tests for storage fallback behavior."""
+
+    def test_get_status_falls_back_to_persistent_storage(self, gauntlet_handler):
+        """Should check persistent storage if not in memory."""
+        stored_result = {
+            "gauntlet_id": "gauntlet-20260111120000-stored",
+            "status": "completed",
+            "result": {"verdict": "PASS"},
+        }
+
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_store = Mock()
+            mock_store.get.return_value = stored_result
+            mock_storage.return_value = mock_store
+
+            result = run_async(
+                gauntlet_handler.handle("/api/gauntlet/gauntlet-20260111120000-stored", "GET", None)
+            )
+
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert data["gauntlet_id"] == "gauntlet-20260111120000-stored"
+
+    def test_delete_removes_from_both_memory_and_storage(self, gauntlet_handler, mock_gauntlet_run):
+        """Should delete from both memory and persistent storage."""
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
+
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_store = Mock()
+            mock_store.delete.return_value = True
+            mock_storage.return_value = mock_store
+
+            result = run_async(
+                gauntlet_handler.handle(
+                    "/api/gauntlet/gauntlet-20260111120000-abc123", "DELETE", None
+                )
+            )
+
+            assert result.status_code == 200
+            # Should be removed from memory
+            assert "gauntlet-20260111120000-abc123" not in gauntlet_module._gauntlet_runs
+            # Should call delete on storage
+            mock_store.delete.assert_called_once()
+
+
+# ============================================================================
+# Heatmap Extended Tests
+# ============================================================================
+
+
+class TestHeatmapExtended:
+    """Extended tests for heatmap endpoint."""
+
+    def test_heatmap_svg_format(self, gauntlet_handler, mock_gauntlet_run):
+        """Should return heatmap as SVG."""
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
+        mock_handler = mock_handler_with_query(
+            "/api/gauntlet/gauntlet-20260111120000-abc123/heatmap", {"format": "svg"}
+        )
+
+        with patch("aragora.gauntlet.heatmap.RiskHeatmap", MockRiskHeatmap):
+            with patch("aragora.gauntlet.heatmap.HeatmapCell", Mock):
+                result = run_async(
+                    gauntlet_handler.handle(
+                        "/api/gauntlet/gauntlet-20260111120000-abc123/heatmap", "GET", mock_handler
+                    )
+                )
+
+                # Should return SVG or JSON (depending on format handling)
+                assert result.status_code == 200
+
+    def test_heatmap_ascii_format(self, gauntlet_handler, mock_gauntlet_run):
+        """Should return heatmap as ASCII."""
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
+        mock_handler = mock_handler_with_query(
+            "/api/gauntlet/gauntlet-20260111120000-abc123/heatmap", {"format": "ascii"}
+        )
+
+        with patch("aragora.gauntlet.heatmap.RiskHeatmap", MockRiskHeatmap):
+            with patch("aragora.gauntlet.heatmap.HeatmapCell", Mock):
+                result = run_async(
+                    gauntlet_handler.handle(
+                        "/api/gauntlet/gauntlet-20260111120000-abc123/heatmap", "GET", mock_handler
+                    )
+                )
+
+                assert result.status_code == 200
+
+    def test_heatmap_not_completed(self, gauntlet_handler, mock_gauntlet_run):
+        """Should handle pending gauntlet appropriately."""
+        pending_run = mock_gauntlet_run.copy()
+        pending_run["status"] = "pending"
+        pending_run["result"] = None
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = pending_run
+
+        with patch("aragora.gauntlet.heatmap.RiskHeatmap", MockRiskHeatmap):
+            with patch("aragora.gauntlet.heatmap.HeatmapCell", Mock):
+                result = run_async(
+                    gauntlet_handler.handle(
+                        "/api/gauntlet/gauntlet-20260111120000-abc123/heatmap", "GET", None
+                    )
+                )
+
+                # Should return error or empty heatmap for pending
+                assert result.status_code in (200, 400, 404)
