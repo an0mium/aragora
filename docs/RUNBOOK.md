@@ -819,6 +819,418 @@ kubectl get endpoints aragora -n aragora
 
 ---
 
+## Helm Chart Deployment
+
+Aragora provides a Helm chart for simplified Kubernetes deployment.
+
+### Installation
+
+```bash
+# Add repository (if published)
+helm repo add aragora https://charts.aragora.ai
+helm repo update
+
+# Or install from local chart
+helm install aragora ./deploy/helm/aragora \
+  --namespace aragora \
+  --create-namespace \
+  -f values-production.yaml
+```
+
+### Configuration Values
+
+```yaml
+# values-production.yaml
+replicaCount: 3
+
+image:
+  repository: ghcr.io/aragora/aragora
+  tag: "v1.0.0"
+  pullPolicy: IfNotPresent
+
+# Enable autoscaling for production
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Prometheus Operator integration
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  labels:
+    release: prometheus  # Match your Prometheus selector
+
+# Resource limits
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+# External secrets (recommended for production)
+existingSecrets:
+  apiKeys: aragora-api-keys
+  database: aragora-db-credentials
+```
+
+### Upgrading
+
+```bash
+# Check current release
+helm list -n aragora
+
+# Upgrade with new values
+helm upgrade aragora ./deploy/helm/aragora \
+  --namespace aragora \
+  -f values-production.yaml
+
+# Rollback if needed
+helm rollback aragora 1 -n aragora
+```
+
+---
+
+## Backup and Restore Procedures
+
+### Automated Backups
+
+**PostgreSQL Backups:**
+```bash
+# Daily backup script (add to cron)
+#!/bin/bash
+BACKUP_DIR=/backups/postgres
+DATE=$(date +%Y%m%d_%H%M%S)
+pg_dump -Fc aragora > ${BACKUP_DIR}/aragora_${DATE}.dump
+
+# Retain last 30 days
+find ${BACKUP_DIR} -name "*.dump" -mtime +30 -delete
+```
+
+**SQLite Backups (local mode):**
+```bash
+# Backup local databases
+cp /var/lib/aragora/agent_elo.db /backups/agent_elo_$(date +%Y%m%d).db
+cp /var/lib/aragora/continuum.db /backups/continuum_$(date +%Y%m%d).db
+```
+
+**Redis Backup:**
+```bash
+# Trigger RDB snapshot
+redis-cli BGSAVE
+
+# Copy snapshot
+cp /var/lib/redis/dump.rdb /backups/redis_$(date +%Y%m%d).rdb
+```
+
+### Restore Procedures
+
+**Full PostgreSQL Restore:**
+```bash
+# Stop service
+systemctl stop aragora
+
+# Drop and recreate database
+psql -c "DROP DATABASE IF EXISTS aragora;"
+psql -c "CREATE DATABASE aragora;"
+
+# Restore from backup
+pg_restore -d aragora /backups/aragora_20240115.dump
+
+# Restart service
+systemctl start aragora
+```
+
+**Selective Table Restore:**
+```bash
+# Restore specific table
+pg_restore -d aragora -t debates /backups/aragora_20240115.dump
+```
+
+**Kubernetes Backup with Velero:**
+```bash
+# Create backup
+velero backup create aragora-backup \
+  --include-namespaces aragora \
+  --include-cluster-resources=true
+
+# List backups
+velero backup get
+
+# Restore from backup
+velero restore create --from-backup aragora-backup
+```
+
+---
+
+## Security Incident Response
+
+### Incident Classification
+
+| Severity | Response Time | Examples |
+|----------|--------------|----------|
+| P1 - Critical | Immediate | Data breach, service compromise |
+| P2 - High | 1 hour | Auth bypass, rate limit bypass |
+| P3 - Medium | 4 hours | API key leak, suspicious activity |
+| P4 - Low | 24 hours | Minor vulnerability, audit finding |
+
+### Immediate Response Checklist
+
+**1. Containment (first 15 minutes):**
+```bash
+# Rotate compromised API keys
+curl -X POST http://localhost:8080/api/admin/rotate-keys
+
+# Block suspicious IPs
+iptables -A INPUT -s SUSPICIOUS_IP -j DROP
+
+# Enable emergency rate limiting
+export ARAGORA_RATE_LIMIT_EMERGENCY=1
+systemctl restart aragora
+```
+
+**2. Preserve Evidence:**
+```bash
+# Capture logs before rotation
+tar -czf /evidence/logs_$(date +%Y%m%d_%H%M%S).tar.gz /var/log/aragora/
+
+# Export database audit log
+pg_dump -t audit_log aragora > /evidence/audit_$(date +%Y%m%d).sql
+
+# Capture current connections
+netstat -tupn > /evidence/connections_$(date +%Y%m%d).txt
+```
+
+**3. Revoke Access:**
+```bash
+# Revoke all active tokens
+curl -X POST http://localhost:8080/api/admin/revoke-all-tokens
+
+# Force password reset
+curl -X POST http://localhost:8080/api/admin/force-password-reset
+```
+
+### Token Revocation
+
+The audit logging and token revocation middleware track all sensitive operations:
+
+```bash
+# View recent audit events
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+  http://localhost:8080/api/admin/audit-log?limit=100
+
+# Revoke specific token
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+  http://localhost:8080/api/admin/revoke-token \
+  -d '{"token_id": "tok_xyz123"}'
+
+# Check revocation status
+curl http://localhost:8080/api/admin/revoked-tokens
+```
+
+### Post-Incident
+
+1. Document timeline and actions taken
+2. Notify affected users (if data breach)
+3. Update security controls
+4. Conduct post-mortem
+5. File CVE if applicable
+
+---
+
+## Nomic Loop Operations
+
+### Overview
+
+The Nomic Loop is Aragora's autonomous self-improvement system. It runs debates to propose code improvements, designs solutions, implements changes, and verifies them.
+
+### Starting the Nomic Loop
+
+```bash
+# Run with human approval required (safer)
+python scripts/nomic_loop.py run --cycles 3 --path /path/to/aragora
+
+# Run autonomously (for trusted environments)
+python scripts/nomic_loop.py run --cycles 5 --auto
+
+# Run with streaming output
+python scripts/run_nomic_with_stream.py run --cycles 3
+```
+
+### Pre-Flight Checks
+
+```bash
+# Run health checks before starting
+python scripts/nomic_loop.py preflight
+
+# Expected output:
+# [PASS] Primary API Key
+# [PASS] Disk Space
+# [PASS] Protected Files
+# [PASS] Git Repository
+# [PASS] Backup Directory
+```
+
+### Safety Features
+
+The Nomic Loop includes multiple safety mechanisms:
+
+1. **Constitution Verification**: Cryptographically signed safety rules
+2. **Protected File Checksums**: Cannot modify critical files
+3. **Automatic Backups**: Created before each cycle
+4. **Pre-flight Checks**: Validates environment before running
+5. **Rollback on Failure**: Automatic rollback if tests fail
+
+### Monitoring the Loop
+
+```bash
+# Watch loop status
+tail -f .nomic/sessions/*/transcript.md
+
+# Check backup status
+ls -la .nomic/backups/
+
+# View cycle outcomes
+cat .nomic/outcomes.db | sqlite3 -header -csv
+```
+
+### Rollback Procedures
+
+```bash
+# Manual rollback to backup
+python scripts/nomic_loop.py rollback --backup .nomic/backups/cycle_5_20240115/
+
+# Git-based rollback
+git checkout HEAD~1  # Revert last cycle
+
+# Full reset to clean state
+git stash
+git checkout main
+git pull
+```
+
+### Troubleshooting
+
+**Loop Stuck:**
+```bash
+# Check for hung processes
+ps aux | grep nomic_loop
+
+# Check for lock files
+ls -la .nomic/*.lock
+
+# Remove stale locks
+rm .nomic/*.lock
+```
+
+**Constitution Signature Invalid:**
+```bash
+# Re-sign constitution (requires private key)
+python scripts/sign_constitution.py sign
+
+# Verify signature
+python scripts/sign_constitution.py verify
+```
+
+---
+
+## Production Readiness Checklist
+
+### Pre-Launch Checklist
+
+- [ ] **Secrets Management**
+  - [ ] API keys stored in secure secret manager (not env vars)
+  - [ ] JWT secret is strong and rotated periodically
+  - [ ] Database credentials use least-privilege accounts
+
+- [ ] **High Availability**
+  - [ ] Minimum 2 replicas running
+  - [ ] Pod Disruption Budget configured
+  - [ ] Horizontal Pod Autoscaler enabled
+  - [ ] Multi-AZ deployment (if cloud)
+
+- [ ] **Monitoring**
+  - [ ] ServiceMonitor created for Prometheus
+  - [ ] Grafana dashboards imported
+  - [ ] Alerts configured and tested
+  - [ ] On-call rotation established
+
+- [ ] **Security**
+  - [ ] Rate limiting enabled
+  - [ ] CORS configured correctly
+  - [ ] TLS termination enabled
+  - [ ] Network policies applied
+
+- [ ] **Backup**
+  - [ ] Automated database backups
+  - [ ] Backup retention policy defined
+  - [ ] Restore procedure tested
+
+- [ ] **Performance**
+  - [ ] Load testing completed
+  - [ ] Resource limits tuned
+  - [ ] Connection pooling configured
+
+### Go-Live Checklist
+
+```bash
+# Verify all services healthy
+kubectl get pods -n aragora
+curl https://aragora.example.com/api/health
+
+# Check metrics endpoint
+curl https://aragora.example.com/metrics | head
+
+# Test debate creation
+curl -X POST https://aragora.example.com/api/debates \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"topic": "test", "agents": ["claude", "gpt-4"]}'
+
+# Verify WebSocket connectivity
+websocat wss://aragora.example.com/ws/debates/test-123
+```
+
+---
+
+## Scaling Guidelines
+
+### When to Scale
+
+| Metric | Threshold | Action |
+|--------|-----------|--------|
+| CPU Utilization | >70% sustained | Add replicas |
+| Memory Usage | >80% | Add replicas or increase limits |
+| p95 Latency | >500ms | Investigate + scale |
+| Active Debates | >10 per pod | Add replicas |
+| Error Rate | >1% | Investigate before scaling |
+
+### Manual Scaling
+
+```bash
+# Scale deployment
+kubectl scale deployment aragora --replicas=5 -n aragora
+
+# Or update HPA min
+kubectl patch hpa aragora -n aragora \
+  -p '{"spec":{"minReplicas":3}}'
+```
+
+### Vertical vs Horizontal
+
+- **Horizontal (add replicas)**: Preferred for most workloads
+- **Vertical (increase resources)**: For memory-bound operations or large debates
+
+---
+
 ## Contact Information
 
 | Role | Contact | Escalation Time |
@@ -829,4 +1241,4 @@ kubectl get endpoints aragora -n aragora
 
 ---
 
-*Last updated: 2024-01-15*
+*Last updated: 2026-01-13*

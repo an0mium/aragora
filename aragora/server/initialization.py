@@ -713,3 +713,115 @@ async def prewarm_caches(
         logger.info(f"[prewarm] Pre-warmed {total} cache entries")
 
     return result
+
+
+# =============================================================================
+# Handler Context Builder
+# =============================================================================
+
+
+def init_handler_stores(nomic_dir: Path) -> dict:
+    """Initialize document, audio, video stores and connectors for handlers.
+
+    This initializes the non-database subsystems that handlers need:
+    - DocumentStore for file uploads
+    - AudioFileStore for broadcast audio
+    - VideoGenerator for YouTube
+    - TwitterPosterConnector for social posting
+    - YouTubeUploaderConnector for video uploads
+    - UserStore for user/org persistence
+    - UsageTracker for billing events
+
+    Args:
+        nomic_dir: Path to nomic state directory
+
+    Returns:
+        Dictionary with initialized stores/connectors (values may be None)
+    """
+    stores: dict = {
+        "document_store": None,
+        "audio_store": None,
+        "video_generator": None,
+        "twitter_connector": None,
+        "youtube_connector": None,
+        "user_store": None,
+        "usage_tracker": None,
+    }
+
+    # DocumentStore for file uploads
+    try:
+        from aragora.server.documents import DocumentStore
+
+        doc_dir = nomic_dir / "documents"
+        stores["document_store"] = DocumentStore(doc_dir)
+        logger.info(f"[init] DocumentStore initialized at {doc_dir}")
+    except ImportError as e:
+        logger.debug(f"[init] DocumentStore unavailable: {e}")
+
+    # AudioFileStore for broadcast audio
+    try:
+        from aragora.broadcast.storage import AudioFileStore
+
+        audio_dir = nomic_dir / "audio"
+        stores["audio_store"] = AudioFileStore(audio_dir)
+        logger.info(f"[init] AudioFileStore initialized at {audio_dir}")
+    except ImportError as e:
+        logger.debug(f"[init] AudioFileStore unavailable: {e}")
+
+    # TwitterPosterConnector for social posting
+    try:
+        from aragora.connectors.twitter_poster import TwitterPosterConnector
+
+        connector = TwitterPosterConnector()
+        stores["twitter_connector"] = connector
+        if connector.is_configured:
+            logger.info("[init] TwitterPosterConnector initialized")
+        else:
+            logger.debug("[init] TwitterPosterConnector created (credentials not configured)")
+    except ImportError as e:
+        logger.debug(f"[init] TwitterPosterConnector unavailable: {e}")
+
+    # YouTubeUploaderConnector for video uploads
+    try:
+        from aragora.connectors.youtube_uploader import YouTubeUploaderConnector
+
+        connector = YouTubeUploaderConnector()
+        stores["youtube_connector"] = connector
+        if connector.is_configured:
+            logger.info("[init] YouTubeUploaderConnector initialized")
+        else:
+            logger.debug("[init] YouTubeUploaderConnector created (credentials not configured)")
+    except ImportError as e:
+        logger.debug(f"[init] YouTubeUploaderConnector unavailable: {e}")
+
+    # VideoGenerator for YouTube
+    try:
+        from aragora.broadcast.video_gen import VideoGenerator
+
+        video_dir = nomic_dir / "videos"
+        stores["video_generator"] = VideoGenerator(video_dir)
+        logger.info(f"[init] VideoGenerator initialized at {video_dir}")
+    except ImportError as e:
+        logger.debug(f"[init] VideoGenerator unavailable: {e}")
+
+    # UserStore for user/org persistence
+    try:
+        from aragora.storage import UserStore
+
+        user_db_path = nomic_dir / "users.db"
+        stores["user_store"] = UserStore(user_db_path)
+        logger.info(f"[init] UserStore initialized at {user_db_path}")
+    except ImportError as e:
+        logger.debug(f"[init] UserStore unavailable: {e}")
+
+    # UsageTracker for billing events
+    try:
+        from aragora.billing.usage import UsageTracker
+
+        usage_db_path = nomic_dir / "usage.db"
+        stores["usage_tracker"] = UsageTracker(db_path=usage_db_path)
+        logger.info(f"[init] UsageTracker initialized at {usage_db_path}")
+    except ImportError as e:
+        logger.debug(f"[init] UsageTracker unavailable: {e}")
+
+    return stores

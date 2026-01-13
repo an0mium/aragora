@@ -996,7 +996,9 @@ async function setupStreamDebate(options?: Parameters<typeof streamDebate>[2]) {
   const firstNextPromise = generator.next();
 
   // Give microtask queue time to create the WebSocket
-  await new Promise((r) => setImmediate(r));
+  // Use Promise.resolve().then() for better compatibility with fake timers
+  await Promise.resolve();
+  await Promise.resolve();
 
   // Now mockWebSocketInstance should be populated
   if (!mockWebSocketInstance) {

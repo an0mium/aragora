@@ -416,7 +416,7 @@ class TrainingHandler(BaseHandler):
             try:
                 sft_sample = sft_exporter.export(limit=1)
                 stats["sft_available"] = len(sft_sample) > 0
-            except Exception:
+            except Exception:  # noqa: BLE001 - Exporter availability check
                 stats["sft_available"] = False
 
         return json_response(stats)

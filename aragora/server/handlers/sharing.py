@@ -185,7 +185,7 @@ _share_store: Optional[Any] = None
 _share_store_lock = threading.Lock()
 
 
-def get_share_store() -> ShareStore:
+def get_share_store() -> Any:
     """Get the global share store instance (thread-safe).
 
     Uses SQLite-backed ShareLinkStore for production persistence,

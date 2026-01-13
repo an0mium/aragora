@@ -21,7 +21,7 @@ import os
 import secrets
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from collections.abc import MutableMapping, Iterator
 from urllib.parse import urlencode, parse_qs
 from uuid import uuid4

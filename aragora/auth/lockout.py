@@ -257,7 +257,7 @@ class RedisLockoutBackend(LockoutBackend):
         try:
             self._client.ping()
             return True
-        except Exception:
+        except Exception:  # noqa: BLE001 - Redis availability check
             self._available = False
             return False
 

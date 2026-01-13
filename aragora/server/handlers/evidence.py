@@ -221,8 +221,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 source_filter=source_filter,
                 min_reliability=min_reliability,
             )
-        except Exception:
-            # FTS might not support * - fallback to empty results
+        except Exception:  # noqa: BLE001 - FTS might not support * wildcard
+            # Fallback to empty results when search fails
             results = []
 
         return self.paginated_response(

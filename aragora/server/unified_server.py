@@ -8,7 +8,6 @@ Provides a single entry point for:
 """
 
 import asyncio
-import atexit
 import json
 import re
 import sqlite3
@@ -16,7 +15,7 @@ from collections import deque
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from threading import Thread
-from typing import TYPE_CHECKING, Any, Coroutine, Optional, Dict
+from typing import TYPE_CHECKING, Optional, Dict
 
 if TYPE_CHECKING:
     from aragora.persistence.supabase import SupabaseClient
@@ -32,27 +31,19 @@ if TYPE_CHECKING:
     from aragora.storage import UserStore
     from aragora.billing.usage import UsageTracker
     from aragora.server.middleware.rate_limit import RateLimitResult
+    from aragora.server.documents import DocumentStore
+    from aragora.broadcast.storage import AudioFileStore
+    from aragora.connectors.twitter_poster import TwitterPosterConnector
+    from aragora.connectors.youtube_uploader import YouTubeUploaderConnector
+    from aragora.broadcast.video_gen import VideoGenerator
 from urllib.parse import urlparse, parse_qs
 
 from .stream import (
     DebateStreamServer,
     SyncEventEmitter,
-    StreamEvent,
-    StreamEventType,
-    create_arena_hooks,
 )
 from .storage import DebateStorage
 from .prometheus import record_http_request
-from .documents import DocumentStore, parse_document, get_supported_formats, SUPPORTED_EXTENSIONS
-from ..broadcast.storage import AudioFileStore
-from ..broadcast.rss_gen import PodcastFeedGenerator, PodcastConfig, PodcastEpisode
-from ..connectors.twitter_poster import TwitterPosterConnector, DebateContentFormatter
-from ..connectors.youtube_uploader import (
-    YouTubeUploaderConnector,
-    YouTubeVideoMetadata,
-    create_video_metadata_from_debate,
-)
-from ..broadcast.video_gen import VideoGenerator
 from .auth import auth_config, check_auth
 from .cors_config import cors_config
 from .middleware.tracing import TracingMiddleware, get_trace_id, TRACE_ID_HEADER
@@ -60,7 +51,6 @@ from .middleware.tracing import TracingMiddleware, get_trace_id, TRACE_ID_HEADER
 # For ad-hoc debates
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 import uuid
 import logging
 
@@ -68,47 +58,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Import centralized config and error utilities
-from aragora.config import (
-    DB_INSIGHTS_PATH,
-    DB_PERSONAS_PATH,
-    DB_TIMEOUT_SECONDS,
-    MAX_AGENTS_PER_DEBATE,
-    MAX_CONCURRENT_DEBATES,
-    ALLOWED_AGENT_TYPES,
-)
-from aragora.server.error_utils import safe_error_message as _safe_error_message
-from aragora.server.validation import (
-    SAFE_ID_PATTERN,
-    validate_id,
-    safe_query_int,
-    safe_query_float,
-)
-from aragora.server.handlers.base import invalidate_leaderboard_cache
+from aragora.config import ALLOWED_AGENT_TYPES
+from aragora.server.validation import safe_query_int, safe_query_float
 
 # Import utilities from extracted modules
-from aragora.server.http_utils import (
-    ALLOWED_QUERY_PARAMS,
-    validate_query_params as _validate_query_params,
-    safe_float as _safe_float,
-    safe_int as _safe_int,
-    run_async as _run_async,
-)
-from aragora.server.debate_utils import (
-    get_active_debates,
-    get_active_debates_lock,
-    update_debate_status as _update_debate_status,
-    cleanup_stale_debates as _cleanup_stale_debates,
-    increment_cleanup_counter,
-    wrap_agent_for_streaming as _wrap_agent_for_streaming,
-    _DEBATE_TTL_SECONDS,
-    _active_debates,
-    _active_debates_lock,
-)
-from aragora.server.debate_controller import (
-    DebateController,
-    DebateRequest,
-    DebateResponse,
-)
+from aragora.server.http_utils import validate_query_params as _validate_query_params
+from aragora.server.debate_utils import get_active_debates
+from aragora.server.debate_controller import DebateController
 from aragora.server.debate_factory import DebateFactory
 
 # DoS protection limits
@@ -129,90 +85,12 @@ TRUSTED_PROXIES = frozenset(
 )
 
 
-# Import optional subsystems from centralized initialization module
+# Import from initialization module (subsystem init functions)
 from aragora.server.initialization import (
-    # Availability flags
-    PERSISTENCE_AVAILABLE,
-    INSIGHTS_AVAILABLE,
-    RANKING_AVAILABLE,
-    FLIP_DETECTOR_AVAILABLE,
-    DEBATE_AVAILABLE,
-    PERSONAS_AVAILABLE,
-    EMBEDDINGS_AVAILABLE,
-    CONSENSUS_MEMORY_AVAILABLE,
-    CALIBRATION_AVAILABLE,
-    PULSE_AVAILABLE,
-    VERIFICATION_AVAILABLE,
-    CONTINUUM_AVAILABLE,
-    POSITION_LEDGER_AVAILABLE,
-    MOMENT_DETECTOR_AVAILABLE,
-    POSITION_TRACKER_AVAILABLE,
-    BROADCAST_AVAILABLE,
-    RELATIONSHIP_TRACKER_AVAILABLE,
-    CRITIQUE_STORE_AVAILABLE,
-    EXPORT_AVAILABLE,
-    PROBER_AVAILABLE,
-    REDTEAM_AVAILABLE,
-    LABORATORY_AVAILABLE,
-    BELIEF_NETWORK_AVAILABLE,
-    PROVENANCE_AVAILABLE,
-    FORMAL_VERIFICATION_AVAILABLE,
-    IMPASSE_DETECTOR_AVAILABLE,
-    CONVERGENCE_DETECTOR_AVAILABLE,
     ROUTING_AVAILABLE,
-    TOURNAMENT_AVAILABLE,
-    EVOLUTION_AVAILABLE,
-    INSIGHT_EXTRACTOR_AVAILABLE,
-    # Classes (for type hints and direct use)
-    Arena,
-    DebateProtocol,
-    create_agent,
-    Environment,
-    format_flip_for_ui,
-    format_consistency_for_ui,
-    PositionLedger,
-    # Broadcast module
-    broadcast_debate,
-    DebateTrace,
-    # RelationshipTracker
-    RelationshipTracker,
-    # CritiqueStore
-    CritiqueStore,
-    # Export module
-    DebateArtifact,
-    CSVExporter,
-    DOTExporter,
-    StaticHTMLExporter,
-    # Prober and RedTeam
-    CapabilityProber,
-    RedTeamMode,
-    # Laboratory
-    PersonaLaboratory,
-    # Belief network
-    BeliefNetwork,
-    BeliefPropagationAnalyzer,
-    # Provenance
-    ProvenanceTracker,
-    # Verification
-    FormalVerificationManager,
-    get_formal_verification_manager,
-    # Impasse and Convergence
-    ImpasseDetector,
-    ConvergenceDetector,
-    # Routing
     AgentSelector,
     AgentProfile,
     TaskRequirements,
-    # Tournament
-    TournamentManager,
-    # Evolution
-    PromptEvolver,
-    # Memory
-    ContinuumMemory,
-    MemoryTier,
-    # Insights
-    InsightExtractor,
-    # Initialization functions
     init_persistence,
     init_insight_store,
     init_elo_system,
@@ -222,26 +100,10 @@ from aragora.server.initialization import (
     init_debate_embeddings,
     init_consensus_memory,
     init_moment_detector,
-    initialize_subsystems,
-    SubsystemRegistry,
-    # Classes that need explicit checks
-    ConsensusMemory,
-    DissentRetriever,
-    MomentDetector,
-)
-
-# Import static file serving utilities
-from aragora.server.static_server import (
-    serve_static_file,
-    serve_audio_file,
-    get_content_type,
 )
 
 # Modular HTTP handlers via registry mixin
-from aragora.server.handler_registry import (
-    HandlerRegistryMixin,
-    HANDLERS_AVAILABLE,
-)
+from aragora.server.handler_registry import HandlerRegistryMixin
 
 # Server startup time for uptime tracking
 _server_start_time: float = time.time()
@@ -258,26 +120,24 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     stream_emitter: Optional[SyncEventEmitter] = None
     tracing: TracingMiddleware = TracingMiddleware(service_name="aragora-api")
     nomic_state_file: Optional[Path] = None
-    persistence: Optional["SupabaseClient"] = None  # Supabase client for history
-    insight_store: Optional["InsightStore"] = None  # InsightStore for debate insights
-    elo_system: Optional["EloSystem"] = None  # EloSystem for agent rankings
-    document_store: Optional[DocumentStore] = None  # Document store for uploads
-    audio_store: Optional[AudioFileStore] = None  # Audio store for broadcasts
-    twitter_connector: Optional[TwitterPosterConnector] = None  # Twitter posting connector
-    youtube_connector: Optional[YouTubeUploaderConnector] = None  # YouTube upload connector
-    video_generator: Optional[VideoGenerator] = None  # Video generator for YouTube
-    flip_detector: Optional["FlipDetector"] = None  # FlipDetector for position reversals
-    persona_manager: Optional["PersonaManager"] = None  # PersonaManager for agent specialization
-    debate_embeddings: Optional["DebateEmbeddingsDatabase"] = None  # Historical memory
-    position_tracker: Optional["PositionTracker"] = (
-        None  # PositionTracker for truth-grounded personas
-    )
-    position_ledger: Optional["PositionLedger"] = None  # PositionLedger for grounded positions
-    consensus_memory: Optional["ConsensusMemory"] = None  # ConsensusMemory for historical positions
-    dissent_retriever: Optional["DissentRetriever"] = None  # DissentRetriever for minority views
-    moment_detector: Optional["MomentDetector"] = None  # MomentDetector for significant moments
-    user_store: Optional["UserStore"] = None  # UserStore for user/org persistence
-    usage_tracker: Optional["UsageTracker"] = None  # UsageTracker for billing events
+    persistence: Optional["SupabaseClient"] = None
+    insight_store: Optional["InsightStore"] = None
+    elo_system: Optional["EloSystem"] = None
+    document_store: Optional["DocumentStore"] = None
+    audio_store: Optional["AudioFileStore"] = None
+    twitter_connector: Optional["TwitterPosterConnector"] = None
+    youtube_connector: Optional["YouTubeUploaderConnector"] = None
+    video_generator: Optional["VideoGenerator"] = None
+    flip_detector: Optional["FlipDetector"] = None
+    persona_manager: Optional["PersonaManager"] = None
+    debate_embeddings: Optional["DebateEmbeddingsDatabase"] = None
+    position_tracker: Optional["PositionTracker"] = None
+    position_ledger: Optional["PositionLedger"] = None
+    consensus_memory: Optional["ConsensusMemory"] = None
+    dissent_retriever: Optional["DissentRetriever"] = None
+    moment_detector: Optional["MomentDetector"] = None
+    user_store: Optional["UserStore"] = None
+    usage_tracker: Optional["UsageTracker"] = None
 
     # Note: Modular HTTP handlers are provided by HandlerRegistryMixin
     # Handler instance variables (_system_handler, etc.) and _handlers_initialized
@@ -753,61 +613,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             if not self._check_rate_limit():
                 return
 
-        # Try modular handlers first (gradual migration)
+        # Route all /api/* requests through modular handlers
         if path.startswith("/api/"):
             if self._try_modular_handler(path, query):
                 return
 
-        # Insights API - NOW HANDLED BY InsightsHandler
-        # Note: /api/debates/*, /api/health, /api/nomic/*, /api/history/*
-        # are now handled by modular handlers (DebatesHandler, SystemHandler)
-
-        # Note: /api/leaderboard, /api/matches/recent, /api/agent/*/history,
-        # /api/calibration/leaderboard, /api/agent/*/calibration
-        # are now handled by AgentsHandler
-
-        # Pulse API - NOW HANDLED BY PulseHandler
-        # Document API - NOW HANDLED BY DocumentHandler
-        # Replay API - NOW HANDLED BY ReplaysHandler
-        # Flip Detection API - NOW HANDLED BY AgentsHandler
-        # Persona API - NOW HANDLED BY PersonaHandler
-
-        # Consensus Memory API - NOW HANDLED BY ConsensusHandler
-        # Combined Agent Profile API - NOW HANDLED BY AgentsHandler
-
-        # Debate Analytics API - NOW HANDLED BY AnalyticsHandler
-        # Modes API - NOW HANDLED BY SystemHandler
-        # Agent Position Tracking API - NOW HANDLED BY AgentsHandler
-        # Agent Relationship Network API - NOW HANDLED BY AgentsHandler
-        # Agent Moments API - NOW HANDLED BY AgentsHandler
-
-        # System Statistics API - NOW HANDLED BY AnalyticsHandler
-        # Critiques/Reputation API - NOW HANDLED BY CritiqueHandler
-
-        # Agent Comparison API - NOW HANDLED BY AgentsHandler
-        # Head-to-Head API - NOW HANDLED BY AgentsHandler
-        # Opponent Briefing API - NOW HANDLED BY AgentsHandler
-        # Introspection API - NOW HANDLED BY IntrospectionHandler
-        # Calibration Curve API - NOW HANDLED BY CalibrationHandler
-        # Meta-Critique API - NOW HANDLED BY DebatesHandler
-        # Debate Graph Stats API - NOW HANDLED BY DebatesHandler
-
-        # Laboratory/Belief Network APIs - NOW HANDLED BY BeliefHandler
-        # Tournament API - NOW HANDLED BY TournamentHandler
-        # Best Team Combinations API - NOW HANDLED BY RoutingHandler
-        # Evolution History API - NOW HANDLED BY EvolutionHandler
-        # Load-Bearing Claims API - NOW HANDLED BY BeliefHandler
-        # Calibration Summary API - NOW HANDLED BY CalibrationHandler
-        # Continuum Memory API - NOW HANDLED BY MemoryHandler
-        # Formal Verification Status API - NOW HANDLED BY VerificationHandler
-        # Plugins API (GET) - NOW HANDLED BY PluginsHandler
-        # Genesis API - NOW HANDLED BY GenesisHandler
-
-        # Audio file serving (for podcast broadcasts)
-        # NOTE: Audio, podcast, and YouTube routes are NOW HANDLED BY BroadcastHandler
-
-        # Static file serving
-        elif path in ("/", "/index.html"):
+        # Static file serving (non-API routes)
+        if path in ("/", "/index.html"):
             self._serve_file("index.html")
         elif path.endswith((".html", ".css", ".js", ".json", ".ico", ".svg", ".png")):
             self._serve_file(path.lstrip("/"))
@@ -859,25 +671,18 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
     def _do_POST_internal(self, path: str) -> None:
         """Internal POST handler with actual routing logic."""
-        # Try modular handlers first (gradual migration)
+        # Route all /api/* requests through modular handlers
         if path.startswith("/api/"):
             try:
                 if self._try_modular_handler(path, {}):
                     return
             except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
                 logger.exception(f"Modular handler failed for {path}: {e}")
-                # Continue to legacy handlers
+                # Fall through to 404
 
-        # NOTE: /api/documents/upload is now handled by DocumentHandler
-        # NOTE: /api/debate is now handled by DebatesHandler
+        # Debug endpoint for POST testing
         if path == "/api/debug/post-test":
-            # Simple diagnostic endpoint
             self._send_json({"status": "ok", "message": "POST handling works"})
-        # NOTE: Broadcast, publishing, laboratory, routing, verification, probes,
-        # plugins, insights routes are NOW HANDLED BY modular handlers (BroadcastHandler,
-        # LaboratoryHandler, RoutingHandler, VerificationHandler, ProbesHandler,
-        # PluginsHandler, AuditingHandler, InsightsHandler)
-        # NOTE: /api/debates/{id}/verify is now handled by DebatesHandler
         else:
             self.send_error(404, f"Unknown POST endpoint: {path}")
 
@@ -971,20 +776,6 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
                 return
 
         self.send_error(404, f"Unknown PUT endpoint: {path}")
-
-    # NOTE: _upload_document moved to handlers/documents.py (DocumentHandler)
-    # NOTE: _start_debate moved to handlers/debates.py (DebatesHandler)
-    # NOTE: _list_documents moved to handlers/documents.py (DocumentHandler)
-    # NOTE: Insights methods moved to handlers/insights.py (InsightsHandler)
-    # NOTE: _run_capability_probe moved to handlers/probes.py (ProbesHandler)
-    # NOTE: Deep audit methods moved to handlers/auditing.py (AuditingHandler)
-    # NOTE: Red team methods moved to handlers/auditing.py (AuditingHandler)
-    # NOTE: _verify_debate_outcome moved to handlers/debates.py (DebatesHandler)
-    # NOTE: Tournament methods moved to TournamentHandler
-    # NOTE: Best team combinations moved to RoutingHandler
-    # NOTE: Evolution history moved to EvolutionHandler
-    # NOTE: _serve_audio moved to handlers/audio.py (AudioHandler)
-    # NOTE: Podcast and social publishing methods moved to handlers/broadcast.py (BroadcastHandler)
 
     def _serve_file(self, filename: str) -> None:
         """Serve a static file with path traversal protection."""
@@ -1210,85 +1001,50 @@ class UnifiedServer:
         # Initialize Supabase persistence if available
         self.persistence = init_persistence(enable_persistence)
 
-        # Setup HTTP handler
+        # Setup HTTP handler with base resources
         UnifiedHandler.storage = storage
         UnifiedHandler.static_dir = static_dir
         UnifiedHandler.stream_emitter = self.stream_server.emitter
         UnifiedHandler.persistence = self.persistence
+
+        # Initialize nomic-dependent subsystems
         if nomic_dir:
-            UnifiedHandler.nomic_state_file = nomic_dir / "nomic_state.json"
-            # Initialize InsightStore from nomic directory
-            UnifiedHandler.insight_store = init_insight_store(nomic_dir)
-            # Initialize EloSystem from nomic directory
-            UnifiedHandler.elo_system = init_elo_system(nomic_dir)
+            self._init_subsystems(nomic_dir)
 
-            # Initialize FlipDetector from nomic directory
-            UnifiedHandler.flip_detector = init_flip_detector(nomic_dir)
+    def _init_subsystems(self, nomic_dir: Path) -> None:
+        """Initialize all nomic directory dependent subsystems.
 
-            # Initialize DocumentStore for file uploads
-            doc_dir = nomic_dir / "documents"
-            UnifiedHandler.document_store = DocumentStore(doc_dir)
-            logger.info(f"[server] DocumentStore initialized at {doc_dir}")
+        Configures the UnifiedHandler class with all required subsystems
+        for full API functionality.
+        """
+        from aragora.server.initialization import init_handler_stores
 
-            # Initialize AudioFileStore for broadcast audio
-            audio_dir = nomic_dir / "audio"
-            UnifiedHandler.audio_store = AudioFileStore(audio_dir)
-            logger.info(f"[server] AudioFileStore initialized at {audio_dir}")
+        UnifiedHandler.nomic_state_file = nomic_dir / "nomic_state.json"
 
-            # Initialize Twitter connector for social posting
-            UnifiedHandler.twitter_connector = TwitterPosterConnector()
-            if UnifiedHandler.twitter_connector.is_configured:
-                logger.info("[server] TwitterPosterConnector initialized")
-            else:
-                logger.info("[server] TwitterPosterConnector created (credentials not configured)")
+        # Database-backed subsystems (from initialization.py)
+        UnifiedHandler.insight_store = init_insight_store(nomic_dir)
+        UnifiedHandler.elo_system = init_elo_system(nomic_dir)
+        UnifiedHandler.flip_detector = init_flip_detector(nomic_dir)
+        UnifiedHandler.persona_manager = init_persona_manager(nomic_dir)
+        UnifiedHandler.position_ledger = init_position_ledger(nomic_dir)
+        UnifiedHandler.debate_embeddings = init_debate_embeddings(nomic_dir)
+        UnifiedHandler.consensus_memory, UnifiedHandler.dissent_retriever = (
+            init_consensus_memory()
+        )
+        UnifiedHandler.moment_detector = init_moment_detector(
+            elo_system=UnifiedHandler.elo_system,
+            position_ledger=UnifiedHandler.position_ledger,
+        )
 
-            # Initialize YouTube connector for video uploads
-            UnifiedHandler.youtube_connector = YouTubeUploaderConnector()
-            if UnifiedHandler.youtube_connector.is_configured:
-                logger.info("[server] YouTubeUploaderConnector initialized")
-            else:
-                logger.info(
-                    "[server] YouTubeUploaderConnector created (credentials not configured)"
-                )
-
-            # Initialize video generator for YouTube
-            video_dir = nomic_dir / "videos"
-            UnifiedHandler.video_generator = VideoGenerator(video_dir)
-            logger.info(f"[server] VideoGenerator initialized at {video_dir}")
-
-            # Initialize PersonaManager for agent specialization
-            UnifiedHandler.persona_manager = init_persona_manager(nomic_dir)
-
-            # Initialize PositionLedger for truth-grounded personas
-            UnifiedHandler.position_ledger = init_position_ledger(nomic_dir)
-
-            # Initialize DebateEmbeddingsDatabase for historical memory
-            UnifiedHandler.debate_embeddings = init_debate_embeddings(nomic_dir)
-
-            # Initialize ConsensusMemory and DissentRetriever for historical minority views
-            UnifiedHandler.consensus_memory, UnifiedHandler.dissent_retriever = (
-                init_consensus_memory()
-            )
-
-            # Initialize MomentDetector for significant agent moments (narrative storytelling)
-            UnifiedHandler.moment_detector = init_moment_detector(
-                elo_system=UnifiedHandler.elo_system,
-                position_ledger=UnifiedHandler.position_ledger,
-            )
-
-            # Initialize UserStore for user/organization persistence
-            from aragora.storage import UserStore
-
-            user_db_path = nomic_dir / "users.db"
-            UnifiedHandler.user_store = UserStore(user_db_path)
-            logger.info(f"[server] UserStore initialized at {user_db_path}")
-
-            # Initialize UsageTracker for billing/usage events
-            from aragora.billing.usage import UsageTracker
-
-            usage_db_path = nomic_dir / "usage.db"
-            UnifiedHandler.usage_tracker = UsageTracker(db_path=usage_db_path)
-            logger.info(f"[server] UsageTracker initialized at {usage_db_path}")
+        # Non-database stores and connectors (from initialization.py)
+        stores = init_handler_stores(nomic_dir)
+        UnifiedHandler.document_store = stores["document_store"]
+        UnifiedHandler.audio_store = stores["audio_store"]
+        UnifiedHandler.video_generator = stores["video_generator"]
+        UnifiedHandler.twitter_connector = stores["twitter_connector"]
+        UnifiedHandler.youtube_connector = stores["youtube_connector"]
+        UnifiedHandler.user_store = stores["user_store"]
+        UnifiedHandler.usage_tracker = stores["usage_tracker"]
 
     @property
     def emitter(self) -> SyncEventEmitter:

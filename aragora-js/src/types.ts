@@ -1709,3 +1709,211 @@ export interface DomainHistoryResponse {
   }>;
   count: number;
 }
+
+// =============================================================================
+// Admin Types
+// =============================================================================
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+  org_id?: string;
+  is_active: boolean;
+  mfa_enabled: boolean;
+  created_at: string;
+  last_login_at?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AdminUsersResponse {
+  users: AdminUser[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AdminUserUpdateRequest {
+  name?: string;
+  email?: string;
+  role?: string;
+  is_active?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AdminOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  tier: string;
+  owner_id: string;
+  member_count: number;
+  debates_used: number;
+  debates_limit: number;
+  is_active: boolean;
+  settings: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AdminOrganizationsResponse {
+  organizations: AdminOrganization[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AdminSystemStats {
+  total_users: number;
+  active_users: number;
+  total_organizations: number;
+  total_debates: number;
+  debates_today: number;
+  active_debates: number;
+  total_api_calls: number;
+  api_calls_today: number;
+  storage_used_bytes: number;
+  uptime_seconds: number;
+  version: string;
+}
+
+// =============================================================================
+// Dashboard Types
+// =============================================================================
+
+export interface DashboardAnalyticsParams {
+  start_date?: string;
+  end_date?: string;
+  granularity?: 'hour' | 'day' | 'week' | 'month';
+  metrics?: string[];
+}
+
+export interface DashboardAnalyticsResponse {
+  period: {
+    start: string;
+    end: string;
+    granularity: string;
+  };
+  metrics: {
+    debates_created: number;
+    debates_completed: number;
+    consensus_rate: number;
+    avg_duration_seconds: number;
+    unique_users: number;
+    api_calls: number;
+  };
+  timeseries: Array<{
+    timestamp: string;
+    debates: number;
+    api_calls: number;
+    users: number;
+  }>;
+}
+
+export interface DashboardDebateMetricsParams {
+  days?: number;
+  agent?: string;
+  status?: string;
+}
+
+export interface DashboardDebateMetricsResponse {
+  total_debates: number;
+  completed_debates: number;
+  failed_debates: number;
+  avg_rounds: number;
+  avg_duration_seconds: number;
+  consensus_rate: number;
+  by_status: Record<string, number>;
+  by_agent: Record<string, number>;
+  top_topics: Array<{ topic: string; count: number }>;
+}
+
+export interface DashboardAgentPerformanceParams {
+  days?: number;
+  min_debates?: number;
+}
+
+export interface DashboardAgentPerformanceResponse {
+  agents: Array<{
+    agent_id: string;
+    name: string;
+    debates_participated: number;
+    wins: number;
+    losses: number;
+    draws: number;
+    win_rate: number;
+    elo_rating: number;
+    avg_response_time_ms: number;
+    calibration_score?: number;
+  }>;
+  period_days: number;
+}
+
+// =============================================================================
+// System Types
+// =============================================================================
+
+export interface SystemHealthResponse {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  checks: Record<string, {
+    healthy: boolean;
+    latency_ms?: number;
+    error?: string;
+  }>;
+}
+
+export interface SystemInfoResponse {
+  version: string;
+  environment: string;
+  build_date?: string;
+  commit_sha?: string;
+  python_version: string;
+  platform: string;
+  features: string[];
+  api_version: string;
+}
+
+export interface SystemStatusResponse {
+  status: 'operational' | 'degraded' | 'partial_outage' | 'major_outage';
+  services: Record<string, {
+    status: 'operational' | 'degraded' | 'down';
+    latency_ms?: number;
+    last_checked: string;
+    error?: string;
+  }>;
+  active_incidents: Array<{
+    id: string;
+    title: string;
+    status: string;
+    started_at: string;
+    updated_at: string;
+  }>;
+  uptime_percent_30d: number;
+  last_incident?: string;
+}
+
+// =============================================================================
+// Features Types
+// =============================================================================
+
+export interface FeatureFlag {
+  name: string;
+  enabled: boolean;
+  description?: string;
+  rollout_percent?: number;
+  target_groups?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface FeaturesListResponse {
+  features: FeatureFlag[];
+  count: number;
+}
+
+export interface FeatureStatusResponse {
+  name: string;
+  enabled: boolean;
+  description?: string;
+  rollout_percent?: number;
+}

@@ -235,6 +235,34 @@ class ImplementPhase:
                 self._log(f"  All {tasks_completed} tasks completed successfully")
 
                 diff = await self._get_git_diff()
+                modified_files = await self._get_modified_files()
+
+                # === SAFETY: Constitution verification of changes ===
+                constitution_violation = await self._verify_constitution_compliance(
+                    modified_files, diff
+                )
+                if constitution_violation:
+                    self._log(f"  [CONSTITUTION] {constitution_violation}")
+                    self._log("  Rolling back unconstitutional changes...")
+                    await self._git_stash_pop(stash_ref)
+                    phase_duration = (datetime.now() - phase_start).total_seconds()
+                    self._stream_emit(
+                        "on_phase_end",
+                        "implement",
+                        self.cycle_count,
+                        False,
+                        phase_duration,
+                        {"error": "constitution_violation", "details": constitution_violation},
+                    )
+                    return ImplementResult(
+                        success=False,
+                        error=f"Constitution violation: {constitution_violation}",
+                        data={"constitution_violation": constitution_violation},
+                        duration_seconds=phase_duration,
+                        files_modified=[],
+                        diff_summary="",
+                    )
+
                 phase_duration = (datetime.now() - phase_start).total_seconds()
                 self._stream_emit(
                     "on_phase_end",
@@ -252,7 +280,7 @@ class ImplementPhase:
                         "tasks_total": len(plan.tasks),
                     },
                     duration_seconds=phase_duration,
-                    files_modified=await self._get_modified_files(),
+                    files_modified=modified_files,
                     diff_summary=diff[:2000] if diff else "",
                 )
             else:
@@ -463,6 +491,57 @@ CRITICAL SAFETY RULES:
         except (OSError, FileNotFoundError, asyncio.TimeoutError) as e:
             self._log(f"  [git] Failed to get modified files: {e}")
         return []
+
+    async def _verify_constitution_compliance(
+        self,
+        modified_files: List[str],
+        diff: str,
+    ) -> Optional[str]:
+        """Verify modified files don't violate Constitution rules.
+
+        Args:
+            modified_files: List of file paths that were modified
+            diff: Git diff output
+
+        Returns:
+            None if compliant, error message if violation detected
+        """
+        if not self._constitution_verifier:
+            return None  # No verifier = skip check
+
+        # Check if verifier is available/loaded
+        if hasattr(self._constitution_verifier, "is_available"):
+            if not self._constitution_verifier.is_available():
+                return None  # Constitution not loaded
+
+        # Get per-file diff for detailed checking
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "git",
+                "diff",
+                cwd=self.aragora_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await proc.communicate()
+            full_diff = stdout.decode() if proc.returncode == 0 else ""
+        except (OSError, FileNotFoundError, asyncio.TimeoutError):
+            full_diff = ""
+
+        # Check each modified file against Constitution
+        violations = []
+        for file_path in modified_files:
+            if hasattr(self._constitution_verifier, "check_file_modification_allowed"):
+                allowed, reason = self._constitution_verifier.check_file_modification_allowed(
+                    file_path, full_diff
+                )
+                if not allowed:
+                    violations.append(f"{file_path}: {reason}")
+
+        if violations:
+            return "; ".join(violations[:3])  # Limit to first 3 violations
+
+        return None
 
 
 __all__ = ["ImplementPhase"]

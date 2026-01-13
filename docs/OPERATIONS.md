@@ -13,6 +13,7 @@ This document provides operational guidance for running, monitoring, and trouble
 7. [Incident Response](#incident-response)
 8. [Database Operations](#database-operations)
 9. [Backup & Recovery](#backup--recovery)
+10. [Storage Cleanup](#storage-cleanup)
 
 ---
 
@@ -601,6 +602,66 @@ sudo systemctl start aragora
 3. Restore latest backup from S3
 4. Update DNS to point to new server
 5. Verify functionality
+
+---
+
+## Storage Cleanup
+
+The `.nomic/` directory accumulates data over time: backups, checkpoints, session telemetry, and artifacts. Use the cleanup script to manage storage.
+
+### Cleanup Script
+
+```bash
+# Preview what would be cleaned up (always run first)
+python scripts/cleanup_nomic_state.py --dry-run
+
+# Actually perform cleanup with default settings (7 days retention)
+python scripts/cleanup_nomic_state.py
+
+# Customize retention periods
+python scripts/cleanup_nomic_state.py \
+  --backup-days 14 \
+  --session-days 3 \
+  --checkpoint-days 7
+
+# Archive old data before deleting
+python scripts/cleanup_nomic_state.py --archive-to /backups/nomic_archive/
+```
+
+### What Gets Cleaned
+
+| Category | Default Retention | Description |
+|----------|-------------------|-------------|
+| Backups | 7 days (keep 5 latest) | Nomic loop cycle backups |
+| Sessions | 3 days (test: 1 day) | Session telemetry data |
+| Checkpoints | 7 days | Debate state checkpoints |
+| Artifacts | 7 days | Timestamped debug artifacts |
+| Orphaned WAL | Immediate | WAL/SHM files without parent DB |
+
+### Essential Databases (Never Deleted)
+
+The cleanup script preserves these core databases:
+- `core.db`, `memory.db`, `agents.db`, `debates.db`
+- `agent_elo.db`, `agent_memories.db`, `agent_calibration.db`
+- `consensus_memory.db`, `continuum.db`, `continuum_memory.db`
+- `users.db`, `usage.db`, `scheduled_debates.db`
+
+### Cleanup Schedule
+
+Recommended: Run cleanup weekly via cron:
+
+```bash
+# Add to crontab
+0 3 * * 0 cd /opt/aragora && python scripts/cleanup_nomic_state.py --yes >> /var/log/aragora/cleanup.log 2>&1
+```
+
+### Manual Analysis
+
+To analyze storage usage without cleaning:
+
+```bash
+python scripts/cleanup_nomic_state.py --analyze-only
+```
 
 ---
 

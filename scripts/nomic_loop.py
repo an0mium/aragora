@@ -3166,6 +3166,7 @@ The most valuable proposals combine deep analysis with actionable implementation
                 self._record_replay_event if hasattr(self, "_record_replay_event") else None
             ),
             save_state_fn=self.save_state if hasattr(self, "save_state") else None,
+            constitution_verifier=self.constitution_verifier,
         )
 
     def _create_context_phase(self) -> "ContextPhase":

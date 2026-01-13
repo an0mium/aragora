@@ -179,6 +179,27 @@ import {
   RiskWarning,
   RiskWarningsResponse,
   DomainHistoryResponse,
+  // Admin types
+  AdminUser,
+  AdminUsersResponse,
+  AdminUserUpdateRequest,
+  AdminOrganizationsResponse,
+  AdminSystemStats,
+  // Dashboard types
+  DashboardAnalyticsParams,
+  DashboardAnalyticsResponse,
+  DashboardDebateMetricsParams,
+  DashboardDebateMetricsResponse,
+  DashboardAgentPerformanceParams,
+  DashboardAgentPerformanceResponse,
+  // System types
+  SystemHealthResponse,
+  SystemInfoResponse,
+  SystemStatusResponse,
+  // Features types
+  FeatureFlag,
+  FeaturesListResponse,
+  FeatureStatusResponse,
 } from './types';
 
 // =============================================================================
@@ -1998,6 +2019,251 @@ class ConsensusAPI {
 }
 
 // =============================================================================
+// Admin API
+// =============================================================================
+
+/**
+ * API client for admin operations.
+ *
+ * Requires admin privileges to use these endpoints.
+ *
+ * @example
+ * ```typescript
+ * // Get all users
+ * const users = await client.admin.getUsers({ limit: 50 });
+ *
+ * // Get system statistics
+ * const stats = await client.admin.getSystemStats();
+ * ```
+ */
+class AdminAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List all users with pagination.
+   */
+  async getUsers(options?: {
+    limit?: number;
+    offset?: number;
+    role?: string;
+    is_active?: boolean;
+  }): Promise<AdminUsersResponse> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.role) params.set('role', options.role);
+    if (options?.is_active !== undefined) params.set('is_active', String(options.is_active));
+
+    const query = params.toString();
+    const path = query ? `/api/admin/users?${query}` : '/api/admin/users';
+    return this.http.get<AdminUsersResponse>(path);
+  }
+
+  /**
+   * Get a specific user by ID.
+   */
+  async getUser(userId: string): Promise<AdminUser> {
+    const response = await this.http.get<{ user: AdminUser }>(`/api/admin/users/${userId}`);
+    return response.user;
+  }
+
+  /**
+   * Update a user's information.
+   */
+  async updateUser(userId: string, data: AdminUserUpdateRequest): Promise<AdminUser> {
+    const response = await this.http.put<{ user: AdminUser }>(`/api/admin/users/${userId}`, data);
+    return response.user;
+  }
+
+  /**
+   * Delete a user by ID.
+   */
+  async deleteUser(userId: string): Promise<boolean> {
+    await this.http.delete(`/api/admin/users/${userId}`);
+    return true;
+  }
+
+  /**
+   * List all organizations with pagination.
+   */
+  async getOrganizations(options?: {
+    limit?: number;
+    offset?: number;
+    tier?: string;
+    is_active?: boolean;
+  }): Promise<AdminOrganizationsResponse> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.tier) params.set('tier', options.tier);
+    if (options?.is_active !== undefined) params.set('is_active', String(options.is_active));
+
+    const query = params.toString();
+    const path = query ? `/api/admin/organizations?${query}` : '/api/admin/organizations';
+    return this.http.get<AdminOrganizationsResponse>(path);
+  }
+
+  /**
+   * Get system-wide statistics.
+   */
+  async getSystemStats(): Promise<AdminSystemStats> {
+    return this.http.get<AdminSystemStats>('/api/admin/stats');
+  }
+}
+
+// =============================================================================
+// Dashboard API
+// =============================================================================
+
+/**
+ * API client for dashboard analytics.
+ *
+ * @example
+ * ```typescript
+ * // Get analytics data
+ * const analytics = await client.dashboard.getAnalytics({
+ *   start_date: '2024-01-01',
+ *   granularity: 'day',
+ * });
+ *
+ * // Get agent performance metrics
+ * const performance = await client.dashboard.getAgentPerformance({ days: 30 });
+ * ```
+ */
+class DashboardAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get analytics data for a time period.
+   */
+  async getAnalytics(params?: DashboardAnalyticsParams): Promise<DashboardAnalyticsResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.start_date) searchParams.set('start_date', params.start_date);
+    if (params?.end_date) searchParams.set('end_date', params.end_date);
+    if (params?.granularity) searchParams.set('granularity', params.granularity);
+    if (params?.metrics) searchParams.set('metrics', params.metrics.join(','));
+
+    const query = searchParams.toString();
+    const path = query ? `/api/dashboard/analytics?${query}` : '/api/dashboard/analytics';
+    return this.http.get<DashboardAnalyticsResponse>(path);
+  }
+
+  /**
+   * Get debate-specific metrics.
+   */
+  async getDebateMetrics(params?: DashboardDebateMetricsParams): Promise<DashboardDebateMetricsResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.days) searchParams.set('days', String(params.days));
+    if (params?.agent) searchParams.set('agent', params.agent);
+    if (params?.status) searchParams.set('status', params.status);
+
+    const query = searchParams.toString();
+    const path = query ? `/api/dashboard/debates?${query}` : '/api/dashboard/debates';
+    return this.http.get<DashboardDebateMetricsResponse>(path);
+  }
+
+  /**
+   * Get agent performance statistics.
+   */
+  async getAgentPerformance(params?: DashboardAgentPerformanceParams): Promise<DashboardAgentPerformanceResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.days) searchParams.set('days', String(params.days));
+    if (params?.min_debates) searchParams.set('min_debates', String(params.min_debates));
+
+    const query = searchParams.toString();
+    const path = query ? `/api/dashboard/agents?${query}` : '/api/dashboard/agents';
+    return this.http.get<DashboardAgentPerformanceResponse>(path);
+  }
+}
+
+// =============================================================================
+// System API
+// =============================================================================
+
+/**
+ * API client for system information and health.
+ *
+ * @example
+ * ```typescript
+ * // Check system health
+ * const health = await client.system.health();
+ *
+ * // Get system information
+ * const info = await client.system.info();
+ *
+ * // Get detailed status
+ * const status = await client.system.status();
+ * ```
+ */
+class SystemAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Check system health status.
+   */
+  async health(): Promise<SystemHealthResponse> {
+    return this.http.get<SystemHealthResponse>('/api/system/health');
+  }
+
+  /**
+   * Get system information including version and features.
+   */
+  async info(): Promise<SystemInfoResponse> {
+    return this.http.get<SystemInfoResponse>('/api/system/info');
+  }
+
+  /**
+   * Get detailed system status including service health.
+   */
+  async status(): Promise<SystemStatusResponse> {
+    return this.http.get<SystemStatusResponse>('/api/system/status');
+  }
+}
+
+// =============================================================================
+// Features API
+// =============================================================================
+
+/**
+ * API client for feature flags.
+ *
+ * @example
+ * ```typescript
+ * // List all feature flags
+ * const features = await client.features.list();
+ *
+ * // Check if a specific feature is enabled
+ * const enabled = await client.features.isEnabled('new_debate_ui');
+ * ```
+ */
+class FeaturesAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List all feature flags.
+   */
+  async list(): Promise<FeatureFlag[]> {
+    const response = await this.http.get<FeaturesListResponse>('/api/features');
+    return response.features;
+  }
+
+  /**
+   * Get a specific feature flag by name.
+   */
+  async get(name: string): Promise<FeatureStatusResponse> {
+    return this.http.get<FeatureStatusResponse>(`/api/features/${encodeURIComponent(name)}`);
+  }
+
+  /**
+   * Check if a feature is enabled.
+   */
+  async isEnabled(name: string): Promise<boolean> {
+    const feature = await this.get(name);
+    return feature.enabled;
+  }
+}
+
+// =============================================================================
 // Main Client
 // =============================================================================
 
@@ -2027,6 +2293,10 @@ export class AragoraClient {
   readonly insights: InsightsAPI;
   readonly beliefNetwork: BeliefNetworkAPI;
   readonly consensus: ConsensusAPI;
+  readonly admin: AdminAPI;
+  readonly dashboard: DashboardAPI;
+  readonly system: SystemAPI;
+  readonly features: FeaturesAPI;
 
   /**
    * Create a new Aragora client.
@@ -2078,6 +2348,10 @@ export class AragoraClient {
     this.insights = new InsightsAPI(this.http);
     this.beliefNetwork = new BeliefNetworkAPI(this.http);
     this.consensus = new ConsensusAPI(this.http);
+    this.admin = new AdminAPI(this.http);
+    this.dashboard = new DashboardAPI(this.http);
+    this.system = new SystemAPI(this.http);
+    this.features = new FeaturesAPI(this.http);
   }
 
   /**
