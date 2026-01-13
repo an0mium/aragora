@@ -34,7 +34,7 @@ class BatchOperationsMixin:
 
     @rate_limit(rpm=10, limiter_name="batch_submit")
     @handle_errors("submit batch")
-    def _submit_batch(self: "DebatesHandler", handler) -> HandlerResult:
+    def _submit_batch(self: "DebatesHandler", handler) -> HandlerResult:  # type: ignore[misc]
         """Submit a batch of debates for processing.
 
         POST body:
@@ -233,7 +233,7 @@ class BatchOperationsMixin:
             logger.error(f"Failed to submit batch: {e}", exc_info=True)
             return error_response(safe_error_message(e, "submit batch"), 500)
 
-    def _create_debate_executor(self: "DebatesHandler"):
+    def _create_debate_executor(self: "DebatesHandler"):  # type: ignore[misc]
         """Create a debate executor function for the batch queue."""
         from aragora.server.debate_queue import BatchItem
 
@@ -275,7 +275,7 @@ class BatchOperationsMixin:
         return execute_debate
 
     @handle_errors("get batch status")
-    def _get_batch_status(self: "DebatesHandler", batch_id: str) -> HandlerResult:
+    def _get_batch_status(self: "DebatesHandler", batch_id: str) -> HandlerResult:  # type: ignore[misc]
         """Get status of a batch request.
 
         Returns full batch status including all items.
@@ -297,7 +297,7 @@ class BatchOperationsMixin:
         return json_response(status)
 
     @handle_errors("list batches")
-    def _list_batches(
+    def _list_batches(  # type: ignore[misc]
         self: "DebatesHandler", limit: int, status_filter: Optional[str] = None
     ) -> HandlerResult:
         """List batch requests.
@@ -331,7 +331,7 @@ class BatchOperationsMixin:
         )
 
     @handle_errors("get queue status")
-    def _get_queue_status(self: "DebatesHandler") -> HandlerResult:
+    def _get_queue_status(self: "DebatesHandler") -> HandlerResult:  # type: ignore[misc]
         """Get overall queue status.
 
         Returns queue health and processing statistics.
@@ -349,7 +349,7 @@ class BatchOperationsMixin:
 
         # Count batches by status
         all_batches = queue.list_batches(limit=1000)
-        status_counts = {}
+        status_counts: dict[str, int] = {}
         for batch in all_batches:
             status = batch.get("status", "unknown")
             status_counts[status] = status_counts.get(status, 0) + 1

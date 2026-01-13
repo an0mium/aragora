@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Generator, Generic, List, Optional, TypeVar
 
-from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.config import DB_TIMEOUT_SECONDS, resolve_db_path
 from aragora.storage.schema import DatabaseManager
 
 logger = logging.getLogger(__name__)
@@ -179,7 +179,9 @@ class BaseRepository(ABC, Generic[T]):
             timeout: Connection timeout in seconds.
             use_wal: Whether to use WAL mode for better concurrency.
         """
-        self._db_path = Path(db_path)
+        # Resolve the database path to the data directory
+        resolved_path = resolve_db_path(str(db_path))
+        self._db_path = Path(resolved_path)
         self._timeout = timeout
         self._use_wal = use_wal
         # Use centralized DatabaseManager for connection pooling

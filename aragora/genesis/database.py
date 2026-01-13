@@ -4,7 +4,7 @@ Database abstraction for the genesis module.
 Provides standardized schema management by inheriting from SQLiteStore.
 """
 
-from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.config import DB_TIMEOUT_SECONDS, resolve_db_path
 from aragora.storage.base_store import SQLiteStore
 
 
@@ -86,4 +86,4 @@ class GenesisDatabase(SQLiteStore):
 
     def __init__(self, db_path: str = ".nomic/genesis.db"):
         """Initialize genesis database."""
-        super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
+        super().__init__(resolve_db_path(db_path), timeout=DB_TIMEOUT_SECONDS)

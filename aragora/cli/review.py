@@ -14,14 +14,15 @@ import asyncio
 import hashlib
 import json
 import os
+import subprocess
 import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, Sequence, cast
 
-from aragora.agents.base import create_agent
-from aragora.core import Environment, DebateResult, Critique
+from aragora.agents.base import AgentType, create_agent
+from aragora.core import Agent, Environment, DebateResult, Critique
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.debate.disagreement import DisagreementReporter
 
@@ -270,12 +271,12 @@ async def run_review_debate(
         agent_specs = DEFAULT_REVIEW_AGENTS.split(",")
 
     # Create agents with reviewer roles
-    agents = []
+    agents: list[Agent] = []
     roles = ["security_reviewer", "performance_reviewer", "quality_reviewer"]
     for i, agent_type in enumerate(agent_specs):
         role = roles[i % len(roles)]
         agent = create_agent(
-            model_type=agent_type,
+            model_type=cast(AgentType, agent_type),
             name=f"{agent_type}_{role}",
             role=role,
         )
@@ -344,7 +345,7 @@ def extract_review_findings(result: DebateResult) -> dict:
     }
 
 
-def format_github_comment(result: DebateResult, findings: dict) -> str:
+def format_github_comment(result: Optional[DebateResult], findings: dict[str, Any]) -> str:
     """Format findings as a GitHub PR comment."""
     agents_used = findings.get("agents_used", [])
     agent_names = (
@@ -450,16 +451,10 @@ def cmd_review(args: argparse.Namespace) -> int:
         print("Running in demo mode (no API calls)...", file=sys.stderr)
         findings = get_demo_findings()
 
-        # Create mock result for formatting
-        class MockResult:
-            pass
-
-        result = MockResult()
-
         output_dir = Path(args.output_dir) if args.output_dir else None
 
         if args.output_format == "github":
-            comment = format_github_comment(result, findings)
+            comment = format_github_comment(None, findings)
             comment = "**[DEMO MODE]** " + comment
             if output_dir:
                 output_dir.mkdir(parents=True, exist_ok=True)
@@ -507,8 +502,6 @@ def cmd_review(args: argparse.Namespace) -> int:
         # Fetch from GitHub PR
         print(f"Fetching PR diff from: {args.pr_url}", file=sys.stderr)
         try:
-            import subprocess
-
             # Extract owner/repo/number from URL
             # Supports: https://github.com/owner/repo/pull/123
             parts = args.pr_url.rstrip("/").split("/")
@@ -520,7 +513,7 @@ def cmd_review(args: argparse.Namespace) -> int:
                     gh_idx = next(i for i, p in enumerate(parts) if "github.com" in p)
                     owner = parts[gh_idx + 1]
                     repo = parts[gh_idx + 2]
-                    repo_arg = f"{owner}/{repo}"
+                    repo_arg: Optional[str] = f"{owner}/{repo}"
                 except (StopIteration, IndexError):
                     repo_arg = None
 
@@ -529,17 +522,17 @@ def cmd_review(args: argparse.Namespace) -> int:
                 if repo_arg:
                     gh_cmd.extend(["--repo", repo_arg])
 
-                result = subprocess.run(
+                gh_result = subprocess.run(
                     gh_cmd,
                     capture_output=True,
                     text=True,
                     timeout=30,
                     shell=False,
                 )
-                if result.returncode == 0:
-                    diff = result.stdout
+                if gh_result.returncode == 0:
+                    diff = gh_result.stdout
                 else:
-                    print(f"Error fetching PR: {result.stderr}", file=sys.stderr)
+                    print(f"Error fetching PR: {gh_result.stderr}", file=sys.stderr)
                     return 1
             else:
                 print(f"Invalid PR URL format: {args.pr_url}", file=sys.stderr)
@@ -652,10 +645,12 @@ def cmd_review(args: argparse.Namespace) -> int:
     elif args.output_format == "html":
         # Use existing static HTML exporter
         try:
+            from aragora.export.artifact import ArtifactBuilder
             from aragora.export.static_html import StaticHTMLExporter
 
-            exporter = StaticHTMLExporter()
-            html = exporter.export(result)
+            artifact = ArtifactBuilder().from_result(result).build()
+            exporter = StaticHTMLExporter(artifact)
+            html = exporter.generate()
             if output_dir:
                 output_dir.mkdir(parents=True, exist_ok=True)
                 (output_dir / "review.html").write_text(html)

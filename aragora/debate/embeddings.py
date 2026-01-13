@@ -7,6 +7,7 @@ and intelligence in the nomic loop.
 
 import asyncio
 from typing import List, Tuple, Optional
+from aragora.config import resolve_db_path
 from aragora.memory.embeddings import SemanticRetriever
 from aragora.persistence.models import DebateArtifact
 
@@ -20,7 +21,7 @@ class DebateEmbeddingsDatabase:
     """
 
     def __init__(self, db_path: str = "debate_embeddings.db"):
-        self.retriever = SemanticRetriever(db_path)
+        self.retriever = SemanticRetriever(resolve_db_path(db_path))
 
     async def index_debate(self, debate: DebateArtifact) -> None:
         """

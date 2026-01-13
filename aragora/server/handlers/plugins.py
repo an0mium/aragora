@@ -8,6 +8,8 @@ Endpoints:
 - GET /api/plugins/installed - List installed plugins for user/org
 - POST /api/plugins/{name}/install - Install a plugin
 - DELETE /api/plugins/{name}/install - Uninstall a plugin
+- POST /api/plugins/submit - Submit a new plugin for review
+- GET /api/plugins/submissions - List user's plugin submissions
 """
 
 from __future__ import annotations
@@ -40,6 +42,15 @@ get_registry = _plugin_imports.get("get_registry")
 # Structure: {user_id: {plugin_name: {"installed_at": timestamp, "config": {...}}}}
 _installed_plugins: dict[str, dict[str, dict]] = {}
 
+# In-memory store for plugin submissions (pending review)
+# Structure: {submission_id: {manifest, status, submitted_by, submitted_at, ...}}
+_plugin_submissions: dict[str, dict] = {}
+
+# Submission statuses
+SUBMISSION_STATUS_PENDING = "pending"
+SUBMISSION_STATUS_APPROVED = "approved"
+SUBMISSION_STATUS_REJECTED = "rejected"
+
 
 class PluginsHandler(BaseHandler):
     """Handler for plugins endpoints."""
@@ -48,6 +59,8 @@ class PluginsHandler(BaseHandler):
         "/api/plugins",
         "/api/plugins/installed",
         "/api/plugins/marketplace",
+        "/api/plugins/submit",
+        "/api/plugins/submissions",
         "/api/plugins/*",
         "/api/plugins/*/install",
         "/api/plugins/*/run",
@@ -55,7 +68,8 @@ class PluginsHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in ("/api/plugins", "/api/plugins/installed", "/api/plugins/marketplace"):
+        if path in ("/api/plugins", "/api/plugins/installed", "/api/plugins/marketplace",
+                    "/api/plugins/submit", "/api/plugins/submissions"):
             return True
         # Match /api/plugins/{name}, /api/plugins/{name}/run, /api/plugins/{name}/install
         if path.startswith("/api/plugins/"):
@@ -76,6 +90,9 @@ class PluginsHandler(BaseHandler):
         if path == "/api/plugins/marketplace":
             return self._get_marketplace()
 
+        if path == "/api/plugins/submissions":
+            return self._list_submissions(handler)
+
         # Get plugin details: /api/plugins/{name}
         if path.startswith("/api/plugins/") and not path.endswith(("/run", "/install")):
             plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
@@ -87,6 +104,10 @@ class PluginsHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
+        # Submit plugin: /api/plugins/submit
+        if path == "/api/plugins/submit":
+            return self._submit_plugin(handler)
+
         # Run plugin: /api/plugins/{name}/run
         if path.startswith("/api/plugins/") and path.endswith("/run"):
             plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
@@ -369,5 +390,119 @@ class PluginsHandler(BaseHandler):
             {
                 "success": True,
                 "message": f"Plugin {plugin_name} uninstalled successfully",
+            }
+        )
+
+    @require_auth
+    @rate_limit(requests_per_minute=10, burst=3, limiter_name="plugin_submit")
+    @handle_errors("submit plugin")
+    def _submit_plugin(self, handler) -> HandlerResult:
+        """Submit a new plugin for marketplace review.
+
+        POST body:
+            manifest: Plugin manifest (name, version, description, entry_point, etc.)
+            source_url: URL to plugin source repository (GitHub, GitLab, etc.)
+            notes: Optional notes for reviewers
+
+        Returns:
+            Submission confirmation with submission ID.
+        """
+        import uuid
+
+        user_id = self.get_user_id(handler)
+        if not user_id:
+            return error_response("User ID not found", 401)
+
+        # Read request body
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        manifest = body.get("manifest")
+        if not manifest:
+            return error_response("Missing 'manifest' field", 400)
+
+        # Validate required manifest fields
+        required_fields = ["name", "version", "description", "entry_point"]
+        missing = [f for f in required_fields if not manifest.get(f)]
+        if missing:
+            return error_response(f"Missing required manifest fields: {', '.join(missing)}", 400)
+
+        # Validate name format (alphanumeric with hyphens)
+        import re
+        name = manifest.get("name", "")
+        if not re.match(r"^[a-z][a-z0-9-]*$", name):
+            return error_response(
+                "Plugin name must start with lowercase letter and contain only lowercase letters, numbers, and hyphens",
+                400
+            )
+
+        # Check for duplicate name
+        if PLUGINS_AVAILABLE and get_registry:
+            registry = get_registry()
+            if registry.get(name):
+                return error_response(f"Plugin '{name}' already exists in marketplace", 409)
+
+        # Check if user already has a pending submission with this name
+        for sub_id, sub in _plugin_submissions.items():
+            if (sub.get("submitted_by") == user_id and
+                sub.get("manifest", {}).get("name") == name and
+                sub.get("status") == SUBMISSION_STATUS_PENDING):
+                return error_response(
+                    f"You already have a pending submission for '{name}' (ID: {sub_id})",
+                    409
+                )
+
+        # Create submission
+        submission_id = str(uuid.uuid4())[:8]
+        submission = {
+            "id": submission_id,
+            "manifest": manifest,
+            "source_url": body.get("source_url"),
+            "notes": body.get("notes"),
+            "submitted_by": user_id,
+            "submitted_at": datetime.now().isoformat(),
+            "status": SUBMISSION_STATUS_PENDING,
+            "review_notes": None,
+            "reviewed_at": None,
+            "reviewed_by": None,
+        }
+        _plugin_submissions[submission_id] = submission
+
+        logger.info(f"Plugin submission received: {name} v{manifest.get('version')} by {user_id}")
+
+        return json_response(
+            {
+                "success": True,
+                "submission_id": submission_id,
+                "message": f"Plugin '{name}' submitted for review",
+                "status": SUBMISSION_STATUS_PENDING,
+            }
+        )
+
+    @require_auth
+    @handle_errors("list submissions")
+    def _list_submissions(self, handler) -> HandlerResult:
+        """List plugin submissions for the authenticated user.
+
+        Returns:
+            List of user's plugin submissions with status.
+        """
+        user_id = self.get_user_id(handler)
+        if not user_id:
+            return error_response("User ID not found", 401)
+
+        user_submissions = [
+            sub for sub in _plugin_submissions.values()
+            if sub.get("submitted_by") == user_id
+        ]
+
+        # Sort by submission date (newest first)
+        user_submissions.sort(key=lambda x: x.get("submitted_at", ""), reverse=True)
+
+        return json_response(
+            {
+                "submissions": user_submissions,
+                "count": len(user_submissions),
             }
         )

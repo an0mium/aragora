@@ -18,15 +18,25 @@ esac
 data_dir="${ARAGORA_DATA_DIR:-.nomic}"
 target_dir="${data_dir}/root-artifacts"
 
+# Find runtime files
 files=()
 while IFS= read -r f; do
   files+=("$f")
 done < <(find . -maxdepth 1 -type f \( \
   -name "*.db" -o -name "*.db-shm" -o -name "*.db-wal" -o -name "*.db-journal" -o \
-  -name "*.sqlite" -o -name "*.sqlite3" -o -name "elo_snapshot.json" -o -name "system_health.log" \
-\))
+  -name "*.sqlite" -o -name "*.sqlite3" -o -name "elo_snapshot.json" -o -name "system_health.log" -o \
+  -name ":memory:" \
+\) 2>/dev/null)
 
-if [[ ${#files[@]} -eq 0 ]]; then
+# Find runtime directories
+dirs=()
+for d in "backups" "htmlcov"; do
+  if [[ -d "./$d" ]]; then
+    dirs+=("./$d")
+  fi
+done
+
+if [[ ${#files[@]} -eq 0 && ${#dirs[@]} -eq 0 ]]; then
   echo "No root-level runtime artifacts found."
   exit 0
 fi
@@ -39,10 +49,15 @@ if [[ "$apply" == false ]]; then
   for f in "${files[@]}"; do
     echo "  would move ${f} -> ${target_dir}/$(basename "$f")"
   done
+  for d in "${dirs[@]}"; do
+    echo "  would move ${d} -> ${target_dir}/$(basename "$d")"
+  done
   exit 0
 fi
 
 mkdir -p "$target_dir"
+
+# Move files
 for f in "${files[@]}"; do
   base="$(basename "$f")"
   dest="${target_dir}/${base}"
@@ -52,4 +67,16 @@ for f in "${files[@]}"; do
   fi
   mv "$f" "$dest"
   echo "Moved ${f} -> ${dest}"
+done
+
+# Move directories
+for d in "${dirs[@]}"; do
+  base="$(basename "$d")"
+  dest="${target_dir}/${base}"
+  if [[ -e "$dest" ]]; then
+    echo "Skip (exists): ${dest}"
+    continue
+  fi
+  mv "$d" "$dest"
+  echo "Moved ${d} -> ${dest}"
 done

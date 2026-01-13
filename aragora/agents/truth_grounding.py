@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from aragora.config import resolve_db_path
 from aragora.insights.database import InsightsDatabase
 
 
@@ -63,8 +64,9 @@ class PositionTracker:
     """
 
     def __init__(self, db_path: str = "aragora_positions.db"):
-        self.db_path = Path(db_path)
-        self.db = InsightsDatabase(db_path)
+        resolved_path = resolve_db_path(db_path)
+        self.db_path = Path(resolved_path)
+        self.db = InsightsDatabase(resolved_path)
 
     def record_position(
         self,
@@ -297,9 +299,9 @@ class TruthGroundedLaboratory:
         position_tracker: Optional[PositionTracker] = None,
         elo_system=None,
         persona_manager=None,
-        db_path: str = ".nomic/aragora_positions.db",
+        db_path: str = "aragora_positions.db",
     ):
-        self.position_tracker = position_tracker or PositionTracker(db_path)
+        self.position_tracker = position_tracker or PositionTracker(resolve_db_path(db_path))
         self.elo_system = elo_system
         self.persona_manager = persona_manager
 

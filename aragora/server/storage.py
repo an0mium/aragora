@@ -680,9 +680,9 @@ def get_debates_db() -> Optional[DebateStorage]:
     global _debate_storage
     if _debate_storage is None:
         try:
-            from aragora.config.legacy import DATA_DIR
+            from aragora.config import get_db_path
 
-            db_path = DATA_DIR / "aragora_debates.db"
+            db_path = get_db_path("aragora_debates.db")
             _debate_storage = DebateStorage(str(db_path))
             logger.info(f"Initialized DebateStorage: {db_path}")
         except Exception as e:

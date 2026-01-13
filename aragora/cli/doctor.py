@@ -322,6 +322,9 @@ def check_circuit_breakers() -> list[CheckResult]:
 
         open_circuits = []
         for name, info in status.items():
+            # Skip metadata keys like _registry_size
+            if name.startswith("_") or not isinstance(info, dict):
+                continue
             if info.get("status") == "open":
                 open_circuits.append(name)
 

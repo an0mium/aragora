@@ -238,7 +238,6 @@ class GauntletOrchestrator:
             logger.exception(f"Gauntlet {result.id} failed with error")
 
         finally:
-            result.completed_at = datetime.utcnow()
             result.total_duration_ms = int((time.time() - start_time) * 1000)
 
         # Save artifacts if configured
@@ -256,7 +255,7 @@ class GauntletOrchestrator:
             from aragora.debate.risk_assessor import RiskAssessor, RiskLevel
 
             assessor = RiskAssessor()
-            assessments = assessor.assess(input_text)
+            assessments = assessor.assess_topic(input_text)
 
             for assessment in assessments:
                 severity = {
@@ -320,7 +319,9 @@ class GauntletOrchestrator:
             # Build scenario matrix from presets
             matrix = ScenarioMatrix()
             for preset in config.scenario_presets:
-                matrix.add_preset(preset)
+                preset_matrix = ScenarioMatrix.from_presets(preset)
+                for scenario in preset_matrix.get_scenarios():
+                    matrix.add_scenario(scenario)
 
             # Add custom scenarios
             for scenario_data in config.custom_scenarios:
@@ -335,7 +336,7 @@ class GauntletOrchestrator:
                 )
                 matrix.add_scenario(scenario)
 
-            scenarios = matrix.generate()
+            scenarios = matrix.get_scenarios()
 
             # For now, analyze scenarios without running full debates
             # (Full debate execution would require agent orchestration)
@@ -599,7 +600,7 @@ class GauntletOrchestrator:
         start = time.time()
         findings: list[GauntletFinding] = []
         consensus_reached = False
-        agent_votes = {}
+        agent_votes: dict[str, Any] = {}
 
         try:
             if DEEP_AUDIT_AVAILABLE and self.agents:

@@ -197,17 +197,22 @@ class TinkerEvaluator:
 
                 try:
                     # Run debate
-                    result = await self._run_debate(task, agents)
+                    debate_result = await self._run_debate(task, agents)
 
-                    # Analyze results
-                    ft_score = result.scores.get(fine_tuned_agent.name, 0)
-                    bl_score = result.scores.get(baseline_agent.name, 0)
+                    # Analyze results - use votes to calculate scores
+                    ft_score = 0.0
+                    bl_score = 0.0
+                    for vote in debate_result.votes:
+                        if vote.choice == fine_tuned_agent.name:
+                            ft_score += vote.confidence
+                        elif vote.choice == baseline_agent.name:
+                            bl_score += vote.confidence
 
                     total_ft_score += ft_score
                     total_bl_score += bl_score
-                    total_confidence += result.confidence or 0
+                    total_confidence += debate_result.confidence or 0
 
-                    if result.consensus_reached:
+                    if debate_result.consensus_reached:
                         consensus_count += 1
 
                     # Determine winner
@@ -227,9 +232,9 @@ class TinkerEvaluator:
                         "winner": winner,
                         "fine_tuned_score": ft_score,
                         "baseline_score": bl_score,
-                        "confidence": result.confidence,
-                        "consensus_reached": result.consensus_reached,
-                        "rounds_used": result.rounds_used,
+                        "confidence": debate_result.confidence,
+                        "consensus_reached": debate_result.consensus_reached,
+                        "rounds_used": debate_result.rounds_used,
                     }
                     trials.append(trial_data)
 
@@ -366,7 +371,7 @@ class TinkerEvaluator:
         Returns:
             Comprehensive evaluation results
         """
-        results = {
+        results: dict[str, Any] = {
             "agent": agent.name,
             "benchmark_size": len(benchmark_tasks),
             "comparisons": [],

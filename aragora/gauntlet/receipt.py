@@ -322,6 +322,93 @@ class DecisionReceipt:
             provenance_chain=provenance,
         )
 
+    @classmethod
+    def from_gauntlet_result(cls, result: Any) -> "DecisionReceipt":
+        """Create receipt from aragora.gauntlet.config.GauntletResult.
+
+        This handles the GauntletResult dataclass from config.py which has
+        different attributes than the one from result.py.
+        """
+        receipt_id = f"receipt-{datetime.now().strftime('%Y%m%d%H%M%S')}-{result.id[-8:]}"
+        timestamp = datetime.now().isoformat()
+
+        # Build provenance chain from findings
+        provenance: list[ProvenanceRecord] = []
+        for finding in getattr(result, "findings", []):
+            provenance.append(
+                ProvenanceRecord(
+                    timestamp=timestamp,
+                    event_type="finding",
+                    description=f"[{finding.severity.value}] {finding.title[:50]}",
+                    evidence_hash=hashlib.sha256(finding.description.encode()).hexdigest()[:16],
+                )
+            )
+
+        # Add verdict event
+        verdict_str = "PASS" if result.passed else "FAIL"
+        provenance.append(
+            ProvenanceRecord(
+                timestamp=timestamp,
+                event_type="verdict",
+                description=f"Verdict: {verdict_str} ({result.confidence:.1%} confidence)",
+            )
+        )
+
+        # Build consensus proof
+        consensus = ConsensusProof(
+            reached=result.consensus_reached,
+            confidence=result.confidence,
+            supporting_agents=result.agents_used,
+            method="gauntlet_validation",
+        )
+
+        # Build risk summary from severity counts
+        severity_counts = result.severity_counts
+        risk_summary = {
+            "critical": severity_counts.get("critical", 0),
+            "high": severity_counts.get("high", 0),
+            "medium": severity_counts.get("medium", 0),
+            "low": severity_counts.get("low", 0),
+            "total": len(result.findings),
+        }
+
+        # Build vulnerability details from critical findings
+        vulnerability_details = [
+            {
+                "id": f.id,
+                "category": f.category,
+                "severity": f.severity.value,
+                "title": f.title,
+                "description": f.description,
+                "recommendations": f.recommendations,
+            }
+            for f in result.critical_findings
+        ]
+
+        # Calculate input hash
+        input_hash = hashlib.sha256(result.input_text.encode()).hexdigest()
+
+        return cls(
+            receipt_id=receipt_id,
+            gauntlet_id=result.id,
+            timestamp=timestamp,
+            input_summary=result.input_text[:500] if result.input_text else "",
+            input_hash=input_hash,
+            risk_summary=risk_summary,
+            attacks_attempted=result.probes_executed,
+            attacks_successful=len(result.findings),
+            probes_run=result.probes_executed,
+            vulnerabilities_found=len(result.findings),
+            verdict=verdict_str,
+            confidence=result.confidence,
+            robustness_score=result.robustness_score,
+            vulnerability_details=vulnerability_details,
+            verdict_reasoning=result.verdict_summary,
+            consensus_proof=consensus,
+            provenance_chain=provenance,
+            config_used=result.config.to_dict() if result.config else {},
+        )
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON export."""
         return {

@@ -34,7 +34,7 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
     from aragora.agents.base import create_agent
     from aragora.gauntlet import (
         GauntletOrchestrator,
-        GauntletConfig,
+        OrchestratorConfig,
         GauntletProgress,
         InputType,
         QUICK_GAUNTLET,
@@ -170,10 +170,10 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
         base_config = SOX_GAUNTLET
         persona = "sox"
     else:
-        base_config = GauntletConfig()
+        base_config = OrchestratorConfig()
 
     # Build config
-    config = GauntletConfig(
+    config = OrchestratorConfig(
         input_type=input_type,
         input_content=input_content,
         input_path=input_path,

@@ -29,7 +29,7 @@ from aragora.server.versioning import (
 )
 
 if TYPE_CHECKING:
-    from aragora.server.handlers.base import BaseHandler, HandlerResult
+    from aragora.server.handlers.base import BaseHandler
     from aragora.server.storage import DebateStorage
     from aragora.ranking.elo import EloSystem
     from aragora.debate.embeddings import DebateEmbeddingsDatabase
@@ -44,116 +44,169 @@ logger = logging.getLogger(__name__)
 # This allows proper type hints without requiring type: ignore comments
 HandlerType = Optional[Type[Any]]
 
+# Handler class placeholders - set to actual classes on successful import
+SystemHandler: HandlerType = None
+DebatesHandler: HandlerType = None
+AgentsHandler: HandlerType = None
+PulseHandler: HandlerType = None
+AnalyticsHandler: HandlerType = None
+MetricsHandler: HandlerType = None
+ConsensusHandler: HandlerType = None
+BeliefHandler: HandlerType = None
+CritiqueHandler: HandlerType = None
+GenesisHandler: HandlerType = None
+ReplaysHandler: HandlerType = None
+TournamentHandler: HandlerType = None
+MemoryHandler: HandlerType = None
+LeaderboardViewHandler: HandlerType = None
+DocumentHandler: HandlerType = None
+VerificationHandler: HandlerType = None
+AuditingHandler: HandlerType = None
+RelationshipHandler: HandlerType = None
+MomentsHandler: HandlerType = None
+PersonaHandler: HandlerType = None
+DashboardHandler: HandlerType = None
+IntrospectionHandler: HandlerType = None
+CalibrationHandler: HandlerType = None
+RoutingHandler: HandlerType = None
+EvolutionHandler: HandlerType = None
+EvolutionABTestingHandler: HandlerType = None
+PluginsHandler: HandlerType = None
+BroadcastHandler: HandlerType = None
+AudioHandler: HandlerType = None
+SocialMediaHandler: HandlerType = None
+LaboratoryHandler: HandlerType = None
+ProbesHandler: HandlerType = None
+InsightsHandler: HandlerType = None
+BreakpointsHandler: HandlerType = None
+LearningHandler: HandlerType = None
+GalleryHandler: HandlerType = None
+AuthHandler: HandlerType = None
+BillingHandler: HandlerType = None
+GraphDebatesHandler: HandlerType = None
+MatrixDebatesHandler: HandlerType = None
+FeaturesHandler: HandlerType = None
+MemoryAnalyticsHandler: HandlerType = None
+GauntletHandler: HandlerType = None
+SlackHandler: HandlerType = None
+OrganizationsHandler: HandlerType = None
+OAuthHandler: HandlerType = None
+ReviewsHandler: HandlerType = None
+FormalVerificationHandler: HandlerType = None
+EvidenceHandler: HandlerType = None
+HandlerResult: HandlerType = None
+
 # Import handlers with graceful fallback
 try:
     from aragora.server.handlers import (
-        SystemHandler,
-        DebatesHandler,
-        AgentsHandler,
-        PulseHandler,
-        AnalyticsHandler,
-        MetricsHandler,
-        ConsensusHandler,
-        BeliefHandler,
-        CritiqueHandler,
-        GenesisHandler,
-        ReplaysHandler,
-        TournamentHandler,
-        MemoryHandler,
-        LeaderboardViewHandler,
-        DocumentHandler,
-        VerificationHandler,
-        AuditingHandler,
-        RelationshipHandler,
-        MomentsHandler,
-        PersonaHandler,
-        DashboardHandler,
-        IntrospectionHandler,
-        CalibrationHandler,
-        RoutingHandler,
-        EvolutionHandler,
-        EvolutionABTestingHandler,
-        PluginsHandler,
-        BroadcastHandler,
-        AudioHandler,
-        SocialMediaHandler,
-        LaboratoryHandler,
-        ProbesHandler,
-        InsightsHandler,
-        BreakpointsHandler,
-        LearningHandler,
-        GalleryHandler,
-        AuthHandler,
-        BillingHandler,
-        GraphDebatesHandler,
-        MatrixDebatesHandler,
-        FeaturesHandler,
-        MemoryAnalyticsHandler,
-        GauntletHandler,
-        SlackHandler,
-        OrganizationsHandler,
-        OAuthHandler,
-        ReviewsHandler,
-        FormalVerificationHandler,
-        EvidenceHandler,
-        HandlerResult,
+        SystemHandler as _SystemHandler,
+        DebatesHandler as _DebatesHandler,
+        AgentsHandler as _AgentsHandler,
+        PulseHandler as _PulseHandler,
+        AnalyticsHandler as _AnalyticsHandler,
+        MetricsHandler as _MetricsHandler,
+        ConsensusHandler as _ConsensusHandler,
+        BeliefHandler as _BeliefHandler,
+        CritiqueHandler as _CritiqueHandler,
+        GenesisHandler as _GenesisHandler,
+        ReplaysHandler as _ReplaysHandler,
+        TournamentHandler as _TournamentHandler,
+        MemoryHandler as _MemoryHandler,
+        LeaderboardViewHandler as _LeaderboardViewHandler,
+        DocumentHandler as _DocumentHandler,
+        VerificationHandler as _VerificationHandler,
+        AuditingHandler as _AuditingHandler,
+        RelationshipHandler as _RelationshipHandler,
+        MomentsHandler as _MomentsHandler,
+        PersonaHandler as _PersonaHandler,
+        DashboardHandler as _DashboardHandler,
+        IntrospectionHandler as _IntrospectionHandler,
+        CalibrationHandler as _CalibrationHandler,
+        RoutingHandler as _RoutingHandler,
+        EvolutionHandler as _EvolutionHandler,
+        EvolutionABTestingHandler as _EvolutionABTestingHandler,
+        PluginsHandler as _PluginsHandler,
+        BroadcastHandler as _BroadcastHandler,
+        AudioHandler as _AudioHandler,
+        SocialMediaHandler as _SocialMediaHandler,
+        LaboratoryHandler as _LaboratoryHandler,
+        ProbesHandler as _ProbesHandler,
+        InsightsHandler as _InsightsHandler,
+        BreakpointsHandler as _BreakpointsHandler,
+        LearningHandler as _LearningHandler,
+        GalleryHandler as _GalleryHandler,
+        AuthHandler as _AuthHandler,
+        BillingHandler as _BillingHandler,
+        GraphDebatesHandler as _GraphDebatesHandler,
+        MatrixDebatesHandler as _MatrixDebatesHandler,
+        FeaturesHandler as _FeaturesHandler,
+        MemoryAnalyticsHandler as _MemoryAnalyticsHandler,
+        GauntletHandler as _GauntletHandler,
+        SlackHandler as _SlackHandler,
+        OrganizationsHandler as _OrganizationsHandler,
+        OAuthHandler as _OAuthHandler,
+        ReviewsHandler as _ReviewsHandler,
+        FormalVerificationHandler as _FormalVerificationHandler,
+        EvidenceHandler as _EvidenceHandler,
+        HandlerResult as _HandlerResult,
     )
+
+    # Assign imported classes to module-level variables
+    SystemHandler = _SystemHandler
+    DebatesHandler = _DebatesHandler
+    AgentsHandler = _AgentsHandler
+    PulseHandler = _PulseHandler
+    AnalyticsHandler = _AnalyticsHandler
+    MetricsHandler = _MetricsHandler
+    ConsensusHandler = _ConsensusHandler
+    BeliefHandler = _BeliefHandler
+    CritiqueHandler = _CritiqueHandler
+    GenesisHandler = _GenesisHandler
+    ReplaysHandler = _ReplaysHandler
+    TournamentHandler = _TournamentHandler
+    MemoryHandler = _MemoryHandler
+    LeaderboardViewHandler = _LeaderboardViewHandler
+    DocumentHandler = _DocumentHandler
+    VerificationHandler = _VerificationHandler
+    AuditingHandler = _AuditingHandler
+    RelationshipHandler = _RelationshipHandler
+    MomentsHandler = _MomentsHandler
+    PersonaHandler = _PersonaHandler
+    DashboardHandler = _DashboardHandler
+    IntrospectionHandler = _IntrospectionHandler
+    CalibrationHandler = _CalibrationHandler
+    RoutingHandler = _RoutingHandler
+    EvolutionHandler = _EvolutionHandler
+    EvolutionABTestingHandler = _EvolutionABTestingHandler
+    PluginsHandler = _PluginsHandler
+    BroadcastHandler = _BroadcastHandler
+    AudioHandler = _AudioHandler
+    SocialMediaHandler = _SocialMediaHandler
+    LaboratoryHandler = _LaboratoryHandler
+    ProbesHandler = _ProbesHandler
+    InsightsHandler = _InsightsHandler
+    BreakpointsHandler = _BreakpointsHandler
+    LearningHandler = _LearningHandler
+    GalleryHandler = _GalleryHandler
+    AuthHandler = _AuthHandler
+    BillingHandler = _BillingHandler
+    GraphDebatesHandler = _GraphDebatesHandler
+    MatrixDebatesHandler = _MatrixDebatesHandler
+    FeaturesHandler = _FeaturesHandler
+    MemoryAnalyticsHandler = _MemoryAnalyticsHandler
+    GauntletHandler = _GauntletHandler
+    SlackHandler = _SlackHandler
+    OrganizationsHandler = _OrganizationsHandler
+    OAuthHandler = _OAuthHandler
+    ReviewsHandler = _ReviewsHandler
+    FormalVerificationHandler = _FormalVerificationHandler
+    EvidenceHandler = _EvidenceHandler
+    HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
 except ImportError:
     HANDLERS_AVAILABLE = False
-    # Set all handler classes to None for graceful degradation
-    # Using HandlerType alias for proper typing without type: ignore
-    SystemHandler: HandlerType = None
-    DebatesHandler: HandlerType = None
-    AgentsHandler: HandlerType = None
-    PulseHandler: HandlerType = None
-    AnalyticsHandler: HandlerType = None
-    MetricsHandler: HandlerType = None
-    ConsensusHandler: HandlerType = None
-    BeliefHandler: HandlerType = None
-    CritiqueHandler: HandlerType = None
-    GenesisHandler: HandlerType = None
-    ReplaysHandler: HandlerType = None
-    TournamentHandler: HandlerType = None
-    MemoryHandler: HandlerType = None
-    LeaderboardViewHandler: HandlerType = None
-    DocumentHandler: HandlerType = None
-    VerificationHandler: HandlerType = None
-    AuditingHandler: HandlerType = None
-    RelationshipHandler: HandlerType = None
-    MomentsHandler: HandlerType = None
-    PersonaHandler: HandlerType = None
-    DashboardHandler: HandlerType = None
-    IntrospectionHandler: HandlerType = None
-    CalibrationHandler: HandlerType = None
-    RoutingHandler: HandlerType = None
-    EvolutionHandler: HandlerType = None
-    EvolutionABTestingHandler: HandlerType = None
-    PluginsHandler: HandlerType = None
-    BroadcastHandler: HandlerType = None
-    AudioHandler: HandlerType = None
-    SocialMediaHandler: HandlerType = None
-    LaboratoryHandler: HandlerType = None
-    ProbesHandler: HandlerType = None
-    InsightsHandler: HandlerType = None
-    BreakpointsHandler: HandlerType = None
-    LearningHandler: HandlerType = None
-    GalleryHandler: HandlerType = None
-    AuthHandler: HandlerType = None
-    BillingHandler: HandlerType = None
-    GraphDebatesHandler: HandlerType = None
-    MatrixDebatesHandler: HandlerType = None
-    FeaturesHandler: HandlerType = None
-    MemoryAnalyticsHandler: HandlerType = None
-    GauntletHandler: HandlerType = None
-    SlackHandler: HandlerType = None
-    OrganizationsHandler: HandlerType = None
-    OAuthHandler: HandlerType = None
-    ReviewsHandler: HandlerType = None
-    FormalVerificationHandler: HandlerType = None
-    EvidenceHandler: HandlerType = None
-    HandlerResult: HandlerType = None
+    # Handler class placeholders remain None for graceful degradation
 
 
 # Handler class registry - ordered list of (attr_name, handler_class) pairs
@@ -222,13 +275,13 @@ class RouteIndex:
     - Dynamic paths: O(1) LRU cache hit, O(n) cache miss with prefix scan
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Exact path → (attr_name, handler) mapping
         self._exact_routes: Dict[str, Tuple[str, Any]] = {}
         # Prefix patterns for dynamic routes: [(prefix, attr_name, handler)]
         self._prefix_routes: List[Tuple[str, str, Any]] = []
         # Cache for resolved dynamic routes
-        self._cache_size = 500
+        self._cache_size: int = 500
 
     def build(self, registry_mixin: Any) -> None:
         """Build route index from initialized handlers.

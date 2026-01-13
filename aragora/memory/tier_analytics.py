@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Optional
 from collections import defaultdict
 
-from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.config import DB_TIMEOUT_SECONDS, resolve_db_path
 from aragora.memory.tier_manager import MemoryTier
 
 logger = logging.getLogger(__name__)
@@ -186,8 +186,9 @@ class TierAnalyticsTracker:
             SCHEMA_VERSION = TierAnalyticsTracker.SCHEMA_VERSION
             INITIAL_SCHEMA = TierAnalyticsTracker.INITIAL_SCHEMA
 
-        self.db_path = Path(db_path)
-        self._db = _AnalyticsDB(db_path, timeout=DB_TIMEOUT_SECONDS)
+        resolved_path = resolve_db_path(db_path)
+        self.db_path = Path(resolved_path)
+        self._db = _AnalyticsDB(resolved_path, timeout=DB_TIMEOUT_SECONDS)
 
     def record_usage(
         self,

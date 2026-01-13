@@ -602,53 +602,6 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         return True
 
-    def _revoke_token(self) -> None:
-        """Handle token revocation request.
-
-        Revokes a token so it can no longer be used for authentication.
-        Requires the token to be revoked in the request body.
-        """
-        import json
-
-        # Only allow authenticated requests to revoke tokens
-        if not self._check_rate_limit():
-            return
-
-        content_length = self._validate_content_length()
-        if content_length is None:
-            return  # Error already sent
-
-        try:
-            if content_length > 0:
-                body = self.rfile.read(content_length).decode("utf-8")
-                data = json.loads(body)
-            else:
-                data = {}
-        except json.JSONDecodeError:
-            self._send_json({"error": "Invalid JSON body"}, status=400)
-            return
-
-        token_to_revoke = data.get("token")
-        reason = data.get("reason", "")
-
-        if not token_to_revoke:
-            self._send_json({"error": "Missing 'token' field"}, status=400)
-            return
-
-        # Revoke the token
-        revoked = auth_config.revoke_token(token_to_revoke, reason)
-
-        if revoked:
-            self._send_json(
-                {
-                    "status": "revoked",
-                    "message": "Token has been revoked and can no longer be used",
-                    "revoked_tokens_count": auth_config.get_revocation_count(),
-                }
-            )
-        else:
-            self._send_json({"error": "Failed to revoke token"}, status=500)
-
     def _get_debate_controller(self) -> DebateController:
         """Get or create the debate controller (lazy initialization).
 
@@ -925,8 +878,6 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         # LaboratoryHandler, RoutingHandler, VerificationHandler, ProbesHandler,
         # PluginsHandler, AuditingHandler, InsightsHandler)
         # NOTE: /api/debates/{id}/verify is now handled by DebatesHandler
-        elif path == "/api/auth/revoke":
-            self._revoke_token()
         else:
             self.send_error(404, f"Unknown POST endpoint: {path}")
 

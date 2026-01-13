@@ -8,9 +8,8 @@ of organization invitations including creation, lookup, and status updates.
 from __future__ import annotations
 
 import sqlite3
-from contextlib import contextmanager
 from datetime import datetime
-from typing import Callable, Iterator, Optional, TYPE_CHECKING
+from typing import Callable, ContextManager, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.billing.models import OrganizationInvitation
@@ -27,7 +26,7 @@ class InvitationRepository:
     - Cleaning up expired invitations
     """
 
-    def __init__(self, transaction_fn: Callable[[], "contextmanager[sqlite3.Cursor]"]) -> None:
+    def __init__(self, transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]]) -> None:
         """
         Initialize the invitation repository.
 

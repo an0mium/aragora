@@ -118,6 +118,9 @@ try:
         LearningContext,
         BeliefContext,
         PostDebateHooks,
+        # Phase validation for safe state transitions
+        PhaseValidator,
+        PhaseValidationError,
     )
 
     _NOMIC_PHASES_AVAILABLE = True
@@ -7834,6 +7837,11 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             context_result = await self._run_with_phase_timeout(
                 "context", self.phase_context_gathering()
             )
+            # Validate and normalize phase result
+            context_result = PhaseValidator.normalize_result("context", context_result)
+            is_valid, validation_error = PhaseValidator.validate("context", context_result)
+            if not is_valid:
+                self._log(f"  [validation] Context result invalid: {validation_error}")
             cycle_result["phases"]["context"] = context_result
             codebase_context = context_result.get("codebase_context", "")
             self.phase_recovery.record_success("context")
@@ -7861,6 +7869,11 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             debate_result = await self._run_with_phase_timeout(
                 "debate", self.phase_debate(codebase_context=codebase_context)
             )
+            # Validate and normalize phase result
+            debate_result = PhaseValidator.normalize_result("debate", debate_result)
+            is_valid, validation_error = PhaseValidator.validate("debate", debate_result)
+            if not is_valid:
+                self._log(f"  [validation] Debate result invalid: {validation_error}")
             cycle_result["phases"]["debate"] = debate_result
             self.phase_recovery.record_success("debate")
         except PhaseError as e:
@@ -7897,6 +7910,11 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             design_result = await self._run_with_phase_timeout(
                 "design", self.phase_design(improvement, belief_analysis=belief_analysis)
             )
+            # Validate and normalize phase result
+            design_result = PhaseValidator.normalize_result("design", design_result)
+            is_valid, validation_error = PhaseValidator.validate("design", design_result)
+            if not is_valid:
+                self._log(f"  [validation] Design result invalid: {validation_error}")
             cycle_result["phases"]["design"] = design_result
             self.phase_recovery.record_success("design")
         except PhaseError as e:
@@ -8032,6 +8050,11 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             impl_result = await self._run_with_phase_timeout(
                 "implement", self.phase_implement(design)
             )
+            # Validate and normalize phase result
+            impl_result = PhaseValidator.normalize_result("implement", impl_result)
+            is_valid, validation_error = PhaseValidator.validate("implement", impl_result)
+            if not is_valid:
+                self._log(f"  [validation] Implement result invalid: {validation_error}")
             cycle_result["phases"]["implement"] = impl_result
             self.phase_recovery.record_success("implement")
             # Track success for primary implementation agent
@@ -8152,6 +8175,11 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             try:
                 # Use phase timeout to prevent indefinite hangs
                 verify_result = await self._run_with_phase_timeout("verify", self.phase_verify())
+                # Validate and normalize phase result
+                verify_result = PhaseValidator.normalize_result("verify", verify_result)
+                is_valid, validation_error = PhaseValidator.validate("verify", verify_result)
+                if not is_valid:
+                    self._log(f"  [validation] Verify result invalid: {validation_error}")
                 cycle_result["phases"]["verify"] = verify_result
                 self.phase_recovery.record_success("verify")
             except PhaseError as e:
@@ -8516,6 +8544,11 @@ Working directory: {self.aragora_path}
             commit_result = await self._run_with_phase_timeout(
                 "commit", self.phase_commit(improvement)
             )
+            # Validate and normalize phase result
+            commit_result = PhaseValidator.normalize_result("commit", commit_result)
+            is_valid, validation_error = PhaseValidator.validate("commit", commit_result)
+            if not is_valid:
+                self._log(f"  [validation] Commit result invalid: {validation_error}")
             cycle_result["phases"]["commit"] = commit_result
             self.phase_recovery.record_success("commit")
         except PhaseError as e:

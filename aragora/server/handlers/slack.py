@@ -21,7 +21,7 @@ import logging
 import os
 import re
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Coroutine, Dict, List, Optional
 from urllib.parse import parse_qs
 
 from aragora.server.http_utils import run_async
@@ -30,7 +30,7 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 
-def _handle_task_exception(task: asyncio.Task, task_name: str) -> None:
+def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
         logger.debug(f"Task {task_name} was cancelled")
@@ -39,7 +39,7 @@ def _handle_task_exception(task: asyncio.Task, task_name: str) -> None:
         logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
 
 
-def create_tracked_task(coro, name: str) -> asyncio.Task:
+def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging.
 
     Use this instead of raw asyncio.create_task() for fire-and-forget tasks
@@ -70,7 +70,7 @@ COMMAND_PATTERN = re.compile(r"^/aragora\s+(\w+)(?:\s+(.*))?$")
 TOPIC_PATTERN = re.compile(r'^["\']?(.+?)["\']?$')
 
 
-def get_slack_integration():
+def get_slack_integration() -> Optional[Any]:
     """Get or create the Slack integration singleton."""
     global _slack_integration
     if "_slack_integration" not in globals():
@@ -105,7 +105,7 @@ class SlackHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """Route Slack requests to appropriate methods."""
         logger.debug(f"Slack request: {path}")
 
@@ -130,11 +130,11 @@ class SlackHandler(BaseHandler):
 
         return error_response("Not found", 404)
 
-    def handle_post(self, path: str, body: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, body: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """Handle POST requests."""
         return self.handle(path, {}, handler)
 
-    def _verify_signature(self, handler) -> bool:
+    def _verify_signature(self, handler: Any) -> bool:
         """Verify Slack request signature.
 
         Slack uses HMAC-SHA256 to sign requests.
@@ -190,9 +190,9 @@ class SlackHandler(BaseHandler):
             }
         )
 
+    @auto_error_response("handle slack slash command")
     @rate_limit(rpm=30, limiter_name="slack_commands")
-    @auto_error_response
-    def _handle_slash_command(self, handler) -> HandlerResult:
+    def _handle_slash_command(self, handler: Any) -> HandlerResult:
         """Handle Slack slash commands.
 
         Expected format: /aragora <command> [args]
@@ -554,7 +554,7 @@ class SlackHandler(BaseHandler):
                 },
             )
 
-    async def _post_to_response_url(self, url: str, payload: dict) -> None:
+    async def _post_to_response_url(self, url: str, payload: Dict[str, Any]) -> None:
         """POST a message to Slack's response_url."""
         import aiohttp
 
@@ -574,9 +574,9 @@ class SlackHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to POST to response_url: {e}")
 
+    @auto_error_response("handle slack interactive")
     @rate_limit(rpm=60, limiter_name="slack_interactive")
-    @auto_error_response
-    def _handle_interactive(self, handler) -> HandlerResult:
+    def _handle_interactive(self, handler: Any) -> HandlerResult:
         """Handle interactive component callbacks.
 
         This handles button clicks, menu selections, etc. from Slack messages.
@@ -618,7 +618,7 @@ class SlackHandler(BaseHandler):
             logger.error(f"Interactive handler error: {e}", exc_info=True)
             return json_response({"text": f"Error: {str(e)[:100]}"})
 
-    def _handle_vote_action(self, payload: dict, action: dict) -> HandlerResult:
+    def _handle_vote_action(self, payload: Dict[str, Any], action: Dict[str, Any]) -> HandlerResult:
         """Handle vote button clicks."""
         action_id = action.get("action_id", "")
         value = action.get("value", "")
@@ -671,7 +671,7 @@ class SlackHandler(BaseHandler):
 
         return json_response({"text": "Vote recorded"})
 
-    def _handle_view_details(self, payload: dict, action: dict) -> HandlerResult:
+    def _handle_view_details(self, payload: Dict[str, Any], action: Dict[str, Any]) -> HandlerResult:
         """Handle view details button clicks."""
         debate_id = action.get("value", "")
 
@@ -767,9 +767,9 @@ class SlackHandler(BaseHandler):
             }
         )
 
+    @auto_error_response("handle slack events")
     @rate_limit(rpm=100, limiter_name="slack_events")
-    @auto_error_response
-    def _handle_events(self, handler) -> HandlerResult:
+    def _handle_events(self, handler: Any) -> HandlerResult:
         """Handle Slack Events API callbacks.
 
         This handles events like app_mention, message, etc.
@@ -803,7 +803,7 @@ class SlackHandler(BaseHandler):
             logger.error(f"Events handler error: {e}", exc_info=True)
             return json_response({"ok": True})  # Always 200 for events
 
-    def _handle_app_mention(self, event: dict) -> HandlerResult:
+    def _handle_app_mention(self, event: Dict[str, Any]) -> HandlerResult:
         """Handle @mentions of the app."""
         text = event.get("text", "")
         channel = event.get("channel", "")
@@ -876,7 +876,7 @@ class SlackHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to post Slack message: {e}")
 
-    def _handle_message_event(self, event: dict) -> HandlerResult:
+    def _handle_message_event(self, event: Dict[str, Any]) -> HandlerResult:
         """Handle direct messages to the app."""
         # Only handle DMs (channel type is "im")
         channel_type = event.get("channel_type")
@@ -1038,7 +1038,7 @@ class SlackHandler(BaseHandler):
 
     def _slack_blocks_response(
         self,
-        blocks: list,
+        blocks: List[Dict[str, Any]],
         text: str,
         response_type: str = "ephemeral",
     ) -> HandlerResult:

@@ -18,6 +18,7 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Optional
+from aragora.config import resolve_db_path
 from aragora.genesis.database import GenesisDatabase
 
 logger = logging.getLogger(__name__)
@@ -165,8 +166,9 @@ class GenesisLedger:
     """
 
     def __init__(self, db_path: str = ".nomic/genesis.db"):
-        self.db_path = Path(db_path)
-        self.db = GenesisDatabase(db_path)
+        resolved_path = resolve_db_path(db_path)
+        self.db_path = Path(resolved_path)
+        self.db = GenesisDatabase(resolved_path)
         self.provenance = ProvenanceChain(chain_id="genesis-ledger")
         self._events: list[GenesisEvent] = []
 

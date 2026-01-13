@@ -127,19 +127,19 @@ class SSOHandler(BaseHandler):
                 legacy["status"] = legacy["status_code"]
             return legacy
 
-        body: Any = result.body
+        result_body: Any = result.body
         if result.content_type and result.content_type.startswith("application/json"):
             try:
-                body = json.loads(result.body.decode("utf-8"))
+                result_body = json.loads(result.body.decode("utf-8"))
             except (ValueError, TypeError):
-                body = result.body.decode("utf-8", errors="replace")
-        elif isinstance(body, bytes):
-            body = body.decode("utf-8", errors="replace")
+                result_body = result.body.decode("utf-8", errors="replace")
+        elif isinstance(result_body, bytes):
+            result_body = result_body.decode("utf-8", errors="replace")
 
         return {
             "status": result.status_code,
             "headers": result.headers or {},
-            "body": self._flatten_error_body(body),
+            "body": self._flatten_error_body(result_body),
         }
 
     def _format_response(
@@ -163,7 +163,7 @@ class SSOHandler(BaseHandler):
             ("GET", "/auth/sso/status", "handle_status"),
         ]
 
-    async def handle_login(self, handler, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_login(self, handler: Any, params: Dict[str, Any]) -> Union[HandlerResult, Dict[str, Any]]:
         """
         Initiate SSO login flow.
 
@@ -245,7 +245,7 @@ class SSOHandler(BaseHandler):
                 handler, error_response(f"SSO login failed: {e}", 500, code="SSO_LOGIN_ERROR")
             )
 
-    async def handle_callback(self, handler, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_callback(self, handler: Any, params: Dict[str, Any]) -> Union[HandlerResult, Dict[str, Any]]:
         """
         Handle IdP callback after authentication.
 
@@ -384,7 +384,7 @@ class SSOHandler(BaseHandler):
                 handler, error_response(f"Authentication failed: {e}", 401, code="SSO_AUTH_FAILED")
             )
 
-    async def handle_logout(self, handler, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_logout(self, handler: Any, params: Dict[str, Any]) -> Union[HandlerResult, Dict[str, Any]]:
         """
         Handle SSO logout.
 
@@ -455,7 +455,7 @@ class SSOHandler(BaseHandler):
                 ),
             )
 
-    async def handle_metadata(self, handler, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_metadata(self, handler: Any, params: Dict[str, Any]) -> Union[HandlerResult, Dict[str, Any]]:
         """
         Get SAML SP metadata.
 
@@ -508,7 +508,7 @@ class SSOHandler(BaseHandler):
 
         return self._format_response(handler, error_response("Metadata not available", 400))
 
-    async def handle_status(self, handler, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_status(self, handler: Any, params: Dict[str, Any]) -> Union[HandlerResult, Dict[str, Any]]:
         """
         Get SSO configuration status.
 

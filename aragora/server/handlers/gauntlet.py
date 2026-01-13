@@ -20,7 +20,10 @@ import logging
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from aragora.gauntlet.storage import GauntletStorage
 
 from .base import (
     BaseHandler,
@@ -202,9 +205,17 @@ class GauntletHandler(BaseHandler):
         return False
 
     @rate_limit(rpm=10)
-    async def handle(self, path: str, method: str, handler: Any = None) -> Optional[HandlerResult]:
-        """Route request to appropriate handler."""
-        query_params = {}
+    async def handle(  # type: ignore[override]
+        self, path: str, method: str, handler: Any = None
+    ) -> Optional[HandlerResult]:
+        """Route request to appropriate handler.
+
+        Note: This handler uses a different signature than BaseHandler.handle()
+        because it needs the HTTP method to route requests appropriately.
+        The unified server calls this with (path, method, handler) for
+        handlers that implement can_handle with method support.
+        """
+        query_params: dict[str, Any] = {}
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
             from urllib.parse import parse_qs
@@ -428,7 +439,7 @@ class GauntletHandler(BaseHandler):
                 GauntletProgress,
                 InputType,
             )
-            from aragora.agents.base import create_agent
+            from aragora.agents.base import create_agent, AgentType
             from aragora.server.stream.gauntlet_emitter import GauntletStreamEmitter
 
             # Create stream emitter if broadcasting is available
@@ -447,7 +458,7 @@ class GauntletHandler(BaseHandler):
             for agent_type in agents:
                 try:
                     agent = create_agent(
-                        model_type=agent_type,
+                        model_type=cast(AgentType, agent_type),
                         name=f"{agent_type}_gauntlet",
                         role="auditor",
                     )
@@ -664,9 +675,17 @@ class GauntletHandler(BaseHandler):
         format_type = get_string_param(query_params, "format", "json")
 
         if format_type == "html":
-            return (receipt.to_html(), 200, {"Content-Type": "text/html"})
+            return HandlerResult(
+                status_code=200,
+                content_type="text/html",
+                body=receipt.to_html().encode("utf-8"),
+            )
         elif format_type == "md":
-            return (receipt.to_markdown(), 200, {"Content-Type": "text/markdown"})
+            return HandlerResult(
+                status_code=200,
+                content_type="text/markdown",
+                body=receipt.to_markdown().encode("utf-8"),
+            )
         else:
             return json_response(receipt.to_dict())
 
@@ -739,9 +758,17 @@ class GauntletHandler(BaseHandler):
         format_type = get_string_param(query_params, "format", "json")
 
         if format_type == "svg":
-            return (heatmap.to_svg(), 200, {"Content-Type": "image/svg+xml"})
+            return HandlerResult(
+                status_code=200,
+                content_type="image/svg+xml",
+                body=heatmap.to_svg().encode("utf-8"),
+            )
         elif format_type == "ascii":
-            return (heatmap.to_ascii(), 200, {"Content-Type": "text/plain"})
+            return HandlerResult(
+                status_code=200,
+                content_type="text/plain",
+                body=heatmap.to_ascii().encode("utf-8"),
+            )
         else:
             return json_response(heatmap.to_dict())
 

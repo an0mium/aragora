@@ -169,6 +169,7 @@ export function GauntletLive({ gauntletId, wsUrl, onComplete }: GauntletLiveProp
     verdict,
     elapsedSeconds,
     reconnect,
+    reconnectAttempt,
   } = useGauntletWebSocket({ gauntletId, wsUrl });
 
   // Notify parent when complete
@@ -213,6 +214,15 @@ export function GauntletLive({ gauntletId, wsUrl, onComplete }: GauntletLiveProp
           </div>
 
           <div className="flex flex-col items-end gap-2">
+            {/* Reconnection indicator */}
+            {reconnectAttempt > 0 && status === 'connecting' && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded">
+                <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+                <span className="text-xs font-mono text-yellow-400">
+                  RECONNECTING ({reconnectAttempt}/5)
+                </span>
+              </div>
+            )}
             {status === 'error' && (
               <button
                 onClick={reconnect}

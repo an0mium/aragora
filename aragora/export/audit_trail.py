@@ -17,14 +17,35 @@ import csv
 import hashlib
 import io
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Optional, Protocol, runtime_checkable
 
-if TYPE_CHECKING:
-    from aragora.gauntlet import GauntletResult
+
+@runtime_checkable
+class GauntletResultProtocol(Protocol):
+    """Protocol defining the expected interface for GauntletResult objects."""
+
+    gauntlet_id: str
+    input_summary: str
+    input_type: Any  # Enum with .value attribute
+    verdict: Any  # Enum with .value attribute
+    confidence: float
+    total_findings: int
+    agents_involved: list[str]
+    duration_seconds: float
+    redteam_result: Any | None
+    probe_report: Any | None
+    audit_verdict: Any | None
+    verified_claims: list[Any] | None
+    unverified_claims: list[Any] | None
+    risk_assessments: list[Any]
+    all_findings: list[Any]
+    risk_score: float
+    robustness_score: float
+    checksum: str
 
 
 class AuditEventType(Enum):
@@ -368,7 +389,7 @@ class AuditTrailGenerator:
     """
 
     @staticmethod
-    def from_gauntlet_result(result: "GauntletResult") -> AuditTrail:
+    def from_gauntlet_result(result: GauntletResultProtocol) -> AuditTrail:
         """Generate an AuditTrail from a GauntletResult."""
         trail = AuditTrail(
             trail_id=f"trail-{result.gauntlet_id}",
@@ -559,7 +580,7 @@ class AuditTrailGenerator:
         return trail
 
 
-def generate_audit_trail(result: "GauntletResult") -> AuditTrail:
+def generate_audit_trail(result: GauntletResultProtocol) -> AuditTrail:
     """
     Convenience function to generate an AuditTrail.
 

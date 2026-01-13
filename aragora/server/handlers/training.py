@@ -383,7 +383,7 @@ class TrainingHandler(BaseHandler):
         Rate limited to 30 requests per minute.
         Returns counts of available training data by type.
         """
-        stats = {
+        stats: dict[str, Any] = {
             "available_exporters": [],
             "export_directory": str(self._export_dir),
             "exported_files": [],

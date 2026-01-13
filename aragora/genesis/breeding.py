@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from aragora.agents.personas import EXPERTISE_DOMAINS, PERSONALITY_TRAITS
+from aragora.config import resolve_db_path
 from aragora.genesis.database import GenesisDatabase
 from aragora.genesis.genome import AgentGenome, GenomeStore, generate_genome_id
 
@@ -319,10 +320,11 @@ class PopulationManager:
     """
 
     def __init__(self, db_path: str = ".nomic/genesis.db", max_population_size: int = 8):
-        self.db_path = Path(db_path)
-        self.db = GenesisDatabase(db_path)
+        resolved_path = resolve_db_path(db_path)
+        self.db_path = Path(resolved_path)
+        self.db = GenesisDatabase(resolved_path)
         self.max_population_size = max_population_size
-        self.genome_store = GenomeStore(db_path)
+        self.genome_store = GenomeStore(resolved_path)
         self.breeder = GenomeBreeder()
 
     def get_or_create_population(

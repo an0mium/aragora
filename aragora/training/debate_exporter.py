@@ -211,7 +211,7 @@ class DebateTrainingExporter:
         Pairs the winning response against other proposals that
         didn't become the final answer.
         """
-        records = []
+        records: list[dict[str, Any]] = []
 
         task = getattr(result, "task", "")
         final_answer = getattr(result, "final_answer", "")

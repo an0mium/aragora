@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, NoReturn, Optional, TYPE_CHECKING
+from typing import Any, List, NoReturn, Optional, TYPE_CHECKING
 from urllib.parse import urljoin
 
 from .models import (
@@ -162,7 +162,7 @@ class DebatesAPI:
         limit: int = 20,
         offset: int = 0,
         status: str | None = None,
-    ) -> list[Debate]:
+    ) -> List[Debate]:
         """
         List recent debates.
 
@@ -187,7 +187,7 @@ class DebatesAPI:
         limit: int = 20,
         offset: int = 0,
         status: str | None = None,
-    ) -> list[Debate]:
+    ) -> List[Debate]:
         """Async version of list()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
@@ -200,7 +200,7 @@ class DebatesAPI:
     def run(
         self,
         task: str,
-        agents: list[str] | None = None,
+        agents: List[str] | None = None,
         rounds: int = 3,
         consensus: str = "majority",
         timeout: int = 600,
@@ -239,7 +239,7 @@ class DebatesAPI:
     async def run_async(
         self,
         task: str,
-        agents: list[str] | None = None,
+        agents: List[str] | None = None,
         rounds: int = 3,
         consensus: str = "majority",
         timeout: int = 600,
@@ -324,8 +324,8 @@ class DebatesAPI:
 
     def compare(
         self,
-        debate_ids: list[str],
-    ) -> list[Debate]:
+        debate_ids: List[str],
+    ) -> List[Debate]:
         """
         Get multiple debates for side-by-side comparison.
 
@@ -339,8 +339,8 @@ class DebatesAPI:
 
     async def compare_async(
         self,
-        debate_ids: list[str],
-    ) -> list[Debate]:
+        debate_ids: List[str],
+    ) -> List[Debate]:
         """
         Async version of compare().
 
@@ -372,7 +372,7 @@ class AgentsAPI:
         agents = response.get("agents", response) if isinstance(response, dict) else response
         return [AgentProfile(**a) for a in agents]
 
-    async def list_async(self) -> list[AgentProfile]:
+    async def list_async(self) -> List[AgentProfile]:
         """Async version of list()."""
         response = await self._client._get_async("/api/agents")
         agents = response.get("agents", response) if isinstance(response, dict) else response
@@ -902,7 +902,7 @@ class ReplayAPI:
         self,
         limit: int = 20,
         debate_id: str | None = None,
-    ) -> list[ReplaySummary]:
+    ) -> List[ReplaySummary]:
         """Async version of list()."""
         params: dict[str, Any] = {"limit": limit}
         if debate_id:

@@ -108,7 +108,7 @@ def redact_sensitive(data: Dict[str, Any], depth: int = 0) -> Dict[str, Any]:
     if depth > 5:
         return data
 
-    result = {}
+    result: Dict[str, Any] = {}
     for key, value in data.items():
         key_lower = key.lower()
         if any(sensitive in key_lower for sensitive in REDACT_FIELDS):
@@ -327,6 +327,7 @@ def configure_structured_logging(
         json_output = LOG_FORMAT == "json"
 
     # Create formatter
+    formatter: logging.Formatter
     if json_output:
         formatter = JsonFormatter(
             include_timestamp=LOG_INCLUDE_TIMESTAMP,
@@ -485,7 +486,7 @@ class RequestLoggingMiddleware:
         }
 
         # Log request start
-        extra = {"event": "request_start"}
+        extra: Dict[str, Any] = {"event": "request_start"}
         if headers:
             extra["headers"] = redact_sensitive(dict(headers))
 

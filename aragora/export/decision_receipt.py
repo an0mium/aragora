@@ -21,7 +21,8 @@ from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from aragora.gauntlet import GauntletResult, Finding, VerifiedClaim, Verdict
+    from aragora.modes.gauntlet import GauntletResult, Finding, VerifiedClaim
+    from aragora.gauntlet.types import Verdict
     from aragora.debate.consensus import DissentRecord, UnresolvedTension
     from aragora.debate.risk_assessor import RiskAssessment, RiskLevel
 

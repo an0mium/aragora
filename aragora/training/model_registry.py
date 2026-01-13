@@ -368,9 +368,9 @@ class ModelRegistry:
         """Get registry statistics."""
         models = list(self._models.values())
 
-        by_status = {}
-        by_type = {}
-        by_base = {}
+        by_status: dict[str, int] = {}
+        by_type: dict[str, int] = {}
+        by_base: dict[str, int] = {}
 
         for m in models:
             by_status[m.status] = by_status.get(m.status, 0) + 1

@@ -179,9 +179,8 @@ class GraphDebatesHandler(BaseHandler):
                 GraphDebateOrchestrator,
                 BranchPolicy,
                 BranchReason,
-                MergeStrategy,
             )
-            from aragora.agents import load_agents
+            from aragora.agents import create_agent
             import uuid
 
             # Load agents
@@ -191,10 +190,9 @@ class GraphDebatesHandler(BaseHandler):
 
             # Create branch policy
             policy = BranchPolicy(
-                min_disagreement=branch_policy_data.get("min_disagreement", 0.7),
+                disagreement_threshold=branch_policy_data.get("min_disagreement", 0.7),
                 max_branches=branch_policy_data.get("max_branches", 3),
-                auto_merge=branch_policy_data.get("auto_merge", True),
-                merge_strategy=MergeStrategy(branch_policy_data.get("merge_strategy", "synthesis")),
+                auto_merge_on_convergence=branch_policy_data.get("auto_merge", True),
             )
 
             # Create orchestrator
@@ -226,7 +224,16 @@ class GraphDebatesHandler(BaseHandler):
                     "task": task,
                     "graph": graph.to_dict(),
                     "branches": [b.to_dict() for b in graph.branches.values()],
-                    "merge_results": [m.to_dict() for m in graph.merge_results],
+                    "merge_results": [
+                        {
+                            "merged_node_id": m.merged_node_id,
+                            "source_branch_ids": m.source_branch_ids,
+                            "strategy_used": m.strategy_used,
+                            "conflict_resolutions": m.conflict_resolutions,
+                            "insights_preserved": m.insights_preserved,
+                        }
+                        for m in graph.merge_history
+                    ],
                     "node_count": len(graph.nodes),
                     "branch_count": len(graph.branches),
                 }
@@ -242,9 +249,16 @@ class GraphDebatesHandler(BaseHandler):
     async def _load_agents(self, agent_names: list[str]) -> list:
         """Load agents by name."""
         try:
-            from aragora.agents import load_agents
+            from aragora.agents import create_agent
 
-            return load_agents(agent_names or ["claude", "gpt4"])
+            agents = []
+            for name in agent_names or ["claude", "gpt4"]:
+                try:
+                    agent = create_agent(model_type=name, name=name)
+                    agents.append(agent)
+                except Exception as e:
+                    logger.warning(f"Failed to create agent {name}: {e}")
+            return agents
         except Exception as e:
             logger.warning(f"Failed to load agents: {e}")
             return []

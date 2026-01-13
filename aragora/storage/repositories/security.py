@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from contextlib import contextmanager
+from contextlib import AbstractContextManager
 from datetime import datetime, timedelta
 from typing import Callable, Optional
 
@@ -38,7 +38,7 @@ class SecurityRepository:
     LOCKOUT_DURATION_2 = 60 * 60  # 1 hour
     LOCKOUT_DURATION_3 = 24 * 60 * 60  # 24 hours
 
-    def __init__(self, transaction_fn: Callable[[], "contextmanager[sqlite3.Cursor]"]) -> None:
+    def __init__(self, transaction_fn: Callable[[], AbstractContextManager[sqlite3.Cursor]]) -> None:
         """
         Initialize the security repository.
 

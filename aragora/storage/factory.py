@@ -1,0 +1,172 @@
+"""
+Storage Factory for Aragora.
+
+Provides a unified interface for creating storage backends based on configuration.
+Supports SQLite (default for development) and PostgreSQL (production scale).
+
+Usage:
+    from aragora.storage.factory import get_storage_backend, StorageBackend
+
+    # Get configured backend
+    backend = get_storage_backend()
+
+    if backend == StorageBackend.POSTGRES:
+        # Use async PostgreSQL stores
+        pool = await get_postgres_pool()
+        store = MyPostgresStore(pool)
+    else:
+        # Use SQLite stores (default)
+        store = MySQLiteStore(db_path)
+"""
+
+import logging
+import os
+from enum import Enum
+from pathlib import Path
+from typing import Optional, Union
+
+logger = logging.getLogger(__name__)
+
+
+class StorageBackend(Enum):
+    """Available storage backend types."""
+
+    SQLITE = "sqlite"
+    POSTGRES = "postgres"
+
+
+def get_storage_backend() -> StorageBackend:
+    """
+    Determine which storage backend to use based on configuration.
+
+    Checks ARAGORA_DB_BACKEND environment variable. Defaults to SQLite.
+
+    Returns:
+        StorageBackend enum value
+    """
+    backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+
+    if backend == "postgres" or backend == "postgresql":
+        return StorageBackend.POSTGRES
+    else:
+        return StorageBackend.SQLITE
+
+
+def is_postgres_configured() -> bool:
+    """
+    Check if PostgreSQL connection is configured.
+
+    Returns:
+        True if PostgreSQL DSN is available and backend is set to postgres
+    """
+    backend = get_storage_backend()
+    if backend != StorageBackend.POSTGRES:
+        return False
+
+    dsn = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
+    return bool(dsn)
+
+
+def get_default_db_path(name: str, nomic_dir: Optional[Union[str, Path]] = None) -> Path:
+    """
+    Get the default SQLite database path for a given store name.
+
+    Args:
+        name: Store name (e.g., "debates", "elo", "memory")
+        nomic_dir: Optional nomic directory path. If not provided,
+                   uses ARAGORA_NOMIC_DIR or ~/.nomic/aragora/
+
+    Returns:
+        Path to the SQLite database file
+    """
+    if nomic_dir is None:
+        nomic_dir = os.environ.get("ARAGORA_NOMIC_DIR")
+
+    if nomic_dir is None:
+        nomic_dir = Path.home() / ".nomic" / "aragora"
+    else:
+        nomic_dir = Path(nomic_dir)
+
+    # Ensure directory exists
+    db_dir = nomic_dir / "db"
+    db_dir.mkdir(parents=True, exist_ok=True)
+
+    return db_dir / f"{name}.db"
+
+
+# =========================================================================
+# Store Registry
+# =========================================================================
+
+
+_store_registry: dict[str, type] = {}
+
+
+def register_store(name: str, store_class: type) -> None:
+    """
+    Register a store class for factory creation.
+
+    Args:
+        name: Store name for lookup
+        store_class: Store class to register
+    """
+    _store_registry[name] = store_class
+    logger.debug(f"Registered store: {name} -> {store_class.__name__}")
+
+
+def get_registered_stores() -> dict[str, type]:
+    """
+    Get all registered store classes.
+
+    Returns:
+        Dictionary mapping store names to classes
+    """
+    return _store_registry.copy()
+
+
+# =========================================================================
+# Convenience Functions
+# =========================================================================
+
+
+def storage_info() -> dict[str, object]:
+    """
+    Get information about current storage configuration.
+
+    Returns:
+        Dictionary with storage backend info
+    """
+    backend = get_storage_backend()
+    info: dict[str, object] = {
+        "backend": backend.value,
+        "is_postgres": backend == StorageBackend.POSTGRES,
+        "postgres_configured": is_postgres_configured(),
+    }
+
+    if backend == StorageBackend.POSTGRES:
+        dsn = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL", "")
+        # Redact password from DSN for logging
+        if "@" in dsn:
+            parts = dsn.split("@")
+            user_pass = parts[0].rsplit(":", 1)
+            if len(user_pass) == 2:
+                dsn = f"{user_pass[0]}:***@{parts[1]}"
+        info["dsn_redacted"] = dsn
+    else:
+        default_dir = os.environ.get("ARAGORA_NOMIC_DIR") or str(
+            Path.home() / ".nomic" / "aragora"
+        )
+        info["default_db_dir"] = str(Path(default_dir) / "db")
+
+    return info
+
+
+__all__ = [
+    "StorageBackend",
+    "get_storage_backend",
+    "is_postgres_configured",
+    "get_default_db_path",
+    "register_store",
+    "get_registered_stores",
+    "storage_info",
+]

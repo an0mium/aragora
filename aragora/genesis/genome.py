@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from aragora.agents.personas import EXPERTISE_DOMAINS, PERSONALITY_TRAITS, Persona
+from aragora.config import resolve_db_path
 from aragora.genesis.database import GenesisDatabase
 
 
@@ -209,8 +210,9 @@ class GenomeStore:
     """SQLite-based storage for genomes."""
 
     def __init__(self, db_path: str = ".nomic/genesis.db"):
-        self.db_path = Path(db_path)
-        self.db = GenesisDatabase(db_path)
+        resolved_path = resolve_db_path(db_path)
+        self.db_path = Path(resolved_path)
+        self.db = GenesisDatabase(resolved_path)
 
     def save(self, genome: AgentGenome) -> None:
         """Save or update a genome."""

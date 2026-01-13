@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.config import DB_TIMEOUT_SECONDS, resolve_db_path
 from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ class EvolutionTracker(SQLiteStore):
         Args:
             db_path: Path to SQLite database file
         """
-        super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
+        super().__init__(resolve_db_path(db_path), timeout=DB_TIMEOUT_SECONDS)
 
     def record_outcome(
         self,

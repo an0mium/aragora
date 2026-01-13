@@ -5,7 +5,7 @@ Provides thread-safe database access by inheriting from SQLiteStore,
 which provides standardized schema management and connection handling.
 """
 
-from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.config import DB_TIMEOUT_SECONDS, resolve_db_path
 from aragora.storage.base_store import SQLiteStore
 
 
@@ -59,4 +59,4 @@ class TournamentDatabase(SQLiteStore):
 
     def __init__(self, db_path: str = "aragora_tournaments.db"):
         """Initialize tournament database."""
-        super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
+        super().__init__(resolve_db_path(db_path), timeout=DB_TIMEOUT_SECONDS)

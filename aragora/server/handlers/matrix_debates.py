@@ -12,8 +12,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 import uuid
+
+if TYPE_CHECKING:
+    from aragora.agents.base import BaseAgent
 
 from .base import (
     BaseHandler,
@@ -48,7 +51,7 @@ class MatrixDebatesHandler(BaseHandler):
         return path.startswith("/api/debates/matrix")
 
     @handle_errors("matrix debates GET")
-    async def handle_get(self, handler, path: str, query_params: dict) -> HandlerResult:
+    async def handle_get(self, handler: Any, path: str, query_params: dict[str, Any]) -> HandlerResult:
         """Handle GET requests for matrix debates."""
         parts = path.rstrip("/").split("/")
 
@@ -69,7 +72,7 @@ class MatrixDebatesHandler(BaseHandler):
         return error_response("Not found", 404)
 
     @handle_errors("matrix debates POST")
-    async def handle_post(self, handler, path: str, data: dict) -> HandlerResult:
+    async def handle_post(self, handler: Any, path: str, data: dict[str, Any]) -> HandlerResult:
         """Handle POST requests for matrix debates.
 
         POST /api/debates/matrix - Run parallel scenario debates
@@ -86,7 +89,7 @@ class MatrixDebatesHandler(BaseHandler):
         logger.debug("POST /api/debates/matrix - running matrix debate")
         return await self._run_matrix_debate(handler, data)
 
-    async def _run_matrix_debate(self, handler, data: dict) -> HandlerResult:
+    async def _run_matrix_debate(self, handler: Any, data: dict[str, Any]) -> HandlerResult:
         """Run parallel scenario debates.
 
         Request body:
@@ -160,7 +163,7 @@ class MatrixDebatesHandler(BaseHandler):
             return error_response("max_rounds must be at most 10", 400)
 
         try:
-            from aragora.debate.scenarios import MatrixDebateRunner, ScenarioConfig
+            from aragora.debate.scenarios import MatrixDebateRunner, ScenarioConfig  # type: ignore[attr-defined]
 
             # Load agents
             agents = await self._load_agents(agent_names)
@@ -168,7 +171,7 @@ class MatrixDebatesHandler(BaseHandler):
                 return error_response("No valid agents found", 400)
 
             # Create matrix runner
-            runner = MatrixDebateRunner(
+            runner = MatrixDebateRunner(  # type: ignore[call-arg]
                 base_task=task,
                 agents=agents,
             )
@@ -176,29 +179,29 @@ class MatrixDebatesHandler(BaseHandler):
             # Add scenarios
             for scenario_data in scenarios:
                 config = ScenarioConfig(
-                    name=scenario_data.get("name", f"Scenario {len(runner.scenarios) + 1}"),
+                    name=scenario_data.get("name", f"Scenario {len(runner.scenarios) + 1}"),  # type: ignore[attr-defined]
                     parameters=scenario_data.get("parameters", {}),
                     constraints=scenario_data.get("constraints", []),
                     is_baseline=scenario_data.get("is_baseline", False),
                 )
-                runner.add_scenario(config)
+                runner.add_scenario(config)  # type: ignore[attr-defined]
 
             # Generate matrix ID
             matrix_id = str(uuid.uuid4())
 
             # Run all scenarios in parallel
-            results = await runner.run_all(max_rounds=max_rounds)
+            results = await runner.run_all(max_rounds=max_rounds)  # type: ignore[attr-defined]
 
             # Build response
             return json_response(
                 {
                     "matrix_id": matrix_id,
                     "task": task,
-                    "scenario_count": len(results.scenario_results),
-                    "results": [r.to_dict() for r in results.scenario_results],
-                    "universal_conclusions": results.universal_conclusions,
-                    "conditional_conclusions": results.conditional_conclusions,
-                    "comparison_matrix": results.comparison_matrix,
+                    "scenario_count": len(results.scenario_results),  # type: ignore[attr-defined]
+                    "results": [r.to_dict() for r in results.scenario_results],  # type: ignore[attr-defined]
+                    "universal_conclusions": results.universal_conclusions,  # type: ignore[attr-defined]
+                    "conditional_conclusions": results.conditional_conclusions,  # type: ignore[attr-defined]
+                    "comparison_matrix": results.comparison_matrix,  # type: ignore[attr-defined]
                 }
             )
 
@@ -209,7 +212,7 @@ class MatrixDebatesHandler(BaseHandler):
             logger.exception(f"Matrix debate failed: {e}")
             return error_response(safe_error_message(e, "matrix debate"), 500)
 
-    async def _run_matrix_debate_fallback(self, handler, data: dict) -> HandlerResult:
+    async def _run_matrix_debate_fallback(self, handler: Any, data: dict[str, Any]) -> HandlerResult:
         """Fallback implementation using Arena directly for each scenario."""
         from aragora.debate.orchestrator import Arena, ArenaConfig
         from aragora.core import Environment, DebateProtocol
@@ -262,13 +265,13 @@ class MatrixDebatesHandler(BaseHandler):
                 }
 
             # Run all scenarios concurrently
-            tasks = [run_scenario(s) for s in scenarios]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            scenario_tasks = [run_scenario(s) for s in scenarios]
+            gather_results = await asyncio.gather(*scenario_tasks, return_exceptions=True)
 
             # Process results
-            valid_results = []
-            for r in results:
-                if isinstance(r, Exception):
+            valid_results: list[dict[str, Any]] = []
+            for r in gather_results:
+                if isinstance(r, BaseException):
                     logger.error(f"Scenario failed: {r}")
                 else:
                     valid_results.append(r)
@@ -340,17 +343,17 @@ class MatrixDebatesHandler(BaseHandler):
             "avg_rounds": sum(r.get("rounds_used", 0) for r in results) / max(len(results), 1),
         }
 
-    async def _load_agents(self, agent_names: list[str]) -> list:
+    async def _load_agents(self, agent_names: list[str]) -> list[Any]:
         """Load agents by name."""
         try:
-            from aragora.agents import load_agents
+            from aragora.agents.cli_agents import load_agents
 
-            return load_agents(agent_names or ["claude", "gpt4"])
+            return load_agents(agent_names or ["claude", "gpt4"])  # type: ignore[no-any-return]
         except Exception as e:
             logger.warning(f"Failed to load agents: {e}")
             return []
 
-    async def _get_matrix_debate(self, handler, matrix_id: str) -> HandlerResult:
+    async def _get_matrix_debate(self, handler: Any, matrix_id: str) -> HandlerResult:
         """Get a matrix debate by ID."""
         storage = getattr(handler, "storage", None)
         if not storage:
@@ -366,7 +369,7 @@ class MatrixDebatesHandler(BaseHandler):
             logger.error(f"Failed to get matrix debate {matrix_id}: {e}")
             return error_response("Failed to retrieve matrix debate", 500)
 
-    async def _get_scenarios(self, handler, matrix_id: str) -> HandlerResult:
+    async def _get_scenarios(self, handler: Any, matrix_id: str) -> HandlerResult:
         """Get all scenario results for a matrix debate."""
         storage = getattr(handler, "storage", None)
         if not storage:
@@ -379,7 +382,7 @@ class MatrixDebatesHandler(BaseHandler):
             logger.error(f"Failed to get scenarios for {matrix_id}: {e}")
             return error_response("Failed to retrieve scenarios", 500)
 
-    async def _get_conclusions(self, handler, matrix_id: str) -> HandlerResult:
+    async def _get_conclusions(self, handler: Any, matrix_id: str) -> HandlerResult:
         """Get conclusions for a matrix debate."""
         storage = getattr(handler, "storage", None)
         if not storage:

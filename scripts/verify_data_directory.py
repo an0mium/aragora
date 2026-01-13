@@ -135,7 +135,8 @@ def check_resolve_db_path_usage(project_root: Path) -> dict:
         # Check if file has database initialization
         if db_init_pattern.search(content):
             rel_path = str(py_file.relative_to(project_root))
-            if "resolve_db_path" in content:
+            # Check for either resolve_db_path or get_db_path (both are valid)
+            if "resolve_db_path" in content or "get_db_path" in content:
                 using.append(rel_path)
             else:
                 not_using.append(rel_path)

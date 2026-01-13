@@ -10,7 +10,7 @@ import asyncio
 import json
 import logging
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Sequence, cast
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ class AragoraMCPServer:
                 properties = {}
                 required = []
 
-                for param_name, param_info in meta.get("parameters", {}).items():
+                for param_name, param_info in cast(Dict[str, Any], meta.get("parameters", {})).items():
                     prop: Dict[str, Any] = {"type": param_info.get("type", "string")}
                     if "default" in param_info:
                         prop["default"] = param_info["default"]
@@ -116,14 +116,14 @@ class AragoraMCPServer:
 
             try:
                 # Find tool function from metadata
-                tool_func = None
+                tool_func: Optional[Callable[..., Coroutine[Any, Any, Dict[str, Any]]]] = None
                 for meta in TOOLS_METADATA:
                     if meta["name"] == name:
-                        tool_func = meta["function"]
+                        tool_func = cast(Callable[..., Coroutine[Any, Any, Dict[str, Any]]], meta["function"])
                         break
 
                 if tool_func is None:
-                    result = {"error": f"Unknown tool: {name}"}
+                    result: Dict[str, Any] = {"error": f"Unknown tool: {name}"}
                 else:
                     # Call the tool function with arguments
                     result = await tool_func(**arguments)
@@ -279,7 +279,7 @@ class AragoraMCPServer:
         )
 
         # Run debate
-        arena = Arena(env, agents, protocol)
+        arena = Arena(env, cast(List[Any], agents), protocol)
         result = await arena.run()
 
         # Generate debate ID
@@ -333,12 +333,9 @@ class AragoraMCPServer:
 
         config = profiles.get(profile, QUICK_GAUNTLET)
 
-        # Update config with content
-        config = GauntletConfig(
-            attack_categories=config.attack_categories,
-            agents=config.agents,
-            rounds_per_attack=config.rounds_per_attack,
-        )
+        # Use the selected profile config directly (it's already a GauntletConfig)
+        if config is None:
+            config = QUICK_GAUNTLET
 
         runner = GauntletRunner(config)
         result = await runner.run(content)
@@ -360,7 +357,7 @@ class AragoraMCPServer:
 
     async def _list_agents(self) -> Dict[str, Any]:
         """List available agents."""
-        from aragora.agents.registry import list_available_agents
+        from aragora.agents.base import list_available_agents
 
         try:
             agents = list_available_agents()
@@ -457,15 +454,20 @@ class AragoraMCPServer:
 
             db = get_debates_db()
             if db and hasattr(db, "search"):
-                stored = db.search(
+                stored_results, _total = db.search(
                     query=query,
-                    agent=agent_filter,
-                    consensus_only=consensus_only,
                     limit=limit,
                 )
-                for debate in stored:
-                    if debate.get("debate_id") not in [r["debate_id"] for r in results]:
-                        results.append(debate)
+                for debate_meta in stored_results:
+                    debate_dict = {
+                        "debate_id": debate_meta.debate_id,
+                        "task": debate_meta.task[:100] if debate_meta.task else "",
+                        "consensus_reached": debate_meta.consensus_reached,
+                        "confidence": debate_meta.confidence,
+                        "timestamp": debate_meta.timestamp.isoformat() if debate_meta.timestamp else "",
+                    }
+                    if debate_dict["debate_id"] not in [r["debate_id"] for r in results]:
+                        results.append(debate_dict)
         except Exception as e:
             logger.debug(f"Storage search unavailable: {e}")
 
@@ -503,9 +505,9 @@ class AragoraMCPServer:
 
         # Try to get ELO rating
         try:
-            from aragora.ranking.elo import ELOSystem
+            from aragora.ranking.elo import EloSystem
 
-            elo = ELOSystem()
+            elo = EloSystem()
             rating = elo.get_rating(agent_name)
             if rating:
                 result["elo_rating"] = rating.rating
@@ -588,22 +590,8 @@ class AragoraMCPServer:
                             proof_entry = {**proof, "debate_id": did}
                             proofs.append(proof_entry)
 
-        # Try to get from verification storage
-        try:
-            from aragora.server.storage import get_proofs_db
-
-            proofs_db = get_proofs_db()
-            if proofs_db:
-                stored_proofs = proofs_db.list(
-                    debate_id=debate_id or None,
-                    proof_type=proof_type if proof_type != "all" else None,
-                    limit=limit,
-                )
-                for p in stored_proofs:
-                    if p not in proofs:
-                        proofs.append(p)
-        except Exception as e:
-            logger.debug(f"Proofs storage unavailable: {e}")
+        # Note: No dedicated proofs storage currently implemented
+        # Proofs are stored within debate records
 
         # Limit results
         proofs = proofs[:limit]
@@ -625,17 +613,18 @@ class AragoraMCPServer:
         topics: List[Dict[str, Any]] = []
 
         try:
-            from aragora.pulse import get_trending_topics, TrendingTopic
-            from aragora.pulse.scheduler import TopicSelector
+            from aragora.pulse import PulseManager, SchedulerConfig, TopicSelector
 
-            # Get trending topics
-            raw_topics = await get_trending_topics(
+            # Get trending topics via PulseManager
+            manager = PulseManager()
+            raw_topics = await manager.get_trending_topics(
                 platforms=[platform] if platform != "all" else None,
-                limit=limit * 2,  # Get more, then filter
+                limit_per_platform=limit * 2,  # Get more, then filter
             )
 
             # Score and filter topics
-            selector = TopicSelector()
+            config = SchedulerConfig()
+            selector = TopicSelector(config)
 
             for topic in raw_topics:
                 # Apply platform filter
@@ -647,17 +636,18 @@ class AragoraMCPServer:
                     continue
 
                 # Score the topic
-                score = selector.score_topic(topic)
+                topic_score = selector.score_topic(topic)
+                score_value = topic_score.score
 
-                if score >= min_score:
+                if score_value >= min_score:
                     topics.append(
                         {
                             "topic": topic.topic,
                             "platform": topic.platform,
                             "category": topic.category,
-                            "score": round(score, 3),
+                            "score": round(score_value, 3),
                             "volume": topic.volume,
-                            "debate_potential": "high" if score > 0.7 else "medium",
+                            "debate_potential": "high" if score_value > 0.7 else "medium",
                         }
                     )
 

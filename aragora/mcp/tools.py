@@ -10,7 +10,7 @@ import asyncio
 import logging
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -171,9 +171,10 @@ async def list_agents_tool() -> Dict[str, Any]:
         Dict with list of available agent IDs and count
     """
     try:
-        from aragora.agents.registry import list_available_agents
+        from aragora.agents.base import list_available_agents
 
-        agents = list_available_agents()
+        agents_dict = list_available_agents()
+        agents = list(agents_dict.keys())
         return {
             "agents": agents,
             "count": len(agents),
@@ -252,12 +253,22 @@ async def search_debates_tool(
 
         db = get_debates_db()
         if db and hasattr(db, "search"):
-            results = db.search(
+            search_result = db.search(
                 query=query,
-                agent=agent,
-                consensus_only=consensus_only,
                 limit=limit,
             )
+            # search returns tuple (list, count) - extract list
+            all_debates = search_result[0] if isinstance(search_result, tuple) else search_result
+            # Apply additional filters (agent, consensus_only) in memory
+            for debate in all_debates:
+                debate_dict = debate if isinstance(debate, dict) else vars(debate)
+                if agent:
+                    agents_list = debate_dict.get("agents", [])
+                    if not any(agent.lower() in str(a).lower() for a in agents_list):
+                        continue
+                if consensus_only and not debate_dict.get("consensus_reached", False):
+                    continue
+                results.append(debate_dict)
         elif db and hasattr(db, "list"):
             # Fallback to list + filter
             all_debates = db.list(limit=limit * 2)
@@ -317,9 +328,9 @@ async def get_agent_history_tool(
 
     # Get ELO rating
     try:
-        from aragora.ranking.elo import ELOSystem
+        from aragora.ranking.elo import EloSystem
 
-        elo = ELOSystem()
+        elo = EloSystem()
         rating = elo.get_rating(agent_name)
         if rating:
             result["elo_rating"] = rating.rating
@@ -346,7 +357,15 @@ async def get_agent_history_tool(
 
         # Get recent debates if requested
         if include_debates and db and hasattr(db, "search"):
-            debates = db.search(agent=agent_name, limit=limit)
+            search_result = db.search(query="", limit=limit)
+            # search returns tuple (list, count) - extract list and filter by agent
+            all_debates = search_result[0] if isinstance(search_result, tuple) else search_result
+            filtered_debates: List[Dict[str, Any]] = []
+            for debate in all_debates:
+                debate_dict = debate if isinstance(debate, dict) else vars(debate)
+                agents_list = debate_dict.get("agents", [])
+                if any(agent_name.lower() in str(a).lower() for a in agents_list):
+                    filtered_debates.append(debate_dict)
             result["recent_debates"] = [
                 {
                     "debate_id": d.get("debate_id"),
@@ -354,7 +373,7 @@ async def get_agent_history_tool(
                     "consensus_reached": d.get("consensus_reached", False),
                     "timestamp": d.get("timestamp", ""),
                 }
-                for d in debates
+                for d in filtered_debates[:limit]
             ]
     except Exception as e:
         logger.debug(f"Could not get agent history: {e}")
@@ -380,20 +399,7 @@ async def get_consensus_proofs_tool(
     """
     proofs: List[Dict[str, Any]] = []
 
-    try:
-        from aragora.server.storage import get_proofs_db
-
-        proofs_db = get_proofs_db()
-        if proofs_db:
-            proofs = proofs_db.list(
-                debate_id=debate_id or None,
-                proof_type=proof_type if proof_type != "all" else None,
-                limit=limit,
-            )
-    except Exception as e:
-        logger.debug(f"Proofs storage unavailable: {e}")
-
-    # If no storage, try to get from debate data
+    # Try to get proofs from debate data
     if not proofs and debate_id:
         try:
             from aragora.server.storage import get_debates_db
@@ -439,35 +445,37 @@ async def list_trending_topics_tool(
     topics: List[Dict[str, Any]] = []
 
     try:
-        from aragora.pulse import get_trending_topics
-        from aragora.pulse.scheduler import TopicSelector
+        from aragora.pulse import PulseManager, TopicSelector, SchedulerConfig
 
-        # Get raw topics
-        raw_topics = await get_trending_topics(
-            platforms=[platform] if platform != "all" else None,
-            limit=limit * 2,
+        # Create pulse manager and fetch topics
+        pulse_manager = PulseManager()
+        platforms_list = [platform] if platform != "all" else None
+        raw_topics = await pulse_manager.get_trending_topics(
+            platforms=platforms_list,
+            limit_per_platform=limit * 2,
         )
 
         # Score topics
-        selector = TopicSelector()
+        config = SchedulerConfig()
+        selector = TopicSelector(config)
 
         for topic in raw_topics:
             if platform != "all" and topic.platform != platform:
                 continue
-            if category and topic.category.lower() != category.lower():
+            if category and getattr(topic, "category", "").lower() != category.lower():
                 continue
 
-            score = selector.score_topic(topic)
+            topic_score = selector.score_topic(topic)
 
-            if score >= min_score:
+            if topic_score.score >= min_score:
                 topics.append(
                     {
                         "topic": topic.topic,
                         "platform": topic.platform,
-                        "category": topic.category,
-                        "score": round(score, 3),
-                        "volume": topic.volume,
-                        "debate_potential": "high" if score > 0.7 else "medium",
+                        "category": getattr(topic, "category", ""),
+                        "score": round(topic_score.score, 3),
+                        "volume": getattr(topic, "volume", 0),
+                        "debate_potential": "high" if topic_score.score > 0.7 else "medium",
                     }
                 )
 
@@ -1094,13 +1102,12 @@ async def generate_proof_tool(
         return {"error": "claim is required"}
 
     try:
-        if output_format == "lean4":
-            from aragora.verification.formal import LeanBackend
+        from aragora.verification.formal import LeanBackend, Z3Backend
 
+        backend: Union[LeanBackend, Z3Backend]
+        if output_format == "lean4":
             backend = LeanBackend()
         else:
-            from aragora.verification.formal import Z3Backend
-
             backend = Z3Backend()
 
         formal_statement = await backend.translate(claim, context)
@@ -1150,13 +1157,13 @@ async def search_evidence_tool(
         collector = EvidenceCollector()
         source_list = None if sources == "all" else [s.strip() for s in sources.split(",")]
 
-        evidence = await collector.search(
-            query=query,
-            sources=source_list,
-            limit=limit,
+        # Use collect_evidence which is the actual API
+        evidence_pack = await collector.collect_evidence(
+            task=query,
+            enabled_connectors=source_list,
         )
 
-        for e in evidence:
+        for e in evidence_pack.snippets[:limit]:
             results.append(
                 {
                     "id": e.id,
@@ -1164,8 +1171,8 @@ async def search_evidence_tool(
                     "source": e.source,
                     "url": e.url,
                     "snippet": e.snippet[:300] if e.snippet else "",
-                    "score": e.relevance_score,
-                    "published": str(e.published_at) if e.published_at else None,
+                    "score": e.reliability_score,
+                    "published": str(e.fetched_at) if e.fetched_at else None,
                 }
             )
 

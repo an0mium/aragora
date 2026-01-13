@@ -28,6 +28,7 @@ from urllib.parse import parse_qs, urlparse
 
 if TYPE_CHECKING:
     import aiohttp.web
+    from aragora.core import Agent
 from concurrent.futures import ThreadPoolExecutor
 import uuid
 
@@ -410,7 +411,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         try:
             from aragora.billing.jwt_auth import validate_access_token
             from aragora.billing.usage import UsageTracker
-            from aragora.billing.models import UserStore
+            from aragora.storage import UserStore
 
             # Extract JWT from Authorization header
             auth_header = headers.get("Authorization", "")
@@ -437,7 +438,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
             # Get usage for current period
             tracker = UsageTracker()
-            usage = tracker.get_usage_summary(org.id)
+            usage = tracker.get_summary(org.id)
 
             # Check tier limits
             tier_limits = {
@@ -588,7 +589,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
             # Create agents with streaming support
             # All agents are proposers for full participation in all rounds
-            agents = []
+            agents: list[Agent] = []
             for i, (agent_type, role) in enumerate(agent_specs):
                 if role is None:
                     role = "proposer"  # All agents propose and participate fully
@@ -863,7 +864,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
     async def _validate_ws_auth_for_write(
         self,
-        ws_id: str,
+        ws_id: int,
         ws: Any,
     ) -> tuple[bool, Optional[dict]]:
         """Validate WebSocket authentication for write operations.
@@ -905,7 +906,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
     def _validate_loop_id_access(
         self,
-        ws_id: str,
+        ws_id: int,
         loop_id: str,
     ) -> tuple[bool, Optional[dict]]:
         """Validate loop_id exists and client has access.
@@ -1065,7 +1066,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # compress=15 uses 15-bit window (32KB) for good compression ratio
         ws = web.WebSocketResponse(
             max_msg_size=WS_MAX_MESSAGE_SIZE,
-            compress=15,  # Enable compression with 15-bit window
+            compress=True,  # Enable permessage-deflate compression
         )
         await ws.prepare(request)
 
