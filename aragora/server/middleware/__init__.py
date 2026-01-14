@@ -64,6 +64,13 @@ from .auth_v2 import (
     require_plan,
     require_user,
 )
+from .mfa import (
+    check_mfa_status,
+    enforce_admin_mfa_policy,
+    require_admin_mfa,
+    require_admin_with_mfa,
+    require_mfa,
+)
 from .cache import (
     CACHE_INVALIDATION_MAP,
     CacheConfig,
@@ -253,6 +260,12 @@ __all__ = [
     "authenticate_request",
     "SupabaseAuthValidator",
     "get_jwt_validator",
+    # MFA Enforcement (SOC 2 CC5-01)
+    "require_mfa",
+    "require_admin_mfa",
+    "require_admin_with_mfa",
+    "check_mfa_status",
+    "enforce_admin_mfa_policy",
     # Multi-tenancy
     "PLAN_LIMITS",
     "get_plan_limits",

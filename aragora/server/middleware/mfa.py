@@ -69,7 +69,7 @@ def require_mfa(func: Callable) -> Callable:
                     return error_response(
                         "MFA required. Please enable MFA at /api/auth/mfa/setup",
                         403,
-                        error_code="MFA_REQUIRED",
+                        code="MFA_REQUIRED",
                     )
         else:
             # If no user store, check metadata (fallback)
@@ -81,7 +81,7 @@ def require_mfa(func: Callable) -> Callable:
                 return error_response(
                     "MFA required. Please enable MFA at /api/auth/mfa/setup",
                     403,
-                    error_code="MFA_REQUIRED",
+                    code="MFA_REQUIRED",
                 )
 
         kwargs["user"] = user
@@ -150,7 +150,7 @@ def require_admin_mfa(func: Callable) -> Callable:
                     "Administrative access requires MFA. "
                     "Please enable MFA at /api/auth/mfa/setup",
                     403,
-                    error_code="ADMIN_MFA_REQUIRED",
+                    code="ADMIN_MFA_REQUIRED",
                 )
 
         kwargs["user"] = user
@@ -216,7 +216,7 @@ def require_admin_with_mfa(func: Callable) -> Callable:
                 "This operation requires MFA. "
                 "Please enable MFA at /api/auth/mfa/setup",
                 403,
-                error_code="MFA_REQUIRED",
+                code="MFA_REQUIRED",
             )
 
         kwargs["user"] = user
