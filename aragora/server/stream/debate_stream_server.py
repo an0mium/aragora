@@ -143,6 +143,9 @@ class DebateStreamServer(ServerBase):
         # Per-connection message rate limiters
         self._ws_msg_limiters: dict[int, WebSocketMessageRateLimiter] = {}  # ws_id -> rate limiter
 
+        # Async lock for client set operations (prevents race conditions during broadcast)
+        self._clients_lock = asyncio.Lock()
+
     def _cleanup_stale_rate_limiters(self) -> None:
         """Remove rate limiters not accessed within TTL period."""
         self.cleanup_rate_limiters()
@@ -400,14 +403,20 @@ class DebateStreamServer(ServerBase):
         message = event.to_json()
         disconnected = set()
 
-        for client in self.clients:
+        # Take snapshot under lock to prevent race conditions
+        async with self._clients_lock:
+            clients_snapshot = list(self.clients)
+
+        for client in clients_snapshot:
             try:
                 await client.send(message)
             except Exception as e:
                 logger.debug(f"Client disconnected during broadcast: {e}")
                 disconnected.add(client)
 
-        self.clients -= disconnected
+        if disconnected:
+            async with self._clients_lock:
+                self.clients -= disconnected
 
     async def broadcast_batch(self, events: list[StreamEvent]) -> None:
         """Send multiple events to all connected clients in a single message.
@@ -426,14 +435,20 @@ class DebateStreamServer(ServerBase):
         message = json.dumps([e.to_dict() for e in events])
         disconnected = set()
 
-        for client in self.clients:
+        # Take snapshot under lock to prevent race conditions
+        async with self._clients_lock:
+            clients_snapshot = list(self.clients)
+
+        for client in clients_snapshot:
             try:
                 await client.send(message)
             except Exception as e:
                 logger.debug(f"Client disconnected during batch broadcast: {e}")
                 disconnected.add(client)
 
-        self.clients -= disconnected
+        if disconnected:
+            async with self._clients_lock:
+                self.clients -= disconnected
 
     async def _drain_loop(self) -> None:
         """Background task that drains the emitter queue and broadcasts.
@@ -633,7 +648,8 @@ class DebateStreamServer(ServerBase):
             self._client_ids.popitem(last=False)
         self._client_ids[ws_id] = client_id
 
-        self.clients.add(websocket)
+        # NOTE: Client is added to self.clients AFTER _send_initial_state() in handler()
+        # to ensure client receives consistent state before broadcasts
 
         if is_authenticated:
             self._mark_token_validated(ws_id)
@@ -670,8 +686,49 @@ class DebateStreamServer(ServerBase):
             )
         )
 
-        for loop_id, state in self.debate_states.items():
+        # Take snapshot under lock to prevent race conditions during iteration
+        with self._debate_states_lock:
+            states_snapshot = dict(self.debate_states)
+
+        for loop_id, state in states_snapshot.items():
             await websocket.send(json.dumps({"type": "sync", "data": state}))
+
+    async def _send_debate_state(self, websocket, debate_id: str) -> None:
+        """Send current debate state to a newly subscribed client.
+
+        Args:
+            websocket: The WebSocket connection
+            debate_id: The debate ID to send state for
+        """
+        # Get state under lock
+        with self._debate_states_lock:
+            state = self.debate_states.get(debate_id)
+
+        if state:
+            await websocket.send(json.dumps({
+                "type": "sync",
+                "data": state,
+                "debate_id": debate_id,
+            }))
+            # If debate is in progress, resend debate_start for UI consistency
+            if not state.get("ended"):
+                await websocket.send(json.dumps({
+                    "type": "debate_start",
+                    "loop_id": debate_id,
+                    "data": {
+                        "debate_id": debate_id,
+                        "status": "in_progress",
+                        "task": state.get("task", ""),
+                        "agents": state.get("agents", []),
+                    }
+                }))
+        else:
+            # No state yet, send waiting status
+            await websocket.send(json.dumps({
+                "type": "sync",
+                "data": {"debate_id": debate_id, "status": "waiting"},
+                "debate_id": debate_id,
+            }))
 
     async def _parse_message(self, message: str) -> dict | None:
         """Parse and validate incoming WebSocket message.
@@ -901,9 +958,10 @@ class DebateStreamServer(ServerBase):
                 )
             )
 
-    def _cleanup_connection(self, client_ip: str, client_id: str, ws_id: int, websocket) -> None:
+    async def _cleanup_connection(self, client_ip: str, client_id: str, ws_id: int, websocket) -> None:
         """Clean up resources after connection closes."""
-        self.clients.discard(websocket)
+        async with self._clients_lock:
+            self.clients.discard(websocket)
         logger.info(
             f"[ws] Client {client_id[:8]}... disconnected from {client_ip} "
             f"(remaining_clients={len(self.clients)})"
@@ -940,6 +998,11 @@ class DebateStreamServer(ServerBase):
         try:
             # Send initial connection state
             await self._send_initial_state(websocket, client_id, is_authenticated)
+
+            # Add client to broadcast set AFTER initial sync completes
+            # This prevents receiving broadcasts before state is synchronized
+            async with self._clients_lock:
+                self.clients.add(websocket)
 
             # Handle incoming messages
             async for message in websocket:
@@ -988,6 +1051,18 @@ class DebateStreamServer(ServerBase):
                     await self._handle_wisdom_submission(
                         websocket, data, ws_id, ws_token, is_authenticated, client_id
                     )
+                elif msg_type == "subscribe":
+                    # Handle explicit subscribe to a specific debate
+                    debate_id = data.get("debate_id")
+                    if debate_id:
+                        await self._send_debate_state(websocket, debate_id)
+                    else:
+                        await websocket.send(
+                            json.dumps({
+                                "type": "error",
+                                "data": {"message": "subscribe requires debate_id"}
+                            })
+                        )
 
         except Exception as e:
             error_name = type(e).__name__
@@ -996,7 +1071,7 @@ class DebateStreamServer(ServerBase):
                     f"[ws] Unexpected error for client {client_id[:8]}...: {error_name}: {e}"
                 )
         finally:
-            self._cleanup_connection(client_ip, client_id, ws_id, websocket)
+            await self._cleanup_connection(client_ip, client_id, ws_id, websocket)
 
     async def start(self) -> None:
         """Start the WebSocket server."""
@@ -1040,17 +1115,18 @@ class DebateStreamServer(ServerBase):
     async def graceful_shutdown(self) -> None:
         """Gracefully close all client connections."""
         self._running = False
-        # Close all connected clients
-        if self.clients:
-            close_tasks = []
-            for client in list(self.clients):
-                try:
-                    close_tasks.append(client.close())
-                except Exception as e:
-                    logger.debug(f"Error closing WebSocket client: {e}")
-            if close_tasks:
-                await asyncio.gather(*close_tasks, return_exceptions=True)
-            self.clients.clear()
+        # Close all connected clients under lock
+        async with self._clients_lock:
+            if self.clients:
+                close_tasks = []
+                for client in list(self.clients):
+                    try:
+                        close_tasks.append(client.close())
+                    except Exception as e:
+                        logger.debug(f"Error closing WebSocket client: {e}")
+                if close_tasks:
+                    await asyncio.gather(*close_tasks, return_exceptions=True)
+                self.clients.clear()
 
 
 __all__ = ["DebateStreamServer"]
