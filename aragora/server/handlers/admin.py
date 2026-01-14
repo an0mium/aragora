@@ -29,6 +29,7 @@ from typing import Any, Optional
 
 from aragora.auth.lockout import get_lockout_tracker
 from aragora.billing.jwt_auth import create_access_token, extract_user_from_request
+from aragora.server.middleware.mfa import enforce_admin_mfa_policy
 
 from .base import (
     SAFE_ID_PATTERN,
@@ -78,7 +79,9 @@ class AdminHandler(BaseHandler):
 
     def _require_admin(self, handler) -> tuple[Optional[Any], Optional[HandlerResult]]:
         """
-        Verify the request is from an admin user.
+        Verify the request is from an admin user with MFA enabled.
+
+        SOC 2 Control: CC5-01 - Administrative access requires MFA.
 
         Returns:
             Tuple of (auth_context, error_response).
@@ -97,6 +100,17 @@ class AdminHandler(BaseHandler):
         if not user or user.role not in ADMIN_ROLES:
             logger.warning(f"Non-admin user {auth_ctx.user_id} attempted admin access")
             return None, error_response("Admin access required", 403)
+
+        # Enforce MFA for admin users (SOC 2 CC5-01)
+        is_allowed, mfa_error = enforce_admin_mfa_policy(user, user_store)
+        if not is_allowed:
+            logger.warning(f"Admin user {auth_ctx.user_id} denied: {mfa_error}")
+            return None, error_response(
+                mfa_error or "Administrative access requires MFA. "
+                "Please enable MFA at /api/auth/mfa/setup",
+                403,
+                code="ADMIN_MFA_REQUIRED",
+            )
 
         return auth_ctx, None
 

@@ -113,7 +113,7 @@ class TestRequireMFA:
 
         assert get_status(result) == 403
         body = get_body(result)
-        assert body["code"] == "MFA_REQUIRED"
+        assert body["error"]["code"] == "MFA_REQUIRED"
 
     def test_user_with_mfa_allowed(self):
         """Users with MFA enabled should be allowed."""
@@ -189,7 +189,7 @@ class TestRequireAdminMFA:
 
         assert get_status(result) == 403
         body = get_body(result)
-        assert body["code"] == "ADMIN_MFA_REQUIRED"
+        assert body["error"]["code"] == "ADMIN_MFA_REQUIRED"
 
     def test_admin_with_mfa_allowed(self):
         """Admin users with MFA should be allowed."""
@@ -263,8 +263,8 @@ class TestRequireAdminWithMFA:
             mock_get_user.return_value = user
             result = sensitive_endpoint(handler)
 
-        assert result[1] == 403
-        body = json.loads(result[0])
+        assert get_status(result) == 403
+        body = get_body(result)
         assert "Admin access required" in body["error"]
 
     def test_admin_without_mfa_rejected(self):
@@ -290,9 +290,9 @@ class TestRequireAdminWithMFA:
                 mock_store.return_value = user_store
                 result = sensitive_endpoint(handler)
 
-        assert result[1] == 403
-        body = json.loads(result[0])
-        assert body["code"] == "MFA_REQUIRED"
+        assert get_status(result) == 403
+        body = get_body(result)
+        assert body["error"]["code"] == "MFA_REQUIRED"
 
     def test_admin_with_mfa_allowed(self):
         """Admin users with MFA should be allowed."""
@@ -511,4 +511,4 @@ class TestMFAIntegration:
                     mock_store.return_value = user_store
                     result = admin_endpoint(handler)
 
-            assert result[1] == 403, f"Role {role} should be rejected without MFA"
+            assert get_status(result) == 403, f"Role {role} should be rejected without MFA"
