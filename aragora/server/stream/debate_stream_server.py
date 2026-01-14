@@ -341,8 +341,8 @@ class DebateStreamServer(ServerBase):
                         self._debate_states_last_access.pop(oldest, None)
                 self.debate_states[loop_id] = {
                     "id": loop_id,
-                    "task": event.data["task"],
-                    "agents": event.data["agents"],
+                    "task": event.data.get("task", ""),
+                    "agents": event.data.get("agents", []),
                     "messages": [],
                     "consensus_reached": False,
                     "consensus_confidence": 0.0,
@@ -359,9 +359,9 @@ class DebateStreamServer(ServerBase):
                     state["messages"].append(
                         {
                             "agent": event.agent,
-                            "role": event.data["role"],
+                            "role": event.data.get("role", "agent"),
                             "round": event.round,
-                            "content": event.data["content"],
+                            "content": event.data.get("content", ""),
                         }
                     )
                     # Cap at last 1000 messages to allow full debate history without truncation
@@ -371,16 +371,16 @@ class DebateStreamServer(ServerBase):
             elif event.type == StreamEventType.CONSENSUS:
                 if loop_id in self.debate_states:
                     state = self.debate_states[loop_id]
-                    state["consensus_reached"] = event.data["reached"]
-                    state["consensus_confidence"] = event.data["confidence"]
-                    state["consensus_answer"] = event.data["answer"]
+                    state["consensus_reached"] = event.data.get("reached", False)
+                    state["consensus_confidence"] = event.data.get("confidence", 0.0)
+                    state["consensus_answer"] = event.data.get("answer", "")
                     self._debate_states_last_access[loop_id] = time.time()
             elif event.type == StreamEventType.DEBATE_END:
                 if loop_id in self.debate_states:
                     state = self.debate_states[loop_id]
                     state["ended"] = True
-                    state["duration"] = event.data["duration"]
-                    state["rounds"] = event.data["rounds"]
+                    state["duration"] = event.data.get("duration", 0.0)
+                    state["rounds"] = event.data.get("rounds", 0)
                     self._debate_states_last_access[loop_id] = time.time()
             elif event.type == StreamEventType.LOOP_UNREGISTER:
                 self.debate_states.pop(loop_id, None)
