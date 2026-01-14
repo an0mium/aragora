@@ -7,6 +7,7 @@ Extends the Claims Kernel with probabilistic graphical model capabilities:
 - Loopy belief propagation for cyclic argument graphs
 - Centrality analysis for identifying load-bearing claims
 - Confidence intervals and uncertainty quantification
+- Crux detection for identifying debate-pivotal claims
 
 This moves aragora from binary accept/reject to nuanced probabilistic reasoning.
 """
@@ -937,4 +938,425 @@ class BeliefPropagationAnalyzer:
             "hypothetical": hypothetical,
             "affected_claims": len(changes),
             "changes": sorted(changes, key=lambda x: -abs(x["delta"])),
+        }
+
+
+@dataclass
+class CruxClaim:
+    """A claim identified as pivotal to the debate outcome."""
+
+    claim_id: str
+    statement: str
+    author: str
+    crux_score: float  # Combined score (0-1)
+    influence_score: float  # How much this affects other claims
+    disagreement_score: float  # How contested this claim is
+    uncertainty_score: float  # Entropy of the belief
+    centrality_score: float  # Graph centrality
+    affected_claims: list[str]  # Claims that depend on this one
+    contesting_agents: list[str]  # Agents who disagree about this claim
+    resolution_impact: float  # How much resolving this would reduce uncertainty
+
+    def to_dict(self) -> dict:
+        return {
+            "claim_id": self.claim_id,
+            "statement": self.statement,
+            "author": self.author,
+            "crux_score": round(self.crux_score, 4),
+            "influence_score": round(self.influence_score, 4),
+            "disagreement_score": round(self.disagreement_score, 4),
+            "uncertainty_score": round(self.uncertainty_score, 4),
+            "centrality_score": round(self.centrality_score, 4),
+            "affected_claims": self.affected_claims,
+            "contesting_agents": self.contesting_agents,
+            "resolution_impact": round(self.resolution_impact, 4),
+        }
+
+
+@dataclass
+class CruxAnalysisResult:
+    """Result of crux detection analysis."""
+
+    cruxes: list[CruxClaim]
+    total_claims: int
+    total_disagreements: int
+    average_uncertainty: float
+    convergence_barrier: float  # How hard it is to reach consensus
+    recommended_focus: list[str]  # Ordered list of claim IDs to focus on
+
+    def to_dict(self) -> dict:
+        return {
+            "cruxes": [c.to_dict() for c in self.cruxes],
+            "total_claims": self.total_claims,
+            "total_disagreements": self.total_disagreements,
+            "average_uncertainty": round(self.average_uncertainty, 4),
+            "convergence_barrier": round(self.convergence_barrier, 4),
+            "recommended_focus": self.recommended_focus,
+        }
+
+
+class CruxDetector:
+    """
+    Advanced crux detection for identifying debate-pivotal claims.
+
+    A crux is a claim that:
+    1. Has high influence on other claims (high influence_score)
+    2. Is contested by multiple agents (high disagreement_score)
+    3. Has significant uncertainty (high entropy)
+    4. Would reduce overall uncertainty if resolved
+
+    Resolving cruxes is the fastest path to consensus.
+    """
+
+    def __init__(
+        self,
+        network: BeliefNetwork,
+        influence_weight: float = 0.3,
+        disagreement_weight: float = 0.3,
+        uncertainty_weight: float = 0.2,
+        centrality_weight: float = 0.2,
+    ):
+        """
+        Initialize crux detector.
+
+        Args:
+            network: BeliefNetwork to analyze
+            influence_weight: Weight for influence score in crux calculation
+            disagreement_weight: Weight for disagreement score
+            uncertainty_weight: Weight for uncertainty score
+            centrality_weight: Weight for centrality score
+        """
+        self.network = network
+        self.weights = {
+            "influence": influence_weight,
+            "disagreement": disagreement_weight,
+            "uncertainty": uncertainty_weight,
+            "centrality": centrality_weight,
+        }
+
+    def compute_influence_scores(self) -> dict[str, float]:
+        """
+        Compute influence scores for all claims.
+
+        Influence = how much changing this claim affects the network.
+        Uses counterfactual analysis: set claim to true vs false and
+        measure total change in other posteriors.
+        """
+        influence_scores: dict[str, float] = {}
+
+        for node_id, node in self.network.nodes.items():
+            # Save current state
+            original_posteriors = {
+                nid: BeliefDistribution(
+                    p_true=n.posterior.p_true,
+                    p_false=n.posterior.p_false,
+                )
+                for nid, n in self.network.nodes.items()
+            }
+
+            # Set claim to definitely true
+            node.posterior = BeliefDistribution(p_true=0.99, p_false=0.01)
+            self.network.propagate()
+            effects_if_true = {
+                nid: self.network.nodes[nid].posterior.p_true
+                for nid in self.network.nodes
+                if nid != node_id
+            }
+
+            # Restore and set to definitely false
+            for nid, post in original_posteriors.items():
+                self.network.nodes[nid].posterior = post
+            node.posterior = BeliefDistribution(p_true=0.01, p_false=0.99)
+            self.network.propagate()
+            effects_if_false = {
+                nid: self.network.nodes[nid].posterior.p_true
+                for nid in self.network.nodes
+                if nid != node_id
+            }
+
+            # Influence = average absolute change
+            total_change = 0.0
+            for nid in effects_if_true:
+                total_change += abs(effects_if_true[nid] - effects_if_false[nid])
+            influence = total_change / max(1, len(effects_if_true))
+
+            influence_scores[node_id] = influence
+
+            # Restore original state
+            for nid, post in original_posteriors.items():
+                self.network.nodes[nid].posterior = post
+
+        # Normalize to 0-1
+        max_influence = max(influence_scores.values()) if influence_scores else 1.0
+        if max_influence > 0:
+            influence_scores = {k: v / max_influence for k, v in influence_scores.items()}
+
+        return influence_scores
+
+    def compute_disagreement_scores(self) -> dict[str, tuple[float, list[str]]]:
+        """
+        Compute disagreement scores for all claims.
+
+        Disagreement = variance in how different agents' claims affect this belief.
+        Also returns list of contesting agents.
+        """
+        disagreement_scores: dict[str, tuple[float, list[str]]] = {}
+
+        for node_id, node in self.network.nodes.items():
+            # Group incoming evidence by author
+            author_beliefs: dict[str, list[float]] = {}
+
+            # Look at claims from different authors that relate to this claim
+            for factor_id in self.network.node_factors.get(node_id, []):
+                factor = self.network.factors.get(factor_id)
+                if not factor:
+                    continue
+
+                # Get the other node in this factor
+                other_id = (
+                    factor.source_node_id
+                    if factor.target_node_id == node_id
+                    else factor.target_node_id
+                )
+                other_node = self.network.nodes.get(other_id)
+                if not other_node:
+                    continue
+
+                author = other_node.author
+                if author not in author_beliefs:
+                    author_beliefs[author] = []
+
+                # Record what this author's claim implies about the current claim
+                if factor.relation_type == RelationType.SUPPORTS:
+                    author_beliefs[author].append(other_node.posterior.p_true)
+                elif factor.relation_type == RelationType.CONTRADICTS:
+                    author_beliefs[author].append(1 - other_node.posterior.p_true)
+                else:
+                    author_beliefs[author].append(0.5)
+
+            # Compute disagreement as variance across authors
+            if len(author_beliefs) >= 2:
+                author_means = [
+                    sum(beliefs) / len(beliefs) for beliefs in author_beliefs.values() if beliefs
+                ]
+                if len(author_means) >= 2:
+                    mean = sum(author_means) / len(author_means)
+                    variance = sum((x - mean) ** 2 for x in author_means) / len(author_means)
+                    disagreement = math.sqrt(variance) * 2  # Scale to 0-1 range
+
+                    # Find contesting agents (those far from mean)
+                    contesting = [
+                        author
+                        for author, beliefs in author_beliefs.items()
+                        if beliefs and abs(sum(beliefs) / len(beliefs) - mean) > 0.2
+                    ]
+                    disagreement_scores[node_id] = (min(1.0, disagreement), contesting)
+                else:
+                    disagreement_scores[node_id] = (0.0, [])
+            else:
+                disagreement_scores[node_id] = (0.0, [])
+
+        return disagreement_scores
+
+    def compute_resolution_impact(self, node_id: str) -> float:
+        """
+        Estimate how much resolving this claim would reduce total uncertainty.
+
+        Impact = sum of entropy reduction in connected claims if this were resolved.
+        """
+        # Save current state
+        original_posteriors = {
+            nid: BeliefDistribution(
+                p_true=n.posterior.p_true,
+                p_false=n.posterior.p_false,
+            )
+            for nid, n in self.network.nodes.items()
+        }
+
+        current_total_entropy = sum(n.posterior.entropy for n in self.network.nodes.values())
+
+        # Resolve this claim (set to high confidence)
+        self.network.nodes[node_id].posterior = BeliefDistribution(p_true=0.95, p_false=0.05)
+        self.network.propagate()
+
+        resolved_entropy = sum(n.posterior.entropy for n in self.network.nodes.values())
+        impact_true = current_total_entropy - resolved_entropy
+
+        # Restore and try false
+        for nid, post in original_posteriors.items():
+            self.network.nodes[nid].posterior = post
+        self.network.nodes[node_id].posterior = BeliefDistribution(p_true=0.05, p_false=0.95)
+        self.network.propagate()
+
+        resolved_entropy = sum(n.posterior.entropy for n in self.network.nodes.values())
+        impact_false = current_total_entropy - resolved_entropy
+
+        # Restore original state
+        for nid, post in original_posteriors.items():
+            self.network.nodes[nid].posterior = post
+
+        # Impact is the minimum of the two (worst-case guarantee)
+        return max(0, min(impact_true, impact_false))
+
+    def detect_cruxes(self, top_k: int = 5, min_score: float = 0.1) -> CruxAnalysisResult:
+        """
+        Detect crux claims in the debate.
+
+        Args:
+            top_k: Maximum number of cruxes to return
+            min_score: Minimum crux score threshold
+
+        Returns:
+            CruxAnalysisResult with ranked crux claims and analysis
+        """
+        if not self.network.nodes:
+            return CruxAnalysisResult(
+                cruxes=[],
+                total_claims=0,
+                total_disagreements=0,
+                average_uncertainty=0.0,
+                convergence_barrier=0.0,
+                recommended_focus=[],
+            )
+
+        # Ensure propagation has run
+        self.network.propagate()
+
+        # Compute component scores
+        influence_scores = self.compute_influence_scores()
+        disagreement_data = self.compute_disagreement_scores()
+
+        cruxes = []
+        total_disagreements = 0
+
+        for node_id, node in self.network.nodes.items():
+            influence = influence_scores.get(node_id, 0.0)
+            disagreement, contesting = disagreement_data.get(node_id, (0.0, []))
+            uncertainty = node.posterior.entropy / math.log2(3)  # Normalize
+            centrality = node.centrality
+
+            if disagreement > 0:
+                total_disagreements += 1
+
+            # Compute resolution impact for promising candidates
+            resolution_impact = 0.0
+            preliminary_score = (
+                self.weights["influence"] * influence
+                + self.weights["disagreement"] * disagreement
+                + self.weights["uncertainty"] * uncertainty
+                + self.weights["centrality"] * centrality
+            )
+
+            if preliminary_score > min_score * 0.5:
+                resolution_impact = self.compute_resolution_impact(node_id)
+                # Normalize resolution impact
+                max_possible = len(self.network.nodes) * math.log2(3)
+                resolution_impact = resolution_impact / max_possible if max_possible > 0 else 0
+
+            # Final crux score includes resolution impact
+            crux_score = (
+                self.weights["influence"] * influence
+                + self.weights["disagreement"] * disagreement
+                + self.weights["uncertainty"] * uncertainty
+                + self.weights["centrality"] * centrality
+                + 0.2 * resolution_impact  # Bonus for high resolution impact
+            )
+
+            # Get affected claims (children in the graph)
+            affected = [
+                self.network.nodes[child_id].claim_id
+                for child_id in node.child_ids
+                if child_id in self.network.nodes
+            ]
+
+            cruxes.append(
+                CruxClaim(
+                    claim_id=node.claim_id,
+                    statement=node.claim_statement,
+                    author=node.author,
+                    crux_score=crux_score,
+                    influence_score=influence,
+                    disagreement_score=disagreement,
+                    uncertainty_score=uncertainty,
+                    centrality_score=centrality,
+                    affected_claims=affected,
+                    contesting_agents=contesting,
+                    resolution_impact=resolution_impact,
+                )
+            )
+
+        # Sort by crux score and filter
+        cruxes = sorted(cruxes, key=lambda c: -c.crux_score)
+        cruxes = [c for c in cruxes if c.crux_score >= min_score][:top_k]
+
+        # Compute summary statistics
+        avg_uncertainty = sum(n.posterior.entropy for n in self.network.nodes.values()) / len(
+            self.network.nodes
+        )
+
+        # Convergence barrier = combination of disagreement and uncertainty
+        convergence_barrier = (
+            0.4 * (total_disagreements / len(self.network.nodes))
+            + 0.6 * (avg_uncertainty / math.log2(3))
+        )
+
+        return CruxAnalysisResult(
+            cruxes=cruxes,
+            total_claims=len(self.network.nodes),
+            total_disagreements=total_disagreements,
+            average_uncertainty=avg_uncertainty,
+            convergence_barrier=convergence_barrier,
+            recommended_focus=[c.claim_id for c in cruxes],
+        )
+
+    def suggest_resolution_strategy(self, crux: CruxClaim) -> dict:
+        """
+        Suggest how to resolve a crux claim.
+
+        Returns actionable suggestions for facilitators and participants.
+        """
+        suggestions = []
+
+        # Based on the type of crux
+        if crux.disagreement_score > 0.5:
+            suggestions.append({
+                "type": "mediation",
+                "action": "Request agents to explicitly address opposing arguments",
+                "reason": f"High disagreement ({crux.disagreement_score:.0%}) between agents",
+            })
+
+        if crux.uncertainty_score > 0.6:
+            suggestions.append({
+                "type": "evidence",
+                "action": "Request additional evidence or citations for this claim",
+                "reason": f"High uncertainty ({crux.uncertainty_score:.0%}) needs grounding",
+            })
+
+        if crux.influence_score > 0.7:
+            suggestions.append({
+                "type": "decomposition",
+                "action": "Break this claim into smaller, independently verifiable sub-claims",
+                "reason": f"High influence ({crux.influence_score:.0%}) suggests compound claim",
+            })
+
+        if len(crux.affected_claims) > 3:
+            suggestions.append({
+                "type": "priority",
+                "action": "Resolve this claim before dependent claims",
+                "reason": f"Affects {len(crux.affected_claims)} other claims in the debate",
+            })
+
+        if crux.contesting_agents:
+            suggestions.append({
+                "type": "direct_dialogue",
+                "action": f"Facilitate direct exchange between: {', '.join(crux.contesting_agents)}",
+                "reason": "These agents have divergent views on this claim",
+            })
+
+        return {
+            "claim_id": crux.claim_id,
+            "statement": crux.statement[:200],
+            "crux_score": crux.crux_score,
+            "suggestions": suggestions,
+            "priority": "high" if crux.crux_score > 0.5 else "medium",
         }

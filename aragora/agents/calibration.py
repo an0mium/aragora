@@ -5,20 +5,102 @@ Records prediction confidence vs actual outcomes to compute:
 - Brier scores (mean squared error of predictions)
 - Expected Calibration Error (ECE)
 - Calibration curves per agent and domain
+- Temperature scaling for auto-tuning
 
 Well-calibrated agents have confidence that matches their accuracy:
 - 80% confidence predictions should be correct 80% of the time
+
+Auto-tuning features:
+- Temperature scaling: learns optimal T where adjusted = sigmoid(logit(conf) / T)
+- Recency weighting: recent predictions weighted more heavily
+- Domain-specific calibration: separate parameters per domain
+- Rolling window: auto-recomputes optimal parameters periodically
 """
 
+import math
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from aragora.config import DB_CALIBRATION_PATH, DB_TIMEOUT_SECONDS
 from aragora.storage.base_store import SQLiteStore
 
 # Schema version for CalibrationTracker migrations
-CALIBRATION_SCHEMA_VERSION = 1
+CALIBRATION_SCHEMA_VERSION = 2  # Added temperature scaling columns
+
+# Default auto-tuning parameters
+DEFAULT_TEMPERATURE = 1.0  # No scaling
+MIN_TEMPERATURE = 0.5  # Maximum confidence compression
+MAX_TEMPERATURE = 2.0  # Maximum confidence expansion
+RECENCY_DECAY_DAYS = 30  # Half-life for exponential decay
+MIN_PREDICTIONS_FOR_TUNING = 20  # Minimum predictions before auto-tuning
+
+
+def _logit(p: float) -> float:
+    """Convert probability to log-odds, with clamping for numerical stability."""
+    p = max(1e-7, min(1 - 1e-7, p))
+    return math.log(p / (1 - p))
+
+
+def _sigmoid(x: float) -> float:
+    """Convert log-odds to probability."""
+    if x > 20:
+        return 1.0 - 1e-9
+    if x < -20:
+        return 1e-9
+    return 1 / (1 + math.exp(-x))
+
+
+def temperature_scale(confidence: float, temperature: float) -> float:
+    """Apply temperature scaling to a confidence value.
+
+    Temperature scaling adjusts confidence by dividing log-odds by T:
+    - T < 1: Increases confidence spread (more extreme values)
+    - T = 1: No change
+    - T > 1: Decreases confidence spread (closer to 0.5)
+
+    Args:
+        confidence: Raw confidence (0-1)
+        temperature: Temperature parameter (0.5-2.0 typical)
+
+    Returns:
+        Temperature-scaled confidence, clamped to [0.05, 0.95]
+    """
+    if temperature <= 0:
+        temperature = DEFAULT_TEMPERATURE
+
+    logit = _logit(confidence)
+    scaled_logit = logit / temperature
+    scaled = _sigmoid(scaled_logit)
+
+    return max(0.05, min(0.95, scaled))
+
+
+@dataclass
+class TemperatureParams:
+    """Learned temperature scaling parameters for an agent."""
+
+    temperature: float = DEFAULT_TEMPERATURE
+    domain_temperatures: dict[str, float] = field(default_factory=dict)
+    last_tuned: Optional[datetime] = None
+    predictions_at_tune: int = 0
+
+    def get_temperature(self, domain: Optional[str] = None) -> float:
+        """Get temperature for a specific domain, falling back to global."""
+        if domain and domain in self.domain_temperatures:
+            return self.domain_temperatures[domain]
+        return self.temperature
+
+    def is_stale(self, current_predictions: int, max_age_hours: int = 24) -> bool:
+        """Check if parameters need retuning."""
+        if self.last_tuned is None:
+            return True
+        # Retune if 50% more predictions accumulated
+        if current_predictions > self.predictions_at_tune * 1.5:
+            return True
+        # Retune if older than max_age
+        age = datetime.now() - self.last_tuned
+        return age > timedelta(hours=max_age_hours)
 
 
 @dataclass
@@ -66,6 +148,7 @@ class CalibrationSummary:
     brier_score: float = 0.0
     ece: float = 0.0  # Expected Calibration Error
     buckets: list[CalibrationBucket] = field(default_factory=list)
+    temperature_params: TemperatureParams = field(default_factory=TemperatureParams)
 
     @property
     def accuracy(self) -> float:
@@ -138,15 +221,38 @@ class CalibrationSummary:
             return 1.0 + adjustment_magnitude  # Scale up (e.g., 1.3 * confidence)
         return 1.0
 
-    def adjust_confidence(self, raw_confidence: float) -> float:
+    def adjust_confidence(
+        self, raw_confidence: float, domain: Optional[str] = None, use_temperature: bool = True
+    ) -> float:
         """Adjust a confidence value based on calibration history.
+
+        Uses temperature scaling if available and sufficient data exists,
+        otherwise falls back to the linear adjustment method.
 
         Args:
             raw_confidence: The agent's stated confidence (0-1)
+            domain: Optional domain for domain-specific adjustment
+            use_temperature: If True, prefer temperature scaling
 
         Returns:
             Calibration-adjusted confidence, clamped to [0.05, 0.95]
         """
+        # Check if we should use temperature scaling
+        has_global_temp = self.temperature_params.temperature != DEFAULT_TEMPERATURE
+        has_domain_temp = (
+            domain is not None and domain in self.temperature_params.domain_temperatures
+        )
+
+        # Prefer temperature scaling if we have enough data and tuned params
+        if (
+            use_temperature
+            and (has_global_temp or has_domain_temp)
+            and self.total_predictions >= MIN_PREDICTIONS_FOR_TUNING
+        ):
+            temp = self.temperature_params.get_temperature(domain)
+            return temperature_scale(raw_confidence, temp)
+
+        # Fall back to linear adjustment
         adjustment = self.get_confidence_adjustment()
         adjusted = raw_confidence * adjustment
 
@@ -157,19 +263,24 @@ class CalibrationSummary:
 def adjust_agent_confidence(
     confidence: float,
     calibration_summary: Optional["CalibrationSummary"],
+    domain: Optional[str] = None,
 ) -> float:
     """Utility function to adjust agent confidence based on calibration.
+
+    Uses temperature scaling if available and sufficient data,
+    otherwise falls back to linear adjustment.
 
     Args:
         confidence: Raw confidence value (0-1)
         calibration_summary: Agent's calibration summary, or None
+        domain: Optional domain for domain-specific adjustment
 
     Returns:
         Adjusted confidence value
     """
     if calibration_summary is None:
         return confidence
-    return calibration_summary.adjust_confidence(confidence)
+    return calibration_summary.adjust_confidence(confidence, domain=domain)
 
 
 class CalibrationTracker(SQLiteStore):
@@ -198,7 +309,30 @@ class CalibrationTracker(SQLiteStore):
         CREATE INDEX IF NOT EXISTS idx_pred_agent ON predictions(agent);
         CREATE INDEX IF NOT EXISTS idx_pred_domain ON predictions(domain);
         CREATE INDEX IF NOT EXISTS idx_pred_confidence ON predictions(confidence);
+        CREATE INDEX IF NOT EXISTS idx_pred_created ON predictions(created_at);
+
+        CREATE TABLE IF NOT EXISTS temperature_params (
+            agent TEXT PRIMARY KEY,
+            temperature REAL DEFAULT 1.0,
+            domain_temperatures TEXT DEFAULT '{}',
+            last_tuned TEXT,
+            predictions_at_tune INTEGER DEFAULT 0
+        );
     """
+
+    MIGRATIONS = {
+        2: """
+            CREATE INDEX IF NOT EXISTS idx_pred_created ON predictions(created_at);
+
+            CREATE TABLE IF NOT EXISTS temperature_params (
+                agent TEXT PRIMARY KEY,
+                temperature REAL DEFAULT 1.0,
+                domain_temperatures TEXT DEFAULT '{}',
+                last_tuned TEXT,
+                predictions_at_tune INTEGER DEFAULT 0
+            );
+        """,
+    }
 
     def __init__(self, db_path: str = DB_CALIBRATION_PATH):
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
@@ -400,6 +534,7 @@ class CalibrationTracker(SQLiteStore):
         self,
         agent: str,
         domain: Optional[str] = None,
+        include_temperature: bool = True,
     ) -> CalibrationSummary:
         """
         Get comprehensive calibration summary for an agent.
@@ -407,6 +542,7 @@ class CalibrationTracker(SQLiteStore):
         Args:
             agent: Agent name
             domain: Optional domain filter
+            include_temperature: If True, include temperature params
 
         Returns:
             CalibrationSummary with all metrics
@@ -418,6 +554,8 @@ class CalibrationTracker(SQLiteStore):
         brier_score = self.get_brier_score(agent, domain)
         ece = self.get_expected_calibration_error(agent, domain=domain)
 
+        temp_params = self.get_temperature_params(agent) if include_temperature else TemperatureParams()
+
         return CalibrationSummary(
             agent=agent,
             total_predictions=total_predictions,
@@ -425,6 +563,7 @@ class CalibrationTracker(SQLiteStore):
             brier_score=brier_score,
             ece=ece,
             buckets=buckets,
+            temperature_params=temp_params,
         )
 
     def get_domain_breakdown(self, agent: str) -> dict[str, CalibrationSummary]:
@@ -499,8 +638,236 @@ class CalibrationTracker(SQLiteStore):
         with self.connection() as conn:
             cursor = conn.execute("DELETE FROM predictions WHERE agent = ?", (agent,))
             deleted = cursor.rowcount
+            conn.execute("DELETE FROM temperature_params WHERE agent = ?", (agent,))
             conn.commit()
         return deleted
+
+    def get_recency_weighted_predictions(
+        self,
+        agent: str,
+        domain: Optional[str] = None,
+        decay_days: float = RECENCY_DECAY_DAYS,
+        limit: int = 1000,
+    ) -> list[tuple[float, bool, float]]:
+        """Get predictions with recency weights (exponential decay).
+
+        Args:
+            agent: Agent name
+            domain: Optional domain filter
+            decay_days: Half-life in days for exponential decay
+            limit: Maximum predictions to retrieve
+
+        Returns:
+            List of (confidence, correct, weight) tuples
+        """
+        now = datetime.now()
+
+        with self.connection() as conn:
+            query = """
+                SELECT confidence, correct, created_at
+                FROM predictions
+                WHERE agent = ?
+            """
+            params: list = [agent]
+
+            if domain:
+                query += " AND domain = ?"
+                params.append(domain)
+
+            query += " ORDER BY created_at DESC LIMIT ?"
+            params.append(limit)
+
+            cursor = conn.execute(query, params)
+            rows = cursor.fetchall()
+
+        result = []
+        for confidence, correct, created_at_str in rows:
+            created_at = datetime.fromisoformat(created_at_str)
+            age_days = (now - created_at).total_seconds() / 86400
+            weight = math.exp(-math.log(2) * age_days / decay_days)
+            result.append((confidence, bool(correct), weight))
+
+        return result
+
+    def compute_optimal_temperature(
+        self,
+        agent: str,
+        domain: Optional[str] = None,
+        use_recency_weighting: bool = True,
+    ) -> float:
+        """Compute optimal temperature via grid search on Brier score.
+
+        Searches over temperature values to find the one that minimizes
+        the (weighted) Brier score when applied to historical predictions.
+
+        Args:
+            agent: Agent name
+            domain: Optional domain filter
+            use_recency_weighting: Weight recent predictions more heavily
+
+        Returns:
+            Optimal temperature value (0.5-2.0)
+        """
+        if use_recency_weighting:
+            predictions = self.get_recency_weighted_predictions(agent, domain)
+            if len(predictions) < MIN_PREDICTIONS_FOR_TUNING:
+                return DEFAULT_TEMPERATURE
+
+            def weighted_brier(temp: float) -> float:
+                total_weight = sum(w for _, _, w in predictions)
+                if total_weight == 0:
+                    return 1.0
+                brier_sum = 0.0
+                for conf, correct, weight in predictions:
+                    scaled = temperature_scale(conf, temp)
+                    outcome = 1.0 if correct else 0.0
+                    brier_sum += weight * (scaled - outcome) ** 2
+                return brier_sum / total_weight
+
+            objective = weighted_brier
+        else:
+            # Unweighted - use stored predictions directly
+            buckets = self.get_calibration_curve(agent, num_buckets=10, domain=domain)
+            total_predictions = sum(b.total_predictions for b in buckets)
+            if total_predictions < MIN_PREDICTIONS_FOR_TUNING:
+                return DEFAULT_TEMPERATURE
+
+            # For unweighted, we approximate by bucket midpoints
+            with self.connection() as conn:
+                query = "SELECT confidence, correct FROM predictions WHERE agent = ?"
+                params: list = [agent]
+                if domain:
+                    query += " AND domain = ?"
+                    params.append(domain)
+                cursor = conn.execute(query, params)
+                rows = cursor.fetchall()
+
+            if len(rows) < MIN_PREDICTIONS_FOR_TUNING:
+                return DEFAULT_TEMPERATURE
+
+            def unweighted_brier(temp: float) -> float:
+                brier_sum = 0.0
+                for conf, correct in rows:
+                    scaled = temperature_scale(conf, temp)
+                    outcome = 1.0 if correct else 0.0
+                    brier_sum += (scaled - outcome) ** 2
+                return brier_sum / len(rows)
+
+            objective = unweighted_brier
+
+        # Grid search over temperature values
+        best_temp = DEFAULT_TEMPERATURE
+        best_brier = objective(DEFAULT_TEMPERATURE)
+
+        for temp_tenths in range(5, 21):  # 0.5 to 2.0 in 0.1 increments
+            temp = temp_tenths / 10.0
+            brier = objective(temp)
+            if brier < best_brier:
+                best_brier = brier
+                best_temp = temp
+
+        return best_temp
+
+    def auto_tune_agent(
+        self,
+        agent: str,
+        force: bool = False,
+        tune_domains: bool = True,
+    ) -> TemperatureParams:
+        """Auto-tune temperature parameters for an agent.
+
+        Computes optimal temperature using historical predictions and
+        optionally tunes domain-specific temperatures.
+
+        Args:
+            agent: Agent name
+            force: If True, tune even if not stale
+            tune_domains: If True, also compute per-domain temperatures
+
+        Returns:
+            Updated TemperatureParams
+        """
+        # Load current params
+        params = self.get_temperature_params(agent)
+        summary = self.get_calibration_summary(agent)
+
+        # Check if tuning needed
+        if not force and not params.is_stale(summary.total_predictions):
+            return params
+
+        # Compute global optimal temperature
+        params.temperature = self.compute_optimal_temperature(agent)
+
+        # Compute domain-specific temperatures
+        if tune_domains:
+            domain_breakdown = self.get_domain_breakdown(agent)
+            for domain, domain_summary in domain_breakdown.items():
+                if domain_summary.total_predictions >= MIN_PREDICTIONS_FOR_TUNING:
+                    params.domain_temperatures[domain] = self.compute_optimal_temperature(
+                        agent, domain=domain
+                    )
+
+        # Update metadata
+        params.last_tuned = datetime.now()
+        params.predictions_at_tune = summary.total_predictions
+
+        # Save params
+        self.save_temperature_params(agent, params)
+
+        return params
+
+    def get_temperature_params(self, agent: str) -> TemperatureParams:
+        """Get stored temperature parameters for an agent."""
+        import json
+
+        with self.connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT temperature, domain_temperatures, last_tuned, predictions_at_tune
+                FROM temperature_params
+                WHERE agent = ?
+                """,
+                (agent,),
+            )
+            row = cursor.fetchone()
+
+        if not row:
+            return TemperatureParams()
+
+        temp, domain_temps_json, last_tuned_str, pred_at_tune = row
+        domain_temps = json.loads(domain_temps_json) if domain_temps_json else {}
+        last_tuned = datetime.fromisoformat(last_tuned_str) if last_tuned_str else None
+
+        return TemperatureParams(
+            temperature=temp or DEFAULT_TEMPERATURE,
+            domain_temperatures=domain_temps,
+            last_tuned=last_tuned,
+            predictions_at_tune=pred_at_tune or 0,
+        )
+
+    def save_temperature_params(self, agent: str, params: TemperatureParams) -> None:
+        """Save temperature parameters for an agent."""
+        import json
+
+        domain_temps_json = json.dumps(params.domain_temperatures)
+        last_tuned_str = params.last_tuned.isoformat() if params.last_tuned else None
+
+        with self.connection() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO temperature_params
+                (agent, temperature, domain_temperatures, last_tuned, predictions_at_tune)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    agent,
+                    params.temperature,
+                    domain_temps_json,
+                    last_tuned_str,
+                    params.predictions_at_tune,
+                ),
+            )
+            conn.commit()
 
 
 def integrate_with_position_ledger(
