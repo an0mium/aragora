@@ -57,6 +57,20 @@ class MockHandler:
         self.ctx = {"user_store": user_store}
 
 
+def get_status(result):
+    """Extract status code from result (HandlerResult or tuple)."""
+    if hasattr(result, "status_code"):
+        return result.status_code
+    return result[1]
+
+
+def get_body(result):
+    """Extract body from result (HandlerResult or tuple)."""
+    if hasattr(result, "body"):
+        return json.loads(result.body.decode("utf-8"))
+    return result[0] if isinstance(result[0], dict) else json.loads(result[0])
+
+
 class TestRequireMFA:
     """Test the require_mfa decorator."""
 
@@ -74,7 +88,7 @@ class TestRequireMFA:
             mock_get_user.return_value = None
             result = protected_endpoint(handler)
 
-        assert result[1] == 401  # status code
+        assert get_status(result) == 401
 
     def test_user_without_mfa_rejected(self):
         """Users without MFA enabled should be rejected with 403."""
@@ -97,8 +111,8 @@ class TestRequireMFA:
                 mock_store.return_value = user_store
                 result = protected_endpoint(handler)
 
-        assert result[1] == 403
-        body = json.loads(result[0])
+        assert get_status(result) == 403
+        body = get_body(result)
         assert body["code"] == "MFA_REQUIRED"
 
     def test_user_with_mfa_allowed(self):
@@ -173,8 +187,8 @@ class TestRequireAdminMFA:
                 mock_store.return_value = user_store
                 result = admin_endpoint(handler)
 
-        assert result[1] == 403
-        body = json.loads(result[0])
+        assert get_status(result) == 403
+        body = get_body(result)
         assert body["code"] == "ADMIN_MFA_REQUIRED"
 
     def test_admin_with_mfa_allowed(self):
@@ -226,7 +240,7 @@ class TestRequireAdminMFA:
                 mock_store.return_value = user_store
                 result = admin_endpoint(handler)
 
-        assert result[1] == 403
+        assert get_status(result) == 403
 
 
 class TestRequireAdminWithMFA:
