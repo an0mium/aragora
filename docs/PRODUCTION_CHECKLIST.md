@@ -213,6 +213,11 @@ curl https://your-domain.com/api/health
 
 ## Security Hardening
 
+> **Related documentation**:
+> - [COMPLIANCE.md](COMPLIANCE.md) - SOC 2 controls and evidence
+> - [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md) - Data handling policies
+> - [PRIVACY_POLICY.md](PRIVACY_POLICY.md) - Privacy requirements
+
 ### Network Security
 
 - [ ] Firewall configured (only 80/443 exposed)
@@ -267,6 +272,8 @@ curl https://your-domain.com/api/health
 ---
 
 ## Incident Response
+
+> **Detailed documentation**: See [INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md) for complete playbooks.
 
 ### Severity Levels
 

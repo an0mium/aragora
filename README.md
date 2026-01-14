@@ -606,6 +606,20 @@ export ARAGORA_TOKEN_TTL=3600                   # Token lifetime in seconds
 export ARAGORA_WS_MAX_MESSAGE_SIZE=65536        # Max WebSocket message size (bytes)
 ```
 
+### Compliance & Governance
+
+Aragora includes comprehensive compliance documentation for regulated environments:
+
+| Document | Purpose |
+|----------|---------|
+| [SOC 2 Compliance](docs/COMPLIANCE.md) | SOC 2 Type II controls and evidence |
+| [Data Classification](docs/DATA_CLASSIFICATION.md) | Data handling policies and sensitivity levels |
+| [Incident Response](docs/INCIDENT_RESPONSE.md) | Incident playbooks and escalation procedures |
+| [Privacy Policy](docs/PRIVACY_POLICY.md) | Data collection and retention policies |
+| [Nomic Governance](docs/NOMIC_GOVERNANCE.md) | Autonomous loop safety controls |
+
+See [docs/INDEX.md](docs/INDEX.md) for complete documentation navigation.
+
 ## Contributing
 
 Contributions welcome! Areas of interest:
