@@ -8,6 +8,7 @@ This runbook provides procedures for common operational issues, debugging, and r
 - [Common Issues](#common-issues)
 - [Debugging Procedures](#debugging-procedures)
 - [Admin Console & Developer Portal](#admin-console--developer-portal)
+- [Multi-Factor Authentication (MFA)](#multi-factor-authentication-mfa)
 - [Recovery Procedures](#recovery-procedures)
 - [Health Checks](#health-checks)
 - [Alerts and Responses](#alerts-and-responses)
@@ -411,6 +412,147 @@ curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/billing
 **Common Fixes:**
 - Check billing configuration if usage metrics are empty.
 - Ensure API key storage backend is available (database health).
+
+---
+
+## Multi-Factor Authentication (MFA)
+
+**SOC 2 Control:** CC5-01 - Administrative access requires MFA
+
+### Overview
+
+Admin and owner roles are required to have MFA enabled to access administrative endpoints.
+This is enforced at the middleware level in production.
+
+### MFA Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/mfa/setup` | GET | Get MFA setup QR code and secret |
+| `/api/auth/mfa/enable` | POST | Enable MFA with TOTP code verification |
+| `/api/auth/mfa/disable` | POST | Disable MFA (requires current TOTP code) |
+| `/api/auth/mfa/verify` | POST | Verify TOTP code for session |
+| `/api/auth/mfa/backup-codes` | POST | Generate new backup codes |
+
+### Setting Up MFA for Admin Users
+
+```bash
+# 1. Get MFA setup information (returns QR code URL and secret)
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/auth/mfa/setup
+
+# Response includes:
+# {
+#   "secret": "ABCD1234...",
+#   "qr_code_url": "otpauth://totp/Aragora:user@example.com?...",
+#   "backup_codes": ["code1", "code2", ...]
+# }
+
+# 2. User scans QR code with authenticator app (Google Authenticator, Authy, etc.)
+
+# 3. Enable MFA by verifying a TOTP code from the app
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  http://localhost:8080/api/auth/mfa/enable \
+  -d '{"totp_code": "123456"}'
+
+# 4. Store backup codes securely (one-time display)
+```
+
+### Checking MFA Status
+
+```bash
+# Check current user's MFA status
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/auth/me | jq '.mfa_enabled'
+
+# Admin: Check MFA status for all users (requires admin role with MFA)
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+  http://localhost:8080/api/admin/users | jq '.users[] | {email, role, mfa_enabled}'
+```
+
+### MFA Enforcement for Admin Endpoints
+
+Admin endpoints (`/api/admin/*`) automatically enforce MFA for admin/owner roles:
+
+```bash
+# Without MFA enabled - returns 403
+curl -H "Authorization: Bearer $ADMIN_TOKEN_NO_MFA" \
+  http://localhost:8080/api/admin/users
+# Response: {"error": {"code": "ADMIN_MFA_REQUIRED", "message": "..."}}
+
+# With MFA enabled - succeeds
+curl -H "Authorization: Bearer $ADMIN_TOKEN_WITH_MFA" \
+  http://localhost:8080/api/admin/users
+# Response: {"users": [...]}
+```
+
+### Regenerating Backup Codes
+
+Users should regenerate backup codes if:
+- Backup codes remaining < 3 (system warns)
+- Backup codes were lost or compromised
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  http://localhost:8080/api/auth/mfa/backup-codes \
+  -d '{"totp_code": "123456"}'
+
+# Response contains new backup codes - store securely
+```
+
+### Disabling MFA (Requires Current Code)
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  http://localhost:8080/api/auth/mfa/disable \
+  -d '{"totp_code": "123456"}'
+```
+
+### MFA Recovery Procedures
+
+**User Lost Authenticator App:**
+1. User uses one of their backup codes to authenticate
+2. User goes through MFA setup again with new device
+3. Old backup codes are invalidated when new codes are generated
+
+**User Lost Backup Codes:**
+1. Support verifies user identity through alternative means
+2. Admin can disable MFA for the user (requires admin MFA):
+   ```bash
+   curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+     http://localhost:8080/api/admin/users/{user_id}/mfa/disable
+   ```
+3. User re-enables MFA through normal flow
+
+**Admin Locked Out of MFA:**
+1. Contact another admin or owner with MFA access
+2. Use database access to disable MFA (emergency only):
+   ```sql
+   UPDATE users SET mfa_enabled = false, mfa_secret = NULL
+   WHERE id = 'admin-user-id';
+   ```
+3. Immediately re-enable MFA after access restored
+
+### Troubleshooting MFA Issues
+
+**TOTP Codes Not Working:**
+- Verify device time is synchronized (TOTP is time-based)
+- Ensure correct account selected in authenticator app
+- Try a backup code if TOTP consistently fails
+- Check for clock drift: `ntpdate -q pool.ntp.org`
+
+**Backup Codes Not Working:**
+- Verify code hasn't been used before (single-use)
+- Check for typos (codes are case-sensitive)
+- Ensure user has remaining backup codes
+
+**MFA Enforcement Blocking Legitimate Admin:**
+- Verify admin has MFA enabled: Check `mfa_enabled` field
+- Verify backup codes remaining >= 3 (policy warning threshold)
+- Check JWT token is fresh (not cached from before MFA setup)
 
 ---
 

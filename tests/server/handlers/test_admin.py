@@ -42,6 +42,9 @@ class MockUser:
     org_id: str | None = "org-123"
     role: str = "admin"
     is_active: bool = True
+    mfa_enabled: bool = False  # SOC 2 CC5-01: MFA for admin users
+    mfa_secret: str | None = None
+    mfa_backup_codes: str | None = None  # JSON list of backup code hashes
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -51,7 +54,28 @@ class MockUser:
             "org_id": self.org_id,
             "role": self.role,
             "is_active": self.is_active,
+            "mfa_enabled": self.mfa_enabled,
         }
+
+
+def get_status(result) -> int:
+    """Extract status code from HandlerResult or tuple."""
+    if hasattr(result, "status_code"):
+        return result.status_code
+    return result[1]
+
+
+def get_body(result) -> dict:
+    """Extract body from HandlerResult or tuple."""
+    if hasattr(result, "body"):
+        body = result.body
+        if isinstance(body, bytes):
+            return json.loads(body.decode("utf-8"))
+        return json.loads(body)
+    body = result[0]
+    if isinstance(body, dict):
+        return body
+    return json.loads(body)
 
 
 @dataclass
@@ -169,8 +193,26 @@ def make_mock_handler(
 def user_store():
     """Create mock user store with admin user."""
     store = MockUserStore()
-    admin = MockUser(id="admin-123", email="admin@example.com", role="admin")
-    owner = MockUser(id="owner-123", email="owner@example.com", role="owner")
+    # Admin users must have MFA enabled with enough backup codes (SOC 2 CC5-01)
+    # backup_codes must be a JSON list of hashes, >= 3 codes to pass policy
+    backup_codes_json = json.dumps(["hash1", "hash2", "hash3", "hash4", "hash5",
+                                    "hash6", "hash7", "hash8", "hash9", "hash10"])
+    admin = MockUser(
+        id="admin-123",
+        email="admin@example.com",
+        role="admin",
+        mfa_enabled=True,
+        mfa_secret="TESTSECRET123456",
+        mfa_backup_codes=backup_codes_json,
+    )
+    owner = MockUser(
+        id="owner-123",
+        email="owner@example.com",
+        role="owner",
+        mfa_enabled=True,
+        mfa_secret="TESTSECRET654321",
+        mfa_backup_codes=backup_codes_json,
+    )
     regular = MockUser(id="user-456", email="user@example.com", role="user")
 
     store.users["admin-123"] = admin
@@ -226,7 +268,7 @@ class TestAdminAuthorization:
         result = admin_handler.handle("/api/admin/stats", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 200
+        assert get_status(result) == 200
 
     @patch("aragora.server.handlers.admin.extract_user_from_request")
     def test_owner_role_allowed(self, mock_auth, admin_handler, user_store):
@@ -237,7 +279,7 @@ class TestAdminAuthorization:
         result = admin_handler.handle("/api/admin/stats", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 200
+        assert get_status(result) == 200
 
     @patch("aragora.server.handlers.admin.extract_user_from_request")
     def test_regular_user_denied(self, mock_auth, admin_handler, user_store):
@@ -248,7 +290,7 @@ class TestAdminAuthorization:
         result = admin_handler.handle("/api/admin/stats", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 403
+        assert get_status(result) == 403
 
     @patch("aragora.server.handlers.admin.extract_user_from_request")
     def test_unauthenticated_denied(self, mock_auth, admin_handler):
@@ -259,7 +301,7 @@ class TestAdminAuthorization:
         result = admin_handler.handle("/api/admin/stats", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 401
+        assert get_status(result) == 401
 
 
 # ===========================================================================
@@ -279,8 +321,8 @@ class TestAdminListOrganizations:
         result = admin_handler.handle("/api/admin/organizations", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert "organizations" in data
         assert "total" in data
 
@@ -294,8 +336,8 @@ class TestAdminListOrganizations:
         result = admin_handler.handle("/api/admin/organizations", query_params, handler, "GET")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert data["limit"] == 10
         assert data["offset"] == 5
 
@@ -317,8 +359,8 @@ class TestAdminListUsers:
         result = admin_handler.handle("/api/admin/users", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert "users" in data
         assert "total" in data
 
@@ -338,7 +380,7 @@ class TestAdminListUsers:
         result = admin_handler.handle("/api/admin/users", {}, handler, "GET")
 
         assert result is not None
-        data = json.loads(result[0])
+        data = get_body(result)
 
         # Check that sensitive fields are not in the response
         for user_dict in data["users"]:
@@ -364,8 +406,8 @@ class TestAdminGetStats:
         result = admin_handler.handle("/api/admin/stats", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert "stats" in data
 
 
@@ -386,8 +428,8 @@ class TestAdminSystemMetrics:
         result = admin_handler.handle("/api/admin/system/metrics", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert "metrics" in data
         assert "timestamp" in data["metrics"]
 
@@ -413,8 +455,8 @@ class TestAdminRevenueStats:
             result = admin_handler.handle("/api/admin/revenue", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert "revenue" in data
         assert "mrr_cents" in data["revenue"]
         assert "mrr_dollars" in data["revenue"]
@@ -439,8 +481,8 @@ class TestAdminImpersonate:
         result = admin_handler.handle("/api/admin/impersonate/user-456", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert "token" in data
         assert "target_user" in data
         assert "warning" in data
@@ -454,7 +496,7 @@ class TestAdminImpersonate:
         result = admin_handler.handle("/api/admin/impersonate/nonexistent", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 404
+        assert get_status(result) == 404
 
     @patch("aragora.server.handlers.admin.extract_user_from_request")
     def test_impersonate_invalid_user_id(self, mock_auth, admin_handler):
@@ -465,7 +507,7 @@ class TestAdminImpersonate:
         result = admin_handler.handle("/api/admin/impersonate/../etc/passwd", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 400
+        assert get_status(result) == 400
 
 
 # ===========================================================================
@@ -485,8 +527,8 @@ class TestAdminDeactivateUser:
         result = admin_handler.handle("/api/admin/users/user-456/deactivate", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert data["success"] is True
         assert data["is_active"] is False
 
@@ -499,8 +541,8 @@ class TestAdminDeactivateUser:
         result = admin_handler.handle("/api/admin/users/admin-123/deactivate", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 400
-        data = json.loads(result[0])
+        assert get_status(result) == 400
+        data = get_body(result)
         assert "yourself" in data["error"].lower()
 
 
@@ -524,8 +566,8 @@ class TestAdminActivateUser:
         result = admin_handler.handle("/api/admin/users/user-456/activate", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert data["success"] is True
         assert data["is_active"] is True
 
@@ -553,8 +595,8 @@ class TestAdminUnlockUser:
         result = admin_handler.handle("/api/admin/users/user-456/unlock", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert data["success"] is True
         assert data["lockout_cleared"] is True
 
@@ -576,8 +618,8 @@ class TestAdminNomicStatus:
         result = admin_handler.handle("/api/admin/nomic/status", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert "running" in data
         assert "current_phase" in data
 
@@ -626,8 +668,8 @@ class TestAdminNomicReset:
         result = admin_handler.handle("/api/admin/nomic/reset", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert data["success"] is True
         assert data["new_phase"] == "context"
 
@@ -645,7 +687,7 @@ class TestAdminNomicReset:
         result = admin_handler.handle("/api/admin/nomic/reset", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 400
+        assert get_status(result) == 400
 
 
 # ===========================================================================
@@ -674,8 +716,8 @@ class TestAdminNomicPauseResume:
         result = admin_handler.handle("/api/admin/nomic/pause", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert data["success"] is True
         assert data["status"] == "paused"
 
@@ -696,8 +738,8 @@ class TestAdminNomicPauseResume:
         result = admin_handler.handle("/api/admin/nomic/resume", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert get_status(result) == 200
+        data = get_body(result)
         assert data["success"] is True
         assert data["status"] == "resumed"
         assert data["phase"] == "debate"
@@ -717,7 +759,7 @@ class TestAdminNomicPauseResume:
         result = admin_handler.handle("/api/admin/nomic/resume", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 400
+        assert get_status(result) == 400
 
 
 # ===========================================================================
@@ -760,7 +802,7 @@ class TestAdminMethodNotAllowed:
         result = admin_handler.handle("/api/admin/stats", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 405
+        assert get_status(result) == 405
 
 
 # ===========================================================================

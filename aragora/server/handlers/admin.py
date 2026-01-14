@@ -102,11 +102,14 @@ class AdminHandler(BaseHandler):
             return None, error_response("Admin access required", 403)
 
         # Enforce MFA for admin users (SOC 2 CC5-01)
-        is_allowed, mfa_error = enforce_admin_mfa_policy(user, user_store)
-        if not is_allowed:
-            logger.warning(f"Admin user {auth_ctx.user_id} denied: {mfa_error}")
+        # Returns None if compliant, or dict with enforcement details if not
+        mfa_policy_result = enforce_admin_mfa_policy(user, user_store)
+        if mfa_policy_result is not None:
+            reason = mfa_policy_result.get("reason", "MFA required")
+            action = mfa_policy_result.get("action", "enable_mfa")
+            logger.warning(f"Admin user {auth_ctx.user_id} denied: {reason} (action={action})")
             return None, error_response(
-                mfa_error or "Administrative access requires MFA. "
+                f"Administrative access requires MFA. {reason}. "
                 "Please enable MFA at /api/auth/mfa/setup",
                 403,
                 code="ADMIN_MFA_REQUIRED",
