@@ -359,19 +359,14 @@ jobs:
                   echo "Adding WebSocket route to cloudflared config..."
                   # Backup existing config
                   cp "$CLOUDFLARED_CONFIG_DIR/config.yml" "$CLOUDFLARED_CONFIG_DIR/config.yml.bak" 2>/dev/null || true
-                  # Create updated config with WebSocket routing
-                  cat > "$CLOUDFLARED_CONFIG_DIR/config.yml.new" << 'CFGEOF'
-ingress:
-  # WebSocket endpoint - route to WS port
-  - hostname: api.aragora.ai
-    path: /ws
-    service: http://localhost:8765
-  # HTTP API endpoints - route to HTTP port
-  - hostname: api.aragora.ai
-    service: http://localhost:8080
-  # Fallback
-  - service: http_status:404
-CFGEOF
+                  # Create updated config with WebSocket routing using echo (avoids YAML heredoc issues)
+                  echo "ingress:" > "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
+                  echo "  - hostname: api.aragora.ai" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
+                  echo "    path: /ws" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
+                  echo "    service: http://localhost:8765" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
+                  echo "  - hostname: api.aragora.ai" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
+                  echo "    service: http://localhost:8080" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
+                  echo "  - service: http_status:404" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
                   # Preserve tunnel token from old config if present
                   if grep -q "^tunnel:" "$CLOUDFLARED_CONFIG_DIR/config.yml" 2>/dev/null; then
                     grep "^tunnel:" "$CLOUDFLARED_CONFIG_DIR/config.yml" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
