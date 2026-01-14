@@ -167,6 +167,7 @@ class GauntletHandler(BaseHandler):
         "/api/gauntlet/results",
         "/api/gauntlet/*/receipt",
         "/api/gauntlet/*/heatmap",
+        "/api/gauntlet/*/export",
         "/api/gauntlet/*/compare/*",
         "/api/gauntlet/*",
     ]
@@ -245,6 +246,14 @@ class GauntletHandler(BaseHandler):
             if not is_valid:
                 return error_response(err, 400)
             return await self._get_heatmap(gauntlet_id, query_params)
+
+        # GET /api/gauntlet/{id}/export
+        if path.endswith("/export"):
+            gauntlet_id = path.split("/")[-2]
+            is_valid, err = validate_gauntlet_id(gauntlet_id)
+            if not is_valid:
+                return error_response(err, 400)
+            return await self._export_report(gauntlet_id, query_params, handler)
 
         # GET /api/gauntlet/{id}/compare/{id2}
         if "/compare/" in path:
@@ -854,3 +863,232 @@ class GauntletHandler(BaseHandler):
         except (OSError, RuntimeError, ValueError, KeyError) as e:
             logger.error(f"Failed to delete result: {e}")
             return error_response(f"Failed to delete result: {e}", 500)
+
+    async def _export_report(
+        self, gauntlet_id: str, query_params: dict, handler: Any = None
+    ) -> HandlerResult:
+        """Export a comprehensive gauntlet report.
+
+        Query params:
+        - format: json (default), html, full_html (includes CSS)
+        - include_heatmap: true/false (default true)
+        - include_findings: true/false (default true)
+        """
+        from aragora.gauntlet.receipt import DecisionReceipt
+
+        # Get result
+        run = None
+        result = None
+        result_obj = None
+
+        if gauntlet_id in _gauntlet_runs:
+            run = _gauntlet_runs[gauntlet_id]
+            if run["status"] != "completed":
+                return error_response("Gauntlet run not completed", 400)
+            result = run["result"]
+            result_obj = run.get("result_obj")
+        else:
+            try:
+                storage = _get_storage()
+                stored = storage.get(gauntlet_id)
+                if stored:
+                    result = stored
+                else:
+                    return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
+            except (OSError, RuntimeError, ValueError) as e:
+                logger.warning(f"Storage lookup failed for {gauntlet_id}: {e}")
+                return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
+
+        # Parse options
+        format_type = get_string_param(query_params, "format", "json")
+        include_heatmap = get_string_param(query_params, "include_heatmap", "true") == "true"
+        include_findings = get_string_param(query_params, "include_findings", "true") == "true"
+
+        # Build comprehensive report
+        report = {
+            "gauntlet_id": gauntlet_id,
+            "generated_at": datetime.now().isoformat(),
+            "summary": {
+                "verdict": result.get("verdict", "UNKNOWN"),
+                "confidence": result.get("confidence", 0),
+                "robustness_score": result.get("robustness_score", 0),
+                "risk_score": result.get("risk_score", 0),
+                "coverage_score": result.get("coverage_score", 0),
+            },
+            "findings_summary": {
+                "total": result.get("total_findings", 0),
+                "critical": result.get("critical_count", 0),
+                "high": result.get("high_count", 0),
+                "medium": result.get("medium_count", 0),
+                "low": result.get("low_count", 0),
+            },
+            "input": {
+                "summary": run.get("input_summary", "") if run else result.get("input_summary", ""),
+                "type": run.get("input_type", "") if run else result.get("input_type", ""),
+                "hash": run.get("input_hash", "") if run else result.get("input_hash", ""),
+            },
+            "timing": {
+                "created_at": run.get("created_at", "") if run else "",
+                "completed_at": run.get("completed_at", "") if run else "",
+            },
+        }
+
+        if include_findings:
+            report["findings"] = result.get("findings", [])
+
+        if include_heatmap:
+            # Generate heatmap data
+            from aragora.gauntlet.heatmap import HeatmapCell, RiskHeatmap
+
+            cells = []
+            categories = set()
+            severities = ["critical", "high", "medium", "low"]
+
+            for finding in result.get("findings", []):
+                category = finding.get("category", "unknown")
+                categories.add(category)
+
+            category_severity_counts: dict[tuple[str, str], int] = {}
+            for finding in result.get("findings", []):
+                category = finding.get("category", "unknown")
+                severity = finding.get("severity_level", "medium").lower()
+                key = (category, severity)
+                category_severity_counts[key] = category_severity_counts.get(key, 0) + 1
+
+            for category in sorted(categories):
+                for severity in severities:
+                    count = category_severity_counts.get((category, severity), 0)
+                    cells.append({"category": category, "severity": severity, "count": count})
+
+            report["heatmap"] = {
+                "cells": cells,
+                "categories": sorted(list(categories)),
+                "severities": severities,
+            }
+
+        if format_type == "json":
+            return json_response(report)
+
+        elif format_type == "html" or format_type == "full_html":
+            # Generate HTML report
+            verdict = report["summary"]["verdict"]
+            verdict_color = (
+                "#22c55e" if verdict in ["APPROVED", "PASS"] else
+                "#ef4444" if verdict in ["REJECTED", "FAIL"] else
+                "#eab308"
+            )
+
+            html_parts = [
+                f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gauntlet Report - {gauntlet_id[:12]}</title>
+    <style>
+        :root {{ --bg: #0a0a0a; --surface: #1a1a1a; --border: #333; --text: #e0e0e0; --muted: #888; --green: #22c55e; --red: #ef4444; --yellow: #eab308; --cyan: #06b6d4; }}
+        body {{ font-family: ui-monospace, monospace; background: var(--bg); color: var(--text); margin: 0; padding: 2rem; line-height: 1.6; }}
+        .container {{ max-width: 900px; margin: 0 auto; }}
+        .header {{ border-bottom: 2px solid {verdict_color}; padding-bottom: 1rem; margin-bottom: 2rem; }}
+        .verdict {{ font-size: 2rem; color: {verdict_color}; margin: 0; }}
+        .id {{ color: var(--muted); font-size: 0.75rem; }}
+        .card {{ background: var(--surface); border: 1px solid var(--border); padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }}
+        .card-title {{ color: var(--cyan); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.5rem; }}
+        .stat {{ display: inline-block; margin-right: 2rem; }}
+        .stat-value {{ font-size: 1.5rem; }}
+        .stat-label {{ color: var(--muted); font-size: 0.75rem; }}
+        .finding {{ border-left: 3px solid; padding: 0.5rem 1rem; margin: 0.5rem 0; }}
+        .finding.critical {{ border-color: var(--red); background: rgba(239,68,68,0.1); }}
+        .finding.high {{ border-color: #f97316; background: rgba(249,115,22,0.1); }}
+        .finding.medium {{ border-color: var(--yellow); background: rgba(234,179,8,0.1); }}
+        .finding.low {{ border-color: var(--cyan); background: rgba(6,182,212,0.1); }}
+        .badge {{ display: inline-block; padding: 0.25rem 0.5rem; font-size: 0.7rem; border-radius: 2px; }}
+        .badge.critical {{ background: var(--red); color: white; }}
+        .badge.high {{ background: #f97316; color: white; }}
+        .badge.medium {{ background: var(--yellow); color: black; }}
+        .badge.low {{ background: var(--cyan); color: black; }}
+        .heatmap {{ display: grid; gap: 2px; margin-top: 1rem; }}
+        .heatmap-cell {{ padding: 0.5rem; text-align: center; font-size: 0.75rem; }}
+        .footer {{ margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.75rem; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="verdict">{verdict}</h1>
+            <div class="id">Gauntlet ID: {gauntlet_id}</div>
+            <div class="id">Generated: {report['generated_at']}</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Summary</div>
+            <div class="stat">
+                <div class="stat-value" style="color: {verdict_color}">{(report['summary']['confidence'] * 100):.0f}%</div>
+                <div class="stat-label">Confidence</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" style="color: var(--cyan)">{(report['summary']['robustness_score'] * 100):.0f}%</div>
+                <div class="stat-label">Robustness</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">{report['findings_summary']['total']}</div>
+                <div class="stat-label">Total Findings</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Findings Breakdown</div>
+            <div class="stat">
+                <div class="stat-value" style="color: var(--red)">{report['findings_summary']['critical']}</div>
+                <div class="stat-label">Critical</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" style="color: #f97316">{report['findings_summary']['high']}</div>
+                <div class="stat-label">High</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" style="color: var(--yellow)">{report['findings_summary']['medium']}</div>
+                <div class="stat-label">Medium</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" style="color: var(--cyan)">{report['findings_summary']['low']}</div>
+                <div class="stat-label">Low</div>
+            </div>
+        </div>
+""",
+            ]
+
+            if include_findings and report.get("findings"):
+                html_parts.append("""
+        <div class="card">
+            <div class="card-title">Findings Detail</div>
+""")
+                for finding in report["findings"][:20]:  # Limit to 20 for HTML
+                    severity = finding.get("severity_level", "medium").lower()
+                    html_parts.append(f"""
+            <div class="finding {severity}">
+                <span class="badge {severity}">{severity.upper()}</span>
+                <strong>{finding.get('title', 'Unknown')}</strong>
+                <div style="color: var(--muted); font-size: 0.85rem;">{finding.get('description', '')[:200]}</div>
+            </div>
+""")
+                html_parts.append("        </div>")
+
+            html_parts.append(f"""
+        <div class="footer">
+            Report generated by Aragora Gauntlet | {report['generated_at']}
+        </div>
+    </div>
+</body>
+</html>
+""")
+            html_content = "".join(html_parts)
+
+            return HandlerResult(
+                status_code=200,
+                content_type="text/html",
+                body=html_content.encode("utf-8"),
+            )
+
+        else:
+            return error_response(f"Unsupported format: {format_type}", 400)

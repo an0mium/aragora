@@ -6,18 +6,27 @@ Endpoints:
 - POST /api/verify/batch - Batch verification of multiple claims
 - GET /api/verify/status - Get backend availability status
 - POST /api/verify/translate - Translate claim to formal language only
+- GET /api/verify/history - Get verification history
+- GET /api/verify/history/{id} - Get specific verification result
+- GET /api/verify/history/{id}/tree - Get proof tree for visualization
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
+import time
+from collections import OrderedDict
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional
 
 from .base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    get_clamped_int_param,
     handle_errors,
     json_response,
     safe_json_parse,
@@ -25,6 +34,144 @@ from .base import (
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Verification History Storage
+# =============================================================================
+
+MAX_HISTORY_SIZE = 1000
+HISTORY_TTL_SECONDS = 86400  # 24 hours
+
+
+@dataclass
+class VerificationHistoryEntry:
+    """A single verification history entry."""
+
+    id: str
+    claim: str
+    claim_type: Optional[str]
+    context: str
+    result: dict
+    timestamp: float
+    proof_tree: Optional[list] = None
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.id,
+            "claim": self.claim,
+            "claim_type": self.claim_type,
+            "context": self.context,
+            "result": self.result,
+            "timestamp": self.timestamp,
+            "timestamp_iso": datetime.fromtimestamp(self.timestamp).isoformat(),
+            "has_proof_tree": self.proof_tree is not None,
+        }
+
+
+# In-memory history storage (OrderedDict for FIFO eviction)
+_verification_history: OrderedDict[str, VerificationHistoryEntry] = OrderedDict()
+
+
+def _generate_verification_id(claim: str, timestamp: float) -> str:
+    """Generate a unique ID for a verification entry."""
+    data = f"{claim}:{timestamp}".encode()
+    return hashlib.sha256(data).hexdigest()[:16]
+
+
+def _add_to_history(
+    claim: str,
+    claim_type: Optional[str],
+    context: str,
+    result: dict,
+    proof_tree: Optional[list] = None,
+) -> str:
+    """Add a verification result to history."""
+    timestamp = time.time()
+    entry_id = _generate_verification_id(claim, timestamp)
+
+    entry = VerificationHistoryEntry(
+        id=entry_id,
+        claim=claim,
+        claim_type=claim_type,
+        context=context,
+        result=result,
+        timestamp=timestamp,
+        proof_tree=proof_tree,
+    )
+
+    _verification_history[entry_id] = entry
+
+    # Evict old entries if over limit
+    while len(_verification_history) > MAX_HISTORY_SIZE:
+        _verification_history.popitem(last=False)
+
+    return entry_id
+
+
+def _cleanup_old_history():
+    """Remove entries older than TTL."""
+    cutoff = time.time() - HISTORY_TTL_SECONDS
+    to_remove = [k for k, v in _verification_history.items() if v.timestamp < cutoff]
+    for k in to_remove:
+        del _verification_history[k]
+
+
+def _build_proof_tree(result: dict) -> Optional[list]:
+    """Build a proof tree structure from verification result."""
+    if not result.get("is_verified"):
+        return None
+
+    formal_statement = result.get("formal_statement", "")
+    if not formal_statement:
+        return None
+
+    # Parse the formal statement into tree nodes
+    nodes = []
+
+    # Root node: the claim
+    nodes.append({
+        "id": "root",
+        "type": "claim",
+        "content": result.get("claim", "Original claim"),
+        "children": ["translation"],
+    })
+
+    # Translation node
+    nodes.append({
+        "id": "translation",
+        "type": "translation",
+        "content": formal_statement,
+        "language": result.get("language", "unknown"),
+        "children": ["verification"],
+    })
+
+    # Verification node
+    status = result.get("status", "unknown")
+    nodes.append({
+        "id": "verification",
+        "type": "verification",
+        "content": f"Status: {status}",
+        "is_verified": result.get("is_verified", False),
+        "proof_hash": result.get("proof_hash"),
+        "children": [],
+    })
+
+    # If we have proof steps, add them
+    proof_steps = result.get("proof_steps", [])
+    if proof_steps:
+        nodes[-1]["children"] = [f"step_{i}" for i in range(len(proof_steps))]
+        for i, step in enumerate(proof_steps):
+            nodes.append({
+                "id": f"step_{i}",
+                "type": "proof_step",
+                "content": step,
+                "step_number": i + 1,
+                "children": [],
+            })
+
+    return nodes
 
 
 def _init_verification():
@@ -54,6 +201,7 @@ class FormalVerificationHandler(BaseHandler):
         "/api/verify/batch",
         "/api/verify/status",
         "/api/verify/translate",
+        "/api/verify/history",
     ]
 
     def __init__(self, server_context: dict = None):
@@ -69,7 +217,11 @@ class FormalVerificationHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES or path.startswith("/api/verify/")
+        if path in self.ROUTES:
+            return True
+        if path.startswith("/api/verify/history/"):
+            return True
+        return path.startswith("/api/verify/")
 
     async def handle_async(
         self,
@@ -77,6 +229,7 @@ class FormalVerificationHandler(BaseHandler):
         method: str,
         path: str,
         body: Optional[bytes] = None,
+        query_params: Optional[dict] = None,
     ) -> HandlerResult:
         """Route and handle formal verification requests."""
         if path == "/api/verify/claim" and method == "POST":
@@ -87,6 +240,10 @@ class FormalVerificationHandler(BaseHandler):
             return self._handle_verify_status(handler)
         elif path == "/api/verify/translate" and method == "POST":
             return await self._handle_translate(handler, body)
+        elif path == "/api/verify/history" and method == "GET":
+            return self._handle_get_history(query_params or {})
+        elif path.startswith("/api/verify/history/") and method == "GET":
+            return self._handle_get_history_entry(path)
         else:
             return error_response(f"Unknown path: {path}", 404)
 
@@ -140,7 +297,22 @@ class FormalVerificationHandler(BaseHandler):
             timeout_seconds=timeout,
         )
 
-        return json_response(result.to_dict())
+        result_dict = result.to_dict()
+
+        # Build proof tree and store in history
+        proof_tree = _build_proof_tree({**result_dict, "claim": claim})
+        entry_id = _add_to_history(
+            claim=claim,
+            claim_type=claim_type,
+            context=context,
+            result=result_dict,
+            proof_tree=proof_tree,
+        )
+
+        # Include entry_id in response for retrieval
+        result_dict["history_id"] = entry_id
+
+        return json_response(result_dict)
 
     @handle_errors("formal verification batch")
     @rate_limit(rpm=10)
@@ -365,6 +537,112 @@ class FormalVerificationHandler(BaseHandler):
 
         else:
             return error_response(f"Unknown target language: {target}", 400)
+
+    @handle_errors("verification history")
+    def _handle_get_history(self, query_params: dict) -> HandlerResult:
+        """
+        GET /api/verify/history - Get verification history.
+
+        Query params:
+            limit: Max entries to return (default 20, max 100)
+            offset: Skip first N entries (default 0)
+            status: Filter by status (proof_found, translation_failed, etc.)
+
+        Response:
+        {
+            "entries": [...],
+            "total": 150,
+            "limit": 20,
+            "offset": 0
+        }
+        """
+        # Cleanup old entries periodically
+        _cleanup_old_history()
+
+        limit = get_clamped_int_param(query_params, "limit", 20, 1, 100)
+        offset = get_clamped_int_param(query_params, "offset", 0, 0, 10000)
+        status_filter = query_params.get("status", [""])[0] if query_params.get("status") else None
+
+        # Get all entries in reverse chronological order
+        all_entries = list(reversed(_verification_history.values()))
+
+        # Apply status filter
+        if status_filter:
+            all_entries = [
+                e for e in all_entries
+                if e.result.get("status") == status_filter
+            ]
+
+        total = len(all_entries)
+
+        # Apply pagination
+        paginated = all_entries[offset : offset + limit]
+
+        return json_response({
+            "entries": [e.to_dict() for e in paginated],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        })
+
+    @handle_errors("verification history entry")
+    def _handle_get_history_entry(self, path: str) -> HandlerResult:
+        """
+        GET /api/verify/history/{id} - Get specific verification result.
+        GET /api/verify/history/{id}/tree - Get proof tree for visualization.
+
+        Response for /history/{id}:
+        {
+            "id": "abc123",
+            "claim": "...",
+            "result": {...},
+            "timestamp": 1234567890,
+            "proof_tree": [...]
+        }
+
+        Response for /history/{id}/tree:
+        {
+            "nodes": [
+                {"id": "root", "type": "claim", "content": "...", "children": ["translation"]},
+                {"id": "translation", "type": "translation", "content": "...", "children": ["verification"]},
+                ...
+            ]
+        }
+        """
+        # Parse the path to extract ID and optional /tree suffix
+        parts = path.replace("/api/verify/history/", "").split("/")
+        entry_id = parts[0]
+        is_tree_request = len(parts) > 1 and parts[1] == "tree"
+
+        if not entry_id:
+            return error_response("Entry ID required", 400)
+
+        entry = _verification_history.get(entry_id)
+        if not entry:
+            return error_response(f"Entry not found: {entry_id}", 404)
+
+        if is_tree_request:
+            # Return proof tree for visualization
+            proof_tree = entry.proof_tree
+            if not proof_tree:
+                # Try to build it from the result
+                proof_tree = _build_proof_tree({**entry.result, "claim": entry.claim})
+
+            if not proof_tree:
+                return json_response({
+                    "nodes": [],
+                    "message": "No proof tree available for this verification",
+                })
+
+            return json_response({"nodes": proof_tree})
+
+        # Return full entry
+        response = entry.to_dict()
+        response["result"] = entry.result
+        if entry.proof_tree:
+            response["proof_tree"] = entry.proof_tree
+
+        return json_response(response)
 
 
 __all__ = ["FormalVerificationHandler"]

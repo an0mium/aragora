@@ -528,6 +528,8 @@ class FeaturesHandler(BaseHandler):
         "/api/features/all": "_get_all_features",
         "/api/features/handlers": "_get_handler_stability",
         "/api/features/config": "_handle_config",  # User preferences
+        "/api/features/discover": "_get_api_discovery",  # Full API catalog
+        "/api/features/endpoints": "_get_all_endpoints",  # All endpoints list
         "/api/features/{feature_id}": "_get_feature_status",
     }
 
@@ -716,6 +718,200 @@ class FeaturesHandler(BaseHandler):
                 "by_stability": by_stability,
                 "counts": {level: len(handlers) for level, handlers in by_stability.items()},
                 "total": len(ALL_HANDLERS),
+            }
+        )
+
+    def _get_api_discovery(self) -> HandlerResult:
+        """Get comprehensive API discovery catalog.
+
+        Returns all API endpoints organized by:
+        - Handler (which module provides the endpoint)
+        - Category (what type of feature)
+        - Stability (production readiness)
+        - Usage (frontend integration status)
+
+        This is the primary endpoint for feature discovery dashboards.
+        """
+        from aragora.server.handlers import (
+            ALL_HANDLERS,
+            get_all_handler_stability,
+        )
+
+        stability_map = get_all_handler_stability()
+
+        # Categorize handlers by domain
+        handler_categories = {
+            "DebatesHandler": "core",
+            "AgentsHandler": "core",
+            "HealthHandler": "system",
+            "NomicHandler": "system",
+            "DocsHandler": "system",
+            "SystemHandler": "system",
+            "AnalyticsHandler": "analytics",
+            "MetricsHandler": "analytics",
+            "MemoryHandler": "memory",
+            "MemoryAnalyticsHandler": "memory",
+            "ConsensusHandler": "memory",
+            "BeliefHandler": "analysis",
+            "CritiqueHandler": "analysis",
+            "InsightsHandler": "analysis",
+            "CalibrationHandler": "analysis",
+            "IntrospectionHandler": "analysis",
+            "ProbesHandler": "analysis",
+            "VerificationHandler": "verification",
+            "FormalVerificationHandler": "verification",
+            "EvolutionHandler": "evolution",
+            "EvolutionABTestingHandler": "evolution",
+            "GenesisHandler": "evolution",
+            "LaboratoryHandler": "evolution",
+            "GauntletHandler": "security",
+            "AuditingHandler": "security",
+            "ReviewsHandler": "security",
+            "TournamentHandler": "competition",
+            "LeaderboardViewHandler": "competition",
+            "RelationshipHandler": "social",
+            "MomentsHandler": "social",
+            "PersonaHandler": "social",
+            "AuthHandler": "auth",
+            "BillingHandler": "billing",
+            "OrganizationsHandler": "teams",
+            "OAuthHandler": "auth",
+            "FeaturesHandler": "discovery",
+            "PulseHandler": "discovery",
+            "BroadcastHandler": "media",
+            "AudioHandler": "media",
+            "GalleryHandler": "media",
+            "SocialMediaHandler": "media",
+            "DocumentHandler": "documents",
+            "BreakpointsHandler": "debugging",
+            "CheckpointHandler": "debugging",
+            "ReplaysHandler": "debugging",
+            "RoutingHandler": "routing",
+            "PluginsHandler": "plugins",
+            "LearningHandler": "learning",
+            "DashboardHandler": "dashboard",
+            "GraphDebatesHandler": "debates",
+            "MatrixDebatesHandler": "debates",
+            "SlackHandler": "integrations",
+            "EvidenceHandler": "evidence",
+            "WebhookHandler": "integrations",
+            "AdminHandler": "admin",
+        }
+
+        # Known frontend-integrated endpoints (based on aragora-js usage)
+        frontend_integrated = {
+            "/api/debates",
+            "/api/debates/recent",
+            "/api/debates/live",
+            "/api/agents",
+            "/api/agents/leaderboard",
+            "/api/health",
+            "/healthz",
+            "/readyz",
+            "/api/features",
+            "/api/features/all",
+            "/api/consensus/gallery",
+            "/api/analytics/summary",
+        }
+
+        catalog: list[dict[str, Any]] = []
+        by_category: dict[str, list[dict]] = {}
+        by_stability: dict[str, list[dict]] = {}
+
+        for handler_class in ALL_HANDLERS:
+            handler_name = handler_class.__name__
+            stability = stability_map.get(handler_name, "experimental")
+            category = handler_categories.get(handler_name, "other")
+
+            # Get routes from handler
+            routes = []
+            if hasattr(handler_class, "ROUTES"):
+                handler_routes = handler_class.ROUTES
+                if isinstance(handler_routes, dict):
+                    routes = list(handler_routes.keys())
+                elif isinstance(handler_routes, (list, tuple)):
+                    routes = list(handler_routes)
+
+            for route in routes:
+                # Skip parameterized route placeholders
+                if "{" in route:
+                    continue
+
+                endpoint_info = {
+                    "path": route,
+                    "handler": handler_name,
+                    "category": category,
+                    "stability": stability,
+                    "frontend_integrated": route in frontend_integrated,
+                    "methods": ["GET"],  # Default, could be extended
+                }
+
+                catalog.append(endpoint_info)
+
+                # Group by category
+                if category not in by_category:
+                    by_category[category] = []
+                by_category[category].append(endpoint_info)
+
+                # Group by stability
+                if stability not in by_stability:
+                    by_stability[stability] = []
+                by_stability[stability].append(endpoint_info)
+
+        # Calculate statistics
+        total_endpoints = len(catalog)
+        integrated_count = sum(1 for e in catalog if e["frontend_integrated"])
+        hidden_count = total_endpoints - integrated_count
+
+        return json_response(
+            {
+                "total_endpoints": total_endpoints,
+                "frontend_integrated": integrated_count,
+                "hidden_features": hidden_count,
+                "integration_percentage": round(integrated_count / total_endpoints * 100, 1)
+                if total_endpoints > 0
+                else 0,
+                "endpoints": catalog,
+                "by_category": by_category,
+                "by_stability": by_stability,
+                "categories": list(by_category.keys()),
+                "message": f"Discovered {hidden_count} endpoints not yet integrated in frontend",
+            }
+        )
+
+    def _get_all_endpoints(self) -> HandlerResult:
+        """Get flat list of all API endpoints.
+
+        Simpler version of /api/features/discover for quick lookups.
+        Returns just the paths grouped by handler.
+        """
+        from aragora.server.handlers import ALL_HANDLERS
+
+        endpoints_by_handler: dict[str, list[str]] = {}
+        all_endpoints: list[str] = []
+
+        for handler_class in ALL_HANDLERS:
+            handler_name = handler_class.__name__
+            routes = []
+
+            if hasattr(handler_class, "ROUTES"):
+                handler_routes = handler_class.ROUTES
+                if isinstance(handler_routes, dict):
+                    routes = list(handler_routes.keys())
+                elif isinstance(handler_routes, (list, tuple)):
+                    routes = list(handler_routes)
+
+            # Filter out parameterized routes
+            clean_routes = [r for r in routes if "{" not in r]
+            endpoints_by_handler[handler_name] = clean_routes
+            all_endpoints.extend(clean_routes)
+
+        return json_response(
+            {
+                "total": len(all_endpoints),
+                "handlers": len(endpoints_by_handler),
+                "endpoints": sorted(all_endpoints),
+                "by_handler": endpoints_by_handler,
             }
         )
 

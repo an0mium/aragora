@@ -66,6 +66,10 @@ class BeliefHandler(BaseHandler):
             return True
         if path.startswith("/api/belief-network/") and path.endswith("/load-bearing-claims"):
             return True
+        if path.startswith("/api/belief-network/") and path.endswith("/graph"):
+            return True
+        if path.startswith("/api/belief-network/") and path.endswith("/export"):
+            return True
         if "/claims/" in path and path.endswith("/support"):
             return True
         if path.startswith("/api/debate/") and path.endswith("/graph-stats"):
@@ -97,6 +101,20 @@ class BeliefHandler(BaseHandler):
                 return error_response("Invalid debate_id", 400)
             limit = get_clamped_int_param(query_params, "limit", 5, min_val=1, max_val=20)
             return self._get_load_bearing_claims(nomic_dir, debate_id, limit)
+
+        if path.startswith("/api/belief-network/") and path.endswith("/graph"):
+            debate_id = self._extract_debate_id(path, 3)
+            if debate_id is None:
+                return error_response("Invalid debate_id", 400)
+            include_cruxes = query_params.get("include_cruxes", ["true"])[0].lower() == "true"
+            return self._get_belief_network_graph(nomic_dir, debate_id, include_cruxes)
+
+        if path.startswith("/api/belief-network/") and path.endswith("/export"):
+            debate_id = self._extract_debate_id(path, 3)
+            if debate_id is None:
+                return error_response("Invalid debate_id", 400)
+            format_type = query_params.get("format", ["json"])[0].lower()
+            return self._export_belief_network(nomic_dir, debate_id, format_type)
 
         if "/claims/" in path and path.endswith("/support"):
             # Pattern: /api/provenance/:debate_id/claims/:claim_id/support
@@ -343,3 +361,250 @@ class BeliefHandler(BaseHandler):
 
         stats = cartographer.get_statistics()
         return json_response(stats)
+
+    @handle_errors("belief network graph retrieval")
+    def _get_belief_network_graph(
+        self, nomic_dir: Optional[Path], debate_id: str, include_cruxes: bool = True
+    ) -> HandlerResult:
+        """Get belief network as a graph structure for visualization.
+
+        Returns nodes (claims) and links (influence relationships) suitable
+        for force-directed graph rendering.
+
+        Response:
+        {
+            "nodes": [
+                {
+                    "id": "claim_001",
+                    "claim_id": "claim_001",
+                    "statement": "...",
+                    "author": "claude",
+                    "centrality": 0.85,
+                    "is_crux": true,
+                    "crux_score": 0.92,
+                    "entropy": 0.65,
+                    "belief": {"true_prob": 0.6, "false_prob": 0.2, "uncertain_prob": 0.2}
+                }
+            ],
+            "links": [
+                {"source": "claim_001", "target": "claim_002", "weight": 0.7, "type": "supports"}
+            ],
+            "metadata": {
+                "debate_id": "debate_abc",
+                "total_claims": 15,
+                "crux_count": 3
+            }
+        }
+        """
+        if not BELIEF_NETWORK_AVAILABLE:
+            return error_response("Belief network not available", 503)
+
+        from aragora.debate.traces import DebateTrace
+
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+        if not trace_path.exists():
+            return error_response("Debate trace not found", 404)
+
+        trace = DebateTrace.load(trace_path)
+        result = trace.to_debate_result()  # type: ignore[attr-defined]
+
+        # Build belief network
+        network = BeliefNetwork(debate_id=debate_id)
+        for msg in result.messages:
+            network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
+
+        # Get cruxes if requested
+        crux_ids = set()
+        crux_scores = {}
+        if include_cruxes:
+            analyzer = BeliefPropagationAnalyzer(network)
+            cruxes = analyzer.identify_debate_cruxes(top_k=10)
+            for crux in cruxes:
+                crux_ids.add(crux.get("claim_id", ""))
+                crux_scores[crux.get("claim_id", "")] = crux.get("crux_score", 0)
+
+        # Build graph structure
+        nodes = []
+        node_ids = set()
+
+        for node_data in network.get_all_claims():
+            node = node_data.get("node")
+            if not node:
+                continue
+
+            claim_id = node.claim_id
+            node_ids.add(claim_id)
+
+            belief = node.get_belief_distribution() if hasattr(node, "get_belief_distribution") else None
+
+            nodes.append({
+                "id": claim_id,
+                "claim_id": claim_id,
+                "statement": node.claim_statement,
+                "author": node.author,
+                "centrality": node_data.get("centrality", 0.5),
+                "is_crux": claim_id in crux_ids,
+                "crux_score": crux_scores.get(claim_id),
+                "entropy": node_data.get("entropy", 0.5),
+                "belief": belief,
+            })
+
+        # Build links from influence relationships
+        links = []
+        for edge in network.get_all_edges():
+            source = edge.get("source")
+            target = edge.get("target")
+            if source in node_ids and target in node_ids:
+                links.append({
+                    "source": source,
+                    "target": target,
+                    "weight": edge.get("weight", 0.5),
+                    "type": edge.get("type", "influences"),
+                })
+
+        return json_response({
+            "nodes": nodes,
+            "links": links,
+            "metadata": {
+                "debate_id": debate_id,
+                "total_claims": len(nodes),
+                "crux_count": len(crux_ids),
+            },
+        })
+
+    @handle_errors("belief network export")
+    def _export_belief_network(
+        self, nomic_dir: Optional[Path], debate_id: str, format_type: str = "json"
+    ) -> HandlerResult:
+        """Export belief network in various formats.
+
+        Supported formats:
+        - json: Full JSON structure (default)
+        - graphml: GraphML format for Gephi/yEd
+        - csv: CSV format (nodes and edges as separate arrays)
+
+        Response varies by format type.
+        """
+        if not BELIEF_NETWORK_AVAILABLE:
+            return error_response("Belief network not available", 503)
+
+        from aragora.debate.traces import DebateTrace
+
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+        if not trace_path.exists():
+            return error_response("Debate trace not found", 404)
+
+        trace = DebateTrace.load(trace_path)
+        result = trace.to_debate_result()  # type: ignore[attr-defined]
+
+        # Build belief network
+        network = BeliefNetwork(debate_id=debate_id)
+        for msg in result.messages:
+            network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
+
+        # Get cruxes
+        analyzer = BeliefPropagationAnalyzer(network)
+        cruxes = analyzer.identify_debate_cruxes(top_k=10)
+        crux_ids = {c.get("claim_id", "") for c in cruxes}
+
+        # Build export data
+        nodes_data = []
+        edges_data = []
+        node_ids = set()
+
+        for node_data in network.get_all_claims():
+            node = node_data.get("node")
+            if not node:
+                continue
+
+            claim_id = node.claim_id
+            node_ids.add(claim_id)
+            nodes_data.append({
+                "id": claim_id,
+                "statement": node.claim_statement,
+                "author": node.author,
+                "centrality": node_data.get("centrality", 0.5),
+                "is_crux": claim_id in crux_ids,
+            })
+
+        for edge in network.get_all_edges():
+            source = edge.get("source")
+            target = edge.get("target")
+            if source in node_ids and target in node_ids:
+                edges_data.append({
+                    "source": source,
+                    "target": target,
+                    "weight": edge.get("weight", 0.5),
+                    "type": edge.get("type", "influences"),
+                })
+
+        if format_type == "csv":
+            # Return CSV-friendly structure
+            return json_response({
+                "format": "csv",
+                "debate_id": debate_id,
+                "nodes_csv": nodes_data,
+                "edges_csv": edges_data,
+                "headers": {
+                    "nodes": ["id", "statement", "author", "centrality", "is_crux"],
+                    "edges": ["source", "target", "weight", "type"],
+                },
+            })
+
+        elif format_type == "graphml":
+            # Build GraphML XML
+            graphml_lines = [
+                '<?xml version="1.0" encoding="UTF-8"?>',
+                '<graphml xmlns="http://graphml.graphdrawing.org/xmlns">',
+                '  <key id="statement" for="node" attr.name="statement" attr.type="string"/>',
+                '  <key id="author" for="node" attr.name="author" attr.type="string"/>',
+                '  <key id="centrality" for="node" attr.name="centrality" attr.type="double"/>',
+                '  <key id="is_crux" for="node" attr.name="is_crux" attr.type="boolean"/>',
+                '  <key id="weight" for="edge" attr.name="weight" attr.type="double"/>',
+                '  <key id="type" for="edge" attr.name="type" attr.type="string"/>',
+                f'  <graph id="{debate_id}" edgedefault="directed">',
+            ]
+
+            for node in nodes_data:
+                statement_escaped = node["statement"].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                graphml_lines.append(f'    <node id="{node["id"]}">')
+                graphml_lines.append(f'      <data key="statement">{statement_escaped}</data>')
+                graphml_lines.append(f'      <data key="author">{node["author"]}</data>')
+                graphml_lines.append(f'      <data key="centrality">{node["centrality"]}</data>')
+                graphml_lines.append(f'      <data key="is_crux">{str(node["is_crux"]).lower()}</data>')
+                graphml_lines.append('    </node>')
+
+            for i, edge in enumerate(edges_data):
+                graphml_lines.append(f'    <edge id="e{i}" source="{edge["source"]}" target="{edge["target"]}">')
+                graphml_lines.append(f'      <data key="weight">{edge["weight"]}</data>')
+                graphml_lines.append(f'      <data key="type">{edge["type"]}</data>')
+                graphml_lines.append('    </edge>')
+
+            graphml_lines.extend(['  </graph>', '</graphml>'])
+
+            return json_response({
+                "format": "graphml",
+                "debate_id": debate_id,
+                "content": "\n".join(graphml_lines),
+                "content_type": "application/xml",
+            })
+
+        else:
+            # Default JSON format
+            return json_response({
+                "format": "json",
+                "debate_id": debate_id,
+                "nodes": nodes_data,
+                "edges": edges_data,
+                "summary": {
+                    "total_nodes": len(nodes_data),
+                    "total_edges": len(edges_data),
+                    "crux_count": len(crux_ids),
+                },
+            })

@@ -73,6 +73,8 @@ class GenesisHandler(BaseHandler):
             return True
         if path.startswith("/api/genesis/genomes/") and path != "/api/genesis/genomes/top":
             return True
+        if path.startswith("/api/genesis/descendants/"):
+            return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
@@ -128,7 +130,9 @@ class GenesisHandler(BaseHandler):
             is_valid, err = validate_genome_id(genome_id)
             if not is_valid:
                 return error_response(err, 400)
-            return self._get_genome_lineage(nomic_dir, genome_id)
+            max_depth = get_int_param(query_params, "max_depth", 10)
+            max_depth = min(max(max_depth, 1), 50)  # Clamp to 1-50
+            return self._get_genome_lineage(nomic_dir, genome_id, max_depth)
 
         if path.startswith("/api/genesis/tree/"):
             # Block path traversal attempts
@@ -139,6 +143,18 @@ class GenesisHandler(BaseHandler):
             if not is_valid:
                 return error_response(err, 400)
             return self._get_debate_tree(nomic_dir, debate_id)
+
+        if path.startswith("/api/genesis/descendants/"):
+            # Block path traversal attempts
+            if ".." in path:
+                return error_response("Invalid genome ID", 400)
+            genome_id = path.split("/")[-1]
+            is_valid, err = validate_genome_id(genome_id)
+            if not is_valid:
+                return error_response(err, 400)
+            max_depth = get_int_param(query_params, "max_depth", 5)
+            max_depth = min(max(max_depth, 1), 20)
+            return self._get_genome_descendants(nomic_dir, genome_id, max_depth)
 
         return None
 
@@ -250,8 +266,34 @@ class GenesisHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "genesis_events"), 500)
 
-    def _get_genome_lineage(self, nomic_dir: Optional[Path], genome_id: str) -> HandlerResult:
-        """Get the lineage (ancestry) of a genome."""
+    def _get_genome_lineage(
+        self, nomic_dir: Optional[Path], genome_id: str, max_depth: int = 10
+    ) -> HandlerResult:
+        """Get the lineage (ancestry) of a genome.
+
+        Returns enriched lineage data including event types and timestamps.
+
+        Parameters:
+            genome_id: The genome to trace
+            max_depth: Maximum depth to trace (default 10)
+
+        Response:
+        {
+            "genome_id": "genome_abc",
+            "lineage": [
+                {
+                    "genome_id": "...",
+                    "name": "...",
+                    "generation": 5,
+                    "fitness_score": 0.85,
+                    "parent_ids": [...],
+                    "event_type": "mutation",
+                    "created_at": "2026-01-13T..."
+                }
+            ],
+            "generations": 5
+        }
+        """
         if not GENESIS_AVAILABLE:
             return error_response("Genesis module not available", 503)
 
@@ -261,18 +303,62 @@ class GenesisHandler(BaseHandler):
                 ledger_path = str(nomic_dir / "genesis.db")
 
             ledger = GenesisLedger(ledger_path)
-            lineage = ledger.get_lineage(genome_id)
 
-            if lineage:
-                return json_response(
-                    {
-                        "genome_id": genome_id,
-                        "lineage": lineage,
-                        "generations": len(lineage),
-                    }
-                )
-            else:
+            # Get basic lineage
+            basic_lineage = ledger.get_lineage(genome_id)
+
+            if not basic_lineage:
                 return error_response(f"Genome not found: {genome_id}", 404)
+
+            # Enrich with event data
+            enriched_lineage = []
+            for i, node in enumerate(basic_lineage[:max_depth]):
+                enriched_node = {
+                    "genome_id": node.get("genome_id"),
+                    "name": node.get("name"),
+                    "generation": node.get("generation", 0),
+                    "fitness_score": node.get("fitness_score"),
+                    "parent_ids": node.get("parent_genomes", []),
+                }
+
+                # Try to get creation event for this genome
+                try:
+                    birth_events = ledger.get_events_by_type(GenesisEventType.AGENT_BIRTH)
+                    for event in birth_events:
+                        if event.data.get("genome_id") == node.get("genome_id"):
+                            enriched_node["event_type"] = "agent_birth"
+                            enriched_node["created_at"] = event.timestamp
+                            break
+
+                    # Also check mutation events
+                    if "event_type" not in enriched_node:
+                        mutation_events = ledger.get_events_by_type(GenesisEventType.MUTATION)
+                        for event in mutation_events:
+                            if event.data.get("genome_id") == node.get("genome_id"):
+                                enriched_node["event_type"] = "mutation"
+                                enriched_node["created_at"] = event.timestamp
+                                break
+
+                    # Check crossover events
+                    if "event_type" not in enriched_node:
+                        crossover_events = ledger.get_events_by_type(GenesisEventType.CROSSOVER)
+                        for event in crossover_events:
+                            if event.data.get("genome_id") == node.get("genome_id"):
+                                enriched_node["event_type"] = "crossover"
+                                enriched_node["created_at"] = event.timestamp
+                                break
+                except Exception:
+                    pass  # Event lookup is optional
+
+                enriched_lineage.append(enriched_node)
+
+            return json_response(
+                {
+                    "genome_id": genome_id,
+                    "lineage": enriched_lineage,
+                    "generations": len(enriched_lineage),
+                }
+            )
 
         except Exception as e:
             return error_response(_safe_error_message(e, "genome_lineage"), 500)
@@ -448,3 +534,102 @@ class GenesisHandler(BaseHandler):
 
         except Exception as e:
             return error_response(_safe_error_message(e, "population"), 500)
+
+    def _get_genome_descendants(
+        self, nomic_dir: Optional[Path], genome_id: str, max_depth: int = 5
+    ) -> HandlerResult:
+        """Get all descendants of a genome (genomes that have this as ancestor).
+
+        This is useful for visualizing the "family tree" going forward from
+        a specific genome to see what evolved from it.
+
+        Parameters:
+            genome_id: The genome to find descendants of
+            max_depth: Maximum depth to search (default 5)
+
+        Response:
+        {
+            "genome_id": "genome_abc",
+            "descendants": [
+                {
+                    "genome_id": "...",
+                    "name": "...",
+                    "generation": 6,
+                    "fitness_score": 0.87,
+                    "parent_ids": [...],
+                    "depth": 1
+                }
+            ],
+            "total_descendants": 15,
+            "max_generation": 8
+        }
+        """
+        if not GENOME_AVAILABLE:
+            return error_response("Genesis genome module not available", 503)
+
+        try:
+            db_path = ".nomic/genesis.db"
+            if nomic_dir:
+                db_path = str(nomic_dir / "genesis.db")
+
+            store = GenomeStore(db_path)
+
+            # Verify the root genome exists
+            root = store.get(genome_id)
+            if not root:
+                return error_response(f"Genome not found: {genome_id}", 404)
+
+            # Get all genomes and find descendants by traversing parent links
+            all_genomes = store.get_all()
+
+            # Build a mapping of genome_id -> genomes that have it as a parent
+            children_map: dict[str, list] = {}
+            for g in all_genomes:
+                for parent_id in (g.parent_genomes or []):
+                    if parent_id not in children_map:
+                        children_map[parent_id] = []
+                    children_map[parent_id].append(g)
+
+            # BFS to find all descendants
+            descendants = []
+            visited = {genome_id}
+            queue = [(genome_id, 0)]
+            max_generation = root.generation
+
+            while queue:
+                current_id, depth = queue.pop(0)
+
+                if depth >= max_depth:
+                    continue
+
+                for child in children_map.get(current_id, []):
+                    if child.genome_id not in visited:
+                        visited.add(child.genome_id)
+                        descendants.append({
+                            "genome_id": child.genome_id,
+                            "name": child.name,
+                            "generation": child.generation,
+                            "fitness_score": child.fitness_score,
+                            "parent_ids": child.parent_genomes or [],
+                            "depth": depth + 1,
+                        })
+                        queue.append((child.genome_id, depth + 1))
+                        max_generation = max(max_generation, child.generation)
+
+            # Sort by depth, then by fitness
+            descendants.sort(key=lambda x: (x["depth"], -(x["fitness_score"] or 0)))
+
+            return json_response({
+                "genome_id": genome_id,
+                "root_genome": {
+                    "name": root.name,
+                    "generation": root.generation,
+                    "fitness_score": root.fitness_score,
+                },
+                "descendants": descendants,
+                "total_descendants": len(descendants),
+                "max_generation": max_generation,
+            })
+
+        except Exception as e:
+            return error_response(_safe_error_message(e, "genome_descendants"), 500)
