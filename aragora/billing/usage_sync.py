@@ -128,6 +128,29 @@ class UsageSyncService:
         self._synced_tokens_out.pop(org_id, None)
         self._synced_debates.pop(org_id, None)
 
+    def sync_org_by_id(self, org_id: str) -> list[UsageSyncRecord]:
+        """
+        Sync usage for an organization by its ID.
+
+        If the org is registered, syncs immediately. Otherwise returns empty.
+
+        Args:
+            org_id: Organization ID to sync
+
+        Returns:
+            List of sync records (empty if org not registered)
+        """
+        config = self._org_configs.get(org_id)
+        if not config:
+            logger.debug(f"Org {org_id} not registered for usage sync")
+            return []
+
+        if not config.metered_enabled:
+            logger.debug(f"Org {org_id} does not have metered billing enabled")
+            return []
+
+        return self.sync_org(config)
+
     def start(self) -> None:
         """Start the background sync thread."""
         if self._sync_thread is not None and self._sync_thread.is_alive():

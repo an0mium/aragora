@@ -55,6 +55,10 @@ class ArenaExtensions:
     auto_export_training: bool = False
     training_export_min_confidence: float = 0.75
 
+    # Stripe usage sync (metered billing)
+    usage_sync_service: Any = None  # UsageSyncService instance
+    auto_sync_usage: bool = False
+
     # Internal state
     _initialized: bool = field(default=False, repr=False)
 
@@ -77,6 +81,11 @@ class ArenaExtensions:
         """Check if training export is configured."""
         return self.training_exporter is not None or self.auto_export_training
 
+    @property
+    def has_usage_sync(self) -> bool:
+        """Check if Stripe usage sync is configured."""
+        return self.usage_sync_service is not None or self.auto_sync_usage
+
     def on_debate_complete(
         self,
         ctx: "DebateContext",
@@ -96,6 +105,9 @@ class ArenaExtensions:
         """
         # Record token usage for billing
         self._record_token_usage(ctx.debate_id, agents)
+
+        # Sync usage to Stripe for metered billing
+        self._sync_usage_to_stripe()
 
         # Export training data if configured
         self._export_training_data(ctx, result)
@@ -158,6 +170,33 @@ class ArenaExtensions:
         except Exception as e:
             # Don't fail the debate if usage tracking fails
             logger.warning("usage_tracking_failed error=%s", e)
+
+    def _sync_usage_to_stripe(self) -> None:
+        """Sync usage data to Stripe for metered billing.
+
+        Triggers the UsageSyncService to report accumulated usage
+        to Stripe subscription metering. This enables per-debate
+        billing for professional/enterprise tiers.
+        """
+        if not self.auto_sync_usage:
+            return
+
+        if not self.org_id:
+            return
+
+        try:
+            # Lazy import to avoid circular dependencies
+            if self.usage_sync_service is None:
+                from aragora.billing.usage_sync import UsageSyncService
+
+                self.usage_sync_service = UsageSyncService()
+
+            # Trigger sync for this org (by ID lookup)
+            self.usage_sync_service.sync_org_by_id(self.org_id)
+            logger.debug("usage_sync_triggered org_id=%s", self.org_id)
+        except Exception as e:
+            # Don't fail the debate if Stripe sync fails
+            logger.warning("usage_sync_failed org=%s error=%s", self.org_id, e)
 
     def _export_training_data(
         self,
@@ -228,6 +267,8 @@ class ExtensionsConfig:
     training_exporter: Any = None
     auto_export_training: bool = False
     training_export_min_confidence: float = 0.75
+    usage_sync_service: Any = None
+    auto_sync_usage: bool = False
 
     def create_extensions(self) -> ArenaExtensions:
         """Create ArenaExtensions from this configuration."""
@@ -241,6 +282,8 @@ class ExtensionsConfig:
             training_exporter=self.training_exporter,
             auto_export_training=self.auto_export_training,
             training_export_min_confidence=self.training_export_min_confidence,
+            usage_sync_service=self.usage_sync_service,
+            auto_sync_usage=self.auto_sync_usage,
         )
 
 
