@@ -96,6 +96,14 @@ export function useDebateWebSocket({
   const debateStartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isUnmountedRef = useRef(false);
 
+  // Refs for callbacks to avoid triggering useEffect re-runs
+  const handleMessageRef = useRef<((event: MessageEvent) => void) | null>(null);
+  const scheduleReconnectRef = useRef<(() => void) | null>(null);
+  const handleDebateStartTimeoutRef = useRef<(() => void) | null>(null);
+
+  // Reconnection trigger - increment to force reconnection
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
+
   // Message deduplication
   const seenMessagesRef = useRef<Set<string>>(new Set());
 
@@ -293,7 +301,8 @@ export function useDebateWebSocket({
     reconnectTimeoutRef.current = setTimeout(() => {
       if (!isUnmountedRef.current) {
         setReconnectAttempt(prev => prev + 1);
-        // Reconnection will be triggered by the useEffect dependency on reconnectAttempt
+        // Trigger reconnection via reconnectTrigger (stable dependency)
+        setReconnectTrigger(prev => prev + 1);
       }
     }, delay);
   }, [reconnectAttempt, clearReconnectTimeout]);
@@ -307,6 +316,8 @@ export function useDebateWebSocket({
     setError(null);
     setErrorDetails(null);
     setHasReceivedDebateStart(false);
+    // Trigger useEffect to create new WebSocket connection
+    setReconnectTrigger(prev => prev + 1);
   }, [clearReconnectTimeout, clearDebateStartTimeout]);
 
   // Helper to add message with deduplication
@@ -696,6 +707,19 @@ export function useDebateWebSocket({
     }
   }, [processEvent]);
 
+  // Keep refs updated with latest callbacks (avoids stale closures)
+  useEffect(() => {
+    handleMessageRef.current = handleMessage;
+  }, [handleMessage]);
+
+  useEffect(() => {
+    scheduleReconnectRef.current = scheduleReconnect;
+  }, [scheduleReconnect]);
+
+  useEffect(() => {
+    handleDebateStartTimeoutRef.current = handleDebateStartTimeout;
+  }, [handleDebateStartTimeout]);
+
   // Track unmount state
   useEffect(() => {
     isUnmountedRef.current = false;
@@ -707,13 +731,10 @@ export function useDebateWebSocket({
   }, [clearReconnectTimeout, clearDebateStartTimeout]);
 
   // WebSocket connection effect
+  // IMPORTANT: Dependencies are minimal to prevent constant reconnections
+  // Callbacks are accessed via refs to avoid triggering re-runs
   useEffect(() => {
     if (!enabled) return;
-
-    // Don't reconnect if we've reached max attempts
-    if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS && status === 'error') {
-      return;
-    }
 
     setStatus('connecting');
     let ws: WebSocket;
@@ -725,12 +746,12 @@ export function useDebateWebSocket({
       logger.error('[WebSocket] Failed to create connection:', e);
       setStatus('error');
       setError('Failed to establish WebSocket connection');
-      scheduleReconnect();
+      scheduleReconnectRef.current?.();
       return;
     }
 
     ws.onopen = () => {
-      logger.debug(`[WebSocket] Connected (attempt ${reconnectAttempt + 1})`);
+      logger.debug('[WebSocket] Connected');
       setStatus('streaming');
       setError(null);
       setErrorDetails(null);
@@ -742,11 +763,14 @@ export function useDebateWebSocket({
       // If we don't receive debate_start within timeout, check debate status via API
       clearDebateStartTimeout();
       debateStartTimeoutRef.current = setTimeout(() => {
-        handleDebateStartTimeout();
+        handleDebateStartTimeoutRef.current?.();
       }, DEBATE_START_TIMEOUT_MS);
     };
 
-    ws.onmessage = handleMessage;
+    // Use ref for message handler to get latest callback without triggering effect
+    ws.onmessage = (event) => {
+      handleMessageRef.current?.(event);
+    };
 
     ws.onerror = (e) => {
       logger.error('[WebSocket] Connection error:', e);
@@ -757,8 +781,8 @@ export function useDebateWebSocket({
     ws.onclose = (event) => {
       wsRef.current = null;
 
-      // Normal closure (code 1000) or debate ended
-      if (event.code === 1000 || status === 'complete') {
+      // Normal closure (code 1000) or debate ended - check current status via ref
+      if (event.code === 1000) {
         setStatus('complete');
         return;
       }
@@ -769,7 +793,7 @@ export function useDebateWebSocket({
       if (!isUnmountedRef.current) {
         setStatus('connecting');
         setError(`Connection lost (code: ${event.code}). Reconnecting...`);
-        scheduleReconnect();
+        scheduleReconnectRef.current?.();
       }
     };
 
@@ -778,7 +802,8 @@ export function useDebateWebSocket({
         ws.close(1000, 'Component unmounted');
       }
     };
-  }, [enabled, wsUrl, debateId, handleMessage, reconnectAttempt, scheduleReconnect, status, handleDebateStartTimeout, clearDebateStartTimeout]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, wsUrl, debateId, reconnectTrigger, clearDebateStartTimeout]);
 
   return {
     status,
