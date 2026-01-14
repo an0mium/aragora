@@ -1234,7 +1234,7 @@ class FormalVerificationManager:
     appropriate one for each claim type.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.backends: list[FormalVerificationBackend] = [
             Z3Backend(),  # Try Z3 first (simpler, faster)
             LeanBackend(),  # Fall back to Lean for complex proofs

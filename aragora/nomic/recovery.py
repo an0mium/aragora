@@ -132,7 +132,7 @@ class CircuitBreaker:
 class CircuitBreakerRegistry:
     """Registry of circuit breakers for agents and services."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._breakers: Dict[str, CircuitBreaker] = {}
 
     def get_or_create(

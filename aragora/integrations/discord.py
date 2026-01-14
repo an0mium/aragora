@@ -351,7 +351,7 @@ class DiscordIntegration:
 class DiscordWebhookManager:
     """Manager for multiple Discord webhook targets."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._integrations: dict[str, DiscordIntegration] = {}
 
     def register(self, name: str, config: DiscordConfig) -> None:

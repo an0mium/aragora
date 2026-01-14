@@ -43,7 +43,7 @@ else:
 class CORSConfig:
     """Centralized CORS configuration with environment variable support."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize CORS config from environment or defaults."""
         env_origins = os.getenv("ARAGORA_ALLOWED_ORIGINS", "").strip()
         if env_origins:

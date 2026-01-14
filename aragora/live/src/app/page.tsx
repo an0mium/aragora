@@ -290,6 +290,82 @@ const BroadcastPanel = dynamic(() => import('@/components/broadcast/BroadcastPan
   loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
 });
 
+// Hidden panels - Phase 5: Surface existing value
+const LineageBrowser = dynamic(() => import('@/components/LineageBrowser').then(m => ({ default: m.LineageBrowser })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const InfluenceGraph = dynamic(() => import('@/components/InfluenceGraph').then(m => ({ default: m.InfluenceGraph })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const EvolutionTimeline = dynamic(() => import('@/components/EvolutionTimeline').then(m => ({ default: m.EvolutionTimeline })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const GenesisExplorer = dynamic(() => import('@/components/GenesisExplorer').then(m => ({ default: m.GenesisExplorer })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const AgentDetailPanel = dynamic(() => import('@/components/AgentDetailPanel').then(m => ({ default: m.AgentDetailPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const PublicGallery = dynamic(() => import('@/components/PublicGallery').then(m => ({ default: m.PublicGallery })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const GauntletRunner = dynamic(() => import('@/components/GauntletRunner').then(m => ({ default: m.GauntletRunner })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const TokenStreamViewer = dynamic(() => import('@/components/TokenStreamViewer').then(m => ({ default: m.TokenStreamViewer })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const ABTestResultsPanel = dynamic(() => import('@/components/ABTestResultsPanel').then(m => ({ default: m.ABTestResultsPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const ProofTreeVisualization = dynamic(() => import('@/components/ProofTreeVisualization').then(m => ({ default: m.ProofTreeVisualization })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const TrainingExportPanel = dynamic(() => import('@/components/TrainingExportPanel').then(m => ({ default: m.TrainingExportPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const AgentRelationships = dynamic(() => import('@/components/AgentRelationships').then(m => ({ default: m.AgentRelationships })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const TournamentBracket = dynamic(() => import('@/components/TournamentBracket').then(m => ({ default: m.TournamentBracket })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const GraphDebateBrowser = dynamic(() => import('@/components/GraphDebateBrowser').then(m => ({ default: m.GraphDebateBrowser })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const ScenarioMatrixView = dynamic(() => import('@/components/ScenarioMatrixView').then(m => ({ default: m.ScenarioMatrixView })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
 type ViewMode = 'tabs' | 'stream' | 'deep-audit';
 type SiteMode = 'landing' | 'dashboard' | 'loading';
 
@@ -1022,7 +1098,62 @@ export default function Home() {
               )}
             </CollapsibleSection>
 
-            {/* Section 6: Advanced/Debug */}
+            {/* Section 6: Analysis & Exploration - Phase 5: Surface hidden features */}
+            <CollapsibleSection
+              id="analysis-exploration"
+              title="ANALYSIS & EXPLORATION"
+              defaultOpen={false}
+              forceOpen={isFocusMode ? false : undefined}
+              priority="secondary"
+              description="Deep-dive analysis, lineage tracking, and advanced visualizations"
+            >
+              <PanelErrorBoundary panelName="Agent Relationships">
+                <AgentRelationships apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Lineage Browser">
+                <LineageBrowser apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Influence Graph">
+                <InfluenceGraph />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Evolution Timeline">
+                <EvolutionTimeline apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Genesis Explorer">
+                <GenesisExplorer />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Public Gallery">
+                <PublicGallery />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Graph Debates">
+                <GraphDebateBrowser events={events} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Matrix Scenarios">
+                <ScenarioMatrixView events={events} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Tournament Bracket">
+                <TournamentBracket />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Proof Tree">
+                <ProofTreeVisualization apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <FeatureGuard featureId="laboratory">
+                <PanelErrorBoundary panelName="A/B Test Results">
+                  <ABTestResultsPanel apiBase={apiBase} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
+              <PanelErrorBoundary panelName="Gauntlet Runner">
+                <GauntletRunner />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Training Export">
+                <TrainingExportPanel />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Token Stream">
+                <TokenStreamViewer events={events} />
+              </PanelErrorBoundary>
+            </CollapsibleSection>
+
+            {/* Section 7: Advanced/Debug */}
             <CollapsibleSection
               id="advanced-debug"
               title="ADVANCED / DEBUG"

@@ -286,7 +286,7 @@ class CitationGraph:
     enables dependency analysis.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.citations: dict[str, Citation] = {}  # citation_id -> Citation
         self.claim_citations: dict[str, list[str]] = {}  # claim_id -> [citation_ids]
         self.evidence_citations: dict[str, list[str]] = {}  # evidence_id -> [citation_ids]

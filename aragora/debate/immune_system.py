@@ -121,7 +121,7 @@ class TransparentImmuneSystem:
         (90, "Critical delay - considering alternatives"),
     ]
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the immune system."""
         self.agent_states: dict[str, AgentHealthState] = {}
         self.system_status = HealthStatus.HEALTHY

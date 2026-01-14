@@ -302,7 +302,7 @@ class CitationExtractor:
         r"industry standard",
     ]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.patterns = [re.compile(p, re.IGNORECASE) for p in self.CLAIM_PATTERNS]
 
     def extract_claims(self, text: str) -> list[str]:
@@ -366,7 +366,7 @@ class CitationStore:
     Maintains a knowledge base of verified citations.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.citations: dict[str, ScholarlyEvidence] = {}
         self.claim_to_citations: dict[str, list[str]] = {}  # claim_id -> [citation_ids]
 

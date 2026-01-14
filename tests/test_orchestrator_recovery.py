@@ -10,6 +10,9 @@ Covers:
 
 import asyncio
 import pytest
+
+# Mark all tests in this module as slow (involve timeouts and recovery scenarios)
+pytestmark = pytest.mark.slow
 import time
 from collections import deque
 from unittest.mock import AsyncMock, MagicMock, patch

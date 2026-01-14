@@ -17,6 +17,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+# Mark chaos tests as slow (involve failure recovery scenarios)
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
+
 from aragora.resilience import (
     CircuitBreaker,
     CircuitOpenError,

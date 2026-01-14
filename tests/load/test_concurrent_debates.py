@@ -27,10 +27,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 # Skip if not explicitly enabled (load tests are expensive)
-pytestmark = pytest.mark.skipif(
-    os.environ.get("ARAGORA_LOAD_TEST_ENABLED", "0") != "1",
-    reason="Load tests disabled. Set ARAGORA_LOAD_TEST_ENABLED=1 to run.",
-)
+# Mark as load/slow tests for CI filtering
+pytestmark = [
+    pytest.mark.skipif(
+        os.environ.get("ARAGORA_LOAD_TEST_ENABLED", "0") != "1",
+        reason="Load tests disabled. Set ARAGORA_LOAD_TEST_ENABLED=1 to run.",
+    ),
+    pytest.mark.load,
+    pytest.mark.slow,
+]
 
 
 @dataclass

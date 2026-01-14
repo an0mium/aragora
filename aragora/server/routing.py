@@ -299,7 +299,7 @@ class RouteRegistry:
     Exact paths are indexed for O(1) lookup; patterns use linear search.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Exact path index: method -> path -> Route
         self._exact: Dict[str, Dict[str, Route]] = {}
         # Pattern routes: method -> List[Route] (sorted by priority)

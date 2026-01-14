@@ -14,6 +14,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+# Mark tests as slow (involve timeout escalation scenarios)
+pytestmark = pytest.mark.slow
+
 from aragora.core import Agent, Critique, Message, Vote
 from aragora.debate.autonomic_executor import (
     AutonomicExecutor,

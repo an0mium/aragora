@@ -145,7 +145,7 @@ class TelemetryVerifier:
         "diagnostic": ["name"],
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize TelemetryVerifier."""
         self._capability_cache: dict[str, set[str]] = {}
         self._verification_results: list[dict] = []

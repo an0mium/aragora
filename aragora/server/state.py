@@ -74,7 +74,7 @@ class StateManager:
         debates = state.get_active_debates()
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize state manager."""
         # Active debates
         self._active_debates: Dict[str, DebateState] = {}

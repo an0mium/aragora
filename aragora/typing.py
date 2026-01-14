@@ -176,8 +176,8 @@ class CritiqueStoreProtocol(Protocol):
 class EventEmitterProtocol(Protocol):
     """Protocol for event emission systems."""
 
-    def emit(self, event_type: str, data: Dict[str, Any]) -> None:
-        """Emit an event with data."""
+    def emit(self, event: Any, data: Optional[Dict[str, Any]] = None) -> None:
+        """Emit an event. Can be called with event object or (event_type, data)."""
         ...
 
     def on(self, event_type: str, callback: Callable[..., Any]) -> None:
@@ -343,6 +343,8 @@ class CalibrationTrackerProtocol(Protocol):
         confidence: float,
         correct: bool,
         domain: str = "",
+        debate_id: Optional[str] = None,
+        prediction_type: Optional[str] = None,
     ) -> None:
         """Record a prediction with its outcome."""
         ...
@@ -763,6 +765,11 @@ class PulseManagerProtocol(Protocol):
         topic: str,
         outcome: Dict[str, Any],
         debate_id: str,
+        platform: Optional[str] = None,
+        consensus_reached: Optional[bool] = None,
+        confidence: Optional[float] = None,
+        rounds_used: Optional[int] = None,
+        category: Optional[str] = None,
     ) -> None:
         """Record outcome of a debate on a trending topic."""
         ...
@@ -889,6 +896,14 @@ class BroadcastPipelineProtocol(Protocol):
 
     def get_supported_platforms(self) -> List[str]:
         """Get list of supported broadcast platforms."""
+        ...
+
+    async def run(
+        self,
+        debate_id: str,
+        options: Any = None,
+    ) -> Any:
+        """Run the broadcast pipeline for a debate."""
         ...
 
 

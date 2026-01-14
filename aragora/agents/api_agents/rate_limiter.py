@@ -570,7 +570,7 @@ class ProviderRateLimiterRegistry:
     Thread-safe access to rate limiters with lazy initialization.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._limiters: Dict[str, ProviderRateLimiter] = {}
         self._lock = threading.Lock()
 

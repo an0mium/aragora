@@ -11,6 +11,8 @@ This directory contains Architecture Decision Records (ADRs) documenting signifi
 | [003](003-multi-tier-memory-system.md) | Multi-Tier Memory System | Accepted | Jan 2026 |
 | [004](004-incremental-type-safety.md) | Incremental Type Safety Migration | Accepted | Jan 2026 |
 | [005](005-composition-over-inheritance.md) | Composition Over Inheritance for APIs | Accepted | Jan 2026 |
+| [006](006-api-versioning-strategy.md) | API Versioning Strategy | Accepted | Jan 2026 |
+| [007](007-selection-plugin-architecture.md) | Selection Plugin Architecture | Accepted | Jan 2026 |
 
 ## ADR Format
 

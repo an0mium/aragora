@@ -1,0 +1,722 @@
+"""
+Redis Cluster Support for Enterprise Deployments.
+
+Provides cluster-aware Redis connectivity for high-availability deployments.
+Supports both standalone Redis and Redis Cluster modes with automatic detection.
+
+Features:
+- Automatic cluster vs standalone detection
+- Connection pooling with health monitoring
+- Graceful failover and reconnection
+- Key hashing for cluster slot routing
+- Read replica support for scaling reads
+
+Usage:
+    from aragora.server.redis_cluster import get_cluster_client, ClusterConfig
+
+    # Auto-detects cluster mode
+    client = get_cluster_client()
+    if client:
+        client.set("key", "value")
+        value = client.get("key")
+
+Environment Variables:
+    ARAGORA_REDIS_CLUSTER_NODES: Comma-separated list of cluster nodes
+        e.g., "redis1:6379,redis2:6379,redis3:6379"
+    ARAGORA_REDIS_CLUSTER_MODE: Force cluster mode ("auto", "cluster", "standalone")
+    ARAGORA_REDIS_CLUSTER_MAX_CONNECTIONS: Max connections per node (default: 32)
+    ARAGORA_REDIS_CLUSTER_SKIP_FULL_COVERAGE: Skip slot coverage check (default: false)
+    ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS: Enable read from replicas (default: true)
+    ARAGORA_REDIS_CLUSTER_PASSWORD: Cluster authentication password
+
+Requirements:
+    pip install redis>=4.5.0  # Includes cluster support
+"""
+
+from __future__ import annotations
+
+import hashlib
+import logging
+import os
+import threading
+import time
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+logger = logging.getLogger(__name__)
+
+
+class ClusterMode(Enum):
+    """Redis deployment mode."""
+
+    AUTO = "auto"
+    CLUSTER = "cluster"
+    STANDALONE = "standalone"
+
+
+@dataclass
+class ClusterConfig:
+    """Configuration for Redis cluster connection."""
+
+    # Node configuration
+    nodes: List[Tuple[str, int]] = field(default_factory=list)
+    mode: ClusterMode = ClusterMode.AUTO
+
+    # Connection settings
+    max_connections_per_node: int = 32
+    socket_timeout: float = 5.0
+    socket_connect_timeout: float = 5.0
+    retry_on_timeout: bool = True
+    retry_on_error: List[type] = field(default_factory=list)
+    max_retries: int = 3
+
+    # Cluster-specific
+    skip_full_coverage_check: bool = False
+    read_from_replicas: bool = True
+    require_full_coverage: bool = True
+
+    # Authentication
+    password: Optional[str] = None
+    username: Optional[str] = None
+
+    # Health checking
+    health_check_interval: float = 30.0
+    connection_timeout: float = 10.0
+
+    # Encoding
+    decode_responses: bool = True
+
+
+def get_cluster_config() -> ClusterConfig:
+    """Get cluster configuration from environment variables."""
+    # Parse node list
+    nodes_str = os.getenv("ARAGORA_REDIS_CLUSTER_NODES", "")
+    nodes: List[Tuple[str, int]] = []
+    if nodes_str:
+        for node in nodes_str.split(","):
+            node = node.strip()
+            if ":" in node:
+                host, port_str = node.rsplit(":", 1)
+                try:
+                    nodes.append((host, int(port_str)))
+                except ValueError:
+                    logger.warning(f"Invalid cluster node: {node}")
+            elif node:
+                nodes.append((node, 6379))
+
+    # Fallback to single-node URL if no cluster nodes
+    if not nodes:
+        redis_url = os.getenv("ARAGORA_REDIS_URL", "")
+        if redis_url:
+            # Parse redis://host:port format
+            if redis_url.startswith("redis://"):
+                redis_url = redis_url[8:]
+            if "@" in redis_url:
+                redis_url = redis_url.split("@")[-1]
+            if "/" in redis_url:
+                redis_url = redis_url.split("/")[0]
+            if ":" in redis_url:
+                host, port_str = redis_url.rsplit(":", 1)
+                try:
+                    nodes.append((host, int(port_str)))
+                except ValueError:
+                    nodes.append((host, 6379))
+            elif redis_url:
+                nodes.append((redis_url, 6379))
+
+    # Parse mode
+    mode_str = os.getenv("ARAGORA_REDIS_CLUSTER_MODE", "auto").lower()
+    try:
+        mode = ClusterMode(mode_str)
+    except ValueError:
+        mode = ClusterMode.AUTO
+
+    return ClusterConfig(
+        nodes=nodes,
+        mode=mode,
+        max_connections_per_node=int(os.getenv("ARAGORA_REDIS_CLUSTER_MAX_CONNECTIONS", "32")),
+        socket_timeout=float(os.getenv("ARAGORA_REDIS_SOCKET_TIMEOUT", "5.0")),
+        socket_connect_timeout=float(os.getenv("ARAGORA_REDIS_SOCKET_CONNECT_TIMEOUT", "5.0")),
+        skip_full_coverage_check=os.getenv("ARAGORA_REDIS_CLUSTER_SKIP_FULL_COVERAGE", "").lower()
+        == "true",
+        read_from_replicas=os.getenv("ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS", "true").lower()
+        == "true",
+        password=os.getenv("ARAGORA_REDIS_CLUSTER_PASSWORD") or os.getenv("ARAGORA_REDIS_PASSWORD"),
+        username=os.getenv("ARAGORA_REDIS_USERNAME"),
+        health_check_interval=float(os.getenv("ARAGORA_REDIS_HEALTH_CHECK_INTERVAL", "30.0")),
+    )
+
+
+class ClusterHealthMonitor:
+    """Monitors cluster health and triggers reconnection on failures."""
+
+    def __init__(self, check_interval: float = 30.0):
+        self.check_interval = check_interval
+        self._last_check: float = 0
+        self._healthy: bool = True
+        self._consecutive_failures: int = 0
+        self._lock = threading.Lock()
+
+    def mark_success(self) -> None:
+        """Mark a successful operation."""
+        with self._lock:
+            self._consecutive_failures = 0
+            self._healthy = True
+
+    def mark_failure(self) -> None:
+        """Mark a failed operation."""
+        with self._lock:
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= 3:
+                self._healthy = False
+
+    @property
+    def is_healthy(self) -> bool:
+        """Check if cluster is healthy."""
+        with self._lock:
+            return self._healthy
+
+    def should_check(self) -> bool:
+        """Check if health check is due."""
+        now = time.time()
+        if now - self._last_check > self.check_interval:
+            self._last_check = now
+            return True
+        return False
+
+
+class RedisClusterClient:
+    """
+    Unified Redis client supporting both cluster and standalone modes.
+
+    Automatically detects cluster mode and provides a consistent interface.
+    """
+
+    def __init__(self, config: Optional[ClusterConfig] = None):
+        """
+        Initialize Redis cluster client.
+
+        Args:
+            config: Cluster configuration (uses environment if not provided)
+        """
+        self.config = config or get_cluster_config()
+        self._client: Optional[Any] = None
+        self._is_cluster: bool = False
+        self._available: bool = False
+        self._lock = threading.Lock()
+        self._health_monitor = ClusterHealthMonitor(self.config.health_check_interval)
+
+    def _detect_cluster_mode(self) -> bool:
+        """Detect if target is a Redis Cluster or standalone instance."""
+        if self.config.mode == ClusterMode.CLUSTER:
+            return True
+        if self.config.mode == ClusterMode.STANDALONE:
+            return False
+
+        # Auto-detect by trying CLUSTER INFO command
+        if not self.config.nodes:
+            return False
+
+        try:
+            import redis
+
+            host, port = self.config.nodes[0]
+            test_client = redis.Redis(
+                host=host,
+                port=port,
+                password=self.config.password,
+                socket_timeout=2.0,
+                socket_connect_timeout=2.0,
+            )
+            # Try cluster info - will raise ResponseError if not a cluster
+            test_client.execute_command("CLUSTER", "INFO")
+            test_client.close()
+            logger.info(f"Detected Redis Cluster at {host}:{port}")
+            return True
+        except Exception:
+            logger.info("Detected standalone Redis (not a cluster)")
+            return False
+
+    def _create_client(self) -> Optional[Any]:
+        """Create appropriate Redis client based on mode."""
+        if not self.config.nodes:
+            logger.warning("No Redis nodes configured")
+            return None
+
+        try:
+            import redis
+            from redis.cluster import RedisCluster, ClusterNode
+
+            self._is_cluster = self._detect_cluster_mode()
+
+            if self._is_cluster:
+                # Create cluster client
+                startup_nodes = [
+                    ClusterNode(host, port) for host, port in self.config.nodes
+                ]
+
+                client = RedisCluster(
+                    startup_nodes=startup_nodes,
+                    password=self.config.password,
+                    socket_timeout=self.config.socket_timeout,
+                    socket_connect_timeout=self.config.socket_connect_timeout,
+                    retry_on_timeout=self.config.retry_on_timeout,
+                    skip_full_coverage_check=self.config.skip_full_coverage_check,
+                    read_from_replicas=self.config.read_from_replicas,
+                    decode_responses=self.config.decode_responses,
+                )
+
+                # Test cluster connectivity
+                client.ping()
+                logger.info(
+                    f"Redis Cluster connected: {len(self.config.nodes)} startup nodes"
+                )
+            else:
+                # Create standalone client with connection pool
+                host, port = self.config.nodes[0]
+                pool = redis.ConnectionPool(
+                    host=host,
+                    port=port,
+                    password=self.config.password,
+                    max_connections=self.config.max_connections_per_node,
+                    socket_timeout=self.config.socket_timeout,
+                    socket_connect_timeout=self.config.socket_connect_timeout,
+                    retry_on_timeout=self.config.retry_on_timeout,
+                    decode_responses=self.config.decode_responses,
+                )
+                client = redis.Redis(connection_pool=pool)
+                client.ping()
+                logger.info(f"Redis standalone connected: {host}:{port}")
+
+            self._available = True
+            return client
+
+        except ImportError:
+            logger.error("redis package not installed. Install with: pip install 'redis>=4.5.0'")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis: {e}")
+            return None
+
+    def get_client(self) -> Optional[Any]:
+        """Get or create Redis client (thread-safe lazy initialization)."""
+        if self._client is not None:
+            return self._client
+
+        with self._lock:
+            if self._client is None:
+                self._client = self._create_client()
+            return self._client
+
+    @property
+    def is_cluster(self) -> bool:
+        """Check if connected to a cluster."""
+        self.get_client()  # Ensure detection has run
+        return self._is_cluster
+
+    @property
+    def is_available(self) -> bool:
+        """Check if Redis is available."""
+        return self._available and self._health_monitor.is_healthy
+
+    def _execute_with_retry(
+        self, operation: Callable[[], Any], max_retries: Optional[int] = None
+    ) -> Any:
+        """Execute operation with retry logic."""
+        retries = max_retries or self.config.max_retries
+        last_error: Optional[Exception] = None
+
+        for attempt in range(retries + 1):
+            try:
+                client = self.get_client()
+                if client is None:
+                    raise RuntimeError("Redis client not available")
+
+                result = operation()
+                self._health_monitor.mark_success()
+                return result
+
+            except Exception as e:
+                last_error = e
+                self._health_monitor.mark_failure()
+
+                if attempt < retries:
+                    wait_time = min(2**attempt * 0.1, 2.0)
+                    logger.warning(
+                        f"Redis operation failed (attempt {attempt + 1}/{retries + 1}): {e}. "
+                        f"Retrying in {wait_time:.1f}s"
+                    )
+                    time.sleep(wait_time)
+
+                    # Try to reconnect on cluster errors
+                    if "MOVED" in str(e) or "CLUSTERDOWN" in str(e):
+                        self._reconnect()
+
+        logger.error(f"Redis operation failed after {retries + 1} attempts: {last_error}")
+        raise last_error  # type: ignore
+
+    def _reconnect(self) -> None:
+        """Force reconnection to cluster."""
+        with self._lock:
+            if self._client is not None:
+                try:
+                    self._client.close()
+                except Exception:
+                    pass
+                self._client = None
+            self._client = self._create_client()
+
+    # ==========================================================================
+    # Standard Redis Operations (with retry)
+    # ==========================================================================
+
+    def get(self, key: str) -> Optional[str]:
+        """Get value for key."""
+
+        def _get() -> Optional[str]:
+            client = self.get_client()
+            return client.get(key)  # type: ignore
+
+        return self._execute_with_retry(_get)
+
+    def set(
+        self,
+        key: str,
+        value: str,
+        ex: Optional[int] = None,
+        px: Optional[int] = None,
+        nx: bool = False,
+        xx: bool = False,
+    ) -> bool:
+        """Set key to value with optional expiration."""
+
+        def _set() -> bool:
+            client = self.get_client()
+            return client.set(key, value, ex=ex, px=px, nx=nx, xx=xx)  # type: ignore
+
+        return self._execute_with_retry(_set)
+
+    def delete(self, *keys: str) -> int:
+        """Delete one or more keys."""
+
+        def _delete() -> int:
+            client = self.get_client()
+            return client.delete(*keys)  # type: ignore
+
+        return self._execute_with_retry(_delete)
+
+    def exists(self, *keys: str) -> int:
+        """Check if keys exist."""
+
+        def _exists() -> int:
+            client = self.get_client()
+            return client.exists(*keys)  # type: ignore
+
+        return self._execute_with_retry(_exists)
+
+    def expire(self, key: str, seconds: int) -> bool:
+        """Set TTL on key."""
+
+        def _expire() -> bool:
+            client = self.get_client()
+            return client.expire(key, seconds)  # type: ignore
+
+        return self._execute_with_retry(_expire)
+
+    def ttl(self, key: str) -> int:
+        """Get TTL of key."""
+
+        def _ttl() -> int:
+            client = self.get_client()
+            return client.ttl(key)  # type: ignore
+
+        return self._execute_with_retry(_ttl)
+
+    def incr(self, key: str) -> int:
+        """Increment key."""
+
+        def _incr() -> int:
+            client = self.get_client()
+            return client.incr(key)  # type: ignore
+
+        return self._execute_with_retry(_incr)
+
+    def decr(self, key: str) -> int:
+        """Decrement key."""
+
+        def _decr() -> int:
+            client = self.get_client()
+            return client.decr(key)  # type: ignore
+
+        return self._execute_with_retry(_decr)
+
+    # ==========================================================================
+    # Hash Operations
+    # ==========================================================================
+
+    def hget(self, name: str, key: str) -> Optional[str]:
+        """Get field from hash."""
+
+        def _hget() -> Optional[str]:
+            client = self.get_client()
+            return client.hget(name, key)  # type: ignore
+
+        return self._execute_with_retry(_hget)
+
+    def hset(self, name: str, key: str, value: str) -> int:
+        """Set field in hash."""
+
+        def _hset() -> int:
+            client = self.get_client()
+            return client.hset(name, key, value)  # type: ignore
+
+        return self._execute_with_retry(_hset)
+
+    def hgetall(self, name: str) -> Dict[str, str]:
+        """Get all fields from hash."""
+
+        def _hgetall() -> Dict[str, str]:
+            client = self.get_client()
+            return client.hgetall(name)  # type: ignore
+
+        return self._execute_with_retry(_hgetall)
+
+    def hdel(self, name: str, *keys: str) -> int:
+        """Delete fields from hash."""
+
+        def _hdel() -> int:
+            client = self.get_client()
+            return client.hdel(name, *keys)  # type: ignore
+
+        return self._execute_with_retry(_hdel)
+
+    # ==========================================================================
+    # Sorted Set Operations (for rate limiting)
+    # ==========================================================================
+
+    def zadd(self, name: str, mapping: Dict[str, float]) -> int:
+        """Add members to sorted set."""
+
+        def _zadd() -> int:
+            client = self.get_client()
+            return client.zadd(name, mapping)  # type: ignore
+
+        return self._execute_with_retry(_zadd)
+
+    def zrem(self, name: str, *members: str) -> int:
+        """Remove members from sorted set."""
+
+        def _zrem() -> int:
+            client = self.get_client()
+            return client.zrem(name, *members)  # type: ignore
+
+        return self._execute_with_retry(_zrem)
+
+    def zcard(self, name: str) -> int:
+        """Get sorted set cardinality."""
+
+        def _zcard() -> int:
+            client = self.get_client()
+            return client.zcard(name)  # type: ignore
+
+        return self._execute_with_retry(_zcard)
+
+    def zrangebyscore(
+        self,
+        name: str,
+        min: Union[float, str],
+        max: Union[float, str],
+        withscores: bool = False,
+    ) -> List[Any]:
+        """Get members by score range."""
+
+        def _zrangebyscore() -> List[Any]:
+            client = self.get_client()
+            return client.zrangebyscore(name, min, max, withscores=withscores)  # type: ignore
+
+        return self._execute_with_retry(_zrangebyscore)
+
+    def zremrangebyscore(
+        self, name: str, min: Union[float, str], max: Union[float, str]
+    ) -> int:
+        """Remove members by score range."""
+
+        def _zremrangebyscore() -> int:
+            client = self.get_client()
+            return client.zremrangebyscore(name, min, max)  # type: ignore
+
+        return self._execute_with_retry(_zremrangebyscore)
+
+    # ==========================================================================
+    # Pipeline Support
+    # ==========================================================================
+
+    def pipeline(self, transaction: bool = True) -> Any:
+        """Get pipeline for batch operations.
+
+        Note: In cluster mode, all keys in pipeline must hash to same slot.
+        Use hash tags like {user:123}:field to ensure slot affinity.
+        """
+        client = self.get_client()
+        if client is None:
+            raise RuntimeError("Redis client not available")
+        return client.pipeline(transaction=transaction)
+
+    # ==========================================================================
+    # Cluster-specific Operations
+    # ==========================================================================
+
+    def get_cluster_info(self) -> Dict[str, Any]:
+        """Get cluster information (cluster mode only)."""
+        if not self._is_cluster:
+            return {"mode": "standalone", "cluster": False}
+
+        try:
+            client = self.get_client()
+            if client is None:
+                return {"mode": "cluster", "cluster": True, "error": "not connected"}
+
+            # Parse cluster info
+            info = client.execute_command("CLUSTER", "INFO")
+            nodes = client.execute_command("CLUSTER", "NODES")
+
+            return {
+                "mode": "cluster",
+                "cluster": True,
+                "info": info,
+                "node_count": len(nodes.strip().split("\n")) if isinstance(nodes, str) else 0,
+            }
+        except Exception as e:
+            return {"mode": "cluster", "cluster": True, "error": str(e)}
+
+    def get_slot_for_key(self, key: str) -> int:
+        """Calculate cluster slot for key.
+
+        Uses CRC16 algorithm per Redis Cluster specification.
+        Handles hash tags for slot affinity.
+        """
+        # Check for hash tag
+        start = key.find("{")
+        if start >= 0:
+            end = key.find("}", start + 1)
+            if end > start + 1:
+                key = key[start + 1 : end]
+
+        # CRC16 CCITT
+        def crc16(data: bytes) -> int:
+            crc = 0
+            for byte in data:
+                crc ^= byte << 8
+                for _ in range(8):
+                    if crc & 0x8000:
+                        crc = (crc << 1) ^ 0x1021
+                    else:
+                        crc = crc << 1
+                    crc &= 0xFFFF
+            return crc
+
+        return crc16(key.encode()) % 16384
+
+    # ==========================================================================
+    # Health & Stats
+    # ==========================================================================
+
+    def ping(self) -> bool:
+        """Ping Redis server."""
+        try:
+            client = self.get_client()
+            if client is None:
+                return False
+            return client.ping()
+        except Exception:
+            return False
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get connection statistics."""
+        client = self.get_client()
+        stats: Dict[str, Any] = {
+            "available": self._available,
+            "is_cluster": self._is_cluster,
+            "healthy": self._health_monitor.is_healthy,
+            "nodes": len(self.config.nodes),
+        }
+
+        if client is not None:
+            try:
+                info = client.info()
+                stats["redis_version"] = info.get("redis_version", "unknown")
+                stats["connected_clients"] = info.get("connected_clients", 0)
+                stats["used_memory_human"] = info.get("used_memory_human", "unknown")
+            except Exception as e:
+                stats["info_error"] = str(e)
+
+        return stats
+
+    def close(self) -> None:
+        """Close Redis connection."""
+        with self._lock:
+            if self._client is not None:
+                try:
+                    self._client.close()
+                    logger.info("Redis cluster client closed")
+                except Exception as e:
+                    logger.error(f"Error closing Redis client: {e}")
+                finally:
+                    self._client = None
+                    self._available = False
+
+
+# =============================================================================
+# Module-level singleton
+# =============================================================================
+
+_cluster_client: Optional[RedisClusterClient] = None
+_lock = threading.Lock()
+
+
+def get_cluster_client() -> Optional[RedisClusterClient]:
+    """Get shared cluster client instance (thread-safe singleton)."""
+    global _cluster_client
+
+    if _cluster_client is not None:
+        return _cluster_client
+
+    with _lock:
+        if _cluster_client is None:
+            config = get_cluster_config()
+            if config.nodes:
+                _cluster_client = RedisClusterClient(config)
+                if not _cluster_client.ping():
+                    logger.warning("Redis cluster client created but not responding")
+            else:
+                logger.debug("No Redis nodes configured, cluster client disabled")
+        return _cluster_client
+
+
+def reset_cluster_client() -> None:
+    """Reset cluster client (for testing)."""
+    global _cluster_client
+
+    with _lock:
+        if _cluster_client is not None:
+            _cluster_client.close()
+            _cluster_client = None
+
+
+def is_cluster_available() -> bool:
+    """Check if cluster client is available."""
+    client = get_cluster_client()
+    return client is not None and client.is_available
+
+
+__all__ = [
+    "ClusterConfig",
+    "ClusterMode",
+    "ClusterHealthMonitor",
+    "RedisClusterClient",
+    "get_cluster_config",
+    "get_cluster_client",
+    "reset_cluster_client",
+    "is_cluster_available",
+]

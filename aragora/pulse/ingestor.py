@@ -632,7 +632,7 @@ class GitHubTrendingIngestor(PulseIngestor):
 class PulseManager:
     """Manages multiple ingestors and coordinates trending topic collection."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.ingestors: Dict[str, PulseIngestor] = {}
         # Store debate outcomes for analytics
         self._outcomes: List[TrendingTopicOutcome] = []

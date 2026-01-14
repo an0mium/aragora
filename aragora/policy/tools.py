@@ -151,7 +151,7 @@ class ToolRegistry:
         cap = tool.get_capability("write_file")
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._tools: dict[str, Tool] = {}
         self._capability_index: dict[str, list[str]] = {}  # capability -> tool names
 
