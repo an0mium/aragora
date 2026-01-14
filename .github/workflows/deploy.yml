@@ -239,6 +239,9 @@ jobs:
               source /tmp/aragora_deploy_state
               echo "Rolling back to: $PREVIOUS_COMMIT"
 
+              # Stash any local changes (including permission changes from chmod)
+              git stash --include-untracked || true
+
               # Checkout previous commit
               git checkout $PREVIOUS_COMMIT
 
@@ -452,6 +455,9 @@ jobs:
             if [ -f /tmp/aragora_deploy_state ]; then
               source /tmp/aragora_deploy_state
               echo "Rolling back to: $PREVIOUS_COMMIT"
+
+              # Stash any local changes (including permission changes from chmod)
+              git stash --include-untracked || true
 
               # Checkout previous commit
               git checkout $PREVIOUS_COMMIT
