@@ -461,6 +461,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
           { label: 'Ethics', icon: '!', question: 'Should autonomous AI agents have the right to refuse unethical requests?' },
           { label: 'Business', icon: '$', question: 'When should a startup prioritize growth over profitability?' },
           { label: 'Creative', icon: '*', question: 'What makes a story truly compelling to readers across cultures?' },
+          { label: 'Life', icon: '♡', question: 'What does it mean to live a meaningful life in the age of AI?' },
         ].map((cat) => (
           <button
             key={cat.label}
