@@ -67,12 +67,28 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
   }, []);
 
   // Smart auto-scroll: only scroll if user hasn't manually scrolled up
-  // Also scroll when debate completes to show final synthesis
   useEffect(() => {
-    if (!userScrolled && scrollContainerRef.current && (liveStatus === 'streaming' || liveStatus === 'complete')) {
+    if (!userScrolled && scrollContainerRef.current && liveStatus === 'streaming') {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
   }, [liveMessages, streamingMessages, userScrolled, liveStatus]);
+
+  // Scroll to synthesis message when debate completes
+  useEffect(() => {
+    if (liveStatus === 'complete') {
+      // Small delay to ensure synthesis message is rendered
+      const timer = setTimeout(() => {
+        const synthesisEl = document.getElementById('synthesis-message');
+        if (synthesisEl) {
+          synthesisEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (scrollContainerRef.current) {
+          // Fallback: scroll to bottom
+          scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+        }
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [liveStatus]);
 
   useEffect(() => {
     if (isLiveDebate) {

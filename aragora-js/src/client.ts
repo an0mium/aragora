@@ -308,6 +308,16 @@ import {
   ScoreAgentsResponse,
   SelectTeamRequest,
   SelectTeamResponse,
+  // Capability probe types
+  ProbeType,
+  ProbeRunRequest,
+  ProbeReport,
+  // Formal verification extended types
+  TranslateRequest,
+  TranslateResponse,
+  VerificationHistoryEntry,
+  VerificationHistoryResponse,
+  ProofTreeResponse,
 } from './types';
 
 // =============================================================================
@@ -1136,6 +1146,45 @@ class VerificationAPI {
       { claims }
     );
     return response.results;
+  }
+
+  /**
+   * Translate a claim to formal language without verification.
+   */
+  async translate(request: TranslateRequest): Promise<TranslateResponse> {
+    return this.http.post<TranslateResponse>('/api/verify/translate', request);
+  }
+
+  /**
+   * Get verification history.
+   */
+  async history(options?: {
+    limit?: number;
+    offset?: number;
+    status?: string;
+  }): Promise<VerificationHistoryResponse> {
+    const params = new URLSearchParams();
+    if (options?.limit !== undefined) params.set('limit', String(options.limit));
+    if (options?.offset !== undefined) params.set('offset', String(options.offset));
+    if (options?.status) params.set('status', options.status);
+
+    const query = params.toString();
+    const url = query ? `/api/verify/history?${query}` : '/api/verify/history';
+    return this.http.get<VerificationHistoryResponse>(url);
+  }
+
+  /**
+   * Get a specific verification history entry.
+   */
+  async getHistoryEntry(entryId: string): Promise<VerificationHistoryEntry & { result: Record<string, unknown>; proof_tree?: unknown[] }> {
+    return this.http.get(`/api/verify/history/${encodeURIComponent(entryId)}`);
+  }
+
+  /**
+   * Get proof tree for a verification entry.
+   */
+  async getProofTree(entryId: string): Promise<ProofTreeResponse> {
+    return this.http.get<ProofTreeResponse>(`/api/verify/history/${encodeURIComponent(entryId)}/tree`);
   }
 }
 
@@ -3180,6 +3229,61 @@ class SelectionAPI {
 }
 
 // =============================================================================
+// Capability Probes API
+// =============================================================================
+
+/**
+ * API for running capability probes against agents.
+ *
+ * Capability probes test agents for common vulnerabilities like:
+ * - Contradiction (inconsistent reasoning)
+ * - Hallucination (fabricated information)
+ * - Sycophancy (agreeing without evidence)
+ * - Persistence (abandoning positions too easily)
+ * - Confidence calibration (overconfidence/underconfidence)
+ * - Reasoning depth (shallow analysis)
+ * - Edge cases (unusual inputs)
+ *
+ * @example
+ * ```typescript
+ * const report = await client.probes.run({
+ *   agent_name: 'claude',
+ *   probe_types: ['contradiction', 'hallucination'],
+ *   probes_per_type: 3
+ * });
+ * console.log(`Vulnerability rate: ${report.vulnerability_rate}`);
+ * ```
+ */
+class ProbesAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Run capability probes on an agent.
+   *
+   * @param request - Probe configuration
+   * @returns Detailed probe report with vulnerabilities found
+   */
+  async run(request: ProbeRunRequest): Promise<ProbeReport> {
+    return this.http.post<ProbeReport>('/api/probes/capability', request);
+  }
+
+  /**
+   * Get available probe types.
+   */
+  getProbeTypes(): ProbeType[] {
+    return [
+      'contradiction',
+      'hallucination',
+      'sycophancy',
+      'persistence',
+      'confidence_calibration',
+      'reasoning_depth',
+      'edge_case',
+    ];
+  }
+}
+
+// =============================================================================
 // Plugins API
 // =============================================================================
 
@@ -3355,6 +3459,7 @@ export class AragoraClient {
   readonly selection: SelectionAPI;
   readonly plugins: PluginsAPI;
   readonly personas: PersonasAPI;
+  readonly probes: ProbesAPI;
 
   /**
    * Create a new Aragora client.
@@ -3419,6 +3524,7 @@ export class AragoraClient {
     this.selection = new SelectionAPI(this.http);
     this.plugins = new PluginsAPI(this.http);
     this.personas = new PersonasAPI(this.http);
+    this.probes = new ProbesAPI(this.http);
   }
 
   /**

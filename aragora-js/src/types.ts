@@ -3144,3 +3144,111 @@ export interface SelectTeamResponse {
     role_assigner: string;
   };
 }
+
+// =============================================================================
+// Capability Probes Types
+// =============================================================================
+
+export type ProbeType =
+  | 'contradiction'
+  | 'hallucination'
+  | 'sycophancy'
+  | 'persistence'
+  | 'confidence_calibration'
+  | 'reasoning_depth'
+  | 'edge_case';
+
+export interface ProbeRunRequest {
+  agent_name: string;
+  probe_types?: ProbeType[];
+  probes_per_type?: number;
+  model_type?: string;
+}
+
+export interface ProbeResult {
+  probe_id: string;
+  type: string;
+  passed: boolean;
+  severity?: 'critical' | 'high' | 'medium' | 'low' | null;
+  description: string;
+  details: string;
+  response_time_ms: number;
+}
+
+export interface ProbeSummary {
+  total: number;
+  passed: number;
+  failed: number;
+  pass_rate: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+export interface ProbeReport {
+  report_id: string;
+  target_agent: string;
+  probes_run: number;
+  vulnerabilities_found: number;
+  vulnerability_rate: number;
+  elo_penalty: number;
+  by_type: Record<string, ProbeResult[]>;
+  summary: ProbeSummary;
+  recommendations: string[];
+  created_at: string;
+}
+
+// =============================================================================
+// Formal Verification Extended Types
+// =============================================================================
+
+export interface TranslateRequest {
+  claim: string;
+  context?: string;
+  target_language?: 'lean4' | 'z3_smt';
+}
+
+export interface TranslateResponse {
+  success: boolean;
+  formal_statement: string | null;
+  language: string;
+  model_used: string;
+  confidence: number;
+  translation_time_ms: number;
+  error_message: string;
+}
+
+export interface VerificationHistoryEntry {
+  id: string;
+  claim: string;
+  claim_type: string | null;
+  context: string;
+  result: Record<string, unknown>;
+  timestamp: number;
+  timestamp_iso: string;
+  has_proof_tree: boolean;
+}
+
+export interface VerificationHistoryResponse {
+  entries: VerificationHistoryEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ProofTreeNode {
+  id: string;
+  type: 'claim' | 'translation' | 'verification' | 'proof_step';
+  content: string;
+  children: string[];
+  language?: string;
+  is_verified?: boolean;
+  proof_hash?: string;
+  step_number?: number;
+}
+
+export interface ProofTreeResponse {
+  nodes: ProofTreeNode[];
+  message?: string;
+}

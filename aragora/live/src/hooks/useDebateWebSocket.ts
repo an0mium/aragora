@@ -404,10 +404,18 @@ export function useDebateWebSocket({
       clearDebateStartTimeout();
     } else if (data.type === 'debate_end') {
       setStatus('complete');
-      // Update task if it's still the fallback text
+      // Clear fallback task text on debate end
       const endData = eventData as Record<string, unknown> | undefined;
       const summary = endData?.summary as Record<string, unknown> | undefined;
-      setTask(prev => prev === 'Debate in progress...' ? (endData?.task as string || summary?.task as string || 'Debate concluded') : prev);
+      const taskFromEvent = endData?.task as string || summary?.task as string;
+      setTask(prev => {
+        // If we have a task from the event, use it
+        if (taskFromEvent) return taskFromEvent;
+        // If current task is the fallback, clear it
+        if (prev === 'Debate in progress...') return 'Debate concluded';
+        // Otherwise keep existing task
+        return prev;
+      });
       clearDebateStartTimeout();
     }
 
@@ -589,15 +597,31 @@ export function useDebateWebSocket({
       }
     }
 
-    // Consensus events
+    // Consensus events - create synthesis message with full answer
     else if (data.type === 'consensus') {
-      const msg: TranscriptMessage = {
+      const reached = eventData?.reached as boolean;
+      const confidence = eventData?.confidence as number || 0;
+      const answer = eventData?.answer as string || '';
+
+      // First add a status message
+      const statusMsg: TranscriptMessage = {
         agent: 'system',
-        role: 'synthesizer',
-        content: `[CONSENSUS ${eventData?.reached ? 'REACHED' : 'NOT REACHED'}] Confidence: ${Math.round(((eventData?.confidence as number) || 0) * 100)}%`,
+        role: 'consensus-status',
+        content: `[CONSENSUS ${reached ? 'REACHED' : 'NOT REACHED'}] Confidence: ${Math.round(confidence * 100)}%`,
         timestamp: (data.timestamp as number) || Date.now() / 1000,
       };
-      addMessageIfNew(msg);
+      addMessageIfNew(statusMsg);
+
+      // If there's an answer/synthesis, add it as a synthesis message (triggers special styling)
+      if (answer && reached) {
+        const synthesisMsg: TranscriptMessage = {
+          agent: 'consensus',  // This triggers isSynthesis check in TranscriptMessageCard
+          role: 'synthesis',
+          content: answer,
+          timestamp: ((data.timestamp as number) || Date.now() / 1000) + 0.001, // Slightly later to ensure ordering
+        };
+        addMessageIfNew(synthesisMsg);
+      }
     }
 
     // Acknowledgment events

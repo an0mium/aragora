@@ -152,7 +152,7 @@ export function LiveDebateView({
           <div
             ref={scrollContainerRef}
             onScroll={onScroll}
-            className="p-4 space-y-4 overflow-y-auto min-h-[300px] max-h-[800px]"
+            className="p-4 space-y-4 overflow-y-auto min-h-[400px] max-h-[calc(100vh-300px)]"
           >
             {messages.length === 0 && streamingMessages.size === 0 && status === 'streaming' && (
               <div className="text-center py-8 text-text-muted font-mono">
@@ -208,10 +208,16 @@ export function LiveDebateView({
         </div>
       )}
 
-      {/* Footer - show when complete */}
+      {/* Footer - show when complete with clickable permalink */}
       {status === 'complete' && (
-        <div className="text-center text-xs font-mono text-text-muted py-2 border-t border-acid-green/20">
-          ID: {debateId}
+        <div className="text-center text-xs font-mono text-text-muted py-4 border-t border-acid-green/20">
+          <button
+            onClick={onShare}
+            className="hover:text-acid-green transition-colors cursor-pointer"
+            title="Click to copy permalink"
+          >
+            {'>'} PERMALINK: {debateId} {copied ? '[COPIED!]' : '[CLICK TO COPY]'}
+          </button>
         </div>
       )}
 
