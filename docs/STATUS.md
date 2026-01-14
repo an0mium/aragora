@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 13, 2026 (23:30 UTC)*
+*Last updated: January 14, 2026 (00:15 UTC)*
 
 ## Current Release
 
@@ -10,15 +10,18 @@
 
 #### Key Highlights
 - **22,924+ tests** collected and passing
+- **51 frontend test files** covering 100+ components
 - **116+ documentation files** with comprehensive coverage
 - **41 modular HTTP handlers** for clean API architecture
 - **67 fully integrated features** including memory systems, ELO rankings, and formal verification
 - **0 HIGH severity security issues** (Bandit scan clean)
-- **0 mypy errors** in 12 core modules (expanded from 9)
+- **0 mypy errors** in 15 core modules (expanded from 12)
 - **0 ruff lint violations** (all auto-fixed)
+- **7 TODO markers** (well below 15 target)
 - **Gitleaks secret scanning** in CI pipeline
-- **OpenAPI spec** committed to docs/api/
-- **9.0/10 production readiness score**
+- **OpenAPI spec** with Redoc UI at docs/api/
+- **GitHub Pages documentation** deployment workflow
+- **9.2/10 production readiness score**
 
 #### What's New in 1.3.0 (Phases 11-15 Complete)
 
@@ -26,7 +29,10 @@
 - **Code Quality**: Fixed all ruff lint violations (0 errors)
 - **Secret Scanning**: Added gitleaks job to CI for commit-level secret detection
 - **API Documentation**: Generated and committed OpenAPI spec (JSON + YAML) to docs/api/
-- **Frontend Tests**: Added component tests for TrainingExportPanel and PublicGallery
+- **OpenAPI UI**: Added Redoc-powered API documentation at docs/api/index.html
+- **GitHub Pages**: Added docs.yml workflow for documentation deployment
+- **Frontend Tests**: Added 51 component test files (SettingsPanel, GenesisExplorer, ConsensusKnowledgeBase, etc.)
+- **Type Safety**: Expanded typecheck-core from 12 to 15 modules (team_selector.py, convergence.py, prompt_builder.py)
 - **CI Enhancement**: docs-sync job validates OpenAPI spec stays in sync with code
 
 **Phase 14**

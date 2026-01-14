@@ -1,0 +1,201 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Build documentation site
+        run: |
+          mkdir -p _site
+
+          # Copy all markdown docs
+          cp -r docs/* _site/
+
+          # Create index.html with navigation
+          cat > _site/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Aragora Documentation</title>
+            <style>
+              :root { --bg: #0a0a0a; --text: #e0e0e0; --accent: #39ff14; --muted: #666; }
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              body {
+                font-family: 'JetBrains Mono', 'Fira Code', monospace;
+                background: var(--bg);
+                color: var(--text);
+                line-height: 1.6;
+                padding: 2rem;
+                max-width: 1200px;
+                margin: 0 auto;
+              }
+              h1 { color: var(--accent); margin-bottom: 0.5rem; font-size: 2rem; }
+              h2 { color: var(--accent); margin: 2rem 0 1rem; font-size: 1.25rem; border-bottom: 1px solid var(--accent); padding-bottom: 0.5rem; }
+              .subtitle { color: var(--muted); margin-bottom: 2rem; }
+              .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+              .card {
+                background: #111;
+                border: 1px solid #333;
+                padding: 1rem;
+                border-radius: 4px;
+                transition: border-color 0.2s;
+              }
+              .card:hover { border-color: var(--accent); }
+              .card h3 { color: var(--accent); font-size: 0.9rem; margin-bottom: 0.5rem; }
+              .card p { color: var(--muted); font-size: 0.8rem; }
+              a { color: var(--text); text-decoration: none; }
+              a:hover { color: var(--accent); }
+              .badge {
+                display: inline-block;
+                background: var(--accent);
+                color: var(--bg);
+                padding: 0.2rem 0.5rem;
+                font-size: 0.7rem;
+                border-radius: 2px;
+                margin-right: 0.5rem;
+              }
+              .api-link {
+                display: inline-block;
+                margin-top: 1rem;
+                padding: 0.75rem 1.5rem;
+                background: var(--accent);
+                color: var(--bg);
+                font-weight: bold;
+                border-radius: 4px;
+              }
+              .api-link:hover { background: #2ecc0f; color: var(--bg); }
+            </style>
+          </head>
+          <body>
+            <h1>[ARAGORA]</h1>
+            <p class="subtitle">Multi-Agent Debate Framework Documentation</p>
+
+            <a href="api/" class="api-link">View API Reference (OpenAPI)</a>
+
+            <h2>Getting Started</h2>
+            <div class="grid">
+              <a href="START_HERE.md" class="card">
+                <h3>START_HERE.md</h3>
+                <p>Quick start guide for new users</p>
+              </a>
+              <a href="GETTING_STARTED.md" class="card">
+                <h3>GETTING_STARTED.md</h3>
+                <p>Detailed setup instructions</p>
+              </a>
+              <a href="ENVIRONMENT.md" class="card">
+                <h3>ENVIRONMENT.md</h3>
+                <p>Environment variable reference</p>
+              </a>
+            </div>
+
+            <h2>Architecture</h2>
+            <div class="grid">
+              <a href="ARCHITECTURE.md" class="card">
+                <h3>ARCHITECTURE.md</h3>
+                <p>System architecture overview</p>
+              </a>
+              <a href="FEATURES.md" class="card">
+                <h3>FEATURES.md</h3>
+                <p>Feature documentation</p>
+              </a>
+              <a href="STATUS.md" class="card">
+                <h3>STATUS.md</h3>
+                <p>Current project status</p>
+              </a>
+            </div>
+
+            <h2>API Documentation</h2>
+            <div class="grid">
+              <a href="API_REFERENCE.md" class="card">
+                <h3>API_REFERENCE.md</h3>
+                <p>Complete API reference</p>
+              </a>
+              <a href="API_ENDPOINTS.md" class="card">
+                <h3>API_ENDPOINTS.md</h3>
+                <p>Endpoint documentation</p>
+              </a>
+              <a href="API_EXAMPLES.md" class="card">
+                <h3>API_EXAMPLES.md</h3>
+                <p>API usage examples</p>
+              </a>
+            </div>
+
+            <h2>Guides</h2>
+            <div class="grid">
+              <a href="AGENT_DEVELOPMENT.md" class="card">
+                <h3>AGENT_DEVELOPMENT.md</h3>
+                <p>Building custom agents</p>
+              </a>
+              <a href="PRODUCTION_CHECKLIST.md" class="card">
+                <h3>PRODUCTION_CHECKLIST.md</h3>
+                <p>Deployment checklist</p>
+              </a>
+              <a href="RUNBOOK.md" class="card">
+                <h3>RUNBOOK.md</h3>
+                <p>Operations runbook</p>
+              </a>
+            </div>
+
+            <h2>Reference</h2>
+            <div class="grid">
+              <a href="AGENTS.md" class="card">
+                <h3>AGENTS.md</h3>
+                <p>Available agents</p>
+              </a>
+              <a href="CONSENSUS.md" class="card">
+                <h3>CONSENSUS.md</h3>
+                <p>Consensus mechanisms</p>
+              </a>
+              <a href="MEMORY.md" class="card">
+                <h3>MEMORY.md</h3>
+                <p>Memory systems</p>
+              </a>
+            </div>
+
+            <p style="margin-top: 3rem; color: var(--muted); font-size: 0.8rem;">
+              Generated from <a href="https://github.com/anthropics/aragora">github.com/anthropics/aragora</a>
+            </p>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

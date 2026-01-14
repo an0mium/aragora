@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aragora API Reference</title>
+  <meta name="description" content="OpenAPI documentation for the Aragora Multi-Agent Debate Framework">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/redoc@latest/bundles/redoc.standalone.css">
+  <style>
+    /* Aragora theme overrides */
+    :root {
+      --bg-color: #0a0a0a;
+      --text-color: #e0e0e0;
+      --accent-color: #39ff14;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+    }
+    .menu-content {
+      background: #111 !important;
+    }
+    .api-content {
+      background: var(--bg-color) !important;
+    }
+    /* Header bar */
+    .header-bar {
+      background: #111;
+      border-bottom: 1px solid #333;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .header-bar h1 {
+      color: var(--accent-color);
+      font-size: 1.25rem;
+      margin: 0;
+    }
+    .header-bar a {
+      color: var(--text-color);
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .header-bar a:hover {
+      color: var(--accent-color);
+    }
+    .header-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+    /* Loading state */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: calc(100vh - 60px);
+      background: var(--bg-color);
+      color: var(--accent-color);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .loading::after {
+      content: '>';
+      animation: blink 1s infinite;
+      margin-left: 0.5rem;
+    }
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header-bar">
+    <h1>[ARAGORA API]</h1>
+    <div class="header-links">
+      <a href="../">Documentation</a>
+      <a href="openapi.json" download>OpenAPI JSON</a>
+      <a href="openapi.yaml" download>OpenAPI YAML</a>
+      <a href="https://github.com/anthropics/aragora">GitHub</a>
+    </div>
+  </div>
+
+  <div id="redoc-container">
+    <div class="loading">Loading API documentation</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/redoc@latest/bundles/redoc.standalone.js"></script>
+  <script>
+    Redoc.init('./openapi.json', {
+      theme: {
+        colors: {
+          primary: {
+            main: '#39ff14'
+          },
+          text: {
+            primary: '#e0e0e0',
+            secondary: '#888'
+          },
+          http: {
+            get: '#39ff14',
+            post: '#00bcd4',
+            put: '#ff9800',
+            delete: '#f44336',
+            patch: '#9c27b0'
+          }
+        },
+        typography: {
+          fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+          headings: {
+            fontFamily: '"JetBrains Mono", "Fira Code", monospace'
+          },
+          code: {
+            fontFamily: '"JetBrains Mono", "Fira Code", monospace'
+          }
+        },
+        sidebar: {
+          backgroundColor: '#111',
+          textColor: '#e0e0e0',
+          activeTextColor: '#39ff14'
+        },
+        rightPanel: {
+          backgroundColor: '#1a1a1a'
+        }
+      },
+      scrollYOffset: 60,
+      hideDownloadButton: false,
+      expandResponses: '200,201',
+      pathInMiddlePanel: true,
+      hideHostname: false,
+      nativeScrollbars: true
+    }, document.getElementById('redoc-container'));
+  </script>
+</body>
+</html>

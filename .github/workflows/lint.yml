@@ -73,7 +73,7 @@ jobs:
       - name: Typecheck core modules (REQUIRED)
         run: |
           # These modules must pass strict type checking
-          # Phase 14: Expanded from 9 to 12 modules
+          # Phase 15: Expanded from 12 to 15 modules
           python -m mypy \
             aragora/core.py \
             aragora/ranking/elo.py \
@@ -87,6 +87,9 @@ jobs:
             aragora/debate/consensus.py \
             aragora/resilience.py \
             aragora/reasoning/belief.py \
+            aragora/debate/team_selector.py \
+            aragora/debate/convergence.py \
+            aragora/debate/prompt_builder.py \
             --config-file pyproject.toml \
             --no-error-summary
           echo "Core modules type check passed!"
