@@ -743,6 +743,10 @@ export default function Home() {
               <a href="/quality" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[QUALITY]</a>
               <a href="/calibration" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-gold hover:bg-gold/5 transition-colors shrink-0">[CALIBRATE]</a>
               <a href="/modes" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-warning hover:bg-warning/5 transition-colors shrink-0">[MODES]</a>
+              <a href="/compare" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[COMPARE]</a>
+              <a href="/crux" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-purple hover:bg-acid-purple/5 transition-colors shrink-0">[CRUX]</a>
+              <a href="/red-team" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-warning hover:bg-warning/5 transition-colors shrink-0">[REDTEAM]</a>
+              <a href="/memory-analytics" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[MEM]</a>
               <a href="/developer" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[DEV]</a>
             </div>
           </div>
