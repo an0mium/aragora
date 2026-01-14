@@ -2708,3 +2708,269 @@ export interface DomainLeaderboardEntry {
   win_rate: number;
   calibration_score?: number;
 }
+
+// =============================================================================
+// Plugin Types
+// =============================================================================
+
+export interface Plugin {
+  name: string;
+  version: string;
+  description: string;
+  author?: string;
+  category?: string;
+  tags?: string[];
+  input_schema?: Record<string, unknown>;
+  output_schema?: Record<string, unknown>;
+  capabilities?: string[];
+  documentation_url?: string;
+}
+
+export interface PluginListResponse {
+  plugins: Plugin[];
+  total: number;
+}
+
+export interface PluginDetails extends Plugin {
+  readme?: string;
+  examples?: Array<{
+    name: string;
+    input: Record<string, unknown>;
+    description?: string;
+  }>;
+  changelog?: Array<{
+    version: string;
+    date: string;
+    changes: string[];
+  }>;
+  stats?: {
+    installs: number;
+    runs: number;
+    avg_rating?: number;
+  };
+}
+
+export interface PluginRunRequest {
+  input: Record<string, unknown>;
+  context?: Record<string, unknown>;
+  timeout_ms?: number;
+}
+
+export interface PluginRunResponse {
+  plugin: string;
+  output: unknown;
+  execution_time_ms: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface InstalledPlugin {
+  name: string;
+  version: string;
+  installed_at: string;
+  config?: Record<string, unknown>;
+  enabled: boolean;
+}
+
+export interface InstalledPluginsResponse {
+  plugins: InstalledPlugin[];
+  total: number;
+}
+
+export interface PluginInstallRequest {
+  version?: string;
+  config?: Record<string, unknown>;
+}
+
+export interface PluginInstallResponse {
+  plugin: string;
+  version: string;
+  message: string;
+}
+
+export interface PluginSubmission {
+  id: string;
+  name: string;
+  version: string;
+  status: 'pending' | 'approved' | 'rejected';
+  submitted_at: string;
+  reviewed_at?: string;
+  review_notes?: string;
+}
+
+export interface PluginSubmitRequest {
+  manifest: {
+    name: string;
+    version: string;
+    description: string;
+    author?: string;
+    category?: string;
+    input_schema?: Record<string, unknown>;
+    output_schema?: Record<string, unknown>;
+  };
+  source_url?: string;
+}
+
+export interface PluginSubmitResponse {
+  submission_id: string;
+  status: string;
+  message: string;
+}
+
+export interface PluginSubmissionsResponse {
+  submissions: PluginSubmission[];
+  total: number;
+}
+
+export interface PluginMarketplace {
+  featured: Plugin[];
+  popular: Plugin[];
+  recent: Plugin[];
+  categories: Array<{
+    name: string;
+    count: number;
+  }>;
+}
+
+// =============================================================================
+// Persona Types
+// =============================================================================
+
+export interface AgentPersona {
+  agent: string;
+  persona: string;
+  traits: string[];
+  communication_style?: string;
+  expertise_areas?: string[];
+  debate_strategy?: string;
+}
+
+export interface GroundedPersona extends AgentPersona {
+  grounding_source: string;
+  confidence: number;
+  supporting_evidence?: string[];
+}
+
+export interface PersonaListResponse {
+  personas: AgentPersona[];
+  total: number;
+}
+
+export interface IdentityPrompt {
+  agent: string;
+  prompt: string;
+  version?: string;
+  last_updated?: string;
+}
+
+// =============================================================================
+// Extended System Types
+// =============================================================================
+
+export interface HistoryCycle {
+  cycle_id: string;
+  phase: string;
+  status: string;
+  started_at: string;
+  completed_at?: string;
+  duration_ms?: number;
+  changes?: string[];
+}
+
+export interface HistoryCyclesResponse {
+  cycles: HistoryCycle[];
+  total: number;
+}
+
+export interface HistoryEvent {
+  event_id: string;
+  type: string;
+  timestamp: string;
+  details: Record<string, unknown>;
+}
+
+export interface HistoryEventsResponse {
+  events: HistoryEvent[];
+  total: number;
+}
+
+export interface HistorySummary {
+  total_cycles: number;
+  total_debates: number;
+  total_changes: number;
+  recent_activity: HistoryEvent[];
+}
+
+export interface CircuitBreakerStatus {
+  name: string;
+  state: 'closed' | 'open' | 'half_open';
+  failure_count: number;
+  success_count: number;
+  last_failure?: string;
+  last_success?: string;
+  recovery_timeout_ms?: number;
+}
+
+export interface CircuitBreakersResponse {
+  breakers: CircuitBreakerStatus[];
+}
+
+export interface MaintenanceResult {
+  action: string;
+  success: boolean;
+  details: Record<string, unknown>;
+  duration_ms: number;
+}
+
+// =============================================================================
+// Extended Admin Types
+// =============================================================================
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+  status: 'active' | 'inactive' | 'locked';
+  created_at: string;
+  last_login?: string;
+  org_id?: string;
+}
+
+export interface AdminUserUpdateRequest {
+  role?: string;
+  status?: string;
+  name?: string;
+}
+
+export interface AdminOrganization {
+  id: string;
+  name: string;
+  plan: string;
+  member_count: number;
+  created_at: string;
+  status: 'active' | 'suspended';
+}
+
+export interface AdminSystemStats {
+  total_users: number;
+  total_orgs: number;
+  total_debates: number;
+  active_debates: number;
+  api_calls_today: number;
+  revenue_mtd?: number;
+}
+
+export interface NomicStatus {
+  phase: string;
+  cycle: number;
+  status: 'running' | 'paused' | 'idle' | 'error';
+  last_run?: string;
+  next_run?: string;
+  changes_pending: number;
+}
+
+export interface ImpersonateResponse {
+  token: string;
+  expires_at: string;
+  user: AdminUser;
+}

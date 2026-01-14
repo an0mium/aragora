@@ -9,6 +9,7 @@ import asyncio
 import statistics
 import time
 from dataclasses import dataclass, field
+from typing import cast
 
 
 @dataclass
@@ -66,7 +67,7 @@ async def benchmark_agent(
     timeout: float = 30.0,
 ) -> BenchmarkResult:
     """Run benchmark on a single agent."""
-    from aragora.agents.base import create_agent
+    from aragora.agents.base import AgentType, create_agent
 
     result = BenchmarkResult(
         agent=agent_type,
@@ -76,7 +77,7 @@ async def benchmark_agent(
 
     try:
         agent = create_agent(
-            model_type=agent_type,
+            model_type=cast(AgentType, agent_type),
             name=f"bench_{agent_type}",
             role="proposer",
         )

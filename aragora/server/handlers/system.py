@@ -276,15 +276,15 @@ class SystemHandler(BaseHandler):
 
         if loop_id:
             # Filter with early termination
-            debates = []
+            debates: list[dict[str, Any]] = []
             for d in debate_metadata:
-                item = d.__dict__ if hasattr(d, "__dict__") else d
+                item = vars(d)
                 if item.get("loop_id") == loop_id:
                     debates.append(item)
                     if len(debates) >= limit:
                         break
         else:
-            debates = [d.__dict__ if hasattr(d, "__dict__") else d for d in debate_metadata[:limit]]
+            debates = [vars(d) for d in debate_metadata[:limit]]
 
         return json_response({"debates": debates})
 

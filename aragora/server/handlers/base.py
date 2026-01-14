@@ -45,6 +45,7 @@ from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, Union
 
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.billing.auth.context import UserAuthContext
 from aragora.protocols import AgentRating, AuthenticatedUser, HTTPRequestHandler
 
 if TYPE_CHECKING:
@@ -897,7 +898,7 @@ class BaseHandler:
         """Get nomic directory path."""
         return self.ctx.get("nomic_dir")
 
-    def get_current_user(self, handler: HTTPRequestHandler) -> Optional["AuthenticatedUser"]:
+    def get_current_user(self, handler: HTTPRequestHandler) -> Optional[UserAuthContext]:
         """Get authenticated user from request, if any.
 
         Unlike @require_user_auth decorator which requires authentication,
@@ -934,7 +935,7 @@ class BaseHandler:
 
     def require_auth_or_error(
         self, handler: HTTPRequestHandler
-    ) -> Tuple[Optional["AuthenticatedUser"], Optional["HandlerResult"]]:
+    ) -> Tuple[Optional[UserAuthContext], Optional["HandlerResult"]]:
         """Require authentication and return user or error response.
 
         Alternative to @require_user_auth decorator for cases where you need

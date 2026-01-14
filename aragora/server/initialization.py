@@ -784,9 +784,9 @@ def init_handler_stores(nomic_dir: Path) -> dict:
     try:
         from aragora.connectors.youtube_uploader import YouTubeUploaderConnector
 
-        connector = YouTubeUploaderConnector()
-        stores["youtube_connector"] = connector
-        if connector.is_configured:
+        youtube_connector = YouTubeUploaderConnector()
+        stores["youtube_connector"] = youtube_connector
+        if youtube_connector.is_configured:
             logger.info("[init] YouTubeUploaderConnector initialized")
         else:
             logger.debug("[init] YouTubeUploaderConnector created (credentials not configured)")

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from aragora.memory.consensus import DissentRetriever
     from aragora.memory.continuum import ContinuumMemory
     from aragora.memory.critique_store import CritiqueStore
+    from aragora.ranking.elo import EloSystem
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class PromptBuilder:
         flip_detector: Optional["FlipDetector"] = None,
         evidence_pack: Optional["EvidencePack"] = None,
         calibration_tracker: Optional["CalibrationTracker"] = None,
-        elo_system: Optional[object] = None,
+        elo_system: Optional["EloSystem"] = None,
         domain: str = "general",
     ) -> None:
         """Initialize prompt builder with debate context.

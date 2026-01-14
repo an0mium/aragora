@@ -347,8 +347,8 @@ class AnalyticsPhase:
             if self.event_emitter:
                 self.event_emitter.emit(
                     "uncertainty_analysis",
-                    loop_id=self.loop_id,
-                    data={
+                    {
+                        "loop_id": self.loop_id,
                         "collective_confidence": metrics.collective_confidence,
                         "confidence_interval": metrics.confidence_interval,
                         "disagreement_type": metrics.disagreement_type,

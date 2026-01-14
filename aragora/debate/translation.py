@@ -275,18 +275,18 @@ Text to translate:
 {text}"""
 
         try:
+            from aragora.agents.api_agents.base import APIAgent
+
+            agent: APIAgent
             if self.provider == "anthropic":
                 from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
                 agent = AnthropicAPIAgent(name="translator", model="claude-3-haiku-20240307")
-                response = await agent.respond(prompt, [])
-                translated = response.content
             else:
                 from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
                 agent = OpenAIAPIAgent(name="translator", model="gpt-4o-mini")
-                response = await agent.respond(prompt, [])
-                translated = response.content
+            translated = await agent.generate(prompt, [])
 
             translation_time = (time.time() - start_time) * 1000
 
@@ -325,18 +325,19 @@ Text:
 {text[:500]}"""
 
         try:
+            from aragora.agents.api_agents.base import APIAgent
+
+            agent: APIAgent
             if self.provider == "anthropic":
                 from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
                 agent = AnthropicAPIAgent(name="detector", model="claude-3-haiku-20240307")
-                response = await agent.respond(prompt, [])
-                code = response.content.strip().lower()[:2]
             else:
                 from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
                 agent = OpenAIAPIAgent(name="detector", model="gpt-4o-mini")
-                response = await agent.respond(prompt, [])
-                code = response.content.strip().lower()[:2]
+            response = await agent.generate(prompt, [])
+            code = response.strip().lower()[:2]
 
             language = Language.from_code(code)
             if language:

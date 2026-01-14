@@ -42,6 +42,7 @@ from typing import TYPE_CHECKING, Callable, Optional, Protocol, Sequence
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Message
+    from aragora.memory.consensus import ConsensusMemory
     from aragora.ranking.elo import EloSystem
     from aragora.resilience import CircuitBreaker
 
@@ -303,7 +304,7 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
     def __init__(
         self,
         elo_system: Optional["EloSystem"] = None,
-        consensus_memory: Optional[object] = None,  # ConsensusMemory type
+        consensus_memory: Optional["ConsensusMemory"] = None,
     ):
         JudgeScoringMixin.__init__(self, elo_system)
         self._consensus_memory = consensus_memory
@@ -532,7 +533,7 @@ class JudgeSelector(JudgeScoringMixin):
         build_vote_prompt_fn: Optional[Callable] = None,
         sanitize_fn: Optional[Callable] = None,
         circuit_breaker: Optional["CircuitBreaker"] = None,
-        consensus_memory: Optional[object] = None,
+        consensus_memory: Optional["ConsensusMemory"] = None,
     ):
         """
         Initialize the judge selector.

@@ -147,7 +147,7 @@ class HackerNewsConnector(BaseConnector):
         url = HN_SEARCH_BY_DATE_URL if sort_by == "date" else HN_SEARCH_URL
 
         # Build params
-        params = {
+        params: dict[str, str | int] = {
             "query": query,
             "hitsPerPage": limit,
         }

@@ -259,6 +259,37 @@ import {
   AutoRouteResponse,
   DomainDetectionResult,
   DomainLeaderboardEntry,
+  // Plugin types
+  Plugin,
+  PluginListResponse,
+  PluginDetails,
+  PluginRunRequest,
+  PluginRunResponse,
+  InstalledPlugin,
+  InstalledPluginsResponse,
+  PluginInstallRequest,
+  PluginInstallResponse,
+  PluginSubmitRequest,
+  PluginSubmitResponse,
+  PluginSubmissionsResponse,
+  PluginMarketplace,
+  // Persona types
+  AgentPersona,
+  GroundedPersona,
+  PersonaListResponse,
+  IdentityPrompt,
+  // Extended system types
+  HistoryCycle,
+  HistoryCyclesResponse,
+  HistoryEvent,
+  HistoryEventsResponse,
+  HistorySummary,
+  CircuitBreakerStatus,
+  CircuitBreakersResponse,
+  MaintenanceResult,
+  // Extended admin types
+  NomicStatus,
+  ImpersonateResponse,
 } from './types';
 
 // =============================================================================
@@ -2524,6 +2555,62 @@ class AdminAPI {
   async getSystemStats(): Promise<AdminSystemStats> {
     return this.http.get<AdminSystemStats>('/api/admin/stats');
   }
+
+  /**
+   * Impersonate a user (admin only).
+   */
+  async impersonateUser(userId: string): Promise<ImpersonateResponse> {
+    return this.http.post<ImpersonateResponse>(`/api/admin/impersonate/${userId}`, {});
+  }
+
+  /**
+   * Deactivate a user account.
+   */
+  async deactivateUser(userId: string): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>(`/api/admin/users/${userId}/deactivate`, {});
+  }
+
+  /**
+   * Activate a user account.
+   */
+  async activateUser(userId: string): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>(`/api/admin/users/${userId}/activate`, {});
+  }
+
+  /**
+   * Unlock a locked user account.
+   */
+  async unlockUser(userId: string): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>(`/api/admin/users/${userId}/unlock`, {});
+  }
+
+  /**
+   * Get nomic loop status.
+   */
+  async getNomicStatus(): Promise<NomicStatus> {
+    return this.http.get<NomicStatus>('/api/admin/nomic/status');
+  }
+
+  /**
+   * Pause the nomic loop.
+   */
+  async pauseNomic(): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>('/api/admin/nomic/pause', {});
+  }
+
+  /**
+   * Resume the nomic loop.
+   */
+  async resumeNomic(): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>('/api/admin/nomic/resume', {});
+  }
+
+  /**
+   * Reset nomic phase.
+   */
+  async resetNomic(phase?: string): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>('/api/admin/nomic/reset', { phase });
+  }
 }
 
 // =============================================================================
@@ -2632,6 +2719,51 @@ class SystemAPI {
    */
   async status(): Promise<SystemStatusResponse> {
     return this.http.get<SystemStatusResponse>('/api/system/status');
+  }
+
+  /**
+   * Get history cycles.
+   */
+  async historyCycles(options?: { limit?: number }): Promise<HistoryCycle[]> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    const query = params.toString() ? `?${params}` : '';
+    const response = await this.http.get<HistoryCyclesResponse>(`/api/history/cycles${query}`);
+    return response.cycles;
+  }
+
+  /**
+   * Get history events.
+   */
+  async historyEvents(options?: { limit?: number; type?: string }): Promise<HistoryEvent[]> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.type) params.set('type', options.type);
+    const query = params.toString() ? `?${params}` : '';
+    const response = await this.http.get<HistoryEventsResponse>(`/api/history/events${query}`);
+    return response.events;
+  }
+
+  /**
+   * Get history summary.
+   */
+  async historySummary(): Promise<HistorySummary> {
+    return this.http.get<HistorySummary>('/api/history/summary');
+  }
+
+  /**
+   * Get circuit breaker status.
+   */
+  async circuitBreakers(): Promise<CircuitBreakerStatus[]> {
+    const response = await this.http.get<CircuitBreakersResponse>('/api/circuit-breakers');
+    return response.breakers;
+  }
+
+  /**
+   * Perform database maintenance (admin only).
+   */
+  async maintenance(action: string): Promise<MaintenanceResult> {
+    return this.http.post<MaintenanceResult>('/api/system/maintenance', { action });
   }
 }
 
@@ -2931,6 +3063,116 @@ class RoutingAPI {
 }
 
 // =============================================================================
+// Plugins API
+// =============================================================================
+
+class PluginsAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List all available plugins.
+   */
+  async list(): Promise<Plugin[]> {
+    const response = await this.http.get<PluginListResponse>('/api/plugins');
+    return response.plugins;
+  }
+
+  /**
+   * Get details for a specific plugin.
+   */
+  async get(name: string): Promise<PluginDetails> {
+    return this.http.get<PluginDetails>(`/api/plugins/${encodeURIComponent(name)}`);
+  }
+
+  /**
+   * Run a plugin with provided input.
+   */
+  async run(name: string, request: PluginRunRequest): Promise<PluginRunResponse> {
+    return this.http.post<PluginRunResponse>(`/api/plugins/${encodeURIComponent(name)}/run`, request);
+  }
+
+  /**
+   * List installed plugins for the current user/org.
+   */
+  async listInstalled(): Promise<InstalledPlugin[]> {
+    const response = await this.http.get<InstalledPluginsResponse>('/api/plugins/installed');
+    return response.plugins;
+  }
+
+  /**
+   * Install a plugin.
+   */
+  async install(name: string, request?: PluginInstallRequest): Promise<PluginInstallResponse> {
+    return this.http.post<PluginInstallResponse>(`/api/plugins/${encodeURIComponent(name)}/install`, request || {});
+  }
+
+  /**
+   * Uninstall a plugin.
+   */
+  async uninstall(name: string): Promise<{ message: string }> {
+    return this.http.delete<{ message: string }>(`/api/plugins/${encodeURIComponent(name)}/install`);
+  }
+
+  /**
+   * Submit a new plugin for review.
+   */
+  async submit(request: PluginSubmitRequest): Promise<PluginSubmitResponse> {
+    return this.http.post<PluginSubmitResponse>('/api/plugins/submit', request);
+  }
+
+  /**
+   * List user's plugin submissions.
+   */
+  async listSubmissions(): Promise<PluginSubmissionsResponse> {
+    return this.http.get<PluginSubmissionsResponse>('/api/plugins/submissions');
+  }
+
+  /**
+   * Get the plugin marketplace.
+   */
+  async marketplace(): Promise<PluginMarketplace> {
+    return this.http.get<PluginMarketplace>('/api/plugins/marketplace');
+  }
+}
+
+// =============================================================================
+// Personas API
+// =============================================================================
+
+class PersonasAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List all available personas.
+   */
+  async list(): Promise<AgentPersona[]> {
+    const response = await this.http.get<PersonaListResponse>('/api/personas');
+    return response.personas;
+  }
+
+  /**
+   * Get persona for a specific agent.
+   */
+  async getForAgent(agentName: string): Promise<AgentPersona> {
+    return this.http.get<AgentPersona>(`/api/agent/${encodeURIComponent(agentName)}/persona`);
+  }
+
+  /**
+   * Get grounded persona for an agent.
+   */
+  async getGrounded(agentName: string): Promise<GroundedPersona> {
+    return this.http.get<GroundedPersona>(`/api/agent/${encodeURIComponent(agentName)}/grounded-persona`);
+  }
+
+  /**
+   * Get identity prompt for an agent.
+   */
+  async getIdentityPrompt(agentName: string): Promise<IdentityPrompt> {
+    return this.http.get<IdentityPrompt>(`/api/agent/${encodeURIComponent(agentName)}/identity-prompt`);
+  }
+}
+
+// =============================================================================
 // Main Client
 // =============================================================================
 
@@ -2969,6 +3211,8 @@ export class AragoraClient {
   readonly training: TrainingAPI;
   readonly metrics: MetricsAPI;
   readonly routing: RoutingAPI;
+  readonly plugins: PluginsAPI;
+  readonly personas: PersonasAPI;
 
   /**
    * Create a new Aragora client.
@@ -3029,6 +3273,8 @@ export class AragoraClient {
     this.training = new TrainingAPI(this.http);
     this.metrics = new MetricsAPI(this.http);
     this.routing = new RoutingAPI(this.http);
+    this.plugins = new PluginsAPI(this.http);
+    this.personas = new PersonasAPI(this.http);
   }
 
   /**

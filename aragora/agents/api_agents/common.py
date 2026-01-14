@@ -365,7 +365,7 @@ class SSEStreamParser:
         except aiohttp.ClientError as e:
             logger.warning(f"[{agent_name}] Streaming connection error: {e}")
             raise AgentConnectionError(
-                agent_name=agent_name, reason=f"Streaming connection error: {e}"
+                f"Streaming connection error: {e}", agent_name=agent_name
             ) from e
 
 

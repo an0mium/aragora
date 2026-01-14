@@ -46,7 +46,7 @@ export class DebateStream {
     };
   }
 
-  private buildUrl(baseUrl: string, debateId: string): string {
+  private buildUrl(baseUrl: string, _debateId: string): string {
     const wsUrl = baseUrl
       .replace(/^http:/, 'ws:')
       .replace(/^https:/, 'wss:')

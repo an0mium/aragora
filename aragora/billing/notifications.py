@@ -23,9 +23,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+
+if TYPE_CHECKING:
+    from aragora.billing.models import SubscriptionTier
 
 logger = logging.getLogger(__name__)
 
@@ -481,6 +484,111 @@ We'd love to hear your feedback. What could we have done better?
         # Log as final fallback
         logger.info(
             f"SUBSCRIPTION_CANCELED: org={org_id} name={org_name} email={email} reason={reason}"
+        )
+        return NotificationResult(success=True, method="log")
+
+    def notify_downgraded(
+        self,
+        org_id: str,
+        org_name: str,
+        email: str,
+        previous_tier: "SubscriptionTier",
+        invoice_url: Optional[str] = None,
+    ) -> NotificationResult:
+        """
+        Send subscription downgrade notification due to payment failure.
+
+        Args:
+            org_id: Organization ID
+            org_name: Organization name
+            email: Email address to notify
+            previous_tier: The tier the organization was downgraded from
+            invoice_url: Optional URL to the unpaid invoice
+
+        Returns:
+            NotificationResult indicating success/failure
+        """
+        subject = "[Aragora] Your Subscription Has Been Downgraded"
+
+        html_body = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: 'Monaco', 'Menlo', monospace; background: #0a0a0a; color: #00ff00; padding: 20px; }}
+        .container {{ max-width: 600px; margin: 0 auto; border: 1px solid #ff0000; padding: 20px; }}
+        .header {{ font-size: 18px; margin-bottom: 20px; color: #ff0000; }}
+        .message {{ margin: 20px 0; line-height: 1.6; }}
+        .button {{ display: inline-block; padding: 10px 20px; background: #00ff00; color: #0a0a0a; text-decoration: none; margin-top: 20px; }}
+        .footer {{ margin-top: 30px; font-size: 12px; color: #666; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">[ARAGORA BILLING]</div>
+        <div class="message">
+            <p>Hi {org_name},</p>
+            <p>Due to unresolved payment issues, your Aragora subscription has been downgraded from <strong>{previous_tier.value.upper()}</strong> to <strong>FREE</strong>.</p>
+            <p>Your access to premium features has been suspended. To restore your subscription:</p>
+            <ol>
+                <li>Update your payment method</li>
+                <li>Pay any outstanding invoices</li>
+                <li>Upgrade your plan</li>
+            </ol>
+            {'<p><a href="' + invoice_url + '" class="button">PAY NOW</a></p>' if invoice_url else '<p><a href="https://aragora.ai/billing" class="button">UPDATE PAYMENT</a></p>'}
+        </div>
+        <div class="footer">
+            <p>Need help? Contact support@aragora.ai</p>
+            <p>— Aragora Billing System</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+        text_body = f"""
+[ARAGORA BILLING]
+
+Hi {org_name},
+
+Due to unresolved payment issues, your Aragora subscription has been downgraded from {previous_tier.value.upper()} to FREE.
+
+Your access to premium features has been suspended. To restore your subscription:
+1. Update your payment method
+2. Pay any outstanding invoices
+3. Upgrade your plan
+
+{"Pay now: " + invoice_url if invoice_url else "Update payment at: https://aragora.ai/billing"}
+
+Need help? Contact support@aragora.ai
+
+— Aragora Billing System
+"""
+
+        # Try to send email first
+        result = self._send_email(email, subject, html_body, text_body)
+        if result.success:
+            return result
+
+        # Fall back to webhook
+        webhook_result = self._send_webhook(
+            {
+                "event": "subscription_downgraded",
+                "org_id": org_id,
+                "org_name": org_name,
+                "email": email,
+                "previous_tier": previous_tier.value,
+                "new_tier": "free",
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
+        if webhook_result.success:
+            return webhook_result
+
+        # Log as final fallback
+        logger.warning(
+            f"SUBSCRIPTION_DOWNGRADED: org={org_id} name={org_name} email={email} "
+            f"previous_tier={previous_tier.value}"
         )
         return NotificationResult(success=True, method="log")
 

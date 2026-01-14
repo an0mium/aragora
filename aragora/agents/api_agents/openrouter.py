@@ -637,8 +637,7 @@ class KimiLegacyAgent(APIAgent):
         system_prompt: str | None = None,
         api_key: str | None = None,
     ):
-        super().__init__(name=name, role=role)
-        self.model = model
+        super().__init__(name=name, model=model, role=role)
         self.system_prompt = system_prompt
         self.api_key = api_key or os.environ.get("KIMI_API_KEY")
         self.base_url = "https://api.moonshot.cn/v1"

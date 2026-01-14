@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +129,7 @@ class ConfigValidator:
         for var, req in cls.SECRET_REQUIREMENTS.items():
             value = os.getenv(var, "")
             if value:
-                min_len = req["min_length"]
+                min_len = cast(int, req["min_length"])
                 if len(value) < min_len:
                     errors.append(
                         f"{var} ({req['description']}) must be at least "

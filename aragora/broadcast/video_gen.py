@@ -655,3 +655,114 @@ class VideoGenerator:
         """Remove a generated video file."""
         if video_path.exists():
             video_path.unlink()
+
+
+async def generate_video(
+    audio_path: Path,
+    output_path: Path,
+    title: str,
+    description: str,
+    resolution: tuple[int, int] = (1920, 1080),
+    thumbnail_path: Optional[str] = None,
+) -> bool:
+    """
+    Generate a video from audio with a static thumbnail.
+
+    Convenience function that wraps VideoGenerator for simple use cases.
+
+    Args:
+        audio_path: Path to source audio file
+        output_path: Path for output video file
+        title: Video title (used for thumbnail generation)
+        description: Video description (metadata only, not rendered)
+        resolution: Video resolution as (width, height) tuple (default (1920, 1080))
+        thumbnail_path: Optional path to custom thumbnail image. If not provided, one is generated.
+
+    Returns:
+        True if video was generated successfully, False otherwise
+    """
+    generator = VideoGenerator(output_dir=output_path.parent)
+
+    # Extract width and height from tuple
+    try:
+        width, height = resolution
+    except (ValueError, TypeError):
+        logger.warning(f"Invalid resolution format '{resolution}', using default 1920x1080")
+        width, height = 1920, 1080
+
+    # Convert thumbnail_path string to Path if provided
+    thumb_path: Optional[Path] = Path(thumbnail_path) if thumbnail_path else None
+
+    # If custom thumbnail provided, use it directly with ffmpeg
+    if thumb_path and thumb_path.exists():
+        # Use ffmpeg directly with the provided thumbnail
+        if not generator.ffmpeg_available:
+            logger.error("ffmpeg not available")
+            return False
+
+        if not _validate_audio_file(audio_path):
+            return False
+
+        duration = await get_audio_duration(audio_path)
+        if not _validate_duration(duration):
+            return False
+
+        process = None
+        try:
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-loop",
+                "1",
+                "-i",
+                str(thumb_path),
+                "-i",
+                str(audio_path),
+                "-c:v",
+                "libx264",
+                "-tune",
+                "stillimage",
+                "-c:a",
+                "aac",
+                "-b:a",
+                f"{DEFAULT_AUDIO_BITRATE}k",
+                "-pix_fmt",
+                "yuv420p",
+                "-shortest",
+                "-movflags",
+                "+faststart",
+                str(output_path),
+            ]
+
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await asyncio.wait_for(process.communicate(), timeout=FFMPEG_TIMEOUT)
+
+            if process.returncode != 0:
+                logger.error(f"ffmpeg failed: {stderr.decode('utf-8', errors='replace')[:500]}")
+                return False
+
+            return output_path.exists()
+
+        except asyncio.TimeoutError:
+            logger.error(f"ffmpeg timed out after {FFMPEG_TIMEOUT}s")
+            if process:
+                process.kill()
+                await process.wait()
+            return False
+        except Exception as e:
+            logger.error(f"Video generation failed: {e}")
+            return False
+
+    # Generate video with auto-generated thumbnail
+    result = await generator.generate_static_video(
+        audio_path=audio_path,
+        title=title,
+        agents=[],  # No agents list available at this level
+        output_path=output_path,
+    )
+
+    return result is not None

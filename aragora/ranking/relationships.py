@@ -93,7 +93,7 @@ class RelationshipTracker:
             db_path: Path to database file (same as EloSystem)
         """
         self.db_path = Path(db_path)
-        self._db = EloDatabase(db_path)
+        self._db = EloDatabase(str(db_path))
 
     def update_relationship(
         self,

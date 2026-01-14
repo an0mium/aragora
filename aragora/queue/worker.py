@@ -14,7 +14,11 @@ import asyncio
 import logging
 import signal
 import time
-from typing import Any, Callable, Coroutine, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Dict, Optional, cast
+
+if TYPE_CHECKING:
+    from aragora.agents.base import AgentType
+    from aragora.core import Agent
 
 from aragora.exceptions import InfrastructureError
 from aragora.queue.base import Job, JobQueue
@@ -316,11 +320,13 @@ async def create_default_executor() -> DebateExecutor:
         )
 
         # Convert agent strings to Agent objects
-        agents = [create_agent(agent_type) for agent_type in payload.agents]
+        agents = [
+            create_agent(cast("AgentType", agent_type)) for agent_type in payload.agents
+        ]
 
         # Run debate
         start_time = time.time()
-        arena = Arena(env, agents=agents, protocol=protocol)
+        arena = Arena(env, agents=cast("list[Agent]", agents), protocol=protocol)
         result = await arena.run()
 
         duration = time.time() - start_time
