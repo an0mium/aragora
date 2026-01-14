@@ -135,11 +135,15 @@ jobs:
               exit 1
             fi
 
-            # Configure nginx for WebSocket routing if nginx is installed
+            # Configure nginx for WebSocket routing if nginx is installed (non-fatal)
             if command -v nginx &> /dev/null && [ -f deploy/configure-nginx.sh ]; then
               echo "Configuring nginx for WebSocket routing..."
               chmod +x deploy/configure-nginx.sh
-              ./deploy/configure-nginx.sh deploy/nginx-aragora.conf
+              if ./deploy/configure-nginx.sh deploy/nginx-aragora.conf; then
+                echo "Nginx configured successfully"
+              else
+                echo "::warning::Nginx configuration failed (non-fatal), continuing with deploy"
+              fi
             fi
 
             # Update systemd service
@@ -297,11 +301,15 @@ jobs:
               sudo systemctl daemon-reload
             fi
 
-            # Configure nginx for WebSocket routing if nginx is installed
+            # Configure nginx for WebSocket routing if nginx is installed (non-fatal)
             if command -v nginx &> /dev/null && [ -f deploy/configure-nginx.sh ]; then
               echo "Configuring nginx for WebSocket routing..."
               chmod +x deploy/configure-nginx.sh
-              ./deploy/configure-nginx.sh deploy/nginx-aragora.conf
+              if ./deploy/configure-nginx.sh deploy/nginx-aragora.conf; then
+                echo "Nginx configured successfully"
+              else
+                echo "::warning::Nginx configuration failed (non-fatal), continuing with deploy"
+              fi
             fi
 
             echo "Stopping service and releasing ports..."
