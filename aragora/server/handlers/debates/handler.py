@@ -111,8 +111,8 @@ def normalize_debate_response(debate: dict) -> dict:
     Returns:
         Normalized debate dict with SDK-compatible fields
     """
-    if not debate:
-        return debate
+    if debate is None:
+        return None  # type: ignore[return-value]
 
     # Normalize status
     if "status" in debate:

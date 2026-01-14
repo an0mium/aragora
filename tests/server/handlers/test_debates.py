@@ -53,7 +53,8 @@ def mock_http_handler():
 def mock_storage():
     """Create a mock debate storage."""
     storage = MagicMock()
-    storage.list_debates.return_value = [
+    # Note: _list_debates calls storage.list_recent, not list_debates
+    mock_debates = [
         {
             "id": "debate-1",
             "debate_id": "debate-1",
@@ -69,6 +70,8 @@ def mock_storage():
             "created_at": "2026-01-13T00:00:00Z",
         },
     ]
+    storage.list_recent.return_value = mock_debates
+    storage.list_debates.return_value = mock_debates
     storage.get_debate.return_value = {
         "id": "debate-1",
         "debate_id": "debate-1",
@@ -78,6 +81,8 @@ def mock_storage():
         "messages": [],
     }
     storage.is_public.return_value = True
+    # search returns (results, total_count)
+    storage.search.return_value = (mock_debates, len(mock_debates))
     return storage
 
 
@@ -121,9 +126,14 @@ class TestNormalizeDebateResponse:
     """Tests for debate response normalization."""
 
     def test_normalize_empty_debate(self):
-        """Test normalizing empty/None debate returns as-is."""
+        """Test normalizing empty/None debate returns defaults."""
         assert normalize_debate_response(None) is None
-        assert normalize_debate_response({}) == {"status": "completed", "rounds_used": 0, "duration_seconds": 0}
+        result = normalize_debate_response({})
+        # Empty debate gets default fields for SDK compatibility
+        assert result["status"] == "completed"
+        assert result["rounds_used"] == 0
+        assert result["duration_seconds"] == 0
+        assert result["consensus_reached"] is False
 
     def test_normalize_status_conversion(self):
         """Test status is normalized in response."""
@@ -262,9 +272,9 @@ class TestDebatesHandlerListDebates:
             with patch.object(handler, "_check_auth", return_value=None):
                 result = handler.handle("/api/debates", {"limit": "10"}, mock_http_handler)
 
-        mock_storage.list_debates.assert_called_once()
+        mock_storage.list_recent.assert_called_once()
         # Check limit was passed (clamped to max 100)
-        call_args = mock_storage.list_debates.call_args
+        call_args = mock_storage.list_recent.call_args
         assert call_args is not None
 
     def test_list_debates_limit_clamped(self, handler, mock_storage, mock_http_handler):
@@ -312,7 +322,7 @@ class TestDebatesHandlerAuth:
         """Test protected endpoint returns 401 without valid token."""
         mock_http_handler.headers = {}  # No auth header
 
-        with patch("aragora.server.handlers.debates.auth_config") as mock_auth:
+        with patch("aragora.server.auth.auth_config") as mock_auth:
             mock_auth.enabled = True
             mock_auth.api_token = "secret-token"
             mock_auth.validate_token.return_value = False
@@ -320,11 +330,11 @@ class TestDebatesHandlerAuth:
             result = handler._check_auth(mock_http_handler)
 
         assert result is not None
-        assert result.status == 401
+        assert result.status_code == 401
 
     def test_auth_bypassed_when_disabled(self, handler, mock_http_handler):
         """Test auth check passes when auth is disabled."""
-        with patch("aragora.server.handlers.debates.auth_config") as mock_auth:
+        with patch("aragora.server.auth.auth_config") as mock_auth:
             mock_auth.enabled = False
 
             result = handler._check_auth(mock_http_handler)
@@ -335,7 +345,7 @@ class TestDebatesHandlerAuth:
         """Test auth check passes with valid token."""
         mock_http_handler.headers = {"Authorization": "Bearer valid-token"}
 
-        with patch("aragora.server.handlers.debates.auth_config") as mock_auth:
+        with patch("aragora.server.auth.auth_config") as mock_auth:
             mock_auth.enabled = True
             mock_auth.api_token = "valid-token"
             mock_auth.validate_token.return_value = True
