@@ -826,6 +826,46 @@ Reviews designs for:
         },
         temperature=0.6,
     ),
+    # Philosophical personas for non-technical debates
+    "philosopher": Persona(
+        agent_name="philosopher",
+        description="Deep thinker exploring fundamental questions of existence, meaning, and truth",
+        traits=["contemplative", "nuanced", "interdisciplinary"],
+        expertise={
+            "philosophy": 0.9,
+            "ethics": 0.85,
+            "psychology": 0.7,
+            "history": 0.65,
+        },
+        temperature=0.75,
+        top_p=0.95,
+    ),
+    "humanist": Persona(
+        agent_name="humanist",
+        description="Advocate for human-centered perspectives on technology, society, and wellbeing",
+        traits=["empathetic", "balanced", "practical"],
+        expertise={
+            "humanities": 0.85,
+            "sociology": 0.8,
+            "psychology": 0.75,
+            "ethics": 0.7,
+        },
+        temperature=0.7,
+        top_p=0.95,
+    ),
+    "existentialist": Persona(
+        agent_name="existentialist",
+        description="Explorer of meaning, freedom, authenticity, and what it means to live well",
+        traits=["probing", "authentic", "individualistic"],
+        expertise={
+            "existential_philosophy": 0.9,
+            "phenomenology": 0.8,
+            "literature": 0.7,
+            "psychology": 0.65,
+        },
+        temperature=0.8,
+        top_p=0.95,
+    ),
 }
 
 

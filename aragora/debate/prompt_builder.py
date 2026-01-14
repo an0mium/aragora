@@ -217,8 +217,91 @@ and building on others' ideas."""
         assignment = self.current_role_assignments[agent.name]
         return self.role_rotator.format_role_context(assignment)
 
+    def _detect_question_domain(self, question: str) -> str:
+        """Detect question domain for persona selection.
+
+        Returns 'philosophical', 'ethics', 'technical', or 'general'.
+        """
+        lower = question.lower()
+
+        # Philosophical/Life domains - use philosophical personas
+        philosophical_keywords = [
+            "meaning",
+            "meaningful",
+            "life",
+            "purpose",
+            "existence",
+            "happiness",
+            "soul",
+            "consciousness",
+            "free will",
+            "morality",
+            "good life",
+            "philosophy",
+            "wisdom",
+            "death",
+            "love",
+            "truth",
+            "human condition",
+            "fulfillment",
+            "wellbeing",
+            "flourishing",
+        ]
+        if any(kw in lower for kw in philosophical_keywords):
+            return "philosophical"
+
+        # Ethics domain
+        ethics_keywords = ["should", "ethical", "moral", "right", "wrong", "justice", "fair", "harm"]
+        if any(kw in lower for kw in ethics_keywords):
+            return "ethics"
+
+        # Technical domain - keep existing personas
+        technical_keywords = [
+            "code",
+            "api",
+            "software",
+            "architecture",
+            "database",
+            "security",
+            "testing",
+            "function",
+            "class",
+            "microservice",
+            "deployment",
+            "infrastructure",
+        ]
+        if any(kw in lower for kw in technical_keywords):
+            return "technical"
+
+        return "general"
+
     def get_persona_context(self, agent: "Agent") -> str:
-        """Get persona context for agent specialization."""
+        """Get persona context for agent specialization.
+
+        For philosophical or ethical questions, returns appropriate guidance
+        to avoid agents framing responses in technical terms.
+        """
+        # Detect domain from task/environment
+        question_domain = self._detect_question_domain(self.env.task)
+
+        # For philosophical questions, override technical personas with humanistic guidance
+        if question_domain == "philosophical":
+            return (
+                "Approach this question as a thoughtful observer of the human condition. "
+                "Draw on wisdom traditions, philosophy, psychology, and lived experience. "
+                "Avoid framing your answer in technical or software metaphors. "
+                "Focus on what makes life meaningful, purposeful, and fulfilling."
+            )
+
+        # For ethics questions, emphasize ethical reasoning
+        if question_domain == "ethics":
+            return (
+                "Approach this as an ethical question requiring nuanced moral reasoning. "
+                "Consider multiple ethical frameworks, stakeholder perspectives, and real-world consequences. "
+                "Acknowledge complexity and avoid reductive technical framings."
+            )
+
+        # Default: use existing persona system for technical/general questions
         if not self.persona_manager:
             return ""
 

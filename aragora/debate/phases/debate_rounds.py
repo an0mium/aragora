@@ -18,6 +18,22 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 from aragora.config import AGENT_TIMEOUT_SECONDS, MAX_CONCURRENT_CRITIQUES, MAX_CONCURRENT_REVISIONS
 from aragora.debate.complexity_governor import get_complexity_governor
 
+# Timeout for async callbacks that can hang (evidence refresh, judge termination, etc.)
+DEFAULT_CALLBACK_TIMEOUT = 30.0
+
+
+async def _with_callback_timeout(coro, timeout: float = DEFAULT_CALLBACK_TIMEOUT, default=None):
+    """Execute coroutine with timeout, returning default on timeout.
+
+    This prevents debates from stalling indefinitely when callbacks
+    like evidence refresh or judge termination hang.
+    """
+    try:
+        return await asyncio.wait_for(coro, timeout=timeout)
+    except asyncio.TimeoutError:
+        logger.warning(f"Callback timed out after {timeout}s, using default: {default}")
+        return default
+
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message
     from aragora.debate.context import DebateContext
@@ -713,19 +729,31 @@ class DebateRoundsPhase:
                         self._inject_challenge(intervention.challenge_text, ctx)
 
     async def _should_terminate(self, ctx: "DebateContext", round_num: int) -> bool:
-        """Check if debate should terminate early."""
-        # Judge-based termination
+        """Check if debate should terminate early.
+
+        Uses timeout protection on callbacks to prevent indefinite hangs.
+        """
+        # Judge-based termination (with timeout protection)
         if self._check_judge_termination:
-            should_continue, reason = await self._check_judge_termination(
-                round_num, ctx.proposals, ctx.context_messages
+            result = await _with_callback_timeout(
+                self._check_judge_termination(
+                    round_num, ctx.proposals, ctx.context_messages
+                ),
+                timeout=DEFAULT_CALLBACK_TIMEOUT,
+                default=(True, "Judge check timed out"),  # Continue on timeout
             )
+            should_continue, reason = result
             if not should_continue:
                 return True
 
-        # Early stopping (agent votes)
+        # Early stopping (agent votes) with timeout protection
         if self._check_early_stopping:
-            should_continue = await self._check_early_stopping(
-                round_num, ctx.proposals, ctx.context_messages
+            should_continue = await _with_callback_timeout(
+                self._check_early_stopping(
+                    round_num, ctx.proposals, ctx.context_messages
+                ),
+                timeout=DEFAULT_CALLBACK_TIMEOUT,
+                default=True,  # Continue on timeout
             )
             if not should_continue:
                 return True
@@ -771,8 +799,12 @@ class DebateRoundsPhase:
 
             combined_text = "\n".join(texts_to_analyze)
 
-            # Call the refresh callback
-            refreshed = await self._refresh_evidence(combined_text, ctx, round_num)
+            # Call the refresh callback with timeout protection
+            refreshed = await _with_callback_timeout(
+                self._refresh_evidence(combined_text, ctx, round_num),
+                timeout=DEFAULT_CALLBACK_TIMEOUT,
+                default=0,  # Return 0 snippets on timeout
+            )
 
             if refreshed:
                 logger.info(f"evidence_refreshed round={round_num} new_snippets={refreshed}")
