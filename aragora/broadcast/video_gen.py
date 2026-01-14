@@ -684,11 +684,12 @@ async def generate_video(
     generator = VideoGenerator(output_dir=output_path.parent)
 
     # Extract width and height from tuple
+    # TODO: pass to generate_static_video when supported
     try:
-        width, height = resolution
+        _width, _height = resolution
     except (ValueError, TypeError):
         logger.warning(f"Invalid resolution format '{resolution}', using default 1920x1080")
-        width, height = 1920, 1080
+        _width, _height = 1920, 1080
 
     # Convert thumbnail_path string to Path if provided
     thumb_path: Optional[Path] = Path(thumbnail_path) if thumbnail_path else None

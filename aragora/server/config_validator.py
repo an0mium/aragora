@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Optional, cast
+from typing import Optional, cast
 
 logger = logging.getLogger(__name__)
 

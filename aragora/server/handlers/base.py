@@ -46,7 +46,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, Union
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.billing.auth.context import UserAuthContext
-from aragora.protocols import AgentRating, AuthenticatedUser, HTTPRequestHandler
+from aragora.protocols import AgentRating, HTTPRequestHandler
 
 if TYPE_CHECKING:
     from pathlib import Path

@@ -874,19 +874,18 @@ class GauntletHandler(BaseHandler):
         - include_heatmap: true/false (default true)
         - include_findings: true/false (default true)
         """
-        from aragora.gauntlet.receipt import DecisionReceipt
 
         # Get result
         run = None
         result = None
-        result_obj = None
+        _result_obj = None  # TODO: use for enhanced report
 
         if gauntlet_id in _gauntlet_runs:
             run = _gauntlet_runs[gauntlet_id]
             if run["status"] != "completed":
                 return error_response("Gauntlet run not completed", 400)
             result = run["result"]
-            result_obj = run.get("result_obj")
+            _result_obj = run.get("result_obj")
         else:
             try:
                 storage = _get_storage()
@@ -938,7 +937,6 @@ class GauntletHandler(BaseHandler):
 
         if include_heatmap:
             # Generate heatmap data
-            from aragora.gauntlet.heatmap import HeatmapCell, RiskHeatmap
 
             cells = []
             categories = set()
