@@ -233,6 +233,7 @@ module = [
     "aragora.agents.api_agents.openai",
     "aragora.agents.api_agents.mistral",
     "aragora.agents.api_agents.base",
+    "aragora.agents.streaming",
     # Added strict - Phase 7 type safety expansion (Jan 2026)
     "aragora.memory.database",
     "aragora.server.stream.events",
@@ -333,7 +334,6 @@ module = [
     "aragora.debate.tracing",
     "aragora.debate.phases.metrics",
     "aragora.agents.telemetry",
-    "aragora.agents.streaming",
     "aragora.debate.graph",
     "aragora.debate.agent_pool",
     "aragora.debate.event_bridge",
