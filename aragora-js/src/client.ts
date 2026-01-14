@@ -330,6 +330,21 @@ import {
   LearnedPatternsResponse,
   AgentEvolutionResponse,
   AggregatedInsightsResponse,
+  // Genesis types
+  GenesisStats,
+  GenesisEventType,
+  GenesisEventsResponse,
+  GenomesResponse,
+  TopGenomesResponse,
+  PopulationResponse,
+  GenomeDetails,
+  LineageResponse,
+  DebateTreeResponse,
+  // Evolution types
+  EvolutionPatternsResponse,
+  EvolutionSummaryResponse,
+  AgentHistoryResponse,
+  AgentPromptResponse,
 } from './types';
 
 // =============================================================================
@@ -3418,6 +3433,173 @@ class LearningAPI {
 }
 
 // =============================================================================
+// Genesis API (Evolutionary Population)
+// =============================================================================
+
+/**
+ * API for evolutionary genome tracking.
+ *
+ * Genesis manages a population of agent "genomes" that evolve through
+ * debates. Each genome represents a prompt configuration that can be
+ * mutated, crossed over, and selected based on fitness.
+ *
+ * @example
+ * ```typescript
+ * const stats = await client.genesis.stats();
+ * console.log(`Population: ${stats.total_genomes} genomes`);
+ *
+ * const top = await client.genesis.topGenomes(5);
+ * for (const genome of top.genomes) {
+ *   console.log(`#${genome.rank}: ${genome.name} (${genome.win_rate}%)`);
+ * }
+ * ```
+ */
+class GenesisAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get overall genesis population statistics.
+   */
+  async stats(): Promise<GenesisStats> {
+    return this.http.get<GenesisStats>('/api/genesis/stats');
+  }
+
+  /**
+   * Get genesis events with optional filtering.
+   * @param options - Filter options
+   */
+  async events(options?: {
+    limit?: number;
+    event_type?: GenesisEventType;
+  }): Promise<GenesisEventsResponse> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(Math.min(options.limit, 200)));
+    if (options?.event_type) params.set('event_type', options.event_type);
+
+    const query = params.toString();
+    const path = query ? `/api/genesis/events?${query}` : '/api/genesis/events';
+    return this.http.get<GenesisEventsResponse>(path);
+  }
+
+  /**
+   * List genomes with pagination.
+   * @param options - Pagination options
+   */
+  async genomes(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<GenomesResponse> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(Math.min(options.limit, 100)));
+    if (options?.offset) params.set('offset', String(options.offset));
+
+    const query = params.toString();
+    const path = query ? `/api/genesis/genomes?${query}` : '/api/genesis/genomes';
+    return this.http.get<GenomesResponse>(path);
+  }
+
+  /**
+   * Get top performing genomes by fitness.
+   * @param limit - Number of top genomes to return (default 10, max 50)
+   */
+  async topGenomes(limit = 10): Promise<TopGenomesResponse> {
+    return this.http.get<TopGenomesResponse>(`/api/genesis/genomes/top?limit=${Math.min(limit, 50)}`);
+  }
+
+  /**
+   * Get current population statistics.
+   */
+  async population(): Promise<PopulationResponse> {
+    return this.http.get<PopulationResponse>('/api/genesis/population');
+  }
+
+  /**
+   * Get detailed information for a specific genome.
+   * @param genomeId - The genome ID
+   */
+  async getGenome(genomeId: string): Promise<GenomeDetails> {
+    return this.http.get<GenomeDetails>(`/api/genesis/genomes/${encodeURIComponent(genomeId)}`);
+  }
+
+  /**
+   * Get lineage (ancestry) for a genome.
+   * @param genomeId - The genome ID
+   * @param maxDepth - Maximum ancestry depth to traverse (default 5)
+   */
+  async lineage(genomeId: string, maxDepth = 5): Promise<LineageResponse> {
+    return this.http.get<LineageResponse>(
+      `/api/genesis/lineage/${encodeURIComponent(genomeId)}?max_depth=${Math.min(maxDepth, 20)}`
+    );
+  }
+
+  /**
+   * Get genome participation tree for a debate.
+   * @param debateId - The debate ID
+   */
+  async debateTree(debateId: string): Promise<DebateTreeResponse> {
+    return this.http.get<DebateTreeResponse>(`/api/genesis/tree/${encodeURIComponent(debateId)}`);
+  }
+}
+
+// =============================================================================
+// Evolution API (Prompt Optimization)
+// =============================================================================
+
+/**
+ * API for prompt evolution and A/B testing.
+ *
+ * Evolution tracks prompt optimization experiments, managing different
+ * prompt versions for agents and measuring their performance over time.
+ *
+ * @example
+ * ```typescript
+ * const summary = await client.evolution.summary();
+ * console.log(`Active A/B tests: ${summary.active_ab_tests}`);
+ *
+ * const history = await client.evolution.agentHistory('claude');
+ * for (const version of history.versions) {
+ *   console.log(`v${version.version}: ${version.performance_score}`);
+ * }
+ * ```
+ */
+class EvolutionAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get discovered evolution patterns across agents.
+   */
+  async patterns(): Promise<EvolutionPatternsResponse> {
+    return this.http.get<EvolutionPatternsResponse>('/api/evolution/patterns');
+  }
+
+  /**
+   * Get evolution summary for all agents.
+   */
+  async summary(): Promise<EvolutionSummaryResponse> {
+    return this.http.get<EvolutionSummaryResponse>('/api/evolution/summary');
+  }
+
+  /**
+   * Get prompt version history for a specific agent.
+   * @param agent - Agent name
+   * @param limit - Maximum versions to return (default 20, max 100)
+   */
+  async agentHistory(agent: string, limit = 20): Promise<AgentHistoryResponse> {
+    return this.http.get<AgentHistoryResponse>(
+      `/api/evolution/${encodeURIComponent(agent)}/history?limit=${Math.min(limit, 100)}`
+    );
+  }
+
+  /**
+   * Get current prompt for a specific agent.
+   * @param agent - Agent name
+   */
+  async agentPrompt(agent: string): Promise<AgentPromptResponse> {
+    return this.http.get<AgentPromptResponse>(`/api/evolution/${encodeURIComponent(agent)}/prompt`);
+  }
+}
+
+// =============================================================================
 // Plugins API
 // =============================================================================
 
@@ -3596,6 +3778,8 @@ export class AragoraClient {
   readonly probes: ProbesAPI;
   readonly nomic: NomicAPI;
   readonly learning: LearningAPI;
+  readonly genesis: GenesisAPI;
+  readonly evolution: EvolutionAPI;
 
   /**
    * Create a new Aragora client.
@@ -3663,6 +3847,8 @@ export class AragoraClient {
     this.probes = new ProbesAPI(this.http);
     this.nomic = new NomicAPI(this.http);
     this.learning = new LearningAPI(this.http);
+    this.genesis = new GenesisAPI(this.http);
+    this.evolution = new EvolutionAPI(this.http);
   }
 
   /**

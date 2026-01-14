@@ -7,11 +7,38 @@ Public status page for Aragora services at `status.aragora.ai`.
 ## Quick Start
 
 ```bash
-# Start the status page
+# Automated deployment (recommended)
+./deploy-status-page.sh
+
+# Or manual start
 docker-compose up -d
 
 # Access at http://localhost:3001
 # Create admin account on first login
+```
+
+## Deployment Tools
+
+| File | Purpose |
+|------|---------|
+| `deploy-status-page.sh` | Automated deployment script |
+| `monitors-seed.json` | Pre-configured monitor definitions |
+| `docker-compose.yml` | Container configuration |
+
+### Automated Deployment
+
+```bash
+# Standard deployment
+./deploy-status-page.sh
+
+# Custom domain and API URL
+./deploy-status-page.sh --domain status.example.com --api-url https://api.example.com
+
+# Generate nginx configuration
+./deploy-status-page.sh --nginx > /etc/nginx/sites-available/status.conf
+
+# Dry run (preview only)
+./deploy-status-page.sh --dry-run
 ```
 
 ## Initial Configuration

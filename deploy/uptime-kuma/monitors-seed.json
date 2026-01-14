@@ -1,0 +1,236 @@
+{
+  "_comment": "Uptime Kuma monitor configuration for Aragora",
+  "_version": "1.0.0",
+  "_soc2_control": "A1-01",
+  "_import_instructions": "Import via Settings > Backup > Restore (partial import)",
+
+  "monitors": [
+    {
+      "name": "API - Health",
+      "description": "Primary health check endpoint",
+      "type": "http",
+      "url": "https://api.aragora.ai/api/health",
+      "method": "GET",
+      "interval": 60,
+      "timeout": 10,
+      "retryInterval": 30,
+      "maxretries": 3,
+      "accepted_statuscodes": ["200"],
+      "notificationIDList": [],
+      "tags": [
+        {"name": "core", "color": "#22C55E"},
+        {"name": "public", "color": "#3B82F6"}
+      ],
+      "group": "Core Services"
+    },
+    {
+      "name": "API - Detailed Health",
+      "description": "Comprehensive service health check",
+      "type": "keyword",
+      "url": "https://api.aragora.ai/api/health/detailed",
+      "method": "GET",
+      "keyword": "healthy",
+      "interval": 120,
+      "timeout": 15,
+      "retryInterval": 60,
+      "maxretries": 2,
+      "tags": [
+        {"name": "core", "color": "#22C55E"}
+      ],
+      "group": "Core Services"
+    },
+    {
+      "name": "WebSocket Server",
+      "description": "Real-time communication endpoint",
+      "type": "http",
+      "url": "https://api.aragora.ai/api/ws/stats",
+      "method": "GET",
+      "interval": 60,
+      "timeout": 10,
+      "retryInterval": 30,
+      "maxretries": 3,
+      "accepted_statuscodes": ["200"],
+      "tags": [
+        {"name": "core", "color": "#22C55E"},
+        {"name": "websocket", "color": "#8B5CF6"}
+      ],
+      "group": "Core Services"
+    },
+    {
+      "name": "Database",
+      "description": "PostgreSQL database connectivity",
+      "type": "keyword",
+      "url": "https://api.aragora.ai/api/health/detailed",
+      "method": "GET",
+      "keyword": "database",
+      "interval": 120,
+      "timeout": 15,
+      "retryInterval": 60,
+      "maxretries": 2,
+      "tags": [
+        {"name": "infrastructure", "color": "#F59E0B"}
+      ],
+      "group": "Infrastructure",
+      "public": false
+    },
+    {
+      "name": "Redis Cache",
+      "description": "Redis cache connectivity",
+      "type": "keyword",
+      "url": "https://api.aragora.ai/api/health/detailed",
+      "method": "GET",
+      "keyword": "redis",
+      "interval": 120,
+      "timeout": 15,
+      "retryInterval": 60,
+      "maxretries": 2,
+      "tags": [
+        {"name": "infrastructure", "color": "#F59E0B"}
+      ],
+      "group": "Infrastructure",
+      "public": false
+    },
+    {
+      "name": "Authentication Service",
+      "description": "Auth endpoint availability",
+      "type": "http",
+      "url": "https://api.aragora.ai/api/auth/providers",
+      "method": "GET",
+      "interval": 120,
+      "timeout": 10,
+      "retryInterval": 60,
+      "maxretries": 2,
+      "accepted_statuscodes": ["200"],
+      "tags": [
+        {"name": "auth", "color": "#EF4444"}
+      ],
+      "group": "Core Services"
+    },
+    {
+      "name": "API Response Time",
+      "description": "API latency monitoring",
+      "type": "http",
+      "url": "https://api.aragora.ai/api/health",
+      "method": "GET",
+      "interval": 300,
+      "timeout": 5,
+      "retryInterval": 60,
+      "maxretries": 1,
+      "accepted_statuscodes": ["200"],
+      "tags": [
+        {"name": "performance", "color": "#06B6D4"}
+      ],
+      "group": "Performance",
+      "public": false
+    },
+    {
+      "name": "Website",
+      "description": "Main website availability",
+      "type": "http",
+      "url": "https://aragora.ai",
+      "method": "GET",
+      "interval": 300,
+      "timeout": 15,
+      "retryInterval": 60,
+      "maxretries": 2,
+      "accepted_statuscodes": ["200", "301", "302"],
+      "tags": [
+        {"name": "website", "color": "#10B981"},
+        {"name": "public", "color": "#3B82F6"}
+      ],
+      "group": "Web Properties"
+    },
+    {
+      "name": "Live Dashboard",
+      "description": "Live dashboard availability",
+      "type": "http",
+      "url": "https://live.aragora.ai",
+      "method": "GET",
+      "interval": 300,
+      "timeout": 15,
+      "retryInterval": 60,
+      "maxretries": 2,
+      "accepted_statuscodes": ["200", "301", "302"],
+      "tags": [
+        {"name": "website", "color": "#10B981"},
+        {"name": "public", "color": "#3B82F6"}
+      ],
+      "group": "Web Properties"
+    }
+  ],
+
+  "status_pages": [
+    {
+      "title": "Aragora Status",
+      "slug": "aragora",
+      "description": "Real-time status of Aragora services",
+      "theme": "dark",
+      "published": true,
+      "showTags": false,
+      "customCSS": "",
+      "footerText": "For support, contact support@aragora.ai",
+      "groups": [
+        {
+          "name": "Core Services",
+          "weight": 1,
+          "monitors": ["API - Health", "API - Detailed Health", "WebSocket Server", "Authentication Service"]
+        },
+        {
+          "name": "Web Properties",
+          "weight": 2,
+          "monitors": ["Website", "Live Dashboard"]
+        }
+      ]
+    }
+  ],
+
+  "notification_templates": [
+    {
+      "name": "Email - Ops Team",
+      "type": "email",
+      "config": {
+        "to": "ops@aragora.ai",
+        "subject": "[Aragora Status] {{NAME}} is {{STATUS}}"
+      }
+    },
+    {
+      "name": "Slack - Ops Alerts",
+      "type": "slack",
+      "config": {
+        "webhook_url": "CONFIGURE_ME",
+        "channel": "#ops-alerts"
+      }
+    },
+    {
+      "name": "PagerDuty - Critical",
+      "type": "pagerduty",
+      "config": {
+        "routing_key": "CONFIGURE_ME",
+        "severity": "critical"
+      }
+    }
+  ],
+
+  "incident_templates": [
+    {
+      "name": "Investigating",
+      "content": "We are currently investigating this issue. Updates will be posted as we learn more."
+    },
+    {
+      "name": "Identified",
+      "content": "We have identified the cause of the issue and are working on a fix."
+    },
+    {
+      "name": "Monitoring",
+      "content": "A fix has been implemented. We are monitoring to ensure stability."
+    },
+    {
+      "name": "Resolved",
+      "content": "This issue has been resolved. Services are operating normally."
+    },
+    {
+      "name": "Scheduled Maintenance",
+      "content": "Scheduled maintenance is in progress. Services may be temporarily unavailable."
+    }
+  ]
+}

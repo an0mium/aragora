@@ -3399,3 +3399,184 @@ export interface AggregatedInsightsResponse {
   count: number;
   by_type: Record<string, number>;
 }
+
+// =============================================================================
+// Genesis Types (Evolutionary Population Tracking)
+// =============================================================================
+
+export interface GenesisStats {
+  total_genomes: number;
+  active_genomes: number;
+  total_generations: number;
+  total_debates: number;
+  average_fitness: number;
+  top_performer?: string;
+}
+
+export type GenesisEventType =
+  | 'genome_created'
+  | 'genome_mutated'
+  | 'genome_crossover'
+  | 'genome_selected'
+  | 'genome_retired'
+  | 'generation_complete';
+
+export interface GenesisEvent {
+  id: string;
+  event_type: GenesisEventType;
+  genome_id: string;
+  timestamp: string;
+  generation: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface GenesisEventsResponse {
+  events: GenesisEvent[];
+  total: number;
+}
+
+export interface Genome {
+  id: string;
+  name: string;
+  generation: number;
+  fitness: number;
+  created_at: string;
+  parent_ids?: string[];
+  is_active: boolean;
+  traits?: Record<string, unknown>;
+}
+
+export interface GenomesResponse {
+  genomes: Genome[];
+  total: number;
+  offset: number;
+}
+
+export interface TopGenome extends Genome {
+  rank: number;
+  debates_won: number;
+  win_rate: number;
+}
+
+export interface TopGenomesResponse {
+  genomes: TopGenome[];
+  generation: number;
+}
+
+export interface PopulationStats {
+  size: number;
+  generation: number;
+  average_fitness: number;
+  fitness_std_dev: number;
+  diversity_index: number;
+  best_fitness: number;
+  worst_fitness: number;
+}
+
+export interface PopulationResponse {
+  population: PopulationStats;
+  active_genomes: number;
+  retired_genomes: number;
+}
+
+export interface GenomeDetails extends Genome {
+  debates_participated: number;
+  debates_won: number;
+  win_rate: number;
+  mutations_count: number;
+  children_count: number;
+  prompt_template?: string;
+  performance_history: Array<{
+    debate_id: string;
+    outcome: 'won' | 'lost' | 'draw';
+    fitness_delta: number;
+    timestamp: string;
+  }>;
+}
+
+export interface LineageNode {
+  genome_id: string;
+  name: string;
+  generation: number;
+  fitness: number;
+  relationship: 'self' | 'parent' | 'grandparent' | 'child' | 'sibling';
+}
+
+export interface LineageResponse {
+  genome_id: string;
+  lineage: LineageNode[];
+  depth: number;
+}
+
+export interface DebateGenomeNode {
+  genome_id: string;
+  name: string;
+  role: string;
+  fitness_before: number;
+  fitness_after: number;
+}
+
+export interface DebateTreeResponse {
+  debate_id: string;
+  participants: DebateGenomeNode[];
+  winner?: string;
+  consensus_reached: boolean;
+}
+
+// =============================================================================
+// Evolution Types (Prompt Optimization & A/B Testing)
+// =============================================================================
+
+export interface EvolutionPattern {
+  id: string;
+  name: string;
+  description: string;
+  success_rate: number;
+  applications: number;
+  first_observed: string;
+  last_applied: string;
+}
+
+export interface EvolutionPatternsResponse {
+  patterns: EvolutionPattern[];
+  total: number;
+  categories: Record<string, number>;
+}
+
+export interface AgentEvolutionSummary {
+  agent: string;
+  total_experiments: number;
+  successful_experiments: number;
+  current_prompt_version: number;
+  improvement_rate: number;
+  last_updated: string;
+}
+
+export interface EvolutionSummaryResponse {
+  agents: AgentEvolutionSummary[];
+  total_experiments: number;
+  active_ab_tests: number;
+}
+
+export interface PromptVersion {
+  version: number;
+  prompt: string;
+  created_at: string;
+  performance_score: number;
+  debates_used: number;
+  is_current: boolean;
+}
+
+export interface AgentHistoryResponse {
+  agent: string;
+  versions: PromptVersion[];
+  total_versions: number;
+}
+
+export interface AgentPromptResponse {
+  agent: string;
+  current_version: number;
+  prompt: string;
+  last_updated: string;
+  performance_score: number;
+}

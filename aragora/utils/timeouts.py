@@ -7,7 +7,9 @@ need timeout protection, particularly for thread synchronization primitives.
 import asyncio
 import threading
 from contextlib import contextmanager
-from typing import Generator, Optional
+from typing import Awaitable, Generator, Optional, TypeVar
+
+T = TypeVar("T")
 
 # Default timeout for lock acquisition (seconds)
 DEFAULT_LOCK_TIMEOUT = 30.0
@@ -94,11 +96,11 @@ def timed_rlock(
 
 
 async def async_timeout(
-    coro,
+    coro: Awaitable[T],
     timeout: float = DEFAULT_LOCK_TIMEOUT,
     *,
     operation_name: Optional[str] = None,
-):
+) -> T:
     """Run an async operation with a timeout.
 
     Wrapper around asyncio.wait_for with better error messages.
