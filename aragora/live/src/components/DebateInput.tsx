@@ -478,24 +478,20 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
         )}
       </form>
 
-      {/* Hint - More polished */}
-      <div className="mt-4 text-center">
-        {apiStatus === 'online' ? (
-          <p className="text-[10px] font-mono text-text-muted/50 tracking-wide">
-            <span className="text-acid-green/40">{'>'}</span>
-            {' '}Multiple AI models will adversarially debate your question
-            {' '}<span className="text-acid-green/40">{'<'}</span>
-          </p>
-        ) : apiStatus === 'offline' ? (
-          <p className="text-[10px] font-mono text-warning/50">
-            Server offline — start locally or wait for hosted API
-          </p>
-        ) : (
-          <p className="text-[10px] font-mono text-text-muted/40 animate-pulse">
-            Connecting...
-          </p>
-        )}
-      </div>
+      {/* Status hint - only show offline/connecting states */}
+      {apiStatus !== 'online' && (
+        <div className="mt-4 text-center">
+          {apiStatus === 'offline' ? (
+            <p className="text-[10px] font-mono text-warning/50">
+              Server offline — start locally or wait for hosted API
+            </p>
+          ) : (
+            <p className="text-[10px] font-mono text-text-muted/40 animate-pulse">
+              Connecting...
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -180,7 +180,12 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
               {/* Use Case Highlight */}
               <div className="max-w-2xl mx-auto mb-8 text-center">
                 <div className="border border-acid-yellow/30 bg-acid-yellow/5 p-4 rounded">
-                  <p className="text-acid-yellow/80 font-mono text-xs">
+                  <p className="text-text-muted/50 font-mono text-[10px] tracking-wide mb-2">
+                    <span className="text-acid-green/40">{'>'}</span>
+                    {' '}Multiple AI models will adversarially debate your question
+                    {' '}<span className="text-acid-green/40">{'<'}</span>
+                  </p>
+                  <p className="text-acid-yellow/80 font-mono text-[10px]">
                     <span className="text-acid-yellow">USE CASE:</span> Find the $500K flaw before launch — AI stress-tests your architecture in 30 minutes.
                   </p>
                 </div>
