@@ -258,6 +258,8 @@ module = [
     "aragora.plugins.builtin.lint",
     "aragora.plugins.builtin.security",
     "aragora.plugins.builtin.tests",
+    # Added strict - Phase 9 server handlers (Jan 2026)
+    "aragora.server.handlers.health",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

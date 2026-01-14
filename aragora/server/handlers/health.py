@@ -47,7 +47,7 @@ class HealthHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """Route health endpoint requests."""
         handlers = {
             "/healthz": self._liveness_probe,
