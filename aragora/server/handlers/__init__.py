@@ -77,6 +77,7 @@ from .relationship import RelationshipHandler
 from .replays import ReplaysHandler
 from .reviews import ReviewsHandler
 from .routing import RoutingHandler
+from .selection import SelectionHandler
 from .slack import SlackHandler
 from .social import SocialMediaHandler
 from .system import SystemHandler
@@ -118,6 +119,7 @@ ALL_HANDLERS = [
     CalibrationHandler,
     CheckpointHandler,
     RoutingHandler,
+    SelectionHandler,  # Selection plugin API
     EvolutionABTestingHandler,  # More specific: /api/evolution/ab-tests
     EvolutionHandler,
     PluginsHandler,
@@ -172,6 +174,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "RelationshipHandler": Stability.STABLE,
     "DashboardHandler": Stability.STABLE,
     "RoutingHandler": Stability.STABLE,
+    "SelectionHandler": Stability.STABLE,  # Selection plugin API
     # Promoted to Stable (Jan 2026) - tested in production
     "BillingHandler": Stability.STABLE,  # Transaction tests, Stripe webhooks
     "OAuthHandler": Stability.STABLE,  # OAuth flow tests, Google integration
