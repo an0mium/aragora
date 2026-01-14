@@ -73,7 +73,7 @@ jobs:
       - name: Typecheck core modules (REQUIRED)
         run: |
           # These modules must pass strict type checking
-          # Phase 13: Expanded from 7 to 9 modules
+          # Phase 14: Expanded from 9 to 12 modules
           python -m mypy \
             aragora/core.py \
             aragora/ranking/elo.py \
@@ -84,6 +84,9 @@ jobs:
             aragora/storage/repository.py \
             aragora/debate/orchestrator.py \
             aragora/memory/continuum.py \
+            aragora/debate/consensus.py \
+            aragora/resilience.py \
+            aragora/reasoning/belief.py \
             --config-file pyproject.toml \
             --no-error-summary
           echo "Core modules type check passed!"
@@ -142,6 +145,22 @@ jobs:
           pip install -e .
           # Fail on HIGH/CRITICAL vulnerabilities only
           safety check --full-report --ignore 70612 || echo "::warning::Dependency vulnerabilities found"
+
+  secrets:
+    runs-on: ubuntu-latest
+    name: Secret Scanning
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for comprehensive scanning
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
 
   docs-sync:
     runs-on: ubuntu-latest

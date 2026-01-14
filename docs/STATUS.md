@@ -1,23 +1,55 @@
 # Aragora Project Status
 
-*Last updated: January 14, 2026 (00:10 UTC)*
+*Last updated: January 13, 2026 (23:30 UTC)*
 
 ## Current Release
 
-### v1.3.0 - GA Preparation Release (January 14, 2026)
+### v1.3.0 - GA Preparation Release (January 2026)
 
-**Production Ready** - Aragora 1.3.0 represents significant security hardening and production readiness improvements.
+**Production Ready** - Aragora 1.3.0 represents comprehensive security hardening, type safety, and production readiness improvements through Phases 11-15.
 
 #### Key Highlights
-- **22,836 tests** collected and passing
-- **91 documentation files** with comprehensive coverage
+- **22,924+ tests** collected and passing
+- **116+ documentation files** with comprehensive coverage
 - **41 modular HTTP handlers** for clean API architecture
-- **63 fully integrated features** including memory systems, ELO rankings, and formal verification
+- **67 fully integrated features** including memory systems, ELO rankings, and formal verification
 - **0 HIGH severity security issues** (Bandit scan clean)
-- **0 mypy errors** in core modules
-- **8.3/10 production readiness score**
+- **0 mypy errors** in 12 core modules (expanded from 9)
+- **0 ruff lint violations** (all auto-fixed)
+- **Gitleaks secret scanning** in CI pipeline
+- **OpenAPI spec** committed to docs/api/
+- **9.0/10 production readiness score**
 
-#### What's New in 1.3.0 (Phase 11 Complete)
+#### What's New in 1.3.0 (Phases 11-15 Complete)
+
+**Phase 15 (Latest)**
+- **Code Quality**: Fixed all ruff lint violations (0 errors)
+- **Secret Scanning**: Added gitleaks job to CI for commit-level secret detection
+- **API Documentation**: Generated and committed OpenAPI spec (JSON + YAML) to docs/api/
+- **Frontend Tests**: Added component tests for TrainingExportPanel and PublicGallery
+- **CI Enhancement**: docs-sync job validates OpenAPI spec stays in sync with code
+
+**Phase 14**
+- **Type Safety Expansion**: typecheck-core expanded to 12 modules (consensus.py, resilience.py, belief.py)
+- **E2E Test Suite**: 17 Playwright E2E test files covering critical user flows
+- **Accessibility Testing**: axe-core integration for WCAG compliance
+- **CI Enhancement**: E2E workflow with backend/frontend integration
+
+**Phase 13**
+- **Token Revocation UI**: "Logout All Devices" button in Settings panel
+- **Type Safety Expansion**: typecheck-core expanded to 9 modules (orchestrator.py, continuum.py)
+- **Storage Layer Fixes**: Fixed mypy errors in factory.py and webhook_store.py
+- **Training Export Page**: New /training route for ML training data export
+- **Production Checklist**: Comprehensive 300+ line PRODUCTION_CHECKLIST.md
+- **Public Gallery Page**: /gallery route for browsing debate history
+
+**Phase 12**
+- **TrainingExportPanel**: 470-line component for SFT/DPO/Gauntlet exports
+- **PublicGallery**: 743-line component for debate browsing with search/filters
+- **CI/CD Hardening**: ESLint now blocking (was informational)
+- **Bug Fixes**: Fixed showBoot variable declaration order in page.tsx
+
+**Phase 11**
 - **Security Hardening**: Full SQL injection audit of high-risk files
   - Audited and documented 16 B608 warnings across storage layer
   - Added `# nosec B608` comments with validation explanations
@@ -478,6 +510,10 @@ All stabilization items addressed:
 | TeamSelector | Active | `aragora/debate/team_selector.py` (ELO+calibration scoring) |
 | TricksterAlertPanel | Active | `aragora/live/src/components/TricksterAlertPanel.tsx` |
 | RhetoricalObserverPanel | Active | `aragora/live/src/components/RhetoricalObserverPanel.tsx` |
+| TrainingExportPanel | Active | `aragora/live/src/components/TrainingExportPanel.tsx` (SFT/DPO/Gauntlet export) |
+| PublicGallery | Active | `aragora/live/src/components/PublicGallery.tsx` (debate browsing) |
+| Token Revocation UI | Active | `aragora/live/src/components/SettingsPanel.tsx` (Logout All Devices) |
+| Production Checklist | Active | `docs/PRODUCTION_CHECKLIST.md` (deployment guide) |
 
 ### Recently Surfaced (6)
 | Feature | Status | Location |
@@ -562,7 +598,7 @@ All stabilization items addressed:
 - **CSP hardening** (removed unsafe-eval, blocks eval()/new Function() XSS vectors)
 
 ### Remaining Considerations
-- Token revocation mechanism not implemented
+- ~~Token revocation mechanism not implemented~~ - **DONE** (Phase 13: JWT token versioning + UI)
 - Consider API versioning for backwards compatibility
 
 ## Recommendations
