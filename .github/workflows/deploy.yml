@@ -49,7 +49,8 @@ jobs:
 
   deploy-cloudflare:
     needs: test
-    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'cloudflare' || github.event_name == 'push'
+    # Note: inputs.environment is null when workflow_dispatch triggered without explicit inputs
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'cloudflare' || github.event.inputs.environment == null || github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
@@ -95,7 +96,8 @@ jobs:
 
   deploy-lightsail:
     needs: test
-    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'lightsail' || github.event_name == 'push'
+    # Note: inputs.environment is null when workflow_dispatch triggered without explicit inputs
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'lightsail' || github.event.inputs.environment == null || github.event_name == 'push'
     runs-on: ubuntu-latest
     continue-on-error: true  # Don't fail the workflow if Lightsail is unreachable
 
@@ -246,7 +248,8 @@ jobs:
 
   deploy-ec2:
     needs: test
-    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2' || github.event_name == 'push'
+    # Note: inputs.environment is null when workflow_dispatch triggered without explicit inputs
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2' || github.event.inputs.environment == null || github.event_name == 'push'
     runs-on: ubuntu-latest
     continue-on-error: true  # Don't fail the workflow if EC2 is unreachable
 
