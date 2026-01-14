@@ -203,7 +203,9 @@ class EventBus:
         # Notify event bridge (WebSocket streaming)
         if self._event_bridge is not None:
             try:
-                self._event_bridge.notify(event_type, **event.to_dict())
+                event_data = event.to_dict()
+                event_data.pop("event_type", None)  # Already passed as first arg
+                self._event_bridge.notify(event_type, **event_data)
             except Exception as e:
                 logger.warning(f"Event bridge notification failed: {e}")
 
@@ -275,7 +277,9 @@ class EventBus:
         # Notify event bridge
         if self._event_bridge is not None:
             try:
-                self._event_bridge.notify(event_type, **event.to_dict())
+                event_data = event.to_dict()
+                event_data.pop("event_type", None)  # Already passed as first arg
+                self._event_bridge.notify(event_type, **event_data)
             except Exception as e:
                 logger.warning(f"Event bridge notification failed: {e}")
 
