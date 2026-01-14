@@ -1,9 +1,25 @@
+Discovering endpoints...
+21:12:14 DEBUG    aragora.utils.cache_registry: Registered LRU cache: _compute_domain_from_task
+21:12:14 DEBUG    aragora.services.registry: ServiceRegistry initialized
+21:12:14 DEBUG    aragora.services.registry: Registered factory: RateLimiterRegistry
+21:12:14 DEBUG    aragora.services.registry: Lazily initialized service: RateLimiterRegistry
+21:12:15 WARNING  aragora.server.handlers.oauth: [OAuth] GOOGLE_OAUTH_REDIRECT_URI not set, using localhost fallback. This will fail in production.
+21:12:15 WARNING  aragora.server.handlers.oauth: [OAuth] OAUTH_SUCCESS_URL not set, using localhost fallback. This will fail in production.
+21:12:15 WARNING  aragora.server.handlers.oauth: [OAuth] OAUTH_ERROR_URL not set, using localhost fallback. This will fail in production.
+21:12:15 DEBUG    aragora.server.handlers.oauth: [OAuth] Using localhost for allowed redirect hosts (dev mode)
+21:12:15 INFO     aragora.server.oauth_state_store: OAuth state store initialized: in-memory
+21:12:15 DEBUG    aragora.server.handlers.social: [Social] Using localhost for OAuth hosts (dev mode)
+21:12:15 DEBUG    aragora.server.cors_config: [CORS] Using default origins (dev mode). Set ARAGORA_ALLOWED_ORIGINS to customize.
+21:12:15 DEBUG    aragora.server.cors_config: [CORS] Allowed origins: {'http://127.0.0.1:3000', 'http://127.0.0.1:8080', 'https://aragora.ai', 'http://localhost:8080', 'https://www.aragora.ai', 'https://api.aragora.ai', 'http://localhost:3000'}
+21:12:15 WARNING  aragora.server.auth: Authentication disabled (no API token). Set ARAGORA_API_TOKEN for access control.
+Found 298 endpoints in 56 groups
 # Aragora API Documentation
 
 This document describes the HTTP API endpoints provided by the Aragora server.
 
 ## Table of Contents
 
+- [Admin](#admin)
 - [Agents](#agents)
 - [Analytics](#analytics)
 - [Audio](#audio)
@@ -14,11 +30,14 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Breakpoints](#breakpoints)
 - [Broadcast](#broadcast)
 - [Calibration](#calibration)
+- [Checkpoints](#checkpoints)
 - [Consensus](#consensus)
 - [Critique](#critique)
 - [Dashboard](#dashboard)
 - [Debates](#debates)
+- [Docs](#docs)
 - [Documents](#documents)
+- [Evidence](#evidence)
 - [Evolution](#evolution)
 - [Evolution Ab Testing](#evolution-ab-testing)
 - [Features](#features)
@@ -27,6 +46,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Gauntlet](#gauntlet)
 - [Genesis](#genesis)
 - [Graph Debates](#graph-debates)
+- [Health](#health)
 - [Insights](#insights)
 - [Introspection](#introspection)
 - [Laboratory](#laboratory)
@@ -37,6 +57,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Memory Analytics](#memory-analytics)
 - [Metrics](#metrics)
 - [Moments](#moments)
+- [Nomic](#nomic)
 - [Oauth](#oauth)
 - [Organizations](#organizations)
 - [Persona](#persona)
@@ -53,6 +74,69 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Tournament](#tournament)
 - [Training](#training)
 - [Verification](#verification)
+- [Webhook](#webhook)
+
+---
+
+## Admin
+
+Admin API Handlers.
+
+### `GET` `/api/admin/organizations`
+
+List all organizations
+
+### `GET` `/api/admin/users`
+
+List all users
+
+### `GET` `/api/admin/stats`
+
+Get system-wide statistics
+
+### `GET` `/api/admin/system/metrics`
+
+Get aggregated system metrics
+
+### `POST` `/api/admin/impersonate/:user_id`
+
+Create impersonation token
+
+### `POST` `/api/admin/users/:user_id/deactivate`
+
+Deactivate a user
+
+### `POST` `/api/admin/users/:user_id/activate`
+
+Activate a user
+
+### `POST` `/api/admin/users/:user_id/unlock`
+
+Unlock a locked user account
+
+### `GET` `/api/admin/nomic/status`
+
+Get detailed nomic status
+
+### `GET` `/api/admin/nomic/circuit-breakers`
+
+Get circuit breaker status
+
+### `POST` `/api/admin/nomic/reset`
+
+Reset nomic to a specific phase
+
+### `POST` `/api/admin/nomic/pause`
+
+Pause the nomic loop
+
+### `POST` `/api/admin/nomic/resume`
+
+Resume the nomic loop
+
+### `POST` `/api/admin/nomic/circuit-breakers/reset`
+
+Reset all circuit breakers
 
 ---
 
@@ -364,6 +448,40 @@ Get top agents by calibration score
 
 ---
 
+## Checkpoints
+
+Checkpoint management endpoint handlers.
+
+### `GET` `/api/checkpoints`
+
+List all checkpoints
+
+### `GET` `/api/checkpoints/{id}`
+
+Get checkpoint details
+
+### `POST` `/api/checkpoints/{id}/resume`
+
+Resume debate from checkpoint
+
+### `DELETE` `/api/checkpoints/{id}`
+
+Delete checkpoint
+
+### `GET` `/api/debates/{id}/checkpoints`
+
+List checkpoints for a debate
+
+### `POST` `/api/debates/{id}/checkpoint`
+
+Create checkpoint for running debate
+
+### `POST` `/api/debates/{id}/pause`
+
+Pause debate and create checkpoint
+
+---
+
 ## Consensus
 
 Consensus Memory endpoint handlers.
@@ -500,6 +618,36 @@ Cross-debate search by query
 
 ---
 
+## Docs
+
+API documentation endpoint handlers.
+
+### `GET` `/api/openapi`
+
+OpenAPI 3.0 JSON specification
+
+### `GET` `/api/openapi.json`
+
+OpenAPI 3.0 JSON specification
+
+### `GET` `/api/openapi.yaml`
+
+OpenAPI 3.0 YAML specification
+
+### `GET` `/api/postman.json`
+
+Postman collection export
+
+### `GET` `/api/docs`
+
+Swagger UI interactive documentation
+
+### `GET` `/api/redoc`
+
+ReDoc API documentation viewer
+
+---
+
 ## Documents
 
 Document management endpoint handlers.
@@ -523,6 +671,28 @@ Upload a document
 ### `DELETE` `/api/documents/{doc_id}`
 
 Delete a document by ID
+
+---
+
+## Evidence
+
+Handler for evidence-related API endpoints.
+
+### `GET` `/api/evidence`
+
+Get or create evidence collector instance
+
+### `GET` `/api/evidence/statistics`
+
+Handle GET /api/evidence/statistics - get store stats
+
+### `GET` `/api/evidence/search`
+
+Handle POST /api/evidence/search - full-text search
+
+### `GET` `/api/evidence/collect`
+
+Get or create evidence collector instance
 
 ---
 
@@ -739,6 +909,32 @@ Get all branches for a debate
 ### `GET` `/api/debates/graph/{id}/nodes` 🔒
 
 Get all nodes in debate graph
+
+---
+
+## Health
+
+Health and readiness endpoint handlers.
+
+### `GET` `/healthz`
+
+Kubernetes liveness probe (lightweight)
+
+### `GET` `/readyz`
+
+Kubernetes readiness probe (checks dependencies)
+
+### `GET` `/api/health`
+
+Comprehensive health check
+
+### `GET` `/api/health/detailed`
+
+Detailed health with observer metrics
+
+### `GET` `/api/health/deep`
+
+Deep health check with all external dependencies
 
 ---
 
@@ -962,6 +1158,36 @@ Most significant recent moments
 
 ---
 
+## Nomic
+
+Nomic loop state and monitoring endpoint handlers.
+
+### `GET` `/api/nomic/state`
+
+Get nomic loop state
+
+### `GET` `/api/nomic/health`
+
+Get nomic loop health with stall detection
+
+### `GET` `/api/nomic/metrics`
+
+Get nomic loop Prometheus metrics summary
+
+### `GET` `/api/nomic/log`
+
+Get nomic loop logs
+
+### `GET` `/api/nomic/risk-register`
+
+Get risk register entries
+
+### `GET` `/api/modes`
+
+Get available operational modes
+
+---
+
 ## Oauth
 
 OAuth Authentication Handlers.
@@ -1091,6 +1317,14 @@ Install a plugin
 ### `DELETE` `/api/plugins/{name}/install`
 
 Uninstall a plugin
+
+### `POST` `/api/plugins/submit`
+
+Submit a new plugin for review
+
+### `GET` `/api/plugins/submissions`
+
+List user's plugin submissions
 
 ---
 
@@ -1250,45 +1484,9 @@ Publish debate to YouTube
 
 System and utility endpoint handlers.
 
-### `GET` `/healthz`
+### `GET` `/api/debug/test`
 
-Kubernetes liveness probe (lightweight)
-
-### `GET` `/readyz`
-
-Kubernetes readiness probe (checks dependencies)
-
-### `GET` `/api/health`
-
-Health check
-
-### `GET` `/api/health/detailed`
-
-Detailed health check with component status
-
-### `GET` `/api/health/deep`
-
-Deep health check with all external dependencies
-
-### `GET` `/api/nomic/state`
-
-Get nomic loop state
-
-### `GET` `/api/nomic/health`
-
-Get nomic loop health with stall detection
-
-### `GET` `/api/nomic/log`
-
-Get nomic loop logs
-
-### `GET` `/api/nomic/risk-register`
-
-Get risk register entries
-
-### `GET` `/api/modes`
-
-Get available operational modes
+Debug test endpoint
 
 ### `GET` `/api/history/cycles`
 
@@ -1308,19 +1506,7 @@ Get history summary
 
 ### `GET` `/api/system/maintenance?task=<task>`
 
-Run database maintenance (status|vacuum|analyze|checkpoint|full)
-
-### `GET` `/api/openapi`
-
-OpenAPI 3.0 JSON specification
-
-### `GET` `/api/openapi.yaml`
-
-OpenAPI 3.0 YAML specification
-
-### `GET` `/api/docs`
-
-Swagger UI interactive documentation
+Run database maintenance
 
 ### `GET` `/api/auth/stats`
 
@@ -1332,7 +1518,11 @@ Revoke a token to invalidate it
 
 ### `GET` `/api/circuit-breakers`
 
-Circuit breaker metrics for monitoring cascading failures
+Circuit breaker metrics
+
+### `GET` `/metrics`
+
+Prometheus metrics
 
 ---
 
@@ -1407,6 +1597,20 @@ Get status of formal verification backends
 ### `POST` `/api/verification/formal-verify`
 
 Verify a claim using Z3 SMT solver
+
+---
+
+## Webhook
+
+Handler for webhook management API endpoints.
+
+### `GET` `/api/webhooks`
+
+Handle DELETE /api/webhooks/:id - delete webhook
+
+### `GET` `/api/webhooks/events`
+
+Handle GET /api/webhooks/events - list available event types
 
 ---
 
