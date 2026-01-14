@@ -347,6 +347,47 @@ jobs:
               fi
             fi
 
+            # Update cloudflared tunnel config for WebSocket routing (if cloudflared is installed)
+            if command -v cloudflared &> /dev/null; then
+              echo "Updating cloudflared config for WebSocket routing..."
+              CLOUDFLARED_CONFIG_DIR="$HOME/.cloudflared"
+              if [ -d "$CLOUDFLARED_CONFIG_DIR" ]; then
+                # Check if config needs WebSocket routing update
+                if ! grep -q "path: /ws" "$CLOUDFLARED_CONFIG_DIR/config.yml" 2>/dev/null; then
+                  echo "Adding WebSocket route to cloudflared config..."
+                  # Backup existing config
+                  cp "$CLOUDFLARED_CONFIG_DIR/config.yml" "$CLOUDFLARED_CONFIG_DIR/config.yml.bak" 2>/dev/null || true
+                  # Create updated config with WebSocket routing
+                  cat > "$CLOUDFLARED_CONFIG_DIR/config.yml.new" << 'CFGEOF'
+ingress:
+  # WebSocket endpoint - route to WS port
+  - hostname: api.aragora.ai
+    path: /ws
+    service: http://localhost:8765
+  # HTTP API endpoints - route to HTTP port
+  - hostname: api.aragora.ai
+    service: http://localhost:8080
+  # Fallback
+  - service: http_status:404
+CFGEOF
+                  # Preserve tunnel token from old config if present
+                  if grep -q "^tunnel:" "$CLOUDFLARED_CONFIG_DIR/config.yml" 2>/dev/null; then
+                    grep "^tunnel:" "$CLOUDFLARED_CONFIG_DIR/config.yml" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
+                  fi
+                  if grep -q "^credentials-file:" "$CLOUDFLARED_CONFIG_DIR/config.yml" 2>/dev/null; then
+                    grep "^credentials-file:" "$CLOUDFLARED_CONFIG_DIR/config.yml" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
+                  fi
+                  mv "$CLOUDFLARED_CONFIG_DIR/config.yml.new" "$CLOUDFLARED_CONFIG_DIR/config.yml"
+                  echo "Restarting cloudflared to apply changes..."
+                  sudo systemctl restart cloudflared 2>/dev/null || true
+                else
+                  echo "Cloudflared config already has WebSocket routing"
+                fi
+              else
+                echo "::warning::Cloudflared config directory not found"
+              fi
+            fi
+
             echo "Stopping service and releasing ports..."
             sudo systemctl stop aragora-staging 2>/dev/null || sudo systemctl stop aragora 2>/dev/null || true
             # Force kill any process still using port 8765 (WebSocket)
