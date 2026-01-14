@@ -114,6 +114,18 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
             <AsciiBannerCompact connected={true} showAsciiArt={false} />
             <div className="flex items-center gap-4">
               <a
+                href="/debates"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block"
+              >
+                [DEBATES]
+              </a>
+              <a
+                href="/agents"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block"
+              >
+                [AGENTS]
+              </a>
+              <a
                 href="/about"
                 className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
@@ -121,15 +133,15 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
               </a>
               <a
                 href="/api/docs"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block"
               >
-                [API DOCS]
+                [API]
               </a>
               <a
                 href="https://live.aragora.ai"
                 className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
               >
-                [LIVE DASHBOARD]
+                [LIVE]
               </a>
               <BackendSelector compact />
               <ThemeToggle />

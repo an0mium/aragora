@@ -17,16 +17,22 @@ export function Header() {
           {/* Desktop Navigation */}
           <div className="hidden sm:flex items-center gap-4">
             <a
-              href="/about"
+              href="/debates"
               className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
             >
-              [ABOUT]
+              [DEBATES]
             </a>
             <a
-              href="/memory"
+              href="/agents"
               className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
             >
-              [MEMORY]
+              [AGENTS]
+            </a>
+            <a
+              href="/insights"
+              className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+            >
+              [INSIGHTS]
             </a>
             <a
               href="/evidence"
@@ -35,16 +41,28 @@ export function Header() {
               [EVIDENCE]
             </a>
             <a
+              href="/memory"
+              className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+            >
+              [MEMORY]
+            </a>
+            <a
               href="/tournaments"
               className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
             >
               [TOURNAMENTS]
             </a>
             <a
+              href="/developer"
+              className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+            >
+              [DEV]
+            </a>
+            <a
               href="https://live.aragora.ai"
               className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
             >
-              [LIVE DASHBOARD]
+              [LIVE]
             </a>
             <BackendSelector compact />
             <ThemeToggle />
@@ -71,16 +89,22 @@ export function Header() {
         {mobileMenuOpen && (
           <div className="sm:hidden mt-4 pb-2 border-t border-acid-green/20 pt-4 space-y-3">
             <a
-              href="/about"
+              href="/debates"
               className="block text-sm font-mono text-text-muted hover:text-acid-green transition-colors py-2"
             >
-              [ABOUT]
+              [DEBATES]
             </a>
             <a
-              href="/memory"
+              href="/agents"
               className="block text-sm font-mono text-text-muted hover:text-acid-green transition-colors py-2"
             >
-              [MEMORY]
+              [AGENTS]
+            </a>
+            <a
+              href="/insights"
+              className="block text-sm font-mono text-text-muted hover:text-acid-green transition-colors py-2"
+            >
+              [INSIGHTS]
             </a>
             <a
               href="/evidence"
@@ -89,10 +113,22 @@ export function Header() {
               [EVIDENCE]
             </a>
             <a
+              href="/memory"
+              className="block text-sm font-mono text-text-muted hover:text-acid-green transition-colors py-2"
+            >
+              [MEMORY]
+            </a>
+            <a
               href="/tournaments"
               className="block text-sm font-mono text-text-muted hover:text-acid-green transition-colors py-2"
             >
               [TOURNAMENTS]
+            </a>
+            <a
+              href="/developer"
+              className="block text-sm font-mono text-text-muted hover:text-acid-green transition-colors py-2"
+            >
+              [DEVELOPER]
             </a>
             <a
               href="https://live.aragora.ai"
