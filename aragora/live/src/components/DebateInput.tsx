@@ -197,7 +197,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
         },
         body: JSON.stringify({
           question: trimmedQuestion,
-          agents,
+          agents: agents.split(',').map(a => a.trim()).filter(Boolean),
           rounds,
           // Graph/Matrix specific options
           ...(debateMode === 'graph' && { branch_on_disagreement: true }),
