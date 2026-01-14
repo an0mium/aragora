@@ -37,7 +37,7 @@ from aragora.server.validation.schema import (
     validate_against_schema,
 )
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
@@ -48,9 +48,9 @@ from .base import (
     safe_json_parse,
     ttl_cache,
 )
-from .debates_batch import BatchOperationsMixin
-from .debates_fork import ForkOperationsMixin
-from .utils.rate_limit import rate_limit
+from .batch import BatchOperationsMixin
+from .fork import ForkOperationsMixin
+from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 

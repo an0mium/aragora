@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
-from aragora.server.handlers.base import (
+from ..base import (
     HandlerResult,
     error_response,
     handle_errors,
@@ -19,7 +19,7 @@ from aragora.server.handlers.base import (
     require_storage,
     safe_error_message,
 )
-from aragora.server.handlers.utils.rate_limit import rate_limit
+from ..utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
     pass

@@ -11,19 +11,20 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from aragora.exceptions import DebateStartError
-from aragora.server.handlers.base import (
+from aragora.server.validation.entities import SAFE_ID_PATTERN, validate_path_segment
+from aragora.server.validation.schema import BATCH_SUBMIT_SCHEMA, validate_against_schema
+
+from ..base import (
     HandlerResult,
     error_response,
     handle_errors,
     json_response,
     safe_error_message,
 )
-from aragora.server.handlers.utils.rate_limit import rate_limit
-from aragora.server.validation.entities import SAFE_ID_PATTERN, validate_path_segment
-from aragora.server.validation.schema import BATCH_SUBMIT_SCHEMA, validate_against_schema
+from ..utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
-    from aragora.server.handlers.debates import DebatesHandler
+    from .handler import DebatesHandler
 
 logger = logging.getLogger(__name__)
 
