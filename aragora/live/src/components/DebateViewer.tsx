@@ -70,6 +70,54 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
     enabled: isLiveDebate,
   });
 
+  // State for fallback debate data (when WebSocket misses events)
+  const [fallbackDebate, setFallbackDebate] = useState<{
+    task: string;
+    agents: string[];
+    finalAnswer: string;
+  } | null>(null);
+
+  // Fetch complete debate data as fallback when WebSocket misses events
+  // This happens when the debate completes before the WebSocket connects
+  useEffect(() => {
+    if (!isLiveDebate) return;
+    if (liveStatus !== 'complete') return;
+    if (liveMessages.length > 0) return; // Already have messages
+    if (fallbackDebate) return; // Already fetched
+
+    const fetchCompletedDebate = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/debates/${debateId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.final_answer || data.conclusion) {
+            setFallbackDebate({
+              task: data.task || 'Debate completed',
+              agents: data.agents || [],
+              finalAnswer: data.final_answer || data.conclusion || '',
+            });
+          }
+        }
+      } catch (err) {
+        logger.debug('Failed to fetch completed debate:', err);
+      }
+    };
+
+    fetchCompletedDebate();
+  }, [isLiveDebate, liveStatus, liveMessages.length, debateId, fallbackDebate]);
+
+  // Use fallback data when available and no live messages
+  const effectiveTask = liveTask || fallbackDebate?.task || '';
+  const effectiveAgents = liveAgents.length > 0 ? liveAgents : (fallbackDebate?.agents || []);
+  const effectiveMessages: TranscriptMessage[] = liveMessages.length > 0
+    ? liveMessages
+    : (fallbackDebate?.finalAnswer ? [{
+        agent: 'consensus',
+        role: 'conclusion',
+        content: fallbackDebate.finalAnswer,
+        timestamp: Date.now() / 1000,
+      }] : []);
+
   // Auto-show citations when they arrive
   useEffect(() => {
     if (hasCitations) {
@@ -218,9 +266,9 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
             <LiveDebateView
               debateId={debateId}
               status={liveStatus}
-              task={liveTask}
-              agents={liveAgents}
-              messages={liveMessages}
+              task={effectiveTask}
+              agents={effectiveAgents}
+              messages={effectiveMessages}
               streamingMessages={streamingMessages}
               streamEvents={streamEvents}
               hasCitations={hasCitations}
