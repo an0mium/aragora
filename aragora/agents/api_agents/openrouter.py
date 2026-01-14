@@ -487,19 +487,19 @@ class MistralAgent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "qwen",
-    default_model="qwen/qwen-2.5-coder-32b-instruct",
+    default_model="qwen/qwen3-235b-a22b",
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Qwen 2.5 Coder - Alibaba's code-focused model, strong at technical tasks",
+    description="Qwen3 235B - Alibaba's premier MoE model, GPT-5 class reasoning",
 )
 class QwenAgent(OpenRouterAgent):
-    """Alibaba Qwen 2.5 Coder via OpenRouter - excellent for code generation and analysis."""
+    """Alibaba Qwen3 235B via OpenRouter - flagship MoE model with 235B params."""
 
     def __init__(
         self,
         name: str = "qwen",
         role: str = "analyst",
-        model: str = "qwen/qwen-2.5-coder-32b-instruct",
+        model: str = "qwen/qwen3-235b-a22b",
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -513,19 +513,19 @@ class QwenAgent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "qwen-max",
-    default_model="qwen/qwen-max",
+    default_model="qwen/qwen3-max",
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Qwen Max - Alibaba's flagship model for complex reasoning",
+    description="Qwen3 Max - Alibaba's frontier model, 256K context, trilion params",
 )
 class QwenMaxAgent(OpenRouterAgent):
-    """Alibaba Qwen Max via OpenRouter - flagship for complex reasoning tasks."""
+    """Alibaba Qwen3 Max via OpenRouter - trillion-parameter frontier model."""
 
     def __init__(
         self,
         name: str = "qwen-max",
         role: str = "analyst",
-        model: str = "qwen/qwen-max",
+        model: str = "qwen/qwen3-max",
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -565,12 +565,65 @@ class YiAgent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "kimi",
+    default_model="moonshotai/kimi-k2-0905",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="Kimi K2 - Moonshot AI's 1T param MoE, 256K context, strong agentic capabilities",
+)
+class KimiK2Agent(OpenRouterAgent):
+    """Moonshot AI Kimi K2 via OpenRouter - trillion-parameter MoE with agentic capabilities."""
+
+    def __init__(
+        self,
+        name: str = "kimi",
+        role: str = "analyst",
+        model: str = "moonshotai/kimi-k2-0905",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "kimi"
+
+
+@AgentRegistry.register(
+    "kimi-thinking",
+    default_model="moonshotai/kimi-k2-thinking",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="Kimi K2 Thinking - reasoning model that outperforms GPT-5 on agentic tasks",
+)
+class KimiThinkingAgent(OpenRouterAgent):
+    """Moonshot AI Kimi K2 Thinking via OpenRouter - reasoning model with chain-of-thought."""
+
+    def __init__(
+        self,
+        name: str = "kimi-thinking",
+        role: str = "analyst",
+        model: str = "moonshotai/kimi-k2-thinking",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "kimi-thinking"
+
+
+# Legacy Kimi agent using direct Moonshot API (requires KIMI_API_KEY)
+@AgentRegistry.register(
+    "kimi-legacy",
     default_model="moonshot-v1-8k",
     agent_type="API (Kimi/Moonshot)",
     env_vars="KIMI_API_KEY",
-    description="Kimi - Moonshot AI's flagship model with strong reasoning",
+    description="Kimi Legacy - direct Moonshot API (requires KIMI_API_KEY)",
 )
-class KimiAgent(APIAgent):
+class KimiLegacyAgent(APIAgent):
     """Moonshot AI Kimi - strong reasoning and Chinese language capabilities.
 
     Uses Moonshot's OpenAI-compatible API directly.
@@ -635,6 +688,148 @@ class KimiAgent(APIAgent):
                 return data["choices"][0]["message"]["content"]
 
 
+# === Llama 4 Models ===
+
+
+@AgentRegistry.register(
+    "llama4-maverick",
+    default_model="meta-llama/llama-4-maverick",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="Llama 4 Maverick - 400B MoE, 1M context, native multimodal",
+)
+class Llama4MaverickAgent(OpenRouterAgent):
+    """Meta Llama 4 Maverick via OpenRouter - 400B MoE with 1M token context."""
+
+    def __init__(
+        self,
+        name: str = "llama4-maverick",
+        role: str = "analyst",
+        model: str = "meta-llama/llama-4-maverick",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "llama4-maverick"
+
+
+@AgentRegistry.register(
+    "llama4-scout",
+    default_model="meta-llama/llama-4-scout",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="Llama 4 Scout - 109B MoE, 10M context window, multimodal",
+)
+class Llama4ScoutAgent(OpenRouterAgent):
+    """Meta Llama 4 Scout via OpenRouter - 109B MoE with 10M token context."""
+
+    def __init__(
+        self,
+        name: str = "llama4-scout",
+        role: str = "analyst",
+        model: str = "meta-llama/llama-4-scout",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "llama4-scout"
+
+
+# === Perplexity Sonar Models ===
+
+
+@AgentRegistry.register(
+    "sonar",
+    default_model="perplexity/sonar-reasoning",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="Perplexity Sonar Reasoning - DeepSeek R1 with live web search",
+)
+class SonarAgent(OpenRouterAgent):
+    """Perplexity Sonar Reasoning via OpenRouter - chain-of-thought with web search."""
+
+    def __init__(
+        self,
+        name: str = "sonar",
+        role: str = "analyst",
+        model: str = "perplexity/sonar-reasoning",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "sonar"
+
+
+# === Cohere Command Models ===
+
+
+@AgentRegistry.register(
+    "command-r",
+    default_model="cohere/command-r-plus",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="Cohere Command R+ - 104B, best-in-class RAG and tool use",
+)
+class CommandRAgent(OpenRouterAgent):
+    """Cohere Command R+ via OpenRouter - 104B model optimized for RAG."""
+
+    def __init__(
+        self,
+        name: str = "command-r",
+        role: str = "analyst",
+        model: str = "cohere/command-r-plus",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "command-r"
+
+
+# === AI21 Jamba Models ===
+
+
+@AgentRegistry.register(
+    "jamba",
+    default_model="ai21/jamba-1.6-large",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="AI21 Jamba Large - SSM-Transformer hybrid, 256K context, 2.5x faster",
+)
+class JambaAgent(OpenRouterAgent):
+    """AI21 Jamba Large via OpenRouter - hybrid architecture with 256K context."""
+
+    def __init__(
+        self,
+        name: str = "jamba",
+        role: str = "analyst",
+        model: str = "ai21/jamba-1.6-large",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "jamba"
+
+
 __all__ = [
     "OpenRouterAgent",
     "DeepSeekAgent",
@@ -645,5 +840,12 @@ __all__ = [
     "QwenAgent",
     "QwenMaxAgent",
     "YiAgent",
-    "KimiAgent",
+    "KimiK2Agent",
+    "KimiThinkingAgent",
+    "KimiLegacyAgent",
+    "Llama4MaverickAgent",
+    "Llama4ScoutAgent",
+    "SonarAgent",
+    "CommandRAgent",
+    "JambaAgent",
 ]

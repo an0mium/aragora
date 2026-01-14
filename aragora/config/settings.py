@@ -612,6 +612,16 @@ ALLOWED_AGENT_TYPES: FrozenSet[str] = frozenset(
         "deepseek-r1",
         "llama",
         "mistral",
+        "qwen",
+        "qwen-max",
+        "yi",
+        "kimi",
+        "kimi-thinking",
+        "llama4-maverick",
+        "llama4-scout",
+        "sonar",
+        "command-r",
+        "jamba",
         "openrouter",
     }
 )

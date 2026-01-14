@@ -46,6 +46,9 @@ HandlerType = Optional[Type[Any]]
 
 # Handler class placeholders - set to actual classes on successful import
 SystemHandler: HandlerType = None
+HealthHandler: HandlerType = None
+NomicHandler: HandlerType = None
+DocsHandler: HandlerType = None
 DebatesHandler: HandlerType = None
 AgentsHandler: HandlerType = None
 PulseHandler: HandlerType = None
@@ -252,6 +255,15 @@ try:
         SystemHandler as _SystemHandler,
     )
     from aragora.server.handlers import (
+        HealthHandler as _HealthHandler,
+    )
+    from aragora.server.handlers import (
+        NomicHandler as _NomicHandler,
+    )
+    from aragora.server.handlers import (
+        DocsHandler as _DocsHandler,
+    )
+    from aragora.server.handlers import (
         TournamentHandler as _TournamentHandler,
     )
     from aragora.server.handlers import (
@@ -263,6 +275,9 @@ try:
 
     # Assign imported classes to module-level variables
     SystemHandler = _SystemHandler
+    HealthHandler = _HealthHandler
+    NomicHandler = _NomicHandler
+    DocsHandler = _DocsHandler
     DebatesHandler = _DebatesHandler
     AgentsHandler = _AgentsHandler
     PulseHandler = _PulseHandler
@@ -325,6 +340,9 @@ except ImportError:
 # Handler class registry - ordered list of (attr_name, handler_class) pairs
 # Handlers are tried in this order during routing
 HANDLER_REGISTRY: List[Tuple[str, Any]] = [
+    ("_health_handler", HealthHandler),
+    ("_nomic_handler", NomicHandler),
+    ("_docs_handler", DocsHandler),
     ("_system_handler", SystemHandler),
     ("_debates_handler", DebatesHandler),
     ("_agents_handler", AgentsHandler),
@@ -410,6 +428,9 @@ class RouteIndex:
 
         # Known prefix patterns by handler (extracted from can_handle implementations)
         PREFIX_PATTERNS = {
+            "_health_handler": ["/healthz", "/readyz", "/api/health"],
+            "_nomic_handler": ["/api/nomic/", "/api/modes"],
+            "_docs_handler": ["/api/openapi", "/api/docs", "/api/redoc", "/api/postman"],
             "_debates_handler": ["/api/debates/", "/api/search"],
             "_agents_handler": [
                 "/api/agent/",
@@ -582,6 +603,9 @@ class HandlerRegistryMixin:
     end_headers: Callable[[], None]
 
     # Handler instances (initialized lazily)
+    _health_handler: Optional["BaseHandler"] = None
+    _nomic_handler: Optional["BaseHandler"] = None
+    _docs_handler: Optional["BaseHandler"] = None
     _system_handler: Optional["BaseHandler"] = None
     _debates_handler: Optional["BaseHandler"] = None
     _agents_handler: Optional["BaseHandler"] = None

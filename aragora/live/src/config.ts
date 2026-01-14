@@ -35,7 +35,7 @@ export const WS_URL = _WS_URL || 'ws://localhost:8765/ws';
 export const IS_DEV_MODE = !_API_BASE_URL || API_BASE_URL.includes('localhost');
 
 // === Debate Defaults ===
-export const DEFAULT_AGENTS = process.env.NEXT_PUBLIC_DEFAULT_AGENTS || 'grok,anthropic-api,openai-api,deepseek,mistral-api,gemini,qwen-max,kimi';
+export const DEFAULT_AGENTS = process.env.NEXT_PUBLIC_DEFAULT_AGENTS || 'grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi';
 export const DEFAULT_ROUNDS = parseInt(process.env.NEXT_PUBLIC_DEFAULT_ROUNDS || '3', 10);
 export const MAX_ROUNDS = parseInt(process.env.NEXT_PUBLIC_MAX_ROUNDS || '10', 10);
 
@@ -45,18 +45,25 @@ export const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'anthropic-api': 'Opus 4.5',
   'openai-api': 'GPT 5.2',
   'deepseek': 'DeepSeek V3',
-  'mistral-api': 'Mistral Large 3',
-  'codestral': 'Codestral',
+  'mistral': 'Mistral Large 3',
   'gemini': 'Gemini 3 Pro',
-  'qwen': 'Qwen 2.5',
-  'qwen-max': 'Qwen Max',
-  'kimi': 'Kimi',
-  'yi': 'Yi Large',
+  'qwen': 'Qwen3 235B',
+  'qwen-max': 'Qwen3 Max',
+  'kimi': 'Kimi K2',
+  'kimi-thinking': 'Kimi K2 Thinking',
   'llama': 'Llama 3.3',
+  'llama4-maverick': 'Llama 4 Maverick',
+  'llama4-scout': 'Llama 4 Scout',
+  'sonar': 'Perplexity Sonar',
+  'command-r': 'Cohere Command R+',
+  'jamba': 'AI21 Jamba',
+  'yi': 'Yi Large',
+  'openrouter': 'OpenRouter',
+  'deepseek-r1': 'DeepSeek R1',
 };
 
 // === Streaming Configuration ===
-export const STREAMING_CAPABLE_AGENTS = (process.env.NEXT_PUBLIC_STREAMING_AGENTS || 'grok,anthropic-api,openai-api,mistral-api').split(',');
+export const STREAMING_CAPABLE_AGENTS = (process.env.NEXT_PUBLIC_STREAMING_AGENTS || 'grok,anthropic-api,openai-api,mistral').split(',');
 
 // === UI Timeouts ===
 export const API_TIMEOUT_MS = parseInt(process.env.NEXT_PUBLIC_API_TIMEOUT || '30000', 10);

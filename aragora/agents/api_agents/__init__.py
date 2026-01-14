@@ -20,15 +20,22 @@ from aragora.agents.api_agents.ollama import OllamaAgent
 from aragora.agents.api_agents.openai import OpenAIAPIAgent
 from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
 from aragora.agents.api_agents.openrouter import (
+    CommandRAgent,
     DeepSeekAgent,
     DeepSeekReasonerAgent,
     DeepSeekV3Agent,
-    KimiAgent,
+    JambaAgent,
+    KimiK2Agent,
+    KimiLegacyAgent,
+    KimiThinkingAgent,
+    Llama4MaverickAgent,
+    Llama4ScoutAgent,
     LlamaAgent,
     MistralAgent,
     OpenRouterAgent,
     QwenAgent,
     QwenMaxAgent,
+    SonarAgent,
     YiAgent,
 )
 from aragora.agents.api_agents.rate_limiter import (
@@ -69,7 +76,14 @@ __all__ = [
     "QwenAgent",
     "QwenMaxAgent",
     "YiAgent",
-    "KimiAgent",
+    "KimiK2Agent",
+    "KimiThinkingAgent",
+    "KimiLegacyAgent",
+    "Llama4MaverickAgent",
+    "Llama4ScoutAgent",
+    "SonarAgent",
+    "CommandRAgent",
+    "JambaAgent",
     # Tinker (fine-tuned models)
     "TinkerAgent",
     "TinkerLlamaAgent",
