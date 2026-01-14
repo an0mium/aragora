@@ -1,5 +1,5 @@
 """
-User Authentication Handlers.
+User Authentication Handler.
 
 Endpoints:
 - POST /api/auth/register - Create a new user account
@@ -18,9 +18,8 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-import re
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 
 # Lockout tracker for brute-force protection
 from aragora.auth.lockout import get_lockout_tracker
@@ -28,7 +27,7 @@ from aragora.auth.lockout import get_lockout_tracker
 # Module-level imports for test mocking compatibility
 from aragora.billing.jwt_auth import extract_user_from_request, validate_refresh_token
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
@@ -36,38 +35,10 @@ from .base import (
     json_response,
     log_request,
 )
-from .utils.rate_limit import get_client_ip, rate_limit
+from ..utils.rate_limit import get_client_ip, rate_limit
+from .validation import validate_email, validate_password
 
 logger = logging.getLogger(__name__)
-
-# Email validation pattern
-EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-
-# Password requirements
-MIN_PASSWORD_LENGTH = 8
-MAX_PASSWORD_LENGTH = 128
-
-
-def validate_email(email: str) -> tuple[bool, str]:
-    """Validate email format."""
-    if not email:
-        return False, "Email is required"
-    if len(email) > 254:
-        return False, "Email too long"
-    if not EMAIL_PATTERN.match(email):
-        return False, "Invalid email format"
-    return True, ""
-
-
-def validate_password(password: str) -> tuple[bool, str]:
-    """Validate password requirements."""
-    if not password:
-        return False, "Password is required"
-    if len(password) < MIN_PASSWORD_LENGTH:
-        return False, f"Password must be at least {MIN_PASSWORD_LENGTH} characters"
-    if len(password) > MAX_PASSWORD_LENGTH:
-        return False, f"Password must be at most {MAX_PASSWORD_LENGTH} characters"
-    return True, ""
 
 
 class AuthHandler(BaseHandler):
@@ -1097,69 +1068,4 @@ class AuthHandler(BaseHandler):
         )
 
 
-class InMemoryUserStore:
-    """
-    Simple in-memory user store for development/testing.
-
-    Production should use a proper database backend.
-    """
-
-    def __init__(self):
-        self.users: dict[str, Any] = {}  # id -> User
-        self.users_by_email: dict[str, str] = {}  # email -> id
-        self.organizations: dict[str, Any] = {}  # id -> Organization
-        self.api_keys: dict[str, str] = {}  # api_key -> user_id
-
-    def save_user(self, user) -> None:
-        """Save a user."""
-        self.users[user.id] = user
-        self.users_by_email[user.email] = user.id
-        # Legacy: store plaintext API key if present
-        if user.api_key:
-            self.api_keys[user.api_key] = user.id
-
-    def get_user_by_id(self, user_id: str):
-        """Get user by ID."""
-        return self.users.get(user_id)
-
-    def get_user_by_email(self, email: str):
-        """Get user by email."""
-        user_id = self.users_by_email.get(email.lower())
-        if user_id:
-            return self.users.get(user_id)
-        return None
-
-    def get_user_by_api_key(self, api_key: str):
-        """Get user by API key.
-
-        Supports both:
-        - Legacy: plaintext API key lookup in cache
-        - Secure: hash-based verification against all users with API keys
-        """
-        # First try legacy plaintext lookup
-        user_id = self.api_keys.get(api_key)
-        if user_id:
-            return self.users.get(user_id)
-
-        # Fall back to hash-based verification for secure storage
-        for user in self.users.values():
-            if hasattr(user, "verify_api_key") and user.verify_api_key(api_key):
-                return user
-
-        return None
-
-    def save_organization(self, org) -> None:
-        """Save an organization."""
-        self.organizations[org.id] = org
-
-    def get_organization_by_id(self, org_id: str):
-        """Get organization by ID."""
-        return self.organizations.get(org_id)
-
-
-__all__ = [
-    "AuthHandler",
-    "InMemoryUserStore",
-    "validate_email",
-    "validate_password",
-]
+__all__ = ["AuthHandler"]
