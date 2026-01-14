@@ -164,6 +164,24 @@ jobs:
               exit 1
             fi
             sudo systemctl status aragora --no-pager || true
+
+            # Ensure cloudflared tunnel is running for api.aragora.ai
+            echo "Checking cloudflared tunnel status..."
+            if sudo systemctl is-active --quiet cloudflared; then
+              echo "Cloudflared tunnel is running"
+            else
+              echo "::warning::Cloudflared tunnel is not running! Attempting to start..."
+              sudo systemctl start cloudflared || true
+              sleep 2
+              if sudo systemctl is-active --quiet cloudflared; then
+                echo "Cloudflared tunnel started successfully"
+              else
+                echo "::error::Failed to start cloudflared tunnel!"
+                sudo journalctl -u cloudflared -n 50 --no-pager || true
+              fi
+            fi
+            sudo systemctl status cloudflared --no-pager || true
+
             echo "Deploy complete"
           ENDSSH
 
@@ -183,6 +201,23 @@ jobs:
           done
           echo "Health check failed after 60 seconds"
           echo "health_ok=false" >> $GITHUB_OUTPUT
+
+      - name: Verify tunnel routing
+        if: steps.ssh_config.outputs.ssh_ready == 'true' && steps.lightsail_verify.outputs.health_ok == 'true'
+        run: |
+          # Verify api.aragora.ai tunnel routes to Lightsail
+          echo "Checking api.aragora.ai tunnel routing..."
+          HEALTH_RESPONSE=$(curl -sf "https://api.aragora.ai/api/health" 2>/dev/null || echo '{}')
+          NOMIC_PATH=$(echo "$HEALTH_RESPONSE" | jq -r '.checks.nomic_dir.path // "unknown"')
+
+          if [[ "$NOMIC_PATH" == *"/home/ubuntu/"* ]]; then
+            echo "Tunnel correctly routing to Lightsail (path: $NOMIC_PATH)"
+          elif [[ "$NOMIC_PATH" == *"/home/ec2-user/"* ]]; then
+            echo "::warning::Tunnel routing to EC2 instead of Lightsail! Path: $NOMIC_PATH"
+            echo "::warning::Check cloudflared tunnel configuration on Lightsail"
+          else
+            echo "::warning::Could not verify tunnel routing (path: $NOMIC_PATH)"
+          fi
 
       - name: Rollback on failure
         if: steps.ssh_config.outputs.ssh_ready == 'true' && steps.lightsail_verify.outputs.health_ok == 'false'
