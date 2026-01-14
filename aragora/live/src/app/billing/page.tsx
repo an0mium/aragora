@@ -172,12 +172,26 @@ export default function BillingPage() {
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
-            <Link
-              href="/"
-              className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
-            >
-              [DASHBOARD]
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [DASHBOARD]
+              </Link>
+              <Link
+                href="/pricing"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [PRICING]
+              </Link>
+              <Link
+                href="/settings"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [SETTINGS]
+              </Link>
+            </div>
           </div>
         </header>
 

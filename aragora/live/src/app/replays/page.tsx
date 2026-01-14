@@ -29,12 +29,30 @@ export default function ReplaysPage() {
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Link
                 href="/"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
                 [DASHBOARD]
+              </Link>
+              <Link
+                href="/debates"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [DEBATES]
+              </Link>
+              <Link
+                href="/gallery"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [GALLERY]
+              </Link>
+              <Link
+                href="/insights"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [INSIGHTS]
               </Link>
               <BackendSelector compact />
               <ThemeToggle />

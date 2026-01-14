@@ -33,24 +33,30 @@ export default function SettingsPage() {
             <Link href="/" aria-label="Go to dashboard">
               <AsciiBannerCompact connected={true} />
             </Link>
-            <nav className="flex items-center gap-4" aria-label="Main navigation">
+            <nav className="flex items-center gap-3" aria-label="Main navigation">
               <Link
                 href="/"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
                 [DASHBOARD]
               </Link>
               <Link
-                href="/debates"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                href="/api-explorer"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
-                [DEBATES]
+                [API]
               </Link>
               <Link
-                href="/memory"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                href="/plugins"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
-                [MEMORY]
+                [PLUGINS]
+              </Link>
+              <Link
+                href="/billing"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [BILLING]
               </Link>
               <BackendSelector compact />
               <ThemeToggle />
