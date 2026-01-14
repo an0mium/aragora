@@ -1,406 +1,610 @@
-# Pulse: Trending Topic Automation
+# Pulse System Guide
 
-Pulse automatically fetches trending topics from social media platforms and schedules AI debates on the most interesting ones.
+Pulse is Aragora's trending topic system that automatically ingests topics from social platforms and schedules debates on the most relevant and high-quality trends.
 
 ## Overview
 
-Pulse consists of three components:
+The Pulse system provides:
+- **Ingestors**: Fetch trending topics from Twitter, HackerNews, Reddit, GitHub
+- **Weighting**: Score topics by source credibility
+- **Quality**: Filter spam, clickbait, and low-value content
+- **Freshness**: Apply time-based relevance decay
+- **Consensus**: Detect cross-platform trends
+- **Scheduling**: Automatically create debates from top trends
 
-1. **Ingestors** - Fetch trending topics from platforms (HackerNews, Reddit, GitHub, Twitter)
-2. **Scheduler** - Selects debate-worthy topics and schedules debates
-3. **Store** - Persists scheduled debates and tracks outcomes
+## Architecture
+
+```
+┌─────────────────┐     ┌──────────────┐     ┌─────────────┐
+│  Platform APIs  │────>│  Ingestors   │────>│  Weighting  │
+│  (Twitter, HN)  │     │              │     │  System     │
+└─────────────────┘     └──────────────┘     └──────┬──────┘
+                                                    │
+                        ┌──────────────┐            │
+                        │   Quality    │<───────────┘
+                        │   Filter     │
+                        └──────┬───────┘
+                               │
+                        ┌──────┴───────┐
+                        │  Freshness   │
+                        │  Calculator  │
+                        └──────┬───────┘
+                               │
+                        ┌──────┴───────┐
+                        │  Consensus   │
+                        │  Detector    │
+                        └──────┬───────┘
+                               │
+                        ┌──────┴───────┐
+                        │  Scheduler   │───> Debates
+                        └──────────────┘
+```
 
 ## Quick Start
 
-```python
-import asyncio
+\`\`\`python
 from aragora.pulse import (
     PulseManager,
-    HackerNewsIngestor,
-    RedditIngestor,
-    PulseDebateScheduler,
-    ScheduledDebateStore,
-    SchedulerConfig,
-)
-from aragora.debate import Arena, DebateProtocol
-from aragora.core import Environment
-
-# 1. Setup ingestors
-pulse_manager = PulseManager()
-pulse_manager.add_ingestor("hackernews", HackerNewsIngestor())
-pulse_manager.add_ingestor("reddit", RedditIngestor(subreddits=["programming", "MachineLearning"]))
-
-# 2. Setup store
-store = ScheduledDebateStore("data/scheduled_debates.db")
-
-# 3. Configure scheduler
-config = SchedulerConfig(
-    poll_interval_seconds=300,  # Check every 5 minutes
-    platforms=["hackernews", "reddit"],
-    max_debates_per_hour=6,
-    min_volume_threshold=100,
-    allowed_categories=["tech", "ai", "programming"],
+    SourceWeightingSystem,
+    TopicQualityFilter,
+    FreshnessCalculator,
+    CrossSourceConsensus,
 )
 
-scheduler = PulseDebateScheduler(pulse_manager, store, config)
+# Initialize components
+manager = PulseManager()
+weighting = SourceWeightingSystem()
+quality = TopicQualityFilter()
+freshness = FreshnessCalculator()
+consensus = CrossSourceConsensus()
 
-# 4. Define debate creator
-async def create_debate(topic: str, rounds: int, threshold: float):
-    env = Environment(task=topic)
-    protocol = DebateProtocol(rounds=rounds, consensus_threshold=threshold)
-    arena = Arena.from_config(env, agents, protocol)
-    result = await arena.run()
-    return {"debate_id": result.debate_id, "consensus": result.consensus_reached}
+# Fetch trending topics
+topics = manager.fetch_all_trending()
 
-scheduler.set_debate_creator(create_debate)
+# Apply weighting
+weighted = weighting.weight_topics(topics)
 
-# 5. Start scheduler
-await scheduler.start()
-```
+# Filter low quality
+quality_scores = quality.filter_topics(topics)
+
+# Check freshness
+fresh_scores = freshness.filter_stale(topics, timestamps)
+
+# Detect cross-platform trends
+result = consensus.detect_consensus(topics)
+print(f"Cross-platform trends: {result.cross_platform_count}")
+\`\`\`
 
 ## Ingestors
 
-### Available Ingestors
+### TrendingTopic
 
-| Ingestor | Platform | API Key Required |
-|----------|----------|------------------|
-| `HackerNewsIngestor` | Hacker News | No |
-| `RedditIngestor` | Reddit | Optional |
-| `GitHubTrendingIngestor` | GitHub | Optional |
-| `TwitterIngestor` | Twitter/X | Yes |
+All ingestors return \`TrendingTopic\` objects:
 
-### HackerNews Ingestor
+\`\`\`python
+@dataclass
+class TrendingTopic:
+    platform: str        # Source platform
+    topic: str           # Topic text/title
+    volume: int          # Engagement count
+    category: str        # Topic category
+    url: str | None      # Link to source
+    raw_data: dict       # Platform-specific data
+\`\`\`
 
-Fetches top stories from HackerNews.
+### PulseManager
 
-```python
-from aragora.pulse import HackerNewsIngestor
+Coordinates multiple ingestors:
 
-ingestor = HackerNewsIngestor(
-    rate_limit_delay=1.0,    # Seconds between requests
-    max_retries=3,           # Retry failed requests
-    base_retry_delay=1.0,    # Initial retry delay
+\`\`\`python
+from aragora.pulse import PulseManager
+
+manager = PulseManager(
+    enable_twitter=True,
+    enable_hackernews=True,
+    enable_reddit=True,
+    enable_github=False,
 )
 
-topics = await ingestor.fetch_trending(limit=20)
-for topic in topics:
-    print(f"{topic.topic} - {topic.volume} points")
-```
-
-### Reddit Ingestor
-
-Fetches trending posts from specified subreddits.
-
-```python
-from aragora.pulse import RedditIngestor
-
-ingestor = RedditIngestor(
-    api_key="optional-reddit-api-key",
-    subreddits=["programming", "MachineLearning", "technology"],
-    rate_limit_delay=2.0,
-)
-
-topics = await ingestor.fetch_trending(limit=30)
-```
-
-### GitHub Trending
-
-Fetches trending repositories.
-
-```python
-from aragora.pulse import GitHubTrendingIngestor
-
-ingestor = GitHubTrendingIngestor(
-    api_key="github-token",  # Optional, increases rate limits
-    languages=["python", "rust", "go"],
-)
-
-topics = await ingestor.fetch_trending(limit=10)
-```
-
-### Twitter/X Ingestor
-
-Requires Twitter API credentials.
-
-```python
-from aragora.pulse import TwitterIngestor
-
-ingestor = TwitterIngestor(
-    api_key="twitter-bearer-token",
-    rate_limit_delay=2.0,
-)
-
-topics = await ingestor.fetch_trending(limit=50)
-```
-
-## Pulse Manager
-
-Coordinates multiple ingestors.
-
-```python
-from aragora.pulse import PulseManager, HackerNewsIngestor, RedditIngestor
-
-manager = PulseManager()
-
-# Add ingestors
-manager.add_ingestor("hackernews", HackerNewsIngestor())
-manager.add_ingestor("reddit", RedditIngestor())
-
-# Fetch from all platforms
-all_topics = await manager.fetch_all_trending()
+# Fetch from all enabled platforms
+topics = manager.fetch_all_trending()
 
 # Fetch from specific platform
-hn_topics = await manager.fetch_trending("hackernews")
+hn_topics = manager.fetch_trending("hackernews")
+\`\`\`
 
-# Get combined, deduplicated list
-combined = await manager.get_combined_trending(limit=50)
-```
+### Individual Ingestors
 
-## Scheduler Configuration
+\`\`\`python
+from aragora.pulse import (
+    HackerNewsIngestor,
+    TwitterIngestor,
+    RedditIngestor,
+    GitHubTrendingIngestor,
+)
 
-```python
-from aragora.pulse import SchedulerConfig
+# HackerNews (no auth required)
+hn = HackerNewsIngestor()
+topics = hn.fetch_trending(limit=30)
 
+# Twitter (requires API key)
+twitter = TwitterIngestor(bearer_token="...")
+topics = twitter.fetch_trending()
+
+# Reddit (requires OAuth)
+reddit = RedditIngestor(
+    client_id="...",
+    client_secret="...",
+    subreddits=["technology", "programming"],
+)
+topics = reddit.fetch_trending()
+
+# GitHub Trending
+github = GitHubTrendingIngestor()
+topics = github.fetch_trending(language="python")
+\`\`\`
+
+### Circuit Breaker
+
+Ingestors include circuit breaker protection:
+
+\`\`\`python
+from aragora.pulse import CircuitBreaker
+
+breaker = CircuitBreaker(
+    failure_threshold=5,
+    recovery_timeout=60,
+)
+
+# Automatically opens after failures
+if breaker.is_open:
+    print("Circuit open, using cached data")
+\`\`\`
+
+## Source Weighting
+
+Score topics by platform credibility:
+
+\`\`\`python
+from aragora.pulse import (
+    SourceWeightingSystem,
+    DEFAULT_SOURCE_WEIGHTS,
+    SourceWeight,
+    WeightedTopic,
+)
+
+# View default weights
+for platform, weight in DEFAULT_SOURCE_WEIGHTS.items():
+    print(f"{platform}: credibility={weight.base_credibility}")
+
+# Create weighting system
+system = SourceWeightingSystem()
+
+# Weight a single topic
+topic = TrendingTopic("hackernews", "AI Safety Discussion", 500, "tech")
+weighted: WeightedTopic = system.weight_topic(topic)
+print(f"Weighted score: {weighted.weighted_score}")
+print(f"Credibility: {weighted.credibility}")
+print(f"Authority: {weighted.authority}")
+
+# Weight multiple topics
+topics = [...]
+weighted_topics = system.weight_topics(topics)
+
+# Rank by score
+ranked = system.rank_by_weighted_score(weighted_topics)
+
+# Filter by minimum credibility
+high_quality = system.rank_by_weighted_score(
+    weighted_topics,
+    min_credibility=0.8
+)
+\`\`\`
+
+### Custom Weights
+
+\`\`\`python
+# Update existing platform weight
+system.update_source_weight("hackernews", credibility=0.90)
+
+# Track performance and adapt
+system.record_topic_performance("hackernews", outcome_score=0.85)
+adaptive = system.get_adaptive_credibility("hackernews")
+\`\`\`
+
+### Default Platform Weights
+
+| Platform | Credibility | Authority | Volume Multiplier |
+|----------|-------------|-----------|-------------------|
+| hackernews | 0.85 | 0.80 | 1.0 |
+| github | 0.90 | 0.85 | 0.8 |
+| reddit | 0.70 | 0.65 | 1.2 |
+| twitter | 0.60 | 0.55 | 1.5 |
+
+## Quality Filtering
+
+Filter out spam, clickbait, and low-value content:
+
+\`\`\`python
+from aragora.pulse import (
+    TopicQualityFilter,
+    QualityScore,
+    CLICKBAIT_PATTERNS,
+    SPAM_INDICATORS,
+)
+
+# Create filter
+filter = TopicQualityFilter(
+    min_quality_threshold=0.5,
+    min_text_length=10,
+    max_emoji_ratio=0.1,
+)
+
+# Score single topic
+score: QualityScore = filter.score_topic(topic)
+print(f"Overall: {score.overall_score}")
+print(f"Acceptable: {score.is_acceptable}")
+print(f"Issues: {score.issues}")
+print(f"Signals: {score.signals}")
+
+# Signals include:
+# - length: Text length score
+# - substance: Meaningful content ratio
+# - clickbait: Clickbait pattern detection
+# - spam: Spam indicator detection
+# - structure: Formatting quality
+# - quality_indicators: Positive quality signals
+# - blocklist: Custom blocklist matches
+
+# Filter batch
+filtered = filter.filter_topics(topics, min_quality=0.6)
+
+# Add custom blocklist
+filter.add_to_blocklist(["crypto", "nft", "giveaway"])
+\`\`\`
+
+### Quality Signals
+
+\`\`\`python
+# View patterns
+print(CLICKBAIT_PATTERNS)  # ["won't believe", "doctors hate", ...]
+print(SPAM_INDICATORS)     # ["free", "click here", "bit.ly", ...]
+\`\`\`
+
+## Freshness Decay
+
+Apply time-based relevance scoring:
+
+\`\`\`python
+from aragora.pulse import (
+    FreshnessCalculator,
+    FreshnessConfig,
+    FreshnessScore,
+    DecayModel,
+    DEFAULT_PLATFORM_HALF_LIVES,
+)
+
+# View platform half-lives
+print(DEFAULT_PLATFORM_HALF_LIVES)
+# {'twitter': 2.0, 'hackernews': 6.0, 'reddit': 12.0, 'github': 24.0}
+
+# Create calculator with default config
+calc = FreshnessCalculator()
+
+# Custom configuration
+config = FreshnessConfig(
+    decay_model=DecayModel.EXPONENTIAL,  # or LINEAR, STEP, LOGARITHMIC
+    half_life_hours=6.0,
+    max_age_hours=48.0,
+    min_freshness=0.05,
+)
+calc = FreshnessCalculator(config)
+
+# Calculate freshness
+import time
+now = time.time()
+created = now - (6 * 3600)  # 6 hours ago
+
+score: FreshnessScore = calc.calculate_freshness(
+    topic,
+    created_at=created,
+    reference_time=now,
+)
+print(f"Freshness: {score.freshness}")
+print(f"Age (hours): {score.age_hours}")
+print(f"Is stale: {score.is_stale}")
+
+# Batch scoring
+timestamps = {"topic1": now - 3600, "topic2": now - 7200}
+scores = calc.score_topics(topics, timestamps)
+
+# Filter stale topics
+fresh_only = calc.filter_stale(topics, timestamps, min_freshness=0.3)
+\`\`\`
+
+### Decay Models
+
+| Model | Behavior |
+|-------|----------|
+| \`EXPONENTIAL\` | Smooth decay, half-life based |
+| \`LINEAR\` | Linear decrease to max age |
+| \`STEP\` | Binary: fresh until threshold, then stale |
+| \`LOGARITHMIC\` | Slow initial decay, accelerates over time |
+
+### Custom Platform Half-Lives
+
+\`\`\`python
+calc.set_platform_half_life("hackernews", 4.0)  # Faster decay
+calc.set_platform_half_life("github", 48.0)     # Slower decay
+\`\`\`
+
+## Cross-Source Consensus
+
+Detect trends appearing across multiple platforms:
+
+\`\`\`python
+from aragora.pulse import (
+    CrossSourceConsensus,
+    ConsensusResult,
+    TopicCluster,
+)
+
+# Create detector
+consensus = CrossSourceConsensus(
+    similarity_threshold=0.6,
+    min_platforms_for_consensus=2,
+    consensus_confidence_boost=0.2,
+)
+
+# Detect consensus
+result: ConsensusResult = consensus.detect_consensus(topics)
+
+print(f"Cross-platform trends: {result.cross_platform_count}")
+print(f"Single-platform topics: {result.single_platform_count}")
+print(f"Consensus topics: {len(result.consensus_topics)}")
+
+# View clusters
+for cluster in result.clusters:
+    print(f"Cluster: {cluster.canonical_topic}")
+    print(f"  Platforms: {cluster.platform_count}")
+    print(f"  Total volume: {cluster.total_volume}")
+    print(f"  Is cross-platform: {cluster.is_cross_platform}")
+
+# Get confidence boosts for consensus topics
+for topic in result.consensus_topics:
+    boost = result.confidence_boosts.get(topic.topic, 0)
+    print(f"{topic.topic}: +{boost:.2f} boost")
+
+# Find related topics
+target = topics[0]
+related = consensus.find_related_topics(
+    target,
+    candidates=topics[1:],
+    max_results=5,
+)
+for topic, similarity in related:
+    print(f"  {topic.topic}: {similarity:.2f}")
+\`\`\`
+
+### Similarity Calculation
+
+\`\`\`python
+# Access similarity calculation (for debugging)
+sim = consensus._calculate_similarity(
+    "OpenAI releases GPT-5",
+    "GPT-5 released by OpenAI today",
+)
+print(f"Similarity: {sim}")  # ~0.7
+
+# Keyword extraction
+keywords = consensus._extract_keywords("The quick brown fox jumps")
+print(keywords)  # ['quick', 'brown', 'fox', 'jumps']
+\`\`\`
+
+## Scheduler
+
+Automatically schedule debates from trending topics:
+
+\`\`\`python
+from aragora.pulse import (
+    PulseDebateScheduler,
+    SchedulerConfig,
+    SchedulerState,
+    SchedulerMetrics,
+    TopicSelector,
+    TopicScore,
+)
+
+# Configure scheduler
 config = SchedulerConfig(
-    # Polling
-    poll_interval_seconds=300,              # How often to check for topics
-    platforms=["hackernews", "reddit"],     # Which platforms to poll
-
-    # Rate limiting
-    max_debates_per_hour=6,                 # Maximum debates per hour
-    min_interval_between_debates=600,       # Minimum seconds between debates
-
-    # Topic filtering
-    min_volume_threshold=100,               # Minimum engagement to consider
-    min_controversy_score=0.3,              # Controversy score threshold (0-1)
-    allowed_categories=["tech", "ai", "science", "programming"],
-    blocked_categories=["politics", "religion"],
-
-    # Deduplication
-    dedup_window_hours=24,                  # Don't repeat topics within this window
-
-    # Debate settings
-    debate_rounds=3,                        # Rounds per debate
-    consensus_threshold=0.7,                # Minimum consensus threshold
-)
-```
-
-### Category Configuration
-
-Filter topics by category:
-
-```python
-config = SchedulerConfig(
-    # Only debate these categories
-    allowed_categories=["tech", "ai", "science", "programming", "startups"],
-
-    # Never debate these categories
-    blocked_categories=["politics", "religion", "celebrity"],
-)
-```
-
-Common categories detected by ingestors:
-- `tech`, `ai`, `programming`, `science`
-- `business`, `startups`, `finance`
-- `gaming`, `entertainment`
-- `politics`, `world`, `sports`
-
-## Topic Scoring
-
-The scheduler uses `TopicSelector` to score topics for debate suitability.
-
-### Scoring Factors
-
-| Factor | Weight | Description |
-|--------|--------|-------------|
-| Category | +0.3 | Allowed category |
-| Volume | up to +0.3 | Higher engagement = higher score |
-| Controversy | up to +0.4 | Keywords indicating debate-worthiness |
-| Boost | up to +0.2 | AI/tech keywords get bonus |
-
-### Controversy Keywords
-
-Topics containing these words score higher:
-- `should`, `vs`, `versus`, `debate`
-- `controversy`, `opinion`, `disagree`
-- `argument`, `battle`, `challenge`
-- `question`, `problem`, `issue`
-
-### Boost Keywords
-
-Topics containing these get a bonus:
-- `ai`, `artificial intelligence`, `machine learning`
-- `ethics`, `future`, `impact`
-- `breakthrough`, `revolutionary`
-
-### Manual Topic Scoring
-
-```python
-from aragora.pulse import TopicSelector, SchedulerConfig, TrendingTopic
-
-selector = TopicSelector(SchedulerConfig())
-
-topic = TrendingTopic(
-    platform="hackernews",
-    topic="Should AI models be regulated?",
-    volume=500,
-    category="ai",
+    min_topic_score=0.6,
+    max_debates_per_hour=5,
+    cooldown_minutes=30,
+    diversity_weight=0.3,
 )
 
-score = selector.score_topic(topic)
-print(f"Score: {score.score:.2f}")
-print(f"Viable: {score.is_viable}")
-for reason in score.reasons:
-    print(f"  - {reason}")
-```
+# Create scheduler
+scheduler = PulseDebateScheduler(config)
 
-## Scheduler Operations
+# Run scheduling cycle
+selected = scheduler.select_topics(topics, max_count=3)
+for topic_score in selected:
+    print(f"Selected: {topic_score.topic.topic}")
+    print(f"  Score: {topic_score.score}")
+    print(f"  Reason: {topic_score.selection_reason}")
 
-### Starting and Stopping
+# Get scheduler state
+state: SchedulerState = scheduler.get_state()
+print(f"Running: {state.is_running}")
+print(f"Last run: {state.last_run}")
+print(f"Queued topics: {state.queued_count}")
 
-```python
-from aragora.pulse import PulseDebateScheduler, SchedulerState
+# Get metrics
+metrics: SchedulerMetrics = scheduler.get_metrics()
+print(f"Total scheduled: {metrics.total_scheduled}")
+print(f"Success rate: {metrics.success_rate}")
+\`\`\`
 
-# Start the scheduler
-await scheduler.start()
-assert scheduler.state == SchedulerState.RUNNING
+### Topic Selection
 
-# Pause (stops polling but keeps state)
-await scheduler.pause()
-assert scheduler.state == SchedulerState.PAUSED
+Custom topic selection logic:
 
-# Resume
-await scheduler.resume()
+\`\`\`python
+from aragora.pulse import TopicSelector
 
-# Stop completely
-await scheduler.stop()
-assert scheduler.state == SchedulerState.STOPPED
-```
+selector = TopicSelector(
+    weighting_system=weighting,
+    quality_filter=quality,
+    freshness_calculator=freshness,
+    consensus_detector=consensus,
+)
 
-### Metrics
-
-```python
-metrics = scheduler.get_metrics()
-print(f"Polls completed: {metrics.polls_completed}")
-print(f"Topics evaluated: {metrics.topics_evaluated}")
-print(f"Topics filtered: {metrics.topics_filtered}")
-print(f"Debates created: {metrics.debates_created}")
-print(f"Debates failed: {metrics.debates_failed}")
-print(f"Duplicates skipped: {metrics.duplicates_skipped}")
-print(f"Uptime: {metrics.to_dict()['uptime_seconds']:.0f}s")
-```
-
-### Manual Trigger
-
-Force an immediate poll:
-
-```python
-# Trigger a poll without waiting for interval
-await scheduler.trigger_poll()
-```
+scores = selector.score_topics(topics)
+top_topics = selector.select_top(scores, count=5)
+\`\`\`
 
 ## Persistence
 
-### Scheduled Debate Store
+Store scheduled debates:
 
-Persists scheduled debates to SQLite.
-
-```python
+\`\`\`python
 from aragora.pulse import ScheduledDebateStore, ScheduledDebateRecord
 
-store = ScheduledDebateStore("data/scheduled_debates.db")
+store = ScheduledDebateStore(db_path="pulse.db")
 
-# Save a scheduled debate
+# Record scheduled debate
 record = ScheduledDebateRecord(
-    record_id="abc123",
-    topic_hash="hash",
-    topic="Should we regulate AI?",
+    topic="AI Safety Discussion",
     platform="hackernews",
-    debate_id="debate-001",
-    created_at=time.time(),
-    status="completed",
-    consensus_reached=True,
+    scheduled_at=datetime.now(),
+    debate_id="debate-123",
+    topic_score=0.85,
 )
 store.save(record)
 
-# Check if topic was already debated
-exists = store.topic_exists("hash", window_hours=24)
-
-# Get recent scheduled debates
+# Query history
 recent = store.get_recent(limit=10)
+by_platform = store.get_by_platform("hackernews")
+\`\`\`
 
-# Get stats
-stats = store.get_stats()
-print(f"Total: {stats['total']}")
-print(f"Completed: {stats['completed']}")
-print(f"Consensus rate: {stats['consensus_rate']:.0%}")
-```
+## Full Pipeline Example
+
+\`\`\`python
+from aragora.pulse import (
+    PulseManager,
+    SourceWeightingSystem,
+    TopicQualityFilter,
+    FreshnessCalculator,
+    CrossSourceConsensus,
+    PulseDebateScheduler,
+    SchedulerConfig,
+)
+import time
+
+# Initialize all components
+manager = PulseManager()
+weighting = SourceWeightingSystem()
+quality = TopicQualityFilter(min_quality_threshold=0.5)
+freshness = FreshnessCalculator()
+consensus = CrossSourceConsensus()
+
+config = SchedulerConfig(min_topic_score=0.6)
+scheduler = PulseDebateScheduler(config)
+
+# Pipeline
+def process_trending():
+    now = time.time()
+
+    # 1. Fetch topics
+    topics = manager.fetch_all_trending()
+    print(f"Fetched {len(topics)} topics")
+
+    # 2. Apply weighting
+    weighted = weighting.weight_topics(topics)
+    print(f"Weighted {len(weighted)} topics")
+
+    # 3. Filter quality
+    quality_filtered = quality.filter_topics(topics, min_quality=0.5)
+    quality_topics = [qs.topic for qs in quality_filtered]
+    print(f"Quality filter: {len(quality_topics)} passed")
+
+    # 4. Check freshness
+    timestamps = {t.topic: t.raw_data.get("created_at", now) for t in quality_topics}
+    fresh_topics = freshness.filter_stale(quality_topics, timestamps)
+    fresh_list = [fs.topic for fs in fresh_topics]
+    print(f"Freshness filter: {len(fresh_list)} passed")
+
+    # 5. Detect consensus
+    result = consensus.detect_consensus(fresh_list)
+    print(f"Cross-platform trends: {result.cross_platform_count}")
+
+    # 6. Prioritize consensus topics
+    final_topics = result.consensus_topics or fresh_list[:10]
+
+    # 7. Schedule debates
+    selected = scheduler.select_topics(final_topics, max_count=3)
+    for ts in selected:
+        print(f"Scheduling debate: {ts.topic.topic}")
+        # Create debate...
+
+    return selected
+
+# Run
+selected = process_trending()
+\`\`\`
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| \`TWITTER_BEARER_TOKEN\` | Twitter API bearer token |
+| \`REDDIT_CLIENT_ID\` | Reddit OAuth client ID |
+| \`REDDIT_CLIENT_SECRET\` | Reddit OAuth client secret |
+| \`PULSE_DB_PATH\` | Path to Pulse SQLite database |
+| \`PULSE_MIN_QUALITY\` | Minimum quality threshold (0.0-1.0) |
 
 ## API Endpoints
 
-When running the Aragora server, these Pulse endpoints are available:
+Pulse integrates with the Aragora API:
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/pulse/topics` | GET | Get current trending topics |
-| `/api/v1/pulse/topics/{platform}` | GET | Get topics from specific platform |
-| `/api/v1/pulse/scheduled` | GET | List scheduled debates |
-| `/api/v1/pulse/scheduled/{id}` | GET | Get scheduled debate details |
-| `/api/v1/pulse/schedule` | POST | Manually schedule a topic |
-| `/api/v1/pulse/metrics` | GET | Get scheduler metrics |
-| `/api/v1/pulse/status` | GET | Get scheduler status |
+\`\`\`
+GET  /api/pulse/trending           - Get current trending topics
+GET  /api/pulse/scheduled          - Get scheduled debates
+POST /api/pulse/schedule           - Manually schedule a topic
+GET  /api/pulse/stats              - Get Pulse system statistics
+\`\`\`
 
-### Example API Usage
+## Testing
 
-```bash
-# Get trending topics
-curl http://localhost:8080/api/v1/pulse/topics
+\`\`\`python
+from aragora.pulse import TrendingTopic
 
-# Get HackerNews topics only
-curl http://localhost:8080/api/v1/pulse/topics/hackernews
+def test_quality_filter():
+    filter = TopicQualityFilter()
 
-# Manually schedule a topic
-curl -X POST http://localhost:8080/api/v1/pulse/schedule \
-  -H "Content-Type: application/json" \
-  -d '{"topic": "Should AI be open source?", "platform": "manual"}'
+    # High quality topic
+    good = TrendingTopic(
+        "hackernews",
+        "New research on transformer architectures",
+        500,
+        "tech",
+    )
+    score = filter.score_topic(good)
+    assert score.is_acceptable
 
-# Get scheduler status
-curl http://localhost:8080/api/v1/pulse/status
-```
+    # Spam topic
+    spam = TrendingTopic(
+        "twitter",
+        "FREE $1000 GIVEAWAY click here!!!",
+        10000,
+        "spam",
+    )
+    score = filter.score_topic(spam)
+    assert not score.is_acceptable
+\`\`\`
 
-## Circuit Breaker
+## See Also
 
-Ingestors use circuit breakers to handle API failures gracefully.
-
-```python
-from aragora.resilience import CircuitBreaker
-
-# Circuit breaker is built into each ingestor
-# It automatically:
-# - Opens after 5 consecutive failures
-# - Stays open for 60 seconds
-# - Half-opens to test recovery
-# - Fully opens after successful test
-
-# Check circuit state
-print(f"Can proceed: {ingestor.circuit_breaker.can_proceed()}")
-print(f"State: {ingestor.circuit_breaker.state}")
-```
-
-## Best Practices
-
-1. **Start Conservative**: Begin with `max_debates_per_hour=2` and increase based on capacity.
-
-2. **Category Filtering**: Always configure `blocked_categories` to avoid controversial non-technical topics.
-
-3. **Deduplication Window**: Set `dedup_window_hours=24` or higher to avoid debate fatigue on trending topics.
-
-4. **Monitor Metrics**: Track `topics_filtered` and `duplicates_skipped` to tune thresholds.
-
-5. **Graceful Shutdown**: Always call `await scheduler.stop()` before exiting.
-
-## Related Documentation
-
-- [API Reference](API_REFERENCE.md) - Full REST API documentation
-- [WebSocket Events](WEBSOCKET_EVENTS.md) - Real-time streaming
-- [Integrations](INTEGRATIONS.md) - Discord/Slack notifications for scheduled debates
+- [Evidence System Guide](EVIDENCE.md) - External data integration
+- [Scheduler Documentation](SCHEDULER.md) - Debate scheduling details
+- [API Reference](API_REFERENCE.md) - REST API endpoints

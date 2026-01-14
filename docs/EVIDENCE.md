@@ -1,0 +1,437 @@
+# Evidence System Guide
+
+The Aragora Evidence system provides connectors for grounding debates in real-world data. Each connector integrates with the provenance system for full traceability and reliability scoring.
+
+## Overview
+
+Evidence connectors fetch data from external sources and return `Evidence` objects that include:
+- Content and metadata
+- Confidence and authority scores
+- Provenance tracking for debate traceability
+
+## Available Connectors
+
+| Connector | Source | API Key Required | Use Case |
+|-----------|--------|------------------|----------|
+| `LocalDocsConnector` | Local files | No | Documentation, code, markdown |
+| `GitHubConnector` | GitHub API | Optional | Issues, PRs, discussions |
+| `WebConnector` | Web search | No | Live web content |
+| `ArXivConnector` | arXiv.org | No | Academic papers |
+| `HackerNewsConnector` | Hacker News | No | Tech community discussions |
+| `WikipediaConnector` | Wikipedia | No | Encyclopedia articles |
+| `RedditConnector` | Reddit API | Optional | Community discussions |
+| `TwitterConnector` | Twitter/X API | Yes | Real-time discourse |
+| `SQLConnector` | SQL databases | No | PostgreSQL, MySQL, SQLite |
+| `NewsAPIConnector` | NewsAPI | Yes | News articles |
+| `SECConnector` | SEC EDGAR | No | Financial filings |
+
+## Quick Start
+
+```python
+from aragora.connectors import ArXivConnector, Evidence
+
+# Create connector
+connector = ArXivConnector()
+
+# Search for evidence
+results = connector.search("large language model safety", max_results=5)
+
+for evidence in results:
+    print(f"Title: {evidence.title}")
+    print(f"Score: {evidence.reliability_score:.2f}")
+    print(f"URL: {evidence.url}")
+    print("---")
+```
+
+## Evidence Object
+
+Every connector returns `Evidence` objects with standardized fields:
+
+```python
+@dataclass
+class Evidence:
+    id: str                    # Unique identifier
+    source_type: SourceType    # Type of source (paper, article, etc.)
+    source_id: str             # URL, file path, or identifier
+    content: str               # Main text content
+    title: str                 # Title or headline
+
+    # Metadata
+    created_at: str | None     # Publication/creation date
+    author: str | None         # Author or source
+    url: str | None            # Link to original
+
+    # Reliability scores (0.0 to 1.0)
+    confidence: float          # Base confidence in source
+    freshness: float           # How recent (decays over time)
+    authority: float           # Source authority rating
+
+    metadata: dict             # Additional connector-specific data
+```
+
+### Reliability Score
+
+The combined reliability score is computed as:
+```
+reliability = 0.4 * confidence + 0.3 * freshness + 0.3 * authority
+```
+
+## Connector Details
+
+### LocalDocsConnector
+
+Search local documentation, markdown files, and code.
+
+```python
+from aragora.connectors import LocalDocsConnector
+
+connector = LocalDocsConnector(
+    root_paths=["./docs", "./src"],
+    extensions=[".md", ".py", ".txt"],
+)
+
+results = connector.search("authentication flow")
+```
+
+### ArXivConnector
+
+Search academic papers on arXiv.org.
+
+```python
+from aragora.connectors import ArXivConnector, ARXIV_CATEGORIES
+
+connector = ArXivConnector(
+    categories=["cs.AI", "cs.LG"],  # Filter by category
+    max_age_days=365,               # Only recent papers
+)
+
+results = connector.search("transformer architecture")
+
+# Available categories
+print(ARXIV_CATEGORIES)  # {'cs.AI': 'Artificial Intelligence', ...}
+```
+
+### NewsAPIConnector
+
+Fetch news articles from multiple sources with credibility scoring.
+
+```python
+from aragora.connectors import (
+    NewsAPIConnector,
+    HIGH_CREDIBILITY_SOURCES,
+    MEDIUM_CREDIBILITY_SOURCES,
+)
+
+connector = NewsAPIConnector(
+    api_key="your-newsapi-key",
+    preferred_sources=HIGH_CREDIBILITY_SOURCES,  # Reuters, AP, etc.
+)
+
+results = connector.search("artificial intelligence regulation")
+```
+
+**Credibility tiers:**
+- `HIGH_CREDIBILITY_SOURCES`: Major news agencies (Reuters, AP, BBC, etc.)
+- `MEDIUM_CREDIBILITY_SOURCES`: Quality publications with editorial standards
+
+### SECConnector
+
+Access SEC EDGAR financial filings.
+
+```python
+from aragora.connectors import SECConnector, FORM_TYPES
+
+connector = SECConnector()
+
+# Search by company
+results = connector.search("Apple Inc", form_types=["10-K", "10-Q"])
+
+# Fetch specific filing
+filing = connector.fetch("0000320193-24-000123")
+
+# Available form types
+print(FORM_TYPES)  # {'10-K': 'Annual report', '10-Q': 'Quarterly report', ...}
+```
+
+### GitHubConnector
+
+Fetch issues, pull requests, and discussions.
+
+```python
+from aragora.connectors import GitHubConnector
+
+connector = GitHubConnector(
+    token="ghp_...",  # Optional, increases rate limits
+    repos=["anthropics/claude-code", "langchain-ai/langchain"],
+)
+
+# Search issues
+issues = connector.search("memory leak", content_type="issues")
+
+# Fetch specific issue
+issue = connector.fetch("anthropics/claude-code/issues/123")
+```
+
+### WebConnector
+
+Search and fetch live web content.
+
+```python
+from aragora.connectors import WebConnector
+
+connector = WebConnector(
+    user_agent="AragonaBot/1.0",
+    timeout=30,
+)
+
+results = connector.search("AI safety research 2024")
+```
+
+### SQLConnector
+
+Query SQL databases directly.
+
+```python
+from aragora.connectors import SQLConnector, SQLQueryResult
+
+connector = SQLConnector(
+    connection_string="postgresql://user:pass@localhost/db"
+)
+
+# Execute query
+result: SQLQueryResult = connector.query(
+    "SELECT * FROM debates WHERE topic LIKE %s",
+    params=["%AI%"],
+)
+
+print(f"Found {result.row_count} rows")
+for row in result.rows:
+    print(row)
+```
+
+### WikipediaConnector
+
+Search Wikipedia articles.
+
+```python
+from aragora.connectors import WikipediaConnector
+
+connector = WikipediaConnector(
+    language="en",
+    max_section_depth=2,  # Include subsections
+)
+
+results = connector.search("artificial general intelligence")
+```
+
+### HackerNewsConnector
+
+Search Hacker News stories and comments.
+
+```python
+from aragora.connectors import HackerNewsConnector
+
+connector = HackerNewsConnector(
+    include_comments=True,
+    min_score=50,  # Filter by points
+)
+
+results = connector.search("Claude AI")
+```
+
+### RedditConnector
+
+Search Reddit posts and comments.
+
+```python
+from aragora.connectors import RedditConnector
+
+connector = RedditConnector(
+    client_id="...",
+    client_secret="...",
+    subreddits=["MachineLearning", "LocalLLaMA"],
+)
+
+results = connector.search("fine-tuning techniques")
+```
+
+### TwitterConnector
+
+Search Twitter/X posts.
+
+```python
+from aragora.connectors import TwitterConnector
+
+connector = TwitterConnector(
+    bearer_token="...",
+    max_results=100,
+)
+
+results = connector.search("AI safety debate")
+```
+
+## Error Handling
+
+All connectors use a standardized exception hierarchy:
+
+```python
+from aragora.connectors import (
+    ConnectorError,           # Base exception
+    ConnectorAuthError,       # Authentication failed
+    ConnectorRateLimitError,  # Rate limit exceeded
+    ConnectorTimeoutError,    # Request timed out
+    ConnectorNetworkError,    # Network connectivity issue
+    ConnectorAPIError,        # API returned error
+    ConnectorValidationError, # Invalid input
+    ConnectorNotFoundError,   # Resource not found
+    ConnectorQuotaError,      # Quota exceeded
+    ConnectorParseError,      # Failed to parse response
+    is_retryable_error,       # Check if error is retryable
+    get_retry_delay,          # Get recommended retry delay
+)
+
+try:
+    results = connector.search("query")
+except ConnectorRateLimitError as e:
+    delay = get_retry_delay(e)
+    print(f"Rate limited. Retry after {delay}s")
+except ConnectorAuthError:
+    print("Check your API credentials")
+except ConnectorError as e:
+    if is_retryable_error(e):
+        # Retry with backoff
+        pass
+```
+
+## Provenance Integration
+
+Evidence automatically integrates with the provenance system:
+
+```python
+from aragora.connectors import ArXivConnector
+from aragora.reasoning.provenance import ProvenanceManager
+
+manager = ProvenanceManager()
+connector = ArXivConnector(provenance_manager=manager)
+
+# Evidence is automatically recorded
+results = connector.search("reinforcement learning")
+
+# View provenance chain
+for evidence in results:
+    record = manager.get_record(evidence.id)
+    print(f"Source: {record.source_type}")
+    print(f"Confidence: {record.confidence}")
+```
+
+## Custom Connectors
+
+Create custom connectors by extending `BaseConnector`:
+
+```python
+from aragora.connectors import BaseConnector, Evidence
+from aragora.reasoning.provenance import SourceType
+
+class MyCustomConnector(BaseConnector):
+    """Custom connector for my data source."""
+
+    source_type = SourceType.CUSTOM
+    default_confidence = 0.7
+
+    def search(self, query: str, max_results: int = 10) -> list[Evidence]:
+        # Implement search logic
+        results = self._fetch_from_api(query, max_results)
+        return [self._to_evidence(r) for r in results]
+
+    def fetch(self, evidence_id: str) -> Evidence | None:
+        # Implement fetch by ID
+        data = self._fetch_by_id(evidence_id)
+        return self._to_evidence(data) if data else None
+
+    def _to_evidence(self, data: dict) -> Evidence:
+        return Evidence(
+            id=data["id"],
+            source_type=self.source_type,
+            source_id=data["url"],
+            content=data["text"],
+            title=data["title"],
+            confidence=self.default_confidence,
+            authority=data.get("authority", 0.5),
+            url=data["url"],
+        )
+```
+
+## Environment Variables
+
+Configure connectors via environment variables:
+
+| Variable | Connector | Description |
+|----------|-----------|-------------|
+| `NEWSAPI_KEY` | NewsAPIConnector | NewsAPI API key |
+| `GITHUB_TOKEN` | GitHubConnector | GitHub personal access token |
+| `TWITTER_BEARER_TOKEN` | TwitterConnector | Twitter API bearer token |
+| `REDDIT_CLIENT_ID` | RedditConnector | Reddit OAuth client ID |
+| `REDDIT_CLIENT_SECRET` | RedditConnector | Reddit OAuth client secret |
+
+## Best Practices
+
+1. **Rate Limiting**: Respect API rate limits. Use `get_retry_delay()` for backoff.
+
+2. **Caching**: Enable caching for repeated queries:
+   ```python
+   connector = ArXivConnector(cache_ttl=3600)  # 1 hour cache
+   ```
+
+3. **Filtering**: Use source-specific filters to improve relevance:
+   ```python
+   connector = NewsAPIConnector(
+       preferred_sources=HIGH_CREDIBILITY_SOURCES,
+       language="en",
+   )
+   ```
+
+4. **Error Recovery**: Always handle errors gracefully:
+   ```python
+   try:
+       results = connector.search(query)
+   except ConnectorError:
+       results = []  # Fallback to empty results
+   ```
+
+5. **Provenance**: Always use provenance tracking in production:
+   ```python
+   connector = ArXivConnector(provenance_manager=manager)
+   ```
+
+## Testing
+
+Mock connectors for testing:
+
+```python
+from unittest.mock import Mock
+from aragora.connectors import Evidence
+from aragora.reasoning.provenance import SourceType
+
+def test_with_mock_connector():
+    mock_connector = Mock()
+    mock_connector.search.return_value = [
+        Evidence(
+            id="test-1",
+            source_type=SourceType.PAPER,
+            source_id="https://example.com",
+            content="Test content",
+            title="Test Paper",
+            confidence=0.9,
+        )
+    ]
+
+    results = mock_connector.search("test query")
+    assert len(results) == 1
+    assert results[0].confidence == 0.9
+```
+
+## See Also
+
+- [Pulse System Guide](PULSE.md) - Trending topic integration
+- [Provenance Documentation](PROVENANCE.md) - Full provenance system details
+- [API Reference](API_REFERENCE.md) - REST API for evidence endpoints
