@@ -770,22 +770,134 @@ export interface Replay {
 // WebSocket Types
 // =============================================================================
 
+// Stream event types (matches server StreamEventType plus control messages).
 export type DebateEventType =
+  // Control messages
+  | 'connection_info'
+  | 'loop_list'
+  | 'sync'
+  | 'ack'
+  | 'auth_revoked'
+  // Debate lifecycle
   | 'debate_start'
   | 'round_start'
-  | 'round_end'
   | 'agent_message'
   | 'critique'
   | 'vote'
   | 'consensus'
   | 'debate_end'
-  | 'error';
+  // Token streaming
+  | 'token_start'
+  | 'token_delta'
+  | 'token_end'
+  // Nomic loop
+  | 'cycle_start'
+  | 'cycle_end'
+  | 'phase_start'
+  | 'phase_end'
+  | 'task_start'
+  | 'task_complete'
+  | 'task_retry'
+  | 'verification_start'
+  | 'verification_result'
+  | 'commit'
+  | 'backup_created'
+  | 'backup_restored'
+  | 'error'
+  | 'log_message'
+  // Multi-loop management
+  | 'loop_register'
+  | 'loop_unregister'
+  // Audience participation
+  | 'user_vote'
+  | 'user_suggestion'
+  | 'audience_summary'
+  | 'audience_metrics'
+  | 'audience_drain'
+  // Memory & learning
+  | 'memory_recall'
+  | 'insight_extracted'
+  // Rankings & leaderboard
+  | 'match_recorded'
+  | 'leaderboard_update'
+  | 'grounded_verdict'
+  | 'moment_detected'
+  | 'agent_elo_updated'
+  // Claim verification
+  | 'claim_verification_result'
+  | 'formal_verification_result'
+  // Memory tiers
+  | 'memory_tier_promotion'
+  | 'memory_tier_demotion'
+  // Graph debates
+  | 'graph_node_added'
+  | 'graph_branch_created'
+  | 'graph_branch_merged'
+  // Position tracking
+  | 'flip_detected'
+  // Feature integration
+  | 'trait_emerged'
+  | 'risk_warning'
+  | 'evidence_found'
+  | 'calibration_update'
+  | 'genesis_evolution'
+  | 'training_data_exported'
+  // Rhetorical analysis
+  | 'rhetorical_observation'
+  // Trickster events
+  | 'hollow_consensus'
+  | 'trickster_intervention'
+  // Breakpoints
+  | 'breakpoint'
+  | 'breakpoint_resolved'
+  // Mood/sentiment
+  | 'mood_detected'
+  | 'mood_shift'
+  | 'debate_energy'
+  // Capability probes
+  | 'probe_start'
+  | 'probe_result'
+  | 'probe_complete'
+  // Deep audit
+  | 'audit_start'
+  | 'audit_round'
+  | 'audit_finding'
+  | 'audit_cross_exam'
+  | 'audit_verdict'
+  // Telemetry
+  | 'telemetry_thought'
+  | 'telemetry_capability'
+  | 'telemetry_redaction'
+  | 'telemetry_diagnostic'
+  // Gauntlet
+  | 'gauntlet_start'
+  | 'gauntlet_phase'
+  | 'gauntlet_agent_active'
+  | 'gauntlet_attack'
+  | 'gauntlet_finding'
+  | 'gauntlet_probe'
+  | 'gauntlet_verification'
+  | 'gauntlet_risk'
+  | 'gauntlet_progress'
+  | 'gauntlet_verdict'
+  | 'gauntlet_complete'
+  // Analytics
+  | 'uncertainty_analysis'
+  // Client keepalive / legacy
+  | 'ping'
+  | 'pong'
+  | 'round_end';
 
 export interface DebateEvent {
   type: DebateEventType;
-  debate_id: string;
-  timestamp: string;
   data: Record<string, unknown>;
+  timestamp?: number;
+  round?: number;
+  agent?: string;
+  seq?: number;
+  agent_seq?: number;
+  loop_id?: string;
+  debate_id?: string;
 }
 
 export interface WebSocketOptions {

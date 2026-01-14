@@ -51,7 +51,10 @@ export class DebateStream {
       .replace(/^http:/, 'ws:')
       .replace(/^https:/, 'wss:')
       .replace(/\/$/, '');
-    return `${wsUrl}/ws/debates/${debateId}`;
+    if (wsUrl.endsWith('/ws')) {
+      return wsUrl;
+    }
+    return `${wsUrl}/ws`;
   }
 
   /**
@@ -72,6 +75,9 @@ export class DebateStream {
         this.ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data) as DebateEvent;
+            if (!this.shouldEmit(data)) {
+              return;
+            }
             this.emitEvent(data);
           } catch (error) {
             this.emitError(new Error(`Failed to parse message: ${event.data}`));
@@ -199,6 +205,23 @@ export class DebateStream {
     this.closeCallbacks.forEach((callback) => callback(code, reason));
   }
 
+  private getEventLoopId(event: DebateEvent): string | undefined {
+    const data = event.data as Record<string, unknown> | undefined;
+    const dataDebateId =
+      typeof data?.['debate_id'] === 'string' ? (data['debate_id'] as string) : undefined;
+    const dataLoopId =
+      typeof data?.['loop_id'] === 'string' ? (data['loop_id'] as string) : undefined;
+    return event.loop_id || event.debate_id || dataDebateId || dataLoopId;
+  }
+
+  private shouldEmit(event: DebateEvent): boolean {
+    if (!this.debateId) {
+      return true;
+    }
+    const eventLoopId = this.getEventLoopId(event);
+    return !eventLoopId || eventLoopId === this.debateId;
+  }
+
   private attemptReconnect(): void {
     if (this.reconnectAttempts >= this.options.maxReconnectAttempts) {
       this.emitError(new Error('Max reconnect attempts reached'));
@@ -240,7 +263,7 @@ export class DebateStream {
  *
  * @example
  * ```typescript
- * const stream = streamDebate('http://localhost:8080', 'debate-123');
+ * const stream = streamDebate('http://localhost:8765', 'debate-123');
  *
  * for await (const event of stream) {
  *   console.log(event.type, event.data);
@@ -289,9 +312,10 @@ export async function* streamDebate(
       // Create a synthetic close event
       resolveNext({
         type: 'debate_end',
-        debate_id: debateId,
-        timestamp: new Date().toISOString(),
         data: { reason: 'connection_closed' },
+        timestamp: Date.now() / 1000,
+        loop_id: debateId,
+        debate_id: debateId,
       });
     }
   });

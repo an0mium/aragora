@@ -101,13 +101,16 @@ class MockWebSocket {
 
 function createDebateEvent(
   type: DebateEventType,
-  data: Record<string, unknown> = {}
+  data: Record<string, unknown> = {},
+  loopId = 'debate-123'
 ): DebateEvent {
+  const resolvedLoopId = typeof data.loop_id === 'string' ? data.loop_id : loopId;
   return {
     type,
-    debate_id: 'debate-123',
-    timestamp: new Date().toISOString(),
     data,
+    timestamp: Date.now() / 1000,
+    loop_id: resolvedLoopId,
+    debate_id: 'debate-123',
   };
 }
 
@@ -136,21 +139,21 @@ describe('DebateStream', () => {
       const stream = new DebateStream('http://localhost:8080', 'debate-123');
       stream.connect();
 
-      expect(mockWebSocketInstance?.url).toBe('ws://localhost:8080/ws/debates/debate-123');
+      expect(mockWebSocketInstance?.url).toBe('ws://localhost:8080/ws');
     });
 
     it('should construct WebSocket URL correctly from https base URL', () => {
       const stream = new DebateStream('https://api.aragora.ai', 'debate-456');
       stream.connect();
 
-      expect(mockWebSocketInstance?.url).toBe('wss://api.aragora.ai/ws/debates/debate-456');
+      expect(mockWebSocketInstance?.url).toBe('wss://api.aragora.ai/ws');
     });
 
     it('should strip trailing slash from base URL', () => {
       const stream = new DebateStream('http://localhost:8080/', 'debate-789');
       stream.connect();
 
-      expect(mockWebSocketInstance?.url).toBe('ws://localhost:8080/ws/debates/debate-789');
+      expect(mockWebSocketInstance?.url).toBe('ws://localhost:8080/ws');
     });
 
     it('should resolve connect() promise on successful connection', async () => {
