@@ -3359,6 +3359,87 @@ The most valuable proposals combine deep analysis with actionable implementation
         except Exception:
             return ""
 
+    def cleanup_failed_branches(self, max_age_days: int = 7) -> dict:
+        """Cleanup failed branches older than max_age_days.
+
+        Removes nomic-failed-* branches that are older than the retention period
+        to prevent repository clutter. Recent branches are preserved for learning.
+
+        Args:
+            max_age_days: Maximum age in days for branch retention (default: 7)
+
+        Returns:
+            dict with "deleted" count and "preserved" count
+        """
+        result = {"deleted": 0, "preserved": 0, "errors": []}
+        try:
+            # List failed branches
+            list_result = subprocess.run(
+                ["git", "branch", "--list", "nomic-failed-*"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            branches = [b.strip() for b in list_result.stdout.strip().split("\n") if b.strip()]
+            if not branches:
+                return result
+
+            cutoff = datetime.now() - timedelta(days=max_age_days)
+
+            for branch in branches:
+                try:
+                    # Extract timestamp from branch name (format: nomic-failed-YYYYMMDD-HHMMSS-*)
+                    # or nomic-failed-cycle-N-YYYYMMDD-HHMMSS
+                    parts = branch.replace("nomic-failed-", "").split("-")
+                    timestamp_str = None
+
+                    # Try to find date pattern YYYYMMDD
+                    for i, part in enumerate(parts):
+                        if len(part) == 8 and part.isdigit():
+                            timestamp_str = part
+                            if i + 1 < len(parts) and len(parts[i + 1]) == 6 and parts[i + 1].isdigit():
+                                timestamp_str += parts[i + 1]
+                            break
+
+                    if timestamp_str:
+                        if len(timestamp_str) >= 14:
+                            branch_date = datetime.strptime(timestamp_str[:14], "%Y%m%d%H%M%S")
+                        else:
+                            branch_date = datetime.strptime(timestamp_str[:8], "%Y%m%d")
+
+                        if branch_date < cutoff:
+                            # Delete the branch
+                            delete_result = subprocess.run(
+                                ["git", "branch", "-D", branch],
+                                cwd=self.aragora_path,
+                                capture_output=True,
+                                text=True,
+                            )
+                            if delete_result.returncode == 0:
+                                result["deleted"] += 1
+                                self._log(f"  [cleanup] Deleted old branch: {branch}")
+                            else:
+                                result["errors"].append(f"Failed to delete {branch}: {delete_result.stderr}")
+                        else:
+                            result["preserved"] += 1
+                    else:
+                        # Can't parse date, preserve by default
+                        result["preserved"] += 1
+
+                except ValueError:
+                    # Date parsing failed, preserve the branch
+                    result["preserved"] += 1
+                except Exception as e:
+                    result["errors"].append(f"Error processing {branch}: {e}")
+
+            if result["deleted"] > 0:
+                self._log(f"  [cleanup] Cleaned up {result['deleted']} old failed branches")
+
+        except Exception as e:
+            result["errors"].append(f"Branch cleanup failed: {e}")
+
+        return result
+
     def _format_successful_patterns(self, limit: int = 5) -> str:
         """Format successful critique patterns for prompt injection.
 
@@ -8928,6 +9009,18 @@ Working directory: {self.aragora_path}
                         self._log(f"  [memory] Pruned {pruned} stale patterns (archived)")
             except Exception as e:
                 self._log(f"  [memory] Pattern pruning error: {e}")
+
+        # Cleanup old failed branches periodically (every 10 cycles)
+        if self.cycle_count % 10 == 0:
+            try:
+                cleanup_result = self.cleanup_failed_branches(max_age_days=7)
+                if cleanup_result["deleted"] > 0:
+                    self._log(
+                        f"  [cleanup] Removed {cleanup_result['deleted']} old failed branches "
+                        f"(preserved {cleanup_result['preserved']})"
+                    )
+            except Exception as e:
+                self._log(f"  [cleanup] Branch cleanup error: {e}")
 
         # Run robustness check on debate conclusions periodically
         if self.scenario_comparator and self.cycle_count % 5 == 0:
