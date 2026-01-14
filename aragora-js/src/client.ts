@@ -250,6 +250,10 @@ import {
   GalleryListOptions,
   GalleryDebateDetail,
   GalleryEmbed,
+  // Persona extended types
+  AgentPerformance,
+  AgentDomainsResponse,
+  AgentAccuracy,
   // Metrics types
   SystemMetrics,
   HealthMetrics,
@@ -3280,8 +3284,31 @@ class PersonasAPI {
   /**
    * Get identity prompt for an agent.
    */
-  async getIdentityPrompt(agentName: string): Promise<IdentityPrompt> {
-    return this.http.get<IdentityPrompt>(`/api/agent/${encodeURIComponent(agentName)}/identity-prompt`);
+  async getIdentityPrompt(agentName: string, sections?: string[]): Promise<IdentityPrompt> {
+    const params = sections ? `?sections=${sections.join(',')}` : '';
+    return this.http.get<IdentityPrompt>(`/api/agent/${encodeURIComponent(agentName)}/identity-prompt${params}`);
+  }
+
+  /**
+   * Get performance summary for an agent.
+   */
+  async getPerformance(agentName: string): Promise<AgentPerformance> {
+    return this.http.get<AgentPerformance>(`/api/agent/${encodeURIComponent(agentName)}/performance`);
+  }
+
+  /**
+   * Get agent's best expertise domains by calibration.
+   */
+  async getDomains(agentName: string, limit?: number): Promise<AgentDomainsResponse> {
+    const params = limit !== undefined ? `?limit=${limit}` : '';
+    return this.http.get<AgentDomainsResponse>(`/api/agent/${encodeURIComponent(agentName)}/domains${params}`);
+  }
+
+  /**
+   * Get position accuracy stats for an agent.
+   */
+  async getAccuracy(agentName: string): Promise<AgentAccuracy> {
+    return this.http.get<AgentAccuracy>(`/api/agent/${encodeURIComponent(agentName)}/accuracy`);
   }
 }
 

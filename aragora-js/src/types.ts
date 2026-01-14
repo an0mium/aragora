@@ -2631,6 +2631,36 @@ export interface GalleryEmbed {
 }
 
 // =============================================================================
+// Persona Extended Types (complements existing AgentPersona types)
+// =============================================================================
+
+export interface AgentPerformance {
+  agent: string;
+  performance: Record<string, unknown>;
+}
+
+export interface AgentDomain {
+  domain: string;
+  calibration_score: number;
+}
+
+export interface AgentDomainsResponse {
+  agent: string;
+  domains: AgentDomain[];
+  count: number;
+}
+
+export interface AgentAccuracy {
+  agent: string;
+  total_positions: number;
+  verified_positions: number;
+  correct_positions?: number;
+  accuracy_rate: number;
+  by_type?: Record<string, unknown>;
+  message?: string;
+}
+
+// =============================================================================
 // Metrics Types
 // =============================================================================
 

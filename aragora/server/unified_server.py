@@ -12,7 +12,7 @@ import json
 import os
 import re
 import sqlite3
-from collections import deque
+from collections import OrderedDict, deque
 from html import escape as html_escape
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -154,12 +154,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     _debate_factory: Optional[DebateFactory] = None
 
     # Upload rate limiting (IP-based, independent of auth)
-    # Uses deque with maxlen to prevent unbounded memory growth
-    _upload_counts: Dict[str, deque] = {}  # IP -> deque of upload timestamps
+    # Uses OrderedDict for LRU eviction and deque with maxlen to prevent unbounded memory growth
+    _upload_counts: "OrderedDict[str, deque]" = OrderedDict()  # IP -> deque of upload timestamps
     _upload_counts_lock = threading.Lock()
     MAX_UPLOADS_PER_MINUTE = 5  # Maximum uploads per IP per minute
     MAX_UPLOADS_PER_HOUR = 30  # Maximum uploads per IP per hour
     _MAX_UPLOAD_TIMESTAMPS = 30  # Max timestamps to keep per IP (matches hourly limit)
+    MAX_TRACKED_IPS = 10000  # Prevent unbounded memory growth (LRU eviction beyond this)
 
     # Request logging for observability
     _request_log_enabled = True  # Can be disabled via environment
@@ -453,6 +454,9 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
                 UnifiedHandler._upload_counts[client_ip] = deque(
                     maxlen=UnifiedHandler._MAX_UPLOAD_TIMESTAMPS
                 )
+            else:
+                # Move to end for LRU tracking (most recently accessed)
+                UnifiedHandler._upload_counts.move_to_end(client_ip)
 
             timestamps = UnifiedHandler._upload_counts[client_ip]
 
@@ -460,6 +464,11 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             recent_timestamps = [ts for ts in timestamps if ts > one_hour_ago]
             timestamps.clear()
             timestamps.extend(recent_timestamps)
+
+            # LRU eviction: enforce max tracked IPs limit
+            while len(UnifiedHandler._upload_counts) > UnifiedHandler.MAX_TRACKED_IPS:
+                # Remove oldest (first) entry - LRU eviction
+                UnifiedHandler._upload_counts.popitem(last=False)
 
             # Periodically clean up stale IPs (those with no recent uploads)
             # Do this occasionally to avoid overhead on every request
