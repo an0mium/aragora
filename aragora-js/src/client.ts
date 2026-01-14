@@ -245,6 +245,11 @@ import {
   TrainingExportResponse,
   TrainingStats,
   TrainingFormat,
+  // Gallery types
+  GalleryListResponse,
+  GalleryListOptions,
+  GalleryDebateDetail,
+  GalleryEmbed,
   // Metrics types
   SystemMetrics,
   HealthMetrics,
@@ -2966,6 +2971,42 @@ class TrainingAPI {
 }
 
 // =============================================================================
+// Gallery API
+// =============================================================================
+
+class GalleryAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List public debates from the gallery.
+   */
+  async list(options?: GalleryListOptions): Promise<GalleryListResponse> {
+    const params = new URLSearchParams();
+    if (options?.limit !== undefined) params.set('limit', String(options.limit));
+    if (options?.offset !== undefined) params.set('offset', String(options.offset));
+    if (options?.agent) params.set('agent', options.agent);
+
+    const query = params.toString();
+    const url = query ? `/api/gallery?${query}` : '/api/gallery';
+    return this.http.get<GalleryListResponse>(url);
+  }
+
+  /**
+   * Get a specific debate from the gallery by its stable ID.
+   */
+  async get(debateId: string): Promise<GalleryDebateDetail> {
+    return this.http.get<GalleryDebateDetail>(`/api/gallery/${debateId}`);
+  }
+
+  /**
+   * Get an embeddable summary of a debate for sharing.
+   */
+  async embed(debateId: string): Promise<GalleryEmbed> {
+    return this.http.get<GalleryEmbed>(`/api/gallery/${debateId}/embed`);
+  }
+}
+
+// =============================================================================
 // Metrics API
 // =============================================================================
 
@@ -3281,6 +3322,7 @@ export class AragoraClient {
   readonly checkpoints: CheckpointsAPI;
   readonly webhooks: WebhooksAPI;
   readonly training: TrainingAPI;
+  readonly gallery: GalleryAPI;
   readonly metrics: MetricsAPI;
   readonly routing: RoutingAPI;
   readonly selection: SelectionAPI;
@@ -3344,6 +3386,7 @@ export class AragoraClient {
     this.checkpoints = new CheckpointsAPI(this.http);
     this.webhooks = new WebhooksAPI(this.http);
     this.training = new TrainingAPI(this.http);
+    this.gallery = new GalleryAPI(this.http);
     this.metrics = new MetricsAPI(this.http);
     this.routing = new RoutingAPI(this.http);
     this.selection = new SelectionAPI(this.http);

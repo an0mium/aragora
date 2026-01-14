@@ -2580,6 +2580,57 @@ export interface TrainingFormat {
 }
 
 // =============================================================================
+// Gallery Types
+// =============================================================================
+
+export interface GalleryDebate {
+  id: string;
+  title: string;
+  topic: string;
+  created_at: string;
+  agents: string[];
+  rounds: number;
+  consensus_reached: boolean;
+  winner?: string;
+  preview: string;
+}
+
+export interface GalleryListResponse {
+  debates: GalleryDebate[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface GalleryListOptions {
+  limit?: number;
+  offset?: number;
+  agent?: string;
+}
+
+export interface GalleryDebateDetail extends GalleryDebate {
+  debate_id: string;
+  loop_id?: string;
+  events: Array<{
+    type: string;
+    timestamp: string;
+    data: Record<string, unknown>;
+  }>;
+}
+
+export interface GalleryEmbed {
+  id: string;
+  title: string;
+  topic: string;
+  agents: string[];
+  consensus_reached: boolean;
+  winner?: string;
+  preview: string;
+  embed_url: string;
+  full_url: string;
+}
+
+// =============================================================================
 // Metrics Types
 // =============================================================================
 
