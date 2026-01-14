@@ -260,6 +260,19 @@ module = [
     "aragora.plugins.builtin.tests",
     # Added strict - Phase 9 server handlers (Jan 2026)
     "aragora.server.handlers.health",
+    "aragora.server.handlers.reviews",
+    "aragora.server.handlers.docs",
+    "aragora.server.handlers.exceptions",
+    "aragora.server.handlers.routing",
+    # Added strict - Phase 10 utils modules (Jan 2026)
+    "aragora.utils.sql_helpers",
+    "aragora.utils.error_sanitizer",
+    "aragora.utils.async_utils",
+    "aragora.utils.timeouts",
+    "aragora.utils.paths",
+    "aragora.utils.optional_imports",
+    "aragora.utils.cache_registry",
+    "aragora.utils.token_helpers",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
