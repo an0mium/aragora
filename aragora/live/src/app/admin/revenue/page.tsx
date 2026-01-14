@@ -151,6 +151,18 @@ export default function RevenueAdminPage() {
                 USERS
               </Link>
               <Link
+                href="/admin/personas"
+                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+              >
+                PERSONAS
+              </Link>
+              <Link
+                href="/admin/audit"
+                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+              >
+                AUDIT
+              </Link>
+              <Link
                 href="/admin/revenue"
                 className="px-4 py-2 font-mono text-sm text-acid-green border-b-2 border-acid-green"
               >
