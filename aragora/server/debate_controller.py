@@ -312,6 +312,18 @@ class DebateController:
                         if isinstance(config.agents_str, str)
                         else config.agents_str
                     )
+                    # Serialize messages from result
+                    messages_data = []
+                    if hasattr(result, "messages") and result.messages:
+                        for msg in result.messages:
+                            messages_data.append({
+                                "role": msg.role,
+                                "agent": msg.agent,
+                                "content": msg.content,
+                                "round": msg.round,
+                                "timestamp": msg.timestamp.isoformat() if hasattr(msg.timestamp, "isoformat") else str(msg.timestamp),
+                            })
+
                     debate_data = {
                         "id": debate_id,
                         "task": config.question,
@@ -325,6 +337,7 @@ class DebateController:
                             if result.grounded_verdict
                             else None
                         ),
+                        "messages": messages_data,
                     }
                     self.storage.save_dict(debate_data)
                     logger.info(f"[debate] Persisted debate {debate_id} to storage")
