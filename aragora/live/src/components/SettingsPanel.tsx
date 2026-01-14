@@ -133,6 +133,7 @@ export function SettingsPanel() {
   });
   const [slackTestStatus, setSlackTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [logoutAllStatus, setLogoutAllStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   // Load preferences
   useEffect(() => {
@@ -251,6 +252,42 @@ export function SettingsPanel() {
       setTimeout(() => setSaveStatus('idle'), 2000);
     }, 500);
   }, [slackWebhook, discordWebhook]);
+
+  // Logout from all devices (revoke all tokens)
+  const handleLogoutAllDevices = useCallback(async () => {
+    if (logoutAllStatus === 'loading') return;
+
+    const confirmed = window.confirm(
+      'This will log you out from all devices and sessions. You will need to sign in again. Continue?'
+    );
+    if (!confirmed) return;
+
+    setLogoutAllStatus('loading');
+    try {
+      const response = await fetch(`${backendConfig.api}/api/auth/logout-all`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (response.ok) {
+        setLogoutAllStatus('success');
+        // Redirect to login after short delay
+        setTimeout(() => {
+          window.location.href = '/auth/login?reason=logout_all';
+        }, 1500);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        console.error('Logout all failed:', data);
+        setLogoutAllStatus('error');
+        setTimeout(() => setLogoutAllStatus('idle'), 3000);
+      }
+    } catch (error) {
+      console.error('Logout all error:', error);
+      setLogoutAllStatus('error');
+      setTimeout(() => setLogoutAllStatus('idle'), 3000);
+    }
+  }, [backendConfig.api, logoutAllStatus]);
 
   // Fetch feature config from backend
   useEffect(() => {
@@ -1113,6 +1150,35 @@ export function SettingsPanel() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="card p-6 border-acid-yellow/30">
+                <h3 className="font-mono text-acid-yellow mb-4">Security</h3>
+                <p className="font-mono text-xs text-text-muted mb-4">
+                  Manage your session security and active logins.
+                </p>
+                <button
+                  onClick={handleLogoutAllDevices}
+                  disabled={logoutAllStatus === 'loading'}
+                  className={`w-full px-4 py-2 border font-mono text-sm rounded transition-colors text-left ${
+                    logoutAllStatus === 'success'
+                      ? 'border-acid-green/40 text-acid-green bg-acid-green/10'
+                      : logoutAllStatus === 'error'
+                      ? 'border-acid-red/40 text-acid-red bg-acid-red/10'
+                      : 'border-acid-yellow/40 text-acid-yellow hover:bg-acid-yellow/10'
+                  } disabled:opacity-50`}
+                >
+                  {logoutAllStatus === 'loading'
+                    ? 'Logging out...'
+                    : logoutAllStatus === 'success'
+                    ? 'Logged out! Redirecting...'
+                    : logoutAllStatus === 'error'
+                    ? 'Failed - try again'
+                    : 'Logout All Devices'}
+                </button>
+                <p className="font-mono text-xs text-text-muted mt-2">
+                  Invalidates all sessions and tokens. You will be signed out everywhere.
+                </p>
               </div>
 
               <div className="card p-6 border-acid-red/30">
