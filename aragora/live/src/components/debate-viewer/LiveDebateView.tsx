@@ -152,7 +152,7 @@ export function LiveDebateView({
           <div
             ref={scrollContainerRef}
             onScroll={onScroll}
-            className="p-4 space-y-4 overflow-y-auto min-h-[300px] max-h-[600px]"
+            className="p-4 space-y-4 overflow-y-auto min-h-[300px] max-h-[800px]"
           >
             {messages.length === 0 && streamingMessages.size === 0 && status === 'streaming' && (
               <div className="text-center py-8 text-text-muted font-mono">

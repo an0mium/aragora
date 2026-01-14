@@ -67,8 +67,9 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
   }, []);
 
   // Smart auto-scroll: only scroll if user hasn't manually scrolled up
+  // Also scroll when debate completes to show final synthesis
   useEffect(() => {
-    if (!userScrolled && scrollContainerRef.current && liveStatus === 'streaming') {
+    if (!userScrolled && scrollContainerRef.current && (liveStatus === 'streaming' || liveStatus === 'complete')) {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
   }, [liveMessages, streamingMessages, userScrolled, liveStatus]);

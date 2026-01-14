@@ -261,8 +261,9 @@ class DebateController:
             debate_id: Unique debate identifier
         """
         try:
-            # Create event hooks for streaming
-            hooks = create_arena_hooks(self.emitter)
+            # Create event hooks for streaming with explicit loop_id
+            # (prevents race condition when multiple debates run concurrently)
+            hooks = create_arena_hooks(self.emitter, loop_id=debate_id)
 
             # Create arena using factory with streaming wrapper
             arena = self.factory.create_arena(

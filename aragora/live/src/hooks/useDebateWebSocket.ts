@@ -142,8 +142,8 @@ export function useDebateWebSocket({
                 content: msg.content + ' [stream timed out]',
                 timestamp: Date.now() / 1000,
               };
-              // Deduplication check
-              const msgKey = `${timedOutMsg.agent}-${timedOutMsg.timestamp}-${timedOutMsg.content.slice(0, 50)}`;
+              // Deduplication check (exclude timestamp to prevent duplicates from sync vs streaming)
+              const msgKey = `${timedOutMsg.agent}-${timedOutMsg.content.slice(0, 100)}`;
               if (!seenMessagesRef.current.has(msgKey)) {
                 seenMessagesRef.current.add(msgKey);
                 setMessages(prevMsgs => [...prevMsgs, timedOutMsg]);
@@ -322,8 +322,9 @@ export function useDebateWebSocket({
 
   // Helper to add message with deduplication
   const addMessageIfNew = useCallback((msg: TranscriptMessage) => {
-    // Create key from agent + timestamp + content prefix for deduplication
-    const msgKey = `${msg.agent}-${msg.timestamp}-${msg.content.slice(0, 50)}`;
+    // Create key from agent + content prefix for deduplication
+    // NOTE: Timestamp excluded to prevent duplicates when same message arrives via sync vs streaming
+    const msgKey = `${msg.agent}-${msg.content.slice(0, 100)}`;
     if (seenMessagesRef.current.has(msgKey)) return false;
     seenMessagesRef.current.add(msgKey);
     setMessages(prev => [...prev, msg]);
@@ -355,14 +356,58 @@ export function useDebateWebSocket({
       return;
     }
 
+    // Sync event - full state restore for existing debates
+    if (data.type === 'sync') {
+      const syncData = eventData as Record<string, unknown> | undefined;
+      if (syncData) {
+        // Set task and agents
+        if (syncData.task) {
+          setTask(syncData.task as string);
+        }
+        if (syncData.agents && Array.isArray(syncData.agents)) {
+          setAgents(syncData.agents as string[]);
+        }
+        // Restore messages from sync
+        if (syncData.messages && Array.isArray(syncData.messages)) {
+          const syncMessages = syncData.messages as Array<Record<string, unknown>>;
+          for (const msg of syncMessages) {
+            const transcriptMsg: TranscriptMessage = {
+              agent: (msg.agent as string) || 'unknown',
+              role: msg.role as string | undefined,
+              content: (msg.content as string) || '',
+              round: msg.round as number | undefined,
+              timestamp: (msg.timestamp as number) || Date.now() / 1000,
+            };
+            if (transcriptMsg.content) {
+              addMessageIfNew(transcriptMsg);
+            }
+          }
+        }
+        // Set status based on whether debate has ended
+        if (syncData.ended) {
+          setStatus('complete');
+          setHasReceivedDebateStart(true);
+          clearDebateStartTimeout();
+        } else if (syncData.task || (syncData.agents && (syncData.agents as string[]).length > 0)) {
+          // Debate is in progress
+          setHasReceivedDebateStart(true);
+          clearDebateStartTimeout();
+        }
+      }
+    }
+
     // Debate lifecycle events
-    if (data.type === 'debate_start') {
+    else if (data.type === 'debate_start') {
       setTask((eventData?.task as string) || 'Debate in progress...');
       setAgents((eventData?.agents as string[]) || []);
       setHasReceivedDebateStart(true);
       clearDebateStartTimeout();
     } else if (data.type === 'debate_end') {
       setStatus('complete');
+      // Update task if it's still the fallback text
+      const endData = eventData as Record<string, unknown> | undefined;
+      const summary = endData?.summary as Record<string, unknown> | undefined;
+      setTask(prev => prev === 'Debate in progress...' ? (endData?.task as string || summary?.task as string || 'Debate concluded') : prev);
       clearDebateStartTimeout();
     }
 
@@ -515,8 +560,8 @@ export function useDebateWebSocket({
                 content: finalContent,
                 timestamp: Date.now() / 1000,
               };
-              // Deduplication check
-              const msgKey = `${msg.agent}-${msg.timestamp}-${msg.content.slice(0, 50)}`;
+              // Deduplication check (exclude timestamp to prevent duplicates from sync vs streaming)
+              const msgKey = `${msg.agent}-${msg.content.slice(0, 100)}`;
               if (!seenMessagesRef.current.has(msgKey)) {
                 seenMessagesRef.current.add(msgKey);
                 setMessages(prevMsgs => [...prevMsgs, msg]);

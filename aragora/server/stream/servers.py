@@ -609,7 +609,8 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             )
 
             # Create arena with hooks and available context systems
-            hooks = create_arena_hooks(self.emitter)
+            # Pass loop_id explicitly to prevent race conditions with concurrent debates
+            hooks = create_arena_hooks(self.emitter, loop_id=debate_id)
 
             # Initialize usage tracking if user/org context is available
             usage_tracker = None

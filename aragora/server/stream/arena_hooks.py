@@ -106,7 +106,7 @@ def wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
     return agent
 
 
-def create_arena_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
+def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str, Callable]:
     """
     Create hook functions for Arena event emission.
 
@@ -115,6 +115,7 @@ def create_arena_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
 
     Args:
         emitter: The SyncEventEmitter to emit events to
+        loop_id: Debate ID to attach to all events (required for correct routing)
 
     Returns:
         dict of hook name -> callback function
@@ -125,6 +126,7 @@ def create_arena_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
             StreamEvent(
                 type=StreamEventType.DEBATE_START,
                 data={"task": task, "agents": agents},
+                loop_id=loop_id,
             )
         )
 
@@ -134,6 +136,7 @@ def create_arena_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
                 type=StreamEventType.ROUND_START,
                 data={"round": round_num},
                 round=round_num,
+                loop_id=loop_id,
             )
         )
 
@@ -144,6 +147,7 @@ def create_arena_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
                 data={"content": content, "role": role},
                 round=round_num,
                 agent=agent,
+                loop_id=loop_id,
             )
         )
 
@@ -166,6 +170,7 @@ def create_arena_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
                 },
                 round=round_num,
                 agent=agent,
+                loop_id=loop_id,
             )
         )
 
@@ -175,6 +180,7 @@ def create_arena_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
                 type=StreamEventType.VOTE,
                 data={"vote": vote, "confidence": confidence},
                 agent=agent,
+                loop_id=loop_id,
             )
         )
 
@@ -187,6 +193,7 @@ def create_arena_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
                     "confidence": confidence,
                     "answer": answer,  # Full answer - no truncation
                 },
+                loop_id=loop_id,
             )
         )
 
@@ -195,6 +202,7 @@ def create_arena_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
             StreamEvent(
                 type=StreamEventType.DEBATE_END,
                 data={"duration": duration, "rounds": rounds},
+                loop_id=loop_id,
             )
         )
 
