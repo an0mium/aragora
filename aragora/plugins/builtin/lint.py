@@ -14,12 +14,12 @@ Example usage via API:
 import asyncio
 import json
 import shutil
-from typing import Optional
+from typing import Any, Optional
 
 from aragora.plugins.runner import PluginContext
 
 
-async def run(context: PluginContext) -> dict:
+async def run(context: PluginContext) -> dict[str, Any]:
     """
     Run linting on specified files or directories.
 
@@ -115,11 +115,11 @@ def _detect_linter(preferred: str) -> Optional[str]:
 
 
 def _build_ruff_command(
-    files: list,
-    exclude: list,
+    files: list[str],
+    exclude: list[str],
     max_line_length: int,
-    select: list,
-    ignore: list,
+    select: list[str],
+    ignore: list[str],
 ) -> list[str]:
     """Build ruff check command."""
     cmd = ["ruff", "check", "--output-format=json"]
@@ -140,11 +140,11 @@ def _build_ruff_command(
 
 
 def _build_flake8_command(
-    files: list,
-    exclude: list,
+    files: list[str],
+    exclude: list[str],
     max_line_length: int,
-    select: list,
-    ignore: list,
+    select: list[str],
+    ignore: list[str],
 ) -> list[str]:
     """Build flake8 command."""
     cmd = ["flake8", "--format=json"]
@@ -164,7 +164,7 @@ def _build_flake8_command(
     return cmd
 
 
-def _parse_output(output: str, tool: str) -> list[dict]:
+def _parse_output(output: str, tool: str) -> list[dict[str, Any]]:
     """Parse linter output into structured issues."""
     issues = []
 
@@ -223,7 +223,7 @@ def _code_to_severity(code: str) -> str:
     return "warning"
 
 
-def _build_summary(issues: list[dict]) -> dict:
+def _build_summary(issues: list[dict[str, Any]]) -> dict[str, int]:
     """Build summary of issues by severity."""
     summary = {"error": 0, "warning": 0, "info": 0, "total": len(issues)}
     for issue in issues:

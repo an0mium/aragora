@@ -14,11 +14,12 @@ Example usage via API:
 import asyncio
 import json
 import shutil
+from typing import Any
 
 from aragora.plugins.runner import PluginContext
 
 
-async def run(context: PluginContext) -> dict:
+async def run(context: PluginContext) -> dict[str, Any]:
     """
     Run security scanning on specified files or directories.
 
@@ -136,7 +137,7 @@ async def run(context: PluginContext) -> dict:
     }
 
 
-def _build_summary(vulnerabilities: list[dict]) -> dict:
+def _build_summary(vulnerabilities: list[dict[str, Any]]) -> dict[str, Any]:
     """Build summary of vulnerabilities by severity and confidence."""
     summary = {
         "total": len(vulnerabilities),

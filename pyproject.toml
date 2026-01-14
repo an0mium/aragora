@@ -176,6 +176,7 @@ filterwarnings = [
     "ignore:coroutine .* was never awaited:RuntimeWarning",
 ]
 markers = [
+    "unit: marks tests as fast unit tests (run with '-m unit')",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "load: marks tests as load/stress tests (deselect with '-m \"not load\"')",
     "integration: marks tests as integration tests",
@@ -253,6 +254,10 @@ module = [
     "aragora.templates",
     "aragora.debate.prompt_builder",
     "aragora.memory.__init__",
+    # Added strict - Phase 8 plugin modules (Jan 2026)
+    "aragora.plugins.builtin.lint",
+    "aragora.plugins.builtin.security",
+    "aragora.plugins.builtin.tests",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -302,8 +307,8 @@ module = [
     # Nomic phases (complex orchestration)
     "aragora.nomic.phases.*",
     "aragora.nomic.checkpoints",
-    # Plugins (dynamic loading)
-    "aragora.plugins.builtin.*",
+    # Plugins - runner has dynamic loading, builtins promoted to strict
+    "aragora.plugins.runner",
     # Verification (Z3/Lean types)
     "aragora.verification.proofs",
     "aragora.verification.formal",

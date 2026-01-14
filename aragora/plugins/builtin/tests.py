@@ -16,13 +16,14 @@ import json
 import logging
 import re
 import shutil
+from typing import Any
 
 from aragora.plugins.runner import PluginContext
 
 logger = logging.getLogger(__name__)
 
 
-async def run(context: PluginContext) -> dict:
+async def run(context: PluginContext) -> dict[str, Any]:
     """
     Run pytest on specified test paths.
 
@@ -132,7 +133,7 @@ async def run(context: PluginContext) -> dict:
     return result
 
 
-def _parse_json_report(output: str) -> dict:
+def _parse_json_report(output: str) -> dict[str, Any]:
     """Parse pytest-json-report output."""
     # Find JSON in output
     try:
@@ -154,7 +155,7 @@ def _parse_json_report(output: str) -> dict:
     return {}
 
 
-def _parse_text_output(output: str) -> dict:
+def _parse_text_output(output: str) -> dict[str, Any]:
     """Parse pytest text output as fallback."""
     result = {
         "passed": 0,
