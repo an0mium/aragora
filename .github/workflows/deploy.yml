@@ -248,20 +248,31 @@ jobs:
     needs: test
     if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2' || github.event_name == 'push'
     runs-on: ubuntu-latest
+    continue-on-error: true  # Don't fail the workflow if EC2 is unreachable
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Configure SSH
+        id: ssh_config
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2
           chmod 600 ~/.ssh/ec2
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          # Timeout after 10 seconds if host unreachable (matches Lightsail behavior)
+          if timeout 10 ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "ssh_ready=true" >> $GITHUB_OUTPUT
+            echo "SSH keyscan successful for EC2"
+          else
+            echo "ssh_ready=false" >> $GITHUB_OUTPUT
+            echo "::warning::Could not reach EC2 host - instance may be stopped or firewall blocking SSH"
+            echo "::warning::Check that the EC2 instance is running and security group allows SSH from GitHub Actions"
+          fi
 
       - name: Deploy to EC2
         id: ec2_deploy
+        if: steps.ssh_config.outputs.ssh_ready == 'true'
         run: |
           ssh -i ~/.ssh/ec2 ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
@@ -330,6 +341,7 @@ jobs:
 
       - name: Verify deployment
         id: ec2_verify
+        if: steps.ssh_config.outputs.ssh_ready == 'true'
         run: |
           # Wait for server to start (up to 60 seconds)
           # EC2 staging runs on port 8765
@@ -346,7 +358,7 @@ jobs:
           echo "health_ok=false" >> $GITHUB_OUTPUT
 
       - name: Rollback on failure
-        if: steps.ec2_verify.outputs.health_ok == 'false'
+        if: steps.ssh_config.outputs.ssh_ready == 'true' && steps.ec2_verify.outputs.health_ok == 'false'
         run: |
           echo "::warning::Health check failed - initiating rollback"
           ssh -o ConnectTimeout=30 -i ~/.ssh/ec2 ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
@@ -386,10 +398,19 @@ jobs:
           EOF
 
       - name: Fail deploy on health check failure
-        if: steps.ec2_verify.outputs.health_ok == 'false'
+        if: steps.ssh_config.outputs.ssh_ready == 'true' && steps.ec2_verify.outputs.health_ok == 'false'
         run: |
           echo "::error::EC2 health check failed after deploy; rollback attempted."
           exit 1
+
+      - name: Skip if EC2 unreachable
+        if: steps.ssh_config.outputs.ssh_ready == 'false'
+        run: |
+          echo "::notice::EC2 deployment skipped - host unreachable"
+          echo "To fix this, ensure:"
+          echo "  1. The EC2 instance is running"
+          echo "  2. Security group allows SSH (port 22) from 0.0.0.0/0 or GitHub Actions IPs"
+          echo "  3. The EC2_HOST secret contains the correct IP address"
 
   notify:
     needs: [deploy-cloudflare, deploy-lightsail, deploy-ec2]
