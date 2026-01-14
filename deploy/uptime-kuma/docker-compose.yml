@@ -1,0 +1,49 @@
+# Uptime Kuma Status Page Deployment
+#
+# Provides real-time service health monitoring at status.aragora.ai
+# SOC 2 Control: A1-01 - Public availability information
+#
+# Usage:
+#   docker-compose up -d
+#
+# Default credentials:
+#   Set during first login at http://localhost:3001
+
+version: '3.8'
+
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: aragora-status
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - uptime-kuma-data:/app/data
+    environment:
+      # Node.js heap size for larger deployments
+      - NODE_OPTIONS=--max-old-space-size=512
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.status.rule=Host(`status.aragora.ai`)"
+      - "traefik.http.routers.status.entrypoints=websecure"
+      - "traefik.http.routers.status.tls.certresolver=letsencrypt"
+      - "traefik.http.services.status.loadbalancer.server.port=3001"
+
+volumes:
+  uptime-kuma-data:
+    driver: local
+
+# Optional: Production deployment with Traefik reverse proxy
+# Uncomment below for full production stack
+#
+# networks:
+#   default:
+#     external: true
+#     name: traefik-public
