@@ -19,6 +19,7 @@ from aragora.server.stream import (
     StreamEventType,
     SyncEventEmitter,
     TokenBucket,
+    AudienceInbox,
     AudienceMessage,
     normalize_intensity,
 )
@@ -438,3 +439,231 @@ class TestEventTypeValues:
         assert StreamEventType.USER_VOTE.value == "user_vote"
         assert StreamEventType.USER_SUGGESTION.value == "user_suggestion"
         assert StreamEventType.AUDIENCE_SUMMARY.value == "audience_summary"
+
+
+class TestSequenceNumberOrdering:
+    """Test sequence number assignment for event ordering."""
+
+    def test_global_sequence_increments(self):
+        """Test that global sequence numbers increment monotonically."""
+        emitter = SyncEventEmitter(loop_id="test-loop")
+
+        # Emit multiple events
+        for i in range(5):
+            event = StreamEvent(
+                type=StreamEventType.AGENT_MESSAGE,
+                data={"content": f"Message {i}"},
+                agent="agent1",
+            )
+            emitter.emit(event)
+
+        events = emitter.drain()
+        assert len(events) == 5
+
+        # Verify sequence numbers are monotonically increasing
+        for i, event in enumerate(events, start=1):
+            assert event.seq == i
+
+    def test_sequence_reset(self):
+        """Test that reset_sequences resets counters."""
+        emitter = SyncEventEmitter(loop_id="test-loop")
+
+        # Emit some events
+        for _ in range(3):
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.AGENT_MESSAGE,
+                    data={"content": "test"},
+                    agent="agent1",
+                )
+            )
+
+        emitter.drain()  # Clear queue
+        emitter.reset_sequences()
+
+        # Emit new event - should start at seq 1
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.AGENT_MESSAGE,
+                data={"content": "after reset"},
+                agent="agent1",
+            )
+        )
+
+        events = emitter.drain()
+        assert len(events) == 1
+        assert events[0].seq == 1
+
+    def test_per_agent_sequence_tracking(self):
+        """Test per-agent sequence numbers for token stream integrity."""
+        emitter = SyncEventEmitter(loop_id="test-loop")
+
+        # Emit interleaved events from multiple agents
+        agents = ["claude", "gemini", "grok"]
+        for i in range(9):
+            agent = agents[i % 3]
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.TOKEN_DELTA,
+                    data={"token": f"token_{i}"},
+                    agent=agent,
+                )
+            )
+
+        events = emitter.drain()
+        assert len(events) == 9
+
+        # Group by agent and verify per-agent sequences
+        agent_events: dict[str, list[StreamEvent]] = {}
+        for event in events:
+            if event.agent not in agent_events:
+                agent_events[event.agent] = []
+            agent_events[event.agent].append(event)
+
+        # Each agent should have 3 events with seq 1, 2, 3
+        for agent, agent_evts in agent_events.items():
+            assert len(agent_evts) == 3
+            for i, evt in enumerate(agent_evts, start=1):
+                assert evt.agent_seq == i, f"{agent} event {i} has wrong agent_seq"
+
+    def test_global_vs_agent_sequence_independence(self):
+        """Test that global and agent sequences are independent."""
+        emitter = SyncEventEmitter(loop_id="test-loop")
+
+        # Emit events alternating between agents
+        emitter.emit(
+            StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent1")
+        )
+        emitter.emit(
+            StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent2")
+        )
+        emitter.emit(
+            StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent1")
+        )
+
+        events = emitter.drain()
+
+        # Global sequence: 1, 2, 3
+        assert [e.seq for e in events] == [1, 2, 3]
+
+        # Agent1 sequence: 1, _, 2
+        assert events[0].agent_seq == 1  # agent1 first
+        assert events[2].agent_seq == 2  # agent1 second
+
+        # Agent2 sequence: _, 1, _
+        assert events[1].agent_seq == 1  # agent2 first
+
+
+class TestQueueOverflowProtection:
+    """Test queue overflow handling to prevent memory exhaustion."""
+
+    def test_overflow_drops_oldest_events(self, monkeypatch):
+        """Test that queue overflow drops oldest events."""
+        # Use a small queue size for testing
+        monkeypatch.setattr(SyncEventEmitter, "MAX_QUEUE_SIZE", 5)
+
+        emitter = SyncEventEmitter(loop_id="test-loop")
+
+        # Emit more events than queue can hold
+        for i in range(10):
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.AGENT_MESSAGE,
+                    data={"index": i},
+                )
+            )
+
+        events = emitter.drain()
+
+        # Should have max 5 events (newest ones)
+        assert len(events) <= 5
+
+        # Events should have increasing sequence numbers
+        seqs = [e.seq for e in events]
+        assert seqs == sorted(seqs)
+
+    def test_overflow_counter_increments(self, monkeypatch):
+        """Test that overflow counter tracks dropped events."""
+        monkeypatch.setattr(SyncEventEmitter, "MAX_QUEUE_SIZE", 3)
+
+        emitter = SyncEventEmitter(loop_id="test-loop")
+
+        # Fill queue
+        for _ in range(3):
+            emitter.emit(
+                StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={})
+            )
+
+        # This should trigger overflow
+        emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}))
+
+        assert emitter._overflow_count >= 1
+
+
+class TestAudienceInboxOverflow:
+    """Test AudienceInbox bounded queue behavior."""
+
+    def test_inbox_max_size_enforced(self):
+        """Test that inbox respects max size limit."""
+        inbox = AudienceInbox(max_messages=5)
+
+        # Add more messages than limit
+        for i in range(10):
+            inbox.put(
+                AudienceMessage(
+                    type="vote",
+                    loop_id="test",
+                    payload={"choice": f"option_{i}"},
+                )
+            )
+
+        messages = inbox.get_all()
+        assert len(messages) == 5
+
+        # Should have newest messages (indices 5-9)
+        choices = [m.payload["choice"] for m in messages]
+        assert choices == [f"option_{i}" for i in range(5, 10)]
+
+    def test_inbox_overflow_counter(self):
+        """Test that overflow counter tracks dropped messages."""
+        inbox = AudienceInbox(max_messages=3)
+
+        # Fill inbox
+        for i in range(5):
+            inbox.put(
+                AudienceMessage(type="vote", loop_id="test", payload={"i": i})
+            )
+
+        # Should have dropped 2 messages
+        assert inbox._overflow_count == 2
+
+
+class TestTokenBucketRateLimiting:
+    """Test TokenBucket rate limiter."""
+
+    def test_initial_burst_allowed(self):
+        """Test that initial burst is allowed up to burst_size."""
+        bucket = TokenBucket(rate_per_minute=60, burst_size=5)
+
+        # Should allow burst_size requests immediately
+        for _ in range(5):
+            assert bucket.consume() is True
+
+        # 6th request should fail
+        assert bucket.consume() is False
+
+    def test_token_refill_over_time(self):
+        """Test that tokens refill based on rate."""
+        bucket = TokenBucket(rate_per_minute=6000, burst_size=1)  # 100/sec
+
+        # Consume the only token
+        assert bucket.consume() is True
+        assert bucket.consume() is False
+
+        # Manually set last_refill to simulate time passing
+        import time
+
+        bucket.last_refill = time.monotonic() - 0.1  # 100ms ago = 10 tokens at 6000/min
+
+        # Should be able to consume now
+        assert bucket.consume() is True
