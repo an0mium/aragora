@@ -399,6 +399,15 @@ class PositionLedgerProtocol(Protocol):
         """Get recent positions for an agent."""
         ...
 
+    def get_agent_positions(
+        self,
+        agent_name: str,
+        limit: int = 100,
+        outcome_filter: Optional[str] = None,
+    ) -> List[Any]:
+        """Get positions for an agent with optional outcome filter."""
+        ...
+
     def get_consistency_score(self, agent_name: str) -> float:
         """Get position consistency score for an agent."""
         ...
@@ -475,6 +484,17 @@ class PersonaManagerProtocol(Protocol):
 
     def get_context_for_prompt(self, agent_name: str) -> str:
         """Get persona context string for prompt injection."""
+        ...
+
+    def record_performance(
+        self,
+        agent_name: str,
+        domain: str,
+        success: bool,
+        action: str = "critique",
+        debate_id: Optional[str] = None,
+    ) -> None:
+        """Record a performance event to update expertise."""
         ...
 
 
@@ -785,6 +805,7 @@ class PulseManagerProtocol(Protocol):
         confidence: Optional[float] = None,
         rounds_used: Optional[int] = None,
         category: Optional[str] = None,
+        volume: int = 0,
     ) -> None:
         """Record outcome of a debate on a trending topic."""
         ...
