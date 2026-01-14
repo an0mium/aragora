@@ -36,6 +36,7 @@ requires_benchmark = pytest.mark.skipif(
 )
 
 
+@requires_benchmark
 class TestHealthEndpointBenchmarks:
     """Benchmark health check endpoint."""
 
@@ -52,24 +53,33 @@ class TestHealthEndpointBenchmarks:
         app.router.add_get("/api/health", health_handler)
         return app
 
-    @pytest.mark.asyncio
-    async def test_health_endpoint_latency(self, benchmark, mock_app):
+    def test_health_endpoint_latency(self, benchmark, mock_app):
         """Benchmark health endpoint latency."""
-        from aiohttp.test_utils import AioHTTPTestCase, TestClient
+        from aiohttp.test_utils import TestClient, TestServer
 
-        async def health_request():
-            from aiohttp import web
-            from aiohttp.test_utils import TestClient
-
-            async with TestClient(mock_app) as client:
-                resp = await client.get("/api/health")
-                return resp.status
+        def health_request():
+            """Synchronous wrapper for benchmark."""
+            loop = asyncio.new_event_loop()
+            try:
+                async def _request():
+                    server = TestServer(mock_app)
+                    client = TestClient(server)
+                    await client.start_server()
+                    try:
+                        resp = await client.get("/api/health")
+                        return resp.status
+                    finally:
+                        await client.close()
+                return loop.run_until_complete(_request())
+            finally:
+                loop.close()
 
         # Run benchmark
-        result = benchmark(lambda: asyncio.get_event_loop().run_until_complete(health_request()))
+        result = benchmark(health_request)
         assert result == 200
 
 
+@requires_benchmark
 class TestUsageTrackingBenchmarks:
     """Benchmark usage tracking system."""
 
@@ -123,6 +133,7 @@ class TestUsageTrackingBenchmarks:
         assert result.total_debates == 100
 
 
+@requires_benchmark
 class TestAuditLogBenchmarks:
     """Benchmark audit log system."""
 
@@ -194,6 +205,7 @@ class TestAuditLogBenchmarks:
         assert len(errors) == 0
 
 
+@requires_benchmark
 class TestPersonasBenchmarks:
     """Benchmark persona system."""
 
@@ -238,6 +250,7 @@ class TestPersonasBenchmarks:
         benchmark(create_persona)
 
 
+@requires_benchmark
 class TestTokenCostCalculation:
     """Benchmark token cost calculations."""
 
@@ -257,6 +270,7 @@ class TestTokenCostCalculation:
         assert result > 0
 
 
+@requires_benchmark
 class TestJSONSerializationBenchmarks:
     """Benchmark JSON serialization performance."""
 
@@ -304,6 +318,7 @@ class TestJSONSerializationBenchmarks:
         assert result["total_debates"] == 100
 
 
+@requires_benchmark
 class TestConcurrencyBenchmarks:
     """Benchmark concurrent operations."""
 
