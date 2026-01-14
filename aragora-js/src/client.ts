@@ -290,6 +290,15 @@ import {
   // Extended admin types
   NomicStatus,
   ImpersonateResponse,
+  // Selection plugin types
+  ScorerInfo,
+  TeamSelectorInfo,
+  RoleAssignerInfo,
+  SelectionPluginsResponse,
+  ScoreAgentsRequest,
+  ScoreAgentsResponse,
+  SelectTeamRequest,
+  SelectTeamResponse,
 } from './types';
 
 // =============================================================================
@@ -3063,6 +3072,69 @@ class RoutingAPI {
 }
 
 // =============================================================================
+// Selection Plugins API
+// =============================================================================
+
+/**
+ * API for agent selection plugins.
+ * Provides access to scorers, team selectors, and role assigners.
+ */
+class SelectionAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List all available selection plugins.
+   */
+  async listPlugins(): Promise<SelectionPluginsResponse> {
+    return this.http.get<SelectionPluginsResponse>('/api/selection/plugins');
+  }
+
+  /**
+   * Get default plugin configuration.
+   */
+  async getDefaults(): Promise<{ scorer: string; team_selector: string; role_assigner: string }> {
+    return this.http.get<{ scorer: string; team_selector: string; role_assigner: string }>('/api/selection/defaults');
+  }
+
+  /**
+   * Get information about a specific scorer.
+   */
+  async getScorer(name: string): Promise<ScorerInfo> {
+    return this.http.get<ScorerInfo>(`/api/selection/scorers/${encodeURIComponent(name)}`);
+  }
+
+  /**
+   * Get information about a specific team selector.
+   */
+  async getTeamSelector(name: string): Promise<TeamSelectorInfo> {
+    return this.http.get<TeamSelectorInfo>(`/api/selection/team-selectors/${encodeURIComponent(name)}`);
+  }
+
+  /**
+   * Get information about a specific role assigner.
+   */
+  async getRoleAssigner(name: string): Promise<RoleAssignerInfo> {
+    return this.http.get<RoleAssignerInfo>(`/api/selection/role-assigners/${encodeURIComponent(name)}`);
+  }
+
+  /**
+   * Score agents for a task.
+   * Returns agents ranked by their suitability for the task.
+   */
+  async scoreAgents(request: ScoreAgentsRequest): Promise<ScoreAgentsResponse> {
+    return this.http.post<ScoreAgentsResponse>('/api/selection/score', request);
+  }
+
+  /**
+   * Select an optimal team for a task.
+   * Uses configured scorer, team selector, and role assigner plugins.
+   */
+  async selectTeam(request: SelectTeamRequest): Promise<SelectTeamResponse> {
+    return this.http.post<SelectTeamResponse>('/api/selection/team', request);
+  }
+}
+
+// =============================================================================
 // Plugins API
 // =============================================================================
 
@@ -3211,6 +3283,7 @@ export class AragoraClient {
   readonly training: TrainingAPI;
   readonly metrics: MetricsAPI;
   readonly routing: RoutingAPI;
+  readonly selection: SelectionAPI;
   readonly plugins: PluginsAPI;
   readonly personas: PersonasAPI;
 
@@ -3273,6 +3346,7 @@ export class AragoraClient {
     this.training = new TrainingAPI(this.http);
     this.metrics = new MetricsAPI(this.http);
     this.routing = new RoutingAPI(this.http);
+    this.selection = new SelectionAPI(this.http);
     this.plugins = new PluginsAPI(this.http);
     this.personas = new PersonasAPI(this.http);
   }

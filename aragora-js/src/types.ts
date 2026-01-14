@@ -2974,3 +2974,92 @@ export interface ImpersonateResponse {
   expires_at: string;
   user: AdminUser;
 }
+
+// =============================================================================
+// Selection Plugin Types
+// =============================================================================
+
+export interface ScorerInfo {
+  name: string;
+  description: string;
+  is_default: boolean;
+}
+
+export interface TeamSelectorInfo {
+  name: string;
+  description: string;
+  is_default: boolean;
+}
+
+export interface RoleAssignerInfo {
+  name: string;
+  description: string;
+  is_default: boolean;
+}
+
+export interface SelectionPluginsResponse {
+  scorers: ScorerInfo[];
+  team_selectors: TeamSelectorInfo[];
+  role_assigners: RoleAssignerInfo[];
+}
+
+export interface ScoreAgentsRequest {
+  task_description: string;
+  primary_domain?: string;
+  secondary_domains?: string[];
+  required_traits?: string[];
+  scorer?: string;
+}
+
+export interface ScoredAgent {
+  name: string;
+  type: string;
+  score: number;
+  domain_expertise: number;
+  elo_rating: number;
+}
+
+export interface ScoreAgentsResponse {
+  scorer_used: string;
+  agents: ScoredAgent[];
+  task_id: string;
+}
+
+export interface SelectTeamRequest {
+  task_description: string;
+  primary_domain?: string;
+  secondary_domains?: string[];
+  required_traits?: string[];
+  min_agents?: number;
+  max_agents?: number;
+  diversity_preference?: number;
+  quality_priority?: number;
+  scorer?: string;
+  team_selector?: string;
+  role_assigner?: string;
+  exclude_agents?: string[];
+}
+
+export interface TeamMember {
+  name: string;
+  type: string;
+  role: string;
+  score: number;
+  expertise: Record<string, number>;
+  elo_rating: number;
+}
+
+export interface SelectTeamResponse {
+  team_id: string;
+  task_id: string;
+  agents: TeamMember[];
+  expected_quality: number;
+  expected_cost: number;
+  diversity_score: number;
+  rationale: string;
+  plugins_used: {
+    scorer: string;
+    team_selector: string;
+    role_assigner: string;
+  };
+}

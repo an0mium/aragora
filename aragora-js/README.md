@@ -193,6 +193,55 @@ const result = await client.gauntlet.runAndWait({
 });
 ```
 
+### Selection Plugins API
+
+The selection API provides access to pluggable agent selection algorithms.
+
+```typescript
+// List available plugins (scorers, team selectors, role assigners)
+const plugins = await client.selection.listPlugins();
+console.log('Scorers:', plugins.scorers.map(s => s.name));
+console.log('Team Selectors:', plugins.team_selectors.map(ts => ts.name));
+console.log('Role Assigners:', plugins.role_assigners.map(ra => ra.name));
+
+// Get default configuration
+const defaults = await client.selection.getDefaults();
+console.log('Default scorer:', defaults.scorer);
+
+// Score agents for a task
+const scores = await client.selection.scoreAgents({
+  task_description: 'Design a distributed cache system',
+  primary_domain: 'systems',
+  scorer: 'elo_weighted',  // optional, uses default if not specified
+});
+
+for (const agent of scores.agents) {
+  console.log(`${agent.name}: ${agent.score} (ELO: ${agent.elo_rating})`);
+}
+
+// Select an optimal team for a task
+const team = await client.selection.selectTeam({
+  task_description: 'Build a secure authentication system',
+  min_agents: 3,
+  max_agents: 5,
+  diversity_preference: 0.7,  // Prefer diverse viewpoints
+  quality_priority: 0.8,      // Prioritize quality over cost
+  scorer: 'elo_weighted',
+  team_selector: 'diverse',
+  role_assigner: 'domain_based',
+});
+
+console.log('Team:', team.agents.map(a => `${a.name} (${a.role})`).join(', '));
+console.log('Expected quality:', team.expected_quality);
+console.log('Diversity score:', team.diversity_score);
+console.log('Rationale:', team.rationale);
+```
+
+Available built-in plugins:
+- **Scorers**: `elo_weighted` (default), `domain_specialist`, `balanced`
+- **Team Selectors**: `diverse` (default), `greedy`, `random`
+- **Role Assigners**: `domain_based` (default), `simple`
+
 ### Replay API
 
 ```typescript
@@ -314,6 +363,7 @@ All types are exported for use in your application:
 
 ```typescript
 import type {
+  // Debate types
   Debate,
   DebateStatus,
   ConsensusResult,
@@ -321,11 +371,23 @@ import type {
   GraphDebateBranch,
   MatrixDebate,
   MatrixConclusion,
+  // Verification types
   VerifyClaimResponse,
   VerificationStatus,
+  // Agent types
   AgentProfile,
   GauntletReceipt,
+  // Event types
   DebateEvent,
+  // Selection plugin types
+  SelectionPluginsResponse,
+  ScoreAgentsRequest,
+  ScoreAgentsResponse,
+  SelectTeamRequest,
+  SelectTeamResponse,
+  ScorerInfo,
+  TeamSelectorInfo,
+  RoleAssignerInfo,
 } from '@aragora/sdk';
 ```
 
