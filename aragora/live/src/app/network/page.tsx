@@ -31,12 +31,30 @@ export default function NetworkPage() {
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Link
                 href="/"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
                 [DASHBOARD]
+              </Link>
+              <Link
+                href="/agents"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [AGENTS]
+              </Link>
+              <Link
+                href="/tournaments"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [RANKINGS]
+              </Link>
+              <Link
+                href="/insights"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [INSIGHTS]
               </Link>
               <BackendSelector compact />
               <ThemeToggle />

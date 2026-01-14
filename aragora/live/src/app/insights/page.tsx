@@ -31,12 +31,30 @@ export default function InsightsPage() {
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Link
                 href="/"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
                 [DASHBOARD]
+              </Link>
+              <Link
+                href="/evidence"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [EVIDENCE]
+              </Link>
+              <Link
+                href="/memory"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [MEMORY]
+              </Link>
+              <Link
+                href="/network"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [NETWORK]
               </Link>
               <BackendSelector compact />
               <ThemeToggle />

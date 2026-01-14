@@ -26,12 +26,30 @@ export default function AgentsPage() {
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Link
                 href="/"
                 className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
                 [DASHBOARD]
+              </Link>
+              <Link
+                href="/network"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [NETWORK]
+              </Link>
+              <Link
+                href="/tournaments"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [RANKINGS]
+              </Link>
+              <Link
+                href="/insights"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [INSIGHTS]
               </Link>
               <ThemeToggle />
             </div>

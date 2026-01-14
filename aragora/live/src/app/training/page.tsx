@@ -33,22 +33,34 @@ export default function TrainingPage() {
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Link
                 href="/"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
                 [DASHBOARD]
               </Link>
               <Link
-                href="/gallery"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                href="/gauntlet"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
-                [GALLERY]
+                [GAUNTLET]
+              </Link>
+              <Link
+                href="/evolution"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [EVOLUTION]
+              </Link>
+              <Link
+                href="/insights"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [INSIGHTS]
               </Link>
               <Link
                 href="/tournaments"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
                 [RANKINGS]
               </Link>

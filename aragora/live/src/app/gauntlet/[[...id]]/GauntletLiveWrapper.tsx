@@ -37,12 +37,30 @@ function GauntletListView() {
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Link
                 href="/"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
                 [DASHBOARD]
+              </Link>
+              <Link
+                href="/tournaments"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [RANKINGS]
+              </Link>
+              <Link
+                href="/training"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [TRAINING]
+              </Link>
+              <Link
+                href="/debates"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [DEBATES]
               </Link>
               <BackendSelector compact />
               <ThemeToggle />
