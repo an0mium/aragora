@@ -41,7 +41,7 @@ export function Header() {
               [TOURNAMENTS]
             </a>
             <a
-              href="https://aragora.ai"
+              href="https://live.aragora.ai"
               className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
             >
               [LIVE DASHBOARD]
@@ -95,7 +95,7 @@ export function Header() {
               [TOURNAMENTS]
             </a>
             <a
-              href="https://aragora.ai"
+              href="https://live.aragora.ai"
               className="block text-sm font-mono text-acid-cyan hover:text-acid-green transition-colors py-2"
             >
               [LIVE DASHBOARD]

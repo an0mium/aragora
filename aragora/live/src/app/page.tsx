@@ -28,7 +28,7 @@ import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { FeaturesProvider } from '@/context/FeaturesContext';
 import { FeatureGuard } from '@/components/FeatureGuard';
-import { DashboardModeToggle, FocusModeIndicator } from '@/components/DashboardModeToggle';
+import { DashboardModeToggle } from '@/components/DashboardModeToggle';
 import { useDashboardPreferences } from '@/hooks/useDashboardPreferences';
 import type { NomicState } from '@/types/events';
 
@@ -300,7 +300,6 @@ export default function Home() {
     preferences,
     setMode,
     isFocusMode,
-    isSectionExpanded,
   } = useDashboardPreferences();
 
   // Backend selection (production vs development)
@@ -316,21 +315,22 @@ export default function Home() {
 
   const { events, connected, nomicState: wsNomicState, activeLoops, selectedLoopId, selectLoop, sendMessage, onAck, onError } = useNomicStream(wsUrl);
 
-  // Domain detection - show dashboard on aragora.ai, landing on www.aragora.ai
+  // Domain detection - show dashboard on live.aragora.ai, landing elsewhere
   const [siteMode, setSiteMode] = useState<SiteMode>('loading');
-  // Only show ASCII art in header on aragora.ai
+  // Only show ASCII art in header on live.aragora.ai
   const [showHeaderAscii, setShowHeaderAscii] = useState(false);
 
   useEffect(() => {
     const hostname = window.location.hostname;
-    // Show landing page on www.aragora.ai; dashboard elsewhere.
-    if (hostname === 'www.aragora.ai') {
-      setSiteMode('landing');
-    } else {
+    // Show monitoring dashboard only on live.aragora.ai
+    if (hostname === 'live.aragora.ai') {
       setSiteMode('dashboard');
+    } else {
+      // aragora.ai, www.aragora.ai, localhost all show landing page
+      setSiteMode('landing');
     }
-    // Show ASCII art only on aragora.ai
-    setShowHeaderAscii(hostname === 'aragora.ai');
+    // Show ASCII art on live.aragora.ai (monitoring dashboard)
+    setShowHeaderAscii(hostname === 'live.aragora.ai');
   }, []);
 
   // Handle debate started from landing page - navigate to debate viewer
