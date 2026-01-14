@@ -190,18 +190,24 @@ jobs:
         id: lightsail_verify
         if: steps.ssh_config.outputs.ssh_ready == 'true'
         run: |
-          # Wait for server to start (up to 60 seconds)
-          for i in {1..12}; do
-            if curl -sf "http://${{ secrets.LIGHTSAIL_HOST }}:8080/api/health" -o /dev/null 2>/dev/null; then
-              echo "Health check passed"
-              echo "health_ok=true" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-            echo "Waiting for server... attempt $i/12"
-            sleep 5
-          done
-          echo "Health check failed after 60 seconds"
-          echo "health_ok=false" >> $GITHUB_OUTPUT
+          # Wait for server to start (up to 60 seconds) - use SSH to check locally
+          ssh -o ConnectTimeout=10 -i ~/.ssh/lightsail ubuntu@${{ secrets.LIGHTSAIL_HOST }} 'bash -s' << 'VERIFYEOF'
+            for i in {1..12}; do
+              if curl -sf "http://localhost:8080/api/health" -o /dev/null 2>/dev/null; then
+                echo "Health check passed (port 8080)"
+                exit 0
+              fi
+              echo "Waiting for server... attempt $i/12"
+              sleep 5
+            done
+            echo "Health check failed after 60 seconds"
+            exit 1
+          VERIFYEOF
+          if [ $? -eq 0 ]; then
+            echo "health_ok=true" >> $GITHUB_OUTPUT
+          else
+            echo "health_ok=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Verify tunnel routing
         if: steps.ssh_config.outputs.ssh_ready == 'true' && steps.lightsail_verify.outputs.health_ok == 'true'
@@ -410,24 +416,29 @@ jobs:
         id: ec2_verify
         if: steps.ssh_config.outputs.ssh_ready == 'true'
         run: |
-          # Wait for server to start (up to 60 seconds)
-          # Try nginx on port 80, fallback to direct port 8080
-          for i in {1..12}; do
-            if curl -sf "http://${{ secrets.EC2_HOST }}/api/health" -o /dev/null 2>/dev/null; then
-              echo "Health check passed (via nginx port 80)"
-              echo "health_ok=true" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-            if curl -sf "http://${{ secrets.EC2_HOST }}:8080/api/health" -o /dev/null 2>/dev/null; then
-              echo "Health check passed (direct port 8080)"
-              echo "health_ok=true" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-            echo "Waiting for server... attempt $i/12"
-            sleep 5
-          done
-          echo "Health check failed after 60 seconds"
-          echo "health_ok=false" >> $GITHUB_OUTPUT
+          # Wait for server to start (up to 60 seconds) - use SSH to check locally
+          # External ports may be blocked by security group
+          ssh -o ConnectTimeout=10 -i ~/.ssh/ec2 ec2-user@${{ secrets.EC2_HOST }} 'bash -s' << 'VERIFYEOF'
+            for i in {1..12}; do
+              if curl -sf "http://localhost:8080/api/health" -o /dev/null 2>/dev/null; then
+                echo "Health check passed (port 8080)"
+                exit 0
+              fi
+              if curl -sf "http://localhost/api/health" -o /dev/null 2>/dev/null; then
+                echo "Health check passed (nginx port 80)"
+                exit 0
+              fi
+              echo "Waiting for server... attempt $i/12"
+              sleep 5
+            done
+            echo "Health check failed after 60 seconds"
+            exit 1
+          VERIFYEOF
+          if [ $? -eq 0 ]; then
+            echo "health_ok=true" >> $GITHUB_OUTPUT
+          else
+            echo "health_ok=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Rollback on failure
         if: steps.ssh_config.outputs.ssh_ready == 'true' && steps.ec2_verify.outputs.health_ok == 'false'
