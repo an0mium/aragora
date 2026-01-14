@@ -15,7 +15,6 @@ import logging
 import os
 from datetime import datetime, timedelta
 from typing import Optional
-from urllib.parse import quote_plus
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import ProvenanceManager, SourceType

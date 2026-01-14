@@ -159,6 +159,7 @@ ignore = ["E402", "E501"]
 "aragora/training/exporters/*" = ["T201"]  # CLI export tools
 "aragora/training/tinker_client.py" = ["T201"]  # CLI test utility
 "aragora/debate/breakpoints.py" = ["T201"]  # Interactive user prompts
+"aragora/nomic/gates.py" = ["T201"]  # Interactive approval prompts
 "scripts/*" = ["T201", "F401", "F841"]
 "tests/*" = ["T201", "F401", "F841"]
 
@@ -336,7 +337,7 @@ module = [
     "aragora.agents.api_agents.*",
     "aragora.memory.continuum",
     "aragora.memory.consensus",
-    "aragora.memory.streams",
+    # aragora.memory.streams promoted to strict in Phase 11
 ]
 disallow_untyped_defs = false
 check_untyped_defs = true

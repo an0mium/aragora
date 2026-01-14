@@ -13,7 +13,6 @@ Usage:
 import argparse
 import json
 import os
-import sys
 import urllib.error
 import urllib.request
 from datetime import datetime
@@ -256,7 +255,7 @@ def cmd_subscribe(args: argparse.Namespace) -> int:
         )
 
         if result.get("checkout_url"):
-            print(f"\nTo complete subscription, visit:")
+            print("\nTo complete subscription, visit:")
             print(f"  {result['checkout_url']}")
             print("\n(Or use --open to open in browser)")
 
@@ -286,7 +285,7 @@ def cmd_portal(args: argparse.Namespace) -> int:
 
         portal_url = result.get("url")
         if portal_url:
-            print(f"\nBilling portal URL:")
+            print("\nBilling portal URL:")
             print(f"  {portal_url}")
 
             if not args.no_open:

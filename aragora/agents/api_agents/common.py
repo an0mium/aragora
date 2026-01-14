@@ -114,7 +114,10 @@ def get_shared_connector() -> aiohttp.TCPConnector:
                 enable_cleanup_closed=True,  # Clean up closed connections
             )
             _connector_loop_id = current_loop_id
-            logger.debug(f"Created shared TCP connector: limit={total}, per_host={per_host}, loop_id={current_loop_id}")
+            logger.debug(
+                f"Created shared TCP connector: limit={total}, "
+                f"per_host={per_host}, loop_id={current_loop_id}"
+            )
         return _shared_connector
 
 
@@ -283,7 +286,7 @@ class SSEStreamParser:
 
     Usage:
         parser = SSEStreamParser(
-            content_extractor=lambda event: event.get('choices', [{}])[0].get('delta', {}).get('content', '')
+            content_extractor=lambda e: e.get('choices', [{}])[0].get('delta', {}).get('content', '')
         )
         async for content in parser.parse_stream(response.content):
             yield content

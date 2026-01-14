@@ -363,8 +363,8 @@ def __dir__() -> list[str]:
     return sorted(set(globals()) | set(__all__))
 
 
-# Import version from dedicated module
-from aragora.__version__ import __version__
+# Import version from dedicated module (must be after other imports)
+from aragora.__version__ import __version__  # noqa: E402
 
 __all__ = [
     # Core

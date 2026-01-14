@@ -85,7 +85,6 @@ MAX_JSON_CONTENT_LENGTH = 10 * 1024 * 1024
 
 # Trusted proxies for X-Forwarded-For header validation
 # Only trust X-Forwarded-For if request comes from these IPs
-import os
 
 TRUSTED_PROXIES = frozenset(
     p.strip() for p in os.getenv("ARAGORA_TRUSTED_PROXIES", "127.0.0.1,::1,localhost").split(",")

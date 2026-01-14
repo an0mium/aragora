@@ -13,10 +13,9 @@ Features:
 
 import logging
 import re
-from collections import defaultdict
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 from aragora.pulse.ingestor import TrendingTopic
 
