@@ -158,7 +158,7 @@ class VerifyPhase:
             {"checks_passed": sum(1 for c in checks if c.get("passed"))},
         )
 
-        result_data = {"checks": checks, "stale_claims": stale_claims}
+        result_data: dict[str, Any] = {"checks": checks, "stale_claims": stale_claims}
         if gate_decision:
             result_data["quality_gate"] = gate_decision.to_dict()
 

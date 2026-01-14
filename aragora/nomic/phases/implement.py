@@ -158,7 +158,7 @@ class ImplementPhase:
 
                     gate_context = {
                         "complexity_score": scope_eval.complexity_score,
-                        "files_affected": scope_eval.files_mentioned,
+                        "file_count": scope_eval.file_count,
                         "risk_factors": scope_eval.risk_factors,
                     }
                     decision = await self._design_gate.require_approval(design, gate_context)
