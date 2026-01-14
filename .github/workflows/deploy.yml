@@ -18,7 +18,6 @@ on:
         options:
           - all
           - cloudflare
-          - lightsail
           - ec2
 
 concurrency:
@@ -76,10 +75,12 @@ jobs:
         continue-on-error: true
 
   deploy-lightsail:
-    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'lightsail' || github.event.inputs.environment == null || github.event_name == 'push'
+    # DISABLED: Lightsail deprecated in favor of multi-EC2 with Cloudflare Load Balancer
+    # See deploy/cloudflare-lb-setup.md for architecture details
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true  # Don't fail the workflow if Lightsail is unreachable
+    continue-on-error: true
 
     steps:
       - name: Checkout
@@ -443,6 +444,36 @@ jobs:
             echo "health_ok=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Verify cloudflared tunnel
+        if: steps.ssh_config.outputs.ssh_ready == 'true' && steps.ec2_verify.outputs.health_ok == 'true'
+        run: |
+          ssh -o ConnectTimeout=10 -i ~/.ssh/ec2 ec2-user@${{ secrets.EC2_HOST }} 'bash -s' << 'TUNNELEOF'
+            echo "Checking cloudflared tunnel status..."
+
+            # Check if cloudflared is enabled (auto-start on boot)
+            if ! sudo systemctl is-enabled --quiet cloudflared 2>/dev/null; then
+              echo "::warning::cloudflared is not enabled for auto-start, enabling..."
+              sudo systemctl enable cloudflared
+            fi
+
+            # Check if cloudflared is running
+            if ! sudo systemctl is-active --quiet cloudflared; then
+              echo "::warning::cloudflared not running, attempting restart..."
+              sudo systemctl restart cloudflared
+              sleep 5
+            fi
+
+            # Verify tunnel connection
+            if sudo systemctl is-active --quiet cloudflared; then
+              echo "cloudflared is running and enabled"
+              sudo systemctl status cloudflared --no-pager | head -15
+            else
+              echo "::error::cloudflared failed to start"
+              sudo journalctl -u cloudflared -n 30 --no-pager
+              exit 1
+            fi
+          TUNNELEOF
+
       - name: Rollback on failure
         if: steps.ssh_config.outputs.ssh_ready == 'true' && steps.ec2_verify.outputs.health_ok == 'false'
         run: |
@@ -502,7 +533,7 @@ jobs:
           echo "  3. The EC2_HOST secret contains the correct IP address"
 
   notify:
-    needs: [deploy-cloudflare, deploy-lightsail, deploy-ec2]
+    needs: [deploy-cloudflare, deploy-ec2]
     # Don't run notify when workflow is cancelled - prevents stuck "queued" jobs
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
@@ -515,5 +546,4 @@ jobs:
           echo "| Target | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Cloudflare Pages | ${{ needs.deploy-cloudflare.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| AWS Lightsail | ${{ needs.deploy-lightsail.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| AWS EC2 | ${{ needs.deploy-ec2.result }} |" >> $GITHUB_STEP_SUMMARY
