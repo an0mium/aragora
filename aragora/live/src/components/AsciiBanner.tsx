@@ -117,10 +117,7 @@ export function AsciiBannerCompact({
 /_/   \\_\\_| \\_\\`}
         </pre>
       )}
-      <div className="flex flex-col">
-        <span className="text-xl font-bold text-acid-green glow-text-subtle">ARAGORA</span>
-        <span className="text-xs text-acid-cyan tracking-widest">LIVE</span>
-      </div>
+      <span className="text-xl font-bold text-acid-green glow-text-subtle tracking-wide">ARAGORA</span>
       <span
         className={`ml-2 w-2 h-2 rounded-full ${
           connected ? 'bg-acid-green animate-pulse' : 'bg-crimson'

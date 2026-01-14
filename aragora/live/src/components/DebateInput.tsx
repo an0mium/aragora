@@ -270,10 +270,11 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
             disabled={isDisabled}
             rows={3}
             aria-describedby="debate-input-hint"
-            className="debate-input w-full bg-bg border-2 border-acid-green/50 focus:border-acid-green
-                       px-4 py-3 font-mono text-lg text-text placeholder-text-muted/50
-                       resize-none transition-colors focus:outline-none rounded-lg
-                       disabled:opacity-50 disabled:cursor-not-allowed"
+            className="debate-input w-full bg-surface border-2 border-acid-green/40 focus:border-acid-green
+                       px-5 py-4 font-mono text-lg text-text placeholder-text-muted/40
+                       resize-none transition-all focus:outline-none rounded-2xl
+                       disabled:opacity-50 disabled:cursor-not-allowed
+                       focus:shadow-[0_0_20px_rgba(0,255,65,0.15)]"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                 handleSubmit(e);
@@ -452,8 +453,31 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
         )}
       </form>
 
+      {/* Quick Action Buttons - Category suggestions */}
+      <div className="flex flex-wrap gap-2 justify-center mt-6">
+        {[
+          { label: 'Technical', icon: '</>', question: 'What are the tradeoffs between microservices and monoliths for a startup?' },
+          { label: 'Philosophy', icon: '?', question: 'Can AI systems develop genuine understanding, or only simulate it?' },
+          { label: 'Ethics', icon: '!', question: 'Should autonomous AI agents have the right to refuse unethical requests?' },
+          { label: 'Business', icon: '$', question: 'When should a startup prioritize growth over profitability?' },
+          { label: 'Creative', icon: '*', question: 'What makes a story truly compelling to readers across cultures?' },
+        ].map((cat) => (
+          <button
+            key={cat.label}
+            type="button"
+            onClick={() => setQuestion(cat.question)}
+            className="px-3 py-1.5 text-xs font-mono border border-acid-green/30
+                       text-text-muted hover:text-acid-green hover:border-acid-green/60
+                       transition-colors rounded-full"
+          >
+            <span className="text-acid-green/60 mr-1">[{cat.icon}]</span>
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
       {/* Hint - More polished */}
-      <div className="mt-6 text-center">
+      <div className="mt-4 text-center">
         {apiStatus === 'online' ? (
           <p className="text-[10px] font-mono text-text-muted/50 tracking-wide">
             <span className="text-acid-green/40">{'>'}</span>

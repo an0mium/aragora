@@ -28,17 +28,12 @@ export function HeroSection({
         {ASCII_BANNER}
       </pre>
 
-      <h1 className="text-2xl sm:text-3xl font-mono text-center mb-3">
-        <span className="text-acid-green">The Self-Evolving</span>{' '}
-        <span className="text-text">Red Team Arena</span>
+      <h1 className="text-2xl sm:text-4xl font-mono text-center mb-4 text-text">
+        What should AI agents debate?
       </h1>
 
-      <p className="text-acid-cyan font-mono text-sm sm:text-base text-center mb-2">
-        Claude vs GPT vs Gemini vs Mistral vs Grok vs DeepSeek vs Qwen vs Kimi
-      </p>
-
-      <p className="text-text-muted font-mono text-xs sm:text-sm text-center mb-10 max-w-lg">
-        Real AI models. Adversarial reasoning. Decision receipts.
+      <p className="text-acid-cyan font-mono text-sm sm:text-base text-center mb-10 max-w-xl">
+        Pit Claude, GPT, Gemini, Grok & DeepSeek against each other in adversarial reasoning
       </p>
 
       {error && (
