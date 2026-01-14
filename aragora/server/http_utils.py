@@ -43,6 +43,8 @@ ALLOWED_QUERY_PARAMS = {
     "event_type": {"mutation", "crossover", "selection", "extinction", "speciation"},
     # Logs
     "lines": None,
+    # Belief network
+    "top_k": None,
 }
 
 
