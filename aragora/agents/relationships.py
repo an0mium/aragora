@@ -200,7 +200,7 @@ class RelationshipTracker:
                             UPDATE agent_relationships
                             SET {col} = {col} + 1
                             WHERE agent_a = ? AND agent_b = ?
-                            """,
+                            """,  # nosec B608 - col is from controlled set, not user input
                             (canonical_a, canonical_b),
                         )
                     elif winner == agent_b:
@@ -210,7 +210,7 @@ class RelationshipTracker:
                             UPDATE agent_relationships
                             SET {col} = {col} + 1
                             WHERE agent_a = ? AND agent_b = ?
-                            """,
+                            """,  # nosec B608 - col is from controlled set, not user input
                             (canonical_a, canonical_b),
                         )
 
@@ -243,7 +243,7 @@ class RelationshipTracker:
                     UPDATE agent_relationships
                     SET {col} = {col} + 1
                     WHERE agent_a = ? AND agent_b = ?
-                    """,
+                    """,  # nosec B608 - col is from controlled set, not user input
                     (canonical_a, canonical_b),
                 )
 

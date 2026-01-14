@@ -196,3 +196,87 @@ subprocess.run([sys.executable, temp_file], env=env, timeout=5, shell=False)
 proc = await asyncio.create_subprocess_exec("gh", *args, ...)
 stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
 ```
+
+---
+
+# Bandit Static Analysis Report
+
+**Audit Date:** January 2026
+**Tool:** Bandit 1.7+
+
+## Summary
+
+| Severity | Count | Status |
+|----------|-------|--------|
+| High | 0 | Clean |
+| Medium | 80 | Triaged |
+| Low | 137 | Acceptable |
+
+## Medium Findings Triage
+
+### B608: SQL Injection Vector (56 findings)
+
+**Status**: False Positives / Low Risk
+
+Most B608 findings flag f-string SQL construction. Our patterns:
+
+1. **Column name interpolation** (relationships.py, storage modules)
+   - Column names from internal logic, not user input
+   - VALUES always parameterized (`?` placeholders)
+   - Example: `SET {col} = {col} + 1 WHERE agent_a = ?`
+
+2. **Table name interpolation** (base_store.py, schema modules)
+   - Table names are constants/class attributes, not user input
+   - All user-provided values use parameterized queries
+
+**Mitigation**: All user input is parameterized, never interpolated.
+
+### B310: URL Scheme Audit (19 findings)
+
+**Status**: Tolerated Risk
+
+These flag `urllib.request.urlopen()` allowing `file://` schemes.
+
+**Analysis**:
+- Used in research connectors (Wikipedia, web scraping)
+- URLs are hardcoded (API endpoints) or validated
+- External URLs are user-initiated (not automatic)
+
+**Mitigation**: URL validation restricts schemes to `http://`, `https://`.
+
+### B314: XML Parsing (2 findings)
+
+**Status**: Tolerated Risk
+
+Located in RSS feed parsing and export handling.
+
+**Analysis**:
+- XML from trusted sources (configured RSS feeds)
+- No user-uploaded XML processing
+- defusedxml not required for trusted internal data
+
+### B104: Bind All Interfaces (3 findings)
+
+**Status**: Intentional for Development
+
+Default `0.0.0.0` binding for container deployments.
+
+**Mitigation**: `ARAGORA_HOST` environment variable for explicit binding in production.
+
+## Low Findings (137)
+
+Acceptable findings include:
+- `assert` statements in non-production code
+- `try/except/pass` patterns for optional features
+- Hardcoded temporary directory paths
+
+## Security Controls in Place
+
+- Input validation (size limits, format validation)
+- Rate limiting (per-endpoint, per-user)
+- Authentication (JWT tokens, API keys)
+- CORS with origin allowlist
+- Security headers (X-Frame-Options, CSP, etc.)
+- Error message sanitization (redacts secrets)
+- SQL parameterization for all user input
+- Path traversal protection

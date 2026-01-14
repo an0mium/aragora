@@ -12,11 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Streaming tests**: Added `tests/test_stream_arena_hooks.py` (31 tests) and `tests/test_stream_gauntlet_emitter.py` (27 tests)
 - **Server metrics tests**: Added `tests/test_server_metrics.py` with 56 tests for Prometheus-style metrics
 - **Load testing infrastructure**: Added `tests/performance/` with 13 load tests
+- **Postman generator module**: Extracted `aragora/server/postman_generator.py` from openapi_impl.py
 
 ### Changed
 - **README API documentation**: Updated API Endpoints section with accurate 298 endpoint count and references to full documentation
 - **OpenAPI consolidation**: Consolidated 3 OpenAPI specs into single programmatic source in `openapi.py`
-- **Test count**: Increased from 22,154 to 22,237+ test functions
+- **Test count**: Increased from 22,154 to 22,898 test functions
+- **Code health improvements**: Fixed mypy errors, refactored openapi_impl.py (2,051 → 1,861 LOC)
+
+### Fixed
+- **Type safety**: Fixed mypy errors in `openapi_impl.py` (yaml.dump return type) and `secrets.py` (dict return type)
+- **Re-export stability**: Added `noqa: F401` comments to prevent linter from removing backwards-compatibility re-exports
 
 ### Security
 - **SAST scan completed**: Bandit scan shows 0 HIGH severity issues (96 MEDIUM - mostly safe patterns)

@@ -33,8 +33,8 @@ from aragora.server.openapi_impl import (
     get_postman_json,
     save_postman_collection,
     handle_postman_request,
-    _openapi_to_postman_request,
 )
+from aragora.server.postman_generator import _openapi_to_postman_request
 
 # Export from schemas submodule
 from aragora.server.openapi.schemas import (
