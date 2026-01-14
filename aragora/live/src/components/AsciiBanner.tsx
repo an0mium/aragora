@@ -98,13 +98,15 @@ export function AsciiBanner({ subtitle = 'live', showStatus = true, connected = 
   );
 }
 
-// Compact version for header
+// Compact version for header - matches [ARAGORA] styling from About page
 export function AsciiBannerCompact({
   connected = false,
-  showAsciiArt = false
+  showAsciiArt = false,
+  showStatus = true
 }: {
   connected?: boolean;
   showAsciiArt?: boolean;
+  showStatus?: boolean;
 }) {
   return (
     <div className="flex items-center gap-3">
@@ -117,12 +119,16 @@ export function AsciiBannerCompact({
 /_/   \\_\\_| \\_\\`}
         </pre>
       )}
-      <span className="text-xl font-bold text-acid-green glow-text-subtle tracking-wide">ARAGORA</span>
-      <span
-        className={`ml-2 w-2 h-2 rounded-full ${
-          connected ? 'bg-acid-green animate-pulse' : 'bg-crimson'
-        }`}
-      />
+      <span className="text-acid-green font-mono font-bold hover:text-acid-cyan transition-colors">
+        [ARAGORA]
+      </span>
+      {showStatus && (
+        <span
+          className={`w-2 h-2 rounded-full ${
+            connected ? 'bg-acid-green animate-pulse' : 'bg-crimson'
+          }`}
+        />
+      )}
     </div>
   );
 }
