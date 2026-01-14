@@ -412,6 +412,16 @@ class PositionLedgerProtocol(Protocol):
         """Get position consistency score for an agent."""
         ...
 
+    def resolve_position(
+        self,
+        agent_name: str,
+        claim: str,
+        resolution: str,
+        debate_id: str,
+    ) -> None:
+        """Record a position resolution outcome."""
+        ...
+
 
 @runtime_checkable
 class RelationshipTrackerProtocol(Protocol):
@@ -443,6 +453,15 @@ class RelationshipTrackerProtocol(Protocol):
         """Get agents that frequently disagree with the given agent."""
         ...
 
+    def update_from_debate(
+        self,
+        debate_id: str,
+        votes: List[Any],
+        agents: List[str],
+    ) -> None:
+        """Update relationships based on debate voting patterns."""
+        ...
+
 
 @runtime_checkable
 class MomentDetectorProtocol(Protocol):
@@ -463,6 +482,33 @@ class MomentDetectorProtocol(Protocol):
 
     def get_moment_types(self) -> List[str]:
         """Get list of moment types this detector can identify."""
+        ...
+
+    def detect_upset_victory(
+        self,
+        winner: str,
+        loser: str,
+        pre_ratings: Dict[str, float],
+    ) -> Optional[Dict[str, Any]]:
+        """Detect if outcome represents an upset victory."""
+        ...
+
+    def detect_calibration_vindication(
+        self,
+        agent: str,
+        prediction: Any,
+        outcome: Any,
+    ) -> Optional[Dict[str, Any]]:
+        """Detect if a prediction was vindicated."""
+        ...
+
+    def record_moment(
+        self,
+        moment_type: str,
+        data: Dict[str, Any],
+        debate_id: str,
+    ) -> str:
+        """Record a significant moment. Returns moment ID."""
         ...
 
 
@@ -702,6 +748,15 @@ class FlipDetectorProtocol(Protocol):
         """Get position consistency score (1.0 = fully consistent)."""
         ...
 
+    def detect_flips_for_agent(
+        self,
+        agent: str,
+        debate_id: str,
+        messages: List[Any],
+    ) -> List[Dict[str, Any]]:
+        """Detect all position flips for an agent in a debate."""
+        ...
+
 
 @runtime_checkable
 class ConsensusMemoryProtocol(Protocol):
@@ -739,6 +794,34 @@ class ConsensusMemoryProtocol(Protocol):
         """Find similar previously debated topics."""
         ...
 
+    def store_consensus(
+        self,
+        debate_id: str,
+        topic: str,
+        position: str,
+        confidence: float,
+        supporting_agents: List[str],
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Store a consensus outcome. Returns consensus ID."""
+        ...
+
+    def update_cruxes(
+        self,
+        debate_id: str,
+        cruxes: List[Dict[str, Any]],
+    ) -> None:
+        """Update crux information for a debate."""
+        ...
+
+    def store_vote(
+        self,
+        debate_id: str,
+        vote_data: Dict[str, Any],
+    ) -> None:
+        """Store vote data for a debate."""
+        ...
+
 
 @runtime_checkable
 class PopulationManagerProtocol(Protocol):
@@ -757,6 +840,8 @@ class PopulationManagerProtocol(Protocol):
         genome_id: str,
         fitness_delta: float,
         context: Optional[str] = None,
+        consensus_win: Optional[bool] = None,
+        prediction_correct: Optional[bool] = None,
     ) -> None:
         """Update fitness score for a genome."""
         ...
@@ -776,6 +861,14 @@ class PopulationManagerProtocol(Protocol):
         threshold: float = 0.8,
     ) -> List[str]:
         """Select top genomes for breeding."""
+        ...
+
+    def get_or_create_population(
+        self,
+        agent_name: str,
+        default_genome: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Get or create a population for an agent."""
         ...
 
 
