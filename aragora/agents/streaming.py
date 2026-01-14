@@ -90,7 +90,7 @@ class StreamingMixin:
                     # Skip malformed JSON events
                     pass
 
-    def _extract_content_from_event(self, event: dict, format_type: str) -> str:
+    def _extract_content_from_event(self, event: dict[str, Any], format_type: str) -> str:
         """Extract content string from parsed SSE event.
 
         Args:
@@ -105,15 +105,20 @@ class StreamingMixin:
             event_type = event.get("type", "")
             if event_type == "content_block_delta":
                 delta = event.get("delta", {})
-                return delta.get("text", "")
+                text = delta.get("text", "") if isinstance(delta, dict) else ""
+                return str(text) if text else ""
             return ""
 
         elif format_type in ("openai", "grok", "openrouter"):
             # OpenAI-compatible format: {"choices": [{"delta": {"content": "..."}}]}
             choices = event.get("choices", [])
-            if choices:
-                delta = choices[0].get("delta", {})
-                return delta.get("content", "")
+            if choices and isinstance(choices, list) and len(choices) > 0:
+                first_choice = choices[0]
+                if isinstance(first_choice, dict):
+                    delta = first_choice.get("delta", {})
+                    if isinstance(delta, dict):
+                        content = delta.get("content", "")
+                        return str(content) if content else ""
             return ""
 
         else:
