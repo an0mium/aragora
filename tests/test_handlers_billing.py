@@ -634,6 +634,7 @@ class TestErrorHandling:
         mock_extract.return_value = Mock(
             is_authenticated=True,
             user_id="nonexistent",
+            role="owner",  # Required for org:billing permission
         )
         mock_user_store.get_user_by_id.return_value = None
 
@@ -685,7 +686,7 @@ class TestStripeExceptionHandling:
         # The Stripe-specific fields won't be populated
 
     @patch("aragora.server.handlers.billing.get_stripe_client")
-    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    @patch("aragora.server.handlers.billing.extract_user_from_request")
     def test_get_invoices_handles_stripe_config_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
@@ -714,7 +715,7 @@ class TestStripeExceptionHandling:
         assert "unavailable" in data["error"].lower()
 
     @patch("aragora.server.handlers.billing.get_stripe_client")
-    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    @patch("aragora.server.handlers.billing.extract_user_from_request")
     def test_get_invoices_handles_stripe_api_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
@@ -741,7 +742,7 @@ class TestStripeExceptionHandling:
         assert "payment provider" in data["error"].lower()
 
     @patch("aragora.server.handlers.billing.get_stripe_client")
-    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    @patch("aragora.server.handlers.billing.extract_user_from_request")
     def test_get_invoices_handles_generic_stripe_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
