@@ -318,6 +318,18 @@ import {
   VerificationHistoryEntry,
   VerificationHistoryResponse,
   ProofTreeResponse,
+  // Nomic loop types
+  NomicState,
+  NomicHealth,
+  NomicMetrics,
+  NomicLog,
+  RiskRegister,
+  ModesResponse,
+  // Learning analytics types
+  CycleSummariesResponse,
+  LearnedPatternsResponse,
+  AgentEvolutionResponse,
+  AggregatedInsightsResponse,
 } from './types';
 
 // =============================================================================
@@ -3284,6 +3296,128 @@ class ProbesAPI {
 }
 
 // =============================================================================
+// Nomic Loop API
+// =============================================================================
+
+/**
+ * API for monitoring and managing the Nomic self-improvement loop.
+ *
+ * The Nomic loop is an autonomous cycle where agents:
+ * 1. Context - Gather codebase understanding
+ * 2. Debate - Propose improvements
+ * 3. Design - Architecture planning
+ * 4. Implement - Code generation
+ * 5. Verify - Tests and checks
+ *
+ * @example
+ * ```typescript
+ * const health = await client.nomic.health();
+ * if (health.status === 'stalled') {
+ *   console.log(`Stalled for ${health.stall_duration_seconds}s`);
+ * }
+ * ```
+ */
+class NomicAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get current nomic loop state.
+   */
+  async state(): Promise<NomicState> {
+    return this.http.get<NomicState>('/api/nomic/state');
+  }
+
+  /**
+   * Get nomic loop health with stall detection.
+   */
+  async health(): Promise<NomicHealth> {
+    return this.http.get<NomicHealth>('/api/nomic/health');
+  }
+
+  /**
+   * Get nomic loop Prometheus metrics summary.
+   */
+  async metrics(): Promise<NomicMetrics> {
+    return this.http.get<NomicMetrics>('/api/nomic/metrics');
+  }
+
+  /**
+   * Get recent nomic loop log lines.
+   * @param lines - Number of lines to retrieve (default 100, max 1000)
+   */
+  async logs(lines = 100): Promise<NomicLog> {
+    return this.http.get<NomicLog>(`/api/nomic/log?lines=${Math.min(lines, 1000)}`);
+  }
+
+  /**
+   * Get risk register entries.
+   * @param limit - Maximum entries to return (default 50, max 200)
+   */
+  async riskRegister(limit = 50): Promise<RiskRegister> {
+    return this.http.get<RiskRegister>(`/api/nomic/risk-register?limit=${Math.min(limit, 200)}`);
+  }
+
+  /**
+   * Get available operational modes.
+   */
+  async modes(): Promise<ModesResponse> {
+    return this.http.get<ModesResponse>('/api/modes');
+  }
+}
+
+// =============================================================================
+// Learning Analytics API
+// =============================================================================
+
+/**
+ * API for cross-cycle learning analytics.
+ *
+ * Provides insights into patterns learned across nomic loop cycles,
+ * agent evolution over time, and aggregated insights.
+ *
+ * @example
+ * ```typescript
+ * const evolution = await client.learning.agentEvolution();
+ * for (const agent of evolution.agents) {
+ *   console.log(`${agent.agent}: ${agent.overall_trend}`);
+ * }
+ * ```
+ */
+class LearningAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get summaries of all nomic loop cycles.
+   * @param limit - Maximum cycles to return (default 20, max 100)
+   */
+  async cycles(limit = 20): Promise<CycleSummariesResponse> {
+    return this.http.get<CycleSummariesResponse>(`/api/learning/cycles?limit=${Math.min(limit, 100)}`);
+  }
+
+  /**
+   * Get learned patterns across cycles.
+   */
+  async patterns(): Promise<LearnedPatternsResponse> {
+    return this.http.get<LearnedPatternsResponse>('/api/learning/patterns');
+  }
+
+  /**
+   * Get agent performance evolution over time.
+   */
+  async agentEvolution(): Promise<AgentEvolutionResponse> {
+    return this.http.get<AgentEvolutionResponse>('/api/learning/agent-evolution');
+  }
+
+  /**
+   * Get aggregated insights from cycles.
+   * @param limit - Maximum insights to return (default 50, max 200)
+   */
+  async insights(limit = 50): Promise<AggregatedInsightsResponse> {
+    return this.http.get<AggregatedInsightsResponse>(`/api/learning/insights?limit=${Math.min(limit, 200)}`);
+  }
+}
+
+// =============================================================================
 // Plugins API
 // =============================================================================
 
@@ -3460,6 +3594,8 @@ export class AragoraClient {
   readonly plugins: PluginsAPI;
   readonly personas: PersonasAPI;
   readonly probes: ProbesAPI;
+  readonly nomic: NomicAPI;
+  readonly learning: LearningAPI;
 
   /**
    * Create a new Aragora client.
@@ -3525,6 +3661,8 @@ export class AragoraClient {
     this.plugins = new PluginsAPI(this.http);
     this.personas = new PersonasAPI(this.http);
     this.probes = new ProbesAPI(this.http);
+    this.nomic = new NomicAPI(this.http);
+    this.learning = new LearningAPI(this.http);
   }
 
   /**

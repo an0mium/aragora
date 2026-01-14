@@ -3252,3 +3252,150 @@ export interface ProofTreeResponse {
   nodes: ProofTreeNode[];
   message?: string;
 }
+
+// =============================================================================
+// Nomic Loop Types
+// =============================================================================
+
+export type NomicPhase = 'context' | 'debate' | 'design' | 'implement' | 'verify';
+
+export interface NomicState {
+  state: 'running' | 'not_running' | 'paused' | 'error';
+  cycle: number;
+  phase?: NomicPhase;
+  started_at?: string;
+  last_activity?: string;
+  current_task?: string;
+  agents_active?: string[];
+}
+
+export interface NomicHealth {
+  status: 'healthy' | 'stalled' | 'not_running' | 'error';
+  cycle: number;
+  phase: NomicPhase | null;
+  last_activity: string | null;
+  stall_duration_seconds: number | null;
+  warnings: string[];
+}
+
+export interface NomicMetrics {
+  cycles_completed: number;
+  cycles_failed: number;
+  average_cycle_duration_seconds: number;
+  success_rate: number;
+  total_debates: number;
+  total_implementations: number;
+  by_phase: Record<NomicPhase, { count: number; avg_duration: number }>;
+}
+
+export interface NomicLog {
+  lines: string[];
+  total: number;
+  showing: number;
+}
+
+export interface RiskEntry {
+  id: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  description: string;
+  source: string;
+  detected_at: string;
+  mitigations?: string[];
+  resolved?: boolean;
+}
+
+export interface RiskRegister {
+  entries: RiskEntry[];
+  total: number;
+  unresolved: number;
+}
+
+export interface OperationalMode {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  config?: Record<string, unknown>;
+}
+
+export interface ModesResponse {
+  modes: OperationalMode[];
+  current_mode?: string;
+}
+
+// =============================================================================
+// Learning Analytics Types
+// =============================================================================
+
+export interface CycleSummary {
+  cycle_id: string;
+  cycle_number: number;
+  started_at: string;
+  completed_at?: string;
+  status: 'completed' | 'failed' | 'in_progress';
+  duration_seconds?: number;
+  debates_count: number;
+  implementations_count: number;
+  tests_passed?: number;
+  tests_failed?: number;
+  agents_used: string[];
+  highlights?: string[];
+}
+
+export interface CycleSummariesResponse {
+  cycles: CycleSummary[];
+  count: number;
+}
+
+export interface LearnedPattern {
+  id: string;
+  pattern_type: string;
+  description: string;
+  success_rate: number;
+  occurrences: number;
+  first_seen: string;
+  last_seen: string;
+  examples?: string[];
+}
+
+export interface LearnedPatternsResponse {
+  patterns: LearnedPattern[];
+  count: number;
+  categories: Record<string, number>;
+}
+
+export interface AgentEvolutionPoint {
+  cycle: number;
+  timestamp: string;
+  elo: number;
+  win_rate: number;
+  debates_participated: number;
+}
+
+export interface AgentEvolution {
+  agent: string;
+  timeline: AgentEvolutionPoint[];
+  overall_trend: 'improving' | 'declining' | 'stable';
+  total_debates: number;
+}
+
+export interface AgentEvolutionResponse {
+  agents: AgentEvolution[];
+  cycles_analyzed: number;
+}
+
+export interface AggregatedInsight {
+  id: string;
+  type: string;
+  content: string;
+  confidence: number;
+  source_cycles: number[];
+  created_at: string;
+  tags?: string[];
+}
+
+export interface AggregatedInsightsResponse {
+  insights: AggregatedInsight[];
+  count: number;
+  by_type: Record<string, number>;
+}

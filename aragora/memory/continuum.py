@@ -17,6 +17,7 @@ Key concepts:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import math
@@ -355,6 +356,27 @@ class ContinuumMemory(SQLiteStore):
             metadata=metadata or {},
         )
 
+    async def add_async(
+        self,
+        id: str,
+        content: str,
+        tier: MemoryTier = MemoryTier.SLOW,
+        importance: float = 0.5,
+        metadata: Dict[str, Any] | None = None,
+    ) -> ContinuumMemoryEntry:
+        """Async wrapper for add() - offloads blocking I/O to executor."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: self.add(
+                id=id,
+                content=content,
+                tier=tier,
+                importance=importance,
+                metadata=metadata,
+            ),
+        )
+
     async def store(
         self,
         key: str,
@@ -363,14 +385,59 @@ class ContinuumMemory(SQLiteStore):
         importance: float = 0.5,
         metadata: Dict[str, Any] | None = None,
     ) -> ContinuumMemoryEntry:
-        """Async wrapper for add() for compatibility."""
+        """Async wrapper for add() - offloads blocking I/O to executor."""
         normalized_tier = MemoryTier(tier) if isinstance(tier, str) else tier
-        return self.add(
-            id=key,
-            content=content,
-            tier=normalized_tier,
-            importance=importance,
-            metadata=metadata,
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: self.add(
+                id=key,
+                content=content,
+                tier=normalized_tier,
+                importance=importance,
+                metadata=metadata,
+            ),
+        )
+
+    async def get_async(self, id: str) -> Optional[ContinuumMemoryEntry]:
+        """Async wrapper for get() - offloads blocking I/O to executor."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.get, id)
+
+    async def retrieve_async(
+        self,
+        query: str | None = None,
+        tiers: List[MemoryTier] | None = None,
+        limit: int = 10,
+        min_importance: float = 0.0,
+        include_glacial: bool = True,
+        tier: str | MemoryTier | None = None,
+    ) -> List[ContinuumMemoryEntry]:
+        """Async wrapper for retrieve() - offloads blocking I/O to executor."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: self.retrieve(
+                query=query,
+                tiers=tiers,
+                limit=limit,
+                min_importance=min_importance,
+                include_glacial=include_glacial,
+                tier=tier,
+            ),
+        )
+
+    async def update_outcome_async(
+        self,
+        id: str,
+        success: bool,
+        agent_prediction_error: float | None = None,
+    ) -> float:
+        """Async wrapper for update_outcome() - offloads blocking I/O to executor."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: self.update_outcome(id, success, agent_prediction_error),
         )
 
     def get(self, id: str) -> Optional[ContinuumMemoryEntry]:
