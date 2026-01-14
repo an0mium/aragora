@@ -423,7 +423,8 @@ class TestCreateCheckout:
 
         billing_handler.read_json_body = Mock(
             return_value={
-                "tier": "pro",
+                "tier": "professional",
+                # Missing success_url and cancel_url
             }
         )
 
@@ -431,7 +432,8 @@ class TestCreateCheckout:
 
         assert result.status_code == 400
         data = json.loads(result.body)
-        assert "url" in data["error"].lower()
+        # Schema validation requires success_url and cancel_url
+        assert "required" in data["error"].lower() or "success_url" in data["error"]
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_create_checkout_not_authenticated(self, mock_extract, billing_handler, mock_handler):
