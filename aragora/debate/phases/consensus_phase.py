@@ -1788,4 +1788,4 @@ Create a clear, authoritative FINAL SYNTHESIS that:
 4. **RECOMMENDATION**: Provide a concrete actionable takeaway
 
 Write in a clear, confident tone. This is the FINAL WORD on this debate.
-Keep your response focused and under 500 words."""
+Keep your response focused and under 1200 words."""
