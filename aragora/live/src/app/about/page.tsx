@@ -15,7 +15,7 @@ const PRACTICAL_USE_CASES = [
       'MedConnect: Found 11 issues, prevented 3 critical outages',
       'Scale review: 50K to 500K concurrent users validated',
     ],
-    cta: { label: 'See Case Study', href: 'https://github.com/aragora/aragora/blob/main/docs/case-studies/architecture-stress-test.md' },
+    cta: { label: 'See Case Study', href: 'https://github.com/an0mium/aragora/blob/main/docs/case-studies/architecture-stress-test.md' },
   },
   {
     icon: '🔐',
@@ -25,7 +25,7 @@ const PRACTICAL_USE_CASES = [
       'CloudPay: 7 critical issues found in 23 minutes',
       'BOLA, rate limiting gaps, PCI-DSS violations caught',
     ],
-    cta: { label: 'See Case Study', href: 'https://github.com/aragora/aragora/blob/main/docs/case-studies/security-api-review.md' },
+    cta: { label: 'See Case Study', href: 'https://github.com/an0mium/aragora/blob/main/docs/case-studies/security-api-review.md' },
   },
   {
     icon: '📋',
@@ -35,7 +35,7 @@ const PRACTICAL_USE_CASES = [
       'Automated persona-based compliance checks',
       'Audit-ready transcripts with minority views preserved',
     ],
-    cta: { label: 'See Case Study', href: 'https://github.com/aragora/aragora/blob/main/docs/case-studies/gdpr-compliance-audit.md' },
+    cta: { label: 'See Case Study', href: 'https://github.com/an0mium/aragora/blob/main/docs/case-studies/gdpr-compliance-audit.md' },
   },
   {
     icon: '🔍',
@@ -75,56 +75,56 @@ const DOC_CATEGORIES = [
     title: 'Getting Started',
     icon: '🚀',
     docs: [
-      { name: 'Quick Start', href: 'https://github.com/aragora/aragora/blob/main/docs/QUICKSTART.md' },
-      { name: 'Installation', href: 'https://github.com/aragora/aragora/blob/main/docs/GETTING_STARTED.md' },
-      { name: 'CLI Reference', href: 'https://github.com/aragora/aragora/blob/main/docs/CLI_REFERENCE.md' },
+      { name: 'Quick Start', href: 'https://github.com/an0mium/aragora/blob/main/docs/QUICKSTART.md' },
+      { name: 'Installation', href: 'https://github.com/an0mium/aragora/blob/main/docs/GETTING_STARTED.md' },
+      { name: 'CLI Reference', href: 'https://github.com/an0mium/aragora/blob/main/docs/CLI_REFERENCE.md' },
     ],
   },
   {
     title: 'Core Features',
     icon: '⚙️',
     docs: [
-      { name: 'Nomic Loop', href: 'https://github.com/aragora/aragora/blob/main/docs/NOMIC_LOOP.md' },
-      { name: 'Gauntlet', href: 'https://github.com/aragora/aragora/blob/main/docs/GAUNTLET.md' },
-      { name: 'Graph Debates', href: 'https://github.com/aragora/aragora/blob/main/docs/GRAPH_DEBATES.md' },
-      { name: 'Matrix Debates', href: 'https://github.com/aragora/aragora/blob/main/docs/MATRIX_DEBATES.md' },
+      { name: 'Nomic Loop', href: 'https://github.com/an0mium/aragora/blob/main/docs/NOMIC_LOOP.md' },
+      { name: 'Gauntlet', href: 'https://github.com/an0mium/aragora/blob/main/docs/GAUNTLET.md' },
+      { name: 'Graph Debates', href: 'https://github.com/an0mium/aragora/blob/main/docs/GRAPH_DEBATES.md' },
+      { name: 'Matrix Debates', href: 'https://github.com/an0mium/aragora/blob/main/docs/MATRIX_DEBATES.md' },
     ],
   },
   {
     title: 'API & Integration',
     icon: '🔌',
     docs: [
-      { name: 'API Reference', href: 'https://github.com/aragora/aragora/blob/main/docs/API_REFERENCE.md' },
-      { name: 'API Examples', href: 'https://github.com/aragora/aragora/blob/main/docs/API_EXAMPLES.md' },
-      { name: 'TypeScript SDK', href: 'https://github.com/aragora/aragora/blob/main/docs/SDK_TYPESCRIPT.md' },
-      { name: 'MCP Integration', href: 'https://github.com/aragora/aragora/blob/main/docs/MCP_GUIDE.md' },
+      { name: 'API Reference', href: 'https://github.com/an0mium/aragora/blob/main/docs/API_REFERENCE.md' },
+      { name: 'API Examples', href: 'https://github.com/an0mium/aragora/blob/main/docs/API_EXAMPLES.md' },
+      { name: 'TypeScript SDK', href: 'https://github.com/an0mium/aragora/blob/main/docs/SDK_TYPESCRIPT.md' },
+      { name: 'MCP Integration', href: 'https://github.com/an0mium/aragora/blob/main/docs/MCP_GUIDE.md' },
     ],
   },
   {
     title: 'Agent Development',
     icon: '🤖',
     docs: [
-      { name: 'Custom Agents', href: 'https://github.com/aragora/aragora/blob/main/docs/CUSTOM_AGENTS.md' },
-      { name: 'Agent Selection', href: 'https://github.com/aragora/aragora/blob/main/docs/AGENT_SELECTION.md' },
-      { name: 'Formal Verification', href: 'https://github.com/aragora/aragora/blob/main/docs/FORMAL_VERIFICATION.md' },
+      { name: 'Custom Agents', href: 'https://github.com/an0mium/aragora/blob/main/docs/CUSTOM_AGENTS.md' },
+      { name: 'Agent Selection', href: 'https://github.com/an0mium/aragora/blob/main/docs/AGENT_SELECTION.md' },
+      { name: 'Formal Verification', href: 'https://github.com/an0mium/aragora/blob/main/docs/FORMAL_VERIFICATION.md' },
     ],
   },
   {
     title: 'Deployment',
     icon: '🚢',
     docs: [
-      { name: 'Deployment Guide', href: 'https://github.com/aragora/aragora/blob/main/docs/DEPLOYMENT.md' },
-      { name: 'Production Checklist', href: 'https://github.com/aragora/aragora/blob/main/docs/PRODUCTION_CHECKLIST.md' },
-      { name: 'Scaling', href: 'https://github.com/aragora/aragora/blob/main/docs/SCALING.md' },
+      { name: 'Deployment Guide', href: 'https://github.com/an0mium/aragora/blob/main/docs/DEPLOYMENT.md' },
+      { name: 'Production Checklist', href: 'https://github.com/an0mium/aragora/blob/main/docs/PRODUCTION_CHECKLIST.md' },
+      { name: 'Scaling', href: 'https://github.com/an0mium/aragora/blob/main/docs/SCALING.md' },
     ],
   },
   {
     title: 'Case Studies',
     icon: '📊',
     docs: [
-      { name: 'Architecture Stress-Test', href: 'https://github.com/aragora/aragora/blob/main/docs/case-studies/architecture-stress-test.md' },
-      { name: 'API Security Review', href: 'https://github.com/aragora/aragora/blob/main/docs/case-studies/security-api-review.md' },
-      { name: 'GDPR Compliance', href: 'https://github.com/aragora/aragora/blob/main/docs/case-studies/gdpr-compliance-audit.md' },
+      { name: 'Architecture Stress-Test', href: 'https://github.com/an0mium/aragora/blob/main/docs/case-studies/architecture-stress-test.md' },
+      { name: 'API Security Review', href: 'https://github.com/an0mium/aragora/blob/main/docs/case-studies/security-api-review.md' },
+      { name: 'GDPR Compliance', href: 'https://github.com/an0mium/aragora/blob/main/docs/case-studies/gdpr-compliance-audit.md' },
     ],
   },
 ];
@@ -202,7 +202,7 @@ export default function AboutPage() {
                   PyPI v0.9.0
                 </a>
                 <a
-                  href="https://github.com/aragora"
+                  href="https://github.com/an0mium/aragora"
                   className="px-6 py-2 border border-acid-green/50 text-acid-green font-mono hover:bg-acid-green/10 transition-colors"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -367,7 +367,7 @@ export default function AboutPage() {
             </div>
             <div className="mt-8 text-center">
               <a
-                href="https://github.com/aragora/aragora/tree/main/docs"
+                href="https://github.com/an0mium/aragora/tree/main/docs"
                 className="inline-flex items-center gap-2 px-6 py-2 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/10 transition-colors"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -486,7 +486,7 @@ $ aragora nomic --cycles 3  # Run self-improvement loop
               <Link href="https://live.aragora.ai" className="text-acid-cyan hover:text-acid-green transition-colors">
                 Watch Live
               </Link>
-              <a href="https://github.com/aragora" className="text-acid-cyan hover:text-acid-green transition-colors" target="_blank" rel="noopener noreferrer">
+              <a href="https://github.com/an0mium/aragora" className="text-acid-cyan hover:text-acid-green transition-colors" target="_blank" rel="noopener noreferrer">
                 View on GitHub
               </a>
               <a href="https://pypi.org/project/aragora/" className="text-acid-cyan hover:text-acid-green transition-colors" target="_blank" rel="noopener noreferrer">

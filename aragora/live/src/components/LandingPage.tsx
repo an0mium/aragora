@@ -324,7 +324,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
               Dashboard
             </a>
             <span className="text-acid-green/20">|</span>
-            <a href="https://github.com/aragora" className="text-text-muted/40 hover:text-acid-green/60 transition-colors">
+            <a href="https://github.com/an0mium/aragora" className="text-text-muted/40 hover:text-acid-green/60 transition-colors">
               GitHub
             </a>
             <span className="text-acid-green/20">|</span>

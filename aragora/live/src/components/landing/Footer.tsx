@@ -20,7 +20,7 @@ const USE_CASES = [
 
 const FOOTER_LINKS = [
   { href: 'https://live.aragora.ai', label: 'Live Dashboard' },
-  { href: 'https://github.com/aragora', label: 'GitHub' },
+  { href: 'https://github.com/an0mium/aragora', label: 'GitHub' },
   { href: '/about', label: 'Docs' },
 ];
 
