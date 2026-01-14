@@ -102,7 +102,7 @@ def get_shared_connector() -> aiohttp.TCPConnector:
             # Close old connector if it exists and is still open
             if _shared_connector is not None and not _shared_connector.closed:
                 try:
-                    _shared_connector.close()
+                    await _shared_connector.close()
                 except Exception:
                     pass  # Ignore errors during cleanup
 
