@@ -1,0 +1,66 @@
+name: Test Deploy-Like
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - a
+          - b
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: test-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: github.event.inputs.skip_tests != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run test
+        run: echo "Test running"
+
+  deploy-a:
+    needs: test
+    if: |
+      always() &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (github.event.inputs.environment == 'all' || github.event.inputs.environment == 'a' || github.event.inputs.environment == null || github.event_name == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Deploy A
+        run: echo "Deploy A"
+
+  deploy-b:
+    needs: test
+    if: |
+      always() &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (github.event.inputs.environment == 'all' || github.event.inputs.environment == 'b' || github.event.inputs.environment == null || github.event_name == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Deploy B
+        run: echo "Deploy B"
+
+  notify:
+    needs: [deploy-a, deploy-b]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summary
+        run: |
+          echo "Deploy A: ${{ needs.deploy-a.result }}"
+          echo "Deploy B: ${{ needs.deploy-b.result }}"
