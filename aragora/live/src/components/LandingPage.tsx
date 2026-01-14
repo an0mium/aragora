@@ -99,11 +99,11 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
           {/* Value Proposition - Minimal */}
           <div className="text-center mb-8 max-w-2xl">
             <p className="text-sm font-mono text-text-muted/80 mb-4">
-              Multi-agent AI debate platform for decision stress-testing
+              Multi-agent AI platform for decision makers
             </p>
             <div className="flex flex-wrap justify-center gap-4 text-xs font-mono text-text-muted/70">
               <span className="flex items-center gap-1">
-                <span className="text-acid-green">+</span> 8 AI models debating
+                <span className="text-acid-green">+</span> Diverse Frontier Models Forge Consensus
               </span>
               <span className="flex items-center gap-1">
                 <span className="text-acid-green">+</span> Audit-ready receipts
@@ -176,6 +176,15 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
             <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
               showLearnMore ? 'max-h-[8000px] opacity-100 pb-8' : 'max-h-0 opacity-0'
             }`}>
+
+              {/* Use Case Highlight */}
+              <div className="max-w-2xl mx-auto mb-8 text-center">
+                <div className="border border-acid-yellow/30 bg-acid-yellow/5 p-4 rounded">
+                  <p className="text-acid-yellow/80 font-mono text-xs">
+                    <span className="text-acid-yellow">USE CASE:</span> Find the $500K flaw before launch — AI stress-tests your architecture in 30 minutes.
+                  </p>
+                </div>
+              </div>
 
               {/* Intro Section */}
               <div className="max-w-4xl mx-auto mb-8 text-center">
@@ -332,9 +341,6 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
               Docs
             </a>
           </div>
-          <p className="text-[9px] text-text-muted/30 max-w-md mx-auto">
-            Use case: Find the $500K flaw before launch — AI stress-tests your architecture in 30 minutes.
-          </p>
         </footer>
       </main>
     </>

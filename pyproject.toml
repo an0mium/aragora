@@ -273,6 +273,33 @@ module = [
     "aragora.utils.optional_imports",
     "aragora.utils.cache_registry",
     "aragora.utils.token_helpers",
+    # Added strict - Phase 11 handlers expansion (Jan 2026)
+    "aragora.server.handlers.memory_analytics",
+    "aragora.server.handlers.verification",
+    "aragora.server.handlers.laboratory",
+    "aragora.server.handlers.critique",
+    "aragora.server.handlers.introspection",
+    "aragora.server.handlers.audio",
+    "aragora.server.handlers.breakpoints",
+    "aragora.server.handlers.moments",
+    "aragora.server.handlers.evolution",
+    "aragora.server.handlers.graph_debates",
+    "aragora.server.handlers.broadcast",
+    "aragora.server.handlers.insights",
+    "aragora.server.handlers.gallery",
+    "aragora.server.handlers.persona",
+    "aragora.server.handlers.nomic",
+    "aragora.server.handlers.selection",
+    # Added strict - Phase 11 broadcast modules (Jan 2026)
+    "aragora.broadcast.script_gen",
+    "aragora.broadcast.mixer",
+    # Added strict - Phase 11 memory modules (Jan 2026)
+    "aragora.memory.embeddings",
+    "aragora.memory.streams",
+    # Added strict - Phase 11 server stream (Jan 2026)
+    "aragora.server.stream.state_manager",
+    "aragora.server.stream.emitter",
+    "aragora.server.stream.arena_hooks",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

@@ -471,7 +471,7 @@ class Arena:
             from aragora.agents.airlock import AirlockConfig, wrap_agents
 
             airlock_cfg = airlock_config or AirlockConfig()
-            self.agents = wrap_agents(self.agents, airlock_cfg)
+            self.agents = wrap_agents(self.agents, airlock_cfg)  # type: ignore[assignment]
             logger.debug(f"[airlock] Wrapped {len(self.agents)} agents with resilience layer")
         self.memory = memory
         self.hooks = event_hooks or {}
@@ -861,7 +861,7 @@ class Arena:
                 return await self._initializer.initialize(context)
 
         self.phase_executor = PhaseExecutor(
-            phases={
+            phases={  # type: ignore[dict-item]
                 "context_initializer": ContextInitWrapper(self.context_initializer),
                 "proposal": self.proposal_phase,
                 "debate_rounds": self.debate_rounds_phase,

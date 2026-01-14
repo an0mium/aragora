@@ -168,7 +168,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
     def __init__(
         self,
         port: int = 8080,
-        host: str = "0.0.0.0",
+        host: str = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1"),
         nomic_dir: Optional[Path] = None,
     ):
         # Initialize base class with common functionality

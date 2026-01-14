@@ -453,8 +453,8 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
         )}
       </form>
 
-      {/* Quick Action Buttons - Category suggestions */}
-      <div className="flex flex-wrap gap-2 justify-center mt-6">
+      {/* Quick Action Buttons - Category suggestions (compact) */}
+      <div className="flex flex-wrap gap-1 justify-center mt-3">
         {[
           { label: 'Technical', icon: '</>', question: 'What are the tradeoffs between microservices and monoliths for a startup?' },
           { label: 'Philosophy', icon: '?', question: 'Can AI systems develop genuine understanding, or only simulate it?' },
@@ -466,11 +466,11 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
             key={cat.label}
             type="button"
             onClick={() => setQuestion(cat.question)}
-            className="px-3 py-1.5 text-xs font-mono border border-acid-green/30
-                       text-text-muted hover:text-acid-green hover:border-acid-green/60
-                       transition-colors rounded-full"
+            className="px-1.5 py-0.5 text-[9px] font-mono border border-acid-green/20
+                       text-text-muted/50 hover:text-acid-green hover:border-acid-green/40
+                       transition-colors rounded"
           >
-            <span className="text-acid-green/60 mr-1">[{cat.icon}]</span>
+            <span className="text-acid-green/40 mr-0.5">[{cat.icon}]</span>
             {cat.label}
           </button>
         ))}

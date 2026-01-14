@@ -37,6 +37,11 @@ class UserAuthContext:
         return self.authenticated
 
     @property
+    def id(self) -> Optional[str]:
+        """Alias for user_id for compatibility."""
+        return self.user_id
+
+    @property
     def is_owner(self) -> bool:
         """Check if user is org owner."""
         return self.role == "owner"

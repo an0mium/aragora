@@ -9,6 +9,7 @@ Provides a single entry point for:
 
 import asyncio
 import json
+import os
 import re
 import sqlite3
 from collections import deque
@@ -985,8 +986,8 @@ class UnifiedServer:
         self,
         http_port: int = 8080,
         ws_port: int = 8765,
-        ws_host: str = "0.0.0.0",
-        http_host: str = "",
+        ws_host: str = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1"),
+        http_host: str = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1"),
         static_dir: Optional[Path] = None,
         nomic_dir: Optional[Path] = None,
         storage: Optional[DebateStorage] = None,
@@ -999,8 +1000,8 @@ class UnifiedServer:
         Args:
             http_port: Port for HTTP API server (default 8080)
             ws_port: Port for WebSocket streaming (default 8765)
-            ws_host: WebSocket bind address (default "0.0.0.0")
-            http_host: HTTP bind address (default "" for all interfaces)
+            ws_host: WebSocket bind address (default 127.0.0.1, use ARAGORA_BIND_HOST env)
+            http_host: HTTP bind address (default 127.0.0.1, use ARAGORA_BIND_HOST env)
             static_dir: Optional path to static files for serving UI
             nomic_dir: Optional path to nomic state directory (enables many features)
             storage: Optional DebateStorage for debate persistence

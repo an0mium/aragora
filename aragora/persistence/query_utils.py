@@ -62,12 +62,18 @@ def batch_select(
     if not id_column.replace("_", "").isalnum():
         raise ValueError(f"Invalid column name: {id_column}")
 
+    # Validate column names if provided
+    if columns:
+        for col in columns:
+            if not col.replace("_", "").isalnum():
+                raise ValueError(f"Invalid column name: {col}")
+
     results: list[sqlite3.Row] = []
-    cols = "*" if not columns else ", ".join(columns)
+    cols = "*" if not columns else ", ".join(columns)  # nosec B608 - validated above
 
     for chunk in chunked(ids, batch_size):
         placeholders = ", ".join("?" * len(chunk))
-        query = f"SELECT {cols} FROM {table} WHERE {id_column} IN ({placeholders})"
+        query = f"SELECT {cols} FROM {table} WHERE {id_column} IN ({placeholders})"  # nosec B608
 
         try:
             cursor = conn.execute(query, chunk)
@@ -111,7 +117,7 @@ def batch_exists(
 
     for chunk in chunked(ids, batch_size):
         placeholders = ", ".join("?" * len(chunk))
-        query = f"SELECT {id_column} FROM {table} WHERE {id_column} IN ({placeholders})"
+        query = f"SELECT {id_column} FROM {table} WHERE {id_column} IN ({placeholders})"  # nosec B608
 
         try:
             cursor = conn.execute(query, chunk)
@@ -177,7 +183,7 @@ def get_table_stats(conn: sqlite3.Connection, table: str) -> dict[str, Any]:
     if not table.replace("_", "").isalnum():
         raise ValueError(f"Invalid table name: {table}")
 
-    cursor = conn.execute(f"SELECT COUNT(*) FROM {table}")
+    cursor = conn.execute(f"SELECT COUNT(*) FROM {table}")  # nosec B608
     row = cursor.fetchone()
 
     return {

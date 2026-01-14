@@ -904,7 +904,7 @@ class GauntletHandler(BaseHandler):
         include_findings = get_string_param(query_params, "include_findings", "true") == "true"
 
         # Build comprehensive report
-        report = {
+        report: dict[str, Any] = {
             "gauntlet_id": gauntlet_id,
             "generated_at": datetime.now().isoformat(),
             "summary": {

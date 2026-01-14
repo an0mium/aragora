@@ -36,6 +36,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for benchmark comparison
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -73,6 +75,7 @@ jobs:
 
       - name: Store benchmark result
         if: github.ref == 'refs/heads/main'
+        continue-on-error: true  # Don't fail the workflow if benchmark storage fails
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Aragora Performance Benchmarks
@@ -188,6 +191,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5

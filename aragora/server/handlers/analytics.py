@@ -104,7 +104,7 @@ class AnalyticsHandler(BaseHandler):
         }
 
         for debate in debates:
-            result = debate.get("result", {})
+            result = debate.get("result", {})  # type: ignore[attr-defined]
             report = result.get("disagreement_report")
             if report:
                 if report.get("unanimous_critiques"):
@@ -137,7 +137,7 @@ class AnalyticsHandler(BaseHandler):
         }
 
         for debate in debates:
-            messages = debate.get("messages", [])
+            messages = debate.get("messages", [])  # type: ignore[attr-defined]
             for msg in messages:
                 role = msg.get("cognitive_role", msg.get("role", "unknown"))
                 stats["role_assignments"][role] = stats["role_assignments"].get(role, 0) + 1
@@ -166,7 +166,7 @@ class AnalyticsHandler(BaseHandler):
 
         total_rounds = 0
         for debate in debates:
-            result = debate.get("result", {})
+            result = debate.get("result", {})  # type: ignore[attr-defined]
             rounds = result.get("rounds_used", 0)
             total_rounds += rounds
 
@@ -210,11 +210,11 @@ class AnalyticsHandler(BaseHandler):
         consensus_reached_count = 0
 
         for debate in debates:
-            result = debate.get("result", {})
+            result = debate.get("result", {})  # type: ignore[attr-defined]
             confidence = result.get("confidence", 0.0)
             consensus = result.get("consensus_reached", False)
-            debate_id = debate.get("id", "")
-            timestamp = debate.get("timestamp", "")
+            debate_id = debate.get("id", "")  # type: ignore[attr-defined]
+            timestamp = debate.get("timestamp", "")  # type: ignore[attr-defined]
 
             confidence_history.append(
                 {

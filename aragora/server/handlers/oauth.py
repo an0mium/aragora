@@ -227,10 +227,11 @@ class OAuthUserInfo:
 
 def _validate_redirect_url(redirect_url: str) -> bool:
     """
-    Validate that redirect URL is in the allowed hosts list.
+    Validate that redirect URL is in the allowed hosts list and uses safe scheme.
 
     This prevents open redirect vulnerabilities where an attacker could
-    craft an OAuth URL that redirects tokens to a malicious domain.
+    craft an OAuth URL that redirects tokens to a malicious domain or uses
+    dangerous URL schemes (javascript:, data:, etc.).
 
     Args:
         redirect_url: The URL to validate
@@ -242,6 +243,12 @@ def _validate_redirect_url(redirect_url: str) -> bool:
 
     try:
         parsed = urlparse(redirect_url)
+
+        # Security: Only allow http/https schemes to prevent javascript:/data:/etc attacks
+        if parsed.scheme not in ("http", "https"):
+            logger.warning(f"oauth_redirect_blocked: scheme={parsed.scheme} not allowed")
+            return False
+
         host = parsed.hostname
         if not host:
             return False
