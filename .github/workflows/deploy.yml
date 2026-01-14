@@ -441,7 +441,8 @@ jobs:
 
   notify:
     needs: [deploy-cloudflare, deploy-lightsail, deploy-ec2]
-    if: always()
+    # Don't run notify when workflow is cancelled - prevents stuck "queued" jobs
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
 
     steps:
