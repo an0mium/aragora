@@ -20,8 +20,24 @@ data:
   ARAGORA_MAX_CONCURRENT_DEBATES: "10"
   ARAGORA_DEBATE_TIMEOUT: "300"
 
-  # Redis (service name in Kubernetes)
+  # Redis Configuration
+  # For single-node Redis:
   REDIS_URL: "redis://aragora-redis:6379"
+  ARAGORA_REDIS_URL: "redis://aragora-redis:6379"
+
+  # For Redis Cluster (uncomment and configure):
+  # ARAGORA_REDIS_CLUSTER_MODE: "cluster"
+  # ARAGORA_REDIS_CLUSTER_NODES: "redis-cluster-0.redis-cluster:6379,redis-cluster-1.redis-cluster:6379,redis-cluster-2.redis-cluster:6379"
+
+  # Connection pool settings
+  ARAGORA_POOL_MIN_CONNECTIONS: "5"
+  ARAGORA_POOL_MAX_CONNECTIONS: "50"
+  ARAGORA_POOL_IDLE_TIMEOUT: "300"
+  ARAGORA_REDIS_SOCKET_TIMEOUT: "5.0"
+
+  # Rate limiting
+  ARAGORA_RATE_LIMIT: "100"
+  ARAGORA_IP_RATE_LIMIT: "200"
 
   # Logging
   ARAGORA_LOG_LEVEL: "INFO"

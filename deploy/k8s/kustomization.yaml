@@ -12,10 +12,12 @@ resources:
   - secret.yaml
   - redis/statefulset.yaml
   - redis/service.yaml
+  # - redis/cluster.yaml   # Uncomment for Redis Cluster deployment
   - deployment.yaml
   - service.yaml
   - ingress.yaml
   - hpa.yaml
+  # - hpa-custom-metrics.yaml  # Uncomment when Prometheus Adapter is installed
   - pdb.yaml
 
 commonLabels:

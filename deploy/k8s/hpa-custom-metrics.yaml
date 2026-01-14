@@ -1,0 +1,214 @@
+# Aragora HPA with Custom Metrics
+# Requires Prometheus Adapter or KEDA for custom metrics
+#
+# Prerequisites:
+#   - Prometheus Adapter: https://github.com/kubernetes-sigs/prometheus-adapter
+#   - OR KEDA: https://keda.sh/
+#
+# Custom metrics exposed at /metrics:
+#   - aragora_active_debates_total: Number of active debates
+#   - aragora_websocket_connections_total: WebSocket connections
+#   - aragora_request_latency_p99: P99 request latency
+#   - aragora_queue_depth: Background job queue depth
+#
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aragora-custom
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: autoscaler
+  annotations:
+    description: "HPA with custom application metrics for intelligent scaling"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aragora
+  minReplicas: 2
+  maxReplicas: 20
+
+  metrics:
+    # Primary: CPU utilization (safety net)
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+    # Memory utilization
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+    # Custom: Active debates (scale when debates increase)
+    - type: Pods
+      pods:
+        metric:
+          name: aragora_active_debates
+        target:
+          type: AverageValue
+          averageValue: "10"  # Scale up when > 10 active debates per pod
+
+    # Custom: WebSocket connections (scale for real-time load)
+    - type: Pods
+      pods:
+        metric:
+          name: aragora_websocket_connections
+        target:
+          type: AverageValue
+          averageValue: "100"  # Scale up when > 100 WS connections per pod
+
+    # Custom: Request rate (scale based on throughput)
+    - type: Pods
+      pods:
+        metric:
+          name: aragora_http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "50"  # Scale up when > 50 req/s per pod
+
+  behavior:
+    # Scale down slowly to avoid thrashing
+    scaleDown:
+      stabilizationWindowSeconds: 300  # 5 minute window
+      policies:
+        - type: Percent
+          value: 10  # Scale down max 10% at a time
+          periodSeconds: 60
+        - type: Pods
+          value: 1  # Or max 1 pod at a time
+          periodSeconds: 120
+      selectPolicy: Min  # Use the more conservative policy
+
+    # Scale up quickly to handle traffic spikes
+    scaleUp:
+      stabilizationWindowSeconds: 0  # No stabilization delay
+      policies:
+        - type: Percent
+          value: 100  # Can double capacity
+          periodSeconds: 15
+        - type: Pods
+          value: 4  # Or add up to 4 pods
+          periodSeconds: 15
+      selectPolicy: Max  # Use the more aggressive policy
+
+---
+# PodDisruptionBudget - Ensure minimum availability during updates
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aragora-pdb
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+spec:
+  minAvailable: 1  # Always keep at least 1 pod running
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aragora
+      app.kubernetes.io/component: server
+
+---
+# ServiceMonitor for Prometheus Operator
+# Enables automatic metric scraping
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aragora
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    release: prometheus  # Match your Prometheus Operator release
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aragora
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames:
+      - aragora
+
+---
+# PrometheusRule for alerting
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: aragora-alerts
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    release: prometheus
+spec:
+  groups:
+    - name: aragora.rules
+      rules:
+        # High error rate
+        - alert: AragoraHighErrorRate
+          expr: |
+            sum(rate(aragora_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(aragora_http_requests_total[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High error rate in Aragora"
+            description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+        # High latency
+        - alert: AragoraHighLatency
+          expr: |
+            histogram_quantile(0.99,
+              rate(aragora_http_request_duration_seconds_bucket[5m])
+            ) > 2
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High P99 latency in Aragora"
+            description: "P99 latency is {{ $value | humanizeDuration }} (threshold: 2s)"
+
+        # Pod restarts
+        - alert: AragoraPodRestarts
+          expr: |
+            increase(kube_pod_container_status_restarts_total{
+              namespace="aragora",
+              container="aragora"
+            }[1h]) > 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Frequent pod restarts"
+            description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last hour"
+
+        # Queue depth too high
+        - alert: AragoraQueueBacklog
+          expr: aragora_queue_depth > 1000
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High queue backlog"
+            description: "Queue depth is {{ $value }} (threshold: 1000)"
+
+        # WebSocket connection spike
+        - alert: AragoraWebSocketSpike
+          expr: |
+            sum(aragora_websocket_connections_total) > 5000
+          for: 5m
+          labels:
+            severity: info
+          annotations:
+            summary: "High WebSocket connection count"
+            description: "{{ $value }} active WebSocket connections"
