@@ -152,9 +152,9 @@ jobs:
               "source venv/bin/activate",
               "pip install -e . --quiet --no-cache-dir",
               "python -c \"from aragora.server.unified_server import UnifiedServer; print(\\\"Import OK\\\")\"",
-              "sudo systemctl restart aragora-staging || sudo systemctl restart aragora",
+              "sudo systemctl restart aragora",
               "sleep 5",
-              "systemctl is-active --quiet aragora-staging || systemctl is-active --quiet aragora",
+              "systemctl is-active --quiet aragora",
               "echo \"Deploy complete\""
             ]' \
             --timeout-seconds 300 \
@@ -236,7 +236,7 @@ jobs:
               "if [ -n \"$PREVIOUS_COMMIT\" ]; then git checkout $PREVIOUS_COMMIT; fi",
               "source venv/bin/activate",
               "pip install -e . --quiet --no-cache-dir",
-              "sudo systemctl restart aragora-staging || sudo systemctl restart aragora",
+              "sudo systemctl restart aragora",
               "rm -f /tmp/aragora_deploy_state",
               "echo \"Rollback complete\""
             ]' \

@@ -1,6 +1,6 @@
 [Unit]
 Description=Aragora Health Watchdog
-After=aragora.service aragora-staging.service cloudflared.service
+After=aragora.service cloudflared.service
 Wants=network-online.target
 
 [Service]

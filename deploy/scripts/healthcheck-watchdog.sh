@@ -22,11 +22,8 @@ check_health() {
 restart_services() {
     log "Health check failed $MAX_FAILURES times, restarting services..."
 
-    # Try aragora-staging first (EC2), then aragora (Lightsail)
-    if sudo systemctl is-active --quiet aragora-staging 2>/dev/null; then
-        log "Restarting aragora-staging..."
-        sudo systemctl restart aragora-staging
-    elif sudo systemctl is-active --quiet aragora 2>/dev/null; then
+    # Restart unified aragora service
+    if sudo systemctl is-active --quiet aragora 2>/dev/null; then
         log "Restarting aragora..."
         sudo systemctl restart aragora
     else

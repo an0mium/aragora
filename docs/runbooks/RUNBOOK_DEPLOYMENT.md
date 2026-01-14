@@ -57,7 +57,7 @@ python -c "from aragora.server.unified_server import UnifiedServer; print('OK')"
 # 5. Restart service (release ports first)
 sudo fuser -k 8765/tcp 2>/dev/null || true
 sudo fuser -k 8080/tcp 2>/dev/null || true
-sudo systemctl restart aragora-staging
+sudo systemctl restart aragora
 
 # 6. Verify health
 curl -sf http://localhost:8080/api/health

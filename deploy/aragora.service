@@ -1,26 +1,38 @@
 [Unit]
-Description=Aragora Debate Server
+Description=Aragora API Server (HTTP + WebSocket)
 After=network.target
+Wants=network-online.target
 
 [Service]
 Type=simple
+# Default user - override during installation
 User=aragora
 Group=aragora
 WorkingDirectory=/opt/aragora
-Environment="PATH=/opt/aragora/venv/bin"
-# Optional: Set SENTRY_DSN for error monitoring
-# Environment="SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx"
+
+# Environment setup
+Environment="PATH=/opt/aragora/venv/bin:/usr/local/bin:/usr/bin"
 EnvironmentFile=-/opt/aragora/.env
-ExecStart=/opt/aragora/venv/bin/python -m aragora.server --host 0.0.0.0 --port 8765 --http-port 8080 --nomic-dir /opt/aragora/.nomic
+
+# Unified server: HTTP (8080) + WebSocket (8765)
+ExecStart=/opt/aragora/venv/bin/python -m aragora.server \
+    --host 0.0.0.0 \
+    --http-port 8080 \
+    --port 8765 \
+    --nomic-dir /opt/aragora/.nomic
+
+# Restart policy with crash loop prevention
 Restart=always
 RestartSec=5
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 # Logging
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aragora
 
-# Security
+# Security hardening
 NoNewPrivileges=yes
 PrivateTmp=yes
 

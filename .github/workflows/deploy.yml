@@ -396,23 +396,22 @@ jobs:
             fi
 
             echo "Stopping service and releasing ports..."
-            sudo systemctl stop aragora-staging 2>/dev/null || sudo systemctl stop aragora 2>/dev/null || true
+            sudo systemctl stop aragora 2>/dev/null || true
             # Force kill any process still using port 8765 (WebSocket)
             sudo fuser -k 8765/tcp 2>/dev/null || true
             # Force kill any process still using port 8080 (HTTP)
             sudo fuser -k 8080/tcp 2>/dev/null || true
             sleep 2
             echo "Starting service..."
-            sudo systemctl start aragora-staging 2>/dev/null || sudo systemctl start aragora
+            sudo systemctl start aragora
             echo "Checking service status..."
             sleep 5
-            if ! sudo systemctl is-active --quiet aragora-staging 2>/dev/null && ! sudo systemctl is-active --quiet aragora; then
+            if ! sudo systemctl is-active --quiet aragora; then
               echo "::error::Service failed to start! Showing recent logs:"
-              sudo journalctl -u aragora-staging -n 100 --no-pager 2>/dev/null || true
-              sudo journalctl -u aragora -n 100 --no-pager 2>/dev/null || true
+              sudo journalctl -u aragora -n 100 --no-pager
               exit 1
             fi
-            sudo systemctl status aragora-staging --no-pager 2>/dev/null || sudo systemctl status aragora --no-pager || true
+            sudo systemctl status aragora --no-pager
             echo "Deploy complete"
           EOF
 
@@ -498,16 +497,15 @@ jobs:
               pip install -e . --quiet
 
               # Restart service
-              sudo systemctl restart aragora-staging 2>/dev/null || sudo systemctl restart aragora
+              sudo systemctl restart aragora
               sleep 5
 
               # Verify rollback
-              if sudo systemctl is-active --quiet aragora-staging 2>/dev/null || sudo systemctl is-active --quiet aragora; then
+              if sudo systemctl is-active --quiet aragora; then
                 echo "::notice::Rollback successful - service running on $PREVIOUS_COMMIT"
               else
                 echo "::error::Rollback failed - service not running"
-                sudo journalctl -u aragora-staging -n 50 --no-pager 2>/dev/null || true
-                sudo journalctl -u aragora -n 50 --no-pager 2>/dev/null || true
+                sudo journalctl -u aragora -n 50 --no-pager
               fi
 
               # Cleanup
