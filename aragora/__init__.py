@@ -363,7 +363,9 @@ def __dir__() -> list[str]:
     return sorted(set(globals()) | set(__all__))
 
 
-__version__ = "1.3.0"
+# Import version from dedicated module
+from aragora.__version__ import __version__
+
 __all__ = [
     # Core
     "Agent",
@@ -681,4 +683,6 @@ __all__ = [
     "CritiqueBackend",
     "PersonaBackend",
     "GenesisBackend",
+    # Version
+    "__version__",
 ]
