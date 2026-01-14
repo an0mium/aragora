@@ -506,6 +506,13 @@ def cmd_badge(args) -> None:
     badge_main(args)
 
 
+def cmd_billing(args: argparse.Namespace) -> int:
+    """Handle 'billing' command - manage billing and usage."""
+    from aragora.cli.billing import main as billing_main
+
+    return billing_main(args)
+
+
 def cmd_mcp_server(args: argparse.Namespace) -> None:
     """Handle 'mcp-server' command - run MCP server."""
     try:
@@ -1089,6 +1096,11 @@ Examples:
         help="Output path for results JSON (local mode only)",
     )
     batch_parser.set_defaults(func=cmd_batch)
+
+    # Billing command
+    from aragora.cli.billing import create_billing_parser
+
+    create_billing_parser(subparsers)
 
     # MCP Server command
     mcp_parser = subparsers.add_parser(
