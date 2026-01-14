@@ -1,6 +1,6 @@
 {
   "name": "@aragora/sdk",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "TypeScript/JavaScript SDK for Aragora multi-agent debate framework",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
