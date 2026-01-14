@@ -143,12 +143,13 @@ jobs:
             --comment "Deploy aragora from GitHub Actions run ${{ github.run_id }}" \
             --parameters 'commands=[
               "set -e",
-              "cd /home/ubuntu/aragora || cd /home/ec2-user/aragora",
+              "cd /home/ec2-user/aragora",
+              "git config --global --add safe.directory /home/ec2-user/aragora",
               "PREVIOUS_COMMIT=$(git rev-parse HEAD)",
               "echo \"Rollback point: $PREVIOUS_COMMIT\" > /tmp/aragora_deploy_state",
-              "git stash --include-untracked || true",
-              "git fetch origin main",
-              "git checkout origin/main",
+              "sudo -u ec2-user git stash --include-untracked || true",
+              "sudo -u ec2-user git fetch origin main",
+              "sudo -u ec2-user git checkout origin/main",
               "source venv/bin/activate",
               "pip install -e . --quiet --no-cache-dir",
               "python -c \"from aragora.server.unified_server import UnifiedServer; print(\\\"Import OK\\\")\"",
@@ -231,9 +232,10 @@ jobs:
             --comment "Rollback aragora from GitHub Actions run ${{ github.run_id }}" \
             --parameters 'commands=[
               "set -e",
-              "cd /home/ubuntu/aragora || cd /home/ec2-user/aragora",
+              "cd /home/ec2-user/aragora",
+              "git config --global --add safe.directory /home/ec2-user/aragora",
               "if [ -f /tmp/aragora_deploy_state ]; then source /tmp/aragora_deploy_state; fi",
-              "if [ -n \"$PREVIOUS_COMMIT\" ]; then git checkout $PREVIOUS_COMMIT; fi",
+              "if [ -n \"$PREVIOUS_COMMIT\" ]; then sudo -u ec2-user git checkout $PREVIOUS_COMMIT; fi",
               "source venv/bin/activate",
               "pip install -e . --quiet --no-cache-dir",
               "sudo systemctl restart aragora",
@@ -283,12 +285,13 @@ jobs:
             --comment "Deploy aragora PRODUCTION from GitHub Actions run ${{ github.run_id }}" \
             --parameters 'commands=[
               "set -e",
-              "cd /home/ubuntu/aragora",
+              "cd /home/ec2-user/aragora",
+              "git config --global --add safe.directory /home/ec2-user/aragora",
               "PREVIOUS_COMMIT=$(git rev-parse HEAD)",
               "echo \"Rollback point: $PREVIOUS_COMMIT\" > /tmp/aragora_deploy_state",
-              "git stash --include-untracked || true",
-              "git fetch origin main",
-              "git checkout origin/main",
+              "sudo -u ec2-user git stash --include-untracked || true",
+              "sudo -u ec2-user git fetch origin main",
+              "sudo -u ec2-user git checkout origin/main",
               "source venv/bin/activate",
               "pip install -e . --quiet --no-cache-dir",
               "python -c \"from aragora.server.unified_server import UnifiedServer; print(\\\"Import OK\\\")\"",
