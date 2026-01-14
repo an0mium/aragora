@@ -645,6 +645,106 @@ class EloSystem:
 
         return multipliers
 
+    @staticmethod
+    def _build_match_scores(winner: str, loser: str, is_draw: bool) -> dict[str, float]:
+        """Build score dict for a two-player match.
+
+        Args:
+            winner: Name of winning agent
+            loser: Name of losing agent
+            is_draw: Whether the match was a draw
+
+        Returns:
+            Dict mapping agent names to scores (1.0=win, 0.5=draw, 0.0=loss)
+        """
+        if is_draw:
+            return {winner: 0.5, loser: 0.5}
+        return {winner: 1.0, loser: 0.0}
+
+    @staticmethod
+    def _generate_match_id(
+        participants: list[str], task: str | None = None, domain: str | None = None
+    ) -> str:
+        """Generate a unique match ID.
+
+        Args:
+            participants: List of participant names
+            task: Optional task label
+            domain: Optional domain label
+
+        Returns:
+            Unique match identifier string
+        """
+        label = "-vs-".join(participants) if participants else "match"
+        scope = task or domain or "debate"
+        return f"{scope}-{label}-{uuid.uuid4().hex[:8]}"
+
+    def _normalize_match_params(
+        self,
+        debate_id: str | None,
+        participants: list[str] | str | None,
+        scores: dict[str, float] | None,
+        winner: str | None,
+        loser: str | None,
+        draw: bool | None,
+        task: str | None,
+        domain: str | None,
+    ) -> tuple[str, list[str] | None, dict[str, float] | None]:
+        """Normalize legacy and modern match signatures.
+
+        Handles backwards compatibility with older API signatures where
+        participants could be a string (loser name) and debate_id was
+        used as winner name.
+
+        Args:
+            debate_id: Debate ID or legacy winner name
+            participants: List of participants or legacy loser name
+            scores: Score dict or None
+            winner: Explicit winner name
+            loser: Explicit loser name
+            draw: Whether match was a draw
+            task: Task label for ID generation
+            domain: Domain label for ID generation
+
+        Returns:
+            Tuple of (normalized_debate_id, participants_list, scores_dict)
+        """
+        participants_list: list[str] | None = None
+
+        # Legacy signature: participants is a string (loser name)
+        if isinstance(participants, str):
+            winner_name = winner or (debate_id or "")
+            loser_name = loser or participants
+            if not winner_name or not loser_name:
+                raise ValueError(
+                    "winner and loser must be provided for legacy record_match calls"
+                )
+            if scores is None or isinstance(scores, bool):
+                draw_flag = (
+                    draw
+                    if draw is not None
+                    else bool(scores)
+                    if isinstance(scores, bool)
+                    else False
+                )
+                scores = self._build_match_scores(winner_name, loser_name, draw_flag)
+            participants_list = [winner_name, loser_name]
+            debate_id = self._generate_match_id(participants_list, task, domain)
+        else:
+            # Modern signature
+            participants_list = participants if isinstance(participants, list) else None
+            if scores is None and winner and loser:
+                scores = self._build_match_scores(winner, loser, bool(draw))
+                participants_list = [winner, loser]
+            if scores is None and draw and participants_list:
+                scores = {name: 0.5 for name in participants_list}
+            if participants_list is None and scores is not None:
+                participants_list = list(scores.keys())
+            if debate_id is None:
+                debate_id = self._generate_match_id(participants_list or [], task, domain)
+
+        return debate_id or "", participants_list, scores
+
     def record_match(
         self,
         debate_id: str | None = None,
@@ -681,46 +781,10 @@ class EloSystem:
         Returns:
             Dict of agent -> ELO change
         """
-
-        def _build_scores(win: str, lose: str, is_draw: bool) -> dict[str, float]:
-            if is_draw:
-                return {win: 0.5, lose: 0.5}
-            return {win: 1.0, lose: 0.0}
-
-        def _generate_match_id(names: list[str]) -> str:
-            label = "-vs-".join(names) if names else "match"
-            scope = task or domain or "debate"
-            return f"{scope}-{label}-{uuid.uuid4().hex[:8]}"
-
-        # Normalize legacy signatures
-        participants_list: list[str] | None = None
-        if isinstance(participants, str):
-            winner_name = winner or (debate_id or "")
-            loser_name = loser or participants
-            if not winner_name or not loser_name:
-                raise ValueError("winner and loser must be provided for legacy record_match calls")
-            if scores is None or isinstance(scores, bool):
-                draw_flag = (
-                    draw
-                    if draw is not None
-                    else bool(scores)
-                    if isinstance(scores, bool)
-                    else False
-                )
-                scores = _build_scores(winner_name, loser_name, draw_flag)
-            participants_list = [winner_name, loser_name]
-            debate_id = _generate_match_id(participants_list)
-        else:
-            participants_list = participants if isinstance(participants, list) else None
-            if scores is None and winner and loser:
-                scores = _build_scores(winner, loser, bool(draw))
-                participants_list = [winner, loser]
-            if scores is None and draw and participants_list:
-                scores = {name: 0.5 for name in participants_list}
-            if participants_list is None and scores is not None:
-                participants_list = list(scores.keys())
-            if debate_id is None:
-                debate_id = _generate_match_id(participants_list or [])
+        # Normalize legacy and modern signatures
+        debate_id, participants_list, scores = self._normalize_match_params(
+            debate_id, participants, scores, winner, loser, draw, task, domain
+        )
 
         if not participants_list or scores is None:
             return {}

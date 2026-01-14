@@ -188,6 +188,21 @@ from .tracing import (
 from .tracing import (
     generate_trace_id as generate_new_trace_id,
 )
+from .versioning import (
+    API_VERSIONS,
+    APIVersion,
+    APIVersionMiddleware,
+    CURRENT_VERSION,
+    add_version_prefix,
+    deprecate_version,
+    get_all_versions,
+    get_api_version,
+    get_version_info,
+    inject_version_headers,
+    is_version_supported,
+    log_version_usage,
+    normalize_path,
+)
 
 __all__ = [
     # Auth
@@ -340,4 +355,18 @@ __all__ = [
     "audit_data_modified",
     "audit_config_changed",
     "audit_security_event",
+    # API versioning
+    "API_VERSIONS",
+    "APIVersion",
+    "APIVersionMiddleware",
+    "CURRENT_VERSION",
+    "normalize_path",
+    "add_version_prefix",
+    "inject_version_headers",
+    "get_api_version",
+    "is_version_supported",
+    "get_version_info",
+    "get_all_versions",
+    "deprecate_version",
+    "log_version_usage",
 ]
