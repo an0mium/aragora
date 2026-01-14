@@ -328,25 +328,39 @@ async def stream_debate(debate_id):
     uri = "ws://localhost:8765/ws"
 
     async with websockets.connect(uri) as ws:
-        print(f"Connected to debate: {debate_id}")
-        await ws.send(json.dumps({"type": "subscribe", "debate_id": debate_id}))
+        print(f"Connected to stream (filtering for loop_id={debate_id})")
 
         async for message in ws:
             event = json.loads(message)
             event_type = event.get("type")
+            event_loop_id = (
+                event.get("loop_id")
+                or event.get("data", {}).get("debate_id")
+                or event.get("data", {}).get("loop_id")
+            )
+
+            # Ignore control messages + unrelated loops
+            if event_type in ("connection_info", "loop_list", "sync"):
+                continue
+            if event_loop_id and event_loop_id != debate_id:
+                continue
 
             if event_type == "agent_message":
-                agent = event["data"]["agent"]
-                content = event["data"]["content"][:100]
+                agent = event.get("agent") or event["data"].get("agent", "unknown")
+                content = event["data"].get("content", "")[:100]
                 print(f"[{agent}] {content}...")
 
             elif event_type == "critique":
-                critic = event["data"]["critic"]
-                target = event["data"]["target"]
-                print(f"[CRITIQUE] {critic} -> {target}")
+                critic = event.get("agent") or "unknown"
+                target = event["data"].get("target", "unknown")
+                issues = event["data"].get("issues", [])
+                summary = "; ".join(issues) if issues else event["data"].get("content", "")
+                print(f"[CRITIQUE] {critic} -> {target}: {summary}")
 
             elif event_type == "consensus":
-                print(f"[CONSENSUS] {event['data']['position']}")
+                reached = event["data"].get("reached")
+                answer = event["data"].get("answer", "")
+                print(f"[CONSENSUS] reached={reached} answer={answer[:120]}")
 
             elif event_type == "debate_end":
                 print("[END] Debate concluded")

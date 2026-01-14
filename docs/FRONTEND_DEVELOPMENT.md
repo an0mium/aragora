@@ -542,6 +542,8 @@ The frontend handles these WebSocket event types:
 | `audience_summary` | User participation metrics |
 
 See `src/types/events.ts` for full type definitions.
+Control messages like `connection_info`, `loop_list`, and `sync` are handled
+during connection setup (see `useNomicStream`).
 
 ---
 

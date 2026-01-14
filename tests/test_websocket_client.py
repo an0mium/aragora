@@ -44,7 +44,7 @@ class TestDebateEvent:
         event = DebateEvent(
             type=DebateEventType.AGENT_MESSAGE,
             debate_id="debate-123",
-            timestamp="2024-01-01T00:00:00",
+            timestamp=1704067200.0,
         )
         assert event.type == DebateEventType.AGENT_MESSAGE
         assert event.debate_id == "debate-123"
@@ -55,7 +55,7 @@ class TestDebateEvent:
         event = DebateEvent(
             type=DebateEventType.VOTE,
             debate_id="debate-123",
-            timestamp="2024-01-01T00:00:00",
+            timestamp=1704067200.0,
             data={"agent": "claude", "choice": "approve"},
         )
         assert event.data["agent"] == "claude"
@@ -73,6 +73,7 @@ class TestDebateEvent:
         assert event.type == DebateEventType.AGENT_MESSAGE
         assert event.debate_id == "debate-123"
         assert event.data["content"] == "Hello"
+        assert event.timestamp == datetime.fromisoformat("2024-01-01T00:00:00").timestamp()
 
     def test_from_dict_unknown_event_type_defaults_to_error(self):
         """Unknown event types become ERROR."""
@@ -85,8 +86,8 @@ class TestDebateEvent:
         d = {"type": "ping", "debate_id": "d1"}
         event = DebateEvent.from_dict(d)
         assert event.timestamp is not None
-        # Should be a valid ISO timestamp
-        datetime.fromisoformat(event.timestamp)
+        assert isinstance(event.timestamp, float)
+        assert event.timestamp > 0
 
     def test_from_dict_missing_debate_id_empty_string(self):
         """Handles missing debate_id."""
@@ -111,7 +112,7 @@ class TestDebateEvent:
         event = DebateEvent.from_dict(original)
         assert event.type == DebateEventType.CONSENSUS
         assert event.debate_id == "my-debate"
-        assert event.timestamp == "2024-06-15T12:30:00"
+        assert event.timestamp == datetime.fromisoformat("2024-06-15T12:30:00").timestamp()
         assert event.data["winner"] == "claude"
         assert event.data["confidence"] == 0.95
 
@@ -159,37 +160,42 @@ class TestDebateStreamUrlBuilding:
     def test_build_url_with_ws_prefix(self):
         """ws:// URLs preserved."""
         stream = DebateStream("ws://localhost:8080", "debate-123")
-        assert stream.url == "ws://localhost:8080/ws/debates/debate-123"
+        assert stream.url == "ws://localhost:8080/ws"
 
     def test_build_url_with_wss_prefix(self):
         """wss:// URLs preserved."""
         stream = DebateStream("wss://secure.example.com", "debate-456")
-        assert stream.url == "wss://secure.example.com/ws/debates/debate-456"
+        assert stream.url == "wss://secure.example.com/ws"
 
     def test_build_url_converts_http_to_ws(self):
         """http:// -> ws:// conversion."""
         stream = DebateStream("http://localhost:8080", "debate-123")
-        assert stream.url == "ws://localhost:8080/ws/debates/debate-123"
+        assert stream.url == "ws://localhost:8080/ws"
 
     def test_build_url_converts_https_to_wss(self):
         """https:// -> wss:// conversion."""
         stream = DebateStream("https://secure.example.com", "debate-456")
-        assert stream.url == "wss://secure.example.com/ws/debates/debate-456"
+        assert stream.url == "wss://secure.example.com/ws"
 
     def test_build_url_strips_trailing_slash(self):
         """Removes trailing slashes."""
         stream = DebateStream("ws://localhost:8080/", "debate-123")
-        assert stream.url == "ws://localhost:8080/ws/debates/debate-123"
+        assert stream.url == "ws://localhost:8080/ws"
 
-    def test_build_url_includes_debate_id(self):
-        """Debate ID in path."""
+    def test_build_url_targets_ws_endpoint(self):
+        """Uses /ws endpoint."""
         stream = DebateStream("ws://localhost", "my-debate-id")
-        assert "/ws/debates/my-debate-id" in stream.url
+        assert stream.url == "ws://localhost/ws"
 
     def test_build_url_with_port(self):
         """URL with port number."""
         stream = DebateStream("ws://localhost:9000", "d1")
-        assert stream.url == "ws://localhost:9000/ws/debates/d1"
+        assert stream.url == "ws://localhost:9000/ws"
+
+    def test_build_url_with_existing_ws_path(self):
+        """Avoids duplicate /ws path."""
+        stream = DebateStream("ws://localhost:8080/ws", "debate-123")
+        assert stream.url == "ws://localhost:8080/ws"
 
 
 class TestDebateStreamCallbacks:
@@ -270,7 +276,7 @@ class TestDebateStreamEventEmission:
         event = DebateEvent(
             type=DebateEventType.AGENT_MESSAGE,
             debate_id="d1",
-            timestamp="2024-01-01",
+            timestamp=1704067200.0,
         )
         stream._emit_event(event)
         callback.assert_called_once_with(event)
@@ -284,7 +290,7 @@ class TestDebateStreamEventEmission:
         event = DebateEvent(
             type=DebateEventType.VOTE,
             debate_id="d1",
-            timestamp="2024-01-01",
+            timestamp=1704067200.0,
         )
         stream._emit_event(event)
         callback.assert_called_once_with(event)
@@ -300,7 +306,7 @@ class TestDebateStreamEventEmission:
         event = DebateEvent(
             type=DebateEventType.VOTE,
             debate_id="d1",
-            timestamp="2024-01-01",
+            timestamp=1704067200.0,
         )
         stream._emit_event(event)  # Should not raise
         working_callback.assert_called_once()
@@ -352,7 +358,7 @@ class TestDebateStreamEventQueue:
             event = DebateEvent(
                 type=DebateEventType.PING,
                 debate_id="d1",
-                timestamp=str(i),
+                timestamp=float(i),
             )
             stream._event_queue.put_nowait(event)
 
@@ -383,7 +389,7 @@ class TestDebateStreamAsyncIterator:
         event = DebateEvent(
             type=DebateEventType.VOTE,
             debate_id="d1",
-            timestamp="2024-01-01",
+            timestamp=1704067200.0,
         )
         await stream._event_queue.put(event)
 
@@ -689,7 +695,7 @@ class TestDebateStreamReceiveLoop:
         event = DebateEvent(
             type=DebateEventType.CONSENSUS,
             debate_id="d1",
-            timestamp="2024-01-01",
+            timestamp=1704067200.0,
         )
         stream._emit_event(event)
 
@@ -704,7 +710,7 @@ class TestDebateStreamReceiveLoop:
         event = DebateEvent(
             type=DebateEventType.VOTE,
             debate_id="d1",
-            timestamp="2024-01-01",
+            timestamp=1704067200.0,
         )
 
         # Simulate what receive loop does
@@ -756,9 +762,9 @@ class TestStreamDebateFunction:
         mock_stream.disconnect = AsyncMock()
 
         events = [
-            DebateEvent(DebateEventType.DEBATE_START, "d1", "t1"),
-            DebateEvent(DebateEventType.AGENT_MESSAGE, "d1", "t2"),
-            DebateEvent(DebateEventType.DEBATE_END, "d1", "t3"),
+            DebateEvent(type=DebateEventType.DEBATE_START, debate_id="d1", timestamp=1.0),
+            DebateEvent(type=DebateEventType.AGENT_MESSAGE, debate_id="d1", timestamp=2.0),
+            DebateEvent(type=DebateEventType.DEBATE_END, debate_id="d1", timestamp=3.0),
         ]
 
         async def mock_aiter():
@@ -793,7 +799,7 @@ class TestStreamDebateFunction:
             instance.disconnect = AsyncMock()
 
             events = [
-                DebateEvent(DebateEventType.DEBATE_END, "d1", "t1"),
+                DebateEvent(type=DebateEventType.DEBATE_END, debate_id="d1", timestamp=1.0),
             ]
 
             async def async_gen():
@@ -817,7 +823,7 @@ class TestStreamDebateFunction:
             instance.disconnect = AsyncMock()
 
             async def failing_gen():
-                yield DebateEvent(DebateEventType.DEBATE_START, "d1", "t1")
+                yield DebateEvent(type=DebateEventType.DEBATE_START, debate_id="d1", timestamp=1.0)
                 raise Exception("Simulated error")
 
             instance.__aiter__ = lambda self: failing_gen()
@@ -843,7 +849,7 @@ class TestStreamDebateFunction:
             instance.disconnect = AsyncMock()
 
             async def empty_gen():
-                yield DebateEvent(DebateEventType.DEBATE_END, "d1", "t1")
+                yield DebateEvent(type=DebateEventType.DEBATE_END, debate_id="d1", timestamp=1.0)
 
             instance.__aiter__ = lambda self: empty_gen()
             MockClass.return_value = instance

@@ -2477,8 +2477,7 @@ curl http://localhost:8080/api/tournaments/tourney-abc123/bracket
 curl http://localhost:8080/api/debates \
   -H "Authorization: Bearer your-token-here"
 
-# With query parameter token
-curl "http://localhost:8080/api/debates?token=your-token-here"
+# Tokens in query parameters are not accepted; use Authorization header instead
 ```
 
 ### WebSocket Connection (wscat)
@@ -2488,7 +2487,7 @@ curl "http://localhost:8080/api/debates?token=your-token-here"
 wscat -c ws://localhost:8765/ws
 
 # With authentication token
-wscat -c "ws://localhost:8765/ws?token=your-token-here"
+wscat -c ws://localhost:8765/ws -H "Authorization: Bearer your-token-here"
 ```
 
 ---
@@ -2502,88 +2501,35 @@ const ws = new WebSocket('ws://localhost:8765/ws');
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
-  console.log(data.type, data.payload);
+  console.log(data.type, data.data);
 };
 ```
 
 ### Event Types
 
-#### Debate Events
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `debate_start` | A new debate has started | `{debate_id, question, agents, rounds}` |
-| `round_start` | A debate round has begun | `{debate_id, round, total_rounds}` |
-| `agent_message` | An agent sent a message | `{agent, role, content, debate_id}` |
-| `critique` | An agent critiqued another | `{critic, target, critique, debate_id}` |
-| `vote` | An agent voted | `{agent, vote, reasoning, debate_id}` |
-| `consensus` | Consensus reached | `{verdict, confidence, supporters, debate_id}` |
-| `debate_end` | Debate completed | `{debate_id, verdict, duration}` |
+WebSocket events use a shared envelope and are documented in
+`docs/WEBSOCKET_EVENTS.md`. Filter by `loop_id` to scope to a single debate.
 
-#### Token Streaming Events (Real-time Response Display)
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `token_start` | Agent begins generating response | `{agent, debate_id}` |
-| `token_delta` | Incremental token(s) received | `{agent, delta, debate_id}` |
-| `token_end` | Agent finished generating | `{agent, debate_id, total_tokens}` |
+Common debate lifecycle events:
+- `debate_start`, `round_start`, `agent_message`, `critique`, `vote`, `consensus`, `debate_end`
 
-#### Nomic Loop Events
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `cycle_start` | New nomic cycle began | `{cycle, loop_id}` |
-| `cycle_end` | Nomic cycle completed | `{cycle, success, loop_id}` |
-| `phase_start` | Phase started (debate/vote/implement) | `{phase, cycle, loop_id}` |
-| `phase_end` | Phase completed | `{phase, cycle, result, loop_id}` |
-| `task_start` | Implementation task started | `{task_id, description, loop_id}` |
-| `task_complete` | Task completed | `{task_id, success, duration, loop_id}` |
-| `task_retry` | Task being retried | `{task_id, attempt, reason, loop_id}` |
-| `verification_start` | Verification phase started | `{loop_id}` |
-| `verification_result` | Verification completed | `{success, tests_passed, loop_id}` |
-| `commit` | Changes committed to repo | `{commit_hash, message, loop_id}` |
-| `backup_created` | State backup created | `{backup_id, loop_id}` |
-| `backup_restored` | State restored from backup | `{backup_id, reason, loop_id}` |
-| `error` | Error occurred | `{error, context, loop_id}` |
-| `log_message` | Log message from loop | `{level, message, loop_id}` |
+Token streaming events:
+- `token_start`, `token_delta`, `token_end`
 
-#### Multi-Loop Management
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `loop_register` | New loop instance started | `{loop_id, name, started_at}` |
-| `loop_unregister` | Loop instance ended | `{loop_id, reason}` |
-| `loop_list` | List of active loops (on connect) | `{loops: [{loop_id, name, cycle, phase}]}` |
-
-#### Audience Participation Events
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `user_vote` | Audience member voted | `{choice, intensity, user_id, loop_id}` |
-| `user_suggestion` | Suggestion submitted | `{suggestion, user_id, loop_id}` |
-| `audience_summary` | Clustered audience input | `{clusters, total_votes, loop_id}` |
-| `audience_metrics` | Vote counts & histograms | `{vote_counts, conviction_dist, loop_id}` |
-
-#### Memory & Learning Events
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `memory_recall` | Historical context retrieved | `{memories, relevance_scores, debate_id}` |
-| `insight_extracted` | New insight from debate | `{insight, confidence, debate_id}` |
-
-#### Ranking & Leaderboard Events
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `match_recorded` | ELO match recorded | `{debate_id, winner, elo_changes, domain}` |
-| `leaderboard_update` | Periodic leaderboard snapshot | `{rankings, timestamp}` |
-| `flip_detected` | Position flip detected | `{agent, old_position, new_position, debate_id}` |
+Control messages (on connect / acknowledgements):
+- `connection_info`, `loop_list`, `sync`, `ack`, `error`, `auth_revoked`
 
 ### Event Format
 
 ```json
 {
   "type": "agent_message",
-  "timestamp": "2026-01-04T12:00:00Z",
+  "data": { "content": "I disagree...", "role": "critic" },
+  "timestamp": 1732735053.123,
+  "round": 2,
+  "agent": "anthropic-api",
   "loop_id": "loop-abc123",
-  "payload": {
-    "agent": "anthropic-api",
-    "role": "critic",
-    "content": "I disagree with this approach because..."
-  }
+  "seq": 42
 }
 ```
 

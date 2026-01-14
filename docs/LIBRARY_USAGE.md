@@ -464,23 +464,26 @@ async def get_debate(debate_id: str):
 ### WebSocket Streaming
 
 ```python
+import asyncio
 from fastapi import WebSocket
-from aragora.spectate.stream import SpectatorStream
+from aragora.server.stream import SyncEventEmitter
+from aragora.server.stream.arena_hooks import create_arena_hooks
 
 @app.websocket("/ws/debates/{debate_id}")
 async def debate_stream(websocket: WebSocket, debate_id: str):
     await websocket.accept()
 
-    spectator = SpectatorStream()
+    emitter = SyncEventEmitter(loop_id=debate_id)
+    hooks = create_arena_hooks(emitter)
 
-    @spectator.on("*")  # All events
-    async def forward_event(event):
-        await websocket.send_json(event.to_dict())
+    def forward_event(event):
+        asyncio.create_task(websocket.send_json(event.to_dict()))
 
-    arena = Arena(env, agents, protocol, spectator=spectator)
+    emitter.subscribe(forward_event)
+    arena = Arena(env, agents, protocol, event_hooks=hooks, event_emitter=emitter, loop_id=debate_id)
     result = await arena.run()
 
-    await websocket.send_json({"type": "complete", "result": result.to_dict()})
+    await websocket.send_json({"type": "debate_end", "data": result.to_dict()})
     await websocket.close()
 ```
 

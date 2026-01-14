@@ -61,7 +61,7 @@ Complete client library with 23 API namespaces:
 | ... | And 13 more |
 
 ```typescript
-import { AragoraClient } from '@aragora/sdk';
+import { AragoraClient, streamDebate } from '@aragora/sdk';
 
 const client = new AragoraClient({
   baseUrl: 'https://aragora.example.com',
@@ -76,9 +76,12 @@ const debate = await client.debates.create({
 });
 
 // Stream events
-client.debates.subscribe(debate.id, (event) => {
+const stream = streamDebate('https://aragora.example.com', debate.debate_id);
+for await (const event of stream) {
+  const eventLoopId = event.loop_id || event.data?.debate_id || event.data?.loop_id;
+  if (eventLoopId && eventLoopId !== debate.debate_id) continue;
   console.log(event.type, event.data);
-});
+}
 ```
 
 ### High-Availability Deployment

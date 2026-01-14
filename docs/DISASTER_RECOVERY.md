@@ -356,10 +356,10 @@ docker-compose -f docker-compose.recovery-test.yml down -v
 4. **Restore secrets**
    ```bash
    # From backup or secret manager
-   kubectl create secret generic aragora-secrets \
-     --from-literal=ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
-     --from-literal=OPENAI_API_KEY=$OPENAI_API_KEY \
-     --from-literal=JWT_SECRET=$JWT_SECRET
+     kubectl create secret generic aragora-secrets \
+       --from-literal=ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
+       --from-literal=OPENAI_API_KEY=$OPENAI_API_KEY \
+       --from-literal=ARAGORA_JWT_SECRET=$ARAGORA_JWT_SECRET
    ```
 
 5. **Verify all services**
@@ -383,7 +383,7 @@ docker-compose -f docker-compose.recovery-test.yml down -v
    redis-cli FLUSHDB
 
    # Rotate JWT secret
-   kubectl patch secret aragora-secrets -p '{"data":{"JWT_SECRET":"'$(openssl rand -base64 32 | base64)'"}}'
+   kubectl patch secret aragora-secrets -p '{"data":{"ARAGORA_JWT_SECRET":"'$(openssl rand -base64 32 | base64)'"}}'
 
    # Restart application (forces re-authentication)
    kubectl rollout restart deployment/aragora

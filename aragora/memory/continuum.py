@@ -33,6 +33,7 @@ from aragora.config import DB_MEMORY_PATH
 from aragora.memory.tier_manager import (
     DEFAULT_TIER_CONFIGS,
     MemoryTier,
+    TierConfig,  # noqa: F401 - re-exported for backwards compatibility
     TierManager,
     get_tier_manager,
 )

@@ -221,21 +221,33 @@ console.log('Version:', health.version);
 
 Stream debate events in real-time.
 
+Use the WebSocket base URL (default `http://localhost:8765` for `aragora serve`).
+If you run a single-port server, use that port instead.
+
 ### Class-based API
 
 ```typescript
 import { DebateStream } from '@aragora/sdk';
 
-const stream = new DebateStream('http://localhost:8080', 'debate-123');
+const debateId = 'debate-123';
+const stream = new DebateStream('http://localhost:8765', debateId);
+
+const shouldHandle = (event: any) => {
+  const eventLoopId = event.loop_id || event.data?.debate_id || event.data?.loop_id;
+  return !eventLoopId || eventLoopId === debateId;
+};
 
 stream
   .on('agent_message', (event) => {
+    if (!shouldHandle(event)) return;
     console.log('Agent message:', event.data);
   })
   .on('consensus', (event) => {
+    if (!shouldHandle(event)) return;
     console.log('Consensus reached!', event.data);
   })
   .on('debate_end', (event) => {
+    if (!shouldHandle(event)) return;
     console.log('Debate ended');
     stream.disconnect();
   })
@@ -251,9 +263,13 @@ await stream.connect();
 ```typescript
 import { streamDebate } from '@aragora/sdk';
 
-const stream = streamDebate('http://localhost:8080', 'debate-123');
+const debateId = 'debate-123';
+const stream = streamDebate('http://localhost:8765', debateId);
 
 for await (const event of stream) {
+  const eventLoopId = event.loop_id || event.data?.debate_id || event.data?.loop_id;
+  if (eventLoopId && eventLoopId !== debateId) continue;
+
   console.log(event.type, event.data);
 
   if (event.type === 'debate_end') {
@@ -262,10 +278,12 @@ for await (const event of stream) {
 }
 ```
 
+Events follow the server WebSocket envelope; see `docs/WEBSOCKET_EVENTS.md` for details.
+
 ### WebSocket Options
 
 ```typescript
-const stream = new DebateStream('http://localhost:8080', 'debate-123', {
+const stream = new DebateStream('http://localhost:8765', 'debate-123', {
   reconnect: true,           // Auto-reconnect on disconnect
   reconnectInterval: 1000,   // Base reconnect delay (ms)
   maxReconnectAttempts: 5,   // Max reconnect attempts

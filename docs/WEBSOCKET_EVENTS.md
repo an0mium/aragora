@@ -14,6 +14,8 @@ wss://api.aragora.ai/ws  # Production
 ```
 
 The WebSocket server accepts `/` or `/ws`. The live UI uses `/ws`.
+The server broadcasts all events to all connected clients, so clients should
+filter by `loop_id` (or `data.debate_id`) when they only care about one debate.
 
 ### Authentication
 
@@ -33,7 +35,7 @@ On connection, the server sends:
 
 - `connection_info` (auth and client metadata)
 - `loop_list` (active loops/debates)
-- `sync` for each cached loop state
+- `sync` for each cached loop state (DebateStreamServer on port 8765 only)
 
 Example:
 
@@ -148,7 +150,8 @@ Audience metrics emitted after `user_vote` look like:
 
 ## Stream Event Types
 
-These are the canonical event names from `StreamEventType`.
+These are the canonical event names from `StreamEventType`, plus a few
+analytics events emitted directly by the debate pipeline.
 
 ### Debate lifecycle
 - `debate_start`
@@ -226,6 +229,9 @@ These are the canonical event names from `StreamEventType`.
 - `calibration_update`
 - `genesis_evolution`
 - `training_data_exported`
+
+### Analytics
+- `uncertainty_analysis`
 
 ### Rhetorical analysis
 - `rhetorical_observation`

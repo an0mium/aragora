@@ -688,26 +688,16 @@ curl -s http://localhost:8080/api/debates/export?format=json > debates.json
 
 ### Configuration Reference
 
-Full configuration options in `aragora/config.py`:
+Full configuration options live in `aragora/config/settings.py` (Pydantic settings)
+and `aragora/config/legacy.py` (legacy constants). Environment variables are the
+primary configuration surface; see `docs/ENVIRONMENT.md`.
 
-```python
-# Server settings
-HTTP_PORT = 8080
-WS_PORT = 8765
-WORKERS = 4
-
-# Database settings
-DB_POOL_SIZE = 10
-DB_TIMEOUT = 30
-
-# Agent settings
-AGENT_TIMEOUT = 60
-MAX_RETRIES = 3
-CIRCUIT_BREAKER_THRESHOLD = 5
-
-# Rate limiting
-RATE_LIMIT_REQUESTS = 100
-RATE_LIMIT_WINDOW = 60
+```bash
+# Example overrides
+export ARAGORA_API_TOKEN="your-secret-token"
+export ARAGORA_WS_MAX_MESSAGE_SIZE=65536
+export ARAGORA_DB_POOL_SIZE=10
+export ARAGORA_DB_POOL_TIMEOUT=30
 ```
 
 ### Support Contacts

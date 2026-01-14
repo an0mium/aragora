@@ -136,7 +136,7 @@ class SecretManager:
 
             response = client.get_secret_value(SecretId=self.config.secret_name)
             secret_string = response.get("SecretString", "{}")
-            secrets = json.loads(secret_string)
+            secrets: dict[str, str] = json.loads(secret_string)
             logger.info(f"Loaded {len(secrets)} secrets from AWS Secrets Manager")
             return secrets
         except ClientError as e:

@@ -1221,7 +1221,7 @@ curl -X POST https://aragora.example.com/api/debates \
   -d '{"topic": "test", "agents": ["claude", "gpt-4"]}'
 
 # Verify WebSocket connectivity
-websocat wss://aragora.example.com/ws/debates/test-123
+websocat wss://aragora.example.com/ws
 ```
 
 ---

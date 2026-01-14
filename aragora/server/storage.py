@@ -43,6 +43,9 @@ def _validate_sql_identifier(name: str, max_length: int = 64) -> bool:
 # Import from centralized location (defined here for backwards compatibility)
 from aragora.utils.sql_helpers import _escape_like_pattern
 
+# Re-export for backwards compatibility (tests expect DB_TIMEOUT from server.storage)
+from aragora.storage.schema import DB_TIMEOUT  # noqa: F401
+
 
 @dataclass
 class DebateMetadata:

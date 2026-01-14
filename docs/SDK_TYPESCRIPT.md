@@ -475,34 +475,36 @@ await client.debates.create(request, {
 For real-time debate updates, use the WebSocket connection:
 
 ```typescript
-// Connect to WebSocket
-const ws = new WebSocket('ws://localhost:8080/ws');
+// Connect to WebSocket (default `aragora serve`: 8765; single-port server: 8080)
+const ws = new WebSocket('ws://localhost:8765/ws');
+const loopId = 'debate-123';
 
 ws.onmessage = (event) => {
   const message = JSON.parse(event.data);
 
+  if (['connection_info', 'loop_list', 'sync'].includes(message.type)) return;
+
+  const eventLoopId = message.loop_id || message.data?.debate_id || message.data?.loop_id;
+  if (eventLoopId && eventLoopId !== loopId) return;
+
   switch (message.type) {
     case 'debate_start':
-      console.log('Debate started:', message.debate_id);
+      console.log('Debate started:', message.data?.task);
       break;
     case 'agent_message':
-      console.log(`${message.agent}: ${message.content}`);
+      console.log(`${message.agent}: ${message.data?.content}`);
       break;
     case 'consensus':
-      console.log('Consensus reached:', message.result);
+      console.log('Consensus reached:', message.data?.answer);
       break;
     case 'debate_end':
       console.log('Debate ended');
       break;
   }
 };
-
-// Subscribe to a debate
-ws.send(JSON.stringify({
-  action: 'subscribe',
-  debate_id: 'debate-123',
-}));
 ```
+
+For the full event list and payload envelope, see [WEBSOCKET_EVENTS.md](./WEBSOCKET_EVENTS.md).
 
 ## React Integration
 

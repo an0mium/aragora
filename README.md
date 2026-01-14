@@ -540,9 +540,9 @@ Configuration:
 - **WebSocket**: Port 8765 (ws://host:8765 or ws://host:8765/ws)
 - **Tunnel**: Cloudflare Tunnel proxies api.aragora.ai
 
-### API Endpoints (298 endpoints)
+### API Endpoints (REST + WS)
 
-The server exposes 298 REST endpoints across 63 handler modules. Key categories:
+The server exposes hundreds of REST endpoints across dozens of handler modules. Key categories:
 
 | Category | Description |
 |----------|-------------|
@@ -554,7 +554,7 @@ The server exposes 298 REST endpoints across 63 handler modules. Key categories:
 | `/api/billing/*` | Stripe subscriptions, usage, checkout |
 | `/api/tournaments/*` | Competitive brackets, standings, matches |
 | `/api/verify/*` | Formal verification with Z3 solver |
-| `WS /ws` | Real-time debate streaming (72+ event types) |
+| `WS /ws` | Real-time streaming (see `docs/WEBSOCKET_EVENTS.md`) |
 
 **Full API reference**: [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) (auto-generated)
 **OpenAPI spec**: `GET /api/openapi` or `GET /api/openapi.yaml`
@@ -565,15 +565,13 @@ The server exposes 298 REST endpoints across 63 handler modules. Key categories:
 ```typescript
 // Event types streamed via WebSocket
 type EventType =
-  | "debate_start" | "debate_end"
-  | "round_start" | "agent_message"
-  | "critique" | "vote" | "consensus"
-  | "flip_detected"   // Position reversal
-  | "memory_recall"   // Historical context
-  | "match_recorded"  // ELO update
-  | "audience_drain"  // User events processed
-  | "calibration"     // Accuracy metrics update
+  | "debate_start" | "round_start" | "agent_message"
+  | "critique" | "vote" | "consensus" | "debate_end"
+  | "token_start" | "token_delta" | "token_end"
+  | "loop_list" | "audience_metrics" | "grounded_verdict"
+  | "gauntlet_start" | "gauntlet_verdict" | "gauntlet_complete"
 ```
+See `docs/WEBSOCKET_EVENTS.md` for the full list and payloads.
 
 ## Security
 
@@ -597,7 +595,7 @@ Aragora implements several security measures:
 - **Thread Safety**: Double-checked locking for shared executor initialization
 - **Secure Client IDs**: Cryptographically random WebSocket client identifiers
 - **JSON Parse Timeout**: 5-second timeout prevents CPU-bound DoS attacks
-- **Payload Validation**: WebSocket payloads validated for structure and size (max 10KB)
+- **Payload Validation**: WebSocket payloads validated and bounded by `ARAGORA_WS_MAX_MESSAGE_SIZE` (default 64KB)
 - **Upload Rate Limiting**: IP-based limits (5/min, 30/hour) prevent storage DoS
 
 Configure security via environment variables:

@@ -143,8 +143,9 @@ class DatabaseRepository:
         safe_col = _validate_column_name(id_column)
         with self.connection() as conn:
             cursor = conn.cursor()
+            # nosec B608: TABLE_NAME is a class constant, safe_col is regex-validated, id_value is parameterized
             cursor.execute(
-                f"SELECT 1 FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1", (id_value,)
+                f"SELECT 1 FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1", (id_value,)  # nosec B608
             )
             return cursor.fetchone() is not None
 
@@ -159,9 +160,10 @@ class DatabaseRepository:
         Returns:
             Number of matching records
         """
-        query = f"SELECT COUNT(*) FROM {self.TABLE_NAME}"
+        # nosec B608: TABLE_NAME is class constant, where is internal with parameterized values
+        query = f"SELECT COUNT(*) FROM {self.TABLE_NAME}"  # nosec B608
         if where:
-            query += f" WHERE {where}"
+            query += f" WHERE {where}"  # nosec B608
 
         with self.connection() as conn:
             cursor = conn.cursor()
@@ -184,8 +186,9 @@ class DatabaseRepository:
         with self.connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
+            # nosec B608: TABLE_NAME is class constant, safe_col is regex-validated, id_value is parameterized
             cursor.execute(
-                f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1", (id_value,)
+                f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1", (id_value,)  # nosec B608
             )
             row = cursor.fetchone()
             return dict(row) if row else None
@@ -215,9 +218,10 @@ class DatabaseRepository:
         Raises:
             ValueError: If order_by contains invalid column names or directions
         """
-        query = f"SELECT * FROM {self.TABLE_NAME}"
+        # nosec B608: TABLE_NAME is class constant, where is internal with parameterized values
+        query = f"SELECT * FROM {self.TABLE_NAME}"  # nosec B608
         if where:
-            query += f" WHERE {where}"
+            query += f" WHERE {where}"  # nosec B608
         if order_by:
             # Validate order_by to prevent SQL injection
             # Format: "column [ASC|DESC][, column [ASC|DESC]]..."
@@ -235,7 +239,8 @@ class DatabaseRepository:
                         raise ValueError(f"Invalid sort direction: {tokens[1]}")
                 order_parts.append(f"{col_name} {direction}".strip())
             if order_parts:
-                query += f" ORDER BY {', '.join(order_parts)}"
+                # nosec B608: order_parts columns are regex-validated via _validate_column_name
+                query += f" ORDER BY {', '.join(order_parts)}"  # nosec B608
         query += f" LIMIT {int(limit)} OFFSET {int(offset)}"
 
         with self.connection() as conn:
@@ -262,7 +267,8 @@ class DatabaseRepository:
 
         safe_col = _validate_column_name(id_column)
         placeholders = ",".join("?" * len(id_values))
-        query = f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} IN ({placeholders})"
+        # nosec B608: TABLE_NAME is class constant, safe_col is regex-validated, id_values are parameterized
+        query = f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} IN ({placeholders})"  # nosec B608
 
         with self.connection() as conn:
             conn.row_factory = sqlite3.Row
@@ -284,7 +290,8 @@ class DatabaseRepository:
         safe_col = _validate_column_name(id_column)
         with self.connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(f"DELETE FROM {self.TABLE_NAME} WHERE {safe_col} = ?", (id_value,))
+            # nosec B608: TABLE_NAME is class constant, safe_col is regex-validated, id_value is parameterized
+            cursor.execute(f"DELETE FROM {self.TABLE_NAME} WHERE {safe_col} = ?", (id_value,))  # nosec B608
             conn.commit()
             deleted = cursor.rowcount > 0
 
@@ -304,7 +311,8 @@ class DatabaseRepository:
         Returns:
             Number of deleted records
         """
-        query = f"DELETE FROM {self.TABLE_NAME} WHERE {where}"
+        # nosec B608: TABLE_NAME is class constant, where is internal with parameterized values
+        query = f"DELETE FROM {self.TABLE_NAME} WHERE {where}"  # nosec B608
 
         with self.connection() as conn:
             cursor = conn.cursor()

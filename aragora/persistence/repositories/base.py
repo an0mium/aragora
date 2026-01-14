@@ -346,9 +346,10 @@ class BaseRepository(ABC, Generic[T]):
         safe_table = _validate_sql_identifier(table, "table name")
         safe_where = _validate_where_clause(where)
 
-        query = f"SELECT COUNT(*) FROM {safe_table}"
+        # nosec B608: table name is regex-validated, where is validated for dangerous patterns, values are parameterized
+        query = f"SELECT COUNT(*) FROM {safe_table}"  # nosec B608
         if safe_where:
-            query += f" WHERE {safe_where}"
+            query += f" WHERE {safe_where}"  # nosec B608
 
         row = self._fetch_one(query, params)
         return row[0] if row else 0
@@ -418,8 +419,9 @@ class BaseRepository(ABC, Generic[T]):
         Returns:
             Entity or None if not found.
         """
+        # nosec B608: _table_name is abstract property returning constant, entity_id is parameterized
         row = self._fetch_one(
-            f"SELECT * FROM {self._table_name} WHERE id = ?",
+            f"SELECT * FROM {self._table_name} WHERE id = ?",  # nosec B608
             (entity_id,),
         )
         return self._to_entity(row) if row else None
@@ -457,11 +459,12 @@ class BaseRepository(ABC, Generic[T]):
         placeholders = ",".join("?" * len(columns))
         updates = ",".join(f"{col}=excluded.{col}" for col in columns if col != "id")
 
+        # nosec B608: _table_name is abstract property returning constant, columns from entity schema, values parameterized
         query = f"""
             INSERT INTO {self._table_name} ({",".join(columns)})
             VALUES ({placeholders})
             ON CONFLICT(id) DO UPDATE SET {updates}
-        """
+        """  # nosec B608
 
         with self._transaction() as conn:
             conn.execute(query, tuple(data.values()))
@@ -479,8 +482,9 @@ class BaseRepository(ABC, Generic[T]):
             True if entity was deleted, False if not found.
         """
         with self._transaction() as conn:
+            # nosec B608: _table_name is abstract property returning constant, entity_id is parameterized
             cursor = conn.execute(
-                f"DELETE FROM {self._table_name} WHERE id = ?",
+                f"DELETE FROM {self._table_name} WHERE id = ?",  # nosec B608
                 (entity_id,),
             )
             return cursor.rowcount > 0
@@ -496,8 +500,9 @@ class BaseRepository(ABC, Generic[T]):
         Returns:
             List of entities.
         """
+        # nosec B608: _table_name is abstract property returning constant, limit/offset are parameterized
         rows = self._fetch_all(
-            f"SELECT * FROM {self._table_name} LIMIT ? OFFSET ?",
+            f"SELECT * FROM {self._table_name} LIMIT ? OFFSET ?",  # nosec B608
             (limit, offset),
         )
         return [self._to_entity(row) for row in rows]

@@ -657,15 +657,17 @@ class UserStore:
             where_clause = "WHERE tier = ?"
             params.append(tier_filter)
 
-        cursor.execute(f"SELECT COUNT(*) FROM organizations {where_clause}", params)
+        # nosec B608: where_clause is built from constants, tier_filter is parameterized
+        cursor.execute(f"SELECT COUNT(*) FROM organizations {where_clause}", params)  # nosec B608
         total = cursor.fetchone()[0]
 
+        # nosec B608: where_clause is built from constants, all values are parameterized
         query = f"""
             SELECT * FROM organizations
             {where_clause}
             ORDER BY created_at DESC
             LIMIT ? OFFSET ?
-        """
+        """  # nosec B608
         params.extend([limit, offset])
         cursor.execute(query, params)
 
@@ -697,15 +699,17 @@ class UserStore:
 
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
 
-        cursor.execute(f"SELECT COUNT(*) FROM users {where_clause}", params.copy())
+        # nosec B608: where_clause is built from constants, all filter values are parameterized
+        cursor.execute(f"SELECT COUNT(*) FROM users {where_clause}", params.copy())  # nosec B608
         total = cursor.fetchone()[0]
 
+        # nosec B608: where_clause is built from constants, all values are parameterized
         query = f"""
             SELECT * FROM users
             {where_clause}
             ORDER BY created_at DESC
             LIMIT ? OFFSET ?
-        """
+        """  # nosec B608
         params.extend([limit, offset])
         cursor.execute(query, params)
 

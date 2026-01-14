@@ -12,7 +12,7 @@ These endpoints are actively used by the Next.js frontend (`aragora/live/`):
 | `/api/debates` | POST | `/app/page.tsx` | Create new debate |
 | `/api/debates` | GET | `/app/page.tsx` | List debates |
 | `/api/debates/{id}` | GET | `/app/debate/[id]/page.tsx` | Debate details |
-| `/ws/debates/{id}` | WS | `useGauntletWebSocket.ts` | Real-time streaming |
+| `/ws` | WS | `useDebateWebSocket.ts` | Real-time streaming (filter by `loop_id`) |
 
 ### Agent API
 | Endpoint | Method | Frontend Consumer | Notes |
@@ -29,7 +29,7 @@ These endpoints are actively used by the Next.js frontend (`aragora/live/`):
 | `/api/gauntlet` | POST | `/app/gauntlet/page.tsx` | Start gauntlet |
 | `/api/gauntlet/{id}` | GET | `/app/gauntlet/[id]/page.tsx` | Get status |
 | `/api/gauntlet/{id}/receipt` | GET | Gauntlet page | Get receipt |
-| `/ws/gauntlet/{id}` | WS | `useGauntletWebSocket.ts` | Real-time streaming |
+| `/ws` | WS | `useGauntletWebSocket.ts` | Gauntlet streaming (filter by `loop_id`) |
 
 ### Replays API
 | Endpoint | Method | Frontend Consumer | Notes |

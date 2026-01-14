@@ -23,7 +23,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 from collections import OrderedDict
 import threading
 
@@ -569,12 +569,7 @@ class MultilingualDebateManager:
             if lang != source_language
         ]
 
-        translations = await self.service.translate_batch(
-            [message] * len(other_languages),
-            target=Language.ENGLISH,  # Will be overridden
-        )
-
-        # Actually translate to each language
+        # Translate to each target language
         for lang in other_languages:
             result = await self.service.translate(message, lang, source_language)
             results[lang] = result

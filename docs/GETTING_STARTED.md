@@ -245,18 +245,18 @@ For real-time debate updates:
 
 ```javascript
 const ws = new WebSocket('ws://localhost:8765/ws');
+const loopId = 'debate-20260111-abc123';
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
-  console.log(data.type, data.payload);
+  if (['connection_info', 'loop_list', 'sync'].includes(data.type)) return;
+
+  const eventLoopId = data.loop_id || data.data?.debate_id || data.data?.loop_id;
+  if (eventLoopId && eventLoopId !== loopId) return;
+
+  console.log(data.type, data.data);
   // Types: debate_start, agent_message, critique, vote, consensus, debate_end
 };
-
-// Subscribe to a debate
-ws.send(JSON.stringify({
-  type: 'subscribe',
-  debate_id: 'debate-20260111-abc123'
-}));
 ```
 
 ### Authentication
@@ -277,7 +277,7 @@ curl -X POST http://localhost:8080/api/auth/token \
 
 ### Full API Reference
 
-See [API_REFERENCE.md](./API_REFERENCE.md) for all 134+ endpoints.
+See [API_REFERENCE.md](./API_REFERENCE.md) for the full endpoint catalog.
 
 ---
 
