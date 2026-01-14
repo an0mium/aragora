@@ -28,7 +28,6 @@ from aragora.server.debate_utils import (
 from aragora.server.error_utils import safe_error_message
 from aragora.server.http_utils import run_async
 from aragora.server.state import get_state_manager
-from aragora.server.storage import get_debates_db
 from aragora.server.stream import (
     StreamEvent,
     StreamEventType,
@@ -153,6 +152,7 @@ class DebateController:
         emitter: "SyncEventEmitter",
         elo_system: Optional[Any] = None,
         auto_select_fn: Optional[Callable[..., str]] = None,
+        storage: Optional[Any] = None,
     ):
         """Initialize the debate controller.
 
@@ -161,11 +161,13 @@ class DebateController:
             emitter: Event emitter for streaming
             elo_system: Optional ELO system for leaderboard updates
             auto_select_fn: Optional function for auto-selecting agents
+            storage: Optional DebateStorage instance for persisting debates
         """
         self.factory = factory
         self.emitter = emitter
         self.elo_system = elo_system
         self.auto_select_fn = auto_select_fn
+        self.storage = storage
 
     def start_debate(self, request: DebateRequest) -> DebateResponse:
         """Start a new debate asynchronously.
@@ -294,8 +296,7 @@ class DebateController:
 
             # Persist debate to SQLite storage
             try:
-                storage = get_debates_db()
-                if storage:
+                if self.storage:
                     # Parse agents string to list
                     agents_list = (
                         config.agents_str.split(",")
@@ -316,7 +317,7 @@ class DebateController:
                             else None
                         ),
                     }
-                    storage.save_dict(debate_data)
+                    self.storage.save_dict(debate_data)
                     logger.info(f"[debate] Persisted debate {debate_id} to storage")
             except Exception as e:
                 logger.error(f"[debate] Failed to persist debate {debate_id}: {e}")

@@ -521,12 +521,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             )
             UnifiedHandler._debate_factory = factory
 
-            # Create controller
+            # Create controller with storage for debate persistence
             UnifiedHandler._debate_controller = DebateController(
                 factory=factory,
                 emitter=self.stream_emitter,
                 elo_system=self.elo_system,
                 auto_select_fn=self._auto_select_agents,
+                storage=self.storage,
             )
         return UnifiedHandler._debate_controller
 
