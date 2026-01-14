@@ -28,6 +28,7 @@ from aragora.exceptions import (
     RecordNotFoundError,
     StorageError,
 )
+from aragora.server.debate_utils import _active_debates
 from aragora.server.middleware.tier_enforcement import require_quota
 from aragora.server.validation import validate_debate_id
 from aragora.server.validation.schema import (
@@ -581,11 +582,31 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
     @require_storage
     @handle_errors("get debate by slug")
     def _get_debate_by_slug(self, handler, slug: str) -> HandlerResult:
-        """Get a debate by slug."""
+        """Get a debate by slug.
+
+        Checks both persistent storage and in-progress debates (_active_debates).
+        In-progress debates haven't been persisted yet but should still be queryable.
+        """
+        # First check persistent storage
         storage = self.get_storage()
         debate = storage.get_debate(slug)
         if debate:
             return json_response(normalize_debate_response(debate))
+
+        # Fallback: check in-progress debates that haven't been persisted yet
+        if slug in _active_debates:
+            active = _active_debates[slug]
+            # Return minimal info for in-progress debate
+            return json_response({
+                "id": slug,
+                "debate_id": slug,
+                "task": active.get("question", ""),
+                "status": normalize_status(active.get("status", "starting")),
+                "agents": active.get("agents", "").split(",") if isinstance(active.get("agents"), str) else active.get("agents", []),
+                "rounds": active.get("rounds", 3),
+                "in_progress": True,
+            })
+
         return error_response(f"Debate not found: {slug}", 404)
 
     @require_storage
