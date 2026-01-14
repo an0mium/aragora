@@ -25,7 +25,7 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Dict, Generator, List, Optional, TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -124,8 +124,8 @@ class ContinuumMemoryEntry:
 class AwaitableList(list):
     """List wrapper that can be awaited for async compatibility."""
 
-    def __await__(self):
-        async def _wrap():
+    def __await__(self) -> "Generator[Any, None, AwaitableList]":
+        async def _wrap() -> "AwaitableList":
             return self
 
         return _wrap().__await__()
@@ -564,7 +564,8 @@ class ContinuumMemory(SQLiteStore):
                     cursor.execute("ROLLBACK")
                     return 0.0
 
-                success_count, failure_count, old_surprise, tier = row
+                success_count, failure_count, old_surprise_raw, tier = row
+                old_surprise: float = float(old_surprise_raw) if old_surprise_raw else 0.0
                 total = success_count + failure_count
 
                 # Calculate expected success rate (base rate)
