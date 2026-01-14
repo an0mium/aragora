@@ -1,0 +1,173 @@
+# API Rate Limits
+
+Aragora implements rate limiting to ensure fair usage and service stability. This document describes the rate limiting system and how to work within its constraints.
+
+## Rate Limit Tiers
+
+Rate limits are based on your subscription tier:
+
+| Tier | Requests/Minute | Burst Size | Notes |
+|------|-----------------|------------|-------|
+| **Free** | 10 | 60 | Unauthenticated or free tier |
+| **Starter** | 50 | 100 | Basic paid plan |
+| **Professional** | 200 | 400 | Standard paid plan |
+| **Enterprise** | 1000 | 2000 | Custom limits available |
+
+### What is "Burst Size"?
+
+The burst size allows short spikes above your sustained rate. For example, a free tier user can make up to 60 requests in quick succession, but sustained usage must stay under 10 req/min.
+
+## Default Limits
+
+For endpoints without tier-specific limits:
+
+| Limit Type | Default | Environment Variable |
+|------------|---------|---------------------|
+| Per-endpoint | 60 req/min | `ARAGORA_RATE_LIMIT` |
+| Per-IP (global) | 120 req/min | `ARAGORA_IP_RATE_LIMIT` |
+| Burst multiplier | 2x | `ARAGORA_BURST_MULTIPLIER` |
+
+## Response Headers
+
+Rate-limited responses include these headers:
+
+```
+X-RateLimit-Limit: 60          # Your rate limit
+X-RateLimit-Remaining: 45      # Requests remaining in window
+X-RateLimit-Reset: 1705123456  # Unix timestamp when limit resets
+Retry-After: 30                # Seconds to wait (only on 429)
+```
+
+## Rate Limit Responses
+
+When rate limited, the API returns:
+
+```json
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/json
+Retry-After: 30
+
+{
+  "error": "Rate limit exceeded",
+  "retry_after": 30,
+  "limit": 60,
+  "remaining": 0
+}
+```
+
+## Best Practices
+
+### 1. Implement Exponential Backoff
+
+When you receive a 429 response, wait and retry with increasing delays:
+
+```python
+import time
+import random
+
+def make_request_with_backoff(url, max_retries=5):
+    for attempt in range(max_retries):
+        response = requests.get(url)
+
+        if response.status_code != 429:
+            return response
+
+        # Get retry delay from header or calculate
+        retry_after = int(response.headers.get('Retry-After', 0))
+        if not retry_after:
+            retry_after = min(60, (2 ** attempt) + random.random())
+
+        time.sleep(retry_after)
+
+    raise Exception("Max retries exceeded")
+```
+
+### 2. Monitor Your Usage
+
+Check the `X-RateLimit-Remaining` header to see how many requests you have left:
+
+```python
+response = requests.get(f"{API_BASE}/api/debates")
+remaining = int(response.headers.get('X-RateLimit-Remaining', 0))
+
+if remaining < 10:
+    print(f"Warning: Only {remaining} requests remaining")
+```
+
+### 3. Batch Operations When Possible
+
+Instead of making many small requests, use batch endpoints:
+
+```python
+# Instead of this (10 requests):
+for debate_id in debate_ids:
+    response = requests.get(f"{API_BASE}/api/debates/{debate_id}")
+
+# Do this (1 request):
+response = requests.post(f"{API_BASE}/api/debates/batch", json={
+    "debate_ids": debate_ids
+})
+```
+
+### 4. Cache Responses
+
+Cache responses that don't change frequently:
+
+- Debate results (after completion)
+- Agent rankings and ELO scores
+- Historical analytics
+
+### 5. Use Webhooks for Real-Time Updates
+
+Instead of polling for debate status, register webhooks:
+
+```python
+requests.post(f"{API_BASE}/api/webhooks", json={
+    "url": "https://your-app.com/webhook",
+    "events": ["debate.completed", "debate.verdict"]
+})
+```
+
+## Endpoint-Specific Limits
+
+Some endpoints have stricter limits to prevent abuse:
+
+| Endpoint | Limit | Notes |
+|----------|-------|-------|
+| `POST /api/debate` | 10/min | Debate creation is expensive |
+| `POST /api/gauntlet` | 5/min | Stress tests are resource-intensive |
+| `GET /api/health` | 120/min | Higher limit for monitoring |
+| `GET /api/debates` | 60/min | Standard list endpoint |
+
+## IP-Based Limits
+
+In addition to tier limits, there's a global per-IP limit of **120 req/min** across all endpoints. This prevents a single source from overwhelming the API even with multiple accounts.
+
+## Trusted Proxies
+
+If you're behind a load balancer or proxy, configure `ARAGORA_TRUSTED_PROXIES` so rate limits apply to the real client IP:
+
+```bash
+export ARAGORA_TRUSTED_PROXIES="10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+```
+
+## Need Higher Limits?
+
+Enterprise customers can request custom rate limits. Contact support or upgrade your tier at `/billing`.
+
+## Debugging Rate Limits
+
+To check your current rate limit status:
+
+```bash
+curl -v https://api.aragora.ai/api/health 2>&1 | grep -i ratelimit
+```
+
+Or in your code:
+
+```python
+response = requests.get(f"{API_BASE}/api/health")
+print(f"Limit: {response.headers.get('X-RateLimit-Limit')}")
+print(f"Remaining: {response.headers.get('X-RateLimit-Remaining')}")
+print(f"Resets at: {response.headers.get('X-RateLimit-Reset')}")
+```
