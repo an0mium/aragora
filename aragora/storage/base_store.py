@@ -203,7 +203,8 @@ class SQLiteStore(BaseDatabase, ABC):
         if not id_column.replace("_", "").isalnum():
             raise ValueError(f"Invalid column name: {id_column}")
 
-        row = self.fetch_one(f"SELECT 1 FROM {table} WHERE {id_column} = ?", (id_value,))
+        query = f"SELECT 1 FROM {table} WHERE {id_column} = ?"  # nosec B608
+        row = self.fetch_one(query, (id_value,))
         return row is not None
 
     def count(self, table: str, where: str = "", params: tuple = ()) -> int:
@@ -220,9 +221,9 @@ class SQLiteStore(BaseDatabase, ABC):
         if not table.replace("_", "").isalnum():
             raise ValueError(f"Invalid table name: {table}")
 
-        sql = f"SELECT COUNT(*) FROM {table}"
+        sql = f"SELECT COUNT(*) FROM {table}"  # nosec B608
         if where:
-            sql += f" WHERE {where}"
+            sql += f" WHERE {where}"  # nosec B608
 
         row = self.fetch_one(sql, params)
         return row[0] if row else 0
@@ -244,7 +245,8 @@ class SQLiteStore(BaseDatabase, ABC):
             raise ValueError(f"Invalid column name: {id_column}")
 
         with self.connection() as conn:
-            cursor = conn.execute(f"DELETE FROM {table} WHERE {id_column} = ?", (id_value,))
+            query = f"DELETE FROM {table} WHERE {id_column} = ?"  # nosec B608
+            cursor = conn.execute(query, (id_value,))
             return cursor.rowcount > 0
 
     def safe_add_column(

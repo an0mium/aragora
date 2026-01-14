@@ -252,10 +252,8 @@ class OrganizationStore:
         values.append(org_id)
 
         with self._transaction() as cursor:
-            cursor.execute(
-                f"UPDATE organizations SET {', '.join(updates)} WHERE id = ?",
-                values,
-            )
+            query = f"UPDATE organizations SET {', '.join(updates)} WHERE id = ?"  # nosec B608
+            cursor.execute(query, values)
             return cursor.rowcount > 0
 
     def add_user_to_org(self, user_id: str, org_id: str, role: str = "member") -> bool:

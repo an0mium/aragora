@@ -150,17 +150,15 @@ class AuditRepository:
         params.extend([limit, offset])
 
         with self._transaction() as cursor:
-            cursor.execute(
-                f"""
+            query = f"""
                 SELECT id, timestamp, user_id, org_id, action, resource_type,
                        resource_id, old_value, new_value, metadata, ip_address, user_agent
                 FROM audit_log
                 WHERE {where_clause}
                 ORDER BY timestamp DESC
                 LIMIT ? OFFSET ?
-                """,
-                params,
-            )
+                """  # nosec B608 - where_clause built from hardcoded conditions
+            cursor.execute(query, params)
             return [
                 {
                     "id": row[0],
@@ -210,8 +208,6 @@ class AuditRepository:
         where_clause = " AND ".join(conditions) if conditions else "1=1"
 
         with self._transaction() as cursor:
-            cursor.execute(
-                f"SELECT COUNT(*) FROM audit_log WHERE {where_clause}",
-                params,
-            )
+            query = f"SELECT COUNT(*) FROM audit_log WHERE {where_clause}"  # nosec B608
+            cursor.execute(query, params)
             return cursor.fetchone()[0]

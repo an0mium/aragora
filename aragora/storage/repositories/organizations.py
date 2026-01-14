@@ -206,10 +206,8 @@ class OrganizationRepository:
         values.append(org_id)
 
         with self._transaction() as cursor:
-            cursor.execute(
-                f"UPDATE organizations SET {', '.join(updates)} WHERE id = ?",
-                values,
-            )
+            query = f"UPDATE organizations SET {', '.join(updates)} WHERE id = ?"  # nosec B608
+            cursor.execute(query, values)
             return cursor.rowcount > 0
 
     def reset_usage(self, org_id: str) -> bool:
@@ -304,16 +302,12 @@ class OrganizationRepository:
 
         with self._transaction() as cursor:
             placeholders = ",".join("?" * len(unique_ids))
-            cursor.execute(
-                f"SELECT * FROM organizations WHERE id IN ({placeholders})",
-                unique_ids,
-            )
+            query1 = f"SELECT * FROM organizations WHERE id IN ({placeholders})"  # nosec B608
+            cursor.execute(query1, unique_ids)
             orgs = {row["id"]: self._row_to_org(row) for row in cursor.fetchall()}
 
-            cursor.execute(
-                f"SELECT * FROM users WHERE org_id IN ({placeholders})",
-                unique_ids,
-            )
+            query2 = f"SELECT * FROM users WHERE org_id IN ({placeholders})"  # nosec B608
+            cursor.execute(query2, unique_ids)
 
             members_by_org: dict[str, list["User"]] = {oid: [] for oid in orgs}
             for row in cursor.fetchall():

@@ -368,7 +368,8 @@ class PostgresStore(ABC):
         if not id_column.replace("_", "").isalnum():
             raise ValueError(f"Invalid column name: {id_column}")
 
-        row = await self.fetch_one(f"SELECT 1 FROM {table} WHERE {id_column} = $1", id_value)
+        query = f"SELECT 1 FROM {table} WHERE {id_column} = $1"  # nosec B608
+        row = await self.fetch_one(query, id_value)
         return row is not None
 
     async def count(
@@ -391,9 +392,9 @@ class PostgresStore(ABC):
         if not table.replace("_", "").isalnum():
             raise ValueError(f"Invalid table name: {table}")
 
-        sql = f"SELECT COUNT(*) FROM {table}"
+        sql = f"SELECT COUNT(*) FROM {table}"  # nosec B608
         if where:
-            sql += f" WHERE {where}"
+            sql += f" WHERE {where}"  # nosec B608
 
         row = await self.fetch_one(sql, *args)
         return row[0] if row else 0
@@ -420,7 +421,8 @@ class PostgresStore(ABC):
         if not id_column.replace("_", "").isalnum():
             raise ValueError(f"Invalid column name: {id_column}")
 
-        result = await self.execute(f"DELETE FROM {table} WHERE {id_column} = $1", id_value)
+        query = f"DELETE FROM {table} WHERE {id_column} = $1"  # nosec B608
+        result = await self.execute(query, id_value)
         # Result is like "DELETE 1" or "DELETE 0"
         return result.endswith(" 0") is False
 

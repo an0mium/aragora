@@ -143,11 +143,8 @@ class DatabaseRepository:
         safe_col = _validate_column_name(id_column)
         with self.connection() as conn:
             cursor = conn.cursor()
-            # nosec B608: TABLE_NAME is a class constant, safe_col is regex-validated, id_value is parameterized
-            cursor.execute(
-                f"SELECT 1 FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1",
-                (id_value,),  # nosec B608
-            )
+            query = f"SELECT 1 FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1"  # nosec B608
+            cursor.execute(query, (id_value,))
             return cursor.fetchone() is not None
 
     def count(self, where: str = "", params: tuple = ()) -> int:
@@ -187,11 +184,8 @@ class DatabaseRepository:
         with self.connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            # nosec B608: TABLE_NAME is class constant, safe_col is regex-validated, id_value is parameterized
-            cursor.execute(
-                f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1",
-                (id_value,),  # nosec B608
-            )
+            query = f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1"  # nosec B608
+            cursor.execute(query, (id_value,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
