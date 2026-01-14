@@ -63,6 +63,7 @@ def _get_connection_limits() -> tuple[int, int]:
 # Global session manager for connection pooling
 _session_lock = threading.Lock()
 _shared_connector: Optional[aiohttp.TCPConnector] = None
+_connector_loop_id: Optional[int] = None  # Track which event loop owns the connector
 
 
 def get_shared_connector() -> aiohttp.TCPConnector:
@@ -72,14 +73,39 @@ def get_shared_connector() -> aiohttp.TCPConnector:
     reducing connection establishment overhead and preventing resource
     exhaustion from too many simultaneous connections.
 
+    The connector is recreated if called from a different event loop,
+    since aiohttp connectors are bound to the event loop they were created in.
+
     Returns:
         Configured TCPConnector instance
 
     Thread-safe: Uses lock for lazy initialization
     """
-    global _shared_connector
+    global _shared_connector, _connector_loop_id
     with _session_lock:
-        if _shared_connector is None or _shared_connector.closed:
+        # Get current event loop id (if any)
+        try:
+            current_loop = asyncio.get_running_loop()
+            current_loop_id = id(current_loop)
+        except RuntimeError:
+            # No running loop - connector will be created for whatever loop uses it first
+            current_loop_id = None
+
+        # Recreate connector if it's closed, None, or bound to a different loop
+        need_new_connector = (
+            _shared_connector is None
+            or _shared_connector.closed
+            or (current_loop_id is not None and _connector_loop_id != current_loop_id)
+        )
+
+        if need_new_connector:
+            # Close old connector if it exists and is still open
+            if _shared_connector is not None and not _shared_connector.closed:
+                try:
+                    _shared_connector.close()
+                except Exception:
+                    pass  # Ignore errors during cleanup
+
             per_host, total = _get_connection_limits()
             _shared_connector = aiohttp.TCPConnector(
                 limit=total,
@@ -87,7 +113,8 @@ def get_shared_connector() -> aiohttp.TCPConnector:
                 ttl_dns_cache=300,  # Cache DNS for 5 minutes
                 enable_cleanup_closed=True,  # Clean up closed connections
             )
-            logger.debug(f"Created shared TCP connector: limit={total}, per_host={per_host}")
+            _connector_loop_id = current_loop_id
+            logger.debug(f"Created shared TCP connector: limit={total}, per_host={per_host}, loop_id={current_loop_id}")
         return _shared_connector
 
 
@@ -141,11 +168,12 @@ async def close_shared_connector() -> None:
     Call this during application shutdown to properly clean up
     connection resources. Safe to call multiple times.
     """
-    global _shared_connector
+    global _shared_connector, _connector_loop_id
     with _session_lock:
         if _shared_connector is not None and not _shared_connector.closed:
             await _shared_connector.close()
             _shared_connector = None
+            _connector_loop_id = None
             logger.debug("Closed shared TCP connector")
 
 
