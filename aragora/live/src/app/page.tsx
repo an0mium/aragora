@@ -346,11 +346,6 @@ const TrainingExportPanel = dynamic(() => import('@/components/TrainingExportPan
   loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
 });
 
-const AgentRelationships = dynamic(() => import('@/components/AgentRelationships').then(m => ({ default: m.AgentRelationships })), {
-  ssr: false,
-  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
-});
-
 const TournamentBracket = dynamic(() => import('@/components/TournamentBracket').then(m => ({ default: m.TournamentBracket })), {
   ssr: false,
   loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
@@ -1107,9 +1102,6 @@ export default function Home() {
               priority="secondary"
               description="Deep-dive analysis, lineage tracking, and advanced visualizations"
             >
-              <PanelErrorBoundary panelName="Agent Relationships">
-                <AgentRelationships apiBase={apiBase} />
-              </PanelErrorBoundary>
               <PanelErrorBoundary panelName="Lineage Browser">
                 <LineageBrowser apiBase={apiBase} />
               </PanelErrorBoundary>

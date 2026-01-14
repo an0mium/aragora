@@ -89,14 +89,14 @@ export default function ModesPage() {
             <div className="p-4 border border-warning/30 bg-warning/5 rounded">
               <h3 className="text-sm font-mono text-warning mb-2">Red Team Mode</h3>
               <p className="text-xs font-mono text-text-muted">
-                Adversarial testing with devil's advocate agents. Stress-test arguments
+                Adversarial testing with devil&apos;s advocate agents. Stress-test arguments
                 and find weaknesses in reasoning.
               </p>
             </div>
             <div className="p-4 border border-acid-cyan/30 bg-acid-cyan/5 rounded">
               <h3 className="text-sm font-mono text-acid-cyan mb-2">Cooperative Mode</h3>
               <p className="text-xs font-mono text-text-muted">
-                Collaborative problem-solving where agents build on each other's ideas.
+                Collaborative problem-solving where agents build on each other&apos;s ideas.
                 Focus on constructive synthesis.
               </p>
             </div>

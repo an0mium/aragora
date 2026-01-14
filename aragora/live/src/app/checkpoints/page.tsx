@@ -25,9 +25,10 @@ export default function CheckpointsPage() {
   const { config: backendConfig } = useBackend();
   const router = useRouter();
 
-  const handleResume = (debateId: string, checkpointId: string) => {
-    // Navigate to debate page with checkpoint context
-    router.push(`/debate/${debateId}?checkpoint=${checkpointId}`);
+  const handleResume = (checkpointId: string) => {
+    // Navigate to checkpoint resume endpoint
+    // The checkpoint ID contains reference to the debate
+    router.push(`/?checkpoint=${checkpointId}`);
   };
 
   return (
