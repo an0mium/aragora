@@ -328,9 +328,13 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
             <div className="text-acid-green/50 mb-2">
               {'═'.repeat(40)}
             </div>
-            <p className="text-text-muted">
-              {'>'} AGORA DEBATE VIEWER // PERMALINK
-            </p>
+            <button
+              onClick={handleShare}
+              className="text-text-muted hover:text-acid-green transition-colors cursor-pointer"
+              title="Click to copy permalink"
+            >
+              {'>'} PERMALINK: {debateId} {copied ? '[COPIED!]' : '[CLICK TO COPY]'}
+            </button>
             <p className="text-acid-cyan mt-2">
               <a
                 href="https://aragora.ai"

@@ -61,7 +61,10 @@ export function LiveDebateView({
               <span className="text-text-muted uppercase">{statusConfig.label}</span>
             </div>
             <h1 className="text-lg font-mono text-acid-green mb-4">
-              {task || 'Waiting for debate to start...'}
+              {task || (status === 'connecting' ? 'Connecting to debate...' :
+                        status === 'complete' ? 'Debate concluded' :
+                        status === 'error' ? 'Debate error' :
+                        'Waiting for debate to start...')}
             </h1>
             <div className="flex flex-wrap gap-2">
               {agents.map((agent) => {

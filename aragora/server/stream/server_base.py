@@ -267,7 +267,8 @@ class ServerBase:
                 state["messages"].append(
                     {
                         "agent": event.get("agent"),
-                        "content": event.get("content", "")[:500],  # Truncate
+                        "content": event.get("content", ""),  # Full content - never truncate
+                        "role": event.get("role", "agent"),  # Preserve role for synthesis detection
                         "round": event.get("round", 0),
                     }
                 )
