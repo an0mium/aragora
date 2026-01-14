@@ -63,8 +63,8 @@ class CheckpointHandler(BaseHandler):
             or (path.startswith("/api/debates/") and "/checkpoint" in path)
         )
 
-    @handle_errors
-    async def handle(
+    @handle_errors  # type: ignore[arg-type]
+    async def handle(  # type: ignore[override]
         self,
         path: str,
         query_params: Dict[str, str],
@@ -129,7 +129,7 @@ class CheckpointHandler(BaseHandler):
                 ):
                     return await self.pause_debate(debate_id, body)
 
-        return error_response(404, "Not found")
+        return error_response("Not found", 404)
 
     async def list_checkpoints(self, query_params: Dict[str, str]) -> HandlerResult:
         """
@@ -196,7 +196,7 @@ class CheckpointHandler(BaseHandler):
         checkpoint = await manager.store.load(checkpoint_id)
 
         if not checkpoint:
-            return error_response(404, f"Checkpoint not found: {checkpoint_id}")
+            return error_response(f"Checkpoint not found: {checkpoint_id}", 404)
 
         # Include integrity status
         checkpoint_dict = checkpoint.to_dict()
@@ -233,8 +233,8 @@ class CheckpointHandler(BaseHandler):
 
         if not resumed:
             return error_response(
-                404,
                 f"Checkpoint not found or corrupted: {checkpoint_id}",
+                404,
             )
 
         return json_response(
@@ -266,7 +266,7 @@ class CheckpointHandler(BaseHandler):
         # Check if checkpoint exists
         checkpoint = await manager.store.load(checkpoint_id)
         if not checkpoint:
-            return error_response(404, f"Checkpoint not found: {checkpoint_id}")
+            return error_response(f"Checkpoint not found: {checkpoint_id}", 404)
 
         # Delete
         success = await manager.store.delete(checkpoint_id)
@@ -277,7 +277,7 @@ class CheckpointHandler(BaseHandler):
                 status=200,
             )
         else:
-            return error_response(500, "Failed to delete checkpoint")
+            return error_response("Failed to delete checkpoint", 500)
 
     async def add_intervention(self, checkpoint_id: str, body: Optional[bytes]) -> HandlerResult:
         """
@@ -296,7 +296,7 @@ class CheckpointHandler(BaseHandler):
         by = data.get("by", "human")
 
         if not note:
-            return error_response(400, "Missing required field: note")
+            return error_response("Missing required field: note", 400)
 
         manager = self._get_checkpoint_manager()
         success = await manager.add_intervention(
@@ -313,7 +313,7 @@ class CheckpointHandler(BaseHandler):
                 }
             )
         else:
-            return error_response(404, f"Checkpoint not found: {checkpoint_id}")
+            return error_response(f"Checkpoint not found: {checkpoint_id}", 404)
 
     async def list_debate_checkpoints(
         self, debate_id: str, query_params: Dict[str, str]

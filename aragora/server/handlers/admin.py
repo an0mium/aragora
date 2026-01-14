@@ -581,7 +581,8 @@ class AdminHandler(BaseHandler):
         from pathlib import Path
 
         nomic_dir = Path(self._get_nomic_dir())
-        status = {
+        errors: list[str] = []
+        status: dict[str, Any] = {
             "running": False,
             "current_phase": None,
             "cycle_id": None,
@@ -589,7 +590,7 @@ class AdminHandler(BaseHandler):
             "metrics": None,
             "circuit_breakers": None,
             "last_checkpoint": None,
-            "errors": [],
+            "errors": errors,
         }
 
         # Read state file
@@ -603,7 +604,7 @@ class AdminHandler(BaseHandler):
                 status["cycle_id"] = state_data.get("cycle_id")
                 status["state_machine"] = state_data
             except Exception as e:
-                status["errors"].append(f"Failed to read state: {e}")
+                errors.append(f"Failed to read state: {e}")
 
         # Get metrics
         try:
@@ -616,9 +617,9 @@ class AdminHandler(BaseHandler):
             stuck_info = check_stuck_phases(max_idle_seconds=1800)
             status["stuck_detection"] = stuck_info
         except ImportError:
-            status["errors"].append("Metrics module not available")
+            errors.append("Metrics module not available")
         except Exception as e:
-            status["errors"].append(f"Failed to get metrics: {e}")
+            errors.append(f"Failed to get metrics: {e}")
 
         # Get circuit breaker status
         try:
@@ -630,7 +631,7 @@ class AdminHandler(BaseHandler):
                 "details": registry.to_dict(),
             }
         except Exception as e:
-            status["errors"].append(f"Failed to get circuit breakers: {e}")
+            errors.append(f"Failed to get circuit breakers: {e}")
 
         # Find latest checkpoint
         checkpoint_dir = nomic_dir / "checkpoints"
@@ -642,7 +643,7 @@ class AdminHandler(BaseHandler):
                 if checkpoints:
                     status["last_checkpoint"] = checkpoints[0]
             except Exception as e:
-                status["errors"].append(f"Failed to list checkpoints: {e}")
+                errors.append(f"Failed to list checkpoints: {e}")
 
         return json_response(status)
 

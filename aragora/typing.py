@@ -414,10 +414,10 @@ class PositionLedgerProtocol(Protocol):
 
     def resolve_position(
         self,
-        agent_name: str,
-        claim: str,
-        resolution: str,
-        debate_id: str,
+        position_id: Optional[str] = None,
+        outcome: Optional[str] = None,
+        resolution_source: Optional[str] = None,
+        **kwargs: Any,
     ) -> None:
         """Record a position resolution outcome."""
         ...
@@ -455,9 +455,12 @@ class RelationshipTrackerProtocol(Protocol):
 
     def update_from_debate(
         self,
-        debate_id: str,
-        votes: List[Any],
-        agents: List[str],
+        debate_id: str = "",
+        participants: Optional[List[str]] = None,
+        winner: Optional[str] = None,
+        votes: Optional[Dict[str, Any]] = None,
+        critiques: Optional[List[Any]] = None,
+        **kwargs: Any,
     ) -> None:
         """Update relationships based on debate voting patterns."""
         ...
@@ -486,28 +489,31 @@ class MomentDetectorProtocol(Protocol):
 
     def detect_upset_victory(
         self,
-        winner: str,
-        loser: str,
-        pre_ratings: Dict[str, float],
+        winner: str = "",
+        loser: str = "",
+        debate_id: str = "",
+        **kwargs: Any,
     ) -> Optional[Dict[str, Any]]:
         """Detect if outcome represents an upset victory."""
         ...
 
     def detect_calibration_vindication(
         self,
-        agent: str,
-        prediction: Any,
-        outcome: Any,
+        agent_name: str = "",
+        prediction_confidence: float = 0.0,
+        was_correct: bool = False,
+        domain: str = "",
+        debate_id: str = "",
+        **kwargs: Any,
     ) -> Optional[Dict[str, Any]]:
         """Detect if a prediction was vindicated."""
         ...
 
     def record_moment(
         self,
-        moment_type: str,
-        data: Dict[str, Any],
-        debate_id: str,
-    ) -> str:
+        moment: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> Optional[str]:
         """Record a significant moment. Returns moment ID."""
         ...
 
@@ -751,8 +757,7 @@ class FlipDetectorProtocol(Protocol):
     def detect_flips_for_agent(
         self,
         agent: str,
-        debate_id: str,
-        messages: List[Any],
+        **kwargs: Any,
     ) -> List[Dict[str, Any]]:
         """Detect all position flips for an agent in a debate."""
         ...
@@ -796,30 +801,53 @@ class ConsensusMemoryProtocol(Protocol):
 
     def store_consensus(
         self,
-        debate_id: str,
-        topic: str,
-        position: str,
-        confidence: float,
-        supporting_agents: List[str],
+        topic: str = "",
+        conclusion: str = "",
+        strength: str = "",
+        confidence: float = 0.0,
+        participating_agents: Optional[List[str]] = None,
+        agreeing_agents: Optional[List[str]] = None,
+        dissenting_agents: Optional[List[str]] = None,
+        key_claims: Optional[List[str]] = None,
+        domain: str = "",
+        tags: Optional[List[str]] = None,
+        debate_duration: float = 0.0,
+        rounds: int = 0,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> str:
-        """Store a consensus outcome. Returns consensus ID."""
+        **kwargs: Any,
+    ) -> Any:
+        """Store a consensus outcome. Returns consensus record."""
         ...
 
     def update_cruxes(
         self,
-        debate_id: str,
+        consensus_id: Any,
         cruxes: List[Dict[str, Any]],
+        **kwargs: Any,
     ) -> None:
-        """Update crux information for a debate."""
+        """Update crux information for a consensus record."""
         ...
 
     def store_vote(
         self,
-        debate_id: str,
-        vote_data: Dict[str, Any],
+        debate_id: str = "",
+        vote_data: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> None:
         """Store vote data for a debate."""
+        ...
+
+    def store_dissent(
+        self,
+        debate_id: str = "",
+        agent_id: str = "",
+        dissent_type: Any = None,
+        content: str = "",
+        reasoning: str = "",
+        confidence: float = 0.5,
+        **kwargs: Any,
+    ) -> None:
+        """Store a dissenting opinion."""
         ...
 
 
@@ -838,10 +866,11 @@ class PopulationManagerProtocol(Protocol):
     def update_fitness(
         self,
         genome_id: str,
-        fitness_delta: float,
+        fitness_delta: float = 0.0,
         context: Optional[str] = None,
         consensus_win: Optional[bool] = None,
         prediction_correct: Optional[bool] = None,
+        **kwargs: Any,
     ) -> None:
         """Update fitness score for a genome."""
         ...
@@ -865,10 +894,18 @@ class PopulationManagerProtocol(Protocol):
 
     def get_or_create_population(
         self,
-        agent_name: str,
-        default_genome: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Get or create a population for an agent."""
+        agent_names: List[str],
+        **kwargs: Any,
+    ) -> Any:
+        """Get or create a population for a group of agents."""
+        ...
+
+    def evolve_population(
+        self,
+        population: Any,
+        **kwargs: Any,
+    ) -> Any:
+        """Evolve a population to the next generation."""
         ...
 
 
@@ -890,15 +927,15 @@ class PulseManagerProtocol(Protocol):
 
     def record_debate_outcome(
         self,
-        topic: str,
-        outcome: Dict[str, Any],
-        debate_id: str,
-        platform: Optional[str] = None,
-        consensus_reached: Optional[bool] = None,
-        confidence: Optional[float] = None,
-        rounds_used: Optional[int] = None,
-        category: Optional[str] = None,
+        topic: str = "",
+        platform: str = "",
+        debate_id: str = "",
+        consensus_reached: bool = False,
+        confidence: float = 0.0,
+        rounds_used: int = 0,
+        category: str = "",
         volume: int = 0,
+        **kwargs: Any,
     ) -> None:
         """Record outcome of a debate on a trending topic."""
         ...
@@ -948,27 +985,26 @@ class PromptEvolverProtocol(Protocol):
 
     def extract_winning_patterns(
         self,
-        debate_id: str,
-        winner_messages: List[Any],
+        debate_results: List[Any],
+        **kwargs: Any,
     ) -> List[Dict[str, Any]]:
-        """Extract winning patterns from debate messages."""
+        """Extract winning patterns from debate results."""
         ...
 
     def store_patterns(
         self,
-        agent: str,
         patterns: List[Dict[str, Any]],
-        debate_id: str,
+        **kwargs: Any,
     ) -> None:
-        """Store extracted patterns for an agent."""
+        """Store extracted patterns."""
         ...
 
     def update_performance(
         self,
-        agent: str,
-        debate_id: str,
-        won: bool,
-        score: float,
+        agent_name: str = "",
+        version: Optional[Any] = None,
+        debate_result: Optional[Any] = None,
+        **kwargs: Any,
     ) -> None:
         """Update performance metrics for prompt evolution."""
         ...
@@ -1017,12 +1053,12 @@ class InsightStoreProtocol(Protocol):
         """Get effectiveness metrics for insights."""
         ...
 
-    def record_insight_usage(
+    async def record_insight_usage(
         self,
-        insight_type: str,
-        debate_id: str,
-        success: bool,
-        metadata: Optional[Dict[str, Any]] = None,
+        insight_id: str = "",
+        debate_id: str = "",
+        was_successful: bool = False,
+        **kwargs: Any,
     ) -> None:
         """Record usage of an insight in a debate."""
         ...
