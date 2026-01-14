@@ -87,7 +87,7 @@ class DebateConfig:
     trending_topic: Optional["TrendingTopic"] = None  # TrendingTopic from pulse
 
     def parse_agent_specs(self) -> list[AgentSpec]:
-        """Parse agent specifications from comma-separated string.
+        """Parse agent specifications from comma-separated string or list.
 
         Returns:
             List of AgentSpec objects
@@ -95,7 +95,11 @@ class DebateConfig:
         Raises:
             ValueError: If agent count exceeds maximum
         """
-        agent_list = [s.strip() for s in self.agents_str.split(",") if s.strip()]
+        # Handle both string and list formats
+        if isinstance(self.agents_str, list):
+            agent_list = [s.strip() if isinstance(s, str) else str(s) for s in self.agents_str if s]
+        else:
+            agent_list = [s.strip() for s in self.agents_str.split(",") if s.strip()]
 
         if len(agent_list) > MAX_AGENTS_PER_DEBATE:
             raise ValueError(f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}")
