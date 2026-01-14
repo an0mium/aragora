@@ -411,10 +411,15 @@ jobs:
         if: steps.ssh_config.outputs.ssh_ready == 'true'
         run: |
           # Wait for server to start (up to 60 seconds)
-          # HTTP API runs on port 8080, WebSocket on port 8765
+          # Try nginx on port 80, fallback to direct port 8080
           for i in {1..12}; do
+            if curl -sf "http://${{ secrets.EC2_HOST }}/api/health" -o /dev/null 2>/dev/null; then
+              echo "Health check passed (via nginx port 80)"
+              echo "health_ok=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
             if curl -sf "http://${{ secrets.EC2_HOST }}:8080/api/health" -o /dev/null 2>/dev/null; then
-              echo "Health check passed"
+              echo "Health check passed (direct port 8080)"
               echo "health_ok=true" >> $GITHUB_OUTPUT
               exit 0
             fi

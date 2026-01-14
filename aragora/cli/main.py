@@ -1102,6 +1102,11 @@ Examples:
 
     create_billing_parser(subparsers)
 
+    # Audit command
+    from aragora.cli.audit import create_audit_parser
+
+    create_audit_parser(subparsers)
+
     # MCP Server command
     mcp_parser = subparsers.add_parser(
         "mcp-server",

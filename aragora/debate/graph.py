@@ -559,8 +559,8 @@ class DebateGraph:
             return self._path_cache[cache_key]
 
         path = []
-        current_id = node_id
-        visited = set()
+        current_id: str | None = node_id
+        visited: set[str] = set()
 
         while current_id and current_id not in visited:
             visited.add(current_id)

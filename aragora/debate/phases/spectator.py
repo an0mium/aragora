@@ -53,6 +53,9 @@ class SpectatorMixin:
 
     def _emit_spectator_to_websocket(self, event_type: str, **kwargs: Any) -> None:
         """Convert spectator event to StreamEvent and emit to WebSocket clients."""
+        if not self.event_emitter:
+            return
+
         try:
             from aragora.server.stream import StreamEvent, StreamEventType
 

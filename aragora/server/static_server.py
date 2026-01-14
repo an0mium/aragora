@@ -127,6 +127,11 @@ def serve_static_file(
             handler.send_error(400, error)
         return False
 
+    # Type guard - filepath is guaranteed non-None if is_valid is True
+    if filepath is None:
+        handler.send_error(500, "Internal error: invalid path state")
+        return False
+
     # Check if file exists
     if not filepath.exists():
         if spa_fallback:

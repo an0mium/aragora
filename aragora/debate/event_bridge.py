@@ -88,6 +88,9 @@ class EventEmitterBridge:
 
     def _emit_to_websocket(self, event_type: str, **kwargs) -> None:
         """Convert spectator event to StreamEvent and emit to WebSocket."""
+        if not self.event_emitter:
+            return
+
         try:
             from aragora.server.stream import StreamEvent, StreamEventType
 

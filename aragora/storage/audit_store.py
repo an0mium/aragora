@@ -130,7 +130,7 @@ class AuditStore:
                     user_agent,
                 ),
             )
-            return cursor.lastrowid
+            return cursor.lastrowid or 0
 
     def get_log(
         self,

@@ -13,6 +13,8 @@ with the provenance system for traceability:
 - RedditConnector: Community discussions and sentiment
 - TwitterConnector: Public discourse and real-time updates
 - SQLConnector: Query SQL databases (PostgreSQL, MySQL, SQLite)
+- NewsAPIConnector: News articles from multiple sources
+- SECConnector: SEC EDGAR financial filings
 
 All connectors record evidence through ProvenanceManager
 with proper source typing and confidence scoring.
@@ -37,7 +39,13 @@ from aragora.connectors.exceptions import (
 from aragora.connectors.github import GitHubConnector
 from aragora.connectors.hackernews import HackerNewsConnector
 from aragora.connectors.local_docs import LocalDocsConnector
+from aragora.connectors.newsapi import (
+    HIGH_CREDIBILITY_SOURCES,
+    MEDIUM_CREDIBILITY_SOURCES,
+    NewsAPIConnector,
+)
 from aragora.connectors.reddit import RedditConnector
+from aragora.connectors.sec import FORM_TYPES, SECConnector
 from aragora.connectors.sql import SQLConnector, SQLQueryResult
 from aragora.connectors.twitter import TwitterConnector
 from aragora.connectors.web import WebConnector
@@ -59,6 +67,11 @@ __all__ = [
     "TwitterConnector",
     "SQLConnector",
     "SQLQueryResult",
+    "NewsAPIConnector",
+    "HIGH_CREDIBILITY_SOURCES",
+    "MEDIUM_CREDIBILITY_SOURCES",
+    "SECConnector",
+    "FORM_TYPES",
     # Exceptions
     "ConnectorError",
     "ConnectorAuthError",
