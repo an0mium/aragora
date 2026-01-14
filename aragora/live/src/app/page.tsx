@@ -735,6 +735,10 @@ export default function Home() {
               <a href="/training" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[TRAINING]</a>
               <a href="/pulse" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[PULSE]</a>
               <a href="/gauntlet" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[GAUNTLET]</a>
+              <a href="/leaderboard" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-gold hover:bg-gold/5 transition-colors shrink-0">[RANKS]</a>
+              <a href="/analytics" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[ANALYTICS]</a>
+              <a href="/probe" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-yellow hover:bg-acid-yellow/5 transition-colors shrink-0">[PROBE]</a>
+              <a href="/checkpoints" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[SAVES]</a>
               <a href="/developer" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[DEV]</a>
             </div>
           </div>
