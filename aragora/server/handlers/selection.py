@@ -225,7 +225,7 @@ class SelectionHandler(BaseHandler):
             })
 
         # Sort by score
-        scored_agents.sort(key=lambda x: x["score"], reverse=True)
+        scored_agents.sort(key=lambda x: x["score"], reverse=True)  # type: ignore[arg-type, return-value]
 
         return json_response({
             "scorer_used": scorer.name,
@@ -307,7 +307,7 @@ class SelectionHandler(BaseHandler):
             })
 
         # Calculate metrics
-        expected_quality = sum(m["score"] for m in team_members) / len(team_members) if team_members else 0
+        expected_quality = sum(m["score"] for m in team_members) / len(team_members) if team_members else 0  # type: ignore[misc]
         expected_cost = sum(a.cost_factor for a in team)
 
         # Diversity score
