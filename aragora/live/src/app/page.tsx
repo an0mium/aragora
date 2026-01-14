@@ -720,6 +720,26 @@ export default function Home() {
           </div>
         </header>
 
+        {/* Quick Links Bar - Expose hidden features */}
+        <div className="hidden sm:block border-b border-acid-green/10 bg-surface/30">
+          <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 py-1.5">
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+              <span className="text-[9px] font-mono text-text-muted/40 mr-2 shrink-0">EXPLORE:</span>
+              <a href="/debates" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[ARCHIVE]</a>
+              <a href="/debates/graph" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[GRAPH]</a>
+              <a href="/debates/matrix" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-gold hover:bg-gold/5 transition-colors shrink-0">[MATRIX]</a>
+              <a href="/agents" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[AGENTS]</a>
+              <a href="/network" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[NETWORK]</a>
+              <a href="/insights" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[INSIGHTS]</a>
+              <a href="/evidence" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[EVIDENCE]</a>
+              <a href="/training" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[TRAINING]</a>
+              <a href="/pulse" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[PULSE]</a>
+              <a href="/gauntlet" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[GAUNTLET]</a>
+              <a href="/developer" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[DEV]</a>
+            </div>
+          </div>
+        </div>
+
       {/* Main Content - Wider container */}
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Error Banner */}
