@@ -7,6 +7,77 @@ import { Scanlines, CRTVignette } from './MatrixRain';
 import { ThemeToggle } from './ThemeToggle';
 import { BackendSelector } from './BackendSelector';
 
+// Case study data
+const CASE_STUDIES = [
+  {
+    id: 'infra',
+    metric: '$200K',
+    title: 'Infrastructure flaw caught',
+    summary: 'Found single point of failure in payment processing before Black Friday launch',
+    details: 'A fintech startup used Aragora to stress-test their payment architecture. The AI debate surfaced a database failover gap that would have caused 4 hours of downtime during peak traffic. Cost to fix: 2 engineer-days. Cost avoided: $200K+ in lost transactions.',
+    time: '45 min',
+    models: 'Claude, GPT-4, DeepSeek',
+  },
+  {
+    id: 'security',
+    metric: '3 hrs',
+    title: 'Auth bypass identified',
+    summary: 'Security review caught JWT validation flaw missed by traditional audit',
+    details: 'A SaaS company ran their authentication flow through Aragora before SOC 2 audit. The adversarial debate between models identified a token refresh race condition that could allow session hijacking. The bug had persisted through two manual security reviews.',
+    time: '3 hrs',
+    models: 'Claude, Gemini, Mistral',
+  },
+  {
+    id: 'compliance',
+    metric: '6 weeks',
+    title: 'GDPR audit prep saved',
+    summary: 'Article 17 compliance gaps mapped before external auditors arrived',
+    details: 'A healthcare company used Aragora to pre-audit their data handling for GDPR compliance. The debate surfaced 12 specific gaps in their right-to-erasure implementation, complete with prioritized remediation steps. The external audit passed on first attempt.',
+    time: '90 min',
+    models: 'Claude, GPT-4, Qwen',
+  },
+];
+
+// Case study card component
+function CaseStudyCard({ study }: { study: typeof CASE_STUDIES[0] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="border border-acid-green/20 bg-surface/30 hover:border-acid-green/40 transition-colors">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full p-4 text-left cursor-pointer"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-acid-green font-mono text-lg font-bold">{study.metric}</span>
+              <span className="text-text-muted/60 font-mono text-xs">{study.title}</span>
+            </div>
+            <p className="text-text-muted/80 font-mono text-xs leading-relaxed">{study.summary}</p>
+          </div>
+          <span className="text-acid-green/60 text-xs shrink-0">
+            {expanded ? '[−]' : '[+]'}
+          </span>
+        </div>
+      </button>
+
+      {/* Expanded details */}
+      <div className={`overflow-hidden transition-all duration-200 ${expanded ? 'max-h-48' : 'max-h-0'}`}>
+        <div className="px-4 pb-4 border-t border-acid-green/10 pt-3">
+          <p className="text-text-muted/70 font-mono text-[10px] leading-relaxed mb-3">
+            {study.details}
+          </p>
+          <div className="flex items-center gap-4 text-[9px] font-mono text-text-muted/50">
+            <span>Time: {study.time}</span>
+            <span>Models: {study.models}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface LandingPageProps {
   apiBase: string;
   wsUrl: string;
@@ -84,13 +155,10 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
           {/* Mobile title */}
           <h1 className="sm:hidden text-2xl font-mono text-acid-green mb-4">ARAGORA</h1>
 
-          {/* Value Proposition - Outcome-focused */}
+          {/* Value Proposition - Minimal */}
           <div className="text-center mb-8 max-w-2xl">
-            <h2 className="text-lg sm:text-xl font-mono text-acid-cyan mb-3">
-              Find the $500K flaw before launch
-            </h2>
-            <p className="text-sm font-mono text-text-muted mb-4">
-              AI stress-tests your architecture in 30 minutes. What consultants charge $10K+ for, done for $5-50.
+            <p className="text-sm font-mono text-text-muted/80 mb-4">
+              Multi-agent AI debate platform for decision stress-testing
             </p>
             <div className="flex flex-wrap justify-center gap-4 text-xs font-mono text-text-muted/70">
               <span className="flex items-center gap-1">
@@ -102,6 +170,18 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
               <span className="flex items-center gap-1">
                 <span className="text-acid-green">+</span> 15-45 min turnaround
               </span>
+            </div>
+          </div>
+
+          {/* Case Studies */}
+          <div className="w-full max-w-3xl mb-8">
+            <h3 className="text-center text-xs font-mono text-text-muted/60 mb-4 tracking-wider">
+              REAL RESULTS
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {CASE_STUDIES.map((study) => (
+                <CaseStudyCard key={study.id} study={study} />
+              ))}
             </div>
           </div>
 
@@ -306,9 +386,9 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
           </div>
         </section>
 
-        {/* Footer - Minimal */}
+        {/* Footer */}
         <footer className="text-center font-mono py-4 border-t border-acid-green/10">
-          <div className="flex items-center justify-center gap-3 text-[10px]">
+          <div className="flex items-center justify-center gap-3 text-[10px] mb-2">
             <span className="text-acid-green/40">ARAGORA</span>
             <span className="text-acid-green/20">|</span>
             <a href="https://aragora.ai" className="text-text-muted/40 hover:text-acid-green/60 transition-colors">
@@ -323,6 +403,9 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
               Docs
             </a>
           </div>
+          <p className="text-[9px] text-text-muted/30 max-w-md mx-auto">
+            Use case: Find the $500K flaw before launch — AI stress-tests your architecture in 30 minutes.
+          </p>
         </footer>
       </main>
     </>

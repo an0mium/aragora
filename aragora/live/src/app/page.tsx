@@ -293,6 +293,21 @@ const BroadcastPanel = dynamic(() => import('@/components/broadcast/BroadcastPan
 type ViewMode = 'tabs' | 'stream' | 'deep-audit';
 type SiteMode = 'landing' | 'dashboard' | 'loading';
 
+// Mobile sidebar toggle state
+const useMobileSidebar = () => {
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return { showSidebar, setShowSidebar, isMobile };
+};
+
 export default function Home() {
   const router = useRouter();
 
@@ -308,6 +323,9 @@ export default function Home() {
   // Onboarding wizard state
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+
+  // Mobile sidebar state
+  const { showSidebar, setShowSidebar, isMobile } = useMobileSidebar();
 
   // Boot sequence state (must be declared before useEffect that uses it)
   const [showBoot, setShowBoot] = useState(true);
@@ -607,6 +625,16 @@ export default function Home() {
 
               {/* Mobile: Minimal controls */}
               <div className="flex items-center gap-1 sm:gap-2 lg:gap-3">
+                {/* Mobile Sidebar Toggle */}
+                {isMobile && (
+                  <button
+                    onClick={() => setShowSidebar(!showSidebar)}
+                    className="px-2 py-1 border border-acid-green/30 text-xs font-mono text-acid-green hover:bg-acid-green/10 transition-colors"
+                    aria-label="Toggle sidebar"
+                  >
+                    {showSidebar ? '[HIDE PANELS]' : '[PANELS]'}
+                  </button>
+                )}
                 {/* View Mode Toggle - Hidden on mobile */}
                 <div className="hidden sm:flex items-center gap-0.5 bg-bg border border-acid-green/30 p-0.5 font-mono text-xs">
                   <button
@@ -724,6 +752,21 @@ export default function Home() {
         {/* Verdict Card (when available) */}
         {hasVerdict && <VerdictCard events={events} />}
 
+        {/* Mobile Progress Summary - shown when sidebar hidden */}
+        {isMobile && !showSidebar && currentPhase !== 'idle' && (
+          <div className="p-3 border border-acid-green/30 rounded-lg bg-surface/50">
+            <div className="flex items-center justify-between text-xs font-mono">
+              <span className="text-acid-green">{currentPhase.toUpperCase()}</span>
+              <button
+                onClick={() => setShowSidebar(true)}
+                className="text-acid-cyan hover:text-acid-green transition-colors"
+              >
+                [VIEW DETAILS]
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Main Panels - Responsive grid with wider main panel */}
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 lg:gap-6">
           {/* Agent Activity - Takes more space on wider screens */}
@@ -747,8 +790,8 @@ export default function Home() {
             )}
           </div>
 
-          {/* Side Panel - Organized into Collapsible Sections */}
-          <div className="xl:col-span-2 space-y-2">
+          {/* Side Panel - Hidden on mobile unless toggled */}
+          <div className={`xl:col-span-2 space-y-2 ${isMobile && !showSidebar ? 'hidden' : ''}`}>
             {/* Section 1: Core Debate - expanded by default */}
             <CollapsibleSection
               id="core-debate"
