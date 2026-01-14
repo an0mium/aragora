@@ -228,23 +228,35 @@ module = [
     # Added strict - Phase 5 storage layer (Jan 2026)
     "aragora.storage.factory",
     "aragora.storage.webhook_store",
+    # Added strict - Phase 7 type safety expansion (Jan 2026)
+    "aragora.memory.database",
+    "aragora.server.stream.events",
+    "aragora.debate.phases.vote_weighter",
+    "aragora.debate.phases.weight_calculator",
+    "aragora.debate.phases.vote_collector",
+    "aragora.debate.phases.vote_aggregator",
+    "aragora.debate.phases.consensus_verification",
+    "aragora.debate.phases.roles_manager",
+    "aragora.debate.context",
+    "aragora.debate.protocol",
+    "aragora.debate.roles",
+    "aragora.agents.base",
+    "aragora.agents.registry",
+    "aragora.ranking.elo",
+    "aragora.ranking.relationships",
+    "aragora.templates",
+    "aragora.debate.prompt_builder",
+    "aragora.memory.__init__",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
 
 # Moderate settings - check untyped defs but don't require annotations
+# Note: Several modules promoted to strict in Phase 7 (Jan 2026)
 [[tool.mypy.overrides]]
 module = [
     "aragora.server.handlers.*",
-    "aragora.ranking.elo",
-    "aragora.ranking.relationships",
-    "aragora.agents.base",
-    "aragora.agents.registry",
-    "aragora.debate.context",
-    "aragora.debate.protocol",
-    "aragora.debate.roles",
-    "aragora.templates",
 ]
 check_untyped_defs = true
 

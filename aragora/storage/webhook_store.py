@@ -18,7 +18,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +171,7 @@ class SQLiteWebhookStore(WebhookStoreBackend):
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             self._local.conn = conn
-        return self._local.conn
+        return cast(sqlite3.Connection, self._local.conn)
 
     def _init_schema(self) -> None:
         """Initialize database schema."""

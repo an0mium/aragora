@@ -144,9 +144,9 @@ def storage_info() -> dict[str, object]:
     }
 
     if backend == StorageBackend.POSTGRES:
-        dsn = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL", "")
+        dsn: str = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL") or ""
         # Redact password from DSN for logging
-        if "@" in dsn:
+        if dsn and "@" in dsn:
             parts = dsn.split("@")
             user_pass = parts[0].rsplit(":", 1)
             if len(user_pass) == 2:

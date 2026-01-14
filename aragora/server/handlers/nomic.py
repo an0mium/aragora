@@ -17,7 +17,6 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 
 from .base import (
@@ -28,7 +27,6 @@ from .base import (
     json_response,
     safe_error_message,
 )
-from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
