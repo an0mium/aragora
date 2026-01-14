@@ -20,7 +20,7 @@ Auto-tuning features:
 import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
 
 from aragora.config import DB_CALIBRATION_PATH, DB_TIMEOUT_SECONDS
 from aragora.storage.base_store import SQLiteStore
@@ -872,7 +872,7 @@ class CalibrationTracker(SQLiteStore):
 
 def integrate_with_position_ledger(
     calibration_tracker: CalibrationTracker,
-    position_ledger,  # PositionLedger from grounded.py
+    position_ledger: "Any",  # PositionLedger from grounded.py (avoid circular import)
     agent: str,
 ) -> int:
     """

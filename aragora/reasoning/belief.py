@@ -46,10 +46,10 @@ class BeliefDistribution:
     p_false: float = 0.5
     p_unknown: float = 0.0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self._normalize()
 
-    def _normalize(self):
+    def _normalize(self) -> None:
         """Ensure probabilities sum to 1."""
         total = self.p_true + self.p_false + self.p_unknown
         if total > 0:
@@ -155,7 +155,7 @@ class BeliefNode:
     # Metadata
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def update_posterior(self):
+    def update_posterior(self) -> None:
         """Compute posterior from prior and incoming messages."""
         # Start with prior
         log_true = math.log(self.prior.p_true + 1e-10)
@@ -496,7 +496,7 @@ class BeliefNetwork:
             centralities=centralities,
         )
 
-    def _send_messages(self, factor: Factor):
+    def _send_messages(self, factor: Factor) -> None:
         """Send messages from factor to connected nodes."""
         source_node = self.nodes[factor.source_node_id]
         target_node = self.nodes[factor.target_node_id]

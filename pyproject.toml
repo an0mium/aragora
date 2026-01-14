@@ -217,6 +217,11 @@ module = [
     "aragora.debate.convergence.*",
     "aragora.exceptions",
     "aragora.auth.lockout",
+    # Added strict - Phase 3 modules (Jan 2026)
+    "aragora.agents.calibration",
+    "aragora.reasoning.belief",
+    "aragora.storage.base_store",
+    "aragora.debate.memory_manager",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
