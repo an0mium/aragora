@@ -41,6 +41,8 @@ from aragora.debate.result_formatter import ResultFormatter
 from aragora.debate.roles_manager import RolesManager
 from aragora.debate.safety import resolve_auto_evolve, resolve_prompt_evolution
 from aragora.debate.sanitization import OutputSanitizer
+from aragora.debate.state_cache import DebateStateCache
+from aragora.debate.subsystem_coordinator import SubsystemCoordinator
 from aragora.debate.termination_checker import TerminationChecker
 from aragora.exceptions import EarlyStopError
 from aragora.observability.logging import correlation_context
@@ -667,6 +669,29 @@ class Arena:
         if self._enable_position_ledger and self.position_ledger is None:
             self._auto_init_position_ledger()
 
+        # Create SubsystemCoordinator with all initialized subsystems
+        # This provides centralized lifecycle management while maintaining
+        # backward compatibility with direct field access
+        self._trackers = SubsystemCoordinator(
+            protocol=self.protocol,
+            loop_id=self.loop_id,
+            position_tracker=self.position_tracker,
+            position_ledger=self.position_ledger,
+            elo_system=self.elo_system,
+            calibration_tracker=self.calibration_tracker,
+            consensus_memory=self.consensus_memory,
+            dissent_retriever=self.dissent_retriever,
+            continuum_memory=self.continuum_memory,
+            flip_detector=self.flip_detector,
+            moment_detector=self.moment_detector,
+            relationship_tracker=self.relationship_tracker,
+            tier_analytics_tracker=self.tier_analytics_tracker,
+            # Disable auto-init since we already initialized everything
+            enable_position_ledger=False,
+            enable_calibration=False,
+            enable_moment_detection=False,
+        )
+
     def _auto_init_position_ledger(self) -> None:
         """Auto-initialize PositionLedger for tracking agent positions.
 
@@ -819,26 +844,11 @@ class Arena:
         self._previous_round_responses: dict[str, str] = {}
 
     def _init_caches(self) -> None:
-        """Initialize caches for computed values."""
-        # Cache for historical context (computed once per debate)
-        self._historical_context_cache: str = ""
+        """Initialize caches for computed values.
 
-        # Cache for research context (computed once per debate)
-        self._research_context_cache: Optional[str] = None
-
-        # Cache for evidence pack (for grounding verdict with citations)
-        self._research_evidence_pack = None
-
-        # Cache for continuum memory context (retrieved once per debate)
-        self._continuum_context_cache: str = ""
-        self._continuum_retrieved_ids: list = []
-        self._continuum_retrieved_tiers: dict = {}  # ID -> MemoryTier for analytics
-
-        # Cached similarity backend for vote grouping (avoids recreating per call)
-        self._similarity_backend = None
-
-        # Cache for debate domain (computed once per debate)
-        self._debate_domain_cache: Optional[str] = None
+        Uses DebateStateCache to centralize all per-debate cached values.
+        """
+        self._cache = DebateStateCache()
 
     def _init_phases(self) -> None:
         """Initialize phase classes for orchestrator decomposition."""
@@ -915,7 +925,7 @@ class Arena:
         - User suggestions (accumulated from audience)
         """
         self.prompt_builder.current_role_assignments = self.current_role_assignments
-        self.prompt_builder._historical_context_cache = self._historical_context_cache
+        self.prompt_builder._historical_context_cache = self._cache.historical_context
         self.prompt_builder._continuum_context_cache = self._get_continuum_context()
         self.prompt_builder.user_suggestions = self.user_suggestions  # type: ignore[assignment]
 
@@ -924,8 +934,8 @@ class Arena:
 
         Delegates to ContextGatherer.get_continuum_context().
         """
-        if self._continuum_context_cache:
-            return self._continuum_context_cache
+        if self._cache.has_continuum_context():
+            return self._cache.continuum_context
 
         if not self.continuum_memory:
             return ""
@@ -938,9 +948,7 @@ class Arena:
         )
 
         # Track retrieved IDs and tiers for outcome updates
-        self._continuum_retrieved_ids = retrieved_ids
-        self._continuum_retrieved_tiers = retrieved_tiers
-        self._continuum_context_cache = context
+        self._cache.track_continuum_retrieval(context, retrieved_ids, retrieved_tiers)
         return context
 
     def _store_debate_outcome_as_memory(self, result: "DebateResult") -> None:
@@ -959,13 +967,12 @@ class Arena:
         """Update retrieved memories based on debate outcome."""
         # Sync tracked IDs and tier info to memory manager
         self.memory_manager.track_retrieved_ids(
-            self._continuum_retrieved_ids,
-            tiers=self._continuum_retrieved_tiers,
+            self._cache.continuum_retrieved_ids,
+            tiers=self._cache.continuum_retrieved_tiers,
         )
         self.memory_manager.update_memory_outcomes(result)
         # Clear local tracking
-        self._continuum_retrieved_ids = []
-        self._continuum_retrieved_tiers = {}
+        self._cache.clear_continuum_tracking()
 
     def _extract_citation_needs(self, proposals: dict[str, str]) -> dict[str, list[dict]]:
         """Extract claims that need citations from all proposals.
@@ -995,14 +1002,14 @@ class Arena:
         module level (for repeated tasks across debates).
         """
         # Return instance-level cached domain if available
-        if self._debate_domain_cache is not None:
-            return self._debate_domain_cache
+        if self._cache.has_debate_domain():
+            return self._cache.debate_domain  # type: ignore[return-value]
 
         # Use module-level LRU cache for the actual computation
         domain = _compute_domain_from_task(self.env.task.lower())
 
         # Cache at instance level and return
-        self._debate_domain_cache = domain
+        self._cache.debate_domain = domain
         return domain
 
     def _select_debate_team(self, requested_agents: list[Agent]) -> list[Agent]:
@@ -1225,7 +1232,7 @@ class Arena:
         """
         result = await self.context_gatherer.gather_all(task)
         # Update local cache and evidence grounder for backwards compatibility
-        self._research_evidence_pack = self.context_gatherer.evidence_pack
+        self._cache.evidence_pack = self.context_gatherer.evidence_pack
         self.evidence_grounder.set_evidence_pack(self.context_gatherer.evidence_pack)
         return result
 
@@ -1243,7 +1250,7 @@ class Arena:
         """
         result = await self.context_gatherer.gather_evidence_context(task)
         # Update local cache and evidence grounder for backwards compatibility
-        self._research_evidence_pack = self.context_gatherer.evidence_pack
+        self._cache.evidence_pack = self.context_gatherer.evidence_pack
         self.evidence_grounder.set_evidence_pack(self.context_gatherer.evidence_pack)
         return result
 
@@ -1277,7 +1284,7 @@ class Arena:
         )
 
         if updated_pack and hasattr(self, "prompt_builder") and self.prompt_builder:
-            self._research_evidence_pack = updated_pack
+            self._cache.evidence_pack = updated_pack
             self.evidence_grounder.set_evidence_pack(updated_pack)
             self.prompt_builder.set_evidence_pack(updated_pack)
 
@@ -1388,8 +1395,7 @@ class Arena:
             logger.debug(f"Error cancelling tasks during cleanup: {e}")
 
         # Clear internal caches
-        self._historical_context_cache = ""
-        self._research_context_cache = None
+        self._cache.clear()
 
         # Close checkpoint manager if we created it
         if self.checkpoint_manager and hasattr(self.checkpoint_manager, "close"):
@@ -1485,6 +1491,9 @@ class Arena:
                 domain=domain,
                 task_length=len(self.env.task),
             )
+
+        # Notify subsystem coordinator of debate start
+        self._trackers.on_debate_start(ctx)
 
         # Initialize result early for timeout recovery
         ctx.result = DebateResult(
@@ -1607,6 +1616,10 @@ class Arena:
                         if getattr(state, "is_open", False)
                     )
                     track_circuit_breaker_state(open_count)
+
+        # Notify subsystem coordinator of debate completion
+        if ctx.result:
+            self._trackers.on_debate_complete(ctx, ctx.result)
 
         # Trigger extensions (billing, training export)
         # Extensions handle their own error handling and won't fail the debate

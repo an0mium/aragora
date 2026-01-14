@@ -12,14 +12,11 @@ Arena._run_inner() method, handling:
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import Any, Callable, Optional
 
 from aragora.config import AGENT_TIMEOUT_SECONDS
 from aragora.debate.complexity_governor import get_complexity_governor
-
-if TYPE_CHECKING:
-    from aragora.core import Agent
-    from aragora.debate.context import DebateContext
+from aragora.debate.types import AgentType, DebateContextType
 
 logger = logging.getLogger(__name__)
 
@@ -89,12 +86,12 @@ class ProposalPhase:
         self._record_grounded_position = record_grounded_position
         self._extract_citation_needs = extract_citation_needs
 
-    async def execute(self, ctx: "DebateContext") -> None:
+    async def execute(self, ctx: "DebateContextType") -> None:
         """
         Execute the proposal phase.
 
         Args:
-            ctx: The DebateContext to update with proposals
+            ctx: The DebateContextType to update with proposals
         """
 
         # 1. Update role assignments for round 0
@@ -127,7 +124,7 @@ class ProposalPhase:
         if self._extract_citation_needs:
             self._extract_citation_needs(ctx.proposals)
 
-    def _emit_debate_start(self, ctx: "DebateContext") -> None:
+    def _emit_debate_start(self, ctx: "DebateContextType") -> None:
         """Emit debate start hook event."""
         if "on_debate_start" not in self.hooks:
             return
@@ -137,7 +134,7 @@ class ProposalPhase:
             [a.name for a in ctx.agents],
         )
 
-    def _filter_proposers(self, ctx: "DebateContext") -> list["Agent"]:
+    def _filter_proposers(self, ctx: "DebateContextType") -> list["AgentType"]:
         """Filter proposers through circuit breaker."""
         proposers = ctx.proposers
 
@@ -157,7 +154,7 @@ class ProposalPhase:
         return available
 
     async def _generate_proposals_parallel(
-        self, ctx: "DebateContext", proposers: list["Agent"]
+        self, ctx: "DebateContextType", proposers: list["AgentType"]
     ) -> None:
         """Generate proposals in parallel with streaming output."""
 
@@ -185,8 +182,8 @@ class ProposalPhase:
             self._process_proposal_result(ctx, agent, result_or_error)
 
     async def _generate_single_proposal(
-        self, ctx: "DebateContext", agent: "Agent"
-    ) -> tuple["Agent", Any]:
+        self, ctx: "DebateContextType", agent: "AgentType"
+    ) -> tuple["AgentType", Any]:
         """Generate a single proposal from an agent."""
         if not self._build_proposal_prompt or not self._generate_with_agent:
             return (agent, Exception("Missing callbacks"))
@@ -210,7 +207,7 @@ class ProposalPhase:
             return (agent, e)
 
     def _process_proposal_result(
-        self, ctx: "DebateContext", agent: "Agent", result_or_error: Any
+        self, ctx: "DebateContextType", agent: "AgentType", result_or_error: Any
     ) -> None:
         """Process a proposal result from an agent."""
         from aragora.core import Message
@@ -261,7 +258,7 @@ class ProposalPhase:
             except Exception as e:
                 logger.debug(f"Recorder error for proposal: {e}")
 
-    def _record_positions(self, ctx: "DebateContext", agent: "Agent", proposal: str) -> None:
+    def _record_positions(self, ctx: "DebateContextType", agent: "AgentType", proposal: str) -> None:
         """Record positions for truth-grounded personas."""
         debate_id = ctx.debate_id or ctx.env.task[:50]
 
@@ -283,7 +280,7 @@ class ProposalPhase:
         if self._record_grounded_position:
             self._record_grounded_position(agent.name, proposal, debate_id, 0, 0.7)
 
-    def _emit_message_event(self, agent: "Agent", content: str) -> None:
+    def _emit_message_event(self, agent: "AgentType", content: str) -> None:
         """Emit on_message hook event."""
         if "on_message" not in self.hooks:
             return

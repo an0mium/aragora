@@ -22,6 +22,31 @@ curl http://localhost:8080/api/health
 
 ### Debates
 
+#### Create a New Debate
+
+```bash
+curl -X POST http://localhost:8080/api/debates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "topic": "Should AI systems be required to explain their decisions?",
+    "rounds": 3,
+    "agents": ["anthropic-api", "openai-api", "gemini"]
+  }'
+```
+
+Response (201 Created):
+```json
+{
+  "debate_id": "debate-20240115-abc123",
+  "topic": "Should AI systems be required to explain their decisions?",
+  "status": "in_progress",
+  "agents": ["anthropic-api", "openai-api", "gemini"],
+  "rounds": 3,
+  "created_at": "2024-01-15T10:00:00Z",
+  "stream_url": "ws://localhost:8080/ws?debate_id=debate-20240115-abc123"
+}
+```
+
 #### List Recent Debates
 
 ```bash
@@ -101,6 +126,53 @@ Response:
     "no_convergence": false,
     "high_severity_critiques": false
   }
+}
+```
+
+#### Vote on a Debate
+
+Submit a user vote for a debate:
+
+```bash
+curl -X POST http://localhost:8080/api/debates/debate-001/vote \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent": "anthropic-api",
+    "reason": "Provided the most comprehensive and well-reasoned argument"
+  }'
+```
+
+Response:
+```json
+{
+  "success": true,
+  "vote_id": "vote-xyz789",
+  "debate_id": "debate-001",
+  "voted_for": "anthropic-api",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+#### Submit User Suggestion
+
+Add a suggestion during a live debate:
+
+```bash
+curl -X POST http://localhost:8080/api/debates/debate-001/suggest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Consider the impact on small businesses specifically",
+    "target_agent": null
+  }'
+```
+
+Response:
+```json
+{
+  "success": true,
+  "suggestion_id": "sug-abc123",
+  "status": "queued",
+  "position": 3
 }
 ```
 
