@@ -122,6 +122,11 @@ jobs:
             echo "Installing package (low memory mode)..."
             pip install -e . --quiet --no-cache-dir
 
+            # Create required directories for debate persistence
+            echo "Creating data directories..."
+            mkdir -p /home/ubuntu/aragora/.nomic
+            chmod 755 /home/ubuntu/aragora/.nomic
+
             # Pre-flight check: verify server module can be imported
             echo "Running pre-flight import check..."
             if ! python -c "from aragora.server.unified_server import UnifiedServer; print('Import OK')" 2>&1; then
@@ -272,6 +277,11 @@ jobs:
             source venv/bin/activate || source ~/venv/bin/activate
             echo "Installing package..."
             pip install -e . --quiet
+
+            # Create required directories for debate persistence
+            echo "Creating data directories..."
+            mkdir -p ~/.nomic
+            chmod 755 ~/.nomic
 
             # Pre-flight check: verify server module can be imported
             echo "Running pre-flight import check..."

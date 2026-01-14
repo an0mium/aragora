@@ -1517,12 +1517,21 @@ async def run_unified_server(
     # Initialize storage from nomic directory
     storage = None
     if nomic_dir:
+        # Ensure nomic_dir exists - critical for debate persistence
+        try:
+            nomic_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"[server] Nomic directory ready: {nomic_dir}")
+        except (OSError, PermissionError) as e:
+            logger.error(f"[server] CRITICAL: Cannot create nomic directory {nomic_dir}: {e}")
+            raise RuntimeError(f"Cannot create nomic directory: {e}") from e
+
         db_path = nomic_dir / "debates.db"
         try:
             storage = DebateStorage(str(db_path))
             logger.info(f"[server] DebateStorage initialized at {db_path}")
         except (OSError, RuntimeError) as e:
-            logger.warning(f"[server] Failed to initialize DebateStorage: {e}")
+            logger.error(f"[server] CRITICAL: Cannot initialize DebateStorage at {db_path}: {e}")
+            raise RuntimeError(f"Cannot initialize debate storage: {e}") from e
 
     # Ensure demo data is loaded for search functionality
     try:

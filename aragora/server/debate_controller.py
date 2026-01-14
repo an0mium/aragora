@@ -178,6 +178,15 @@ class DebateController:
         Returns:
             DebateResponse with debate_id on success
         """
+        # Validate storage is available for persistence
+        if not self.storage:
+            logger.error("[debate] Cannot start debate: storage not configured")
+            return DebateResponse(
+                success=False,
+                error="Server storage not configured. Debates cannot be persisted.",
+                status_code=503,
+            )
+
         # Generate debate ID
         debate_id = f"adhoc_{uuid.uuid4().hex[:8]}"
 
