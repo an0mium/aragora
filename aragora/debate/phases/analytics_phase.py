@@ -190,8 +190,8 @@ class AnalyticsPhase:
     def _record_metrics(self, ctx: "DebateContext") -> None:
         """Record debate metrics for observability."""
         try:
-            from aragora.debate.orchestrator import (
-                record_debate_completed,  # type: ignore[attr-defined]
+            from aragora.debate.orchestrator import (  # type: ignore[attr-defined]
+                record_debate_completed,
             )
 
             result = ctx.result

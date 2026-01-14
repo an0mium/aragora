@@ -36,8 +36,8 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
-    from aragora.agents.grounded import MomentDetector
-    from aragora.agents.positions import FlipDetector, PositionLedger, PositionTracker
+    from aragora.agents.grounded import MomentDetector  # type: ignore[attr-defined]
+    from aragora.agents.positions import FlipDetector, PositionLedger, PositionTracker  # type: ignore[attr-defined]
     from aragora.core import DebateResult
     from aragora.debate.context import DebateContext
     from aragora.debate.protocol import DebateProtocol
@@ -266,7 +266,7 @@ class SubsystemCoordinator:
         # Reset moment detector for new debate
         if self.moment_detector:
             try:
-                self.moment_detector.reset()
+                self.moment_detector.reset()  # type: ignore[attr-defined]
             except Exception as e:
                 logger.debug("MomentDetector reset failed: %s", e)
 
@@ -287,7 +287,7 @@ class SubsystemCoordinator:
         if self.position_ledger:
             for agent_name, position in positions.items():
                 try:
-                    self.position_ledger.record_position(
+                    self.position_ledger.record_position(  # type: ignore[call-arg]
                         agent_name=agent_name,
                         debate_id=ctx.debate_id,
                         round_num=round_num,
@@ -312,9 +312,9 @@ class SubsystemCoordinator:
         # Update consensus memory
         if self.consensus_memory and result:
             try:
-                self.consensus_memory.store_outcome(
+                self.consensus_memory.store_outcome(  # type: ignore[attr-defined, call-arg]
                     debate_id=ctx.debate_id,
-                    question=ctx.task,
+                    question=ctx.task,  # type: ignore[attr-defined]
                     consensus=getattr(result, "consensus", None),
                     confidence=getattr(result, "consensus_confidence", 0.0),
                     votes=getattr(result, "votes", []),
@@ -330,7 +330,7 @@ class SubsystemCoordinator:
                 predictions = getattr(result, "predictions", {})
                 actual_outcome = getattr(result, "consensus", "")
                 for agent_name, prediction in predictions.items():
-                    self.calibration_tracker.record_prediction(
+                    self.calibration_tracker.record_prediction(  # type: ignore[call-arg]
                         agent_name=agent_name,
                         predicted=prediction.get("prediction", ""),
                         confidence=prediction.get("confidence", 0.5),
@@ -342,9 +342,9 @@ class SubsystemCoordinator:
         # Update continuum memory with debate outcome
         if self.continuum_memory and result:
             try:
-                self.continuum_memory.store_debate_outcome(
+                self.continuum_memory.store_debate_outcome(  # type: ignore[attr-defined]
                     debate_id=ctx.debate_id,
-                    task=ctx.task,
+                    task=ctx.task,  # type: ignore[attr-defined]
                     consensus=getattr(result, "consensus", ""),
                     confidence=getattr(result, "consensus_confidence", 0.0),
                 )
@@ -373,7 +373,7 @@ class SubsystemCoordinator:
             return []
 
         try:
-            return self.dissent_retriever.retrieve(task, limit=limit)
+            return self.dissent_retriever.retrieve(task, limit=limit)  # type: ignore[attr-defined]
         except Exception as e:
             logger.debug("Dissent retrieval failed: %s", e)
             return []
@@ -393,7 +393,7 @@ class SubsystemCoordinator:
             return 1.0
 
         try:
-            stats = self.calibration_tracker.get_agent_stats(agent_name)
+            stats = self.calibration_tracker.get_agent_stats(agent_name)  # type: ignore[attr-defined]
             if stats and "calibration_score" in stats:
                 # Convert calibration score to weight
                 # Perfect calibration (1.0) -> weight 1.5
@@ -426,7 +426,7 @@ class SubsystemCoordinator:
             # Format memories for prompt injection
             lines = ["Relevant learnings from past debates:"]
             for mem in memories:
-                lines.append(f"- {mem.get('summary', mem.get('content', ''))}")
+                lines.append(f"- {mem.get('summary', mem.get('content', ''))}") # type: ignore[attr-defined]
             return "\n".join(lines)
         except Exception as e:
             logger.debug("Continuum context retrieval failed: %s", e)

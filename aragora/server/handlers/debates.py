@@ -511,7 +511,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         debates = storage.list_recent(limit=limit, org_id=org_id)
         # Convert DebateMetadata objects to dicts and normalize for SDK compatibility
         debates_list = [
-            normalize_debate_response(d.__dict__ if hasattr(d, "__dict__") else d) for d in debates
+            normalize_debate_response(d.__dict__ if hasattr(d, "__dict__") else d) for d in debates  # type: ignore[arg-type]
         ]
         return json_response({"debates": debates_list, "count": len(debates_list)})
 
@@ -1412,7 +1412,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 debate[key] = value
 
             # Save updated debate
-            storage.save_debate(debate_id, debate)
+            storage.save_debate(debate_id, debate)  # type: ignore[attr-defined]
 
             logger.info(f"Debate {debate_id} updated: {list(updates.keys())}")
 

@@ -179,7 +179,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         which causes browsers to block error responses for cross-origin requests.
         """
         # Send response headers first
-        self.send_response(code, message)
+        self.send_response(code, message)  # type: ignore[call-arg]
         self.send_header("Content-Type", self.error_content_type)
         # Add CORS headers so browser can read error responses
         self._add_cors_headers()

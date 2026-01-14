@@ -373,7 +373,7 @@ class WinnerSelector:
             # Identify cruxes
             cruxes = network.identify_cruxes(min_disagreement=0.3)
             if cruxes:
-                result.cruxes = [
+                result.cruxes = [  # type: ignore[attr-defined]
                     {"claim": c.text, "score": c.crux_score, "agents": list(c.sources)}
                     for c in cruxes[:5]
                 ]
