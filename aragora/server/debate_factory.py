@@ -302,6 +302,10 @@ class DebateFactory:
             consensus=config.consensus,  # type: ignore[arg-type]
             proposer_count=len(agent_result.agents),
             topology="all-to-all",
+            # Disable early termination for ad-hoc debates to ensure full rounds
+            early_stopping=False,
+            convergence_detection=False,
+            min_rounds_before_early_stop=config.rounds,
         )
 
         # Build arena using ArenaBuilder for cleaner configuration
