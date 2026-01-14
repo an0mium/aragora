@@ -247,7 +247,7 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
                   <button
                     key={type}
                     onClick={() => setExportType(type)}
-                    disabled={stats && !stats.available_exporters.includes(type)}
+                    disabled={!!stats && !stats.available_exporters.includes(type)}
                     className={`px-3 py-1.5 text-xs font-mono border transition-colors ${
                       exportType === type
                         ? 'bg-acid-green/20 text-acid-green border-acid-green/40'
@@ -429,7 +429,7 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
             <div className="mt-4 pt-4 border-t border-border">
               <button
                 onClick={handleExport}
-                disabled={exporting || (stats && !stats.available_exporters.includes(exportType))}
+                disabled={exporting || (!!stats && !stats.available_exporters.includes(exportType))}
                 className={`w-full px-4 py-2 text-xs font-mono border transition-colors ${
                   exporting
                     ? 'bg-acid-green/10 text-acid-green border-acid-green/40 cursor-wait'
