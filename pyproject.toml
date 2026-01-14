@@ -300,6 +300,15 @@ module = [
     "aragora.server.stream.state_manager",
     "aragora.server.stream.emitter",
     "aragora.server.stream.arena_hooks",
+    # Added strict - Phase 11 insights modules (Jan 2026)
+    "aragora.insights.__init__",
+    "aragora.insights.database",
+    # Added strict - Phase 11 additional modules (Jan 2026)
+    "aragora.reasoning.__init__",
+    "aragora.maintenance.__init__",
+    "aragora.billing.usage",
+    "aragora.billing.models",
+    "aragora.server.oauth_state_store",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

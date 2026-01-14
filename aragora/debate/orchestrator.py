@@ -13,7 +13,7 @@ import time
 from collections import deque
 from functools import lru_cache
 from types import TracebackType
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
@@ -860,15 +860,16 @@ class Arena:
             async def execute(self, context):
                 return await self._initializer.initialize(context)
 
+        phases_dict: dict[str, Any] = {
+            "context_initializer": ContextInitWrapper(self.context_initializer),
+            "proposal": self.proposal_phase,
+            "debate_rounds": self.debate_rounds_phase,
+            "consensus": self.consensus_phase,
+            "analytics": self.analytics_phase,
+            "feedback": self.feedback_phase,
+        }
         self.phase_executor = PhaseExecutor(
-            phases={  # type: ignore[dict-item]
-                "context_initializer": ContextInitWrapper(self.context_initializer),
-                "proposal": self.proposal_phase,
-                "debate_rounds": self.debate_rounds_phase,
-                "consensus": self.consensus_phase,
-                "analytics": self.analytics_phase,
-                "feedback": self.feedback_phase,
-            },
+            phases=phases_dict,
             config=PhaseConfig(
                 total_timeout_seconds=timeout,
                 phase_timeout_seconds=timeout / 3,  # Per-phase timeout
