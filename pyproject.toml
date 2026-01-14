@@ -228,6 +228,11 @@ module = [
     # Added strict - Phase 5 storage layer (Jan 2026)
     "aragora.storage.factory",
     "aragora.storage.webhook_store",
+    # Added strict - Phase 6 agent modules (Jan 2026)
+    "aragora.agents.api_agents.anthropic",
+    "aragora.agents.api_agents.openai",
+    "aragora.agents.api_agents.mistral",
+    "aragora.agents.api_agents.base",
     # Added strict - Phase 7 type safety expansion (Jan 2026)
     "aragora.memory.database",
     "aragora.server.stream.events",
