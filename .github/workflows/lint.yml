@@ -23,6 +23,7 @@ concurrency:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -44,6 +45,7 @@ jobs:
 
   typecheck:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -66,6 +68,7 @@ jobs:
 
   typecheck-core:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     name: Core Module Type Safety
 
     steps:
@@ -109,6 +112,7 @@ jobs:
 
   frontend-lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     defaults:
       run:
@@ -134,6 +138,7 @@ jobs:
 
   security:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -164,6 +169,7 @@ jobs:
 
   secrets:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: Secret Scanning
 
     steps:
@@ -180,6 +186,7 @@ jobs:
 
   docs-sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout

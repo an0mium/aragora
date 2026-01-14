@@ -36,6 +36,7 @@ jobs:
   load-test:
     name: Load Test Suite
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     services:
       redis:
@@ -280,6 +281,7 @@ jobs:
   memory-stress:
     name: Memory Stress Test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: load-test
 
     steps:

@@ -47,6 +47,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -74,6 +75,7 @@ jobs:
     needs: test
     if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'cloudflare' || github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -101,6 +103,7 @@ jobs:
     needs: test
     if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2-staging' || github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: staging
 
     steps:
@@ -243,6 +246,7 @@ jobs:
     needs: [test, deploy-ec2-staging]
     if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2-production'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: production
 
     steps:
@@ -305,6 +309,7 @@ jobs:
     needs: [deploy-cloudflare, deploy-ec2-staging, deploy-ec2-production]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Summarize deployment status

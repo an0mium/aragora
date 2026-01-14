@@ -300,14 +300,16 @@ jobs:
               sudo systemctl daemon-reload
             fi
 
-            # Configure nginx for WebSocket routing if nginx is installed
-            if command -v nginx &> /dev/null && [ -f deploy/nginx-aragora.conf ]; then
+            # Configure nginx for WebSocket routing if nginx is installed and configured for sites-available
+            if command -v nginx &> /dev/null && [ -f deploy/nginx-aragora.conf ] && [ -d /etc/nginx/sites-available ]; then
               echo "Configuring nginx for WebSocket routing..."
               sudo cp deploy/nginx-aragora.conf /etc/nginx/sites-available/aragora
               sudo ln -sf /etc/nginx/sites-available/aragora /etc/nginx/sites-enabled/aragora
               sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
               sudo nginx -t && sudo systemctl reload nginx
               echo "Nginx configured for WebSocket routing"
+            elif command -v nginx &> /dev/null; then
+              echo "Nginx installed but sites-available not configured, skipping nginx config"
             fi
 
             echo "Stopping service and releasing ports..."

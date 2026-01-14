@@ -147,6 +147,7 @@ jobs:
   visual-regression:
     name: Visual Regression Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: e2e
     if: github.event_name == 'pull_request'
 

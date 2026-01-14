@@ -31,6 +31,7 @@ jobs:
   benchmark:
     name: Performance Benchmarks
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -94,6 +95,7 @@ jobs:
   performance-regression:
     name: Performance Regression Check
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     if: github.event_name == 'pull_request'
 
     steps:
@@ -180,6 +182,7 @@ jobs:
   latency-tests:
     name: Latency Distribution
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
 
     steps:

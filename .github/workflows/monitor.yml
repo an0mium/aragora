@@ -9,6 +9,7 @@ on:
 jobs:
   health-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Check Cloudflare Pages (Frontend)
@@ -65,6 +66,7 @@ jobs:
     needs: health-check
     if: failure()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Create Issue on Failure
