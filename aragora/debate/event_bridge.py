@@ -78,9 +78,13 @@ class EventEmitterBridge:
             event_type: Type of event (e.g., "proposal", "critique", "vote")
             **kwargs: Event data (agent, details, round_number, etc.)
         """
-        # Emit to spectator (console/file)
+        # Emit to spectator (console/file) - only pass supported params
         if self.spectator:
-            self.spectator.emit(event_type, **kwargs)
+            spectator_kwargs = {
+                k: v for k, v in kwargs.items()
+                if k in ("agent", "details", "metric", "round_number")
+            }
+            self.spectator.emit(event_type, **spectator_kwargs)
 
         # Emit to WebSocket clients
         if self.event_emitter:
