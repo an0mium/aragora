@@ -7,27 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-01-14
+
 ### Added
-- **Template tests**: Added `tests/test_templates.py` with 83 tests covering debate templates module
+- **Admin UI components**: Complete admin console with React components
+  - `PersonaEditor`: Grid/list view persona management with search and detail panels
+  - `AuditLogViewer`: Real-time audit feed with filtering, export (JSON/CSV/SOC2)
+  - `TrainingExportPanel`: ML training data export (SFT, DPO, Gauntlet formats)
+  - Admin pages: `/admin/personas`, `/admin/audit`, `/admin/training`, `/admin/revenue`, `/admin/organizations`, `/admin/users`
+- **Nomic governance system**: Approval gates and audit logging for self-improvement safety
+  - `DesignGate`: Approval before implementation with complexity scoring
+  - `TestQualityGate`: Test quality validation with coverage and warning thresholds
+  - `CommitGate`: Structured approval before committing changes
+  - SQLite-backed audit logger with queryable event history
+  - Circuit breakers and recovery strategies for error handling
+- **Mandatory final synthesis**: Claude Opus 4.5 generates unified synthesis at debate end
+- **Gallery API**: Public debate access via `GET /api/gallery` for showcasing debates
+- **Test coverage expansion**: 23,363 tests (+607 from v1.3.0)
+- **Template tests**: Added `tests/test_templates.py` with 83 tests
 - **Streaming tests**: Added `tests/test_stream_arena_hooks.py` (31 tests) and `tests/test_stream_gauntlet_emitter.py` (27 tests)
 - **Server metrics tests**: Added `tests/test_server_metrics.py` with 56 tests for Prometheus-style metrics
 - **Load testing infrastructure**: Added `tests/performance/` with 13 load tests
-- **Postman generator module**: Extracted `aragora/server/postman_generator.py` from openapi_impl.py
 
 ### Changed
-- **README API documentation**: Updated API Endpoints section with accurate 298 endpoint count and references to full documentation
-- **OpenAPI consolidation**: Consolidated 3 OpenAPI specs into single programmatic source in `openapi.py`
-- **Test count**: Increased from 22,154 to 22,898 test functions
-- **Code health improvements**: Fixed mypy errors, refactored openapi_impl.py (2,051 → 1,861 LOC)
+- **Architecture Phase 2**: Extracted caches, added types module, integrated subsystems
+- **Handler refactoring**: Extracted debates and auth domains into subpackages
+- **Nomic phase improvements**: Enhanced error handling in phase implementations
+- **Orchestrator cleanup**: Removed dead methods, slimmed Arena class
+- **Convergence refactoring**: Split module into cache/similarity/detector
+- **Test count**: Increased from 22,756 to 23,363 test functions
+- **Deploy consolidation**: Unified aragora.service systemd configuration
 
 ### Fixed
-- **Type safety**: Fixed mypy errors in `openapi_impl.py` (yaml.dump return type) and `secrets.py` (dict return type)
-- **Re-export stability**: Added `noqa: F401` comments to prevent linter from removing backwards-compatibility re-exports
+- **WebSocket stability**: Resolved race conditions causing UI flickering
+- **WebSocket reconnection**: Stabilized useEffect dependencies to prevent reconnection loops
+- **Event handling**: Defensive `.get()` for event data access, filtered kwargs for SpectatorStream
+- **Database persistence**: Ensure temperature_params table persists across restarts
+- **Debates handler**: Expanded test coverage and improved reliability
+- **Type safety**: Fixed mypy errors in `openapi_impl.py` and `secrets.py`
+
+### Documentation
+- **ADMIN.md**: Comprehensive admin console guide with API endpoints and component usage
+- **NOMIC_GOVERNANCE.md**: Approval gates, audit logging, and state machine documentation
+- **Feature discovery guide**: `docs/FEATURE_DISCOVERY.md`
 
 ### Security
-- **SAST scan completed**: Bandit scan shows 0 HIGH severity issues (96 MEDIUM - mostly safe patterns)
-- **Rate limiting verified**: Load tests confirm rate limiting working correctly under concurrent load
-- **Live health checks**: Server health endpoint performing at <11ms average latency
+- **SAST scan**: Bandit shows 0 HIGH severity issues
+- **Rate limiting verified**: Load tests confirm correct behavior under concurrent load
+- **Nomic safety gates**: Approval required before critical autonomous operations
 
 ## [1.3.0] - 2026-01-13
 
