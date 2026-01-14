@@ -14,4 +14,5 @@ export type {
   StreamingMessage,
   TranscriptMessageCardProps,
   StreamingMessageCardProps,
+  CruxClaim,
 } from './types';

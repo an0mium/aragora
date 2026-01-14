@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchWithRetry } from '@/utils/retry';
 import { API_BASE_URL } from '@/config';
+import { ProofTreeVisualization } from './ProofTreeVisualization';
 
 interface BackendConfig {
   apiUrl: string;
@@ -30,6 +31,7 @@ interface VerificationResult {
   proof_search_time_ms?: number;
   error_message?: string;
   prover_version?: string;
+  history_id?: string;
 }
 
 interface BatchResult {
@@ -420,6 +422,16 @@ export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualize
                 {singleResult.proof_hash && (
                   <div className="text-xs font-mono text-text-muted">
                     Proof hash: {singleResult.proof_hash}
+                  </div>
+                )}
+
+                {/* Proof Tree Visualization */}
+                {singleResult.history_id && singleResult.is_verified && (
+                  <div className="mt-6 pt-4 border-t border-acid-green/20">
+                    <ProofTreeVisualization
+                      historyId={singleResult.history_id}
+                      apiBase={apiBase}
+                    />
                   </div>
                 )}
               </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { fetchDebateById, type DebateArtifact } from '@/utils/supabase';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -14,6 +14,15 @@ import { TokenStreamViewer } from '@/components/TokenStreamViewer';
 import { getAgentColors } from '@/utils/agentColors';
 import { useDebateWebSocket, type TranscriptMessage } from '@/hooks/useDebateWebSocket';
 import { logger } from '@/utils/logger';
+import { API_BASE_URL } from '@/config';
+
+// Type for crux claims from belief network API
+interface CruxClaim {
+  claim_id: string;
+  statement: string;
+  author: string;
+  crux_score?: number;
+}
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
 
@@ -32,6 +41,8 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
   const [showParticipation, setShowParticipation] = useState(true);
   const [showCitations, setShowCitations] = useState(false);
   const [userScrolled, setUserScrolled] = useState(false);
+  const [showCruxHighlighting, setShowCruxHighlighting] = useState(true);
+  const [cruxes, setCruxes] = useState<CruxClaim[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Determine if this is a live debate
@@ -46,10 +57,13 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
     streamingMessages,
     streamEvents,
     hasCitations,
+    error: liveError,
+    errorDetails: liveErrorDetails,
     sendVote,
     sendSuggestion,
     registerAckCallback,
     registerErrorCallback,
+    reconnect,
   } = useDebateWebSocket({
     debateId,
     wsUrl,
@@ -62,6 +76,36 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
       setShowCitations(true);
     }
   }, [hasCitations]);
+
+  // Fetch cruxes when debate has messages (for highlighting)
+  useEffect(() => {
+    // Only fetch if we have at least 3 messages and haven't fetched yet
+    if (liveMessages.length < 3 || cruxes.length > 0 || !isLiveDebate) return;
+
+    const fetchCruxes = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/belief-network/${debateId}/cruxes?top_k=5`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.cruxes && data.cruxes.length > 0) {
+            setCruxes(data.cruxes.map((c: { claim_id?: string; statement?: string; author?: string; crux_score?: number }) => ({
+              claim_id: c.claim_id || '',
+              statement: c.statement || '',
+              author: c.author || '',
+              crux_score: c.crux_score,
+            })));
+          }
+        }
+      } catch (err) {
+        // Silently ignore - crux highlighting is optional
+        logger.debug('Failed to fetch cruxes:', err);
+      }
+    };
+
+    // Debounce the fetch - wait for debate to settle
+    const timer = setTimeout(fetchCruxes, 2000);
+    return () => clearTimeout(timer);
+  }, [liveMessages.length, cruxes.length, debateId, isLiveDebate]);
 
   // Detect when user manually scrolls up
   const handleScroll = useCallback(() => {
@@ -194,6 +238,12 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
               onScroll={handleScroll}
               userScrolled={userScrolled}
               onResumeAutoScroll={handleResumeAutoScroll}
+              cruxes={cruxes}
+              showCruxHighlighting={showCruxHighlighting}
+              setShowCruxHighlighting={setShowCruxHighlighting}
+              error={liveError}
+              errorDetails={liveErrorDetails}
+              onRetry={reconnect}
             />
           )}
 
@@ -236,6 +286,164 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
   );
 }
 
+// Helper to extract actionable info from error messages
+function parseErrorDetails(errorDetails: string | null | undefined): {
+  problemType: string;
+  suggestion: string;
+  invalidValues?: string[];
+} {
+  if (!errorDetails) {
+    return {
+      problemType: 'unknown',
+      suggestion: 'Please try starting a new debate from the home page.',
+    };
+  }
+
+  // Check for invalid agent type error
+  const agentMatch = errorDetails.match(/Invalid agent type[s]?:\s*([^.]+)/i);
+  if (agentMatch) {
+    const invalidAgents = agentMatch[1].split(',').map(s => s.trim());
+    return {
+      problemType: 'invalid_agent',
+      suggestion: 'The selected agent configuration is invalid. Please go back and select different agents.',
+      invalidValues: invalidAgents,
+    };
+  }
+
+  // Check for validation errors
+  if (errorDetails.toLowerCase().includes('validation')) {
+    return {
+      problemType: 'validation',
+      suggestion: 'There was a problem with the debate configuration. Please check your settings and try again.',
+    };
+  }
+
+  // Check for timeout errors
+  if (errorDetails.toLowerCase().includes('timeout') || errorDetails.toLowerCase().includes('time out')) {
+    return {
+      problemType: 'timeout',
+      suggestion: 'The debate took too long to start. The server may be overloaded. Please try again.',
+    };
+  }
+
+  return {
+    problemType: 'unknown',
+    suggestion: 'An unexpected error occurred. Please try starting a new debate.',
+  };
+}
+
+// Error view component for failed debates
+interface DebateErrorViewProps {
+  debateId: string;
+  error: string;
+  errorDetails?: string | null;
+  onRetry?: () => void;
+}
+
+function DebateErrorView({ debateId, error, errorDetails, onRetry }: DebateErrorViewProps) {
+  const { problemType, suggestion, invalidValues } = parseErrorDetails(errorDetails);
+
+  return (
+    <div className="space-y-6">
+      {/* Error Header */}
+      <div className="bg-surface border-2 border-red-500/50 p-6">
+        <div className="flex items-start gap-4">
+          <div className="text-red-400 text-3xl">{'⚠'}</div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 text-xs font-mono mb-2">
+              <span className="w-2 h-2 rounded-full bg-red-400" />
+              <span className="text-red-400 uppercase">DEBATE FAILED</span>
+            </div>
+            <h1 className="text-lg font-mono text-red-400 mb-2">
+              {error}
+            </h1>
+            <div className="text-xs text-text-muted font-mono">
+              ID: {debateId}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Error Details */}
+      <div className="bg-surface border border-acid-green/30 p-6">
+        <div className="text-xs font-mono text-acid-green uppercase mb-4">
+          {'>'} ERROR DETAILS
+        </div>
+
+        {errorDetails && (
+          <div className="bg-bg/50 border border-red-500/30 p-4 mb-4 font-mono text-sm text-red-400">
+            <code>{errorDetails}</code>
+          </div>
+        )}
+
+        {problemType === 'invalid_agent' && invalidValues && (
+          <div className="mb-4">
+            <div className="text-xs text-text-muted mb-2">Invalid agent type(s):</div>
+            <div className="flex flex-wrap gap-2">
+              {invalidValues.map((agent) => (
+                <span
+                  key={agent}
+                  className="px-2 py-1 text-xs font-mono bg-red-500/20 text-red-400 border border-red-500/40"
+                >
+                  {agent}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="text-text-muted text-sm">
+          {suggestion}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="bg-surface border border-acid-green/30 p-6">
+        <div className="text-xs font-mono text-acid-green uppercase mb-4">
+          {'>'} WHAT TO DO
+        </div>
+
+        <div className="space-y-3">
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              className="w-full py-3 px-4 bg-acid-cyan/20 text-acid-cyan border border-acid-cyan/40 hover:bg-acid-cyan/30 transition-colors font-mono text-sm text-left flex items-center gap-3"
+            >
+              <span className="text-lg">{'↻'}</span>
+              <div>
+                <div className="font-bold">[RETRY CONNECTION]</div>
+                <div className="text-xs text-text-muted">Attempt to reconnect to the debate</div>
+              </div>
+            </button>
+          )}
+
+          <Link
+            href="/"
+            className="w-full py-3 px-4 bg-acid-green/20 text-acid-green border border-acid-green/40 hover:bg-acid-green/30 transition-colors font-mono text-sm text-left flex items-center gap-3 block"
+          >
+            <span className="text-lg">{'←'}</span>
+            <div>
+              <div className="font-bold">[START NEW DEBATE]</div>
+              <div className="text-xs text-text-muted">Return to home and configure a new debate</div>
+            </div>
+          </Link>
+
+          {problemType === 'invalid_agent' && (
+            <div className="mt-4 p-4 bg-acid-yellow/10 border border-acid-yellow/30 text-sm">
+              <div className="text-acid-yellow font-mono text-xs uppercase mb-2">{'>'} TIP</div>
+              <p className="text-text-muted">
+                If you&apos;re seeing this error repeatedly, try clearing your browser cache
+                (Cmd+Shift+R on Mac, Ctrl+Shift+R on Windows) to ensure you have the latest
+                agent configuration.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Sub-component for live debate view
 interface LiveDebateViewProps {
   debateId: string;
@@ -260,6 +468,14 @@ interface LiveDebateViewProps {
   onScroll: () => void;
   userScrolled: boolean;
   onResumeAutoScroll: () => void;
+  // Crux highlighting props
+  cruxes?: CruxClaim[];
+  showCruxHighlighting?: boolean;
+  setShowCruxHighlighting?: (show: boolean) => void;
+  // Error handling props
+  error?: string | null;
+  errorDetails?: string | null;
+  onRetry?: () => void;
 }
 
 function LiveDebateView({
@@ -285,7 +501,25 @@ function LiveDebateView({
   onScroll,
   userScrolled,
   onResumeAutoScroll,
+  cruxes,
+  showCruxHighlighting,
+  setShowCruxHighlighting,
+  error,
+  errorDetails,
+  onRetry,
 }: LiveDebateViewProps) {
+  // Show error view if debate failed
+  if (status === 'error' && (error || errorDetails)) {
+    return (
+      <DebateErrorView
+        debateId={debateId}
+        error={error || 'Debate failed'}
+        errorDetails={errorDetails}
+        onRetry={onRetry}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Live Debate Header */}
@@ -353,6 +587,19 @@ function LiveDebateView({
                   </span>
                 )}
               </span>
+              {cruxes && cruxes.length > 0 && setShowCruxHighlighting && (
+                <button
+                  onClick={() => setShowCruxHighlighting(!showCruxHighlighting)}
+                  className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                    showCruxHighlighting
+                      ? 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40'
+                      : 'bg-surface text-text-muted border-border hover:border-acid-yellow/40'
+                  }`}
+                  title={`${cruxes.length} crux claim${cruxes.length !== 1 ? 's' : ''} detected`}
+                >
+                  {showCruxHighlighting ? `[HIDE CRUXES: ${cruxes.length}]` : `[SHOW CRUXES: ${cruxes.length}]`}
+                </button>
+              )}
               <button
                 onClick={() => setShowParticipation(!showParticipation)}
                 className={`px-2 py-1 text-xs font-mono border transition-colors ${
@@ -380,7 +627,11 @@ function LiveDebateView({
               </div>
             )}
             {messages.map((msg, idx) => (
-              <TranscriptMessageCard key={`${msg.agent}-${msg.timestamp}-${idx}`} message={msg} />
+              <TranscriptMessageCard
+                key={`${msg.agent}-${msg.timestamp}-${idx}`}
+                message={msg}
+                cruxes={showCruxHighlighting ? cruxes : undefined}
+              />
             ))}
             {/* Streaming messages */}
             {Array.from(streamingMessages.values()).map((streamMsg) => (
@@ -557,8 +808,106 @@ function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateViewProps
   );
 }
 
+// Crux highlighting helper functions
+function findCruxMatches(
+  content: string,
+  cruxes: CruxClaim[]
+): Array<{ start: number; end: number; crux: CruxClaim }> {
+  const matches: Array<{ start: number; end: number; crux: CruxClaim }> = [];
+  const contentLower = content.toLowerCase();
+
+  for (const crux of cruxes) {
+    const statement = crux.statement;
+    const minLen = Math.min(30, statement.length);
+    const statementLower = statement.toLowerCase();
+
+    // Try exact match first
+    let idx = contentLower.indexOf(statementLower);
+    if (idx !== -1) {
+      matches.push({ start: idx, end: idx + statement.length, crux });
+      continue;
+    }
+
+    // Try prefix match for truncated statements
+    const prefix = statementLower.slice(0, minLen);
+    idx = contentLower.indexOf(prefix);
+    if (idx !== -1 && minLen >= 30) {
+      let endIdx = idx + minLen;
+      const remaining = contentLower.slice(endIdx);
+      const sentenceEnd = remaining.search(/[.!?\n]/);
+      if (sentenceEnd !== -1 && sentenceEnd < 200) {
+        endIdx += sentenceEnd + 1;
+      } else {
+        endIdx = Math.min(idx + 200, content.length);
+      }
+      matches.push({ start: idx, end: endIdx, crux });
+    }
+  }
+
+  // Sort and remove overlaps
+  matches.sort((a, b) => a.start - b.start);
+  const filtered: Array<{ start: number; end: number; crux: CruxClaim }> = [];
+  for (const m of matches) {
+    if (filtered.length === 0 || m.start >= filtered[filtered.length - 1].end) {
+      filtered.push(m);
+    }
+  }
+  return filtered;
+}
+
+function HighlightedContent({ content, cruxes }: { content: string; cruxes?: CruxClaim[] }) {
+  const parts = useMemo(() => {
+    if (!cruxes || cruxes.length === 0) {
+      return [{ text: content, isHighlight: false, crux: undefined }];
+    }
+
+    const matches = findCruxMatches(content, cruxes);
+    if (matches.length === 0) {
+      return [{ text: content, isHighlight: false, crux: undefined }];
+    }
+
+    const result: Array<{ text: string; isHighlight: boolean; crux?: CruxClaim }> = [];
+    let lastEnd = 0;
+
+    for (const match of matches) {
+      if (match.start > lastEnd) {
+        result.push({ text: content.slice(lastEnd, match.start), isHighlight: false });
+      }
+      result.push({ text: content.slice(match.start, match.end), isHighlight: true, crux: match.crux });
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < content.length) {
+      result.push({ text: content.slice(lastEnd), isHighlight: false });
+    }
+
+    return result;
+  }, [content, cruxes]);
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.isHighlight ? (
+          <span
+            key={i}
+            className="bg-acid-yellow/20 border-b-2 border-acid-yellow text-acid-yellow relative group cursor-help"
+            title={`Crux: ${part.crux?.statement?.slice(0, 100)}${(part.crux?.statement?.length || 0) > 100 ? '...' : ''}`}
+          >
+            {part.text}
+            <span className="absolute -top-1 -right-1 text-[8px] bg-acid-yellow text-bg-dark px-0.5 rounded font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+              CRUX
+            </span>
+          </span>
+        ) : (
+          <span key={i}>{part.text}</span>
+        )
+      )}
+    </>
+  );
+}
+
 // Reusable transcript message component
-function TranscriptMessageCard({ message }: { message: TranscriptMessage }) {
+function TranscriptMessageCard({ message, cruxes }: { message: TranscriptMessage; cruxes?: CruxClaim[] }) {
   const colors = getAgentColors(message.agent || 'system');
   return (
     <div className={`${colors.bg} border ${colors.border} p-4`}>
@@ -585,7 +934,7 @@ function TranscriptMessageCard({ message }: { message: TranscriptMessage }) {
         )}
       </div>
       <div className="text-sm text-text whitespace-pre-wrap">
-        {message.content}
+        <HighlightedContent content={message.content} cruxes={cruxes} />
       </div>
     </div>
   );

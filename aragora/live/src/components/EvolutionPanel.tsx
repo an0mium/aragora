@@ -5,6 +5,9 @@ import { ErrorWithRetry } from './RetryButton';
 import { withErrorBoundary } from './PanelErrorBoundary';
 import { fetchWithRetry } from '@/utils/retry';
 import { API_BASE_URL } from '@/config';
+import { LineageBrowser } from './LineageBrowser';
+import { EvolutionTimeline } from './EvolutionTimeline';
+import { ABTestResultsPanel } from './ABTestResultsPanel';
 
 interface GenesisStats {
   total_genomes: number;
@@ -76,7 +79,7 @@ const DEFAULT_API_BASE = API_BASE_URL;
 function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
   const apiBase = backendConfig?.apiUrl || DEFAULT_API_BASE;
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'genomes' | 'events' | 'patterns' | 'abtests'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'genomes' | 'lineage' | 'timeline' | 'patterns' | 'abtests'>('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -177,7 +180,8 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
   const tabs = [
     { id: 'overview', label: 'OVERVIEW' },
     { id: 'genomes', label: 'GENOMES' },
-    { id: 'events', label: 'EVENTS' },
+    { id: 'lineage', label: 'LINEAGE' },
+    { id: 'timeline', label: 'TIMELINE' },
     { id: 'patterns', label: 'PATTERNS' },
     { id: 'abtests', label: 'A/B TESTS' },
   ] as const;
@@ -364,37 +368,26 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
         </div>
       )}
 
-      {!loading && activeTab === 'events' && (
+      {!loading && activeTab === 'lineage' && (
         <div className="card p-4">
-          <div className="text-xs font-mono text-acid-cyan mb-4">GENESIS EVENTS</div>
-          <div className="space-y-2">
-            {events.map((event) => (
-              <div key={event.id} className="p-3 bg-surface rounded border border-acid-green/20">
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`px-2 py-0.5 rounded text-xs font-mono ${
-                    event.event_type === 'mutation' ? 'bg-acid-green/20 text-acid-green' :
-                    event.event_type === 'crossover' ? 'bg-acid-cyan/20 text-acid-cyan' :
-                    event.event_type === 'selection' ? 'bg-acid-yellow/20 text-acid-yellow' :
-                    event.event_type === 'extinction' ? 'bg-acid-red/20 text-acid-red' :
-                    'bg-accent/20 text-accent'
-                  }`}>
-                    {event.event_type.toUpperCase()}
-                  </span>
-                  <span className="text-xs font-mono text-text-muted">
-                    {new Date(event.timestamp).toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center gap-4 text-xs font-mono">
-                  <span className="text-text-muted">Genome: <span className="text-acid-green">{event.genome_id.slice(0, 12)}</span></span>
-                  {event.fitness_change !== undefined && (
-                    <span className={event.fitness_change >= 0 ? 'text-acid-green' : 'text-acid-red'}>
-                      {event.fitness_change >= 0 ? '+' : ''}{(event.fitness_change * 100).toFixed(1)}%
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+          <LineageBrowser
+            apiBase={apiBase}
+            genomeId={selectedGenome?.id}
+            onGenomeSelect={(id) => {
+              const genome = genomes.find(g => g.id === id);
+              if (genome) setSelectedGenome(genome);
+            }}
+          />
+        </div>
+      )}
+
+      {!loading && activeTab === 'timeline' && (
+        <div className="card p-4">
+          <EvolutionTimeline
+            apiBase={apiBase}
+            limit={100}
+            autoRefresh={false}
+          />
         </div>
       )}
 
@@ -427,51 +420,11 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
       )}
 
       {!loading && activeTab === 'abtests' && (
-        <div className="space-y-4">
-          {abTests.map((test) => (
-            <div key={test.id} className="card p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <div className="font-mono text-acid-green">{test.agent}</div>
-                  <div className="text-xs font-mono text-text-muted">{test.id}</div>
-                </div>
-                <span className={`px-2 py-1 rounded text-xs font-mono ${
-                  test.status === 'active' ? 'bg-acid-green/20 text-acid-green' :
-                  test.status === 'concluded' ? 'bg-acid-cyan/20 text-acid-cyan' :
-                  'bg-acid-red/20 text-acid-red'
-                }`}>
-                  {test.status.toUpperCase()}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className={`p-3 rounded ${test.winner === 'A' ? 'bg-acid-green/20' : 'bg-surface'}`}>
-                  <div className="text-xs font-mono text-text-muted mb-1">VARIANT A</div>
-                  <div className="text-2xl font-mono text-acid-green">{test.wins_a}</div>
-                  <div className="text-xs font-mono text-text-muted">wins</div>
-                </div>
-                <div className="p-3 rounded bg-surface">
-                  <div className="text-xs font-mono text-text-muted mb-1">DRAWS</div>
-                  <div className="text-2xl font-mono text-text-muted">{test.draws}</div>
-                </div>
-                <div className={`p-3 rounded ${test.winner === 'B' ? 'bg-accent/20' : 'bg-surface'}`}>
-                  <div className="text-xs font-mono text-text-muted mb-1">VARIANT B</div>
-                  <div className="text-2xl font-mono text-accent">{test.wins_b}</div>
-                  <div className="text-xs font-mono text-text-muted">wins</div>
-                </div>
-              </div>
-
-              <div className="mt-3 text-xs font-mono text-text-muted">
-                Started: {new Date(test.created_at).toLocaleDateString()}
-                {test.concluded_at && ` | Concluded: ${new Date(test.concluded_at).toLocaleDateString()}`}
-              </div>
-            </div>
-          ))}
-          {abTests.length === 0 && (
-            <div className="text-center py-8 text-text-muted font-mono">
-              No A/B tests found.
-            </div>
-          )}
+        <div className="card p-4">
+          <ABTestResultsPanel
+            apiBase={apiBase}
+            showListView={true}
+          />
         </div>
       )}
 

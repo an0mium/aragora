@@ -31,6 +31,10 @@ export interface LiveDebateViewProps {
   onScroll: () => void;
   userScrolled: boolean;
   onResumeAutoScroll: () => void;
+  // Crux highlighting props
+  cruxes?: CruxClaim[];
+  showCruxHighlighting?: boolean;
+  setShowCruxHighlighting?: (show: boolean) => void;
 }
 
 export interface ArchivedDebateViewProps {
@@ -45,8 +49,16 @@ export interface StreamingMessage {
   startTime: number;
 }
 
+export interface CruxClaim {
+  claim_id: string;
+  statement: string;
+  author: string;
+  crux_score?: number;
+}
+
 export interface TranscriptMessageCardProps {
   message: TranscriptMessage;
+  cruxes?: CruxClaim[];
 }
 
 export interface StreamingMessageCardProps {

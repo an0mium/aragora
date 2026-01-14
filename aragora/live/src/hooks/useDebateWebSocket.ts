@@ -4,7 +4,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { StreamEvent } from '@/types/events';
 import { logger } from '@/utils/logger';
 
+import { API_BASE_URL } from '@/config';
+
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
+
+// Timeout for waiting for debate_start event
+const DEBATE_START_TIMEOUT_MS = 15000; // 15 seconds
 
 export interface TranscriptMessage {
   agent: string;
@@ -35,10 +40,19 @@ interface UseDebateWebSocketOptions {
   enabled?: boolean;
 }
 
+// Debate status from server API
+interface DebateStatus {
+  status: string;
+  error?: string;
+  task?: string;
+  agents?: string[];
+}
+
 interface UseDebateWebSocketReturn {
   // Connection state
   status: DebateConnectionStatus;
   error: string | null;
+  errorDetails: string | null;  // Detailed error message from server
   isConnected: boolean;
   reconnectAttempt: number;  // Expose for UI feedback
 
@@ -65,6 +79,7 @@ export function useDebateWebSocket({
 }: UseDebateWebSocketOptions): UseDebateWebSocketReturn {
   const [status, setStatus] = useState<DebateConnectionStatus>('connecting');
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [task, setTask] = useState<string>('');
   const [agents, setAgents] = useState<string[]>([]);
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
@@ -72,11 +87,13 @@ export function useDebateWebSocket({
   const [streamEvents, setStreamEvents] = useState<StreamEvent[]>([]);
   const [hasCitations, setHasCitations] = useState(false);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
+  const [hasReceivedDebateStart, setHasReceivedDebateStart] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const ackCallbackRef = useRef<((msgType: string) => void) | null>(null);
   const errorCallbackRef = useRef<((message: string) => void) | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debateStartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isUnmountedRef = useRef(false);
 
   // Message deduplication
@@ -186,6 +203,78 @@ export function useDebateWebSocket({
     }
   }, []);
 
+  // Clear debate start timeout
+  const clearDebateStartTimeout = useCallback(() => {
+    if (debateStartTimeoutRef.current) {
+      clearTimeout(debateStartTimeoutRef.current);
+      debateStartTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Fetch debate status from HTTP API to check for errors
+  const fetchDebateStatus = useCallback(async (): Promise<DebateStatus | null> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/debates/${debateId}`);
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          status: data.status || 'unknown',
+          error: data.error || data.error_message,
+          task: data.task,
+          agents: data.agents,
+        };
+      } else if (response.status === 404) {
+        return { status: 'not_found', error: 'Debate not found' };
+      }
+      return null;
+    } catch (e) {
+      logger.debug('Failed to fetch debate status:', e);
+      return null;
+    }
+  }, [debateId]);
+
+  // Handle debate start timeout - fetch status and show error if debate failed
+  const handleDebateStartTimeout = useCallback(async () => {
+    if (isUnmountedRef.current || hasReceivedDebateStart) return;
+
+    logger.warn(`[WebSocket] No debate_start received within ${DEBATE_START_TIMEOUT_MS}ms, checking debate status`);
+
+    const debateStatus = await fetchDebateStatus();
+
+    if (isUnmountedRef.current) return;
+
+    if (debateStatus) {
+      if (debateStatus.status === 'error' || debateStatus.status === 'failed') {
+        setStatus('error');
+        setError('Debate failed to start');
+        setErrorDetails(debateStatus.error || 'Unknown error occurred while starting the debate');
+        errorCallbackRef.current?.(debateStatus.error || 'Debate failed to start');
+        return;
+      }
+      if (debateStatus.status === 'not_found') {
+        setStatus('error');
+        setError('Debate not found');
+        setErrorDetails('The debate could not be found. It may have been deleted or never created.');
+        return;
+      }
+      // If status is running/active but we haven't received events, could be network issue
+      if (debateStatus.status === 'running' || debateStatus.status === 'active') {
+        // Set task/agents from API if we have them
+        if (debateStatus.task) setTask(debateStatus.task);
+        if (debateStatus.agents) setAgents(debateStatus.agents);
+        // Keep trying to connect
+        return;
+      }
+    }
+
+    // If we couldn't determine status, show generic error after several reconnect attempts
+    if (reconnectAttempt >= 3) {
+      setStatus('error');
+      setError('Debate failed to start');
+      setErrorDetails('The debate did not start within the expected time. This could be due to invalid configuration or server issues.');
+    }
+  }, [debateId, hasReceivedDebateStart, reconnectAttempt, fetchDebateStatus]);
+
   // Schedule reconnection with exponential backoff
   const scheduleReconnect = useCallback(() => {
     if (isUnmountedRef.current) return;
@@ -212,10 +301,13 @@ export function useDebateWebSocket({
   // Manual reconnect trigger
   const reconnect = useCallback(() => {
     clearReconnectTimeout();
+    clearDebateStartTimeout();
     setReconnectAttempt(0);
     setStatus('connecting');
     setError(null);
-  }, [clearReconnectTimeout]);
+    setErrorDetails(null);
+    setHasReceivedDebateStart(false);
+  }, [clearReconnectTimeout, clearDebateStartTimeout]);
 
   // Helper to add message with deduplication
   const addMessageIfNew = useCallback((msg: TranscriptMessage) => {
@@ -258,8 +350,11 @@ export function useDebateWebSocket({
       if (data.type === 'debate_start') {
         setTask(data.data.task || 'Debate in progress...');
         setAgents(data.data.agents || []);
+        setHasReceivedDebateStart(true);
+        clearDebateStartTimeout();
       } else if (data.type === 'debate_end') {
         setStatus('complete');
+        clearDebateStartTimeout();
       }
 
       // Agent message events
@@ -464,6 +559,25 @@ export function useDebateWebSocket({
         if (errorCallbackRef.current) {
           errorCallbackRef.current(errorMsg);
         }
+        // If this is a fatal error (e.g., invalid agent type), set error state
+        if (data.data?.fatal || data.data?.error_type === 'validation_error') {
+          setStatus('error');
+          setError('Debate failed');
+          setErrorDetails(errorMsg);
+          clearDebateStartTimeout();
+        }
+      }
+
+      // Debate error event (sent when debate fails to start)
+      else if (data.type === 'debate_error') {
+        const errorMsg = data.data?.message || data.data?.error || 'Debate failed to start';
+        setStatus('error');
+        setError('Debate failed to start');
+        setErrorDetails(errorMsg);
+        clearDebateStartTimeout();
+        if (errorCallbackRef.current) {
+          errorCallbackRef.current(errorMsg);
+        }
       }
 
       // Audience events
@@ -566,7 +680,7 @@ export function useDebateWebSocket({
     } catch (e) {
       logger.error('Failed to parse WebSocket message:', e);
     }
-  }, [debateId, addMessageIfNew, addStreamEvent]);
+  }, [debateId, addMessageIfNew, addStreamEvent, clearDebateStartTimeout]);
 
   // Track unmount state
   useEffect(() => {
@@ -574,8 +688,9 @@ export function useDebateWebSocket({
     return () => {
       isUnmountedRef.current = true;
       clearReconnectTimeout();
+      clearDebateStartTimeout();
     };
-  }, [clearReconnectTimeout]);
+  }, [clearReconnectTimeout, clearDebateStartTimeout]);
 
   // WebSocket connection effect
   useEffect(() => {
@@ -604,9 +719,17 @@ export function useDebateWebSocket({
       logger.debug(`[WebSocket] Connected (attempt ${reconnectAttempt + 1})`);
       setStatus('streaming');
       setError(null);
+      setErrorDetails(null);
       setReconnectAttempt(0);  // Reset on successful connection
       lastSeqRef.current = 0;  // Reset sequence tracking
       ws.send(JSON.stringify({ type: 'subscribe', debate_id: debateId }));
+
+      // Start timeout for debate_start event
+      // If we don't receive debate_start within timeout, check debate status via API
+      clearDebateStartTimeout();
+      debateStartTimeoutRef.current = setTimeout(() => {
+        handleDebateStartTimeout();
+      }, DEBATE_START_TIMEOUT_MS);
     };
 
     ws.onmessage = handleMessage;
@@ -641,11 +764,12 @@ export function useDebateWebSocket({
         ws.close(1000, 'Component unmounted');
       }
     };
-  }, [enabled, wsUrl, debateId, handleMessage, reconnectAttempt, scheduleReconnect, status]);
+  }, [enabled, wsUrl, debateId, handleMessage, reconnectAttempt, scheduleReconnect, status, handleDebateStartTimeout, clearDebateStartTimeout]);
 
   return {
     status,
     error,
+    errorDetails,
     isConnected: status === 'streaming',
     reconnectAttempt,
     task,

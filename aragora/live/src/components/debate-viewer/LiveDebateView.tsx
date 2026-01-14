@@ -44,6 +44,9 @@ export function LiveDebateView({
   onScroll,
   userScrolled,
   onResumeAutoScroll,
+  cruxes,
+  showCruxHighlighting,
+  setShowCruxHighlighting,
 }: LiveDebateViewProps) {
   const statusConfig = STATUS_CONFIG[status];
 
@@ -121,6 +124,19 @@ export function LiveDebateView({
                   <span className="ml-2 text-acid-cyan animate-pulse">({streamingMessages.size} streaming)</span>
                 )}
               </span>
+              {cruxes && cruxes.length > 0 && setShowCruxHighlighting && (
+                <button
+                  onClick={() => setShowCruxHighlighting(!showCruxHighlighting)}
+                  className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                    showCruxHighlighting
+                      ? 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40'
+                      : 'bg-surface text-text-muted border-border hover:border-acid-yellow/40'
+                  }`}
+                  title={`${cruxes.length} crux claim${cruxes.length !== 1 ? 's' : ''} detected`}
+                >
+                  {showCruxHighlighting ? `[HIDE CRUXES: ${cruxes.length}]` : `[SHOW CRUXES: ${cruxes.length}]`}
+                </button>
+              )}
               <button
                 onClick={() => setShowParticipation(!showParticipation)}
                 className={`px-2 py-1 text-xs font-mono border transition-colors ${
@@ -148,7 +164,11 @@ export function LiveDebateView({
               </div>
             )}
             {messages.map((msg, idx) => (
-              <TranscriptMessageCard key={`${msg.agent}-${msg.timestamp}-${idx}`} message={msg} />
+              <TranscriptMessageCard
+                key={`${msg.agent}-${msg.timestamp}-${idx}`}
+                message={msg}
+                cruxes={showCruxHighlighting ? cruxes : undefined}
+              />
             ))}
             {Array.from(streamingMessages.values()).map((streamMsg) => (
               <StreamingMessageCard key={`streaming-${streamMsg.agent}`} message={streamMsg} />
