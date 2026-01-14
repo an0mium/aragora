@@ -94,6 +94,28 @@ CREATE TABLE IF NOT EXISTS calibration_buckets (
     PRIMARY KEY (agent_name, domain, bucket_key)
 );
 
+-- Temperature parameters for calibration (from agent_calibration.db)
+CREATE TABLE IF NOT EXISTS temperature_params (
+    agent TEXT PRIMARY KEY,
+    temperature REAL DEFAULT 1.0,
+    domain_temperatures TEXT DEFAULT '{}',  -- JSON map of domain -> temperature
+    last_tuned TEXT,
+    predictions_at_tune INTEGER DEFAULT 0
+);
+
+-- Calibration predictions log (from agent_calibration.db)
+CREATE TABLE IF NOT EXISTS predictions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent TEXT NOT NULL,
+    domain TEXT DEFAULT '',
+    predicted REAL NOT NULL,
+    actual REAL NOT NULL,
+    bucket TEXT DEFAULT 'default',
+    timestamp TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_predictions_agent ON predictions(agent);
+CREATE INDEX IF NOT EXISTS idx_predictions_domain ON predictions(agent, domain);
 CREATE INDEX IF NOT EXISTS idx_domain_cal_agent ON domain_calibration(agent_name);
 
 -- =============================================================================

@@ -605,6 +605,28 @@ MIGRATION_MAP = {
                     "brier_sum",
                 ],
             },
+            "predictions": {
+                "target_table": "predictions",
+                "columns": [
+                    "id",
+                    "agent",
+                    "domain",
+                    "predicted",
+                    "actual",
+                    "bucket",
+                    "timestamp",
+                ],
+            },
+            "temperature_params": {
+                "target_table": "temperature_params",
+                "columns": [
+                    "agent",
+                    "temperature",
+                    "domain_temperatures",
+                    "last_tuned",
+                    "predictions_at_tune",
+                ],
+            },
         },
     },
     "aragora_insights.db": {
