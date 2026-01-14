@@ -3,9 +3,24 @@ name: Tests
 on:
   push:
     branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'requirements.txt'
+      - '.github/workflows/test.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'requirements.txt'
   workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:

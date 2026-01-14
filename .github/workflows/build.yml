@@ -4,9 +4,26 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+    paths:
+      - 'aragora/**'
+      - 'Dockerfile*'
+      - 'docker-compose*.yml'
+      - 'requirements.txt'
+      - 'pyproject.toml'
+      - '.github/workflows/build.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'Dockerfile*'
+      - 'docker-compose*.yml'
+      - 'requirements.txt'
+      - 'pyproject.toml'
   workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io

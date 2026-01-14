@@ -3,11 +3,27 @@ name: Security Scan
 on:
   push:
     branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'package*.json'
+      - '.github/workflows/security.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'package*.json'
   schedule:
     # Run weekly on Sundays at midnight UTC
     - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

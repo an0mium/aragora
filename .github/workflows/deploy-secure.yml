@@ -17,6 +17,12 @@ name: Deploy (Secure)
 on:
   push:
     branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'deploy/**'
+      - 'requirements.txt'
+      - 'pyproject.toml'
+      - '.github/workflows/deploy-secure.yml'
   workflow_dispatch:
     inputs:
       environment:
