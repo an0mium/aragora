@@ -8,7 +8,7 @@ case "$tier" in
     pytest tests/ -m "not slow and not load and not e2e" --timeout=30
     ;;
   ci)
-    pytest tests/ -v --timeout=60 --cov=aragora --cov-report=term-missing --cov-report=xml -x --tb=short
+    pytest tests/ -v --timeout=60 --cov=aragora --cov-report=term-missing --cov-report=xml --cov-fail-under=75 -x --tb=short
     ;;
   lint)
     black --check --diff aragora/ tests/ scripts/
