@@ -2,17 +2,29 @@
 
 import { useState, useEffect, ReactNode } from 'react';
 
+type SectionPriority = 'core' | 'secondary' | 'advanced';
+
 interface CollapsibleSectionProps {
   id: string;
   title: string;
   defaultOpen?: boolean;
   children: ReactNode;
   badge?: number;
+  /** Section priority for Focus Mode filtering */
+  priority?: SectionPriority;
+  /** Hide entire section in Focus Mode (collapsed sections still visible) */
+  hideInFocusMode?: boolean;
+  /** Override open state from parent (for dashboard mode control) */
+  forceOpen?: boolean;
+  /** Description shown on hover */
+  description?: string;
 }
 
 /**
  * A collapsible section that persists its open/closed state in localStorage.
  * Used to organize the sidebar panels into logical groups.
+ *
+ * Supports Focus Mode where only core sections are visible.
  */
 export function CollapsibleSection({
   id,
@@ -20,6 +32,10 @@ export function CollapsibleSection({
   defaultOpen = false,
   children,
   badge,
+  priority = 'secondary',
+  hideInFocusMode = false,
+  forceOpen,
+  description,
 }: CollapsibleSectionProps) {
   const storageKey = `aragora-section-${id}`;
 
@@ -30,18 +46,35 @@ export function CollapsibleSection({
     return stored !== null ? stored === 'true' : defaultOpen;
   });
 
+  // Handle forceOpen override from parent
+  useEffect(() => {
+    if (forceOpen !== undefined) {
+      setIsOpen(forceOpen);
+    }
+  }, [forceOpen]);
+
   // Persist state changes to localStorage
   useEffect(() => {
-    localStorage.setItem(storageKey, String(isOpen));
-  }, [isOpen, storageKey]);
+    if (forceOpen === undefined) {
+      localStorage.setItem(storageKey, String(isOpen));
+    }
+  }, [isOpen, storageKey, forceOpen]);
+
+  // Priority indicator styling
+  const priorityStyles = {
+    core: 'border-l-2 border-l-acid-green',
+    secondary: '',
+    advanced: 'border-l-2 border-l-acid-cyan/50',
+  };
 
   return (
-    <div className="border border-acid-green/20 rounded-lg overflow-hidden mb-3 bg-surface/30">
+    <div className={`border border-acid-green/20 rounded-lg overflow-hidden mb-3 bg-surface/30 ${priorityStyles[priority]}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
         aria-controls={`section-${id}-content`}
         aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${title} section`}
+        title={description}
         className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-acid-green/5 transition-colors group"
       >
         <div className="flex items-center gap-2">
@@ -55,8 +88,13 @@ export function CollapsibleSection({
           <span className="font-mono text-sm text-text group-hover:text-acid-green transition-colors">
             {title}
           </span>
+          {priority === 'core' && (
+            <span className="px-1 py-0.5 text-[9px] font-mono bg-acid-green/20 text-acid-green rounded">
+              CORE
+            </span>
+          )}
           {badge !== undefined && badge > 0 && (
-            <span className="px-1.5 py-0.5 text-[10px] font-mono bg-acid-green/20 text-acid-green rounded">
+            <span className="px-1.5 py-0.5 text-[10px] font-mono bg-acid-cyan/20 text-acid-cyan rounded">
               {badge}
             </span>
           )}

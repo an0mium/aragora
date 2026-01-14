@@ -28,6 +28,8 @@ import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { FeaturesProvider } from '@/context/FeaturesContext';
 import { FeatureGuard } from '@/components/FeatureGuard';
+import { DashboardModeToggle, FocusModeIndicator } from '@/components/DashboardModeToggle';
+import { useDashboardPreferences } from '@/hooks/useDashboardPreferences';
 import type { NomicState } from '@/types/events';
 
 // Dynamic imports for heavy/conditionally-shown components
@@ -292,6 +294,14 @@ type SiteMode = 'landing' | 'dashboard' | 'loading';
 
 export default function Home() {
   const router = useRouter();
+
+  // Dashboard preferences (Focus vs Explorer mode)
+  const {
+    preferences,
+    setMode,
+    isFocusMode,
+    isSectionExpanded,
+  } = useDashboardPreferences();
 
   // Backend selection (production vs development)
   const { config: backendConfig } = useBackend();
@@ -583,6 +593,15 @@ export default function Home() {
                   </button>
                 </div>
 
+                {/* Dashboard Mode Toggle - Focus vs Explorer */}
+                <div className="hidden sm:block">
+                  <DashboardModeToggle
+                    mode={preferences.mode}
+                    onModeChange={setMode}
+                    compact
+                  />
+                </div>
+
                 {/* Deep Audit Toggle - Hidden on small screens */}
                 <div className="hidden md:block">
                   <DeepAuditToggle
@@ -693,7 +712,13 @@ export default function Home() {
           {/* Side Panel - Organized into Collapsible Sections */}
           <div className="xl:col-span-2 space-y-2">
             {/* Section 1: Core Debate - expanded by default */}
-            <CollapsibleSection id="core-debate" title="CORE DEBATE" defaultOpen={true}>
+            <CollapsibleSection
+              id="core-debate"
+              title="CORE DEBATE"
+              defaultOpen={true}
+              priority="core"
+              description="Essential debate controls: input, voting, citations"
+            >
               <PanelErrorBoundary panelName="Document Upload">
                 <DocumentUpload apiBase={apiBase} />
               </PanelErrorBoundary>
@@ -721,7 +746,13 @@ export default function Home() {
             </CollapsibleSection>
 
             {/* Section 2: Browse & Discover */}
-            <CollapsibleSection id="browse-discover" title="BROWSE & DISCOVER">
+            <CollapsibleSection
+              id="browse-discover"
+              title="BROWSE & DISCOVER"
+              defaultOpen={!isFocusMode}
+              forceOpen={isFocusMode ? false : undefined}
+              description="Find debates, trending topics, and replays"
+            >
               <FeatureGuard featureId="pulse">
                 <PanelErrorBoundary panelName="Trending Topics">
                   <TrendingTopicsPanel apiBase={apiBase} onStartDebate={handleStartDebateFromTrend} />
@@ -739,7 +770,13 @@ export default function Home() {
             </CollapsibleSection>
 
             {/* Section 3: Agent Analysis */}
-            <CollapsibleSection id="agent-analysis" title="AGENT ANALYSIS">
+            <CollapsibleSection
+              id="agent-analysis"
+              title="AGENT ANALYSIS"
+              defaultOpen={!isFocusMode}
+              forceOpen={isFocusMode ? false : undefined}
+              description="Compare agents, view rankings, and tournaments"
+            >
               <PanelErrorBoundary panelName="Agent Compare">
                 <AgentComparePanel />
               </PanelErrorBoundary>
@@ -768,7 +805,14 @@ export default function Home() {
             </CollapsibleSection>
 
             {/* Section 4: Insights & Learning */}
-            <CollapsibleSection id="insights-learning" title="INSIGHTS & LEARNING">
+            <CollapsibleSection
+              id="insights-learning"
+              title="INSIGHTS & LEARNING"
+              defaultOpen={!isFocusMode}
+              forceOpen={isFocusMode ? false : undefined}
+              priority="secondary"
+              description="Deep analysis, consensus quality, and learning evolution"
+            >
               <PanelErrorBoundary panelName="Moments Timeline">
                 <MomentsTimeline apiBase={apiBase} />
               </PanelErrorBoundary>
@@ -812,7 +856,14 @@ export default function Home() {
             </CollapsibleSection>
 
             {/* Section 5: System Tools */}
-            <CollapsibleSection id="system-tools" title="SYSTEM TOOLS">
+            <CollapsibleSection
+              id="system-tools"
+              title="SYSTEM TOOLS"
+              defaultOpen={false}
+              forceOpen={isFocusMode ? false : undefined}
+              priority="secondary"
+              description="Red team analysis, gauntlet, code reviews, and batch operations"
+            >
               <PanelErrorBoundary panelName="Capability Probes">
                 <CapabilityProbePanel apiBase={apiBase} />
               </PanelErrorBoundary>
@@ -857,7 +908,14 @@ export default function Home() {
             </CollapsibleSection>
 
             {/* Section 6: Advanced/Debug */}
-            <CollapsibleSection id="advanced-debug" title="ADVANCED / DEBUG">
+            <CollapsibleSection
+              id="advanced-debug"
+              title="ADVANCED / DEBUG"
+              defaultOpen={false}
+              forceOpen={isFocusMode ? false : undefined}
+              priority="advanced"
+              description="Analytics, memory inspection, API explorer, and debug tools"
+            >
               <PanelErrorBoundary panelName="Analytics">
                 <AnalyticsPanel apiBase={apiBase} events={events} />
               </PanelErrorBoundary>

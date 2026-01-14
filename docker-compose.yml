@@ -1,7 +1,34 @@
 # Aragora Multi-Agent Debate Framework
 # Docker Compose Configuration
+#
+# Usage:
+#   Development (SQLite):  docker compose up
+#   Production (Postgres): docker compose --profile postgres up
+#   With workers:          docker compose --profile with-workers up
+#   Full production:       docker compose --profile postgres --profile with-workers up
 
 services:
+  # PostgreSQL for production deployments (recommended for >10 concurrent users)
+  postgres:
+    image: postgres:16-alpine
+    container_name: aragora-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aragora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aragora_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-aragora}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aragora}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - postgres
+
   # Redis for session state, caching, and multi-instance coordination
   redis:
     image: redis:7-alpine
@@ -52,6 +79,10 @@ services:
       - ARAGORA_MAX_CONCURRENT_DEBATES=${ARAGORA_MAX_CONCURRENT_DEBATES:-5}
       # Redis (for OAuth state, session management, and caching)
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      # Database (PostgreSQL for production, SQLite for development)
+      # When using postgres profile, set DATABASE_URL to use PostgreSQL
+      - DATABASE_URL=${DATABASE_URL:-}
+      - ARAGORA_DB_MODE=${ARAGORA_DB_MODE:-legacy}
       # Stripe billing (use Secrets Manager in production)
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
@@ -130,3 +161,4 @@ volumes:
   aragora-nomic:
   aragora-logs:
   redis-data:
+  postgres-data:

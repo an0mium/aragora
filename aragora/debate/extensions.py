@@ -131,12 +131,21 @@ class ArenaExtensions:
                     total_output += getattr(metrics, "total_output_tokens", 0)
 
             if total_input > 0 or total_output > 0:
+                # Collect provider info from agents
+                providers = set()
+                for agent in agents:
+                    provider = getattr(agent, "provider", None)
+                    if provider:
+                        providers.add(provider)
+
                 self.usage_tracker.record_debate(
                     user_id=self.user_id,
                     org_id=self.org_id,
                     debate_id=debate_id,
-                    input_tokens=total_input,
-                    output_tokens=total_output,
+                    tokens_in=total_input,
+                    tokens_out=total_output,
+                    provider=",".join(providers) if providers else "mixed",
+                    model="debate",  # Debates use multiple models
                 )
                 logger.info(
                     "usage_recorded input=%d output=%d total=%d " "for debate %s (org=%s)",
