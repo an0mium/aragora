@@ -140,9 +140,11 @@ class RoutingHandler(BaseHandler):
         required_traits = body.get("required_traits", [])
         limit = min(body.get("limit", 5), 20)
         task_id = body.get("task_id", "ad-hoc")
+        description = body.get("description", body.get("task", ""))
 
         requirements = TaskRequirements(
             task_id=task_id,
+            description=description,
             primary_domain=primary_domain,
             secondary_domains=secondary_domains,
             required_traits=required_traits,
