@@ -136,10 +136,11 @@ jobs:
             fi
 
             # Configure nginx for WebSocket routing if nginx is installed (non-fatal)
+            # Script auto-detects SSL certs and uses HTTP-only config if none found
             if command -v nginx &> /dev/null && [ -f deploy/configure-nginx.sh ]; then
               echo "Configuring nginx for WebSocket routing..."
               chmod +x deploy/configure-nginx.sh
-              if ./deploy/configure-nginx.sh deploy/nginx-aragora.conf; then
+              if ./deploy/configure-nginx.sh; then
                 echo "Nginx configured successfully"
               else
                 echo "::warning::Nginx configuration failed (non-fatal), continuing with deploy"
@@ -337,10 +338,11 @@ jobs:
             fi
 
             # Configure nginx for WebSocket routing if nginx is installed (non-fatal)
+            # Script auto-detects SSL certs and uses HTTP-only config if none found
             if command -v nginx &> /dev/null && [ -f deploy/configure-nginx.sh ]; then
               echo "Configuring nginx for WebSocket routing..."
               chmod +x deploy/configure-nginx.sh
-              if ./deploy/configure-nginx.sh deploy/nginx-aragora.conf; then
+              if ./deploy/configure-nginx.sh; then
                 echo "Nginx configured successfully"
               else
                 echo "::warning::Nginx configuration failed (non-fatal), continuing with deploy"
