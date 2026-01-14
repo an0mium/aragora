@@ -256,7 +256,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-1">
         {/* Main Input */}
         <div className="relative">
           <label htmlFor="debate-question" className="sr-only">
@@ -288,7 +288,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
         </div>
 
         {/* Category chips - positioned close to input */}
-        <div className="flex items-center gap-2 flex-wrap -mt-2">
+        <div className="flex items-center gap-2 flex-wrap mt-1">
           {[
             { label: 'Technical', icon: '</>', question: 'What are the tradeoffs between microservices and monoliths for a startup?' },
             { label: 'Philosophy', icon: '?', question: 'Can AI systems develop genuine understanding, or only simulate it?' },
@@ -341,7 +341,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
         )}
 
         {/* Options Toggle + Submit */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 mt-1">
           {/* Options toggle */}
           <button
             type="button"
