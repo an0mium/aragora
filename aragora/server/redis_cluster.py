@@ -255,7 +255,7 @@ class RedisClusterClient:
                     ClusterNode(host, port) for host, port in self.config.nodes
                 ]
 
-                client = RedisCluster(
+                client: Any = RedisCluster(
                     startup_nodes=startup_nodes,
                     password=self.config.password,
                     socket_timeout=self.config.socket_timeout,
