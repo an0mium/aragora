@@ -633,6 +633,64 @@ jobs:
 
 ---
 
+## Automated Benchmark Results
+
+### Latest pytest-benchmark Results (2026-01-14)
+
+Unit benchmark tests run via `pytest tests/benchmarks/ --benchmark-only`:
+
+```
+Benchmark: API Component Benchmarks
+Platform: macOS Darwin 25.2.0
+
+Test Name                          Min (μs)    Mean (μs)   Median (μs)  Ops/sec
+────────────────────────────────────────────────────────────────────────────────
+test_cost_calculation_latency        1.2         3.6          1.5      279,848
+test_audit_event_serialization       1.6         3.9          1.9      253,249
+test_usage_summary_serialization     1.9         3.1          2.3      323,853
+test_persona_get_latency            11.7        35.4         14.1       28,224
+test_persona_create_latency         31.1       129.9         39.7        7,696
+test_usage_summary_latency         254.0       590.4        295.9        1,694
+test_usage_record_latency          537.2     1,112.3        825.0          899
+test_audit_log_latency             781.7     1,872.8      1,405.2          534
+test_audit_query_latency           844.1     1,912.5      1,051.5          523
+test_audit_integrity_verification 1,508.7    4,227.6      2,086.5          237
+test_concurrent_audit_writes    158,043.2  170,641.5    167,019.8            6
+```
+
+### Rate Limiting Benchmark Tests
+
+All 17 rate limiting tests pass (as of 2026-01-14):
+
+| Test Category | Tests | Status |
+|---------------|-------|--------|
+| Token bucket acquisition | 3 | ✅ Pass |
+| Multi-client isolation | 2 | ✅ Pass |
+| Tier-based limiting | 2 | ✅ Pass |
+| Endpoint rate limits | 2 | ✅ Pass |
+| Recovery timing | 2 | ✅ Pass |
+| Stress tests | 2 | ✅ Pass |
+| Latency distribution | 2 | ✅ Pass |
+| Memory bounds | 2 | ✅ Pass |
+
+### Running Benchmarks
+
+```bash
+# Run all benchmark tests
+pytest tests/benchmarks/ -v
+
+# Run with benchmark output only
+pytest tests/benchmarks/ --benchmark-only
+
+# Export results to JSON
+pytest tests/benchmarks/ --benchmark-json=results.json
+
+# Compare against baseline
+pytest tests/benchmarks/ --benchmark-compare=baseline.json
+```
+
+---
+
 ## Bottleneck Analysis
 
 ### Common Bottlenecks
