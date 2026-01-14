@@ -152,10 +152,10 @@ export function LiveDebateView({
           <div
             ref={scrollContainerRef}
             onScroll={onScroll}
-            className={`p-4 space-y-4 overflow-y-auto ${
+            className={`p-4 space-y-4 overflow-y-auto min-h-[200px] ${
               status === 'streaming'
-                ? 'h-[calc(100vh-480px)]'  // Account for header + info + meters + panels above
-                : 'max-h-[calc(100vh-320px)]'  // Account for header + info + footer elements
+                ? 'max-h-[calc(100vh-300px)]'  // Flexible max height, guarantees visibility
+                : 'max-h-[calc(100vh-280px)]'
             }`}
           >
             {messages.length === 0 && streamingMessages.size === 0 && status === 'streaming' && (
