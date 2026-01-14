@@ -145,6 +145,14 @@ class TieredMemoryProtocol(MemoryProtocol, Protocol):
         """Demote entry to a slower tier."""
         ...
 
+    def cleanup_expired_memories(self) -> int:
+        """Clean up expired memories. Returns count of cleaned entries."""
+        ...
+
+    def enforce_tier_limits(self) -> None:
+        """Enforce tier size limits by evicting excess entries."""
+        ...
+
 
 @runtime_checkable
 class CritiqueStoreProtocol(Protocol):
@@ -308,12 +316,15 @@ class EloSystemProtocol(Protocol):
 
     def record_match(
         self,
-        winner: str,
-        loser: str,
+        debate_id: str,
+        participants: List[str],
+        scores: Dict[str, float],
         domain: str = "",
+        winner: Optional[str] = None,
+        loser: Optional[str] = None,
         margin: float = 1.0,
     ) -> None:
-        """Record a match result between two agents."""
+        """Record a match result. Can use debate_id/participants/scores or winner/loser."""
         ...
 
     def get_leaderboard(self, limit: int = 10, domain: str = "") -> List[Any]:
@@ -322,6 +333,10 @@ class EloSystemProtocol(Protocol):
 
     def get_match_history(self, agent: str, limit: int = 20) -> List[Any]:
         """Get recent match history for an agent."""
+        ...
+
+    def get_ratings_batch(self, agents: List[str]) -> Dict[str, Any]:
+        """Get ratings for multiple agents in a single call."""
         ...
 
 
