@@ -946,6 +946,33 @@ class PromptEvolverProtocol(Protocol):
         """Get prompt evolution history for an agent."""
         ...
 
+    def extract_winning_patterns(
+        self,
+        debate_id: str,
+        winner_messages: List[Any],
+    ) -> List[Dict[str, Any]]:
+        """Extract winning patterns from debate messages."""
+        ...
+
+    def store_patterns(
+        self,
+        agent: str,
+        patterns: List[Dict[str, Any]],
+        debate_id: str,
+    ) -> None:
+        """Store extracted patterns for an agent."""
+        ...
+
+    def update_performance(
+        self,
+        agent: str,
+        debate_id: str,
+        won: bool,
+        score: float,
+    ) -> None:
+        """Update performance metrics for prompt evolution."""
+        ...
+
 
 @runtime_checkable
 class InsightStoreProtocol(Protocol):
@@ -988,6 +1015,16 @@ class InsightStoreProtocol(Protocol):
         insight_type: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get effectiveness metrics for insights."""
+        ...
+
+    def record_insight_usage(
+        self,
+        insight_type: str,
+        debate_id: str,
+        success: bool,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Record usage of an insight in a debate."""
         ...
 
 
