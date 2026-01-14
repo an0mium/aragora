@@ -1,5 +1,27 @@
-"""Pulse ingestion module for trending topics and real-time feeds."""
+"""
+Pulse - Trending topic ingestion and processing for aragora.
 
+Components:
+- Ingestors: Fetch trending topics from social platforms
+- Weighting: Source credibility scoring
+- Quality: Content quality filtering
+- Freshness: Time-based relevance decay
+- Consensus: Cross-source trend detection
+- Scheduler: Automated debate creation from trends
+"""
+
+from aragora.pulse.consensus import (
+    ConsensusResult,
+    CrossSourceConsensus,
+    TopicCluster,
+)
+from aragora.pulse.freshness import (
+    DecayModel,
+    FreshnessCalculator,
+    FreshnessConfig,
+    FreshnessScore,
+    DEFAULT_PLATFORM_HALF_LIVES,
+)
 from aragora.pulse.ingestor import (
     CircuitBreaker,
     GitHubTrendingIngestor,
@@ -10,6 +32,12 @@ from aragora.pulse.ingestor import (
     TrendingTopic,
     TrendingTopicOutcome,
     TwitterIngestor,
+)
+from aragora.pulse.quality import (
+    QualityScore,
+    TopicQualityFilter,
+    CLICKBAIT_PATTERNS,
+    SPAM_INDICATORS,
 )
 from aragora.pulse.scheduler import (
     PulseDebateScheduler,
@@ -22,6 +50,12 @@ from aragora.pulse.scheduler import (
 from aragora.pulse.store import (
     ScheduledDebateRecord,
     ScheduledDebateStore,
+)
+from aragora.pulse.weighting import (
+    DEFAULT_SOURCE_WEIGHTS,
+    SourceWeight,
+    SourceWeightingSystem,
+    WeightedTopic,
 )
 
 __all__ = [
@@ -45,4 +79,24 @@ __all__ = [
     "SchedulerMetrics",
     "TopicSelector",
     "TopicScore",
+    # Weighting
+    "SourceWeight",
+    "WeightedTopic",
+    "SourceWeightingSystem",
+    "DEFAULT_SOURCE_WEIGHTS",
+    # Quality
+    "QualityScore",
+    "TopicQualityFilter",
+    "CLICKBAIT_PATTERNS",
+    "SPAM_INDICATORS",
+    # Freshness
+    "DecayModel",
+    "FreshnessConfig",
+    "FreshnessScore",
+    "FreshnessCalculator",
+    "DEFAULT_PLATFORM_HALF_LIVES",
+    # Consensus
+    "TopicCluster",
+    "ConsensusResult",
+    "CrossSourceConsensus",
 ]
