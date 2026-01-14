@@ -173,7 +173,10 @@ Get details for a specific genome.
 
 ### GET /api/genesis/lineage/{genome_id}
 
-Get the full evolutionary lineage of a genome.
+Get the full evolutionary lineage (ancestry) of a genome.
+
+**Query Parameters:**
+- `max_depth` (int, default: 10, max: 50) - Maximum ancestor depth to trace
 
 **Response:**
 ```json
@@ -181,29 +184,81 @@ Get the full evolutionary lineage of a genome.
   "genome_id": "claude-systems-v3",
   "lineage": [
     {
-      "genome_id": "claude-base-v1",
-      "event": "spawn",
-      "generation": 0
-    },
-    {
-      "genome_id": "claude-systems-v1",
-      "event": "mutation",
-      "generation": 1,
-      "parent": "claude-base-v1"
+      "genome_id": "claude-systems-v3",
+      "generation": 3,
+      "fitness_score": 0.92,
+      "parent_ids": ["claude-systems-v2"],
+      "event_type": "mutation",
+      "created_at": "2026-01-10T10:00:00Z"
     },
     {
       "genome_id": "claude-systems-v2",
-      "event": "crossover",
       "generation": 2,
-      "parents": ["claude-systems-v1", "grok-perf-v1"]
+      "fitness_score": 0.85,
+      "parent_ids": ["claude-systems-v1", "grok-perf-v1"],
+      "event_type": "crossover",
+      "created_at": "2026-01-09T15:30:00Z"
+    },
+    {
+      "genome_id": "claude-systems-v1",
+      "generation": 1,
+      "fitness_score": 0.78,
+      "parent_ids": ["claude-base-v1"],
+      "event_type": "mutation",
+      "created_at": "2026-01-08T09:00:00Z"
+    },
+    {
+      "genome_id": "claude-base-v1",
+      "generation": 0,
+      "fitness_score": 0.65,
+      "parent_ids": [],
+      "event_type": "spawn",
+      "created_at": "2026-01-07T12:00:00Z"
+    }
+  ],
+  "generations": 4
+}
+```
+
+### GET /api/genesis/descendants/{genome_id}
+
+Get all descendants of a genome (forward-looking family tree).
+
+**Query Parameters:**
+- `max_depth` (int, default: 5, max: 20) - Maximum descendant depth to search
+
+**Response:**
+```json
+{
+  "genome_id": "claude-base-v1",
+  "descendants": [
+    {
+      "genome_id": "claude-systems-v1",
+      "name": "Systems Specialist",
+      "generation": 1,
+      "fitness_score": 0.78,
+      "parent_ids": ["claude-base-v1"],
+      "depth": 1
+    },
+    {
+      "genome_id": "claude-systems-v2",
+      "name": "Systems Specialist v2",
+      "generation": 2,
+      "fitness_score": 0.85,
+      "parent_ids": ["claude-systems-v1", "grok-perf-v1"],
+      "depth": 2
     },
     {
       "genome_id": "claude-systems-v3",
-      "event": "mutation",
+      "name": "Systems Specialist v3",
       "generation": 3,
-      "parent": "claude-systems-v2"
+      "fitness_score": 0.92,
+      "parent_ids": ["claude-systems-v2"],
+      "depth": 3
     }
-  ]
+  ],
+  "total_descendants": 3,
+  "max_depth_reached": 3
 }
 ```
 

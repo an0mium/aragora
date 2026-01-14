@@ -1236,6 +1236,7 @@ websocat wss://aragora.example.com/ws
 | Memory Usage | >80% | Add replicas or increase limits |
 | p95 Latency | >500ms | Investigate + scale |
 | Active Debates | >10 per pod | Add replicas |
+| WebSocket Connections | >100 per pod | Add replicas |
 | Error Rate | >1% | Investigate before scaling |
 
 ### Manual Scaling
@@ -1247,6 +1248,62 @@ kubectl scale deployment aragora --replicas=5 -n aragora
 # Or update HPA min
 kubectl patch hpa aragora -n aragora \
   -p '{"spec":{"minReplicas":3}}'
+```
+
+### Horizontal Pod Autoscaler (HPA)
+
+Two HPA configurations are available:
+
+**Basic HPA** (`hpa.yaml`):
+- Scales on CPU (70%) and Memory (80%)
+- Min: 2, Max: 10 replicas
+- Conservative scale-down (5-minute window)
+
+**Custom Metrics HPA** (`hpa-custom-metrics.yaml`):
+- Requires Prometheus Adapter or KEDA
+- Scales on application metrics:
+  - `aragora_active_debates` - debates per pod
+  - `aragora_websocket_connections` - WS connections per pod
+  - `aragora_http_requests_per_second` - request throughput
+- More intelligent scaling for real workloads
+
+```bash
+# Install Prometheus Adapter (required for custom metrics)
+helm install prometheus-adapter prometheus-community/prometheus-adapter \
+  -n monitoring --set prometheus.url=http://prometheus:9090
+
+# Enable custom metrics HPA
+kubectl apply -f deploy/k8s/hpa-custom-metrics.yaml -n aragora
+
+# Verify custom metrics are available
+kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1 | jq .
+```
+
+### Connection Pool Tuning
+
+```bash
+# Configure connection pool (environment variables)
+ARAGORA_POOL_MIN_CONNECTIONS=5      # Minimum connections
+ARAGORA_POOL_MAX_CONNECTIONS=50     # Maximum connections
+ARAGORA_POOL_IDLE_TIMEOUT=300       # Idle connection timeout (seconds)
+ARAGORA_POOL_MAX_WAIT_TIME=5        # Max wait for connection (seconds)
+
+# Monitor pool metrics
+curl http://localhost:8080/api/system/pool-stats | jq
+```
+
+### Load Testing
+
+```bash
+# Run Locust load tests
+locust -f tests/load/locustfile.py --host=http://localhost:8080 \
+  --headless -u 100 -r 10 --run-time 5m
+
+# Run WebSocket load test
+pytest tests/load/websocket_load.py -v -k stress --asyncio-mode=auto
+
+# Run Gauntlet load test
+pytest tests/load/gauntlet_load.py -v -k stress --asyncio-mode=auto
 ```
 
 ### Vertical vs Horizontal
@@ -1389,6 +1446,48 @@ systemctl restart aragora
 ```
 
 ---
+
+### Redis Cluster Operations
+
+Aragora supports both standalone Redis and Redis Cluster for enterprise deployments.
+
+#### Redis Cluster Setup (K8s)
+
+```bash
+# Deploy Redis Cluster (3-node minimum)
+kubectl apply -f deploy/k8s/redis/cluster.yaml -n aragora
+
+# Wait for cluster initialization
+kubectl wait --for=condition=complete job/redis-cluster-init -n aragora --timeout=120s
+
+# Verify cluster health
+kubectl exec -it redis-cluster-0 -n aragora -- redis-cli cluster info
+```
+
+#### Environment Configuration
+
+```bash
+# For single-node Redis
+ARAGORA_REDIS_URL=redis://aragora-redis:6379
+
+# For Redis Cluster
+ARAGORA_REDIS_CLUSTER_MODE=cluster
+ARAGORA_REDIS_CLUSTER_NODES=redis-cluster-0.redis-cluster:6379,redis-cluster-1.redis-cluster:6379,redis-cluster-2.redis-cluster:6379
+ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS=true
+```
+
+#### Cluster Health Monitoring
+
+```bash
+# Check cluster node status
+kubectl exec -it redis-cluster-0 -n aragora -- redis-cli cluster nodes
+
+# Check cluster slots coverage
+kubectl exec -it redis-cluster-0 -n aragora -- redis-cli cluster slots | head -20
+
+# Get cluster metrics (if redis-exporter deployed)
+curl http://redis-cluster.aragora:9121/metrics | grep cluster
+```
 
 ### Redis Cluster Failover
 

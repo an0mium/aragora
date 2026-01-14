@@ -370,6 +370,128 @@ aragora gauntlet spec.md --format json | jq '.findings | sort_by(.severity) | re
 
 Formal verification requires specific claim formats. Check `docs/FORMAL_VERIFICATION.md`.
 
+## Dashboard & Visualization
+
+### GauntletDashboard Component
+
+The frontend includes a comprehensive dashboard for managing Gauntlet runs:
+
+```tsx
+import { GauntletDashboard } from '@/components/GauntletDashboard';
+
+<GauntletDashboard
+  apiBase="/api"
+  onResultSelect={(result) => console.log(result)}
+/>
+```
+
+**Features:**
+- Summary statistics (pass/fail rates, critical issues)
+- Verdict filtering
+- Comparison mode (diff two runs)
+- Embedded heatmap visualization
+- Export buttons (HTML, Markdown)
+
+### AttackFeed Component
+
+Real-time visualization of Gauntlet attacks:
+
+```tsx
+import { AttackFeed } from '@/components/gauntlet/AttackFeed';
+
+<AttackFeed
+  gauntletId="gauntlet-20260113-abc123"
+  wsUrl="wss://api.aragora.ai"
+  compact={false}
+  showAgentStats={true}
+/>
+```
+
+**Features:**
+- Live WebSocket event feed
+- Agent activity tracking (attacks, probes)
+- Finding severity highlighting
+- Auto-scroll with pause on hover
+
+### Heatmap Visualization
+
+View risk distribution across categories and severities:
+
+```bash
+# Get heatmap as SVG
+curl "http://localhost:8080/api/gauntlet/{id}/heatmap?format=svg" > heatmap.svg
+
+# Get as JSON for custom rendering
+curl "http://localhost:8080/api/gauntlet/{id}/heatmap"
+```
+
+## Export & Sharing
+
+### Comprehensive Export
+
+```bash
+# Export full report as JSON
+curl "http://localhost:8080/api/gauntlet/{id}/export?format=json"
+
+# Export as self-contained HTML
+curl "http://localhost:8080/api/gauntlet/{id}/export?format=full_html" > report.html
+
+# Control what's included
+curl "http://localhost:8080/api/gauntlet/{id}/export?format=json&include_heatmap=true&include_findings=true"
+```
+
+### Export Options
+
+| Parameter | Values | Default | Description |
+|-----------|--------|---------|-------------|
+| `format` | json, html, full_html | json | Output format |
+| `include_heatmap` | true/false | true | Include heatmap data |
+| `include_findings` | true/false | true | Include detailed findings |
+
+### Compare Runs
+
+```bash
+# Compare two Gauntlet runs
+curl "http://localhost:8080/api/gauntlet/{id1}/compare/{id2}"
+```
+
+Returns delta analysis showing changes in:
+- Finding counts by severity
+- Robustness scores
+- Confidence levels
+
+## API Reference
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/gauntlet/run` | Start a new Gauntlet run |
+| GET | `/api/gauntlet/{id}` | Get run status and results |
+| GET | `/api/gauntlet/results` | List recent runs (paginated) |
+| GET | `/api/gauntlet/{id}/receipt` | Get Decision Receipt |
+| GET | `/api/gauntlet/{id}/heatmap` | Get risk heatmap |
+| GET | `/api/gauntlet/{id}/export` | Export comprehensive report |
+| GET | `/api/gauntlet/{id}/compare/{id2}` | Compare two runs |
+| GET | `/api/gauntlet/personas` | List available personas |
+| DELETE | `/api/gauntlet/{id}` | Delete a run |
+
+### WebSocket Events
+
+Connect to `wss://api/stream?gauntlet_id={id}` for real-time events:
+
+| Event | Description |
+|-------|-------------|
+| `gauntlet_start` | Run started |
+| `gauntlet_phase` | Phase transition |
+| `gauntlet_agent_active` | Agent activated |
+| `gauntlet_attack` | Attack executed |
+| `gauntlet_probe` | Probe executed |
+| `gauntlet_finding` | Finding discovered |
+| `gauntlet_progress` | Progress update |
+| `gauntlet_verdict` | Final verdict |
+| `gauntlet_complete` | Run complete |
+
 ## Best Practices
 
 1. **Start Quick**: Use `--profile quick` for drafts
@@ -378,6 +500,8 @@ Formal verification requires specific claim formats. Check `docs/FORMAL_VERIFICA
 4. **Save Receipts**: Archive Decision Receipts for compliance
 5. **CI Integration**: Automate for spec changes
 6. **Review Dissent**: Dissenting views often reveal blind spots
+7. **Use Dashboard**: Monitor runs in real-time with the dashboard
+8. **Compare Regularly**: Use comparison mode to track improvements
 
 ---
 

@@ -309,8 +309,46 @@ CREATE TABLE ab_test_results (
 );
 ```
 
+## Frontend Components
+
+### ABTestResultsPanel
+
+The `ABTestResultsPanel` component provides a comprehensive UI for viewing A/B test results:
+
+**Features:**
+- Summary statistics (active tests, concluded, significance rate)
+- Test list with quick status indicators
+- Detailed comparison view with win rate visualization
+- Statistical analysis display
+- Recommendations based on results
+
+**Usage:**
+```tsx
+import { ABTestResultsPanel } from '@/components/ABTestResultsPanel';
+
+<ABTestResultsPanel
+  apiBase="/api"           // API base URL
+  showListView={true}      // Show test list sidebar
+  onTestSelect={(test) => console.log(test)}
+/>
+```
+
+**Integration with EvolutionPanel:**
+
+The A/B test results are also accessible via the Evolution Panel:
+1. Navigate to `/evolution` in the dashboard
+2. Select the "A/B TESTS" tab
+3. Click any test to view detailed results
+
+### Visual Elements
+
+- **Win Rate Bar**: Shows baseline vs evolved performance visually
+- **Significance Indicator**: Highlights statistically significant results
+- **Recommendation Badge**: Shows adoption/rejection recommendation for concluded tests
+
 ## See Also
 
 - [Evolution Patterns](EVOLUTION_PATTERNS.md) - Pattern extraction from winning prompts
+- [Genesis](GENESIS.md) - Full evolutionary system documentation
 - [API Reference](API_REFERENCE.md) - Full endpoint documentation
 - [Features](FEATURES.md) - Feature status overview
