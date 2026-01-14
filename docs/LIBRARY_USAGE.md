@@ -463,13 +463,15 @@ async def get_debate(debate_id: str):
 
 ### WebSocket Streaming
 
+This example accepts a `debate_id` query parameter on `/ws` and uses it as the loop id.
+
 ```python
 import asyncio
 from fastapi import WebSocket
 from aragora.server.stream import SyncEventEmitter
 from aragora.server.stream.arena_hooks import create_arena_hooks
 
-@app.websocket("/ws/debates/{debate_id}")
+@app.websocket("/ws")
 async def debate_stream(websocket: WebSocket, debate_id: str):
     await websocket.accept()
 

@@ -444,23 +444,19 @@ class TestCreateCheckout:
 
         assert result.status_code == 401
 
-    @patch("aragora.server.handlers.billing.SubscriptionTier")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_create_checkout_free_tier_rejected(
-        self, mock_extract, mock_tier_enum, billing_handler, mock_handler
+        self, mock_extract, billing_handler, mock_handler
     ):
-        """Test cannot checkout free tier."""
+        """Test cannot checkout free tier - rejected by schema validation."""
         mock_extract.return_value = Mock(
             is_authenticated=True,
             user_id="user-123",
             role="owner",
         )
 
-        # Mock FREE tier matching
-        free_tier = Mock(value="free")
-        mock_tier_enum.return_value = free_tier
-        mock_tier_enum.FREE = free_tier
-
+        # "free" is not a valid tier in CHECKOUT_SESSION_SCHEMA
+        # Valid tiers are: starter, professional, enterprise
         billing_handler.read_json_body = Mock(
             return_value={
                 "tier": "free",
@@ -473,7 +469,8 @@ class TestCreateCheckout:
 
         assert result.status_code == 400
         data = json.loads(result.body)
-        assert "free" in data["error"].lower()
+        # Schema validation rejects "free" as invalid tier
+        assert "tier" in data["error"].lower()
 
 
 # ============================================================================
