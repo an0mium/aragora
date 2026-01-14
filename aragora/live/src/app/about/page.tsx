@@ -2,8 +2,142 @@
 
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
-import { AsciiBannerCompact } from '@/components/AsciiBanner';
+import { AsciiBanner } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
+
+// Practical use cases with real examples
+const PRACTICAL_USE_CASES = [
+  {
+    icon: '🏗️',
+    title: 'Architecture Stress-Test',
+    subtitle: 'Find critical flaws before launch',
+    examples: [
+      'MedConnect: Found 11 issues, prevented 3 critical outages',
+      'Scale review: 50K to 500K concurrent users validated',
+    ],
+    cta: { label: 'See Case Study', href: 'https://github.com/aragora/aragora/blob/main/docs/case-studies/architecture-stress-test.md' },
+  },
+  {
+    icon: '🔐',
+    title: 'API Security Review',
+    subtitle: 'AI red-team your endpoints',
+    examples: [
+      'CloudPay: 7 critical issues found in 23 minutes',
+      'BOLA, rate limiting gaps, PCI-DSS violations caught',
+    ],
+    cta: { label: 'See Case Study', href: 'https://github.com/aragora/aragora/blob/main/docs/case-studies/security-api-review.md' },
+  },
+  {
+    icon: '📋',
+    title: 'Compliance Audit',
+    subtitle: 'GDPR, HIPAA, SOC 2 readiness',
+    examples: [
+      'Automated persona-based compliance checks',
+      'Audit-ready transcripts with minority views preserved',
+    ],
+    cta: { label: 'See Case Study', href: 'https://github.com/aragora/aragora/blob/main/docs/case-studies/gdpr-compliance-audit.md' },
+  },
+  {
+    icon: '🔍',
+    title: 'Code Review',
+    subtitle: 'Multi-model adversarial analysis',
+    examples: [
+      'Security vulnerabilities, logic errors, edge cases',
+      'Cross-model consensus on critical issues',
+    ],
+    cta: null,
+  },
+  {
+    icon: '🔥',
+    title: 'Incident Response',
+    subtitle: 'Red-team RCA and mitigations',
+    examples: [
+      'Root cause analysis with competing hypotheses',
+      'Mitigation strategies stress-tested by adversarial agents',
+    ],
+    cta: null,
+  },
+  {
+    icon: '⚖️',
+    title: 'Decision Making',
+    subtitle: 'Defensible decisions with receipts',
+    examples: [
+      'Decision transcripts with dissenting views recorded',
+      'Confidence scores and evidence chains for audit',
+    ],
+    cta: null,
+  },
+];
+
+// Document library categories
+const DOC_CATEGORIES = [
+  {
+    title: 'Getting Started',
+    icon: '🚀',
+    docs: [
+      { name: 'Quick Start', href: 'https://github.com/aragora/aragora/blob/main/docs/QUICKSTART.md' },
+      { name: 'Installation', href: 'https://github.com/aragora/aragora/blob/main/docs/GETTING_STARTED.md' },
+      { name: 'CLI Reference', href: 'https://github.com/aragora/aragora/blob/main/docs/CLI_REFERENCE.md' },
+    ],
+  },
+  {
+    title: 'Core Features',
+    icon: '⚙️',
+    docs: [
+      { name: 'Nomic Loop', href: 'https://github.com/aragora/aragora/blob/main/docs/NOMIC_LOOP.md' },
+      { name: 'Gauntlet', href: 'https://github.com/aragora/aragora/blob/main/docs/GAUNTLET.md' },
+      { name: 'Graph Debates', href: 'https://github.com/aragora/aragora/blob/main/docs/GRAPH_DEBATES.md' },
+      { name: 'Matrix Debates', href: 'https://github.com/aragora/aragora/blob/main/docs/MATRIX_DEBATES.md' },
+    ],
+  },
+  {
+    title: 'API & Integration',
+    icon: '🔌',
+    docs: [
+      { name: 'API Reference', href: 'https://github.com/aragora/aragora/blob/main/docs/API_REFERENCE.md' },
+      { name: 'API Examples', href: 'https://github.com/aragora/aragora/blob/main/docs/API_EXAMPLES.md' },
+      { name: 'TypeScript SDK', href: 'https://github.com/aragora/aragora/blob/main/docs/SDK_TYPESCRIPT.md' },
+      { name: 'MCP Integration', href: 'https://github.com/aragora/aragora/blob/main/docs/MCP_GUIDE.md' },
+    ],
+  },
+  {
+    title: 'Agent Development',
+    icon: '🤖',
+    docs: [
+      { name: 'Custom Agents', href: 'https://github.com/aragora/aragora/blob/main/docs/CUSTOM_AGENTS.md' },
+      { name: 'Agent Selection', href: 'https://github.com/aragora/aragora/blob/main/docs/AGENT_SELECTION.md' },
+      { name: 'Formal Verification', href: 'https://github.com/aragora/aragora/blob/main/docs/FORMAL_VERIFICATION.md' },
+    ],
+  },
+  {
+    title: 'Deployment',
+    icon: '🚢',
+    docs: [
+      { name: 'Deployment Guide', href: 'https://github.com/aragora/aragora/blob/main/docs/DEPLOYMENT.md' },
+      { name: 'Production Checklist', href: 'https://github.com/aragora/aragora/blob/main/docs/PRODUCTION_CHECKLIST.md' },
+      { name: 'Scaling', href: 'https://github.com/aragora/aragora/blob/main/docs/SCALING.md' },
+    ],
+  },
+  {
+    title: 'Case Studies',
+    icon: '📊',
+    docs: [
+      { name: 'Architecture Stress-Test', href: 'https://github.com/aragora/aragora/blob/main/docs/case-studies/architecture-stress-test.md' },
+      { name: 'API Security Review', href: 'https://github.com/aragora/aragora/blob/main/docs/case-studies/security-api-review.md' },
+      { name: 'GDPR Compliance', href: 'https://github.com/aragora/aragora/blob/main/docs/case-studies/gdpr-compliance-audit.md' },
+    ],
+  },
+];
+
+// Platform capabilities
+const CAPABILITIES = [
+  { label: 'AI Providers', value: '13+', desc: 'Claude, GPT, Gemini, Mistral, Grok, DeepSeek, Qwen, Kimi...' },
+  { label: 'Consensus Algorithms', value: '7', desc: 'Majority, unanimous, weighted, judge, supermajority...' },
+  { label: 'Debate Types', value: '3', desc: 'Standard, graph, matrix' },
+  { label: 'Memory Tiers', value: '4', desc: 'Fast, medium, slow, glacial' },
+  { label: 'REST Endpoints', value: '134+', desc: 'Full API coverage' },
+  { label: 'Test Definitions', value: '27K+', desc: 'Comprehensive coverage' },
+];
 
 export default function AboutPage() {
   return (
@@ -15,12 +149,12 @@ export default function AboutPage() {
         {/* Header */}
         <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-            <Link href="/">
-              <AsciiBannerCompact connected={true} />
+            <Link href="/" className="text-acid-green font-mono font-bold hover:text-acid-cyan transition-colors">
+              [ARAGORA]
             </Link>
             <div className="flex items-center gap-4">
               <Link
-                href="https://aragora.ai"
+                href="https://live.aragora.ai"
                 className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
               >
                 [LIVE DASHBOARD]
@@ -30,58 +164,77 @@ export default function AboutPage() {
           </div>
         </header>
 
-        {/* Hero */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto max-w-4xl text-center">
-            <h1 className="text-3xl sm:text-4xl font-mono mb-4">
-              <span className="text-acid-green">aragora</span>
-            </h1>
-            <p className="text-xl text-acid-cyan font-mono mb-4">Self-Improving AI</p>
-            <p className="text-text-muted font-mono mb-8">
-              Multi-agent debate with autonomous self-modification.<br />
-              Watch AI agents reason, critique, and evolve the system in real-time.
-            </p>
-            <div className="flex justify-center items-center gap-2 text-xs text-text-muted font-mono mb-8">
-              <span className="text-acid-green">ar-</span>
-              <span>(Latin: toward, enhanced)</span>
-              <span className="text-acid-green">+</span>
-              <span className="text-acid-green">agora</span>
-              <span>(Greek: marketplace of ideas)</span>
+        {/* Hero with Full ASCII Art */}
+        <section className="py-12 px-4">
+          <div className="container mx-auto max-w-4xl">
+            <AsciiBanner subtitle="documentation" showStatus={false} />
+
+            <div className="text-center mt-8">
+              <p className="text-xl text-acid-cyan font-mono mb-4">Self-Improving AI Red Team</p>
+              <p className="text-text-muted font-mono mb-6 max-w-2xl mx-auto">
+                Multi-agent debate with autonomous self-modification.
+                Watch AI agents reason, critique, and stress-test decisions in real-time.
+              </p>
+
+              {/* Etymology */}
+              <div className="flex justify-center items-center gap-2 text-xs text-text-muted font-mono mb-8">
+                <span className="text-acid-green">ar-</span>
+                <span>(Latin: toward, enhanced)</span>
+                <span className="text-acid-green">+</span>
+                <span className="text-acid-green">agora</span>
+                <span>(Greek: marketplace of ideas)</span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-center gap-4 flex-wrap">
+                <Link
+                  href="https://live.aragora.ai"
+                  className="px-6 py-2 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors"
+                >
+                  Watch Live
+                </Link>
+                <a
+                  href="https://pypi.org/project/aragora/"
+                  className="px-6 py-2 border border-acid-green/50 text-acid-green font-mono hover:bg-acid-green/10 transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  PyPI v0.9.0
+                </a>
+                <a
+                  href="https://github.com/aragora"
+                  className="px-6 py-2 border border-acid-green/50 text-acid-green font-mono hover:bg-acid-green/10 transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  GitHub
+                </a>
+              </div>
             </div>
-            <div className="flex justify-center gap-4 flex-wrap">
-              <Link
-                href="https://aragora.ai"
-                className="px-6 py-2 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors"
-              >
-                Watch Live
-              </Link>
-              <a
-                href="https://pypi.org/project/aragora/"
-                className="px-6 py-2 border border-acid-green/50 text-acid-green font-mono hover:bg-acid-green/10 transition-colors"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                PyPI v0.8.0
-              </a>
-              <a
-                href="https://github.com/aragora"
-                className="px-6 py-2 border border-acid-green/50 text-acid-green font-mono hover:bg-acid-green/10 transition-colors"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                GitHub
-              </a>
+          </div>
+        </section>
+
+        {/* Platform Capabilities */}
+        <section className="py-8 px-4 bg-surface/20">
+          <div className="container mx-auto max-w-5xl">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              {CAPABILITIES.map((cap) => (
+                <div key={cap.label} className="text-center p-3 border border-acid-green/20 bg-bg/50">
+                  <div className="text-2xl font-mono text-acid-green font-bold">{cap.value}</div>
+                  <div className="text-xs font-mono text-acid-cyan">{cap.label}</div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
         {/* Nomic Loop Section */}
-        <section className="py-16 px-4 bg-surface/30">
+        <section className="py-16 px-4">
           <div className="container mx-auto max-w-4xl">
             <div className="text-center mb-12">
               <h2 className="text-2xl font-mono text-acid-green mb-4">The Nomic Loop</h2>
               <p className="text-text-muted font-mono max-w-2xl mx-auto">
-                aragora improves itself through structured cycles. Agents propose changes,
+                Aragora improves itself through structured cycles. Agents propose changes,
                 debate their merits, implement them, and verify the results.
                 The rules can change the rules.
               </p>
@@ -104,28 +257,47 @@ export default function AboutPage() {
             </div>
 
             <blockquote className="mt-8 text-center text-text-muted font-mono italic border-l-4 border-acid-green/50 pl-4 py-2">
-              &quot;In Nomic, the rules can change the rules. aragora applies this to AI -
+              &quot;In Nomic, the rules can change the rules. Aragora applies this to AI -
               the system debates and implements its own evolution.&quot;
             </blockquote>
           </div>
         </section>
 
-        {/* Core Features */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto max-w-4xl">
-            <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Core Features</h2>
+        {/* Practical Use Cases */}
+        <section className="py-16 px-4 bg-surface/30">
+          <div className="container mx-auto max-w-5xl">
+            <h2 className="text-2xl font-mono text-acid-green mb-4 text-center">Practical Use Cases</h2>
+            <p className="text-center text-text-muted font-mono mb-8 max-w-2xl mx-auto">
+              Real-world applications with measurable results
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[
-                { title: 'Heterogeneous Agents', desc: 'Mix Claude, GPT, Gemini, Mistral (EU perspective), Grok, and Chinese models like DeepSeek, Qwen, and Kimi, plus local models. Different biases create stronger adversarial coverage.' },
-                { title: 'Structured Debate', desc: 'Propose, Critique, Revise loop. Configurable rounds and consensus mechanisms (majority, unanimous, judge).' },
-                { title: 'Evidence Provenance', desc: 'Cryptographic chain tracking sources. Every claim linked to evidence with reliability scoring.' },
-                { title: 'Formal Verification', desc: 'Z3-powered proof checking. Verify logical claims with SMT solver integration.' },
-                { title: 'Decision-to-PR Pipeline', desc: 'Turn debate outcomes into GitHub PRs. Risk registers, test plans, implementation specs.' },
-                { title: 'Red-Team Mode', desc: 'Adversarial testing with steelman/strawman attacks. Find weaknesses before production.' },
-              ].map((feature) => (
-                <div key={feature.title} className="border border-acid-green/20 p-4 bg-surface/30">
-                  <h3 className="text-acid-cyan font-mono text-sm mb-2">{feature.title}</h3>
-                  <p className="text-text-muted text-xs font-mono">{feature.desc}</p>
+              {PRACTICAL_USE_CASES.map((useCase) => (
+                <div key={useCase.title} className="border border-acid-green/20 p-5 bg-bg/50 flex flex-col">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-2xl">{useCase.icon}</span>
+                    <div>
+                      <h3 className="text-acid-cyan font-mono text-sm font-bold">{useCase.title}</h3>
+                      <p className="text-text-muted/70 text-xs font-mono">{useCase.subtitle}</p>
+                    </div>
+                  </div>
+                  <ul className="space-y-1.5 flex-grow">
+                    {useCase.examples.map((example, i) => (
+                      <li key={i} className="text-text-muted text-xs font-mono flex items-start gap-2">
+                        <span className="text-acid-green mt-0.5">•</span>
+                        <span>{example}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {useCase.cta && (
+                    <a
+                      href={useCase.cta.href}
+                      className="mt-4 text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors inline-flex items-center gap-1"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {useCase.cta.label} →
+                    </a>
+                  )}
                 </div>
               ))}
             </div>
@@ -133,7 +305,7 @@ export default function AboutPage() {
         </section>
 
         {/* Why Adversarial Stress-Testing */}
-        <section className="py-16 px-4 bg-surface/30">
+        <section className="py-16 px-4">
           <div className="container mx-auto max-w-4xl">
             <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Why Adversarial Stress-Testing?</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
@@ -157,6 +329,51 @@ export default function AboutPage() {
                   <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Minority views preserved</li>
                 </ul>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Document Library */}
+        <section className="py-16 px-4 bg-surface/30">
+          <div className="container mx-auto max-w-5xl">
+            <h2 className="text-2xl font-mono text-acid-green mb-4 text-center">Document Library</h2>
+            <p className="text-center text-text-muted font-mono mb-8">
+              Comprehensive documentation for every aspect of the platform
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {DOC_CATEGORIES.map((category) => (
+                <div key={category.title} className="border border-acid-green/20 p-4 bg-bg/50">
+                  <h3 className="text-acid-cyan font-mono text-sm mb-3 flex items-center gap-2">
+                    <span>{category.icon}</span>
+                    {category.title}
+                  </h3>
+                  <ul className="space-y-2">
+                    {category.docs.map((doc) => (
+                      <li key={doc.name}>
+                        <a
+                          href={doc.href}
+                          className="text-text-muted text-xs font-mono hover:text-acid-green transition-colors flex items-center gap-2"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <span className="text-acid-green/50">→</span>
+                          {doc.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <div className="mt-8 text-center">
+              <a
+                href="https://github.com/aragora/aragora/tree/main/docs"
+                className="inline-flex items-center gap-2 px-6 py-2 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/10 transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View All Documentation →
+              </a>
             </div>
           </div>
         </section>
@@ -187,23 +404,22 @@ $ aragora nomic --cycles 3  # Run self-improvement loop
           </div>
         </section>
 
-        {/* Use Cases */}
+        {/* Core Features */}
         <section className="py-16 px-4 bg-surface/30">
           <div className="container mx-auto max-w-4xl">
-            <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Use Cases</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Core Features</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
-                { icon: '🔍', title: 'Code Review', desc: 'Adversarial security & quality analysis' },
-                { icon: '🛠', title: 'System Design', desc: 'Stress-test architectural decisions' },
-                { icon: '🔥', title: 'Incident Response', desc: 'Red-team RCA and mitigations' },
-                { icon: '📚', title: 'Research Synthesis', desc: 'Challenge claims, surface risks' },
-                { icon: '🔒', title: 'Security Testing', desc: 'AI red-team your proposals' },
-                { icon: '✅', title: 'Decision Making', desc: 'Decision receipts with dissent tracking' },
-              ].map((useCase) => (
-                <div key={useCase.title} className="border border-acid-green/20 p-4 bg-bg/50 text-center">
-                  <div className="text-2xl mb-2">{useCase.icon}</div>
-                  <h3 className="text-acid-cyan font-mono text-sm mb-1">{useCase.title}</h3>
-                  <p className="text-text-muted text-xs font-mono">{useCase.desc}</p>
+                { title: 'Heterogeneous Agents', desc: 'Mix Claude, GPT, Gemini, Mistral (EU perspective), Grok, and Chinese models like DeepSeek, Qwen, and Kimi. Different biases create stronger adversarial coverage.' },
+                { title: 'Structured Debate', desc: 'Propose, Critique, Revise loop. Configurable rounds and consensus mechanisms (majority, unanimous, judge).' },
+                { title: 'Evidence Provenance', desc: 'Cryptographic chain tracking sources. Every claim linked to evidence with reliability scoring.' },
+                { title: 'Formal Verification', desc: 'Z3-powered proof checking. Verify logical claims with SMT solver integration.' },
+                { title: 'Decision-to-PR Pipeline', desc: 'Turn debate outcomes into GitHub PRs. Risk registers, test plans, implementation specs.' },
+                { title: 'Red-Team Mode', desc: 'Adversarial testing with steelman/strawman attacks. Find weaknesses before production.' },
+              ].map((feature) => (
+                <div key={feature.title} className="border border-acid-green/20 p-4 bg-bg/50">
+                  <h3 className="text-acid-cyan font-mono text-sm mb-2">{feature.title}</h3>
+                  <p className="text-text-muted text-xs font-mono">{feature.desc}</p>
                 </div>
               ))}
             </div>
@@ -243,7 +459,6 @@ $ aragora nomic --cycles 3  # Run self-improvement loop
                 { name: 'Stanford Generative Agents', url: 'https://github.com/joonspk-research/generative_agents' },
                 { name: 'LLM Multi-Agent Debate', url: 'https://github.com/Tsinghua-MARS-Lab/DebateLLM' },
                 { name: 'ChatArena', url: 'https://github.com/chatarena/chatarena' },
-                { name: 'Project Sid', url: 'https://github.com/' },
                 { name: 'Nomic (Peter Suber)', url: 'https://en.wikipedia.org/wiki/Nomic' },
                 { name: 'Agorism (SEK3)', url: 'https://en.wikipedia.org/wiki/Agorism' },
               ].map((ref) => (
@@ -265,10 +480,10 @@ $ aragora nomic --cycles 3  # Run self-improvement loop
         <footer className="text-center text-xs font-mono py-12 border-t border-acid-green/20">
           <div className="container mx-auto px-4">
             <div className="text-acid-green/50 mb-4">
-              {'═'.repeat(40)}
+              {'═'.repeat(50)}
             </div>
             <div className="flex justify-center gap-6 mb-6">
-              <Link href="https://aragora.ai" className="text-acid-cyan hover:text-acid-green transition-colors">
+              <Link href="https://live.aragora.ai" className="text-acid-cyan hover:text-acid-green transition-colors">
                 Watch Live
               </Link>
               <a href="https://github.com/aragora" className="text-acid-cyan hover:text-acid-green transition-colors" target="_blank" rel="noopener noreferrer">
@@ -285,7 +500,7 @@ $ aragora nomic --cycles 3  # Run self-improvement loop
               Released under MIT License.
             </p>
             <div className="text-acid-green/50 mt-4">
-              {'═'.repeat(40)}
+              {'═'.repeat(50)}
             </div>
           </div>
         </footer>
