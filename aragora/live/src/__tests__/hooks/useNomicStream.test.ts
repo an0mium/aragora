@@ -149,8 +149,8 @@ describe('useNomicStream', () => {
     it('should open circuit breaker after max attempts', () => {
       const { result } = renderHook(() => useNomicStream());
 
-      // Simulate MAX_RECONNECT_ATTEMPTS (5) failures
-      for (let i = 0; i < 5; i++) {
+      // Simulate MAX_RECONNECT_ATTEMPTS (15) failures
+      for (let i = 0; i < 15; i++) {
         act(() => {
           getLatestWs().simulateClose();
         });

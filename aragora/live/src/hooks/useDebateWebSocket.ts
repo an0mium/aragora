@@ -26,7 +26,7 @@ export interface StreamingMessage {
 export type DebateConnectionStatus = 'connecting' | 'streaming' | 'complete' | 'error';
 
 // Reconnection configuration
-const MAX_RECONNECT_ATTEMPTS = 5;
+const MAX_RECONNECT_ATTEMPTS = 15;
 const MAX_RECONNECT_DELAY_MS = 30000; // 30 seconds cap
 
 interface UseDebateWebSocketOptions {

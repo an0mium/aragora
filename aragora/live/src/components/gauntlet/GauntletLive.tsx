@@ -219,7 +219,7 @@ export function GauntletLive({ gauntletId, wsUrl, onComplete }: GauntletLiveProp
               <div className="flex items-center gap-2 px-3 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded">
                 <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
                 <span className="text-xs font-mono text-yellow-400">
-                  RECONNECTING ({reconnectAttempt}/5)
+                  RECONNECTING ({reconnectAttempt}/15)
                 </span>
               </div>
             )}

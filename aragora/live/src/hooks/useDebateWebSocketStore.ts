@@ -8,7 +8,7 @@ import { logger } from '@/utils/logger';
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
 
 // Reconnection configuration
-const MAX_RECONNECT_ATTEMPTS = 5;
+const MAX_RECONNECT_ATTEMPTS = 15;
 const MAX_RECONNECT_DELAY_MS = 30000;
 const STREAM_TIMEOUT_MS = 60000;
 

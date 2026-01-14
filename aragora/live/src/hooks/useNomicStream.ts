@@ -9,7 +9,7 @@ const DEFAULT_WS_URL = WS_URL;
 const MAX_EVENTS = 5000;
 
 // Circuit breaker configuration
-const MAX_RECONNECT_ATTEMPTS = 5;
+const MAX_RECONNECT_ATTEMPTS = 15;
 const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
 

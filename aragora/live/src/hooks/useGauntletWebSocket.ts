@@ -7,7 +7,7 @@ import { WS_URL } from '@/config';
 const DEFAULT_WS_URL = WS_URL;
 
 // Reconnection configuration
-const MAX_RECONNECT_ATTEMPTS = 5;
+const MAX_RECONNECT_ATTEMPTS = 15;
 const MAX_RECONNECT_DELAY_MS = 30000; // 30 seconds cap
 
 /**
