@@ -59,14 +59,25 @@ class ProbesHandler(BaseHandler):
     ROUTES = [
         "/api/probes/capability",
         "/api/probes/run",  # Legacy route
+        "/api/probes/reports",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        if path in self.ROUTES:
+            return True
+        # Handle /api/probes/reports/{id} pattern
+        if path.startswith("/api/probes/reports/"):
+            return True
+        return False
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
-        """Route GET requests - none for this handler."""
+        """Route GET requests."""
+        if path == "/api/probes/reports":
+            return self._list_probe_reports(handler, query_params)
+        if path.startswith("/api/probes/reports/"):
+            report_id = path.replace("/api/probes/reports/", "")
+            return self._get_probe_report(handler, report_id)
         return None
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
@@ -370,3 +381,91 @@ class ProbesHandler(BaseHandler):
                     type(e).__name__,
                     e,
                 )
+
+    @handle_errors("list probe reports")
+    def _list_probe_reports(
+        self, handler, query_params: dict
+    ) -> HandlerResult:
+        """
+        GET /api/probes/reports - List all stored probe reports.
+
+        Query params:
+            agent: Filter by agent name (optional)
+            limit: Max reports to return (default 50, max 200)
+            offset: Pagination offset (default 0)
+
+        Returns:
+            reports: List of report summaries with id, agent, date, summary stats
+            total: Total count of reports (for pagination)
+        """
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir or not (nomic_dir / "probes").exists():
+            return json_response({"reports": [], "total": 0})
+
+        probes_dir = nomic_dir / "probes"
+        agent_filter = query_params.get("agent", [None])[0]
+        limit = min(_safe_int(query_params.get("limit", [50])[0], 50), 200)
+        offset = _safe_int(query_params.get("offset", [0])[0], 0)
+
+        reports = []
+        for agent_dir in probes_dir.iterdir():
+            if not agent_dir.is_dir():
+                continue
+            if agent_filter and agent_dir.name != agent_filter:
+                continue
+
+            for report_file in agent_dir.glob("*.json"):
+                try:
+                    data = json.loads(report_file.read_text())
+                    reports.append({
+                        "report_id": data.get("report_id", report_file.stem),
+                        "target_agent": agent_dir.name,
+                        "probes_run": data.get("probes_run", 0),
+                        "vulnerabilities_found": data.get("vulnerabilities_found", 0),
+                        "vulnerability_rate": data.get("vulnerability_rate", 0),
+                        "created_at": data.get("created_at", ""),
+                        "file_name": report_file.name,
+                    })
+                except (json.JSONDecodeError, IOError) as e:
+                    logger.debug("Skipping invalid probe file %s: %s", report_file, e)
+
+        # Sort by created_at descending (newest first)
+        reports.sort(key=lambda r: r.get("created_at", ""), reverse=True)
+        total = len(reports)
+
+        # Apply pagination
+        reports = reports[offset : offset + limit]
+
+        return json_response({"reports": reports, "total": total, "limit": limit, "offset": offset})
+
+    @handle_errors("get probe report")
+    def _get_probe_report(self, handler, report_id: str) -> HandlerResult:
+        """
+        GET /api/probes/reports/{id} - Get a specific probe report by ID.
+
+        Returns full report data including all probe results.
+        """
+        if not report_id or len(report_id) > 64:
+            return error_response("Invalid report ID", 400)
+
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir or not (nomic_dir / "probes").exists():
+            return error_response("Report not found", 404)
+
+        probes_dir = nomic_dir / "probes"
+
+        # Search all agent directories for the report
+        for agent_dir in probes_dir.iterdir():
+            if not agent_dir.is_dir():
+                continue
+
+            for report_file in agent_dir.glob(f"*{report_id}*.json"):
+                try:
+                    data = json.loads(report_file.read_text())
+                    # Verify report_id matches
+                    if data.get("report_id") == report_id or report_id in report_file.name:
+                        return json_response(data)
+                except (json.JSONDecodeError, IOError):
+                    continue
+
+        return error_response("Report not found", 404)

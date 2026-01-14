@@ -392,6 +392,38 @@ export interface VerifyStatusResponse {
   backends: VerificationBackendStatus[];
 }
 
+export interface VerifyBatchClaimInput {
+  claim: string;
+  claim_type?: string;
+  context?: string;
+}
+
+export interface VerifyBatchRequest {
+  claims: VerifyBatchClaimInput[];
+  timeout_per_claim?: number;
+  max_concurrent?: number;
+}
+
+export interface VerifyBatchResultEntry {
+  status: string;
+  formal_statement?: string;
+  proof_hash?: string;
+  confidence?: number;
+  error_message?: string;
+}
+
+export interface VerifyBatchSummary {
+  total: number;
+  verified: number;
+  failed: number;
+  timeout: number;
+}
+
+export interface VerifyBatchResponse {
+  results: VerifyBatchResultEntry[];
+  summary: VerifyBatchSummary;
+}
+
 // =============================================================================
 // Memory Types
 // =============================================================================
@@ -3197,6 +3229,23 @@ export interface ProbeReport {
   summary: ProbeSummary;
   recommendations: string[];
   created_at: string;
+}
+
+export interface ProbeReportSummary {
+  report_id: string;
+  target_agent: string;
+  probes_run: number;
+  vulnerabilities_found: number;
+  vulnerability_rate: number;
+  created_at: string;
+  file_name: string;
+}
+
+export interface ProbeReportsListResponse {
+  reports: ProbeReportSummary[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 // =============================================================================
