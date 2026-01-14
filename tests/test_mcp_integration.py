@@ -114,9 +114,10 @@ class TestMCPToolsModuleStructure:
         from aragora.mcp.tools import TOOLS_METADATA
 
         assert isinstance(TOOLS_METADATA, list)
-        assert len(TOOLS_METADATA) == 8
+        assert len(TOOLS_METADATA) == 24  # Full tool set from tools_module
 
         tool_names = [t["name"] for t in TOOLS_METADATA]
+        # Core debate tools
         assert "run_debate" in tool_names
         assert "run_gauntlet" in tool_names
         assert "list_agents" in tool_names
@@ -125,6 +126,12 @@ class TestMCPToolsModuleStructure:
         assert "get_consensus_proofs" in tool_names
         assert "list_trending_topics" in tool_names
         assert "get_debate" in tool_names
+        # Additional tools from tools_module
+        assert "fork_debate" in tool_names
+        assert "query_memory" in tool_names
+        assert "create_checkpoint" in tool_names
+        assert "verify_consensus" in tool_names
+        assert "search_evidence" in tool_names
 
     def test_tools_metadata_has_required_fields(self):
         """Each tool in TOOLS_METADATA has required fields."""
