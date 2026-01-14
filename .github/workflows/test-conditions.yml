@@ -1,0 +1,28 @@
+name: Test Conditions
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_first:
+        description: 'Skip first job'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  first:
+    if: github.event.inputs.skip_first != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: First job
+        run: echo "First job running"
+
+  second:
+    needs: first
+    if: |
+      always() &&
+      (needs.first.result == 'success' || needs.first.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Second job
+        run: echo "Second job running"
