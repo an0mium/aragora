@@ -12,6 +12,7 @@ import json
 import re
 import sqlite3
 from collections import deque
+from html import escape as html_escape
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from threading import Thread
@@ -167,6 +168,40 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     # Per-request rate limit result (set by _check_tier_rate_limit)
     # Used to include X-RateLimit-* headers in all responses
     _rate_limit_result: Optional["RateLimitResult"] = None
+
+    def send_error(
+        self, code: int, message: str | None = None, explain: str | None = None
+    ) -> None:
+        """Override send_error to include CORS headers.
+
+        The default BaseHTTPRequestHandler.send_error() doesn't include CORS headers,
+        which causes browsers to block error responses for cross-origin requests.
+        """
+        # Send response headers first
+        self.send_response(code, message)
+        self.send_header("Content-Type", self.error_content_type)
+        # Add CORS headers so browser can read error responses
+        self._add_cors_headers()
+        self._add_security_headers()
+        self.end_headers()
+
+        # Format error body (same as BaseHTTPRequestHandler)
+        if code in self.responses:
+            short, long_msg = self.responses[code]
+        else:
+            short, long_msg = "Unknown", "Unknown error"
+
+        if message is None:
+            message = short
+        if explain is None:
+            explain = long_msg
+
+        body = self.error_message_format % {
+            "code": code,
+            "message": html_escape(message, quote=False),
+            "explain": html_escape(explain, quote=False),
+        }
+        self.wfile.write(body.encode("utf-8", "replace"))
 
     def _log_request(
         self, method: str, path: str, status: int, duration_ms: float, extra: dict = None

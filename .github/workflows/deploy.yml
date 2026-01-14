@@ -3,6 +3,11 @@ name: Deploy
 on:
   push:
     branches: [main]
+    paths:
+      - 'aragora/**'
+      - '.github/workflows/deploy.yml'
+      - 'requirements.txt'
+      - 'pyproject.toml'
   workflow_dispatch:
     inputs:
       environment:
@@ -15,15 +20,22 @@ on:
           - cloudflare
           - lightsail
           - ec2
+      skip_tests:
+        description: 'Skip tests (emergency deploy only)'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: true  # Cancel stuck/queued runs when new deploy comes in
 
 jobs:
-  # Run tests before deploying
+  # Run tests before deploying (skippable for emergency deploys)
   test:
+    if: github.event.inputs.skip_tests != 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,9 +61,13 @@ jobs:
 
   deploy-cloudflare:
     needs: test
-    # Note: inputs.environment is null when workflow_dispatch triggered without explicit inputs
-    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'cloudflare' || github.event.inputs.environment == null || github.event_name == 'push'
+    # Run if test passed OR tests were skipped
+    if: |
+      always() &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (github.event.inputs.environment == 'all' || github.event.inputs.environment == 'cloudflare' || github.event.inputs.environment == null || github.event_name == 'push')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -96,9 +112,13 @@ jobs:
 
   deploy-lightsail:
     needs: test
-    # Note: inputs.environment is null when workflow_dispatch triggered without explicit inputs
-    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'lightsail' || github.event.inputs.environment == null || github.event_name == 'push'
+    # Run if test passed OR tests were skipped
+    if: |
+      always() &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (github.event.inputs.environment == 'all' || github.event.inputs.environment == 'lightsail' || github.event.inputs.environment == null || github.event_name == 'push')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     continue-on-error: true  # Don't fail the workflow if Lightsail is unreachable
 
     steps:
@@ -248,9 +268,13 @@ jobs:
 
   deploy-ec2:
     needs: test
-    # Note: inputs.environment is null when workflow_dispatch triggered without explicit inputs
-    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2' || github.event.inputs.environment == null || github.event_name == 'push'
+    # Run if test passed OR tests were skipped
+    if: |
+      always() &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2' || github.event.inputs.environment == null || github.event_name == 'push')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     continue-on-error: true  # Don't fail the workflow if EC2 is unreachable
 
     steps:

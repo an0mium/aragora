@@ -28,6 +28,7 @@ from aragora.server.debate_utils import (
 from aragora.server.error_utils import safe_error_message
 from aragora.server.http_utils import run_async
 from aragora.server.state import get_state_manager
+from aragora.server.storage import get_debates_db
 from aragora.server.stream import (
     StreamEvent,
     StreamEventType,
@@ -290,6 +291,35 @@ class DebateController:
                     ),
                 },
             )
+
+            # Persist debate to SQLite storage
+            try:
+                storage = get_debates_db()
+                if storage:
+                    # Parse agents string to list
+                    agents_list = (
+                        config.agents_str.split(",")
+                        if isinstance(config.agents_str, str)
+                        else config.agents_str
+                    )
+                    debate_data = {
+                        "id": debate_id,
+                        "task": config.question,
+                        "agents": agents_list,
+                        "rounds": config.rounds,
+                        "final_answer": result.final_answer,
+                        "consensus_reached": result.consensus_reached,
+                        "confidence": result.confidence,
+                        "grounded_verdict": (
+                            result.grounded_verdict.to_dict()
+                            if result.grounded_verdict
+                            else None
+                        ),
+                    }
+                    storage.save_dict(debate_data)
+                    logger.info(f"[debate] Persisted debate {debate_id} to storage")
+            except Exception as e:
+                logger.error(f"[debate] Failed to persist debate {debate_id}: {e}")
 
             # Emit leaderboard update
             self._emit_leaderboard_update(debate_id)
