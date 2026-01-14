@@ -30,6 +30,7 @@ import { FeaturesProvider } from '@/context/FeaturesContext';
 import { FeatureGuard } from '@/components/FeatureGuard';
 import { DashboardModeToggle } from '@/components/DashboardModeToggle';
 import { useDashboardPreferences } from '@/hooks/useDashboardPreferences';
+import { OnboardingWizard } from '@/components/OnboardingWizard';
 import type { NomicState } from '@/types/events';
 
 // Dynamic imports for heavy/conditionally-shown components
@@ -300,7 +301,20 @@ export default function Home() {
     preferences,
     setMode,
     isFocusMode,
+    isLoaded: prefsLoaded,
+    markOnboardingComplete,
   } = useDashboardPreferences();
+
+  // Onboarding wizard state
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+
+  // Show onboarding for new users (after boot sequence completes)
+  useEffect(() => {
+    if (prefsLoaded && !preferences.hasSeenOnboarding && !showBoot) {
+      setShowOnboarding(true);
+    }
+  }, [prefsLoaded, preferences.hasSeenOnboarding, showBoot]);
 
   // Backend selection (production vs development)
   const { config: backendConfig } = useBackend();
@@ -399,6 +413,20 @@ export default function Home() {
     setShowBoot(false);
     sessionStorage.setItem('aragora-boot-shown', 'true');
   }, []);
+
+  // Onboarding completion handler
+  const handleOnboardingComplete = useCallback((persona: string, startWithPrompt?: string) => {
+    markOnboardingComplete();
+    setShowOnboarding(false);
+    if (startWithPrompt) {
+      setPendingPrompt(startWithPrompt);
+    }
+  }, [markOnboardingComplete]);
+
+  const handleOnboardingSkip = useCallback(() => {
+    markOnboardingComplete();
+    setShowOnboarding(false);
+  }, [markOnboardingComplete]);
 
   // Compute effective loop ID - auto-select if only one loop active (fixes race condition)
   const effectiveLoopId = selectedLoopId || (activeLoops.length === 1 ? activeLoops[0].loop_id : null);
@@ -539,6 +567,14 @@ export default function Home() {
     <FeaturesProvider apiBase={apiBase}>
       {/* Boot Sequence */}
       {showBoot && <BootSequence onComplete={handleBootComplete} skip={skipBoot} />}
+
+      {/* Onboarding Wizard - shows for new users after boot */}
+      {showOnboarding && (
+        <OnboardingWizard
+          onComplete={handleOnboardingComplete}
+          onSkip={handleOnboardingSkip}
+        />
+      )}
 
       {/* CRT Effects */}
       <Scanlines opacity={0.02} />
@@ -855,7 +891,7 @@ export default function Home() {
               )}
             </CollapsibleSection>
 
-            {/* Section 5: System Tools */}
+            {/* Section 5: System Tools - Collapsed in Focus Mode */}
             <CollapsibleSection
               id="system-tools"
               title="SYSTEM TOOLS"
@@ -954,6 +990,21 @@ export default function Home() {
                 <SettingsPanel />
               </PanelErrorBoundary>
             </CollapsibleSection>
+
+            {/* Focus Mode Hint */}
+            {isFocusMode && (
+              <div className="mt-4 p-3 border border-acid-green/20 rounded-lg bg-surface/20 text-center">
+                <p className="text-xs font-mono text-text-muted mb-2">
+                  Some sections are collapsed in Focus Mode
+                </p>
+                <button
+                  onClick={() => setMode('explorer')}
+                  className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                >
+                  [SWITCH TO EXPLORER MODE]
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

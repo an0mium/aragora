@@ -49,7 +49,13 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
                 [ABOUT]
               </a>
               <a
-                href="https://aragora.ai"
+                href="/api/docs"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [API DOCS]
+              </a>
+              <a
+                href="https://live.aragora.ai"
                 className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
               >
                 [LIVE DASHBOARD]
@@ -76,7 +82,28 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
           </pre>
 
           {/* Mobile title */}
-          <h1 className="sm:hidden text-2xl font-mono text-acid-green mb-6">ARAGORA</h1>
+          <h1 className="sm:hidden text-2xl font-mono text-acid-green mb-4">ARAGORA</h1>
+
+          {/* Value Proposition - Outcome-focused */}
+          <div className="text-center mb-8 max-w-2xl">
+            <h2 className="text-lg sm:text-xl font-mono text-acid-cyan mb-3">
+              Find the $500K flaw before launch
+            </h2>
+            <p className="text-sm font-mono text-text-muted mb-4">
+              AI stress-tests your architecture in 30 minutes. What consultants charge $10K+ for, done for $5-50.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4 text-xs font-mono text-text-muted/70">
+              <span className="flex items-center gap-1">
+                <span className="text-acid-green">+</span> 8 AI models debating
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="text-acid-green">+</span> Audit-ready receipts
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="text-acid-green">+</span> 15-45 min turnaround
+              </span>
+            </div>
+          </div>
 
           {/* Error Banner */}
           {error && (

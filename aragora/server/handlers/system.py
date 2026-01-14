@@ -647,6 +647,34 @@ class SystemHandler(BaseHandler):
         except (OSError, RuntimeError) as e:
             health["maintenance"] = {"error": f"{type(e).__name__}: {str(e)[:80]}"}
 
+        # Check for SQLite in production (scalability warning)
+        import os
+
+        env_mode = os.environ.get("ARAGORA_ENV", os.environ.get("NODE_ENV", "development"))
+        database_url = os.environ.get("DATABASE_URL", "")
+        is_production = env_mode.lower() == "production"
+        is_sqlite = not database_url or "sqlite" in database_url.lower() or not any(
+            db in database_url.lower() for db in ["postgres", "mysql", "mariadb"]
+        )
+
+        if is_production and is_sqlite:
+            warnings_list = health.get("warnings", [])
+            if isinstance(warnings_list, list):
+                warnings_list.append(
+                    "SQLite detected in production. For multi-replica deployments, migrate to PostgreSQL."
+                )
+                health["warnings"] = warnings_list
+            health["database"] = {
+                "type": "sqlite",
+                "production_ready": False,
+                "recommendation": "Set DATABASE_URL to a PostgreSQL connection string",
+            }
+        else:
+            health["database"] = {
+                "type": "postgresql" if "postgres" in database_url.lower() else "unknown",
+                "production_ready": True,
+            }
+
         # Add memory stats if available
         try:
             import psutil
