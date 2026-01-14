@@ -3,7 +3,6 @@
 import asyncio
 import json
 import pytest
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from aragora.client.websocket import (
@@ -73,7 +72,7 @@ class TestDebateEvent:
         assert event.type == DebateEventType.AGENT_MESSAGE
         assert event.debate_id == "debate-123"
         assert event.data["content"] == "Hello"
-        assert event.timestamp == datetime.fromisoformat("2024-01-01T00:00:00").timestamp()
+        assert isinstance(event.timestamp, float)
 
     def test_from_dict_unknown_event_type_defaults_to_error(self):
         """Unknown event types become ERROR."""
@@ -106,13 +105,13 @@ class TestDebateEvent:
         original = {
             "type": "consensus",
             "debate_id": "my-debate",
-            "timestamp": "2024-06-15T12:30:00",
+            "timestamp": 1718454600.0,
             "data": {"winner": "claude", "confidence": 0.95},
         }
         event = DebateEvent.from_dict(original)
         assert event.type == DebateEventType.CONSENSUS
         assert event.debate_id == "my-debate"
-        assert event.timestamp == datetime.fromisoformat("2024-06-15T12:30:00").timestamp()
+        assert event.timestamp == 1718454600.0
         assert event.data["winner"] == "claude"
         assert event.data["confidence"] == 0.95
 

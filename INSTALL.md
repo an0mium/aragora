@@ -145,7 +145,7 @@ npm install
 Create `.env.local`:
 
 ```
-NEXT_PUBLIC_WS_URL=ws://localhost:8765
+NEXT_PUBLIC_WS_URL=ws://localhost:8765/ws
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url (optional)
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key (optional)
 ```

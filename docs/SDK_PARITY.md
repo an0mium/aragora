@@ -585,7 +585,7 @@ These SDK methods reference endpoints that don't exist or have different paths:
 ## File References
 
 ### Backend Handlers
-- `/Users/armand/Development/aragora/aragora/server/handlers/` (61+ handler modules)
+- `aragora/server/handlers/` (61+ handler modules)
 
 ### SDK Source
-- `/Users/armand/Development/aragora/aragora-js/src/client.ts` (2100 lines, 23 API classes)
+- `aragora-js/src/client.ts` (2100 lines, 23 API classes)

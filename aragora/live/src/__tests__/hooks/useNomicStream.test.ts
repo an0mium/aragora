@@ -193,7 +193,7 @@ describe('useNomicStream', () => {
       const { result } = renderHook(() => useNomicStream());
 
       // Force circuit open by exhausting attempts
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 16; i++) {
         act(() => {
           getLatestWs().simulateClose();
         });

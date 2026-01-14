@@ -167,8 +167,7 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
 
         if token_alg != JWT_ALGORITHM:
             logger.warning(
-                f"jwt_decode_failed: algorithm mismatch "
-                f"(expected {JWT_ALGORITHM}, got {token_alg})"
+                f"jwt_decode_failed: algorithm mismatch (expected {JWT_ALGORITHM}, got {token_alg})"
             )
             return None
 

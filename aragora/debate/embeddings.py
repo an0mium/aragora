@@ -42,10 +42,10 @@ Debate Context:
 - Cycle: {debate.cycle_number}
 - Phase: {debate.phase}
 - Task: {debate.task}
-- Agents: {', '.join(debate.agents)}
-- Consensus: {'Yes' if debate.consensus_reached else 'No'}
+- Agents: {", ".join(debate.agents)}
+- Consensus: {"Yes" if debate.consensus_reached else "No"}
 - Confidence: {debate.confidence}
-- Winning Proposal: {debate.winning_proposal or 'None'}
+- Winning Proposal: {debate.winning_proposal or "None"}
 
 Transcript:
 {transcript_text}

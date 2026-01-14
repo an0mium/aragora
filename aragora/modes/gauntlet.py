@@ -781,7 +781,8 @@ class GauntletOrchestrator:
             try:
                 # Generate attack prompt
                 attack_prompt = persona.get_attack_prompt(
-                    config.input_content[:5000], attack  # Limit context
+                    config.input_content[:5000],
+                    attack,  # Limit context
                 )
 
                 # Run attack with first available agent

@@ -587,7 +587,7 @@ class DecisionReceipt:
         <div style="font-size: 14px; font-weight: normal; margin-top: 8px;">
             Confidence: {self.confidence:.0%} | Robustness: {self.robustness_score:.0%}
         </div>
-        {f'<div style="font-size: 13px; font-weight: normal; margin-top: 8px;">{escape(self.verdict_reasoning)}</div>' if self.verdict_reasoning else ''}
+        {f'<div style="font-size: 13px; font-weight: normal; margin-top: 8px;">{escape(self.verdict_reasoning)}</div>' if self.verdict_reasoning else ""}
     </div>
 
     <div class="scores">
@@ -605,10 +605,10 @@ class DecisionReceipt:
         <h2>Risk Summary</h2>
         <table>
             <tr><th>Severity</th><th>Count</th></tr>
-            <tr><td>Critical</td><td>{risk_summary.get('critical', 0)}</td></tr>
-            <tr><td>High</td><td>{risk_summary.get('high', 0)}</td></tr>
-            <tr><td>Medium</td><td>{risk_summary.get('medium', 0)}</td></tr>
-            <tr><td>Low</td><td>{risk_summary.get('low', 0)}</td></tr>
+            <tr><td>Critical</td><td>{risk_summary.get("critical", 0)}</td></tr>
+            <tr><td>High</td><td>{risk_summary.get("high", 0)}</td></tr>
+            <tr><td>Medium</td><td>{risk_summary.get("medium", 0)}</td></tr>
+            <tr><td>Low</td><td>{risk_summary.get("low", 0)}</td></tr>
             <tr><td><strong>Total</strong></td><td><strong>{self.vulnerabilities_found}</strong></td></tr>
         </table>
     </div>

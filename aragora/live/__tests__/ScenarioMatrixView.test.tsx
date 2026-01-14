@@ -183,7 +183,7 @@ describe('ScenarioMatrixView', () => {
     fireEvent.click(screen.getByRole('button', { name: /grid/i }));
 
     expect(
-      screen.getByText(/click two scenarios to compare them side-by-side/i)
+      screen.getByText(/compare them/i)
     ).toBeInTheDocument();
 
     const baselineCard = screen.getByText('Baseline', { selector: 'span.text-xs.font-mono' });

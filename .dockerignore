@@ -14,6 +14,16 @@ build/
 .env.*
 tests/
 docs/
-*.md
 .comparison/
 .claude/
+aragora-js/
+tutorials/
+aragora/live/
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+CLAUDE.md
+CONTRIBUTING.md
+CHANGELOG.md
+# Keep README.md for pyproject.toml
+!README.md

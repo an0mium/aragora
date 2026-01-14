@@ -319,7 +319,7 @@ class EmailIntegration:
                         </div>
                         <div class="metric">
                             <span class="metric-label">Winner</span>
-                            <span class="metric-value">{result.winner or 'None'}</span>
+                            <span class="metric-value">{result.winner or "None"}</span>
                         </div>
                     </div>
 
@@ -539,9 +539,9 @@ class EmailIntegration:
                 status = "Consensus" if result.consensus_reached else "No Consensus"
                 debates_html += f"""
                 <div style="border-bottom: 1px solid #e0e0e0; padding: 15px 0;">
-                    <strong>{result.task[:80]}{'...' if len(result.task) > 80 else ''}</strong>
+                    <strong>{result.task[:80]}{"..." if len(result.task) > 80 else ""}</strong>
                     <br>
-                    <span style="color: #666;">Status: {status} | Winner: {result.winner or 'None'}</span>
+                    <span style="color: #666;">Status: {status} | Winner: {result.winner or "None"}</span>
                 </div>
                 """
 
@@ -553,7 +553,7 @@ class EmailIntegration:
             <div class="container">
                 <div class="header">
                     <h1>Debate Digest</h1>
-                    <p>{len(items)} debates in the last {self.config.digest_frequency.replace('ly', '')}</p>
+                    <p>{len(items)} debates in the last {self.config.digest_frequency.replace("ly", "")}</p>
                 </div>
                 <div class="content">
                     {debates_html}

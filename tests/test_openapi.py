@@ -319,7 +319,7 @@ class TestSchemaValidation:
     def test_response_codes_valid(self):
         """Response codes are valid HTTP codes."""
         schema = generate_openapi_schema()
-        valid_codes = {"200", "201", "202", "204", "400", "401", "403", "404", "429", "500", "503"}
+        valid_codes = {"200", "201", "202", "204", "400", "401", "402", "403", "404", "429", "500", "503"}
 
         for path, methods in schema["paths"].items():
             for method, spec in methods.items():

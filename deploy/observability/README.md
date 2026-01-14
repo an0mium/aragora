@@ -328,12 +328,12 @@ redis_keyspace_hits_total / (redis_keyspace_hits_total + redis_keyspace_misses_t
 
 | Alert | Runbook |
 |-------|---------|
-| `AragoraDown` | [docs/RUNBOOK.md#service-restart](../../../docs/RUNBOOK.md#1-service-restart) |
-| `HighErrorRate` | [docs/RUNBOOK.md#alerts-and-responses](../../../docs/RUNBOOK.md#alerts-and-responses) |
-| `CircuitBreakerOpen` | [docs/RUNBOOK.md#3-agent-timeout-handling](../../../docs/RUNBOOK.md#3-agent-timeout-handling) |
-| `RedisDown` | [docs/RUNBOOK.md#alert-redisdown](../../../docs/RUNBOOK.md#alert-redisdown) |
-| `DatabaseConnectionPoolExhausted` | [docs/RUNBOOK.md#4-database-connection-exhaustion](../../../docs/RUNBOOK.md#4-database-connection-exhaustion) |
-| `TLSCertificateExpiringSoon` | [docs/DEPLOYMENT.md#6-tls-configuration-with-cert-manager](../../../docs/DEPLOYMENT.md#6-tls-configuration-with-cert-manager) |
+| `AragoraDown` | [docs/RUNBOOK.md#service-restart](../../docs/RUNBOOK.md#1-service-restart) |
+| `HighErrorRate` | [docs/RUNBOOK.md#alerts-and-responses](../../docs/RUNBOOK.md#alerts-and-responses) |
+| `CircuitBreakerOpen` | [docs/RUNBOOK.md#3-agent-timeout-handling](../../docs/RUNBOOK.md#3-agent-timeout-handling) |
+| `RedisDown` | [docs/RUNBOOK.md#alert-redisdown](../../docs/RUNBOOK.md#alert-redisdown) |
+| `DatabaseConnectionPoolExhausted` | [docs/RUNBOOK.md#4-database-connection-exhaustion](../../docs/RUNBOOK.md#4-database-connection-exhaustion) |
+| `TLSCertificateExpiringSoon` | [docs/DEPLOYMENT.md#6-tls-configuration-with-cert-manager](../../docs/DEPLOYMENT.md#6-tls-configuration-with-cert-manager) |
 
 ---
 

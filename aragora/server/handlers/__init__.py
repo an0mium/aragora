@@ -44,6 +44,7 @@ from .consensus import ConsensusHandler
 from .critique import CritiqueHandler
 from .dashboard import DashboardHandler
 from .debates import DebatesHandler
+from .docs import DocsHandler
 from .documents import DocumentHandler
 from .evidence import EvidenceHandler
 from .evolution import EvolutionHandler
@@ -54,6 +55,7 @@ from .gallery import GalleryHandler
 from .gauntlet import GauntletHandler
 from .genesis import GenesisHandler
 from .graph_debates import GraphDebatesHandler
+from .health import HealthHandler
 from .insights import InsightsHandler
 from .introspection import IntrospectionHandler
 from .laboratory import LaboratoryHandler
@@ -64,6 +66,7 @@ from .memory import MemoryHandler
 from .memory_analytics import MemoryAnalyticsHandler
 from .metrics import MetricsHandler
 from .moments import MomentsHandler
+from .nomic import NomicHandler
 from .oauth import OAuthHandler
 from .organizations import OrganizationsHandler
 from .persona import PersonaHandler
@@ -89,6 +92,9 @@ ALL_HANDLERS = [
     MatrixDebatesHandler,  # More specific path: /api/debates/matrix
     DebatesHandler,
     AgentsHandler,
+    HealthHandler,  # More specific: /healthz, /readyz, /api/health/*
+    NomicHandler,  # More specific: /api/nomic/*
+    DocsHandler,  # More specific: /api/openapi*, /api/docs*, /api/redoc*
     SystemHandler,
     PulseHandler,
     AnalyticsHandler,

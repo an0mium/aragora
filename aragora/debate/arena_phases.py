@@ -163,7 +163,7 @@ def _create_verify_claims_callback(arena: "Arena"):
             if confidence >= 0.5:
                 verified_count += 1
                 _track_verification("confidence_fallback", 0.0)
-                logger.debug(f"claim_verified type={claim_type} " f"confidence={confidence:.2f}")
+                logger.debug(f"claim_verified type={claim_type} confidence={confidence:.2f}")
 
         return {"verified": verified_count, "disproven": disproven_count}
 
@@ -372,9 +372,9 @@ def init_phases(arena: "Arena") -> None:
         loop_id=arena.loop_id,
         notify_spectator=arena._notify_spectator,
         update_agent_relationships=arena._update_agent_relationships,
-        generate_disagreement_report=lambda votes, critiques, winner=None: DisagreementReporter().generate_report(
-            votes, critiques, winner
-        ),
+        generate_disagreement_report=lambda votes,
+        critiques,
+        winner=None: DisagreementReporter().generate_report(votes, critiques, winner),
         create_grounded_verdict=arena._create_grounded_verdict,
         verify_claims_formally=arena._verify_claims_formally,
         format_conclusion=arena._format_conclusion,

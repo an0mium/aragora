@@ -277,7 +277,7 @@ class SQLConnector(BaseConnector):
                 converted_query = query
                 if "%s" in query and params:
                     for i in range(len(params)):
-                        converted_query = converted_query.replace("%s", f"${i+1}", 1)
+                        converted_query = converted_query.replace("%s", f"${i + 1}", 1)
 
                 if hasattr(conn, "fetch"):  # asyncpg
                     result = await conn.fetch(converted_query, *(params or []))
@@ -344,9 +344,7 @@ class SQLConnector(BaseConnector):
         content = row.get(content_column)
         if content is None:
             # Concatenate all string columns
-            content = "\n".join(
-                f"{k}: {v}" for k, v in row.items() if isinstance(v, str) and v
-            )
+            content = "\n".join(f"{k}: {v}" for k, v in row.items() if isinstance(v, str) and v)
 
         # Truncate if too long
         if len(content) > self.MAX_CONTENT_LENGTH:
@@ -428,8 +426,7 @@ class SQLConnector(BaseConnector):
             evidence_list.append(evidence)
 
         logger.info(
-            f"SQL search returned {len(evidence_list)} results "
-            f"in {result.query_time_ms:.1f}ms"
+            f"SQL search returned {len(evidence_list)} results in {result.query_time_ms:.1f}ms"
         )
 
         return evidence_list

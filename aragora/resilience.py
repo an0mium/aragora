@@ -238,7 +238,7 @@ class CircuitOpenError(Exception):
         self.circuit_name = circuit_name
         self.cooldown_remaining = cooldown_remaining
         super().__init__(
-            f"Circuit breaker '{circuit_name}' is open. " f"Retry in {cooldown_remaining:.1f}s"
+            f"Circuit breaker '{circuit_name}' is open. Retry in {cooldown_remaining:.1f}s"
         )
 
 
@@ -348,7 +348,7 @@ class CircuitBreaker:
             if entity not in self._circuit_open_at:
                 self._circuit_open_at[entity] = time.time()
                 logger.warning(
-                    f"Circuit breaker OPEN for {entity} " f"after {self._failures[entity]} failures"
+                    f"Circuit breaker OPEN for {entity} after {self._failures[entity]} failures"
                 )
                 return True
         return False

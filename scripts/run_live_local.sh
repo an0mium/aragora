@@ -28,7 +28,7 @@ echo "========================================"
 echo "ARAGORA LIVE DASHBOARD (LOCAL)"
 echo "========================================"
 echo "Dashboard: http://localhost:3000"
-echo "WebSocket: ws://localhost:8765"
+echo "WebSocket: ws://localhost:8765/ws"
 echo ""
 echo "Make sure nomic loop is running:"
 echo "  python scripts/run_nomic_with_stream.py run --cycles 3"
@@ -36,6 +36,6 @@ echo "========================================"
 echo ""
 
 # Run dev server with local WebSocket URL
-NEXT_PUBLIC_WS_URL=ws://localhost:8765 \
+NEXT_PUBLIC_WS_URL=ws://localhost:8765/ws \
 NEXT_PUBLIC_API_URL=http://localhost:8080 \
 npm run dev

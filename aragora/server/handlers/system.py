@@ -653,8 +653,10 @@ class SystemHandler(BaseHandler):
         env_mode = os.environ.get("ARAGORA_ENV", os.environ.get("NODE_ENV", "development"))
         database_url = os.environ.get("DATABASE_URL", "")
         is_production = env_mode.lower() == "production"
-        is_sqlite = not database_url or "sqlite" in database_url.lower() or not any(
-            db in database_url.lower() for db in ["postgres", "mysql", "mariadb"]
+        is_sqlite = (
+            not database_url
+            or "sqlite" in database_url.lower()
+            or not any(db in database_url.lower() for db in ["postgres", "mysql", "mariadb"])
         )
 
         if is_production and is_sqlite:

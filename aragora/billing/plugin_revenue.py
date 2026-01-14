@@ -295,7 +295,7 @@ class PluginRevenueTracker:
             )
             conn.commit()
 
-        logger.info(f"Plugin install recorded: {plugin_name} v{plugin_version} " f"by org {org_id}")
+        logger.info(f"Plugin install recorded: {plugin_name} v{plugin_version} by org {org_id}")
         return install
 
     def record_revenue(
@@ -375,8 +375,8 @@ class PluginRevenueTracker:
             conn.commit()
 
         logger.info(
-            f"Revenue recorded: {plugin_name} ${event.gross_amount_cents/100:.2f} "
-            f"(developer: ${event.developer_amount_cents/100:.2f})"
+            f"Revenue recorded: {plugin_name} ${event.gross_amount_cents / 100:.2f} "
+            f"(developer: ${event.developer_amount_cents / 100:.2f})"
         )
         return event
 
@@ -497,7 +497,7 @@ class PluginRevenueTracker:
         if not balance["payout_eligible"]:
             logger.info(
                 f"Developer {developer_id} not eligible for payout "
-                f"(balance: ${balance['available_balance_cents']/100:.2f})"
+                f"(balance: ${balance['available_balance_cents'] / 100:.2f})"
             )
             return None
 
@@ -530,7 +530,7 @@ class PluginRevenueTracker:
             conn.commit()
 
         logger.info(
-            f"Payout created for developer {developer_id}: " f"${payout.amount_cents/100:.2f}"
+            f"Payout created for developer {developer_id}: ${payout.amount_cents / 100:.2f}"
         )
         return payout
 

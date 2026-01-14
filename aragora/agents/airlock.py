@@ -263,8 +263,7 @@ class AirlockProxy:
                 if self._config.fallback_on_timeout:
                     self._metrics.fallback_responses += 1
                     logger.info(
-                        f"airlock_fallback agent={self._agent.name} "
-                        f"op={operation} reason=timeout"
+                        f"airlock_fallback agent={self._agent.name} op={operation} reason=timeout"
                     )
                     return fallback
 
@@ -317,7 +316,7 @@ class AirlockProxy:
                 if self._config.fallback_on_error:
                     self._metrics.fallback_responses += 1
                     logger.info(
-                        f"airlock_fallback agent={self._agent.name} " f"op={operation} reason=error"
+                        f"airlock_fallback agent={self._agent.name} op={operation} reason=error"
                     )
                     return fallback
 

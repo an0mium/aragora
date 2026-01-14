@@ -187,7 +187,7 @@ class BillingNotifier:
         else:
             urgency = "NOTICE"
             urgency_message = (
-                "We were unable to process your payment. " "Please update your payment information."
+                "We were unable to process your payment. Please update your payment information."
             )
 
         html_body = f"""
@@ -198,7 +198,7 @@ class BillingNotifier:
         body {{ font-family: 'Monaco', 'Menlo', monospace; background: #0a0a0a; color: #00ff00; padding: 20px; }}
         .container {{ max-width: 600px; margin: 0 auto; border: 1px solid #00ff00; padding: 20px; }}
         .header {{ font-size: 18px; margin-bottom: 20px; }}
-        .urgency {{ color: {'#ff6600' if urgency != 'NOTICE' else '#00ff00'}; font-weight: bold; }}
+        .urgency {{ color: {"#ff6600" if urgency != "NOTICE" else "#00ff00"}; font-weight: bold; }}
         .message {{ margin: 20px 0; line-height: 1.6; }}
         .button {{ display: inline-block; padding: 10px 20px; background: #00ff00; color: #0a0a0a; text-decoration: none; margin-top: 20px; }}
         .footer {{ margin-top: 30px; font-size: 12px; color: #666; }}
@@ -213,7 +213,7 @@ class BillingNotifier:
             <p>{urgency_message}</p>
             <p><strong>Organization:</strong> {org_name}</p>
             <p><strong>Attempt:</strong> {attempt_count} of 3</p>
-            {'<p><a href="' + invoice_url + '" class="button">UPDATE PAYMENT</a></p>' if invoice_url else ''}
+            {'<p><a href="' + invoice_url + '" class="button">UPDATE PAYMENT</a></p>' if invoice_url else ""}
         </div>
         <div class="footer">
             <p>If you believe this is an error, please contact support@aragora.ai</p>
@@ -321,7 +321,7 @@ If you believe this is an error, please contact support@aragora.ai
         <div class="highlight">{days_remaining} Days Remaining</div>
         <div class="message">
             <p>Hi {org_name},</p>
-            <p>Your Aragora trial will end on {trial_end.strftime('%B %d, %Y')}.</p>
+            <p>Your Aragora trial will end on {trial_end.strftime("%B %d, %Y")}.</p>
             <p>Upgrade now to keep access to:</p>
             <ul>
                 <li>Unlimited AI debates</li>
@@ -347,7 +347,7 @@ If you believe this is an error, please contact support@aragora.ai
 
 Hi {org_name},
 
-Your Aragora trial will end on {trial_end.strftime('%B %d, %Y')}.
+Your Aragora trial will end on {trial_end.strftime("%B %d, %Y")}.
 
 Upgrade now to keep access to:
 - Unlimited AI debates
@@ -480,7 +480,7 @@ We'd love to hear your feedback. What could we have done better?
 
         # Log as final fallback
         logger.info(
-            f"SUBSCRIPTION_CANCELED: org={org_id} name={org_name} email={email} " f"reason={reason}"
+            f"SUBSCRIPTION_CANCELED: org={org_id} name={org_name} email={email} reason={reason}"
         )
         return NotificationResult(success=True, method="log")
 

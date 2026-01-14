@@ -1295,9 +1295,8 @@ class CruxDetector:
         )
 
         # Convergence barrier = combination of disagreement and uncertainty
-        convergence_barrier = (
-            0.4 * (total_disagreements / len(self.network.nodes))
-            + 0.6 * (avg_uncertainty / math.log2(3))
+        convergence_barrier = 0.4 * (total_disagreements / len(self.network.nodes)) + 0.6 * (
+            avg_uncertainty / math.log2(3)
         )
 
         return CruxAnalysisResult(
@@ -1319,39 +1318,49 @@ class CruxDetector:
 
         # Based on the type of crux
         if crux.disagreement_score > 0.5:
-            suggestions.append({
-                "type": "mediation",
-                "action": "Request agents to explicitly address opposing arguments",
-                "reason": f"High disagreement ({crux.disagreement_score:.0%}) between agents",
-            })
+            suggestions.append(
+                {
+                    "type": "mediation",
+                    "action": "Request agents to explicitly address opposing arguments",
+                    "reason": f"High disagreement ({crux.disagreement_score:.0%}) between agents",
+                }
+            )
 
         if crux.uncertainty_score > 0.6:
-            suggestions.append({
-                "type": "evidence",
-                "action": "Request additional evidence or citations for this claim",
-                "reason": f"High uncertainty ({crux.uncertainty_score:.0%}) needs grounding",
-            })
+            suggestions.append(
+                {
+                    "type": "evidence",
+                    "action": "Request additional evidence or citations for this claim",
+                    "reason": f"High uncertainty ({crux.uncertainty_score:.0%}) needs grounding",
+                }
+            )
 
         if crux.influence_score > 0.7:
-            suggestions.append({
-                "type": "decomposition",
-                "action": "Break this claim into smaller, independently verifiable sub-claims",
-                "reason": f"High influence ({crux.influence_score:.0%}) suggests compound claim",
-            })
+            suggestions.append(
+                {
+                    "type": "decomposition",
+                    "action": "Break this claim into smaller, independently verifiable sub-claims",
+                    "reason": f"High influence ({crux.influence_score:.0%}) suggests compound claim",
+                }
+            )
 
         if len(crux.affected_claims) > 3:
-            suggestions.append({
-                "type": "priority",
-                "action": "Resolve this claim before dependent claims",
-                "reason": f"Affects {len(crux.affected_claims)} other claims in the debate",
-            })
+            suggestions.append(
+                {
+                    "type": "priority",
+                    "action": "Resolve this claim before dependent claims",
+                    "reason": f"Affects {len(crux.affected_claims)} other claims in the debate",
+                }
+            )
 
         if crux.contesting_agents:
-            suggestions.append({
-                "type": "direct_dialogue",
-                "action": f"Facilitate direct exchange between: {', '.join(crux.contesting_agents)}",
-                "reason": "These agents have divergent views on this claim",
-            })
+            suggestions.append(
+                {
+                    "type": "direct_dialogue",
+                    "action": f"Facilitate direct exchange between: {', '.join(crux.contesting_agents)}",
+                    "reason": "These agents have divergent views on this claim",
+                }
+            )
 
         return {
             "claim_id": crux.claim_id,

@@ -278,7 +278,7 @@ class AgentPerformanceMonitor:
                 )
             if stats.avg_duration_ms > 60000:  # > 60 seconds
                 insights["recommendations"].append(
-                    f"Agent '{agent_name}' averages {stats.avg_duration_ms/1000:.0f}s per call. "
+                    f"Agent '{agent_name}' averages {stats.avg_duration_ms / 1000:.0f}s per call. "
                     f"Consider prompt optimization or caching."
                 )
             if stats.success_rate < 50 and stats.total_calls >= 3:

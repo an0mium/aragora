@@ -101,6 +101,7 @@ COMMON_SCHEMAS: dict[str, Any] = {
             "id": {"type": "string"},
             "slug": {"type": "string"},
             "task": {"type": "string"},
+            "topic": {"type": "string", "description": "Alias for task"},
             "context": {"type": "string"},
             "status": {"$ref": "#/components/schemas/DebateStatus"},
             "outcome": {"type": "string"},

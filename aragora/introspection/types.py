@@ -78,16 +78,13 @@ class IntrospectionSnapshot:
         if self.proposals_made > 0:
             acc_pct = int(self.proposal_acceptance_rate * 100)
             lines.append(
-                f"Proposals: {self.proposals_accepted}/{self.proposals_made} "
-                f"accepted ({acc_pct}%)"
+                f"Proposals: {self.proposals_accepted}/{self.proposals_made} accepted ({acc_pct}%)"
             )
 
         # Line 3: Critiques (only if agent has given critiques)
         if self.critiques_given > 0:
             crit_pct = int(self.critique_effectiveness * 100)
-            lines.append(
-                f"Critiques: {crit_pct}% valuable | " f"Calibration: {self.calibration_label}"
-            )
+            lines.append(f"Critiques: {crit_pct}% valuable | Calibration: {self.calibration_label}")
 
         # Line 4: Expertise (only if available)
         if self.top_expertise:

@@ -145,7 +145,8 @@ class DatabaseRepository:
             cursor = conn.cursor()
             # nosec B608: TABLE_NAME is a class constant, safe_col is regex-validated, id_value is parameterized
             cursor.execute(
-                f"SELECT 1 FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1", (id_value,)  # nosec B608
+                f"SELECT 1 FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1",
+                (id_value,),  # nosec B608
             )
             return cursor.fetchone() is not None
 
@@ -188,7 +189,8 @@ class DatabaseRepository:
             cursor = conn.cursor()
             # nosec B608: TABLE_NAME is class constant, safe_col is regex-validated, id_value is parameterized
             cursor.execute(
-                f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1", (id_value,)  # nosec B608
+                f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1",
+                (id_value,),  # nosec B608
             )
             row = cursor.fetchone()
             return dict(row) if row else None

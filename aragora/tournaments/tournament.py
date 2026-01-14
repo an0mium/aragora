@@ -202,7 +202,7 @@ class Tournament:
             for i in range(0, len(remaining), 2):
                 if i + 1 < len(remaining):
                     match = TournamentMatch(
-                        match_id=f"{self.tournament_id}-r{round_num}-m{i//2}",
+                        match_id=f"{self.tournament_id}-r{round_num}-m{i // 2}",
                         round_num=round_num,
                         participants=[remaining[i], remaining[i + 1]],
                         task=task,
@@ -240,7 +240,7 @@ class Tournament:
                 agent_b = sorted_agents[i + 1].agent_name
 
                 match = TournamentMatch(
-                    match_id=f"{self.tournament_id}-r{self.current_round}-m{i//2}",
+                    match_id=f"{self.tournament_id}-r{self.current_round}-m{i // 2}",
                     round_num=self.current_round,
                     participants=[agent_a, agent_b],
                     task=task,

@@ -50,7 +50,7 @@ def timed_lock(
     if not acquired:
         lock_name = f" '{name}'" if name else ""
         raise TimeoutError(
-            f"Failed to acquire lock{lock_name} within {timeout}s. " "This may indicate a deadlock."
+            f"Failed to acquire lock{lock_name} within {timeout}s. This may indicate a deadlock."
         )
     try:
         yield

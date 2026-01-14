@@ -703,7 +703,9 @@ class EloSystem:
                 draw_flag = (
                     draw
                     if draw is not None
-                    else bool(scores) if isinstance(scores, bool) else False
+                    else bool(scores)
+                    if isinstance(scores, bool)
+                    else False
                 )
                 scores = _build_scores(winner_name, loser_name, draw_flag)
             participants_list = [winner_name, loser_name]

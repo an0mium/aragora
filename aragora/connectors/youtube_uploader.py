@@ -616,7 +616,7 @@ def create_video_metadata_from_debate(
     # Create title
     title = f"AI Debate: {task}"
     if len(title) > MAX_TITLE_LENGTH:
-        title = f"AI Debate: {task[:MAX_TITLE_LENGTH - 15]}..."
+        title = f"AI Debate: {task[: MAX_TITLE_LENGTH - 15]}..."
 
     # Create description
     agent_list = "\n".join(f"- {agent}" for agent in agents)

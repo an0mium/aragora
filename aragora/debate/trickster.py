@@ -248,13 +248,13 @@ class EvidencePoweredTrickster:
         # Check cooldown
         rounds_since = round_num - self._state.last_intervention_round
         if rounds_since < self.config.intervention_cooldown_rounds:
-            logger.debug(f"trickster_cooldown round={round_num} " f"rounds_since={rounds_since}")
+            logger.debug(f"trickster_cooldown round={round_num} rounds_since={rounds_since}")
             return None
 
         # Check max interventions
         if self._state.total_interventions >= self.config.max_interventions_total:
             logger.debug(
-                f"trickster_limit round={round_num} " f"total={self._state.total_interventions}"
+                f"trickster_limit round={round_num} total={self._state.total_interventions}"
             )
             return None
 
@@ -584,15 +584,14 @@ class EvidencePoweredTrickster:
         rounds_since = round_num - self._state.last_intervention_round
         if rounds_since < self.config.intervention_cooldown_rounds:
             logger.debug(
-                f"novelty_challenge_cooldown round={round_num} " f"rounds_since={rounds_since}"
+                f"novelty_challenge_cooldown round={round_num} rounds_since={rounds_since}"
             )
             return None
 
         # Check max interventions
         if self._state.total_interventions >= self.config.max_interventions_total:
             logger.debug(
-                f"novelty_challenge_limit round={round_num} "
-                f"total={self._state.total_interventions}"
+                f"novelty_challenge_limit round={round_num} total={self._state.total_interventions}"
             )
             return None
 

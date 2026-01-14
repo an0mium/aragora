@@ -209,7 +209,7 @@ class EvolutionRepository:
                 )
             else:
                 cursor.execute(
-                    "SELECT * FROM nomic_rollbacks WHERE loop_id = ? " "ORDER BY cycle_number DESC",
+                    "SELECT * FROM nomic_rollbacks WHERE loop_id = ? ORDER BY cycle_number DESC",
                     (loop_id,),
                 )
 
@@ -372,8 +372,7 @@ class EvolutionRepository:
 
             conn.commit()
             logger.debug(
-                f"file_changes_recorded loop={loop_id} cycle={cycle_number} "
-                f"count={len(changes)}"
+                f"file_changes_recorded loop={loop_id} cycle={cycle_number} count={len(changes)}"
             )
 
     def get_cycles_touching_file(

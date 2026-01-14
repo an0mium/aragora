@@ -200,7 +200,7 @@ class StripeClient:
         self.api_key = api_key or STRIPE_SECRET_KEY
         if not self.api_key:
             logger.warning(
-                "Stripe API key not configured. " "Set STRIPE_SECRET_KEY environment variable."
+                "Stripe API key not configured. Set STRIPE_SECRET_KEY environment variable."
             )
 
     def _is_configured(self) -> bool:

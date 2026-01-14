@@ -392,8 +392,7 @@ def get_template(template: GauntletTemplate | str) -> GauntletConfig:
             template = GauntletTemplate(template)
         except ValueError:
             raise ValueError(
-                f"Unknown template: {template}. "
-                f"Available: {[t.value for t in GauntletTemplate]}"
+                f"Unknown template: {template}. Available: {[t.value for t in GauntletTemplate]}"
             )
 
     if template not in _TEMPLATES:
@@ -423,7 +422,9 @@ def list_templates() -> list[dict]:
                 "strict"
                 if config.criteria.max_critical_findings == 0
                 and config.criteria.max_high_findings == 0
-                else "standard" if config.criteria.max_high_findings <= 3 else "lenient"
+                else "standard"
+                if config.criteria.max_high_findings <= 3
+                else "lenient"
             ),
         }
         for template, config in _TEMPLATES.items()

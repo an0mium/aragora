@@ -161,14 +161,15 @@ class DebateReplayer:
         if not result:
             return None
 
-        sys.stdout.write(f"\n{'='*80}\n")
+        sys.stdout.write(f"\n{'=' * 80}\n")
         sys.stdout.write(f"REPLAYING DEBATE: {result.task[:80]}...\n")
-        sys.stdout.write(f"Recorded: {len(result.messages)} messages, {result.rounds_used} rounds\n")
         sys.stdout.write(
-            f"Consensus: {'Yes' if result.consensus_reached else 'No'} "
-            f"({result.confidence:.0%})\n"
+            f"Recorded: {len(result.messages)} messages, {result.rounds_used} rounds\n"
         )
-        sys.stdout.write(f"{'='*80}\n\n")
+        sys.stdout.write(
+            f"Consensus: {'Yes' if result.consensus_reached else 'No'} ({result.confidence:.0%})\n"
+        )
+        sys.stdout.write(f"{'=' * 80}\n\n")
 
         # Replay messages in sequence
         import time

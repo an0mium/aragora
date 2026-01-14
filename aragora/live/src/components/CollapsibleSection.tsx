@@ -60,6 +60,13 @@ export function CollapsibleSection({
     }
   }, [isOpen, storageKey, forceOpen]);
 
+  const isForced = forceOpen !== undefined;
+  const isExpanded = isForced ? forceOpen : isOpen;
+
+  if (hideInFocusMode && forceOpen === false) {
+    return null;
+  }
+
   // Priority indicator styling
   const priorityStyles = {
     core: 'border-l-2 border-l-acid-green',
@@ -70,17 +77,21 @@ export function CollapsibleSection({
   return (
     <div className={`border border-acid-green/20 rounded-lg overflow-hidden mb-3 bg-surface/30 ${priorityStyles[priority]}`}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        aria-expanded={isOpen}
+        onClick={() => {
+          if (!isForced) {
+            setIsOpen(!isOpen);
+          }
+        }}
+        aria-expanded={isExpanded}
         aria-controls={`section-${id}-content`}
-        aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${title} section`}
+        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${title} section`}
         title={description}
         className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-acid-green/5 transition-colors group"
       >
         <div className="flex items-center gap-2">
           <span
             className={`text-acid-green text-xs transition-transform duration-200 ${
-              isOpen ? 'rotate-90' : ''
+              isExpanded ? 'rotate-90' : ''
             }`}
           >
             ▶
@@ -100,14 +111,14 @@ export function CollapsibleSection({
           )}
         </div>
         <span className="text-text-muted text-xs font-mono">
-          {isOpen ? '[−]' : '[+]'}
+          {isExpanded ? '[−]' : '[+]'}
         </span>
       </button>
 
       <div
         id={`section-${id}-content`}
         className={`transition-all duration-200 ease-in-out overflow-hidden ${
-          isOpen ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
+          isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
         <div className="px-2 pb-2 space-y-3">

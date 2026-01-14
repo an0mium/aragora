@@ -131,7 +131,9 @@ class ScheduledDebateStore(SQLiteStore):
                     (
                         1
                         if record.consensus_reached
-                        else 0 if record.consensus_reached is not None else None
+                        else 0
+                        if record.consensus_reached is not None
+                        else None
                     ),
                     record.confidence,
                     record.rounds_used,

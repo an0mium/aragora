@@ -148,8 +148,7 @@ class AuthConfig:
             )
         else:
             _logger.warning(
-                "Authentication disabled (no API token). "
-                "Set ARAGORA_API_TOKEN for access control."
+                "Authentication disabled (no API token). Set ARAGORA_API_TOKEN for access control."
             )
 
         ttl_str = os.getenv("ARAGORA_TOKEN_TTL", "3600")

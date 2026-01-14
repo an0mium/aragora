@@ -564,8 +564,8 @@ class StaticHTMLExporter:
         Multi-Agent Deliberation | {self.artifact.created_at[:10]} |
         ID: {self.artifact.artifact_id}
     </div>
-    <div class="consensus-badge {'reached' if consensus and consensus.reached else 'not-reached'}">
-        {'&#10003;' if consensus and consensus.reached else '&#9888;'} {consensus_text} ({confidence})
+    <div class="consensus-badge {"reached" if consensus and consensus.reached else "not-reached"}">
+        {"&#10003;" if consensus and consensus.reached else "&#9888;"} {consensus_text} ({confidence})
     </div>
 </header>"""
 
@@ -649,7 +649,7 @@ class StaticHTMLExporter:
 <div class="graph-node {node_type}"
      style="left: {x}px; top: {y}px;"
      data-node-id="{node_id}"
-     data-content="{self._escape(node.get('content', '')[:500])}"
+     data-content="{self._escape(node.get("content", "")[:500])}"
      title="{self._escape(content)}...">
     <div class="agent">{self._escape(agent)}</div>
     <div class="type">{node_type}</div>
@@ -734,16 +734,16 @@ class StaticHTMLExporter:
             provenance_items.append(
                 f"""
 <div class="provenance-item">
-    <div class="evidence-id">{record.get('id', 'unknown')}</div>
+    <div class="evidence-id">{record.get("id", "unknown")}</div>
     <div class="source">
-        <span class="source-type">{record.get('source_type', 'unknown')}</span>
-        <span>{self._escape(record.get('source_id', '')[:30])}</span>
+        <span class="source-type">{record.get("source_type", "unknown")}</span>
+        <span>{self._escape(record.get("source_id", "")[:30])}</span>
     </div>
-    <div class="content">{self._escape(record.get('content', '')[:200])}...</div>
+    <div class="content">{self._escape(record.get("content", "")[:200])}...</div>
     <div class="chain-visualization">
         <span>Hash:</span>
-        <span class="chain-link">{record.get('content_hash', '')[:12]}...</span>
-        {f'<span>&larr;</span><span class="chain-link">{record.get("previous_hash", "")[:12]}...</span>' if record.get('previous_hash') else ''}
+        <span class="chain-link">{record.get("content_hash", "")[:12]}...</span>
+        {f'<span>&larr;</span><span class="chain-link">{record.get("previous_hash", "")[:12]}...</span>' if record.get("previous_hash") else ""}
     </div>
 </div>"""
             )
@@ -783,7 +783,7 @@ class StaticHTMLExporter:
         <span style="margin-left: 0.5rem; color: var(--text-muted);">via {v.method}</span>
     </div>
     <p style="margin-top: 0.5rem;">{self._escape(v.claim_text[:200])}</p>
-    {f'<pre style="margin-top: 0.5rem;">{self._escape(v.proof_trace[:200] if v.proof_trace else "")}</pre>' if v.proof_trace else ''}
+    {f'<pre style="margin-top: 0.5rem;">{self._escape(v.proof_trace[:200] if v.proof_trace else "")}</pre>' if v.proof_trace else ""}
 </div>"""
             )
 

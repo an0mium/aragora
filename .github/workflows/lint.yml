@@ -73,12 +73,15 @@ jobs:
       - name: Typecheck core modules (REQUIRED)
         run: |
           # These modules must pass strict type checking
+          # Phase 12: Expanded from 5 to 7 modules
           python -m mypy \
             aragora/core.py \
             aragora/ranking/elo.py \
             aragora/server/stream/servers.py \
             aragora/server/handlers/training.py \
             aragora/cli/main.py \
+            aragora/config/secrets.py \
+            aragora/storage/repository.py \
             --config-file pyproject.toml \
             --no-error-summary
           echo "Core modules type check passed!"
@@ -106,7 +109,7 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
-        continue-on-error: true
+        # Phase 12: ESLint now blocking (was continue-on-error: true)
 
   security:
     runs-on: ubuntu-latest

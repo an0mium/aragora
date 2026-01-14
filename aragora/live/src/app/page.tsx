@@ -309,6 +309,10 @@ export default function Home() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
 
+  // Boot sequence state (must be declared before useEffect that uses it)
+  const [showBoot, setShowBoot] = useState(true);
+  const [skipBoot, setSkipBoot] = useState(false);
+
   // Show onboarding for new users (after boot sequence completes)
   useEffect(() => {
     if (prefsLoaded && !preferences.hasSeenOnboarding && !showBoot) {
@@ -391,8 +395,6 @@ export default function Home() {
   } : null;
   const [viewMode, setViewMode] = useState<ViewMode>('tabs');
   const [showCompare, setShowCompare] = useState(false);
-  const [showBoot, setShowBoot] = useState(true);
-  const [skipBoot, setSkipBoot] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportDebateId, setExportDebateId] = useState<string | null>(null);
 

@@ -1388,8 +1388,7 @@ class AgentSelector:
             exp = agent.expertise.get(requirements.primary_domain, 0)
             agent_details.append(f"{agent.name}(exp={exp:.0%},elo={agent.elo_rating:.0f})")
         logger.info(
-            f"[ROUTING] Selected team for {requirements.primary_domain}: "
-            f"{', '.join(agent_details)}"
+            f"[ROUTING] Selected team for {requirements.primary_domain}: {', '.join(agent_details)}"
         )
 
         return team

@@ -149,6 +149,10 @@ export default function BillingPage() {
   const usagePercent = usage
     ? Math.min(100, (usage.debates_used / usage.debates_limit) * 100)
     : 0;
+  const forecastProjection = forecast?.projection ?? (forecast ? {
+    debates_end_of_cycle: (forecast as { projected_debates?: number }).projected_debates ?? 0,
+    cost_end_of_cycle_usd: (forecast as { cost_end_of_cycle_usd?: number }).cost_end_of_cycle_usd ?? 0,
+  } : null);
 
   // Calculate trial days remaining
   const trialDaysRemaining = subscription?.trial_end
@@ -385,7 +389,7 @@ export default function BillingPage() {
               </div>
 
               {/* Usage Forecast Card */}
-              {forecast && (
+              {forecast && forecastProjection && (
                 <div className="border border-acid-green/30 bg-surface/30 p-6">
                   <h2 className="text-lg font-mono text-acid-cyan mb-4">
                     USAGE FORECAST
@@ -394,12 +398,12 @@ export default function BillingPage() {
                     <div className="flex justify-between">
                       <span className="text-text-muted">Projected debates:</span>
                       <span className={forecast.will_hit_limit ? 'text-warning' : 'text-acid-green'}>
-                        {forecast.projection.debates_end_of_cycle}
+                        {forecastProjection.debates_end_of_cycle}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-text-muted">Est. end-of-cycle cost:</span>
-                      <span className="text-text">${forecast.projection.cost_end_of_cycle_usd.toFixed(2)}</span>
+                      <span className="text-text">${forecastProjection.cost_end_of_cycle_usd.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-text-muted">Days remaining:</span>

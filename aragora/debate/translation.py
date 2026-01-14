@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 class Language(str, Enum):
     """Supported languages for debates."""
+
     ENGLISH = "en"
     SPANISH = "es"
     FRENCH = "fr"
@@ -74,13 +75,34 @@ class Language(str, Enum):
     def name_english(self) -> str:
         """Get English name of the language."""
         names = {
-            "en": "English", "es": "Spanish", "fr": "French", "de": "German",
-            "it": "Italian", "pt": "Portuguese", "zh": "Chinese", "ja": "Japanese",
-            "ko": "Korean", "ru": "Russian", "ar": "Arabic", "hi": "Hindi",
-            "nl": "Dutch", "pl": "Polish", "tr": "Turkish", "vi": "Vietnamese",
-            "th": "Thai", "id": "Indonesian", "uk": "Ukrainian", "cs": "Czech",
-            "sv": "Swedish", "da": "Danish", "fi": "Finnish", "no": "Norwegian",
-            "he": "Hebrew", "el": "Greek", "hu": "Hungarian", "ro": "Romanian",
+            "en": "English",
+            "es": "Spanish",
+            "fr": "French",
+            "de": "German",
+            "it": "Italian",
+            "pt": "Portuguese",
+            "zh": "Chinese",
+            "ja": "Japanese",
+            "ko": "Korean",
+            "ru": "Russian",
+            "ar": "Arabic",
+            "hi": "Hindi",
+            "nl": "Dutch",
+            "pl": "Polish",
+            "tr": "Turkish",
+            "vi": "Vietnamese",
+            "th": "Thai",
+            "id": "Indonesian",
+            "uk": "Ukrainian",
+            "cs": "Czech",
+            "sv": "Swedish",
+            "da": "Danish",
+            "fi": "Finnish",
+            "no": "Norwegian",
+            "he": "Hebrew",
+            "el": "Greek",
+            "hu": "Hungarian",
+            "ro": "Romanian",
         }
         return names.get(self.value, self.value)
 
@@ -88,6 +110,7 @@ class Language(str, Enum):
 @dataclass
 class TranslationResult:
     """Result of a translation operation."""
+
     original_text: str
     translated_text: str
     source_language: Language
@@ -101,8 +124,16 @@ class TranslationResult:
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
-            "original_text": self.original_text[:100] + "..." if len(self.original_text) > 100 else self.original_text,
-            "translated_text": self.translated_text[:100] + "..." if len(self.translated_text) > 100 else self.translated_text,
+            "original_text": (
+                self.original_text[:100] + "..."
+                if len(self.original_text) > 100
+                else self.original_text
+            ),
+            "translated_text": (
+                self.translated_text[:100] + "..."
+                if len(self.translated_text) > 100
+                else self.translated_text
+            ),
             "source_language": self.source_language.value,
             "target_language": self.target_language.value,
             "confidence": self.confidence,
@@ -115,6 +146,7 @@ class TranslationResult:
 @dataclass
 class LanguageDetectionResult:
     """Result of language detection."""
+
     text: str
     detected_language: Language
     confidence: float
@@ -245,11 +277,13 @@ Text to translate:
         try:
             if self.provider == "anthropic":
                 from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
                 agent = AnthropicAPIAgent(name="translator", model="claude-3-haiku-20240307")
                 response = await agent.respond(prompt, [])
                 translated = response.content
             else:
                 from aragora.agents.api_agents.openai import OpenAIAPIAgent
+
                 agent = OpenAIAPIAgent(name="translator", model="gpt-4o-mini")
                 response = await agent.respond(prompt, [])
                 translated = response.content
@@ -293,11 +327,13 @@ Text:
         try:
             if self.provider == "anthropic":
                 from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
                 agent = AnthropicAPIAgent(name="detector", model="claude-3-haiku-20240307")
                 response = await agent.respond(prompt, [])
                 code = response.content.strip().lower()[:2]
             else:
                 from aragora.agents.api_agents.openai import OpenAIAPIAgent
+
                 agent = OpenAIAPIAgent(name="detector", model="gpt-4o-mini")
                 response = await agent.respond(prompt, [])
                 code = response.content.strip().lower()[:2]
@@ -324,36 +360,36 @@ Text:
         text = text.lower()
 
         # Check for CJK characters
-        if re.search(r'[\u4e00-\u9fff]', text):
+        if re.search(r"[\u4e00-\u9fff]", text):
             return LanguageDetectionResult(text[:100], Language.CHINESE, 0.95)
-        if re.search(r'[\u3040-\u309f\u30a0-\u30ff]', text):
+        if re.search(r"[\u3040-\u309f\u30a0-\u30ff]", text):
             return LanguageDetectionResult(text[:100], Language.JAPANESE, 0.95)
-        if re.search(r'[\uac00-\ud7af]', text):
+        if re.search(r"[\uac00-\ud7af]", text):
             return LanguageDetectionResult(text[:100], Language.KOREAN, 0.95)
 
         # Check for Arabic
-        if re.search(r'[\u0600-\u06ff]', text):
+        if re.search(r"[\u0600-\u06ff]", text):
             return LanguageDetectionResult(text[:100], Language.ARABIC, 0.95)
 
         # Check for Hebrew
-        if re.search(r'[\u0590-\u05ff]', text):
+        if re.search(r"[\u0590-\u05ff]", text):
             return LanguageDetectionResult(text[:100], Language.HEBREW, 0.95)
 
         # Check for Cyrillic (Russian/Ukrainian)
-        if re.search(r'[\u0400-\u04ff]', text):
+        if re.search(r"[\u0400-\u04ff]", text):
             # Default to Russian for Cyrillic
             return LanguageDetectionResult(text[:100], Language.RUSSIAN, 0.8)
 
         # Check for Thai
-        if re.search(r'[\u0e00-\u0e7f]', text):
+        if re.search(r"[\u0e00-\u0e7f]", text):
             return LanguageDetectionResult(text[:100], Language.THAI, 0.95)
 
         # Check for Greek
-        if re.search(r'[\u0370-\u03ff]', text):
+        if re.search(r"[\u0370-\u03ff]", text):
             return LanguageDetectionResult(text[:100], Language.GREEK, 0.95)
 
         # Check for Hindi/Devanagari
-        if re.search(r'[\u0900-\u097f]', text):
+        if re.search(r"[\u0900-\u097f]", text):
             return LanguageDetectionResult(text[:100], Language.HINDI, 0.95)
 
         return None
@@ -478,6 +514,7 @@ class TranslationService:
 @dataclass
 class MultilingualDebateConfig:
     """Configuration for multilingual debate support."""
+
     default_language: Language = Language.ENGLISH
     supported_languages: list[Language] = field(default_factory=lambda: list(Language))
     auto_translate: bool = True
@@ -565,8 +602,7 @@ class MultilingualDebateManager:
 
         # Translate to other languages
         other_languages = [
-            lang for lang in self.config.supported_languages
-            if lang != source_language
+            lang for lang in self.config.supported_languages if lang != source_language
         ]
 
         # Translate to each target language
@@ -596,9 +632,7 @@ class MultilingualDebateManager:
         if target_languages is None:
             target_languages = self.config.supported_languages
 
-        translations: dict[str, str] = {
-            source_language.value: conclusion
-        }
+        translations: dict[str, str] = {source_language.value: conclusion}
 
         for lang in target_languages:
             if lang != source_language:

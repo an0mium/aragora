@@ -681,7 +681,7 @@ def with_error_recovery(
             except Exception as e:
                 if log_errors:
                     logger.warning(
-                        f"with_error_recovery '{func.__name__}' failed: " f"{type(e).__name__}: {e}"
+                        f"with_error_recovery '{func.__name__}' failed: {type(e).__name__}: {e}"
                     )
                 return fallback_value
 

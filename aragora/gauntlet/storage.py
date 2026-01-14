@@ -359,7 +359,7 @@ class GauntletStorage:
         """
         if org_id:
             row = self._backend.fetch_one(
-                "SELECT result_json FROM gauntlet_results " "WHERE gauntlet_id = ? AND org_id = ?",
+                "SELECT result_json FROM gauntlet_results WHERE gauntlet_id = ? AND org_id = ?",
                 (gauntlet_id, org_id),
             )
         else:

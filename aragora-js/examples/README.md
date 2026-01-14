@@ -261,20 +261,16 @@ const leaders = await client.leaderboard.get({ limit: 10 });
 For real-time debate updates, use the WebSocket client:
 
 ```typescript
-import { AragoraWebSocket } from 'aragora-js';
+import { DebateStream } from '@aragora/sdk';
 
-const ws = new AragoraWebSocket({
-  baseUrl: 'ws://localhost:8080',
-  apiKey: 'your-api-key',
-});
+const stream = new DebateStream('ws://localhost:8765/ws', debateId);
 
-ws.on('debate_start', (data) => console.log('Debate started:', data));
-ws.on('agent_message', (data) => console.log('Message:', data));
-ws.on('consensus', (data) => console.log('Consensus:', data));
-ws.on('debate_end', (data) => console.log('Debate ended:', data));
+stream.on('debate_start', (event) => console.log('Debate started:', event.data));
+stream.on('agent_message', (event) => console.log('Message:', event.data));
+stream.on('consensus', (event) => console.log('Consensus:', event.data));
+stream.on('debate_end', (event) => console.log('Debate ended:', event.data));
 
-await ws.connect();
-await ws.subscribe(debateId);
+await stream.connect();
 ```
 
 ## Error Handling

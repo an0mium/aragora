@@ -357,7 +357,7 @@ class WisdomInjector:
 
         self._save_pending()
         logger.info(
-            f"wisdom_injected id={wisdom.id} reason={reason} " f"submitter={wisdom.submitter_id}"
+            f"wisdom_injected id={wisdom.id} reason={reason} submitter={wisdom.submitter_id}"
         )
 
         return injection

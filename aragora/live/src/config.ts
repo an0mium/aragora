@@ -22,14 +22,14 @@ if (typeof window !== 'undefined') {
   }
   if (!_WS_URL) {
     console.warn(
-      '[Aragora] NEXT_PUBLIC_WS_URL not set, using ws://localhost:8080 fallback. ' +
+      '[Aragora] NEXT_PUBLIC_WS_URL not set, using ws://localhost:8765/ws fallback. ' +
       'This will fail in production - set the environment variable.'
     );
   }
 }
 
 export const API_BASE_URL = _API_BASE_URL || 'http://localhost:8080';
-export const WS_URL = _WS_URL || 'ws://localhost:8080';
+export const WS_URL = _WS_URL || 'ws://localhost:8765/ws';
 
 // Helper to detect dev/localhost mode (useful for conditional behavior)
 export const IS_DEV_MODE = !_API_BASE_URL || API_BASE_URL.includes('localhost');
@@ -100,7 +100,7 @@ export function getEnvWarnings(): EnvWarning[] {
   if (!_WS_URL) {
     warnings.push({
       key: 'NEXT_PUBLIC_WS_URL',
-      message: 'WebSocket URL not set, using ws://localhost:8080',
+      message: 'WebSocket URL not set, using ws://localhost:8765/ws',
       severity: 'warning',
     });
   }

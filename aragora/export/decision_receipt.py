@@ -419,7 +419,7 @@ class DecisionReceipt:
             <div class="finding" style="border-left: 4px solid {severity_color}; padding: 10px; margin: 10px 0; background: #f8f9fa;">
                 <strong style="color: {severity_color};">[{f.severity}]</strong> {f.title}
                 <p>{f.description}</p>
-                {f'<p><em>Mitigation: {f.mitigation}</em></p>' if f.mitigation else ''}
+                {f"<p><em>Mitigation: {f.mitigation}</em></p>" if f.mitigation else ""}
             </div>
             """
 
@@ -488,12 +488,12 @@ class DecisionReceipt:
 
     <div class="section">
         <h2>All Findings</h2>
-        {findings_html if findings_html else '<p>No findings.</p>'}
+        {findings_html if findings_html else "<p>No findings.</p>"}
     </div>
 
     <div class="section">
         <h2>Audit Trail</h2>
-        <p><strong>Agents:</strong> {', '.join(self.agents_involved)}</p>
+        <p><strong>Agents:</strong> {", ".join(self.agents_involved)}</p>
         <p><strong>Duration:</strong> {self.duration_seconds:.1f}s</p>
         <p><strong>Rounds:</strong> {self.rounds_completed}</p>
     </div>

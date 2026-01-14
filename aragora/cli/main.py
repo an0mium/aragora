@@ -707,7 +707,7 @@ def _batch_local(items: list, args: argparse.Namespace) -> None:
         agents = item.get("agents", args.agents)
         rounds = item.get("rounds", args.rounds)
 
-        print(f"[{i+1}/{total}] {question[:50]}...")
+        print(f"[{i + 1}/{total}] {question[:50]}...")
 
         try:
             result = asyncio.run(

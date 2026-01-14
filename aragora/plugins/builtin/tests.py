@@ -95,7 +95,8 @@ async def run(context: PluginContext) -> dict:
             cwd=context.working_dir,
         )
         stdout, stderr = await asyncio.wait_for(
-            process.communicate(), timeout=300.0  # 5 minute overall timeout
+            process.communicate(),
+            timeout=300.0,  # 5 minute overall timeout
         )
         exit_code = process.returncode
     except asyncio.TimeoutError:

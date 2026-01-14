@@ -7,7 +7,8 @@ name = "aragora"
 version = "1.3.0"
 description = "Multi-Agent Debate Framework with traces, consensus proofs, red-team mode, self-improvement, templates, and GitHub Actions"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [
     {name = "Agora Contributors"}
@@ -23,15 +24,16 @@ keywords = [
     "self-improvement",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
 ]
 
 dependencies = [
@@ -133,6 +135,7 @@ where = ["."]
 include = ["aragora*"]
 
 [tool.setuptools.package-data]
+"aragora" = ["py.typed"]
 "aragora.fixtures" = ["*.json"]
 
 [tool.black]

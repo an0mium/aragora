@@ -133,7 +133,7 @@ import Mathlib.Algebra.Ring.Basic
         return f"""You are a Lean 4 expert. Translate the following natural language mathematical claim into a Lean 4 theorem with a complete proof.
 
 CLAIM: {claim}
-{f'CONTEXT: {context}' if context else ''}
+{f"CONTEXT: {context}" if context else ""}
 
 REQUIREMENTS:
 1. Use valid Lean 4 syntax (NOT Lean 3)

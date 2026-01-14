@@ -221,11 +221,11 @@ class CapabilityProber:
             )
         if high > 0:
             recommendations.append(
-                f"HIGH: {high} high-severity issues. " "Agent may flip-flop without justification."
+                f"HIGH: {high} high-severity issues. Agent may flip-flop without justification."
             )
         if medium > 0:
             recommendations.append(
-                f"MEDIUM: {medium} medium issues. " "Agent may lack persistence or calibration."
+                f"MEDIUM: {medium} medium issues. Agent may lack persistence or calibration."
             )
 
         # Calculate ELO penalty

@@ -690,8 +690,7 @@ class DebateRoundsPhase:
                 )
                 if intervention:
                     logger.info(
-                        f"novelty_challenge round={round_num} "
-                        f"targets={intervention.target_agents}"
+                        f"novelty_challenge round={round_num} targets={intervention.target_agents}"
                     )
                     # Notify spectator
                     if self._notify_spectator:
@@ -776,7 +775,7 @@ class DebateRoundsPhase:
             refreshed = await self._refresh_evidence(combined_text, ctx, round_num)
 
             if refreshed:
-                logger.info(f"evidence_refreshed round={round_num} " f"new_snippets={refreshed}")
+                logger.info(f"evidence_refreshed round={round_num} new_snippets={refreshed}")
 
                 # Notify spectator
                 if self._notify_spectator:

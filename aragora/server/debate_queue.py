@@ -584,8 +584,7 @@ class DebateQueue:
                 ) as response:
                     if response.status >= 400:
                         logger.warning(
-                            f"Webhook failed for batch {batch.batch_id}: "
-                            f"status={response.status}"
+                            f"Webhook failed for batch {batch.batch_id}: status={response.status}"
                         )
                     else:
                         logger.info(f"Webhook sent for batch {batch.batch_id}")

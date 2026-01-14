@@ -169,7 +169,7 @@ class RiskRegister:
 
 {risk.description}
 
-**Mitigation:** {risk.mitigation or '*Not defined*'}
+**Mitigation:** {risk.mitigation or "*Not defined*"}
 
 ---
 """
@@ -185,13 +185,13 @@ class RiskRegister:
 
 | Metric | Value |
 |--------|-------|
-| Total Risks | {summary['total_risks']} |
-| Critical | {summary['critical']} |
-| High | {summary['high']} |
-| Medium | {summary['medium']} |
-| Low | {summary['low']} |
-| Unmitigated | {summary['unmitigated']} |
-| Avg Risk Score | {summary['avg_risk_score']:.2f} |
+| Total Risks | {summary["total_risks"]} |
+| Critical | {summary["critical"]} |
+| High | {summary["high"]} |
+| Medium | {summary["medium"]} |
+| Low | {summary["low"]} |
+| Unmitigated | {summary["unmitigated"]} |
+| Avg Risk Score | {summary["avg_risk_score"]:.2f} |
 
 ---
 
@@ -229,7 +229,6 @@ class RiskAnalyzer:
     """
 
     def __init__(self, artifact: "DebateArtifact") -> None:
-
         self.artifact: DebateArtifact = artifact
 
     def analyze(self) -> RiskRegister:

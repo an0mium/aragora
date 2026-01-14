@@ -310,7 +310,7 @@ class DebateStream:
             return event.loop_id
         if event.debate_id:
             return event.debate_id
-        data = event.data or {}
+        data = event.data if isinstance(event.data, dict) else {}
         loop_id = data.get("loop_id") or data.get("debate_id") or ""
         return loop_id if isinstance(loop_id, str) else ""
 

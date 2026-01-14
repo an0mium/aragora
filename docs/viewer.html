@@ -1007,7 +1007,7 @@ function downloadJSON() {
 
 // === LIVE DEBATE CONNECTION ===
 class LiveDebateConnection {
-    constructor(wsUrl = 'ws://localhost:8765') {
+    constructor(wsUrl = 'ws://localhost:8765/ws') {
         this.wsUrl = wsUrl;
         this.ws = null;
         this.reconnectAttempts = 0;

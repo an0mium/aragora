@@ -70,16 +70,24 @@ class RateLimiterRegistry:
 
             # CPU-intensive endpoints (stricter limits)
             self._default_limiter.configure_endpoint(
-                "/api/debates/*/broadcast", 3, key_type="ip"  # Audio generation
+                "/api/debates/*/broadcast",
+                3,
+                key_type="ip",  # Audio generation
             )
             self._default_limiter.configure_endpoint(
-                "/api/probes/*", 10, key_type="ip"  # Capability probes
+                "/api/probes/*",
+                10,
+                key_type="ip",  # Capability probes
             )
             self._default_limiter.configure_endpoint(
-                "/api/verification/*", 10, key_type="ip"  # Proof verification
+                "/api/verification/*",
+                10,
+                key_type="ip",  # Proof verification
             )
             self._default_limiter.configure_endpoint(
-                "/api/video/*", 2, key_type="ip"  # Video generation
+                "/api/video/*",
+                2,
+                key_type="ip",  # Video generation
             )
         return self._default_limiter
 

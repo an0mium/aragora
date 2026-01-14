@@ -936,7 +936,7 @@ class CritiqueStore(SQLiteStore):
                 # Column names from whitelist, values parameterized
                 sql = f"""
                     UPDATE agent_reputation
-                    SET {', '.join(updates)}
+                    SET {", ".join(updates)}
                     WHERE agent_name = ?
                 """
                 cursor.execute(sql, [datetime.now().isoformat(), agent_name])

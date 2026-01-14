@@ -379,7 +379,7 @@ class SlackIntegration:
         ]
 
         for i, agent in enumerate(top_agents):
-            medal = ["🥇", "🥈", "🥉"][i] if i < 3 else f"#{i+1}"
+            medal = ["🥇", "🥈", "🥉"][i] if i < 3 else f"#{i + 1}"
             name = agent.get("name", "Unknown")
             elo = agent.get("elo", 1500)
             wins = agent.get("wins", 0)

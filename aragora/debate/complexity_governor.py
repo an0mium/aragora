@@ -332,7 +332,7 @@ class AdaptiveComplexityGovernor:
 
         self._evaluate_stress_level()
         logger.debug(
-            f"governor_record agent={agent_name} success={success} " f"latency_ms={latency_ms:.0f}"
+            f"governor_record agent={agent_name} success={success} latency_ms={latency_ms:.0f}"
         )
 
     def record_agent_timeout(

@@ -108,7 +108,9 @@ class FormalProofResult:
     @property
     def is_high_confidence(self) -> bool:
         """Check if this is a high-confidence verification (>0.8 and semantically verified)."""
-        return self.is_verified and self.translation_confidence >= 0.8 and self.semantic_match_verified
+        return (
+            self.is_verified and self.translation_confidence >= 0.8 and self.semantic_match_verified
+        )
 
     def to_dict(self) -> dict:
         result = {
@@ -407,7 +409,7 @@ class LeanBackend:
         prompt = f"""Translate the following natural language claim into a Lean 4 theorem with proof.
 
 Claim: {claim}
-{f'Context: {context}' if context else ''}
+{f"Context: {context}" if context else ""}
 
 Requirements:
 1. Use valid Lean 4 syntax (not Lean 3)
@@ -742,7 +744,9 @@ Examples of MATCHING:
 
                     matches = matches_match and matches_match.group(1).upper() == "YES"
                     confidence = float(conf_match.group(1)) if conf_match else 0.5
-                    explanation = expl_match.group(1).strip() if expl_match else "Unable to parse explanation"
+                    explanation = (
+                        expl_match.group(1).strip() if expl_match else "Unable to parse explanation"
+                    )
 
                     return matches, min(1.0, max(0.0, confidence)), explanation
 

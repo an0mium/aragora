@@ -156,7 +156,8 @@ class CLIAgent(CritiqueMixin, Agent):
 
             # Map the model to OpenRouter format
             openrouter_model = self.OPENROUTER_MODEL_MAP.get(
-                self.model, "anthropic/claude-sonnet-4"  # Default fallback model
+                self.model,
+                "anthropic/claude-sonnet-4",  # Default fallback model
             )
 
             self._fallback_agent = OpenRouterAgent(

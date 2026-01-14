@@ -156,7 +156,7 @@ class MetaCritiqueAnalyzer:
                             round_range=(agent_msgs[i - 1].round, agent_msgs[i].round),
                             agents_involved=[agent],
                             evidence=[
-                                f"Round {agent_msgs[i-1].round}: {agent_msgs[i-1].content[:100]}...",
+                                f"Round {agent_msgs[i - 1].round}: {agent_msgs[i - 1].content[:100]}...",
                                 f"Round {agent_msgs[i].round}: {agent_msgs[i].content[:100]}...",
                             ],
                         )

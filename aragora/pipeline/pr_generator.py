@@ -145,13 +145,13 @@ class PatchPlan:
         steps_md = ""
         for step in self.steps:
             steps_md += f"""
-### Step {step.get('step_num', '?')}: {step.get('action', 'Action')}
+### Step {step.get("step_num", "?")}: {step.get("action", "Action")}
 
-**Target:** {step.get('target', 'N/A')}
+**Target:** {step.get("target", "N/A")}
 
-{step.get('details', '')}
+{step.get("details", "")}
 
-**Verification:** {step.get('verification', 'Manual review')}
+**Verification:** {step.get("verification", "Manual review")}
 
 """
 

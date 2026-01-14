@@ -145,7 +145,7 @@ def generate_standalone_html(cartographer: ArgumentCartographer) -> str:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aragora Debate: {cartographer.topic or 'Untitled'}</title>
+    <title>Aragora Debate: {cartographer.topic or "Untitled"}</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <style>
         body {{
@@ -212,22 +212,22 @@ def generate_standalone_html(cartographer: ArgumentCartographer) -> str:
 </head>
 <body>
     <div class="container">
-        <h1>🏛️ {cartographer.topic or 'Aragora Debate'}</h1>
+        <h1>🏛️ {cartographer.topic or "Aragora Debate"}</h1>
         <div class="stats">
             <div class="stat">
-                <div class="stat-value">{stats['node_count']}</div>
+                <div class="stat-value">{stats["node_count"]}</div>
                 <div class="stat-label">Arguments</div>
             </div>
             <div class="stat">
-                <div class="stat-value">{stats['edge_count']}</div>
+                <div class="stat-value">{stats["edge_count"]}</div>
                 <div class="stat-label">Connections</div>
             </div>
             <div class="stat">
-                <div class="stat-value">{stats['rounds']}</div>
+                <div class="stat-value">{stats["rounds"]}</div>
                 <div class="stat-label">Rounds</div>
             </div>
             <div class="stat">
-                <div class="stat-value">{len(stats['agents'])}</div>
+                <div class="stat-value">{len(stats["agents"])}</div>
                 <div class="stat-label">Agents</div>
             </div>
         </div>

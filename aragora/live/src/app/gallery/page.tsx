@@ -18,13 +18,13 @@ export default function GalleryPage() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
-  const loadDebates = useCallback(async (reset = false) => {
+  const loadDebates = useCallback(async (targetPage: number, reset = false) => {
     setLoading(true);
     try {
       const client = getClient();
       const params: Record<string, string | number> = {
         limit: 12,
-        offset: reset ? 0 : page * 12,
+        offset: reset ? 0 : targetPage * 12,
       };
 
       if (filter === 'featured') params.featured = 'true';
@@ -39,6 +39,7 @@ export default function GalleryPage() {
         setPage(0);
       } else {
         setDebates(prev => [...prev, ...newDebates]);
+        setPage(targetPage);
       }
       setHasMore(newDebates.length === 12);
     } catch (err) {
@@ -46,15 +47,14 @@ export default function GalleryPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter, searchQuery, page]);
-
-  useEffect(() => {
-    loadDebates(true);
   }, [filter, searchQuery]);
 
+  useEffect(() => {
+    loadDebates(0, true);
+  }, [filter, searchQuery, loadDebates]);
+
   const handleLoadMore = () => {
-    setPage(p => p + 1);
-    loadDebates(false);
+    loadDebates(page + 1, false);
   };
 
   const formatDate = (dateStr: string) => {

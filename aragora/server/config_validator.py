@@ -119,9 +119,7 @@ class ConfigValidator:
         # Check LLM API keys
         has_llm_key = any(os.getenv(key) for key in cls.LLM_API_KEYS)
         if not has_llm_key:
-            msg = (
-                "No LLM API key configured. Set at least one of: " f"{', '.join(cls.LLM_API_KEYS)}"
-            )
+            msg = f"No LLM API key configured. Set at least one of: {', '.join(cls.LLM_API_KEYS)}"
             if is_production:
                 errors.append(msg)
             else:

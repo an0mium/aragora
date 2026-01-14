@@ -384,7 +384,7 @@ class ServiceRegistry:
                                 break  # Only call one cleanup method
                         except Exception as e:
                             logger.warning(
-                                f"Error calling {method_name}() on " f"{service_type.__name__}: {e}"
+                                f"Error calling {method_name}() on {service_type.__name__}: {e}"
                             )
 
             logger.info(f"ServiceRegistry shutdown complete ({hooks_called} hooks called)")

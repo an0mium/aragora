@@ -258,7 +258,6 @@ class Autotuner:
 
         # Check early-stop conditions (only after min rounds)
         if self.metrics.rounds_completed >= self.config.min_rounds_before_stop:
-
             # High consensus confidence
             if self.metrics.consensus_confidence >= self.config.early_stop_consensus_confidence:
                 return AutotuneDecision(

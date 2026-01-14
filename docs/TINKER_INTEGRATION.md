@@ -436,5 +436,4 @@ aragora/training/
 ## See Also
 
 - [Tinker Documentation](https://thinkingmachines.ai/tinker/)
-- [Training Plan](/Users/armand/.claude/plans/rustling-enchanting-key.md)
-- [Agent Selection Guide](docs/AGENT_SELECTION.md)
+- [Agent Selection Guide](AGENT_SELECTION.md)

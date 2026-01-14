@@ -557,9 +557,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             if len(agent_list) > MAX_AGENTS_PER_DEBATE:
                 with _active_debates_lock:
                     _active_debates[debate_id]["status"] = "error"
-                    _active_debates[debate_id][
-                        "error"
-                    ] = f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
+                    _active_debates[debate_id]["error"] = (
+                        f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
+                    )
                     _active_debates[debate_id]["completed_at"] = time.time()
                 return
             if len(agent_list) < 2:
@@ -746,7 +746,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         config, error = self._parse_debate_request(data)
         if error or config is None:
             return web.json_response(
-                {"error": error or "Invalid request"}, status=400, headers=self._cors_headers(origin)
+                {"error": error or "Invalid request"},
+                status=400,
+                headers=self._cors_headers(origin),
             )
 
         question = config["question"]
@@ -1088,7 +1090,8 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # Initialize rate limiter for this client (thread-safe)
         with self._rate_limiters_lock:
             self._rate_limiters[client_id] = TokenBucket(
-                rate_per_minute=10.0, burst_size=5  # 10 messages per minute  # Allow burst of 5
+                rate_per_minute=10.0,
+                burst_size=5,  # 10 messages per minute  # Allow burst of 5
             )
             self._rate_limiter_last_access[client_id] = time.time()
 
@@ -1200,7 +1203,12 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                             # Validate payload
                             payload, error = self._validate_audience_payload(data)
                             if error or payload is None:
-                                await ws.send_json({"type": "error", "data": {"message": error or "Invalid payload"}})
+                                await ws.send_json(
+                                    {
+                                        "type": "error",
+                                        "data": {"message": error or "Invalid payload"},
+                                    }
+                                )
                                 continue
 
                             # Check rate limit

@@ -922,9 +922,14 @@ class DebateStreamServer(ServerBase):
     async def handler(self, websocket) -> None:
         """Handle a WebSocket connection with origin validation."""
         # Set up connection with validation
-        success, client_ip, client_id, ws_id, is_authenticated, ws_token = (
-            await self._setup_connection(websocket)
-        )
+        (
+            success,
+            client_ip,
+            client_id,
+            ws_id,
+            is_authenticated,
+            ws_token,
+        ) = await self._setup_connection(websocket)
         if not success:
             return
 

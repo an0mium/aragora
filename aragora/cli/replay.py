@@ -95,7 +95,7 @@ def _list_replays(args) -> None:
         confidence = replay.get("confidence", 0)
         consensus = "Yes" if replay.get("consensus_reached") else "No"
 
-        print(f"\n  [{i+1}] {filepath.stem}")
+        print(f"\n  [{i + 1}] {filepath.stem}")
         print(f"      Task: {task}...")
         print(f"      Rounds: {rounds} | Duration: {format_duration(duration)}")
         print(f"      Consensus: {consensus} | Confidence: {confidence:.2f}")

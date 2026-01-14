@@ -23,7 +23,7 @@ fi
 
 echo "Starting Aragora server..."
 echo "API: http://localhost:8080"
-echo "WebSocket: ws://localhost:8765"
+echo "WebSocket: ws://localhost:8765/ws"
 echo ""
 
 # Start the server

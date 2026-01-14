@@ -341,7 +341,7 @@ def create_debate_summary(
     # Add agents if space permits
     agent_suffix = f" ({', '.join(agents[:2])})"
     if len(agents) > 2:
-        agent_suffix = f" ({agents[0]}, {agents[1]} +{len(agents)-2})"
+        agent_suffix = f" ({agents[0]}, {agents[1]} +{len(agents) - 2})"
 
     # Add result emoji
     result_emoji = " ✅" if consensus_reached else " 🔄"

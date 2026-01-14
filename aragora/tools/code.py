@@ -622,13 +622,13 @@ class SelfImprover:
         prompt = f"""You are analyzing the aragora codebase to suggest improvements.
 
 ## Codebase Overview
-- Files: {analysis['file_count']}
-- Total lines: {analysis['total_lines']}
-- Classes: {len(analysis['classes'])}
-- Functions: {len(analysis['functions'])}
+- Files: {analysis["file_count"]}
+- Total lines: {analysis["total_lines"]}
+- Classes: {len(analysis["classes"])}
+- Functions: {len(analysis["functions"])}
 
 ## Known Issues
-{chr(10).join('- ' + issue for issue in analysis['potential_issues'][:10])}
+{chr(10).join("- " + issue for issue in analysis["potential_issues"][:10])}
 
 ## Your Task
 {"Focus on: " + focus if focus else "Suggest the most impactful improvements."}

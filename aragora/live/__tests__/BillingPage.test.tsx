@@ -88,10 +88,20 @@ const mockInvoices = [
 ];
 
 const mockForecast = {
-  projected_debates: 45,
-  cost_end_of_cycle_usd: 7.5,
+  current_usage: {
+    debates: 15,
+    debates_limit: 50,
+  },
+  projection: {
+    debates_end_of_cycle: 45,
+    debates_per_day: 2,
+    tokens_per_day: 12000,
+    cost_end_of_cycle_usd: 7.5,
+  },
   days_remaining: 21,
+  days_elapsed: 9,
   will_hit_limit: false,
+  debates_overage: 0,
   tier_recommendation: null,
 };
 
@@ -257,7 +267,11 @@ describe('BillingPage', () => {
     const limitForecast = {
       ...mockForecast,
       will_hit_limit: true,
-      tier_recommendation: 'professional',
+      tier_recommendation: {
+        recommended_tier: 'professional',
+        debates_limit: 100,
+        price_monthly: '$99',
+      },
     };
 
     mockFetch.mockImplementation((url: string) => {

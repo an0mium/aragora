@@ -390,7 +390,6 @@ class S3CheckpointStore(CheckpointStore):
         return f"{self.prefix}{checkpoint_id}.json.gz"
 
     async def save(self, checkpoint: DebateCheckpoint) -> str:
-
         client = self._get_client()
         key = self._get_key(checkpoint.checkpoint_id)
 

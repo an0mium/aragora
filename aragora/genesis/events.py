@@ -350,7 +350,7 @@ def create_logging_hooks(
         log("AGENT_BIRTH", genome_id=genome.genome_id, name=genome.name, birth_type=birth_type)
 
     def on_agent_evolution(genome_id, old_fitness, new_fitness, reason):
-        log("AGENT_EVOLUTION", genome_id=genome_id, change=f"{new_fitness-old_fitness:+.2f}")
+        log("AGENT_EVOLUTION", genome_id=genome_id, change=f"{new_fitness - old_fitness:+.2f}")
 
     def on_agent_death(genome_id, reason, final_fitness):
         log("AGENT_DEATH", genome_id=genome_id, reason=reason)

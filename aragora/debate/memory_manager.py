@@ -173,7 +173,6 @@ class MemoryManager:
             return
 
         try:
-
             # Determine strength from confidence
             strength = self._confidence_to_strength(result.confidence)
 

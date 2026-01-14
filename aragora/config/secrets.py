@@ -30,38 +30,40 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Secret names that should be loaded from Secrets Manager
-MANAGED_SECRETS = frozenset({
-    # Authentication
-    "JWT_SECRET_KEY",
-    "JWT_REFRESH_SECRET",
-    # OAuth
-    "GOOGLE_OAUTH_CLIENT_ID",
-    "GOOGLE_OAUTH_CLIENT_SECRET",
-    "GITHUB_OAUTH_CLIENT_ID",
-    "GITHUB_OAUTH_CLIENT_SECRET",
-    # Stripe billing
-    "STRIPE_SECRET_KEY",
-    "STRIPE_WEBHOOK_SECRET",
-    "STRIPE_PRICE_STARTER",
-    "STRIPE_PRICE_PROFESSIONAL",
-    "STRIPE_PRICE_ENTERPRISE",
-    # Database
-    "DATABASE_URL",
-    "SUPABASE_URL",
-    "SUPABASE_KEY",
-    # Redis
-    "REDIS_URL",
-    "REDIS_PASSWORD",
-    # API Keys (sensitive)
-    "ANTHROPIC_API_KEY",
-    "OPENAI_API_KEY",
-    "GEMINI_API_KEY",
-    "XAI_API_KEY",
-    "OPENROUTER_API_KEY",
-    "MISTRAL_API_KEY",
-    # Monitoring
-    "SENTRY_DSN",
-})
+MANAGED_SECRETS = frozenset(
+    {
+        # Authentication
+        "JWT_SECRET_KEY",
+        "JWT_REFRESH_SECRET",
+        # OAuth
+        "GOOGLE_OAUTH_CLIENT_ID",
+        "GOOGLE_OAUTH_CLIENT_SECRET",
+        "GITHUB_OAUTH_CLIENT_ID",
+        "GITHUB_OAUTH_CLIENT_SECRET",
+        # Stripe billing
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_PRICE_STARTER",
+        "STRIPE_PRICE_PROFESSIONAL",
+        "STRIPE_PRICE_ENTERPRISE",
+        # Database
+        "DATABASE_URL",
+        "SUPABASE_URL",
+        "SUPABASE_KEY",
+        # Redis
+        "REDIS_URL",
+        "REDIS_PASSWORD",
+        # API Keys (sensitive)
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "XAI_API_KEY",
+        "OPENROUTER_API_KEY",
+        "MISTRAL_API_KEY",
+        # Monitoring
+        "SENTRY_DSN",
+    }
+)
 
 
 @dataclass
@@ -82,7 +84,8 @@ class SecretsConfig:
         return cls(
             aws_region=os.environ.get("AWS_REGION", "us-east-1"),
             secret_name=os.environ.get("ARAGORA_SECRET_NAME", "aragora/production"),
-            use_aws=os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "").lower() in ("true", "1", "yes"),
+            use_aws=os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "").lower()
+            in ("true", "1", "yes"),
         )
 
 

@@ -42,7 +42,7 @@ curl http://localhost:8080/api/health
 # {"status": "healthy", "version": "1.0.0", "uptime": 3600}
 
 # WebSocket connectivity test
-wscat -c ws://localhost:8765
+wscat -c ws://localhost:8765/ws
 ```
 
 ### Environment Variables

@@ -307,9 +307,7 @@ class UsageSyncService:
             record.stripe_record_id = usage_record.id
             record.success = True
 
-            logger.info(
-                f"Reported {sync_type} usage for org {config.org_id}: " f"quantity={quantity}"
-            )
+            logger.info(f"Reported {sync_type} usage for org {config.org_id}: quantity={quantity}")
 
         except StripeAPIError as e:
             record.success = False

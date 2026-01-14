@@ -251,7 +251,7 @@ class DebateResult:
         base = f"""Debate Result ({self.id[:8]}):
 Task: {self.task[:100]}...
 Rounds: {self.rounds_used}
-Consensus: {'Yes' if self.consensus_reached else 'No'} (confidence: {self.confidence:.1%})
+Consensus: {"Yes" if self.consensus_reached else "No"} (confidence: {self.confidence:.1%})
 Critiques: {len(self.critiques)}
 Dissenting views: {len(self.dissenting_views)}
 Duration: {self.duration_seconds:.1f}s
@@ -319,7 +319,7 @@ class Agent(ABC):
         prompt = f"""Task: {task}
 
 Proposals to evaluate:
-{chr(10).join(f'{agent}: {prop[:500]}...' for agent, prop in proposals.items())}
+{chr(10).join(f"{agent}: {prop[:500]}..." for agent, prop in proposals.items())}
 
 Which proposal best addresses the task? Respond with:
 CHOICE: <agent_name>

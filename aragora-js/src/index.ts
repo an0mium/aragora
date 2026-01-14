@@ -21,7 +21,7 @@
  * console.log('Consensus:', debate.consensus?.conclusion);
  *
  * // Stream debate events
- * const stream = streamDebate('http://localhost:8080', debate.debate_id);
+ * const stream = streamDebate('ws://localhost:8765/ws', debate.debate_id);
  * for await (const event of stream) {
  *   console.log(event.type, event.data);
  * }

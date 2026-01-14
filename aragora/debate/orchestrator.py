@@ -1530,8 +1530,7 @@ class Arena:
                 # Check for phase failures
                 if not execution_result.success:
                     error_phases = [
-                        p.phase_name for p in execution_result.phases
-                        if p.status.value == "failed"
+                        p.phase_name for p in execution_result.phases if p.status.value == "failed"
                     ]
                     if error_phases:
                         logger.warning(f"Phase failures: {error_phases}")
@@ -1687,9 +1686,8 @@ class Arena:
             elo_system=self.elo_system,
             judge_selection=self.protocol.judge_selection,
             generate_fn=generate_wrapper,
-            build_vote_prompt_fn=lambda candidates, props: self.prompt_builder.build_judge_vote_prompt(
-                candidates, props
-            ),
+            build_vote_prompt_fn=lambda candidates,
+            props: self.prompt_builder.build_judge_vote_prompt(candidates, props),
             sanitize_fn=OutputSanitizer.sanitize_agent_output,
             consensus_memory=self.consensus_memory,
         )

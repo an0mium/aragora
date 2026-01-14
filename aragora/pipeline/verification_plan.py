@@ -161,12 +161,12 @@ class VerificationPlan:
 {test.description}
 
 **Preconditions:**
-{chr(10).join(f'- {p}' for p in test.preconditions) if test.preconditions else '- None'}
+{chr(10).join(f"- {p}" for p in test.preconditions) if test.preconditions else "- None"}
 
 **Steps:**
-{chr(10).join(f'{i+1}. {s}' for i, s in enumerate(test.steps)) if test.steps else '1. TBD'}
+{chr(10).join(f"{i + 1}. {s}" for i, s in enumerate(test.steps)) if test.steps else "1. TBD"}
 
-**Expected Result:** {test.expected_result or 'TBD'}
+**Expected Result:** {test.expected_result or "TBD"}
 
 ---
 """
@@ -183,18 +183,18 @@ class VerificationPlan:
 
 | Metric | Value |
 |--------|-------|
-| Total Tests | {summary['total_tests']} |
-| Unit | {summary['by_type'].get('unit', 0)} |
-| Integration | {summary['by_type'].get('integration', 0)} |
-| E2E | {summary['by_type'].get('e2e', 0)} |
-| Automated | {summary['automated']} |
-| Implemented | {summary['implemented']} |
+| Total Tests | {summary["total_tests"]} |
+| Unit | {summary["by_type"].get("unit", 0)} |
+| Integration | {summary["by_type"].get("integration", 0)} |
+| E2E | {summary["by_type"].get("e2e", 0)} |
+| Automated | {summary["automated"]} |
+| Implemented | {summary["implemented"]} |
 
 ---
 
 ## Critical Paths
 
-{chr(10).join(f'- {p}' for p in self.critical_paths) if self.critical_paths else '- TBD based on implementation'}
+{chr(10).join(f"- {p}" for p in self.critical_paths) if self.critical_paths else "- TBD based on implementation"}
 
 ---
 
@@ -231,7 +231,6 @@ class VerificationPlanGenerator:
     """
 
     def __init__(self, artifact: "DebateArtifact") -> None:
-
         self.artifact: DebateArtifact = artifact
 
     def generate(self) -> VerificationPlan:

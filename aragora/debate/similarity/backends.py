@@ -178,7 +178,7 @@ class TFIDFBackend(SimilarityBackend):
             self.cosine_similarity = cosine_similarity
         except ImportError as e:
             raise ImportError(
-                "TFIDFBackend requires scikit-learn. " "Install with: pip install scikit-learn"
+                "TFIDFBackend requires scikit-learn. Install with: pip install scikit-learn"
             ) from e
 
     def compute_similarity(self, text1: str, text2: str) -> float:

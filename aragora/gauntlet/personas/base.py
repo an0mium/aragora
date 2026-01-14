@@ -83,7 +83,7 @@ For each finding, specify:
 {attack.prompt}
 
 ## Expected Areas to Examine
-{chr(10).join(f'- {f}' for f in attack.expected_findings)}
+{chr(10).join(f"- {f}" for f in attack.expected_findings)}
 
 Provide specific findings with evidence from the target.
 """

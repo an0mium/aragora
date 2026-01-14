@@ -329,7 +329,7 @@ class SlackHandler(BaseHandler):
                 name = getattr(agent, "name", "Unknown")
                 elo = getattr(agent, "elo", 1500)
                 wins = getattr(agent, "wins", 0)
-                medal = ["", "", ""][i] if i < 3 else f"{i+1}."
+                medal = ["", "", ""][i] if i < 3 else f"{i + 1}."
                 text += f"{medal} *{name}* - ELO: {elo:.0f} | Wins: {wins}\n"
 
             return self._slack_response(text, response_type="ephemeral")
@@ -930,7 +930,7 @@ class SlackHandler(BaseHandler):
                     for i, agent in enumerate(agents[:5]):
                         name = getattr(agent, "name", "Unknown")
                         elo = getattr(agent, "elo", 1500)
-                        lines.append(f"{i+1}. {name} (ELO: {elo:.0f})")
+                        lines.append(f"{i + 1}. {name} (ELO: {elo:.0f})")
                     response_text = "\n".join(lines)
                 else:
                     response_text = "No agents registered yet."

@@ -258,7 +258,7 @@ class ABTestManager(SQLiteStore):
             )
 
         logger.info(
-            f"Started A/B test {test.id} for {agent}: " f"v{baseline_version} vs v{evolved_version}"
+            f"Started A/B test {test.id} for {agent}: v{baseline_version} vs v{evolved_version}"
         )
 
         return test
@@ -466,9 +466,7 @@ class ABTestManager(SQLiteStore):
             },
         )
 
-        logger.info(
-            f"Concluded A/B test {test_id}: winner={winner}, " f"confidence={confidence:.2f}"
-        )
+        logger.info(f"Concluded A/B test {test_id}: winner={winner}, confidence={confidence:.2f}")
 
         return result
 

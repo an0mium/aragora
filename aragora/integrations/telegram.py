@@ -387,7 +387,7 @@ class TelegramIntegration:
 
         medals = ["\U0001f947", "\U0001f948", "\U0001f949"]  # gold, silver, bronze
         for i, agent in enumerate(top_agents):
-            medal = medals[i] if i < 3 else f"#{i+1}"
+            medal = medals[i] if i < 3 else f"#{i + 1}"
             name = self._escape_html(agent.get("name", "Unknown"))
             elo = agent.get("elo", 1500)
             wins = agent.get("wins", 0)

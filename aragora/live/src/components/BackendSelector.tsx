@@ -27,7 +27,7 @@ export const BACKENDS: Record<BackendType, BackendConfig> = {
     label: 'DEV',
     description: 'Local Mac (via tunnel or localhost)',
     fallbackApi: 'http://localhost:8080',
-    fallbackWs: 'ws://localhost:8765',
+    fallbackWs: 'ws://localhost:8765/ws',
   },
 };
 

@@ -156,8 +156,8 @@ export function AgentProfileWrapper() {
         const data = await networkRes.json();
         setNetwork(data);
         // Auto-select first rival for comparison
-        if (data.rivals?.length > 0 && !selectedRival) {
-          setSelectedRival(data.rivals[0].agent);
+        if (data.rivals?.length > 0) {
+          setSelectedRival((prev) => prev ?? data.rivals[0].agent);
         }
       }
 
@@ -180,7 +180,7 @@ export function AgentProfileWrapper() {
     } finally {
       setLoading(false);
     }
-  }, [agentName, apiBase, selectedRival]);
+  }, [agentName, apiBase]);
 
   // Fetch head-to-head when rival is selected
   const fetchHeadToHead = useCallback(async (opponent: string) => {

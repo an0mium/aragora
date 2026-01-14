@@ -383,7 +383,9 @@ class AgentsHandler(BaseHandler):
                                     "consistency_class": (
                                         "high"
                                         if consistency >= 0.8
-                                        else "medium" if consistency >= 0.6 else "low"
+                                        else "medium"
+                                        if consistency >= 0.6
+                                        else "low"
                                     ),
                                 }
                         except Exception as e:

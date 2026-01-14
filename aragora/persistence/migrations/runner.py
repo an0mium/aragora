@@ -323,8 +323,7 @@ class MigrationRunner:
 
             for migration in pending:
                 logger.info(
-                    f"[{db_name}] Applying migration {migration.version}: "
-                    f"{migration.description}"
+                    f"[{db_name}] Applying migration {migration.version}: {migration.description}"
                 )
 
                 try:

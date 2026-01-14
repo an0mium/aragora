@@ -25,14 +25,16 @@ logger = logging.getLogger(__name__)
 
 class ParticipantRole(str, Enum):
     """Roles a participant can have in a collaborative session."""
-    VIEWER = "viewer"        # Can watch, cannot interact
-    VOTER = "voter"          # Can watch and vote
+
+    VIEWER = "viewer"  # Can watch, cannot interact
+    VOTER = "voter"  # Can watch and vote
     CONTRIBUTOR = "contributor"  # Can vote and suggest
     MODERATOR = "moderator"  # Can moderate suggestions, kick users
 
 
 class SessionState(str, Enum):
     """State of a collaboration session."""
+
     ACTIVE = "active"
     PAUSED = "paused"
     CLOSED = "closed"
@@ -42,6 +44,7 @@ class SessionState(str, Enum):
 @dataclass
 class Participant:
     """A participant in a collaborative session."""
+
     user_id: str
     session_id: str
     role: ParticipantRole = ParticipantRole.VIEWER
@@ -54,7 +57,11 @@ class Participant:
 
     def can_vote(self) -> bool:
         """Check if participant can vote."""
-        return self.role in (ParticipantRole.VOTER, ParticipantRole.CONTRIBUTOR, ParticipantRole.MODERATOR)
+        return self.role in (
+            ParticipantRole.VOTER,
+            ParticipantRole.CONTRIBUTOR,
+            ParticipantRole.MODERATOR,
+        )
 
     def can_suggest(self) -> bool:
         """Check if participant can make suggestions."""
@@ -81,6 +88,7 @@ class Participant:
 @dataclass
 class CollaborationSession:
     """A collaborative debate session."""
+
     session_id: str
     debate_id: str
     created_by: str  # user_id of creator
@@ -148,6 +156,7 @@ class CollaborationSession:
 
 class CollaborationEventType(str, Enum):
     """Event types for collaboration."""
+
     SESSION_CREATED = "session_created"
     SESSION_CLOSED = "session_closed"
     SESSION_UPDATED = "session_updated"
@@ -166,6 +175,7 @@ class CollaborationEventType(str, Enum):
 @dataclass
 class CollaborationEvent:
     """An event in the collaboration system."""
+
     type: CollaborationEventType
     session_id: str
     timestamp: float = field(default_factory=time.time)
@@ -259,14 +269,19 @@ class SessionManager:
 
                 # Update presence for inactive participants
                 for user_id, participant in session.participants.items():
-                    if participant.is_online and (now - participant.last_active) > self.presence_timeout:
+                    if (
+                        participant.is_online
+                        and (now - participant.last_active) > self.presence_timeout
+                    ):
                         participant.is_online = False
-                        self._emit_event(CollaborationEvent(
-                            type=CollaborationEventType.PRESENCE_UPDATE,
-                            session_id=session_id,
-                            user_id=user_id,
-                            data={"is_online": False},
-                        ))
+                        self._emit_event(
+                            CollaborationEvent(
+                                type=CollaborationEventType.PRESENCE_UPDATE,
+                                session_id=session_id,
+                                user_id=user_id,
+                                data={"is_online": False},
+                            )
+                        )
 
             # Remove expired sessions
             for session_id in expired_sessions:
@@ -375,12 +390,14 @@ class SessionManager:
             self._user_sessions[created_by].add(session_id)
 
             # Emit event
-            self._emit_event(CollaborationEvent(
-                type=CollaborationEventType.SESSION_CREATED,
-                session_id=session_id,
-                user_id=created_by,
-                data=session.to_dict(include_participants=False),
-            ))
+            self._emit_event(
+                CollaborationEvent(
+                    type=CollaborationEventType.SESSION_CREATED,
+                    session_id=session_id,
+                    user_id=created_by,
+                    data=session.to_dict(include_participants=False),
+                )
+            )
 
             logger.info(f"Created collaboration session {session_id} for debate {debate_id}")
             return session
@@ -409,11 +426,7 @@ class SessionManager:
         """Get all sessions a user is participating in."""
         with self._lock:
             session_ids = self._user_sessions.get(user_id, set())
-            return [
-                self._sessions[sid]
-                for sid in session_ids
-                if sid in self._sessions
-            ]
+            return [self._sessions[sid] for sid in session_ids if sid in self._sessions]
 
     def join_session(
         self,
@@ -462,12 +475,14 @@ class SessionManager:
             if session.require_approval and user_id != session.created_by:
                 if user_id not in session.pending_approvals:
                     session.pending_approvals.append(user_id)
-                    self._emit_event(CollaborationEvent(
-                        type=CollaborationEventType.APPROVAL_REQUESTED,
-                        session_id=session_id,
-                        user_id=user_id,
-                        data={"display_name": display_name},
-                    ))
+                    self._emit_event(
+                        CollaborationEvent(
+                            type=CollaborationEventType.APPROVAL_REQUESTED,
+                            session_id=session_id,
+                            user_id=user_id,
+                            data={"display_name": display_name},
+                        )
+                    )
                 return False, "Approval required - request pending", None
 
             # Cap role at CONTRIBUTOR for non-moderator joins
@@ -493,12 +508,14 @@ class SessionManager:
             self._user_sessions[user_id].add(session_id)
 
             # Emit event
-            self._emit_event(CollaborationEvent(
-                type=CollaborationEventType.PARTICIPANT_JOINED,
-                session_id=session_id,
-                user_id=user_id,
-                data=participant.to_dict(),
-            ))
+            self._emit_event(
+                CollaborationEvent(
+                    type=CollaborationEventType.PARTICIPANT_JOINED,
+                    session_id=session_id,
+                    user_id=user_id,
+                    data=participant.to_dict(),
+                )
+            )
 
             logger.info(f"User {user_id} joined session {session_id}")
             return True, "Joined successfully", participant
@@ -522,11 +539,13 @@ class SessionManager:
                     del self._user_sessions[user_id]
 
             # Emit event
-            self._emit_event(CollaborationEvent(
-                type=CollaborationEventType.PARTICIPANT_LEFT,
-                session_id=session_id,
-                user_id=user_id,
-            ))
+            self._emit_event(
+                CollaborationEvent(
+                    type=CollaborationEventType.PARTICIPANT_LEFT,
+                    session_id=session_id,
+                    user_id=user_id,
+                )
+            )
 
             logger.info(f"User {user_id} left session {session_id}")
             return True
@@ -550,12 +569,14 @@ class SessionManager:
             participant.is_online = is_online
             participant.last_active = time.time()
 
-            self._emit_event(CollaborationEvent(
-                type=CollaborationEventType.PRESENCE_UPDATE,
-                session_id=session_id,
-                user_id=user_id,
-                data={"is_online": is_online},
-            ))
+            self._emit_event(
+                CollaborationEvent(
+                    type=CollaborationEventType.PRESENCE_UPDATE,
+                    session_id=session_id,
+                    user_id=user_id,
+                    data={"is_online": is_online},
+                )
+            )
 
             return True
 
@@ -578,13 +599,19 @@ class SessionManager:
 
             participant.last_active = time.time()
 
-            event_type = CollaborationEventType.TYPING_START if is_typing else CollaborationEventType.TYPING_END
-            self._emit_event(CollaborationEvent(
-                type=event_type,
-                session_id=session_id,
-                user_id=user_id,
-                data={"context": typing_context},
-            ))
+            event_type = (
+                CollaborationEventType.TYPING_START
+                if is_typing
+                else CollaborationEventType.TYPING_END
+            )
+            self._emit_event(
+                CollaborationEvent(
+                    type=event_type,
+                    session_id=session_id,
+                    user_id=user_id,
+                    data={"context": typing_context},
+                )
+            )
 
             return True
 
@@ -620,16 +647,18 @@ class SessionManager:
             old_role = target.role
             target.role = new_role
 
-            self._emit_event(CollaborationEvent(
-                type=CollaborationEventType.ROLE_CHANGED,
-                session_id=session_id,
-                user_id=target_user_id,
-                data={
-                    "old_role": old_role.value,
-                    "new_role": new_role.value,
-                    "changed_by": changed_by,
-                },
-            ))
+            self._emit_event(
+                CollaborationEvent(
+                    type=CollaborationEventType.ROLE_CHANGED,
+                    session_id=session_id,
+                    user_id=target_user_id,
+                    data={
+                        "old_role": old_role.value,
+                        "new_role": new_role.value,
+                        "changed_by": changed_by,
+                    },
+                )
+            )
 
             return True, f"Role changed from {old_role.value} to {new_role.value}"
 
@@ -657,21 +686,25 @@ class SessionManager:
             session.pending_approvals.remove(user_id)
 
             if approved:
-                self._emit_event(CollaborationEvent(
-                    type=CollaborationEventType.APPROVAL_GRANTED,
-                    session_id=session_id,
-                    user_id=user_id,
-                    data={"approved_by": approved_by, "role": role.value},
-                ))
+                self._emit_event(
+                    CollaborationEvent(
+                        type=CollaborationEventType.APPROVAL_GRANTED,
+                        session_id=session_id,
+                        user_id=user_id,
+                        data={"approved_by": approved_by, "role": role.value},
+                    )
+                )
                 # Auto-join after approval
                 return self.join_session(session_id, user_id, role=role)[:2]
             else:
-                self._emit_event(CollaborationEvent(
-                    type=CollaborationEventType.APPROVAL_DENIED,
-                    session_id=session_id,
-                    user_id=user_id,
-                    data={"denied_by": approved_by},
-                ))
+                self._emit_event(
+                    CollaborationEvent(
+                        type=CollaborationEventType.APPROVAL_DENIED,
+                        session_id=session_id,
+                        user_id=user_id,
+                        data={"denied_by": approved_by},
+                    )
+                )
                 return True, "Join request denied"
 
     def close_session(self, session_id: str, closed_by: str) -> bool:
@@ -687,11 +720,13 @@ class SessionManager:
 
             session.state = SessionState.CLOSED
 
-            self._emit_event(CollaborationEvent(
-                type=CollaborationEventType.SESSION_CLOSED,
-                session_id=session_id,
-                user_id=closed_by,
-            ))
+            self._emit_event(
+                CollaborationEvent(
+                    type=CollaborationEventType.SESSION_CLOSED,
+                    session_id=session_id,
+                    user_id=closed_by,
+                )
+            )
 
             logger.info(f"Session {session_id} closed by {closed_by}")
             return True
@@ -699,7 +734,9 @@ class SessionManager:
     def get_stats(self) -> dict[str, Any]:
         """Get manager statistics."""
         with self._lock:
-            active_sessions = sum(1 for s in self._sessions.values() if s.state == SessionState.ACTIVE)
+            active_sessions = sum(
+                1 for s in self._sessions.values() if s.state == SessionState.ACTIVE
+            )
             total_participants = sum(s.participant_count for s in self._sessions.values())
             online_participants = sum(s.online_count for s in self._sessions.values())
 

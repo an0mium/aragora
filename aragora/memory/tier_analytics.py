@@ -443,7 +443,7 @@ class TierAnalyticsTracker:
         glacial = tier_stats.get("glacial", {})
         if glacial.get("entries", 0) > 1000 and glacial.get("avg_hits", 0) < 0.1:
             recommendations.append(
-                "Glacial tier has many entries with low hit rate. " "Consider pruning old entries."
+                "Glacial tier has many entries with low hit rate. Consider pruning old entries."
             )
 
         # Check promotion effectiveness

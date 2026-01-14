@@ -554,7 +554,9 @@ class CalibrationTracker(SQLiteStore):
         brier_score = self.get_brier_score(agent, domain)
         ece = self.get_expected_calibration_error(agent, domain=domain)
 
-        temp_params = self.get_temperature_params(agent) if include_temperature else TemperatureParams()
+        temp_params = (
+            self.get_temperature_params(agent) if include_temperature else TemperatureParams()
+        )
 
         return CalibrationSummary(
             agent=agent,

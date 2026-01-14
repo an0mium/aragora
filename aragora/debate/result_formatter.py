@@ -123,7 +123,7 @@ class ResultFormatter:
                 view_display = view[: self.max_view_length] + "..."
             else:
                 view_display = view
-            lines.append(f"  {i+1}. {view_display}")
+            lines.append(f"  {i + 1}. {view_display}")
 
     def _add_cruxes(self, lines: list[str], result: "DebateResult") -> None:
         """Add key cruxes section if present."""

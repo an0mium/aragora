@@ -124,7 +124,7 @@ class MemoryAnalyticsHandler(BaseHandler):
             tier_name_upper = tier_name.upper()
             if tier_name_upper not in [t.name for t in MemoryTier]:
                 return error_response(
-                    f"Invalid tier: {tier_name}. " f"Valid tiers: {[t.value for t in MemoryTier]}",
+                    f"Invalid tier: {tier_name}. Valid tiers: {[t.value for t in MemoryTier]}",
                     400,
                 )
 

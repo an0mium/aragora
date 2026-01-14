@@ -204,7 +204,8 @@ class ContextGatherer:
             for doc_name in key_docs:
                 doc_path = docs_dir / doc_name
                 content = await loop.run_in_executor(
-                    None, lambda p=doc_path: _read_file_sync(p, 3000)  # type: ignore[misc]
+                    None,
+                    lambda p=doc_path: _read_file_sync(p, 3000),  # type: ignore[misc]
                 )
                 if content:
                     aragora_context_parts.append(f"### {doc_name}\n{content}")

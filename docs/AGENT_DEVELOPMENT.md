@@ -940,4 +940,4 @@ agents = list_available_agents()
 - [API Reference](API_REFERENCE.md) - Full API documentation
 - [Custom Agents](CUSTOM_AGENTS.md) - More agent examples
 - [Architecture](ARCHITECTURE.md) - System architecture
-- [Memory Architecture](MEMORY_ARCHITECTURE.md) - How agents learn
+- [Memory Architecture](MEMORY_STRATEGY.md) - How agents learn

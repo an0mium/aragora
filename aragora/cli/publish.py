@@ -33,7 +33,7 @@ def generate_html_report(result: DebateResult, trace: Optional[DebateTrace] = No
                 <span class="role">{msg.role}</span>
                 <span class="round">Round {msg.round}</span>
             </div>
-            <div class="message-content">{msg.content[:500]}{'...' if len(msg.content) > 500 else ''}</div>
+            <div class="message-content">{msg.content[:500]}{"..." if len(msg.content) > 500 else ""}</div>
         </div>
         """
 
@@ -195,7 +195,7 @@ def generate_html_report(result: DebateResult, trace: Optional[DebateTrace] = No
     <div class="container">
         <header>
             <h1>🏛️ aragora Stress-Test</h1>
-            <div class="meta">Adversarial Validation • {datetime.now().strftime('%Y-%m-%d %H:%M')}</div>
+            <div class="meta">Adversarial Validation • {datetime.now().strftime("%Y-%m-%d %H:%M")}</div>
         </header>
 
         <div class="task">
@@ -217,7 +217,7 @@ def generate_html_report(result: DebateResult, trace: Optional[DebateTrace] = No
             <h2 class="section-title">
                 ✨ Final Answer
                 <span class="consensus {consensus_class}">
-                    {'✓ Consensus' if result.consensus_reached else '⚠ No Consensus'}
+                    {"✓ Consensus" if result.consensus_reached else "⚠ No Consensus"}
                     ({result.confidence:.0%})
                 </span>
             </h2>
@@ -272,7 +272,7 @@ def generate_markdown_report(result: DebateResult, trace: Optional[DebateTrace] 
 
     md = f"""# 🏛️ aragora Debate Report
 
-**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M')}
+**Generated:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 ---
 
@@ -290,7 +290,7 @@ def generate_markdown_report(result: DebateResult, trace: Optional[DebateTrace] 
 
 ## Critiques
 
-{critiques_md if critiques_md else '*No critiques recorded.*'}
+{critiques_md if critiques_md else "*No critiques recorded.*"}
 
 ---
 

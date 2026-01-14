@@ -105,7 +105,7 @@ class BaseDatabase:
                 conn.execute("COMMIT")
             except Exception as e:
                 logger.warning(
-                    f"Exception during transaction, rolling back: " f"{type(e).__name__}: {e}"
+                    f"Exception during transaction, rolling back: {type(e).__name__}: {e}"
                 )
                 conn.execute("ROLLBACK")
                 raise

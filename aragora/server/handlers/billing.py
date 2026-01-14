@@ -815,7 +815,7 @@ class BillingHandler(BaseHandler):
                 at_period_end=True,  # Cancel at end of period, not immediately
             )
 
-            logger.info(f"Subscription canceled for org {org.id} " f"(user: {db_user.email})")
+            logger.info(f"Subscription canceled for org {org.id} (user: {db_user.email})")
 
             # Log audit event
             self._log_audit(
@@ -1114,7 +1114,7 @@ class BillingHandler(BaseHandler):
 
         logger.info(
             f"Invoice paid: customer={customer_id}, "
-            f"subscription={subscription_id}, amount={amount_paid/100:.2f}"
+            f"subscription={subscription_id}, amount={amount_paid / 100:.2f}"
         )
 
         # Reset monthly usage counters on successful payment

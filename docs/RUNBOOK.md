@@ -347,7 +347,7 @@ watch -n 30 'curl -s http://localhost:8080/api/metrics | grep process_resident'
 curl -v http://localhost:8080/api/health
 
 # Check WebSocket connectivity
-websocat ws://localhost:8765 -v
+websocat ws://localhost:8765/ws -v
 
 # Check Redis connectivity
 redis-cli -h localhost ping

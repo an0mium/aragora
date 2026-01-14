@@ -28,7 +28,7 @@ export interface HistoryState {
 
 export function useSupabaseHistory() {
   const [state, setState] = useState<HistoryState>({
-    isConfigured: false,
+    isConfigured: isSupabaseConfigured(),
     isLoading: true,
     error: null,
     recentLoops: [],
@@ -37,14 +37,6 @@ export function useSupabaseHistory() {
     events: [],
     debates: [],
   });
-
-  // Check if Supabase is configured
-  useEffect(() => {
-    setState((prev) => ({
-      ...prev,
-      isConfigured: isSupabaseConfigured(),
-    }));
-  }, []);
 
   // Fetch recent loops on mount
   useEffect(() => {

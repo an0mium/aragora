@@ -867,7 +867,6 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             task = debate.get("task", "")
 
             try:
-
                 continuum = self.ctx.get("continuum_memory")
                 if continuum and task:
                     # Query for evidence-type memories related to this task

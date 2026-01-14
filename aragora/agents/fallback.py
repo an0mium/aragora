@@ -302,7 +302,7 @@ class AllProvidersExhaustedError(Exception):
         self.providers = providers
         self.last_error = last_error
         super().__init__(
-            f"All providers exhausted: {', '.join(providers)}. " f"Last error: {last_error}"
+            f"All providers exhausted: {', '.join(providers)}. Last error: {last_error}"
         )
 
 

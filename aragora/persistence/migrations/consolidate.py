@@ -1333,8 +1333,7 @@ def main() -> int:
         print("\nMigration plan:")
         for stat in result.stats:
             print(
-                f"  {stat.source_db}:{stat.table_name} -> "
-                f"{stat.target_db} ({stat.rows_read} rows)"
+                f"  {stat.source_db}:{stat.table_name} -> {stat.target_db} ({stat.rows_read} rows)"
             )
 
         return 0

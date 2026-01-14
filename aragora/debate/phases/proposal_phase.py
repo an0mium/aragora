@@ -225,7 +225,7 @@ class ProposalPhase:
         else:
             ctx.proposals[agent.name] = result_or_error
             logger.info(
-                f"agent_complete agent={agent.name} phase=proposal " f"chars={len(result_or_error)}"
+                f"agent_complete agent={agent.name} phase=proposal chars={len(result_or_error)}"
             )
             if self.circuit_breaker:
                 self.circuit_breaker.record_success(agent.name)

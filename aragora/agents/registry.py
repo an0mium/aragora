@@ -171,7 +171,7 @@ class AgentRegistry:
         """
         if model_type not in cls._registry:
             valid_types = ", ".join(sorted(cls._registry.keys()))
-            raise ValueError(f"Unknown agent type: {model_type}. " f"Valid types: {valid_types}")
+            raise ValueError(f"Unknown agent type: {model_type}. Valid types: {valid_types}")
 
         spec = cls._registry[model_type]
         resolved_name = name or spec.default_name

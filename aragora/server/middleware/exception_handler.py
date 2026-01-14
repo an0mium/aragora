@@ -362,8 +362,7 @@ async def async_exception_handler(
 
         duration_ms = round((time.time() - ctx.start_time) * 1000, 2)
         log_msg = (
-            f"[{ctx.trace_id}] Error in {context} "
-            f"({duration_ms}ms): {type(exc).__name__}: {exc}"
+            f"[{ctx.trace_id}] Error in {context} ({duration_ms}ms): {type(exc).__name__}: {exc}"
         )
 
         if log_level == "error":

@@ -503,8 +503,7 @@ class WebhookDispatcher:
                         with self._stats_lock:
                             self._drop_count += 1
                         logger.warning(
-                            f"webhook_backpressure_drop url={cfg.url[:50]}... "
-                            "executor queue full"
+                            f"webhook_backpressure_drop url={cfg.url[:50]}... executor queue full"
                         )
                         continue
 
@@ -550,8 +549,7 @@ class WebhookDispatcher:
         )
         if not circuit.can_proceed():
             logger.debug(
-                f"Webhook {cfg.name} circuit open, skipping delivery "
-                f"for {event_dict.get('type')}"
+                f"Webhook {cfg.name} circuit open, skipping delivery for {event_dict.get('type')}"
             )
             return False
 
@@ -598,7 +596,7 @@ class WebhookDispatcher:
 
                     if attempt < cfg.max_retries - 1:
                         logger.debug(
-                            f"Webhook {cfg.name} attempt {attempt+1} got {e.code}, "
+                            f"Webhook {cfg.name} attempt {attempt + 1} got {e.code}, "
                             f"retrying in {backoff:.1f}s"
                         )
                         time.sleep(backoff)
@@ -617,7 +615,7 @@ class WebhookDispatcher:
                 if attempt < cfg.max_retries - 1:
                     backoff = cfg.backoff_base_s * (2**attempt) + random.uniform(0, 0.5)
                     logger.debug(
-                        f"Webhook {cfg.name} attempt {attempt+1} failed: {e}, "
+                        f"Webhook {cfg.name} attempt {attempt + 1} failed: {e}, "
                         f"retrying in {backoff:.1f}s"
                     )
                     time.sleep(backoff)

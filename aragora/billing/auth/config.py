@@ -23,6 +23,7 @@ def _get_secret_value(name: str, default: str = "") -> str:
     """Get secret value from secrets manager or environment."""
     try:
         from aragora.config.secrets import get_secret
+
         return get_secret(name, default) or default
     except ImportError:
         return os.environ.get(name, default)
