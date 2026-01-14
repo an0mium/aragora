@@ -246,7 +246,11 @@ def get_all_versions() -> list[dict]:
     Returns:
         List of version info dicts
     """
-    return [get_version_info(v) for v in sorted(API_VERSIONS.keys())]
+    return [
+        info
+        for v in sorted(API_VERSIONS.keys())
+        if (info := get_version_info(v)) is not None
+    ]
 
 
 # =============================================================================

@@ -394,7 +394,15 @@ class ServiceRegistry:
 # Module-level convenience functions
 
 
-def get_service(service_type: Type[T], default: Optional[T] = None) -> T:
+@overload
+def get_service(service_type: Type[T]) -> T: ...
+
+
+@overload
+def get_service(service_type: Type[T], default: Optional[T]) -> Optional[T]: ...
+
+
+def get_service(service_type: Type[T], default: Optional[T] = None) -> Optional[T]:
     """
     Get a service from the global registry.
 

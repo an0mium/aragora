@@ -396,9 +396,9 @@ def get_registry(path: Path | str | None = None) -> ModelRegistry:
     """Get or create the default model registry."""
     global _default_registry
     if _default_registry is None or path is not None:
-        registry_path = path or os.getenv(
+        registry_path: Path | str = path or os.getenv(
             "TINKER_MODEL_REGISTRY",
             "model_registry.json",
-        )
+        ) or "model_registry.json"  # Fallback ensures non-None
         _default_registry = ModelRegistry(registry_path)
     return _default_registry
