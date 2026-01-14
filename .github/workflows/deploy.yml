@@ -20,53 +20,17 @@ on:
           - cloudflare
           - lightsail
           - ec2
-      skip_tests:
-        description: 'Skip tests (emergency deploy only)'
-        required: false
-        default: false
-        type: boolean
 
 concurrency:
-  # Temporarily using v2 suffix to escape zombie queued run
-  group: deploy-v2-${{ github.ref }}
+  group: deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # Run tests before deploying (skippable for emergency deploys)
-  test:
-    if: github.event.inputs.skip_tests != 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt || true
-          pip install -e ".[dev]"
-          pip install pytest-timeout httpx
-
-      - name: Run quick tests
-        run: |
-          pytest tests/test_handlers_debates.py tests/test_api_handler.py \
-            --timeout=60 -x --tb=short
-        env:
-          PYTHONPATH: .
+  # Note: Tests run via separate Tests workflow. This workflow deploys directly.
+  # Use branch protection to require Tests workflow to pass before merge.
 
   deploy-cloudflare:
-    needs: test
-    # Run if test passed OR tests were skipped
-    if: |
-      always() &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
-      (github.event.inputs.environment == 'all' || github.event.inputs.environment == 'cloudflare' || github.event.inputs.environment == null || github.event_name == 'push')
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'cloudflare' || github.event.inputs.environment == null || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -112,12 +76,7 @@ jobs:
         continue-on-error: true
 
   deploy-lightsail:
-    needs: test
-    # Run if test passed OR tests were skipped
-    if: |
-      always() &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
-      (github.event.inputs.environment == 'all' || github.event.inputs.environment == 'lightsail' || github.event.inputs.environment == null || github.event_name == 'push')
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'lightsail' || github.event.inputs.environment == null || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     continue-on-error: true  # Don't fail the workflow if Lightsail is unreachable
@@ -268,12 +227,7 @@ jobs:
           echo "  3. The LIGHTSAIL_HOST secret contains the correct IP address"
 
   deploy-ec2:
-    needs: test
-    # Run if test passed OR tests were skipped
-    if: |
-      always() &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
-      (github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2' || github.event.inputs.environment == null || github.event_name == 'push')
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2' || github.event.inputs.environment == null || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     continue-on-error: true  # Don't fail the workflow if EC2 is unreachable
