@@ -91,25 +91,29 @@ aragora/
 │   └── positions.py       # PositionTracker (position history)
 │
 ├── debate/                 # Core debate infrastructure
-│   ├── orchestrator.py    # Arena class (~1,650 LOC after extraction refactors)
+│   ├── orchestrator.py    # Arena class (~1,877 LOC - coordinator role)
+│   ├── phase_executor.py  # PhaseExecutor (orchestrates all phases)
+│   ├── context.py         # DebateContext (shared state across phases)
 │   ├── memory_manager.py  # MemoryManager (extracted from orchestrator)
 │   ├── prompt_builder.py  # PromptBuilder (extracted from orchestrator)
-│   ├── security_barrier.py# SecurityBarrier, TelemetryVerifier
-│   ├── telemetry_config.py# TelemetryConfig (observation levels)
-│   ├── convergence.py     # ConvergenceDetector
+│   ├── convergence.py     # ConvergenceDetector (semantic similarity)
 │   ├── graph.py           # DebateGraph (DAG-based debates)
 │   ├── forking.py         # DebateForker (parallel branches)
-│   ├── traces.py          # DebateTracer (audit logs)
-│   ├── checkpoint.py      # CheckpointManager
-│   ├── templates.py       # DebateTemplates
+│   ├── checkpoint.py      # CheckpointManager (recovery)
 │   ├── breakpoints.py     # DebateBreakpointManager
-│   ├── scenarios.py       # ScenarioMatrix
-│   └── phases/            # Phase executors (extracted)
-│       ├── base.py        # PhaseExecutor base class
-│       ├── proposal.py    # ProposalPhase
-│       ├── critique.py    # CritiquePhase
-│       ├── voting.py      # VotingPhase
-│       └── synthesis.py   # SynthesisPhase
+│   └── phases/            # Phase executors (18 modules)
+│       ├── context_init.py     # Phase 0: Context initialization
+│       ├── proposal_phase.py   # Phase 1: Initial proposals
+│       ├── debate_rounds.py    # Phase 2: Critique/revision loop
+│       ├── consensus_phase.py  # Phase 3: Voting and consensus
+│       ├── analytics_phase.py  # Phases 4-6: Metrics and insights
+│       ├── feedback_phase.py   # Phase 7: ELO and memory updates
+│       ├── vote_collector.py   # Vote collection logic
+│       ├── vote_aggregator.py  # Vote aggregation
+│       ├── vote_weighter.py    # Vote weight calculation
+│       ├── weight_calculator.py# Reputation/calibration weights
+│       ├── consensus_verification.py # Result verification
+│       └── roles_manager.py    # Role/stance assignment
 │
 ├── reasoning/              # Logical reasoning components
 │   ├── claims.py          # ClaimsKernel (structured claims)
@@ -502,3 +506,48 @@ Checks include: API key validation, disk space, database connectivity, protected
 ### Type Coverage
 
 PEP 561 typed package marker (`aragora/py.typed`) and strict mypy configuration for core modules. See `pyproject.toml` for per-module type checking settings.
+
+### Phase-Based Debate Execution
+
+The debate engine uses a phase-based architecture for maintainability and testability:
+
+```
+Phase 0: Context Initialization
+    └─→ Inject history, patterns, research context
+
+Phase 1: Proposals
+    └─→ Generate initial proposer responses
+
+Phase 2: Debate Rounds
+    └─→ Critique/revision loop with convergence detection
+
+Phase 3: Consensus
+    └─→ Voting, weight calculation, winner determination
+
+Phases 4-6: Analytics
+    └─→ Metrics, insights, verdict generation
+
+Phase 7: Feedback
+    └─→ ELO updates, persona refinement, memory persistence
+```
+
+Each phase is implemented as a separate class with an `async execute(ctx)` method. See [ADR-001](./ADR/001-phase-based-debate-execution.md) for details.
+
+## Architecture Decision Records
+
+Key architectural decisions are documented in the [ADR directory](./ADR/):
+
+| ADR | Decision |
+|-----|----------|
+| [001](./ADR/001-phase-based-debate-execution.md) | Phase-based debate execution |
+| [002](./ADR/002-agent-fallback-openrouter.md) | Agent fallback via OpenRouter |
+| [003](./ADR/003-multi-tier-memory-system.md) | Multi-tier memory system |
+| [004](./ADR/004-incremental-type-safety.md) | Incremental type safety migration |
+| [005](./ADR/005-composition-over-inheritance.md) | Composition over inheritance for APIs |
+
+## Performance Characteristics
+
+- **Debate latency**: 2-5 seconds per round (depends on agent response time)
+- **Memory tiers**: Fast (1min TTL), Medium (1hr), Slow (1day), Glacial (1week)
+- **Test coverage**: 22,908 tests, 131% test-to-code ratio
+- **Type safety**: 30+ modules in strict mypy mode

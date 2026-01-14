@@ -1,0 +1,201 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run daily at 2 AM UTC to track performance trends
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  benchmark:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-benchmark-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-benchmark-
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pytest-benchmark
+
+      - name: Run benchmark tests
+        run: |
+          pytest tests/benchmarks/ \
+            -v \
+            --benchmark-only \
+            --benchmark-json=benchmark-results.json \
+            --benchmark-columns=min,max,mean,stddev,median,rounds \
+            --benchmark-sort=mean \
+            --benchmark-warmup=on \
+            --benchmark-disable-gc \
+            -x
+        env:
+          PYTHONPATH: .
+
+      - name: Store benchmark result
+        if: github.ref == 'refs/heads/main'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Aragora Performance Benchmarks
+          tool: 'pytest'
+          output-file-path: benchmark-results.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: '@an0mium'
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark-results.json
+          retention-days: 30
+
+  performance-regression:
+    name: Performance Regression Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: Checkout main for comparison
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-branch
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pytest-benchmark
+
+      - name: Run PR benchmarks
+        run: |
+          pytest tests/benchmarks/test_performance.py \
+            --benchmark-only \
+            --benchmark-json=pr-benchmark.json \
+            --benchmark-warmup=on \
+            -x
+        env:
+          PYTHONPATH: .
+
+      - name: Run main benchmarks
+        run: |
+          cd main-branch
+          pip install -e ".[dev]"
+          pytest tests/benchmarks/test_performance.py \
+            --benchmark-only \
+            --benchmark-json=../main-benchmark.json \
+            --benchmark-warmup=on \
+            -x
+        env:
+          PYTHONPATH: .
+
+      - name: Compare benchmarks
+        run: |
+          python -c "
+          import json
+          import sys
+
+          with open('main-benchmark.json') as f:
+              main = json.load(f)
+          with open('pr-benchmark.json') as f:
+              pr = json.load(f)
+
+          main_benchmarks = {b['name']: b['stats']['mean'] for b in main['benchmarks']}
+          pr_benchmarks = {b['name']: b['stats']['mean'] for b in pr['benchmarks']}
+
+          regressions = []
+          improvements = []
+
+          for name, pr_mean in pr_benchmarks.items():
+              if name in main_benchmarks:
+                  main_mean = main_benchmarks[name]
+                  change = ((pr_mean - main_mean) / main_mean) * 100
+
+                  if change > 10:  # More than 10% slower
+                      regressions.append(f'  - {name}: +{change:.1f}% slower')
+                  elif change < -10:  # More than 10% faster
+                      improvements.append(f'  - {name}: {abs(change):.1f}% faster')
+
+          if regressions:
+              print('Performance Regressions Detected:')
+              print('\\n'.join(regressions))
+              sys.exit(1)
+          elif improvements:
+              print('Performance Improvements:')
+              print('\\n'.join(improvements))
+          else:
+              print('No significant performance changes detected.')
+          "
+
+  latency-tests:
+    name: Latency Distribution
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run latency tests
+        run: |
+          pytest tests/benchmarks/test_api_rate_limits.py \
+            tests/benchmarks/test_memory_tier_throughput.py \
+            -v \
+            --tb=short \
+            -x
+        env:
+          PYTHONPATH: .
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Latency Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Latency distribution tests completed." >> $GITHUB_STEP_SUMMARY
