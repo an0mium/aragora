@@ -80,6 +80,7 @@ from .system import SystemHandler
 from .tournaments import TournamentHandler
 from .verification import VerificationHandler
 from .webhooks import WebhookHandler
+from .collaboration import CollaborationHandlers, get_collaboration_handlers
 
 # List of all handler classes for automatic dispatch registration
 # Order matters: more specific handlers should come first
@@ -280,6 +281,9 @@ __all__ = [
     "EvidenceHandler",
     "WebhookHandler",
     "AdminHandler",
+    # Collaboration handlers
+    "CollaborationHandlers",
+    "get_collaboration_handlers",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",
