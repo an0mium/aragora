@@ -5,37 +5,34 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBanner } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
-// Practical use cases with real examples
-const PRACTICAL_USE_CASES = [
+// Use cases - what Aragora can do
+const USE_CASES = [
   {
     icon: '🏗️',
     title: 'Architecture Stress-Test',
     subtitle: 'Find critical flaws before launch',
     examples: [
-      'MedConnect: Found 11 issues, prevented 3 critical outages',
-      'Scale review: 50K to 500K concurrent users validated',
+      'Identify scaling bottlenecks and single points of failure',
+      'Validate infrastructure for 10x traffic scenarios',
     ],
-    cta: { label: 'See Case Study', href: 'https://github.com/an0mium/aragora/blob/main/docs/case-studies/architecture-stress-test.md' },
   },
   {
     icon: '🔐',
     title: 'API Security Review',
     subtitle: 'AI red-team your endpoints',
     examples: [
-      'CloudPay: 7 critical issues found in 23 minutes',
-      'BOLA, rate limiting gaps, PCI-DSS violations caught',
+      'Detect BOLA, injection, and access control issues',
+      'Find rate limiting gaps and data exposure risks',
     ],
-    cta: { label: 'See Case Study', href: 'https://github.com/an0mium/aragora/blob/main/docs/case-studies/security-api-review.md' },
   },
   {
     icon: '📋',
     title: 'Compliance Audit',
     subtitle: 'GDPR, HIPAA, SOC 2 readiness',
     examples: [
-      'Automated persona-based compliance checks',
+      'Persona-based compliance checks with CFR citations',
       'Audit-ready transcripts with minority views preserved',
     ],
-    cta: { label: 'See Case Study', href: 'https://github.com/an0mium/aragora/blob/main/docs/case-studies/gdpr-compliance-audit.md' },
   },
   {
     icon: '🔍',
@@ -45,7 +42,6 @@ const PRACTICAL_USE_CASES = [
       'Security vulnerabilities, logic errors, edge cases',
       'Cross-model consensus on critical issues',
     ],
-    cta: null,
   },
   {
     icon: '🔥',
@@ -55,7 +51,6 @@ const PRACTICAL_USE_CASES = [
       'Root cause analysis with competing hypotheses',
       'Mitigation strategies stress-tested by adversarial agents',
     ],
-    cta: null,
   },
   {
     icon: '⚖️',
@@ -65,7 +60,6 @@ const PRACTICAL_USE_CASES = [
       'Decision transcripts with dissenting views recorded',
       'Confidence scores and evidence chains for audit',
     ],
-    cta: null,
   },
 ];
 
@@ -119,12 +113,12 @@ const DOC_CATEGORIES = [
     ],
   },
   {
-    title: 'Case Studies',
-    icon: '📊',
+    title: 'Security',
+    icon: '🔒',
     docs: [
-      { name: 'Architecture Stress-Test', href: 'https://github.com/an0mium/aragora/blob/main/docs/case-studies/architecture-stress-test.md' },
-      { name: 'API Security Review', href: 'https://github.com/an0mium/aragora/blob/main/docs/case-studies/security-api-review.md' },
-      { name: 'GDPR Compliance', href: 'https://github.com/an0mium/aragora/blob/main/docs/case-studies/gdpr-compliance-audit.md' },
+      { name: 'Security Guide', href: 'https://github.com/an0mium/aragora/blob/main/docs/SECURITY.md' },
+      { name: 'Compliance', href: 'https://github.com/an0mium/aragora/blob/main/docs/COMPLIANCE.md' },
+      { name: 'Security Patterns', href: 'https://github.com/an0mium/aragora/blob/main/docs/SECURITY_PATTERNS.md' },
     ],
   },
 ];
@@ -263,15 +257,15 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* Practical Use Cases */}
+        {/* Use Cases */}
         <section className="py-16 px-4 bg-surface/30">
           <div className="container mx-auto max-w-5xl">
-            <h2 className="text-2xl font-mono text-acid-green mb-4 text-center">Practical Use Cases</h2>
+            <h2 className="text-2xl font-mono text-acid-green mb-4 text-center">Use Cases</h2>
             <p className="text-center text-text-muted font-mono mb-8 max-w-2xl mx-auto">
-              Real-world applications with measurable results
+              What you can do with multi-agent adversarial validation
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {PRACTICAL_USE_CASES.map((useCase) => (
+              {USE_CASES.map((useCase) => (
                 <div key={useCase.title} className="border border-acid-green/20 p-5 bg-bg/50 flex flex-col">
                   <div className="flex items-center gap-3 mb-3">
                     <span className="text-2xl">{useCase.icon}</span>
@@ -288,16 +282,6 @@ export default function AboutPage() {
                       </li>
                     ))}
                   </ul>
-                  {useCase.cta && (
-                    <a
-                      href={useCase.cta.href}
-                      className="mt-4 text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors inline-flex items-center gap-1"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {useCase.cta.label} →
-                    </a>
-                  )}
                 </div>
               ))}
             </div>

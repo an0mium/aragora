@@ -1,10 +1,37 @@
-# Aragora Case Studies
+# Aragora Example Scenarios
 
-Curated examples showing Aragora as an AI red team for decision stress-testing.
+Hypothetical examples demonstrating how Aragora's Gauntlet can be used for adversarial validation.
 
-## Index
+> **Note:** These are illustrative scenarios showing potential use cases. The companies and specific findings described are fictional examples for demonstration purposes.
 
-- `docs/case-studies/architecture-stress-test.md`
-- `docs/case-studies/gdpr-compliance-audit.md`
-- `docs/case-studies/security-api-review.md`
-- `docs/case-studies/epic-strategic-debate.md`
+## Examples
+
+| Scenario | Use Case | Key Capability Demonstrated |
+|----------|----------|----------------------------|
+| [Architecture Stress-Test](architecture-stress-test.md) | Scaling & HIPAA validation | Multi-persona coverage, regulatory depth |
+| [API Security Review](security-api-review.md) | Pre-launch security validation | BOLA detection, heterogeneous validation |
+| [GDPR Compliance Audit](gdpr-compliance-audit.md) | EU market readiness | Regulatory specificity, Article citations |
+| [Strategic Positioning](epic-strategic-debate.md) | Internal decision-making | Adversarial critique for strategy |
+
+## How to Use These Examples
+
+These scenarios illustrate:
+- What types of issues Aragora can identify
+- How to configure Gauntlet for different use cases
+- What output formats to expect (Decision Receipts, evidence chains)
+- The value of heterogeneous multi-model validation
+
+## Running Your Own Validation
+
+```bash
+# Security review
+aragora gauntlet your-spec.md --persona security --profile thorough
+
+# Compliance check
+aragora gauntlet your-docs.md --persona gdpr --profile thorough
+
+# Architecture review
+aragora gauntlet architecture.md --persona security --profile thorough --focus infrastructure
+```
+
+See the [Gauntlet documentation](../GAUNTLET.md) for full configuration options.
