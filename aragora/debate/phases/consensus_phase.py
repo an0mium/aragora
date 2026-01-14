@@ -250,6 +250,9 @@ class ConsensusPhase:
             )
             await self._handle_fallback_consensus(ctx, reason=f"error: {type(e).__name__}")
 
+        # Always generate final synthesis regardless of consensus mode
+        await self._generate_mandatory_synthesis(ctx)
+
     async def _execute_consensus(self, ctx: "DebateContext", consensus_mode: str) -> None:
         """Execute the consensus logic for the given mode."""
         normalized = consensus_mode
@@ -1666,3 +1669,123 @@ class ConsensusPhase:
                 "error": str(e),
                 "is_verified": False,
             }
+
+    # =========================================================================
+    # Mandatory Final Synthesis
+    # =========================================================================
+
+    async def _generate_mandatory_synthesis(self, ctx: "DebateContext") -> None:
+        """Generate mandatory final synthesis using Claude Opus 4.5.
+
+        This runs after consensus is determined (by any mode) to ensure
+        every debate ends with a clear, synthesized conclusion.
+
+        Args:
+            ctx: The DebateContext with proposals and consensus result
+        """
+        # Skip if no proposals to synthesize
+        if not ctx.proposals:
+            logger.warning("synthesis_skipped reason=no_proposals")
+            return
+
+        logger.info("synthesis_generation_start")
+
+        try:
+            from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+            # Create dedicated synthesizer (always Opus 4.5)
+            synthesizer = AnthropicAPIAgent(
+                name="synthesis-agent",
+                model="claude-opus-4-5-20251101",
+            )
+
+            # Build synthesis prompt
+            synthesis_prompt = self._build_synthesis_prompt(ctx)
+
+            # Generate synthesis with timeout
+            synthesis = await asyncio.wait_for(
+                synthesizer.generate(synthesis_prompt, ctx.context_messages),
+                timeout=90.0,
+            )
+
+            # Store synthesis in result
+            ctx.result.synthesis = synthesis
+            ctx.result.final_answer = synthesis
+
+            logger.info(f"synthesis_generated chars={len(synthesis)}")
+
+            # Emit as special "synthesis" message for frontend
+            if self.hooks and "on_message" in self.hooks:
+                rounds = self.protocol.rounds if self.protocol else 3
+                self.hooks["on_message"](
+                    agent="synthesis-agent",
+                    content=synthesis,
+                    role="synthesis",  # Special role for frontend styling
+                    round_num=rounds + 1,
+                )
+
+            # Notify spectator
+            if self._notify_spectator:
+                self._notify_spectator(
+                    "synthesis",
+                    agent="synthesis-agent",
+                    details=f"Final synthesis ({len(synthesis)} chars)",
+                    metric=ctx.result.confidence if ctx.result else 0.0,
+                )
+
+        except asyncio.TimeoutError:
+            logger.warning("synthesis_timeout timeout=90s")
+        except ImportError as e:
+            logger.warning(f"synthesis_import_error: {e}")
+        except Exception as e:
+            logger.warning(f"synthesis_generation_failed error={e}")
+
+    def _build_synthesis_prompt(self, ctx: "DebateContext") -> str:
+        """Build prompt for final synthesis generation.
+
+        Args:
+            ctx: The DebateContext with proposals, critiques, and task
+
+        Returns:
+            Formatted synthesis prompt string
+        """
+        proposals = ctx.proposals
+        critiques = getattr(ctx, "critiques", []) or []
+        task = ctx.env.task if ctx.env else "Unknown task"
+
+        # Format proposals
+        proposals_text = "\n\n---\n\n".join(
+            f"**{agent}**:\n{prop[:1500]}" for agent, prop in proposals.items()
+        )
+
+        # Format critiques (if any)
+        critiques_text = ""
+        if critiques:
+            critique_items = []
+            for c in critiques[:5]:
+                if hasattr(c, "agent") and hasattr(c, "target"):
+                    summary = getattr(c, "summary", "")[:200] if hasattr(c, "summary") else ""
+                    critique_items.append(f"- {c.agent} on {c.target}: {summary}")
+            critiques_text = "\n".join(critique_items)
+
+        return f"""You are generating the FINAL SYNTHESIS for a multi-agent AI debate.
+
+## ORIGINAL QUESTION
+{task}
+
+## AGENT PROPOSALS
+{proposals_text}
+
+## KEY CRITIQUES
+{critiques_text if critiques_text else "No critiques recorded."}
+
+## YOUR TASK
+Create a clear, authoritative FINAL SYNTHESIS that:
+
+1. **ANSWER**: State the definitive answer/conclusion clearly
+2. **REASONING**: Summarize the key reasoning from the debate
+3. **CONSENSUS**: Note where agents agreed and any unresolved points
+4. **RECOMMENDATION**: Provide a concrete actionable takeaway
+
+Write in a clear, confident tone. This is the FINAL WORD on this debate.
+Keep your response focused and under 500 words."""
