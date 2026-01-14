@@ -83,7 +83,7 @@ class ProvenanceRecord:
     verified: bool = False
     verifier_id: Optional[str] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.id:
             self.id = str(uuid.uuid4())[:12]
         if not self.content_hash:

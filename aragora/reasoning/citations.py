@@ -87,7 +87,7 @@ class ScholarlyEvidence:
     verified: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.id:
             # Generate deterministic ID from content
             content = f"{self.title}:{','.join(self.authors)}:{self.year}"
@@ -187,7 +187,7 @@ class CitedClaim:
     confidence: float = 0.0
     grounding_score: float = 0.0  # How well-grounded in citations
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.claim_id:
             self.claim_id = hashlib.sha256(self.claim_text.encode()).hexdigest()[:12]
 
@@ -222,7 +222,7 @@ class GroundedVerdict:
     all_citations: list[ScholarlyEvidence] = field(default_factory=list)
     grounding_score: float = 0.0  # Overall evidence grounding
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # Collect all citations
         if self.claims and not self.all_citations:
             seen = set()

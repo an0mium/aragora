@@ -225,6 +225,9 @@ module = [
     "aragora.reasoning.belief",
     "aragora.storage.base_store",
     "aragora.debate.memory_manager",
+    # Added strict - Phase 5 storage layer (Jan 2026)
+    "aragora.storage.factory",
+    "aragora.storage.webhook_store",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -296,10 +299,9 @@ module = [
     "aragora.training.model_registry",
     "aragora.pipeline.pr_generator",
     "aragora.policy.engine",
-    # Storage layer (database return types)
+    # Storage layer (database return types) - factory.py promoted to strict
     "aragora.storage.audit_store",
     "aragora.storage.organization_store",
-    "aragora.storage.factory",
     "aragora.storage.postgres_store",
     # Server utilities
     "aragora.server.debate_utils",
@@ -327,7 +329,7 @@ module = [
     "aragora.server.openapi",
     "aragora.server.validation.decorators",
     "aragora.broadcast.storage",
-    "aragora.storage.webhook_store",
+    # webhook_store.py promoted to strict (passes mypy)
     "aragora.storage.repositories.*",
     "aragora.storage.schema",
     "aragora.db.migrate",

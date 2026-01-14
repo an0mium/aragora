@@ -155,6 +155,9 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "DebatesHandler": Stability.STABLE,
     "AgentsHandler": Stability.STABLE,
     "SystemHandler": Stability.STABLE,
+    "HealthHandler": Stability.STABLE,  # Extracted from SystemHandler
+    "NomicHandler": Stability.STABLE,  # Extracted from SystemHandler
+    "DocsHandler": Stability.STABLE,  # Extracted from SystemHandler
     "AnalyticsHandler": Stability.STABLE,
     "ConsensusHandler": Stability.STABLE,
     "MetricsHandler": Stability.STABLE,
@@ -239,6 +242,9 @@ __all__ = [
     "DebatesHandler",
     "AgentsHandler",
     "SystemHandler",
+    "HealthHandler",
+    "NomicHandler",
+    "DocsHandler",
     "PulseHandler",
     "AnalyticsHandler",
     "MetricsHandler",

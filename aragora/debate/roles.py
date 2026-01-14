@@ -194,7 +194,7 @@ class RoleAssignment:
     round_num: int
     role_prompt: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.role_prompt:
             self.role_prompt = ROLE_PROMPTS.get(self.role, "")
 

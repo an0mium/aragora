@@ -1,16 +1,16 @@
 """
-Tests for the System Handler endpoints.
+Tests for the System Handler endpoints and extracted handlers.
 
 Covers:
-- Kubernetes health probes (/healthz, /readyz)
-- Health endpoints (/api/health, /api/health/detailed, /api/health/deep)
-- Nomic loop endpoints (/api/nomic/*)
-- History endpoints (/api/history/*)
-- System maintenance (/api/system/maintenance)
-- Auth stats (/api/auth/stats, /api/auth/revoke)
-- Circuit breaker metrics (/api/circuit-breakers)
-- OpenAPI spec (/api/openapi)
-- Swagger UI (/api/docs)
+- Kubernetes health probes (/healthz, /readyz) - HealthHandler
+- Health endpoints (/api/health, /api/health/detailed, /api/health/deep) - HealthHandler
+- Nomic loop endpoints (/api/nomic/*) - NomicHandler
+- History endpoints (/api/history/*) - SystemHandler
+- System maintenance (/api/system/maintenance) - SystemHandler
+- Auth stats (/api/auth/stats, /api/auth/revoke) - SystemHandler
+- Circuit breaker metrics (/api/circuit-breakers) - SystemHandler
+- OpenAPI spec (/api/openapi) - DocsHandler
+- Swagger UI (/api/docs) - DocsHandler
 """
 
 from __future__ import annotations
@@ -24,6 +24,9 @@ from unittest.mock import Mock, MagicMock, patch
 import pytest
 
 from aragora.server.handlers.system import SystemHandler
+from aragora.server.handlers.health import HealthHandler
+from aragora.server.handlers.nomic import NomicHandler
+from aragora.server.handlers.docs import DocsHandler
 from aragora.server.handlers.base import HandlerResult
 
 
@@ -36,6 +39,27 @@ from aragora.server.handlers.base import HandlerResult
 def system_handler(handler_context):
     """Create a SystemHandler with mock context."""
     handler = SystemHandler(handler_context)
+    return handler
+
+
+@pytest.fixture
+def health_handler(handler_context):
+    """Create a HealthHandler with mock context."""
+    handler = HealthHandler(handler_context)
+    return handler
+
+
+@pytest.fixture
+def nomic_handler(handler_context):
+    """Create a NomicHandler with mock context."""
+    handler = NomicHandler(handler_context)
+    return handler
+
+
+@pytest.fixture
+def docs_handler(handler_context):
+    """Create a DocsHandler with mock context."""
+    handler = DocsHandler(handler_context)
     return handler
 
 
@@ -122,9 +146,9 @@ def temp_nomic_dir_with_files():
 class TestKubernetesProbes:
     """Tests for Kubernetes liveness and readiness probes."""
 
-    def test_liveness_probe_returns_ok(self, system_handler, mock_http_handler):
+    def test_liveness_probe_returns_ok(self, health_handler, mock_http_handler):
         """Test that /healthz returns 200 OK."""
-        result = system_handler.handle("/healthz", {}, mock_http_handler)
+        result = health_handler.handle("/healthz", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -140,7 +164,7 @@ class TestKubernetesProbes:
             "elo_system": mock_elo_system,
             "nomic_dir": temp_nomic_dir,
         }
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
 
         result = handler.handle("/readyz", {}, mock_http_handler)
 
@@ -162,7 +186,7 @@ class TestKubernetesProbes:
             "elo_system": mock_elo_system,
             "nomic_dir": temp_nomic_dir,
         }
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
 
         result = handler.handle("/readyz", {}, mock_http_handler)
 
@@ -179,7 +203,7 @@ class TestKubernetesProbes:
 
 
 class TestHealthEndpoints:
-    """Tests for /api/health endpoints."""
+    """Tests for /api/health endpoints (HealthHandler)."""
 
     def test_health_check_returns_healthy(
         self, mock_storage, mock_elo_system, temp_nomic_dir, mock_http_handler
@@ -190,7 +214,7 @@ class TestHealthEndpoints:
             "elo_system": mock_elo_system,
             "nomic_dir": temp_nomic_dir,
         }
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
         mock_storage.list_recent.return_value = []
         mock_elo_system.get_leaderboard.return_value = []
 
@@ -213,7 +237,7 @@ class TestHealthEndpoints:
             "elo_system": mock_elo_system,
             "nomic_dir": temp_nomic_dir,
         }
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
         mock_storage.list_recent.return_value = []
         mock_elo_system.get_leaderboard.return_value = []
 
@@ -232,7 +256,7 @@ class TestHealthEndpoints:
             "elo_system": mock_elo_system,
             "nomic_dir": temp_nomic_dir,
         }
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
 
         result = handler.handle("/api/health/detailed", {}, mock_http_handler)
 
@@ -252,7 +276,7 @@ class TestHealthEndpoints:
             "elo_system": mock_elo_system,
             "nomic_dir": temp_nomic_dir,
         }
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
         mock_storage.list_recent.return_value = []
         mock_elo_system.get_leaderboard.return_value = []
 
@@ -273,12 +297,12 @@ class TestHealthEndpoints:
 
 
 class TestNomicEndpoints:
-    """Tests for /api/nomic/* endpoints."""
+    """Tests for /api/nomic/* endpoints (NomicHandler)."""
 
     def test_get_nomic_state(self, temp_nomic_dir_with_files, mock_http_handler):
         """Test that /api/nomic/state returns current state."""
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
-        handler = SystemHandler(ctx)
+        handler = NomicHandler(ctx)
 
         result = handler.handle("/api/nomic/state", {}, mock_http_handler)
 
@@ -292,7 +316,7 @@ class TestNomicEndpoints:
         """Test that /api/nomic/state returns not_running when no state file."""
         with tempfile.TemporaryDirectory() as tmpdir:
             ctx = {"nomic_dir": Path(tmpdir)}
-            handler = SystemHandler(ctx)
+            handler = NomicHandler(ctx)
 
             result = handler.handle("/api/nomic/state", {}, mock_http_handler)
 
@@ -304,7 +328,7 @@ class TestNomicEndpoints:
     def test_get_nomic_state_no_directory(self, mock_http_handler):
         """Test that /api/nomic/state returns error when no directory configured."""
         ctx = {"nomic_dir": None}
-        handler = SystemHandler(ctx)
+        handler = NomicHandler(ctx)
 
         result = handler.handle("/api/nomic/state", {}, mock_http_handler)
 
@@ -316,7 +340,7 @@ class TestNomicEndpoints:
     def test_get_nomic_health_healthy(self, temp_nomic_dir_with_files, mock_http_handler):
         """Test that /api/nomic/health returns healthy status."""
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
-        handler = SystemHandler(ctx)
+        handler = NomicHandler(ctx)
 
         result = handler.handle("/api/nomic/health", {}, mock_http_handler)
 
@@ -345,7 +369,7 @@ class TestNomicEndpoints:
             )
 
             ctx = {"nomic_dir": nomic_dir}
-            handler = SystemHandler(ctx)
+            handler = NomicHandler(ctx)
 
             result = handler.handle("/api/nomic/health", {}, mock_http_handler)
 
@@ -357,7 +381,7 @@ class TestNomicEndpoints:
     def test_get_nomic_log(self, temp_nomic_dir_with_files, mock_http_handler):
         """Test that /api/nomic/log returns log lines."""
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
-        handler = SystemHandler(ctx)
+        handler = NomicHandler(ctx)
 
         result = handler.handle("/api/nomic/log", {"lines": "10"}, mock_http_handler)
 
@@ -371,7 +395,7 @@ class TestNomicEndpoints:
     def test_get_nomic_log_limits_lines(self, temp_nomic_dir_with_files, mock_http_handler):
         """Test that /api/nomic/log respects line limit."""
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
-        handler = SystemHandler(ctx)
+        handler = NomicHandler(ctx)
 
         result = handler.handle("/api/nomic/log", {"lines": "2"}, mock_http_handler)
 
@@ -381,7 +405,7 @@ class TestNomicEndpoints:
     def test_get_risk_register(self, temp_nomic_dir_with_files, mock_http_handler):
         """Test that /api/nomic/risk-register returns risk entries."""
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
-        handler = SystemHandler(ctx)
+        handler = NomicHandler(ctx)
 
         result = handler.handle("/api/nomic/risk-register", {}, mock_http_handler)
 
@@ -647,7 +671,7 @@ class TestAuthStats:
 
 
 class TestOpenAPI:
-    """Tests for /api/openapi and /api/docs endpoints."""
+    """Tests for /api/openapi and /api/docs endpoints (DocsHandler)."""
 
     def test_get_openapi_json(self, mock_http_handler):
         """Test that /api/openapi returns JSON spec."""
@@ -655,7 +679,7 @@ class TestOpenAPI:
             mock_openapi.return_value = ('{"openapi": "3.0.0"}', "application/json")
 
             ctx = {}
-            handler = SystemHandler(ctx)
+            handler = DocsHandler(ctx)
 
             result = handler.handle("/api/openapi", {}, mock_http_handler)
 
@@ -669,7 +693,7 @@ class TestOpenAPI:
             mock_openapi.return_value = ('openapi: "3.0.0"', "application/x-yaml")
 
             ctx = {}
-            handler = SystemHandler(ctx)
+            handler = DocsHandler(ctx)
 
             result = handler.handle("/api/openapi.yaml", {}, mock_http_handler)
 
@@ -680,7 +704,7 @@ class TestOpenAPI:
     def test_get_swagger_ui(self, mock_http_handler):
         """Test that /api/docs returns Swagger UI HTML."""
         ctx = {}
-        handler = SystemHandler(ctx)
+        handler = DocsHandler(ctx)
 
         result = handler.handle("/api/docs", {}, mock_http_handler)
 
@@ -749,12 +773,12 @@ class TestPrometheusMetrics:
 
 
 class TestModes:
-    """Tests for /api/modes endpoint."""
+    """Tests for /api/modes endpoint (NomicHandler)."""
 
     def test_get_modes_returns_builtin(self, mock_http_handler):
         """Test that /api/modes returns builtin modes."""
         ctx = {"nomic_dir": None}
-        handler = SystemHandler(ctx)
+        handler = NomicHandler(ctx)
 
         result = handler.handle("/api/modes", {}, mock_http_handler)
 
@@ -777,34 +801,35 @@ class TestModes:
 
 
 class TestCanHandle:
-    """Tests for handler routing."""
+    """Tests for handler routing - each handler type handles its own routes."""
 
-    def test_can_handle_health_routes(self, system_handler):
-        """Test that handler can handle health routes."""
-        assert system_handler.can_handle("/healthz") is True
-        assert system_handler.can_handle("/readyz") is True
-        assert system_handler.can_handle("/api/health") is True
-        assert system_handler.can_handle("/api/health/detailed") is True
-        assert system_handler.can_handle("/api/health/deep") is True
+    def test_can_handle_health_routes(self, health_handler):
+        """Test that HealthHandler can handle health routes."""
+        assert health_handler.can_handle("/healthz") is True
+        assert health_handler.can_handle("/readyz") is True
+        assert health_handler.can_handle("/api/health") is True
+        assert health_handler.can_handle("/api/health/detailed") is True
+        assert health_handler.can_handle("/api/health/deep") is True
 
-    def test_can_handle_nomic_routes(self, system_handler):
-        """Test that handler can handle nomic routes."""
-        assert system_handler.can_handle("/api/nomic/state") is True
-        assert system_handler.can_handle("/api/nomic/health") is True
-        assert system_handler.can_handle("/api/nomic/log") is True
-        assert system_handler.can_handle("/api/nomic/risk-register") is True
+    def test_can_handle_nomic_routes(self, nomic_handler):
+        """Test that NomicHandler can handle nomic routes."""
+        assert nomic_handler.can_handle("/api/nomic/state") is True
+        assert nomic_handler.can_handle("/api/nomic/health") is True
+        assert nomic_handler.can_handle("/api/nomic/log") is True
+        assert nomic_handler.can_handle("/api/nomic/risk-register") is True
 
     def test_can_handle_history_routes(self, system_handler):
-        """Test that handler can handle history routes."""
+        """Test that SystemHandler can handle history routes."""
         assert system_handler.can_handle("/api/history/cycles") is True
         assert system_handler.can_handle("/api/history/events") is True
         assert system_handler.can_handle("/api/history/debates") is True
         assert system_handler.can_handle("/api/history/summary") is True
 
-    def test_cannot_handle_unknown_routes(self, system_handler):
-        """Test that handler rejects unknown routes."""
+    def test_cannot_handle_unknown_routes(self, system_handler, health_handler):
+        """Test that handlers reject unknown routes."""
         assert system_handler.can_handle("/api/unknown") is False
         assert system_handler.can_handle("/other/path") is False
+        assert health_handler.can_handle("/api/unknown") is False
 
 
 # =============================================================================
@@ -816,14 +841,14 @@ class TestErrorHandling:
     """Tests for error handling in system endpoints."""
 
     def test_invalid_json_state_file(self, mock_http_handler):
-        """Test handling of corrupt state file."""
+        """Test handling of corrupt state file (NomicHandler)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             nomic_dir = Path(tmpdir)
             state_file = nomic_dir / "nomic_state.json"
             state_file.write_text("not valid json{")
 
             ctx = {"nomic_dir": nomic_dir}
-            handler = SystemHandler(ctx)
+            handler = NomicHandler(ctx)
 
             result = handler.handle("/api/nomic/state", {}, mock_http_handler)
 
@@ -833,7 +858,7 @@ class TestErrorHandling:
             assert "error" in body
 
     def test_permission_error_on_log_read(self, mock_http_handler):
-        """Test handling of permission errors."""
+        """Test handling of permission errors (NomicHandler)."""
         with patch("builtins.open", side_effect=PermissionError("Access denied")):
             with tempfile.TemporaryDirectory() as tmpdir:
                 nomic_dir = Path(tmpdir)
@@ -842,7 +867,7 @@ class TestErrorHandling:
                 log_file.touch()
 
                 ctx = {"nomic_dir": nomic_dir}
-                handler = SystemHandler(ctx)
+                handler = NomicHandler(ctx)
 
                 result = handler.handle("/api/nomic/log", {}, mock_http_handler)
 
@@ -889,12 +914,12 @@ class TestDebugEndpoint:
 
 
 class TestFilesystemHealth:
-    """Tests for filesystem health check logic."""
+    """Tests for filesystem health check logic (HealthHandler)."""
 
     def test_filesystem_health_with_nomic_dir(self, temp_nomic_dir, mock_http_handler):
         """Test filesystem health with valid nomic directory."""
         ctx = {"nomic_dir": temp_nomic_dir}
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
 
         result = handler._check_filesystem_health()
 
@@ -904,7 +929,7 @@ class TestFilesystemHealth:
     def test_filesystem_health_falls_back_to_temp(self, mock_http_handler):
         """Test filesystem health falls back to temp when no nomic dir."""
         ctx = {"nomic_dir": None}
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
 
         result = handler._check_filesystem_health()
 
@@ -918,7 +943,7 @@ class TestFilesystemHealth:
 
 
 class TestRedisHealth:
-    """Tests for Redis health check logic."""
+    """Tests for Redis health check logic (HealthHandler)."""
 
     def test_redis_health_not_configured(self, monkeypatch, mock_http_handler):
         """Test Redis health when not configured."""
@@ -926,7 +951,7 @@ class TestRedisHealth:
         monkeypatch.delenv("CACHE_REDIS_URL", raising=False)
 
         ctx = {}
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
 
         result = handler._check_redis_health()
 
@@ -942,7 +967,7 @@ class TestRedisHealth:
             mock_redis.side_effect = ConnectionRefusedError("Connection refused")
 
             ctx = {}
-            handler = SystemHandler(ctx)
+            handler = HealthHandler(ctx)
 
             result = handler._check_redis_health()
 
@@ -966,7 +991,7 @@ class TestRedisHealth:
 
         with patch.object(builtins, "__import__", mock_import):
             ctx = {}
-            handler = SystemHandler(ctx)
+            handler = HealthHandler(ctx)
 
             result = handler._check_redis_health()
 
@@ -981,7 +1006,7 @@ class TestRedisHealth:
 
 
 class TestAIProviderHealth:
-    """Tests for AI provider availability checks."""
+    """Tests for AI provider availability checks (HealthHandler)."""
 
     def test_ai_provider_health_none_configured(self, monkeypatch, mock_http_handler):
         """Test AI provider health when no providers configured."""
@@ -998,7 +1023,7 @@ class TestAIProviderHealth:
             monkeypatch.delenv(key, raising=False)
 
         ctx = {}
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
 
         result = handler._check_ai_providers_health()
 
@@ -1022,7 +1047,7 @@ class TestAIProviderHealth:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key-12345")
 
         ctx = {}
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
 
         result = handler._check_ai_providers_health()
 
@@ -1047,7 +1072,7 @@ class TestAIProviderHealth:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test-openai-key-1234")
 
         ctx = {}
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
 
         result = handler._check_ai_providers_health()
 
@@ -1072,7 +1097,7 @@ class TestAIProviderHealth:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "short")  # Too short
 
         ctx = {}
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
 
         result = handler._check_ai_providers_health()
 
@@ -1240,9 +1265,9 @@ class TestValidation:
             assert result.status_code == 400
 
     def test_nomic_log_line_limit_clamped(self, temp_nomic_dir_with_files, mock_http_handler):
-        """Test that nomic log line limit is clamped to 1000."""
+        """Test that nomic log line limit is clamped to 1000 (NomicHandler)."""
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
-        handler = SystemHandler(ctx)
+        handler = NomicHandler(ctx)
 
         # Request more than max
         result = handler.handle("/api/nomic/log", {"lines": "9999"}, mock_http_handler)
@@ -1252,9 +1277,9 @@ class TestValidation:
         # Should be clamped - check the code clamps to max 1000
 
     def test_risk_register_limit_clamped(self, temp_nomic_dir_with_files, mock_http_handler):
-        """Test that risk register limit is clamped to 200."""
+        """Test that risk register limit is clamped to 200 (NomicHandler)."""
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
-        handler = SystemHandler(ctx)
+        handler = NomicHandler(ctx)
 
         # Request more than max
         result = handler.handle("/api/nomic/risk-register", {"limit": "9999"}, mock_http_handler)
@@ -1270,7 +1295,7 @@ class TestValidation:
 
 
 class TestHealthDegradation:
-    """Tests for health status degradation scenarios."""
+    """Tests for health status degradation scenarios (HealthHandler)."""
 
     def test_health_degraded_when_storage_fails(
         self, mock_elo_system, temp_nomic_dir, mock_http_handler
@@ -1284,7 +1309,7 @@ class TestHealthDegradation:
             "elo_system": mock_elo_system,
             "nomic_dir": temp_nomic_dir,
         }
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
         mock_elo_system.get_leaderboard.return_value = []
 
         result = handler.handle("/api/health", {}, mock_http_handler)
@@ -1294,8 +1319,8 @@ class TestHealthDegradation:
         body = json.loads(result.body)
         assert body["status"] == "degraded"
 
-    def test_health_degraded_when_elo_fails(self, mock_storage, temp_nomic_dir, mock_http_handler):
-        """Test health is degraded when ELO query fails."""
+    def test_health_warning_when_elo_fails(self, mock_storage, temp_nomic_dir, mock_http_handler):
+        """Test health includes warning when ELO query fails (ELO is non-critical)."""
         mock_elo = Mock()
         mock_elo.get_leaderboard.side_effect = RuntimeError("ELO database error")
 
@@ -1304,15 +1329,18 @@ class TestHealthDegradation:
             "elo_system": mock_elo,
             "nomic_dir": temp_nomic_dir,
         }
-        handler = SystemHandler(ctx)
+        handler = HealthHandler(ctx)
         mock_storage.list_recent.return_value = []
 
         result = handler.handle("/api/health", {}, mock_http_handler)
 
         assert result is not None
-        assert result.status_code == 503
+        # ELO is non-critical, so health remains healthy with warning
+        assert result.status_code == 200
         body = json.loads(result.body)
-        assert body["status"] == "degraded"
+        assert body["status"] == "healthy"
+        # But ELO check should indicate the issue
+        assert body["checks"]["elo_system"]["warning"] is not None
 
 
 # =============================================================================
@@ -1387,7 +1415,7 @@ class TestPrometheusEdgeCases:
 
 
 class TestOpenAPIEdgeCases:
-    """Additional tests for OpenAPI endpoint edge cases."""
+    """Additional tests for OpenAPI endpoint edge cases (DocsHandler)."""
 
     def test_openapi_json_format(self, mock_http_handler):
         """Test OpenAPI JSON endpoint path variation."""
@@ -1395,7 +1423,7 @@ class TestOpenAPIEdgeCases:
             mock_openapi.return_value = ('{"openapi": "3.0.0"}', "application/json")
 
             ctx = {}
-            handler = SystemHandler(ctx)
+            handler = DocsHandler(ctx)
 
             result = handler.handle("/api/openapi.json", {}, mock_http_handler)
 
@@ -1407,7 +1435,7 @@ class TestOpenAPIEdgeCases:
         """Test OpenAPI endpoint when module not available."""
         with patch("aragora.server.openapi.handle_openapi_request", side_effect=ImportError):
             ctx = {}
-            handler = SystemHandler(ctx)
+            handler = DocsHandler(ctx)
 
             result = handler.handle("/api/openapi", {}, mock_http_handler)
 
@@ -1417,7 +1445,7 @@ class TestOpenAPIEdgeCases:
     def test_swagger_ui_docs_slash_variant(self, mock_http_handler):
         """Test Swagger UI at /api/docs/ (with trailing slash)."""
         ctx = {}
-        handler = SystemHandler(ctx)
+        handler = DocsHandler(ctx)
 
         result = handler.handle("/api/docs/", {}, mock_http_handler)
 
@@ -1432,14 +1460,14 @@ class TestOpenAPIEdgeCases:
 
 
 class TestRiskRegisterEdgeCases:
-    """Additional tests for risk register edge cases."""
+    """Additional tests for risk register edge cases (NomicHandler)."""
 
     def test_risk_register_empty(self, mock_http_handler):
         """Test risk register with no risks."""
         with tempfile.TemporaryDirectory() as tmpdir:
             nomic_dir = Path(tmpdir)
             ctx = {"nomic_dir": nomic_dir}
-            handler = SystemHandler(ctx)
+            handler = NomicHandler(ctx)
 
             result = handler.handle("/api/nomic/risk-register", {}, mock_http_handler)
 
@@ -1460,7 +1488,7 @@ class TestRiskRegisterEdgeCases:
             )
 
             ctx = {"nomic_dir": nomic_dir}
-            handler = SystemHandler(ctx)
+            handler = NomicHandler(ctx)
 
             result = handler.handle("/api/nomic/risk-register", {}, mock_http_handler)
 
@@ -1477,7 +1505,7 @@ class TestRiskRegisterEdgeCases:
 
 
 class TestNomicHealthEdgeCases:
-    """Additional tests for nomic health edge cases."""
+    """Additional tests for nomic health edge cases (NomicHandler)."""
 
     def test_nomic_health_invalid_timestamp(self, mock_http_handler):
         """Test nomic health with invalid timestamp format."""
@@ -1495,7 +1523,7 @@ class TestNomicHealthEdgeCases:
             )
 
             ctx = {"nomic_dir": nomic_dir}
-            handler = SystemHandler(ctx)
+            handler = NomicHandler(ctx)
 
             result = handler.handle("/api/nomic/health", {}, mock_http_handler)
 
@@ -1513,7 +1541,7 @@ class TestNomicHealthEdgeCases:
             state_file.write_text("not valid json {")
 
             ctx = {"nomic_dir": nomic_dir}
-            handler = SystemHandler(ctx)
+            handler = NomicHandler(ctx)
 
             result = handler.handle("/api/nomic/health", {}, mock_http_handler)
 

@@ -85,7 +85,7 @@ class RouteDispatcher:
             return result
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.routes: list[tuple[PathMatcher, Callable]] = []
         # Index routes by segment count for faster lookup
         self._segment_index: dict[int, list[int]] = {}

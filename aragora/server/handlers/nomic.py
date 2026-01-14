@@ -64,11 +64,13 @@ class NomicHandler(BaseHandler):
 
         # Endpoints with parameters
         if path == "/api/nomic/log":
-            lines = get_int_param(query_params, "lines", default=100, min_val=1, max_val=1000)
+            lines = get_int_param(query_params, "lines", 100)
+            lines = max(1, min(lines, 1000))  # Clamp to valid range
             return self._get_nomic_log(lines)
 
         if path == "/api/nomic/risk-register":
-            limit = get_int_param(query_params, "limit", default=50, min_val=1, max_val=500)
+            limit = get_int_param(query_params, "limit", 50)
+            limit = max(1, min(limit, 200))  # Clamp to valid range
             return self._get_risk_register(limit)
 
         return None
