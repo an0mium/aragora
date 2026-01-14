@@ -336,6 +336,25 @@ class CalibrationTracker(SQLiteStore):
 
     def __init__(self, db_path: str = DB_CALIBRATION_PATH):
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
+        self._ensure_temperature_params_table()
+
+    def _ensure_temperature_params_table(self) -> None:
+        """Ensure temperature_params table exists (defensive migration).
+
+        This handles the case where the database was created with an older schema
+        that didn't include this table, or where migrations didn't run properly.
+        """
+        with self.connection() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS temperature_params (
+                    agent TEXT PRIMARY KEY,
+                    temperature REAL DEFAULT 1.0,
+                    domain_temperatures TEXT DEFAULT '{}',
+                    last_tuned TEXT,
+                    predictions_at_tune INTEGER DEFAULT 0
+                )
+            """)
+            conn.commit()
 
     def record_prediction(
         self,
