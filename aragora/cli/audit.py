@@ -303,7 +303,8 @@ def cmd_audit_default(args: argparse.Namespace) -> int:
 def main(args: argparse.Namespace) -> int:
     """Main entry point for audit commands."""
     if hasattr(args, "func"):
-        return args.func(args)
+        ret: int = args.func(args)
+        return ret
     return cmd_audit_default(args)
 
 

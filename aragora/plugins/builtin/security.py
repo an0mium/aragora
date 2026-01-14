@@ -139,18 +139,19 @@ async def run(context: PluginContext) -> dict[str, Any]:
 
 def _build_summary(vulnerabilities: list[dict[str, Any]]) -> dict[str, Any]:
     """Build summary of vulnerabilities by severity and confidence."""
-    summary = {
-        "total": len(vulnerabilities),
-        "by_severity": {"high": 0, "medium": 0, "low": 0},
-        "by_confidence": {"high": 0, "medium": 0, "low": 0},
-    }
+    by_severity: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
+    by_confidence: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
 
     for vuln in vulnerabilities:
         sev = vuln.get("severity", "low")
         conf = vuln.get("confidence", "low")
-        if sev in summary["by_severity"]:
-            summary["by_severity"][sev] += 1
-        if conf in summary["by_confidence"]:
-            summary["by_confidence"][conf] += 1
+        if sev in by_severity:
+            by_severity[sev] += 1
+        if conf in by_confidence:
+            by_confidence[conf] += 1
 
-    return summary
+    return {
+        "total": len(vulnerabilities),
+        "by_severity": by_severity,
+        "by_confidence": by_confidence,
+    }

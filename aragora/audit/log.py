@@ -610,41 +610,39 @@ class AuditLog:
         # Verify integrity
         is_valid, integrity_errors = self.verify_integrity(start_date, end_date)
 
-        # Compute statistics
-        stats = {
-            "total_events": len(events),
-            "by_category": {},
-            "by_outcome": {},
-            "by_action": {},
-            "unique_actors": set(),
-            "auth_failures": 0,
-            "access_denials": 0,
-            "security_events": 0,
-        }
+        # Compute statistics with proper types
+        total_events = len(events)
+        by_category: dict[str, int] = {}
+        by_outcome: dict[str, int] = {}
+        by_action: dict[str, int] = {}
+        unique_actors: set[str] = set()
+        auth_failures = 0
+        access_denials = 0
+        security_events = 0
 
         for event in events:
             # Category counts
             cat = event.category.value
-            stats["by_category"][cat] = stats["by_category"].get(cat, 0) + 1
+            by_category[cat] = by_category.get(cat, 0) + 1
 
             # Outcome counts
             out = event.outcome.value
-            stats["by_outcome"][out] = stats["by_outcome"].get(out, 0) + 1
+            by_outcome[out] = by_outcome.get(out, 0) + 1
 
             # Action counts
             act = f"{cat}:{event.action}"
-            stats["by_action"][act] = stats["by_action"].get(act, 0) + 1
+            by_action[act] = by_action.get(act, 0) + 1
 
             # Unique actors
-            stats["unique_actors"].add(event.actor_id)
+            unique_actors.add(event.actor_id)
 
             # Special counters
             if event.category == AuditCategory.AUTH and event.outcome == AuditOutcome.FAILURE:
-                stats["auth_failures"] += 1
+                auth_failures += 1
             if event.outcome == AuditOutcome.DENIED:
-                stats["access_denials"] += 1
+                access_denials += 1
             if event.category == AuditCategory.SECURITY:
-                stats["security_events"] += 1
+                security_events += 1
 
         # Build SOC 2 report
         report = {
@@ -662,30 +660,30 @@ class AuditLog:
                 "total_errors": len(integrity_errors),
             },
             "summary": {
-                "total_events": stats["total_events"],
-                "unique_actors": len(stats["unique_actors"]),
-                "categories": stats["by_category"],
-                "outcomes": stats["by_outcome"],
+                "total_events": total_events,
+                "unique_actors": len(unique_actors),
+                "categories": by_category,
+                "outcomes": by_outcome,
             },
             "security_metrics": {
-                "authentication_failures": stats["auth_failures"],
-                "access_denials": stats["access_denials"],
-                "security_events": stats["security_events"],
+                "authentication_failures": auth_failures,
+                "access_denials": access_denials,
+                "security_events": security_events,
             },
             "control_evidence": {
                 "CC6.1_logical_access": {
-                    "login_events": stats["by_category"].get("auth", 0),
-                    "access_events": stats["by_category"].get("access", 0),
+                    "login_events": by_category.get("auth", 0),
+                    "access_events": by_category.get("access", 0),
                 },
                 "CC6.2_access_removal": {
-                    "relevant_actions": stats["by_action"].get("auth:logout", 0)
-                    + stats["by_action"].get("admin:revoke_access", 0),
+                    "relevant_actions": by_action.get("auth:logout", 0)
+                    + by_action.get("admin:revoke_access", 0),
                 },
                 "CC6.3_access_authorization": {
-                    "denied_attempts": stats["access_denials"],
+                    "denied_attempts": access_denials,
                 },
                 "CC7.2_security_events": {
-                    "total_security_events": stats["security_events"],
+                    "total_security_events": security_events,
                 },
             },
             "events": [e.to_dict() for e in events],

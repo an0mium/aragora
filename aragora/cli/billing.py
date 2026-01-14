@@ -46,7 +46,8 @@ def api_request(
 
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode())
+            result: dict[str, Any] = json.loads(resp.read().decode())
+            return result
     except urllib.error.HTTPError as e:
         error_body = e.read().decode() if e.fp else ""
         raise RuntimeError(f"API error ({e.code}): {error_body}")
@@ -428,7 +429,8 @@ def cmd_billing_default(args: argparse.Namespace) -> int:
 def main(args: argparse.Namespace) -> int:
     """Main entry point for billing commands."""
     if hasattr(args, "func"):
-        return args.func(args)
+        ret: int = args.func(args)
+        return ret
     return cmd_billing_default(args)
 
 

@@ -19,7 +19,10 @@ from aragora.plugins.selection.protocols import (
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
+# Bound TypeVars for type-safe plugin registration
+ScorerT = TypeVar("ScorerT", bound=ScorerProtocol)
+TeamSelectorT = TypeVar("TeamSelectorT", bound=TeamSelectorProtocol)
+RoleAssignerT = TypeVar("RoleAssignerT", bound=RoleAssignerProtocol)
 
 
 class SelectionPluginRegistry:
@@ -223,7 +226,7 @@ def _register_builtins(registry: SelectionPluginRegistry) -> None:
 def register_scorer(
     name: str,
     set_default: bool = False,
-) -> Callable[[Type[T]], Type[T]]:
+) -> Callable[[Type[ScorerT]], Type[ScorerT]]:
     """
     Decorator to register a scorer plugin.
 
@@ -242,7 +245,7 @@ def register_scorer(
                 return "Simple ELO-only scoring"
     """
 
-    def decorator(cls: Type[T]) -> Type[T]:
+    def decorator(cls: Type[ScorerT]) -> Type[ScorerT]:
         get_selection_registry().register_scorer(name, cls, set_default)
         return cls
 
@@ -252,7 +255,7 @@ def register_scorer(
 def register_team_selector(
     name: str,
     set_default: bool = False,
-) -> Callable[[Type[T]], Type[T]]:
+) -> Callable[[Type[TeamSelectorT]], Type[TeamSelectorT]]:
     """
     Decorator to register a team selector plugin.
 
@@ -264,7 +267,7 @@ def register_team_selector(
             ...
     """
 
-    def decorator(cls: Type[T]) -> Type[T]:
+    def decorator(cls: Type[TeamSelectorT]) -> Type[TeamSelectorT]:
         get_selection_registry().register_team_selector(name, cls, set_default)
         return cls
 
@@ -274,7 +277,7 @@ def register_team_selector(
 def register_role_assigner(
     name: str,
     set_default: bool = False,
-) -> Callable[[Type[T]], Type[T]]:
+) -> Callable[[Type[RoleAssignerT]], Type[RoleAssignerT]]:
     """
     Decorator to register a role assigner plugin.
 
@@ -286,7 +289,7 @@ def register_role_assigner(
             ...
     """
 
-    def decorator(cls: Type[T]) -> Type[T]:
+    def decorator(cls: Type[RoleAssignerT]) -> Type[RoleAssignerT]:
         get_selection_registry().register_role_assigner(name, cls, set_default)
         return cls
 

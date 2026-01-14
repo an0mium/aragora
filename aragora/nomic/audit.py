@@ -171,7 +171,8 @@ class AuditLogger:
         if not hasattr(self._local, "conn") or self._local.conn is None:
             self._local.conn = sqlite3.connect(str(self.db_path), timeout=30)
             self._local.conn.row_factory = sqlite3.Row
-        return self._local.conn
+        conn: sqlite3.Connection = self._local.conn
+        return conn
 
     def _init_db(self) -> None:
         """Initialize database schema."""

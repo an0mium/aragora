@@ -157,12 +157,12 @@ def _parse_json_report(output: str) -> dict[str, Any]:
 
 def _parse_text_output(output: str) -> dict[str, Any]:
     """Parse pytest text output as fallback."""
-    result = {
+    result: dict[str, Any] = {
         "passed": 0,
         "failed": 0,
         "skipped": 0,
         "errors": 0,
-        "duration": 0,
+        "duration": 0.0,
     }
 
     # Look for summary line like "5 passed, 2 failed in 1.23s"
