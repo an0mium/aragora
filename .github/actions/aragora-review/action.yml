@@ -1,0 +1,268 @@
+name: 'Aragora Design Review'
+description: 'Review designs and specifications using multi-agent debate with compliance personas'
+author: 'Aragora Team'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  api-key:
+    description: 'Aragora API key (or use ARAGORA_API_KEY secret)'
+    required: false
+  file:
+    description: 'Path to the file to review (e.g., docs/design.md)'
+    required: false
+  spec:
+    description: 'Inline specification text to review (alternative to file)'
+    required: false
+  personas:
+    description: 'Comma-separated list of personas (e.g., "sox,security,pci_dss")'
+    required: false
+    default: 'security,performance'
+  rounds:
+    description: 'Number of debate rounds (1-10)'
+    required: false
+    default: '3'
+  fail-on-dissent:
+    description: 'Fail the action if there are dissenting opinions'
+    required: false
+    default: 'false'
+  fail-on-no-consensus:
+    description: 'Fail the action if consensus is not reached'
+    required: false
+    default: 'false'
+  comment-on-pr:
+    description: 'Post review results as a PR comment'
+    required: false
+    default: 'true'
+  base-url:
+    description: 'Custom API base URL'
+    required: false
+    default: 'https://api.aragora.ai'
+
+outputs:
+  consensus-status:
+    description: 'Consensus status (reached, not_reached, partial)'
+  consensus-position:
+    description: 'Final consensus position'
+  dissent-count:
+    description: 'Number of dissenting opinions'
+  review-id:
+    description: 'Unique review ID for audit purposes'
+  result-json:
+    description: 'Full review result as JSON'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        pip install aiohttp pydantic
+
+    - name: Run Aragora Review
+      id: review
+      shell: bash
+      env:
+        ARAGORA_API_KEY: ${{ inputs.api-key || '' }}
+        ARAGORA_BASE_URL: ${{ inputs.base-url }}
+        INPUT_FILE: ${{ inputs.file }}
+        INPUT_SPEC: ${{ inputs.spec }}
+        INPUT_PERSONAS: ${{ inputs.personas }}
+        INPUT_ROUNDS: ${{ inputs.rounds }}
+        INPUT_FAIL_ON_DISSENT: ${{ inputs.fail-on-dissent }}
+        INPUT_FAIL_ON_NO_CONSENSUS: ${{ inputs.fail-on-no-consensus }}
+      run: |
+        python3 << 'EOF'
+        import asyncio
+        import json
+        import os
+        import sys
+
+        import aiohttp
+
+        async def main():
+            api_key = os.environ.get('ARAGORA_API_KEY') or os.environ.get('INPUT_API_KEY')
+            if not api_key:
+                print("::error::ARAGORA_API_KEY is required")
+                sys.exit(1)
+
+            base_url = os.environ.get('ARAGORA_BASE_URL', 'https://api.aragora.ai')
+            file_path = os.environ.get('INPUT_FILE', '')
+            spec = os.environ.get('INPUT_SPEC', '')
+            personas = os.environ.get('INPUT_PERSONAS', 'security,performance').split(',')
+            rounds = int(os.environ.get('INPUT_ROUNDS', '3'))
+            fail_on_dissent = os.environ.get('INPUT_FAIL_ON_DISSENT', 'false').lower() == 'true'
+            fail_on_no_consensus = os.environ.get('INPUT_FAIL_ON_NO_CONSENSUS', 'false').lower() == 'true'
+
+            # Get spec content
+            if file_path and os.path.exists(file_path):
+                with open(file_path, 'r') as f:
+                    spec = f.read()
+            elif not spec:
+                print("::error::Either 'file' or 'spec' input is required")
+                sys.exit(1)
+
+            print(f"::group::Review Configuration")
+            print(f"Personas: {personas}")
+            print(f"Rounds: {rounds}")
+            if file_path:
+                print(f"File: {file_path}")
+            print(f"::endgroup::")
+
+            # Make API request
+            async with aiohttp.ClientSession() as session:
+                headers = {
+                    'Authorization': f'ApiKey {api_key}',
+                    'Content-Type': 'application/json',
+                }
+                payload = {
+                    'spec': spec,
+                    'personas': [p.strip() for p in personas],
+                    'rounds': rounds,
+                    'include_receipt': True,
+                }
+
+                print("::group::Running Review")
+                async with session.post(
+                    f'{base_url}/api/review',
+                    headers=headers,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=600),
+                ) as response:
+                    if response.status != 200:
+                        error = await response.text()
+                        print(f"::error::API error ({response.status}): {error}")
+                        sys.exit(1)
+
+                    result = await response.json()
+                print("::endgroup::")
+
+            # Extract results
+            consensus = result.get('consensus', {})
+            status = consensus.get('status', 'unknown')
+            position = consensus.get('position', '')
+            dissents = result.get('dissenting_opinions', [])
+            review_id = result.get('id', 'unknown')
+
+            # Set outputs
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                f.write(f"consensus-status={status}\n")
+                f.write(f"consensus-position={position[:500] if position else ''}\n")
+                f.write(f"dissent-count={len(dissents)}\n")
+                f.write(f"review-id={review_id}\n")
+
+            # Write full result for comment
+            with open('aragora-review-result.json', 'w') as f:
+                json.dump(result, f, indent=2)
+
+            # Print summary
+            print(f"::group::Review Results")
+            print(f"Review ID: {review_id}")
+            print(f"Consensus: {status}")
+            if position:
+                print(f"Position: {position[:500]}...")
+            print(f"Dissenting opinions: {len(dissents)}")
+            for i, d in enumerate(dissents, 1):
+                print(f"  {i}. {d.get('agent', 'unknown')}: {d.get('position', '')[:200]}...")
+            print(f"::endgroup::")
+
+            # Check failure conditions
+            exit_code = 0
+            if fail_on_dissent and dissents:
+                print(f"::error::Review has {len(dissents)} dissenting opinion(s)")
+                exit_code = 1
+            if fail_on_no_consensus and status != 'reached':
+                print(f"::error::Consensus not reached (status: {status})")
+                exit_code = 1
+
+            sys.exit(exit_code)
+
+        asyncio.run(main())
+        EOF
+
+    - name: Comment on PR
+      if: inputs.comment-on-pr == 'true' && github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+
+          let result;
+          try {
+            result = JSON.parse(fs.readFileSync('aragora-review-result.json', 'utf8'));
+          } catch (e) {
+            console.log('No review result file found');
+            return;
+          }
+
+          const consensus = result.consensus || {};
+          const dissents = result.dissenting_opinions || [];
+          const findings = result.findings || [];
+
+          // Build comment
+          let comment = `## 🔍 Aragora Design Review\n\n`;
+          comment += `**Review ID:** \`${result.id || 'N/A'}\`\n`;
+          comment += `**Personas:** ${(result.personas || ['security', 'performance']).join(', ')}\n\n`;
+
+          // Consensus status with emoji
+          const statusEmoji = {
+            'reached': '✅',
+            'partial': '⚠️',
+            'not_reached': '❌',
+          }[consensus.status] || '❓';
+
+          comment += `### ${statusEmoji} Consensus: ${consensus.status || 'unknown'}\n\n`;
+
+          if (consensus.position) {
+            comment += `**Position:**\n> ${consensus.position.slice(0, 500)}${consensus.position.length > 500 ? '...' : ''}\n\n`;
+          }
+
+          // Dissenting opinions
+          if (dissents.length > 0) {
+            comment += `### ⚠️ Dissenting Opinions (${dissents.length})\n\n`;
+            for (const d of dissents.slice(0, 5)) {
+              comment += `<details>\n<summary><b>${d.agent}</b></summary>\n\n`;
+              comment += `${d.position || d.reasoning || 'No details'}\n\n`;
+              if (d.concerns && d.concerns.length > 0) {
+                comment += `**Concerns:**\n`;
+                for (const c of d.concerns) {
+                  comment += `- ${c}\n`;
+                }
+              }
+              comment += `</details>\n\n`;
+            }
+          }
+
+          // Key findings
+          if (findings.length > 0) {
+            comment += `### 📋 Key Findings\n\n`;
+            for (const f of findings.slice(0, 10)) {
+              const severity = f.severity || 'info';
+              const severityEmoji = {
+                'critical': '🔴',
+                'high': '🟠',
+                'medium': '🟡',
+                'low': '🟢',
+                'info': 'ℹ️',
+              }[severity] || 'ℹ️';
+              comment += `- ${severityEmoji} **${f.title || 'Finding'}**: ${f.description || ''}\n`;
+            }
+            comment += '\n';
+          }
+
+          comment += `\n---\n*Generated by [Aragora](https://aragora.ai) multi-agent review*`;
+
+          // Post comment
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: comment,
+          });
