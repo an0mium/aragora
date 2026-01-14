@@ -51,6 +51,12 @@ class EventType(Enum):
     CHECKPOINT_LOADED = auto()  # Checkpoint was loaded
     CONFIG_CHANGED = auto()  # Configuration changed
 
+    # Approval gate events
+    GATE_CHECK = auto()  # Gate check started
+    GATE_APPROVED = auto()  # Gate approved
+    GATE_REJECTED = auto()  # Gate rejected
+    GATE_SKIPPED = auto()  # Gate skipped (disabled)
+
 
 @dataclass
 class Event:
@@ -258,6 +264,44 @@ def checkpoint_loaded_event(checkpoint_path: str, state: str) -> Event:
         data={
             "path": checkpoint_path,
             "state": state,
+        },
+    )
+
+
+def gate_approved_event(
+    gate_type: str,
+    approver: str,
+    artifact_hash: str,
+    reason: str = "",
+) -> Event:
+    """Create a GATE_APPROVED event."""
+    return Event(
+        event_type=EventType.GATE_APPROVED,
+        source=f"gate_{gate_type}",
+        data={
+            "gate_type": gate_type,
+            "approver": approver,
+            "artifact_hash": artifact_hash,
+            "reason": reason,
+        },
+    )
+
+
+def gate_rejected_event(
+    gate_type: str,
+    reason: str,
+    artifact_hash: str = "",
+) -> Event:
+    """Create a GATE_REJECTED event."""
+    return Event(
+        event_type=EventType.GATE_REJECTED,
+        source=f"gate_{gate_type}",
+        error_message=reason,
+        recoverable=True,
+        data={
+            "gate_type": gate_type,
+            "artifact_hash": artifact_hash,
+            "reason": reason,
         },
     )
 

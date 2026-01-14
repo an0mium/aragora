@@ -6,6 +6,7 @@ Phase 3: Code generation
 - Task planning and execution
 - Crash recovery via checkpoints
 - Pre-verification review
+- Design approval gate
 """
 
 import asyncio
@@ -13,10 +14,13 @@ import hashlib
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Set
 
 from . import ImplementResult
 from .scope_limiter import ScopeLimiter
+
+if TYPE_CHECKING:
+    from aragora.nomic.gates import DesignGate
 
 # Default protected files
 DEFAULT_PROTECTED_FILES = [
@@ -57,6 +61,7 @@ class ImplementPhase:
         record_replay_fn: Optional[Callable[..., None]] = None,
         save_state_fn: Optional[Callable[[dict], None]] = None,
         constitution_verifier: Optional[Any] = None,
+        design_gate: Optional["DesignGate"] = None,
     ):
         """
         Initialize the implement phase.
@@ -75,6 +80,7 @@ class ImplementPhase:
             record_replay_fn: Function to record replay events
             save_state_fn: Function to save phase state
             constitution_verifier: Optional ConstitutionVerifier for safety checks
+            design_gate: Optional DesignGate for pre-implementation approval
         """
         self.aragora_path = aragora_path
         self._plan_generator = plan_generator
@@ -89,6 +95,7 @@ class ImplementPhase:
         self._record_replay = record_replay_fn or (lambda *args: None)
         self._save_state = save_state_fn or (lambda state: None)
         self._constitution_verifier = constitution_verifier
+        self._design_gate = design_gate
 
     async def execute(self, design: str) -> ImplementResult:
         """
@@ -143,6 +150,45 @@ class ImplementPhase:
                 self._log(
                     f"  [scope] Design approved (complexity: {scope_eval.complexity_score:.2f})"
                 )
+
+            # === SAFETY: Design approval gate ===
+            if self._design_gate:
+                try:
+                    from aragora.nomic.gates import ApprovalRequired, ApprovalStatus
+
+                    gate_context = {
+                        "complexity_score": scope_eval.complexity_score,
+                        "files_affected": scope_eval.files_mentioned,
+                        "risk_factors": scope_eval.risk_factors,
+                    }
+                    decision = await self._design_gate.require_approval(design, gate_context)
+
+                    if decision.status == ApprovalStatus.APPROVED:
+                        self._log(f"  [gate] Design approved by {decision.approver}")
+                    elif decision.status == ApprovalStatus.SKIPPED:
+                        self._log("  [gate] Design gate skipped (disabled)")
+
+                except ApprovalRequired as e:
+                    self._log(f"  [gate] Design approval denied: {e}")
+                    self._stream_emit(
+                        "on_phase_end",
+                        "implement",
+                        self.cycle_count,
+                        False,
+                        (datetime.now() - phase_start).total_seconds(),
+                        {"error": "design_not_approved", "gate": "design"},
+                    )
+                    return ImplementResult(
+                        success=False,
+                        error=f"Design approval required: {e}",
+                        data={"gate": "design", "recoverable": e.recoverable},
+                        duration_seconds=(datetime.now() - phase_start).total_seconds(),
+                        files_modified=[],
+                        diff_summary="",
+                    )
+                except Exception as gate_error:
+                    self._log(f"  [gate] Gate check error: {gate_error}")
+                    # Non-fatal: continue without gate if it fails
 
         if not use_hybrid:
             return await self._legacy_implement(design)

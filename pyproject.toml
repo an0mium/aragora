@@ -310,6 +310,12 @@ module = [
     "aragora.billing.usage",
     "aragora.billing.models",
     "aragora.server.oauth_state_store",
+    # Added strict - Phase 2 Nomic governance modules (Jan 2026)
+    "aragora.nomic.gates",
+    "aragora.nomic.audit",
+    "aragora.nomic.state_machine",
+    "aragora.nomic.events",
+    "aragora.nomic.states",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

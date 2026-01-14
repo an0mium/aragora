@@ -7,15 +7,19 @@ Phase 4: Verify changes work
 - Run tests
 - Optional Codex audit
 - Evidence staleness check
+- Test quality gate
 """
 
 import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from . import VerifyResult
+
+if TYPE_CHECKING:
+    from aragora.nomic.gates import TestQualityGate
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +42,7 @@ class VerifyPhase:
         stream_emit_fn: Optional[Callable[..., None]] = None,
         record_replay_fn: Optional[Callable[..., None]] = None,
         save_state_fn: Optional[Callable[[dict], None]] = None,
+        test_quality_gate: Optional["TestQualityGate"] = None,
     ):
         """
         Initialize the verify phase.
@@ -51,6 +56,7 @@ class VerifyPhase:
             stream_emit_fn: Function to emit streaming events
             record_replay_fn: Function to record replay events
             save_state_fn: Function to save phase state
+            test_quality_gate: Optional TestQualityGate for quality thresholds
         """
         self.aragora_path = aragora_path
         self.codex = codex
@@ -60,6 +66,7 @@ class VerifyPhase:
         self._stream_emit = stream_emit_fn or (lambda *args: None)
         self._record_replay = record_replay_fn or (lambda *args: None)
         self._save_state = save_state_fn or (lambda state: None)
+        self._test_quality_gate = test_quality_gate
 
     async def execute(self) -> VerifyResult:
         """
@@ -109,6 +116,38 @@ class VerifyPhase:
         # Check evidence staleness
         stale_claims = await self._check_staleness() if self.nomic_integration else []
 
+        # === SAFETY: Test quality gate ===
+        gate_passed = True
+        gate_decision = None
+        if self._test_quality_gate and all_passed:
+            try:
+                from aragora.nomic.gates import ApprovalRequired, ApprovalStatus
+
+                # Extract test output for gate
+                test_output = checks[-1].get("output", "") if checks else ""
+                gate_context = {
+                    "tests_passed": all_passed,
+                    "coverage": 0.0,  # Coverage not currently tracked
+                    "warnings_count": 0,  # Warnings not currently tracked
+                    "checks": checks,
+                }
+                gate_decision = await self._test_quality_gate.require_approval(
+                    test_output, gate_context
+                )
+
+                if gate_decision.status == ApprovalStatus.APPROVED:
+                    self._log(f"  [gate] Test quality approved: {gate_decision.reason}")
+                elif gate_decision.status == ApprovalStatus.SKIPPED:
+                    self._log("  [gate] Test quality gate skipped (disabled)")
+
+            except ApprovalRequired as e:
+                self._log(f"  [gate] Test quality gate failed: {e}")
+                gate_passed = False
+                all_passed = False
+            except Exception as gate_error:
+                self._log(f"  [gate] Gate check error: {gate_error}")
+                # Non-fatal: continue without gate if it fails
+
         phase_duration = (datetime.now() - phase_start).total_seconds()
         self._stream_emit(
             "on_phase_end",
@@ -119,11 +158,15 @@ class VerifyPhase:
             {"checks_passed": sum(1 for c in checks if c.get("passed"))},
         )
 
+        result_data = {"checks": checks, "stale_claims": stale_claims}
+        if gate_decision:
+            result_data["quality_gate"] = gate_decision.to_dict()
+
         return VerifyResult(
             success=all_passed,
-            data={"checks": checks, "stale_claims": stale_claims},
+            data=result_data,
             duration_seconds=phase_duration,
-            tests_passed=all_passed,
+            tests_passed=gate_passed and all_passed,
             test_output=checks[-1].get("output", "") if checks else "",
             syntax_valid=checks[0].get("passed", False) if checks else False,
         )
