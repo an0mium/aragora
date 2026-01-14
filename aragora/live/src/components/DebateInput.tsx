@@ -316,18 +316,43 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
           </div>
         )}
 
-        {/* Advanced Options Toggle */}
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            aria-expanded={showAdvanced}
-            aria-controls="advanced-options"
-            aria-label={showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
-            className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
-          >
-            {showAdvanced ? '[-] Hide options' : '[+] Show options'}
-          </button>
+        {/* Category chips + Options Toggle + Submit */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Category chips */}
+            {[
+              { label: 'Technical', icon: '</>', question: 'What are the tradeoffs between microservices and monoliths for a startup?' },
+              { label: 'Philosophy', icon: '?', question: 'Can AI systems develop genuine understanding, or only simulate it?' },
+              { label: 'Ethics', icon: '!', question: 'Should autonomous AI agents have the right to refuse unethical requests?' },
+              { label: 'Business', icon: '$', question: 'When should a startup prioritize growth over profitability?' },
+              { label: 'Creative', icon: '*', question: 'What makes a story truly compelling to readers across cultures?' },
+              { label: 'Life', icon: '♡', question: 'What does it mean to live a meaningful life in the age of AI?' },
+            ].map((cat) => (
+              <button
+                key={cat.label}
+                type="button"
+                onClick={() => setQuestion(cat.question)}
+                className="px-1.5 py-0.5 text-[9px] font-mono border border-acid-green/20
+                           text-text-muted/50 hover:text-acid-green hover:border-acid-green/40
+                           transition-colors rounded"
+              >
+                <span className="text-acid-green/40 mr-0.5">[{cat.icon}]</span>
+                {cat.label}
+              </button>
+            ))}
+
+            {/* Options toggle */}
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              aria-expanded={showAdvanced}
+              aria-controls="advanced-options"
+              aria-label={showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
+              className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors ml-2"
+            >
+              {showAdvanced ? '[-] Hide options' : '[+] Show options'}
+            </button>
+          </div>
 
           <button
             type="submit"
@@ -336,7 +361,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
             className="px-8 py-3 bg-acid-green text-bg font-mono font-bold text-lg
                        hover:bg-acid-green/80 transition-colors
                        disabled:bg-text-muted disabled:cursor-not-allowed
-                       flex items-center gap-2"
+                       flex items-center gap-2 shrink-0"
           >
             {apiStatus === 'checking' ? (
               <span className="animate-pulse">CONNECTING...</span>
@@ -452,30 +477,6 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
           </div>
         )}
       </form>
-
-      {/* Quick Action Buttons - Category suggestions (compact) */}
-      <div className="flex flex-wrap gap-1 justify-center mt-3">
-        {[
-          { label: 'Technical', icon: '</>', question: 'What are the tradeoffs between microservices and monoliths for a startup?' },
-          { label: 'Philosophy', icon: '?', question: 'Can AI systems develop genuine understanding, or only simulate it?' },
-          { label: 'Ethics', icon: '!', question: 'Should autonomous AI agents have the right to refuse unethical requests?' },
-          { label: 'Business', icon: '$', question: 'When should a startup prioritize growth over profitability?' },
-          { label: 'Creative', icon: '*', question: 'What makes a story truly compelling to readers across cultures?' },
-          { label: 'Life', icon: '♡', question: 'What does it mean to live a meaningful life in the age of AI?' },
-        ].map((cat) => (
-          <button
-            key={cat.label}
-            type="button"
-            onClick={() => setQuestion(cat.question)}
-            className="px-1.5 py-0.5 text-[9px] font-mono border border-acid-green/20
-                       text-text-muted/50 hover:text-acid-green hover:border-acid-green/40
-                       transition-colors rounded"
-          >
-            <span className="text-acid-green/40 mr-0.5">[{cat.icon}]</span>
-            {cat.label}
-          </button>
-        ))}
-      </div>
 
       {/* Hint - More polished */}
       <div className="mt-4 text-center">
