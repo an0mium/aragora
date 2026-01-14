@@ -1,3735 +1,2255 @@
-{
-  "openapi": "3.0.3",
-  "info": {
-    "title": "Aragora API",
-    "description": "AI red team / decision stress-test API for Aragora LiveWire. Provides endpoints for gauntlet runs, debate-backed decision receipts, agent rankings, consensus tracking, and real-time collaboration.",
-    "version": "1.0.0",
-    "contact": {
-      "name": "Aragora Team"
-    },
-    "license": {
-      "name": "MIT"
-    }
-  },
-  "servers": [
-    {
-      "url": "http://localhost:8080",
-      "description": "Development server"
-    },
-    {
-      "url": "https://api.aragora.ai",
-      "description": "Production server"
-    }
-  ],
-  "tags": [
-    {
-      "name": "System",
-      "description": "Health checks and system status"
-    },
-    {
-      "name": "Agents",
-      "description": "Agent management, profiles, and rankings"
-    },
-    {
-      "name": "Debates",
-      "description": "Debate operations, history, and export"
-    },
-    {
-      "name": "Analytics",
-      "description": "Analysis and aggregated statistics"
-    },
-    {
-      "name": "Insights",
-      "description": "Position flips, moments, and patterns"
-    },
-    {
-      "name": "Consensus",
-      "description": "Consensus memory and settled questions"
-    },
-    {
-      "name": "Relationships",
-      "description": "Agent relationship tracking"
-    },
-    {
-      "name": "Memory",
-      "description": "Continuum memory management"
-    },
-    {
-      "name": "Belief",
-      "description": "Belief networks and claim analysis"
-    },
-    {
-      "name": "Pulse",
-      "description": "Trending topics and suggestions"
-    },
-    {
-      "name": "Monitoring",
-      "description": "Metrics and observability"
-    },
-    {
-      "name": "Verification",
-      "description": "Formal verification and proofs"
-    },
-    {
-      "name": "Auditing",
-      "description": "Capability probes and red teaming"
-    },
-    {
-      "name": "Documents",
-      "description": "Document upload and export"
-    },
-    {
-      "name": "Media",
-      "description": "Audio/video and podcast"
-    },
-    {
-      "name": "Social",
-      "description": "Social media publishing"
-    },
-    {
-      "name": "Plugins",
-      "description": "Plugin management and execution"
-    },
-    {
-      "name": "Laboratory",
-      "description": "Emergent trait analysis"
-    },
-    {
-      "name": "Tournaments",
-      "description": "Tournament management"
-    },
-    {
-      "name": "Genesis",
-      "description": "Agent genesis and lineage"
-    },
-    {
-      "name": "Evolution",
-      "description": "Agent evolution tracking"
-    },
-    {
-      "name": "Replays",
-      "description": "Debate replay management"
-    },
-    {
-      "name": "Learning",
-      "description": "Meta-learning statistics"
-    },
-    {
-      "name": "Critiques",
-      "description": "Critique patterns and reputation"
-    },
-    {
-      "name": "Routing",
-      "description": "Agent selection and team routing"
-    },
-    {
-      "name": "Introspection",
-      "description": "Agent self-awareness queries"
-    }
-  ],
-  "paths": {
-    "/api/health": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Health check",
-        "description": "Get system health status for load balancers and monitoring. Returns 200 when healthy, 503 when degraded.",
-        "responses": {
-          "200": {
-            "description": "System healthy",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HealthCheck"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "System degraded"
-          }
-        }
-      }
-    },
-    "/api/health/detailed": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Detailed health check",
-        "description": "Get detailed health status with component checks, observer metrics, memory stats",
-        "responses": {
-          "200": {
-            "description": "Detailed health information"
-          }
-        }
-      }
-    },
-    "/api/nomic/state": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Get nomic loop state",
-        "description": "Get current state of the nomic self-improvement loop",
-        "responses": {
-          "200": {
-            "description": "Nomic state"
-          }
-        }
-      }
-    },
-    "/api/nomic/health": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Nomic loop health",
-        "description": "Get nomic loop health with stall detection",
-        "responses": {
-          "200": {
-            "description": "Nomic health status"
-          }
-        }
-      }
-    },
-    "/api/nomic/log": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Get nomic logs",
-        "description": "Get recent nomic loop log lines",
-        "parameters": [
-          {
-            "name": "lines",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 100,
-              "maximum": 1000
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Log lines"
-          }
-        }
-      }
-    },
-    "/api/nomic/risk-register": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Risk register",
-        "description": "Get risk register entries from nomic loop execution",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 50,
-              "maximum": 200
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Risk entries"
-          }
-        }
-      }
-    },
-    "/api/modes": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "List operational modes",
-        "description": "Get available operational modes (builtin + custom)",
-        "responses": {
-          "200": {
-            "description": "Available modes"
-          }
-        }
-      }
-    },
-    "/api/history/cycles": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Cycle history",
-        "parameters": [
-          {
-            "name": "loop_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 50
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Cycle history"
-          }
-        }
-      }
-    },
-    "/api/history/events": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Event history",
-        "parameters": [
-          {
-            "name": "loop_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 100
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Event history"
-          }
-        }
-      }
-    },
-    "/api/history/debates": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Debate history",
-        "parameters": [
-          {
-            "name": "loop_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 50
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Debate history"
-          }
-        }
-      }
-    },
-    "/api/history/summary": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "History summary",
-        "parameters": [
-          {
-            "name": "loop_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Summary statistics"
-          }
-        }
-      }
-    },
-    "/api/system/maintenance": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Run database maintenance",
-        "parameters": [
-          {
-            "name": "task",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "status",
-                "vacuum",
-                "analyze",
-                "checkpoint",
-                "full"
-              ],
-              "default": "status"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Maintenance results"
-          }
-        }
-      }
-    },
-    "/api/openapi": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "OpenAPI specification",
-        "description": "Get OpenAPI 3.0 schema for this API",
-        "responses": {
-          "200": {
-            "description": "OpenAPI schema",
-            "content": {
-              "application/json": {}
-            }
-          }
-        }
-      }
-    },
-    "/api/agents": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "List all agents",
-        "description": "Get list of all known agents with optional stats",
-        "parameters": [
-          {
-            "name": "include_stats",
-            "in": "query",
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of agents",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "items": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Agent"
-                      }
-                    },
-                    "total": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/leaderboard": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent leaderboard",
-        "description": "Get agents ranked by ELO rating",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20,
-              "maximum": 100
-            }
-          },
-          {
-            "name": "domain",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Filter by expertise domain"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Agent rankings"
-          }
-        }
-      }
-    },
-    "/api/rankings": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent rankings",
-        "description": "Alternative endpoint for agent rankings",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Agent rankings"
-          }
-        }
-      }
-    },
-    "/api/leaderboard-view": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Leaderboard view data",
-        "description": "Pre-formatted leaderboard data for frontend display",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 10
-            }
-          },
-          {
-            "name": "domain",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "loop_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Leaderboard view"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/profile": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Get agent profile",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Agent profile",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Agent"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "Quota exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/history": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent match history",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Match history"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/calibration": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent calibration data",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Calibration data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Calibration"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/calibration-curve": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent calibration curve",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Calibration curve data"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/calibration-summary": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent calibration summary",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Calibration summary"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/consistency": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent consistency score",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Consistency metrics"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/flips": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent position flips",
-        "description": "Get instances where agent changed positions",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Position flips"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/network": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent relationship network",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Relationship network"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/rivals": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent rivals",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Rival agents"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/allies": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent allies",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Allied agents"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/moments": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent moments",
-        "description": "Get significant moments for this agent",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Agent moments"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/reputation": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent reputation",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Reputation data"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/persona": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent persona",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Persona data"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/grounded-persona": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent grounded persona",
-        "description": "Get persona derived from debate performance",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Grounded persona"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/identity-prompt": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent identity prompt",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Identity prompt"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/performance": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent performance",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Performance metrics"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/domains": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent expertise domains",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Domain expertise"
-          }
-        }
-      }
-    },
-    "/api/agent/{name}/accuracy": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Agent accuracy",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Accuracy metrics"
-          }
-        }
-      }
-    },
-    "/api/agent/compare": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Compare agents",
-        "description": "Compare two agents side-by-side",
-        "parameters": [
-          {
-            "name": "agent_a",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "agent_b",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Comparison data"
-          }
-        }
-      }
-    },
-    "/api/matches/recent": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Recent matches",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Recent matches"
-          }
-        }
-      }
-    },
-    "/api/calibration/leaderboard": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Calibration leaderboard",
-        "description": "Get agents ranked by calibration score",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Calibration rankings"
-          }
-        }
-      }
-    },
-    "/api/personas": {
-      "get": {
-        "tags": [
-          "Agents"
-        ],
-        "summary": "List all personas",
-        "responses": {
-          "200": {
-            "description": "All personas"
-          }
-        }
-      }
-    },
-    "/api/debates": {
-      "get": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "List debates",
-        "description": "Get list of all debates (requires auth)",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20,
-              "maximum": 100
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 0
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of debates",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "items": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Debate"
-                      }
-                    },
-                    "total": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      },
-      "post": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Create a new debate",
-        "description": "Start a new multi-agent debate on a given topic",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DebateCreateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Debate created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DebateCreateResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "Quota exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/debate": {
-      "post": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Create a new debate (deprecated)",
-        "description": "Deprecated. Use POST /api/debates instead.",
-        "deprecated": true,
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DebateCreateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Debate created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DebateCreateResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/debates/{id}": {
-      "get": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Get debate by ID",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Debate details",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Debate"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/debates/slug/{slug}": {
-      "get": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Get debate by slug",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Debate details",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Debate"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/debates/{id}/messages": {
-      "get": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Get debate messages",
-        "description": "Get paginated message history for a debate",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 50,
-              "maximum": 200
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 0
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated messages"
-          }
-        }
-      }
-    },
-    "/api/debates/{id}/convergence": {
-      "get": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Get convergence status",
-        "description": "Check if debate has reached semantic convergence",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Convergence status"
-          }
-        }
-      }
-    },
-    "/api/debates/{id}/citations": {
-      "get": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Get evidence citations",
-        "description": "Get grounded verdict with evidence citations",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Citations and grounding score"
-          }
-        }
-      }
-    },
-    "/api/debates/{id}/evidence": {
-      "get": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Get debate evidence",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Evidence data"
-          }
-        }
-      }
-    },
-    "/api/debates/{id}/impasse": {
-      "get": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Get impasse status",
-        "description": "Check if debate reached an impasse",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Impasse status"
-          }
-        }
-      }
-    },
-    "/api/debates/{id}/meta-critique": {
-      "get": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Get meta-critique",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Meta-critique data"
-          }
-        }
-      }
-    },
-    "/api/debates/{id}/graph/stats": {
-      "get": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Get debate graph stats",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Graph statistics"
-          }
-        }
-      }
-    },
-    "/api/debates/{id}/fork": {
-      "post": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Fork debate",
-        "description": "Create a counterfactual branch from a specific round",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "branch_point": {
-                    "type": "integer",
-                    "description": "Round to branch from"
-                  },
-                  "new_premise": {
-                    "type": "string",
-                    "description": "New premise for fork"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Forked debate created"
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/debates/{id}/export/{format}": {
-      "get": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Export debate",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "format",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "json",
-                "markdown",
-                "html",
-                "pdf"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Exported debate"
-          }
-        }
-      }
-    },
-    "/api/debates/{id}/broadcast": {
-      "post": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Generate debate broadcast",
-        "description": "Generate audio/video broadcast of debate",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "format": {
-                    "type": "string",
-                    "enum": [
-                      "audio",
-                      "video"
-                    ]
-                  },
-                  "voices": {
-                    "type": "object"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "202": {
-            "description": "Broadcast generation started"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/debates/{id}/publish/twitter": {
-      "post": {
-        "tags": [
-          "Social"
-        ],
-        "summary": "Publish to Twitter",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Published to Twitter"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/debates/{id}/publish/youtube": {
-      "post": {
-        "tags": [
-          "Social"
-        ],
-        "summary": "Publish to YouTube",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Published to YouTube"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/debates/{id}/red-team": {
-      "get": {
-        "tags": [
-          "Auditing"
-        ],
-        "summary": "Get red team results",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Red team results"
-          }
-        }
-      }
-    },
-    "/api/search": {
-      "get": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Cross-debate search",
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Search results"
-          }
-        }
-      }
-    },
-    "/api/dashboard/debates": {
-      "get": {
-        "tags": [
-          "Debates"
-        ],
-        "summary": "Dashboard debates",
-        "description": "Get debates formatted for dashboard display",
-        "parameters": [
-          {
-            "name": "domain",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 10
-            }
-          },
-          {
-            "name": "hours",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 24
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Dashboard data"
-          }
-        }
-      }
-    },
-    "/api/analytics/disagreements": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "summary": "Disagreement analysis",
-        "description": "Get metrics on agent disagreement patterns",
-        "responses": {
-          "200": {
-            "description": "Disagreement statistics"
-          }
-        }
-      }
-    },
-    "/api/analytics/role-rotation": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "summary": "Role rotation stats",
-        "responses": {
-          "200": {
-            "description": "Role rotation data"
-          }
-        }
-      }
-    },
-    "/api/analytics/early-stops": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "summary": "Early stop statistics",
-        "responses": {
-          "200": {
-            "description": "Early stop data"
-          }
-        }
-      }
-    },
-    "/api/ranking/stats": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "summary": "Ranking statistics",
-        "responses": {
-          "200": {
-            "description": "Ranking stats"
-          }
-        }
-      }
-    },
-    "/api/memory/stats": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "summary": "Memory statistics",
-        "responses": {
-          "200": {
-            "description": "Memory stats"
-          }
-        }
-      }
-    },
-    "/api/flips/recent": {
-      "get": {
-        "tags": [
-          "Insights"
-        ],
-        "summary": "Recent position flips",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Recent flips"
-          }
-        }
-      }
-    },
-    "/api/flips/summary": {
-      "get": {
-        "tags": [
-          "Insights"
-        ],
-        "summary": "Flip summary",
-        "responses": {
-          "200": {
-            "description": "Flip summary statistics"
-          }
-        }
-      }
-    },
-    "/api/insights/recent": {
-      "get": {
-        "tags": [
-          "Insights"
-        ],
-        "summary": "Recent insights",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Recent insights"
-          }
-        }
-      }
-    },
-    "/api/insights/extract-detailed": {
-      "post": {
-        "tags": [
-          "Insights"
-        ],
-        "summary": "Extract detailed insights",
-        "description": "Computationally expensive insight extraction (requires auth)",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Detailed insights"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/moments/summary": {
-      "get": {
-        "tags": [
-          "Insights"
-        ],
-        "summary": "Moments summary",
-        "responses": {
-          "200": {
-            "description": "Moments summary"
-          }
-        }
-      }
-    },
-    "/api/moments/timeline": {
-      "get": {
-        "tags": [
-          "Insights"
-        ],
-        "summary": "Moments timeline",
-        "responses": {
-          "200": {
-            "description": "Timeline data"
-          }
-        }
-      }
-    },
-    "/api/moments/trending": {
-      "get": {
-        "tags": [
-          "Insights"
-        ],
-        "summary": "Trending moments",
-        "responses": {
-          "200": {
-            "description": "Trending moments"
-          }
-        }
-      }
-    },
-    "/api/moments/by-type/{type}": {
-      "get": {
-        "tags": [
-          "Insights"
-        ],
-        "summary": "Moments by type",
-        "parameters": [
-          {
-            "name": "type",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Moments of specified type"
-          }
-        }
-      }
-    },
-    "/api/consensus/similar": {
-      "get": {
-        "tags": [
-          "Consensus"
-        ],
-        "summary": "Similar debates",
-        "description": "Find debates similar to a given topic",
-        "parameters": [
-          {
-            "name": "topic",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 10
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Similar debates"
-          }
-        }
-      }
-    },
-    "/api/consensus/settled": {
-      "get": {
-        "tags": [
-          "Consensus"
-        ],
-        "summary": "Settled questions",
-        "parameters": [
-          {
-            "name": "threshold",
-            "in": "query",
-            "schema": {
-              "type": "number",
-              "default": 0.8
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Settled questions"
-          }
-        }
-      }
-    },
-    "/api/consensus/stats": {
-      "get": {
-        "tags": [
-          "Consensus"
-        ],
-        "summary": "Consensus statistics",
-        "responses": {
-          "200": {
-            "description": "Consensus stats"
-          }
-        }
-      }
-    },
-    "/api/consensus/dissents": {
-      "get": {
-        "tags": [
-          "Consensus"
-        ],
-        "summary": "Dissenting views",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Dissenting views"
-          }
-        }
-      }
-    },
-    "/api/consensus/contrarian-views": {
-      "get": {
-        "tags": [
-          "Consensus"
-        ],
-        "summary": "Contrarian views",
-        "responses": {
-          "200": {
-            "description": "Contrarian views"
-          }
-        }
-      }
-    },
-    "/api/consensus/risk-warnings": {
-      "get": {
-        "tags": [
-          "Consensus"
-        ],
-        "summary": "Risk warnings",
-        "responses": {
-          "200": {
-            "description": "Risk warnings"
-          }
-        }
-      }
-    },
-    "/api/consensus/domain/{domain}": {
-      "get": {
-        "tags": [
-          "Consensus"
-        ],
-        "summary": "Domain consensus",
-        "parameters": [
-          {
-            "name": "domain",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Domain consensus data"
-          }
-        }
-      }
-    },
-    "/api/relationships/summary": {
-      "get": {
-        "tags": [
-          "Relationships"
-        ],
-        "summary": "Relationship summary",
-        "responses": {
-          "200": {
-            "description": "Relationship summary"
-          }
-        }
-      }
-    },
-    "/api/relationships/graph": {
-      "get": {
-        "tags": [
-          "Relationships"
-        ],
-        "summary": "Relationship graph",
-        "description": "Get graph data for agent relationships",
-        "responses": {
-          "200": {
-            "description": "Graph data"
-          }
-        }
-      }
-    },
-    "/api/relationships/stats": {
-      "get": {
-        "tags": [
-          "Relationships"
-        ],
-        "summary": "Relationship statistics",
-        "responses": {
-          "200": {
-            "description": "Relationship stats"
-          }
-        }
-      }
-    },
-    "/api/relationship/{agent_a}/{agent_b}": {
-      "get": {
-        "tags": [
-          "Relationships"
-        ],
-        "summary": "Get relationship between two agents",
-        "parameters": [
-          {
-            "name": "agent_a",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "agent_b",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Relationship data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Relationship"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/memory/continuum/retrieve": {
-      "get": {
-        "tags": [
-          "Memory"
-        ],
-        "summary": "Retrieve memories",
-        "description": "Retrieve memories from continuum store",
-        "parameters": [
-          {
-            "name": "query",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "tier",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "fast",
-                "medium",
-                "slow",
-                "glacial"
-              ]
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 10
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Retrieved memories"
-          }
-        }
-      }
-    },
-    "/api/memory/continuum/consolidate": {
-      "post": {
-        "tags": [
-          "Memory"
-        ],
-        "summary": "Consolidate memories",
-        "description": "Trigger memory consolidation across tiers",
-        "responses": {
-          "200": {
-            "description": "Consolidation result"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/memory/continuum/cleanup": {
-      "post": {
-        "tags": [
-          "Memory"
-        ],
-        "summary": "Cleanup memories",
-        "description": "Remove expired memories",
-        "responses": {
-          "200": {
-            "description": "Cleanup result"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/memory/tier-stats": {
-      "get": {
-        "tags": [
-          "Memory"
-        ],
-        "summary": "Memory tier statistics",
-        "responses": {
-          "200": {
-            "description": "Tier stats"
-          }
-        }
-      }
-    },
-    "/api/memory/archive-stats": {
-      "get": {
-        "tags": [
-          "Memory"
-        ],
-        "summary": "Archive statistics",
-        "responses": {
-          "200": {
-            "description": "Archive stats"
-          }
-        }
-      }
-    },
-    "/api/belief-network/{debate_id}/cruxes": {
-      "get": {
-        "tags": [
-          "Belief"
-        ],
-        "summary": "Get debate cruxes",
-        "parameters": [
-          {
-            "name": "debate_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Debate cruxes"
-          }
-        }
-      }
-    },
-    "/api/belief-network/{debate_id}/load-bearing-claims": {
-      "get": {
-        "tags": [
-          "Belief"
-        ],
-        "summary": "Get load-bearing claims",
-        "parameters": [
-          {
-            "name": "debate_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Load-bearing claims"
-          }
-        }
-      }
-    },
-    "/api/debate/{debate_id}/graph-stats": {
-      "get": {
-        "tags": [
-          "Belief"
-        ],
-        "summary": "Get debate graph stats",
-        "parameters": [
-          {
-            "name": "debate_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Graph statistics"
-          }
-        }
-      }
-    },
-    "/api/pulse/trending": {
-      "get": {
-        "tags": [
-          "Pulse"
-        ],
-        "summary": "Trending topics",
-        "description": "Get current trending debate topics",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 10,
-              "maximum": 50
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Trending topics"
-          }
-        }
-      }
-    },
-    "/api/pulse/suggest": {
-      "get": {
-        "tags": [
-          "Pulse"
-        ],
-        "summary": "Suggest debate topic",
-        "description": "Get AI-suggested debate topic based on trends",
-        "parameters": [
-          {
-            "name": "category",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Suggested topic"
-          }
-        }
-      }
-    },
-    "/api/metrics": {
-      "get": {
-        "tags": [
-          "Monitoring"
-        ],
-        "summary": "System metrics",
-        "responses": {
-          "200": {
-            "description": "Metrics data"
-          }
-        }
-      }
-    },
-    "/api/metrics/health": {
-      "get": {
-        "tags": [
-          "Monitoring"
-        ],
-        "summary": "Metrics health",
-        "responses": {
-          "200": {
-            "description": "Metrics health"
-          }
-        }
-      }
-    },
-    "/api/metrics/cache": {
-      "get": {
-        "tags": [
-          "Monitoring"
-        ],
-        "summary": "Cache metrics",
-        "responses": {
-          "200": {
-            "description": "Cache metrics"
-          }
-        }
-      }
-    },
-    "/api/metrics/system": {
-      "get": {
-        "tags": [
-          "Monitoring"
-        ],
-        "summary": "System metrics",
-        "responses": {
-          "200": {
-            "description": "System metrics"
-          }
-        }
-      }
-    },
-    "/metrics": {
-      "get": {
-        "tags": [
-          "Monitoring"
-        ],
-        "summary": "Prometheus metrics",
-        "description": "Metrics in Prometheus format",
-        "responses": {
-          "200": {
-            "description": "Prometheus-formatted metrics",
-            "content": {
-              "text/plain": {}
-            }
-          }
-        }
-      }
-    },
-    "/api/verification/status": {
-      "get": {
-        "tags": [
-          "Verification"
-        ],
-        "summary": "Verification status",
-        "responses": {
-          "200": {
-            "description": "Verification status"
-          }
-        }
-      }
-    },
-    "/api/verification/formal-verify": {
-      "post": {
-        "tags": [
-          "Verification"
-        ],
-        "summary": "Formal verification",
-        "description": "Run formal verification on claims",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Verification result"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/debates/capability-probe": {
-      "post": {
-        "tags": [
-          "Auditing"
-        ],
-        "summary": "Run capability probe",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Probe results"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/debates/deep-audit": {
-      "post": {
-        "tags": [
-          "Auditing"
-        ],
-        "summary": "Deep audit",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Audit results"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/probes/capability": {
-      "post": {
-        "tags": [
-          "Auditing"
-        ],
-        "summary": "Capability probe",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Probe results"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/documents": {
-      "get": {
-        "tags": [
-          "Documents"
-        ],
-        "summary": "List documents",
-        "responses": {
-          "200": {
-            "description": "Document list"
-          }
-        }
-      }
-    },
-    "/api/documents/formats": {
-      "get": {
-        "tags": [
-          "Documents"
-        ],
-        "summary": "Supported formats",
-        "responses": {
-          "200": {
-            "description": "Supported formats"
-          }
-        }
-      }
-    },
-    "/api/documents/upload": {
-      "post": {
-        "tags": [
-          "Documents"
-        ],
-        "summary": "Upload document",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Document uploaded"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/podcast/feed.xml": {
-      "get": {
-        "tags": [
-          "Media"
-        ],
-        "summary": "Podcast RSS feed",
-        "responses": {
-          "200": {
-            "description": "RSS feed",
-            "content": {
-              "application/xml": {}
-            }
-          }
-        }
-      }
-    },
-    "/api/podcast/episodes": {
-      "get": {
-        "tags": [
-          "Media"
-        ],
-        "summary": "Podcast episodes",
-        "responses": {
-          "200": {
-            "description": "Episode list"
-          }
-        }
-      }
-    },
-    "/api/youtube/auth": {
-      "get": {
-        "tags": [
-          "Social"
-        ],
-        "summary": "YouTube auth URL",
-        "responses": {
-          "200": {
-            "description": "Auth URL"
-          }
-        }
-      }
-    },
-    "/api/youtube/callback": {
-      "get": {
-        "tags": [
-          "Social"
-        ],
-        "summary": "YouTube OAuth callback",
-        "responses": {
-          "200": {
-            "description": "Auth complete"
-          }
-        }
-      }
-    },
-    "/api/youtube/status": {
-      "get": {
-        "tags": [
-          "Social"
-        ],
-        "summary": "YouTube auth status",
-        "responses": {
-          "200": {
-            "description": "Auth status"
-          }
-        }
-      }
-    },
-    "/api/plugins": {
-      "get": {
-        "tags": [
-          "Plugins"
-        ],
-        "summary": "List plugins",
-        "responses": {
-          "200": {
-            "description": "Plugin list"
-          }
-        }
-      }
-    },
-    "/api/plugins/{name}": {
-      "get": {
-        "tags": [
-          "Plugins"
-        ],
-        "summary": "Get plugin details",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Plugin details"
-          }
-        }
-      }
-    },
-    "/api/plugins/{name}/run": {
-      "post": {
-        "tags": [
-          "Plugins"
-        ],
-        "summary": "Run plugin",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Plugin result"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/laboratory/emergent-traits": {
-      "get": {
-        "tags": [
-          "Laboratory"
-        ],
-        "summary": "Emergent traits",
-        "parameters": [
-          {
-            "name": "min_confidence",
-            "in": "query",
-            "schema": {
-              "type": "number",
-              "default": 0.5
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Emergent traits"
-          }
-        }
-      }
-    },
-    "/api/laboratory/cross-pollinations/suggest": {
-      "get": {
-        "tags": [
-          "Laboratory"
-        ],
-        "summary": "Cross-pollination suggestions",
-        "responses": {
-          "200": {
-            "description": "Suggestions"
-          }
-        }
-      }
-    },
-    "/api/tournaments": {
-      "get": {
-        "tags": [
-          "Tournaments"
-        ],
-        "summary": "List tournaments",
-        "responses": {
-          "200": {
-            "description": "Tournament list"
-          }
-        }
-      }
-    },
-    "/api/tournaments/{id}/standings": {
-      "get": {
-        "tags": [
-          "Tournaments"
-        ],
-        "summary": "Tournament standings",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Standings"
-          }
-        }
-      }
-    },
-    "/api/genesis/stats": {
-      "get": {
-        "tags": [
-          "Genesis"
-        ],
-        "summary": "Genesis statistics",
-        "responses": {
-          "200": {
-            "description": "Genesis stats"
-          }
-        }
-      }
-    },
-    "/api/genesis/events": {
-      "get": {
-        "tags": [
-          "Genesis"
-        ],
-        "summary": "Genesis events",
-        "responses": {
-          "200": {
-            "description": "Genesis events"
-          }
-        }
-      }
-    },
-    "/api/genesis/lineage/{agent}": {
-      "get": {
-        "tags": [
-          "Genesis"
-        ],
-        "summary": "Agent lineage",
-        "parameters": [
-          {
-            "name": "agent",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Lineage data"
-          }
-        }
-      }
-    },
-    "/api/genesis/tree/{agent}": {
-      "get": {
-        "tags": [
-          "Genesis"
-        ],
-        "summary": "Agent tree",
-        "parameters": [
-          {
-            "name": "agent",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Tree data"
-          }
-        }
-      }
-    },
-    "/api/evolution/{agent}/history": {
-      "get": {
-        "tags": [
-          "Evolution"
-        ],
-        "summary": "Agent evolution history",
-        "parameters": [
-          {
-            "name": "agent",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Evolution history"
-          }
-        }
-      }
-    },
-    "/api/replays": {
-      "get": {
-        "tags": [
-          "Replays"
-        ],
-        "summary": "List replays",
-        "responses": {
-          "200": {
-            "description": "Replay list"
-          }
-        }
-      }
-    },
-    "/api/replays/{id}": {
-      "get": {
-        "tags": [
-          "Replays"
-        ],
-        "summary": "Get replay",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Replay data"
-          }
-        }
-      }
-    },
-    "/api/learning/evolution": {
-      "get": {
-        "tags": [
-          "Learning"
-        ],
-        "summary": "Learning evolution",
-        "responses": {
-          "200": {
-            "description": "Evolution data"
-          }
-        }
-      }
-    },
-    "/api/meta-learning/stats": {
-      "get": {
-        "tags": [
-          "Learning"
-        ],
-        "summary": "Meta-learning statistics",
-        "responses": {
-          "200": {
-            "description": "Meta-learning stats"
-          }
-        }
-      }
-    },
-    "/api/critiques/patterns": {
-      "get": {
-        "tags": [
-          "Critiques"
-        ],
-        "summary": "Critique patterns",
-        "responses": {
-          "200": {
-            "description": "Patterns"
-          }
-        }
-      }
-    },
-    "/api/critiques/archive": {
-      "get": {
-        "tags": [
-          "Critiques"
-        ],
-        "summary": "Critique archive",
-        "responses": {
-          "200": {
-            "description": "Archive"
-          }
-        }
-      }
-    },
-    "/api/reputation/all": {
-      "get": {
-        "tags": [
-          "Critiques"
-        ],
-        "summary": "All reputations",
-        "responses": {
-          "200": {
-            "description": "Reputations"
-          }
-        }
-      }
-    },
-    "/api/routing/best-teams": {
-      "get": {
-        "tags": [
-          "Routing"
-        ],
-        "summary": "Best team combinations",
-        "parameters": [
-          {
-            "name": "min_debates",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 3
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 10
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Best teams"
-          }
-        }
-      }
-    },
-    "/api/routing/recommendations": {
-      "post": {
-        "tags": [
-          "Routing"
-        ],
-        "summary": "Agent recommendations",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "primary_domain": {
-                    "type": "string"
-                  },
-                  "secondary_domains": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "required_traits": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Recommendations"
-          }
-        }
-      }
-    },
-    "/api/introspection/all": {
-      "get": {
-        "tags": [
-          "Introspection"
-        ],
-        "summary": "All introspection data",
-        "responses": {
-          "200": {
-            "description": "Introspection data"
-          }
-        }
-      }
-    },
-    "/api/introspection/leaderboard": {
-      "get": {
-        "tags": [
-          "Introspection"
-        ],
-        "summary": "Introspection leaderboard",
-        "responses": {
-          "200": {
-            "description": "Leaderboard"
-          }
-        }
-      }
-    },
-    "/api/introspection/agents": {
-      "get": {
-        "tags": [
-          "Introspection"
-        ],
-        "summary": "Agent introspection list",
-        "responses": {
-          "200": {
-            "description": "Agent list"
-          }
-        }
-      }
-    },
-    "/api/introspection/agents/{name}": {
-      "get": {
-        "tags": [
-          "Introspection"
-        ],
-        "summary": "Agent introspection",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Agent introspection"
-          }
-        }
-      }
-    }
-  },
-  "components": {
-    "schemas": {
-      "Error": {
-        "type": "object",
-        "properties": {
-          "error": {
-            "type": "string",
-            "description": "Error message"
-          },
-          "code": {
-            "type": "string",
-            "description": "Error code"
-          },
-          "trace_id": {
-            "type": "string",
-            "description": "Request trace ID for debugging"
-          }
-        },
-        "required": [
-          "error"
-        ]
-      },
-      "PaginatedResponse": {
-        "type": "object",
-        "properties": {
-          "total": {
-            "type": "integer",
-            "description": "Total items available"
-          },
-          "offset": {
-            "type": "integer",
-            "description": "Current offset"
-          },
-          "limit": {
-            "type": "integer",
-            "description": "Page size"
-          },
-          "has_more": {
-            "type": "boolean",
-            "description": "More items available"
-          }
-        }
-      },
-      "Agent": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Agent name"
-          },
-          "elo": {
-            "type": "number",
-            "description": "ELO rating"
-          },
-          "matches": {
-            "type": "integer",
-            "description": "Total matches played"
-          },
-          "wins": {
-            "type": "integer",
-            "description": "Total wins"
-          },
-          "losses": {
-            "type": "integer",
-            "description": "Total losses"
-          },
-          "calibration_score": {
-            "type": "number",
-            "description": "Calibration accuracy (0-1)"
-          }
-        }
-      },
-      "DebateStatus": {
-        "type": "string",
-        "enum": [
-          "created",
-          "starting",
-          "pending",
-          "running",
-          "in_progress",
-          "completed",
-          "failed",
-          "cancelled",
-          "paused",
-          "active",
-          "concluded",
-          "archived"
-        ]
-      },
-      "ConsensusResult": {
-        "type": "object",
-        "properties": {
-          "reached": {
-            "type": "boolean"
-          },
-          "agreement": {
-            "type": "number"
-          },
-          "confidence": {
-            "type": "number"
-          },
-          "final_answer": {
-            "type": "string"
-          },
-          "conclusion": {
-            "type": "string"
-          },
-          "supporting_agents": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "dissenting_agents": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "DebateCreateRequest": {
-        "type": "object",
-        "properties": {
-          "task": {
-            "type": "string"
-          },
-          "question": {
-            "type": "string"
-          },
-          "agents": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "rounds": {
-            "type": "integer"
-          },
-          "consensus": {
-            "type": "string"
-          },
-          "context": {
-            "type": "string"
-          },
-          "auto_select": {
-            "type": "boolean"
-          },
-          "auto_select_config": {
-            "type": "object"
-          },
-          "use_trending": {
-            "type": "boolean"
-          },
-          "trending_category": {
-            "type": "string"
-          }
-        }
-      },
-      "DebateCreateResponse": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "debate_id": {
-            "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/DebateStatus"
-          },
-          "task": {
-            "type": "string"
-          },
-          "error": {
-            "type": "string"
-          }
-        }
-      },
-      "Debate": {
-        "type": "object",
-        "properties": {
-          "debate_id": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "task": {
-            "type": "string"
-          },
-          "context": {
-            "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/DebateStatus"
-          },
-          "outcome": {
-            "type": "string"
-          },
-          "final_answer": {
-            "type": "string"
-          },
-          "consensus": {
-            "$ref": "#/components/schemas/ConsensusResult"
-          },
-          "consensus_proof": {
-            "type": "object"
-          },
-          "consensus_reached": {
-            "type": "boolean"
-          },
-          "confidence": {
-            "type": "number"
-          },
-          "rounds_used": {
-            "type": "integer"
-          },
-          "duration_seconds": {
-            "type": "number"
-          },
-          "agents": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "rounds": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Round"
-            }
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "completed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "metadata": {
-            "type": "object"
-          }
-        }
-      },
-      "Message": {
-        "type": "object",
-        "properties": {
-          "role": {
-            "type": "string",
-            "enum": [
-              "system",
-              "user",
-              "assistant"
-            ]
-          },
-          "content": {
-            "type": "string"
-          },
-          "agent": {
-            "type": "string"
-          },
-          "agent_id": {
-            "type": "string"
-          },
-          "round": {
-            "type": "integer"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "HealthCheck": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "healthy",
-              "degraded",
-              "unhealthy"
-            ]
-          },
-          "version": {
-            "type": "string"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "checks": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "object"
-            }
-          },
-          "response_time_ms": {
-            "type": "number"
-          }
-        }
-      },
-      "Consensus": {
-        "type": "object",
-        "properties": {
-          "reached": {
-            "type": "boolean"
-          },
-          "topic": {
-            "type": "string"
-          },
-          "verdict": {
-            "type": "string"
-          },
-          "confidence": {
-            "type": "number"
-          },
-          "participating_agents": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "Calibration": {
-        "type": "object",
-        "properties": {
-          "agent": {
-            "type": "string"
-          },
-          "score": {
-            "type": "number",
-            "description": "Calibration score (0-1)"
-          },
-          "bucket_stats": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "overconfidence_index": {
-            "type": "number"
-          }
-        }
-      },
-      "Relationship": {
-        "type": "object",
-        "properties": {
-          "agent_a": {
-            "type": "string"
-          },
-          "agent_b": {
-            "type": "string"
-          },
-          "alliance_score": {
-            "type": "number"
-          },
-          "rivalry_score": {
-            "type": "number"
-          },
-          "total_interactions": {
-            "type": "integer"
-          }
-        }
-      }
-    },
-    "securitySchemes": {
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "description": "API token authentication. Set via ARAGORA_API_TOKEN environment variable."
-      }
-    }
-  },
-  "security": []
-}
+openapi: 3.0.3
+info:
+  title: Aragora API
+  description: AI red team / decision stress-test API for Aragora LiveWire. Provides
+    endpoints for gauntlet runs, debate-backed decision receipts, agent rankings,
+    consensus tracking, and real-time collaboration.
+  version: 1.0.0
+  contact:
+    name: Aragora Team
+  license:
+    name: MIT
+servers:
+- url: http://localhost:8080
+  description: Development server
+- url: https://api.aragora.ai
+  description: Production server
+tags:
+- name: System
+  description: Health checks and system status
+- name: Agents
+  description: Agent management, profiles, and rankings
+- name: Debates
+  description: Debate operations, history, and export
+- name: Analytics
+  description: Analysis and aggregated statistics
+- name: Insights
+  description: Position flips, moments, and patterns
+- name: Consensus
+  description: Consensus memory and settled questions
+- name: Relationships
+  description: Agent relationship tracking
+- name: Memory
+  description: Continuum memory management
+- name: Belief
+  description: Belief networks and claim analysis
+- name: Pulse
+  description: Trending topics and suggestions
+- name: Monitoring
+  description: Metrics and observability
+- name: Verification
+  description: Formal verification and proofs
+- name: Auditing
+  description: Capability probes and red teaming
+- name: Documents
+  description: Document upload and export
+- name: Media
+  description: Audio/video and podcast
+- name: Social
+  description: Social media publishing
+- name: Plugins
+  description: Plugin management and execution
+- name: Laboratory
+  description: Emergent trait analysis
+- name: Tournaments
+  description: Tournament management
+- name: Genesis
+  description: Agent genesis and lineage
+- name: Evolution
+  description: Agent evolution tracking
+- name: Replays
+  description: Debate replay management
+- name: Learning
+  description: Meta-learning statistics
+- name: Critiques
+  description: Critique patterns and reputation
+- name: Routing
+  description: Agent selection and team routing
+- name: Introspection
+  description: Agent self-awareness queries
+paths:
+  /api/health:
+    get:
+      tags:
+      - System
+      summary: Health check
+      description: Get system health status for load balancers and monitoring. Returns
+        200 when healthy, 503 when degraded.
+      responses:
+        '200':
+          description: System healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+        '503':
+          description: System degraded
+  /api/health/detailed:
+    get:
+      tags:
+      - System
+      summary: Detailed health check
+      description: Get detailed health status with component checks, observer metrics,
+        memory stats
+      responses:
+        '200':
+          description: Detailed health information
+  /api/nomic/state:
+    get:
+      tags:
+      - System
+      summary: Get nomic loop state
+      description: Get current state of the nomic self-improvement loop
+      responses:
+        '200':
+          description: Nomic state
+  /api/nomic/health:
+    get:
+      tags:
+      - System
+      summary: Nomic loop health
+      description: Get nomic loop health with stall detection
+      responses:
+        '200':
+          description: Nomic health status
+  /api/nomic/log:
+    get:
+      tags:
+      - System
+      summary: Get nomic logs
+      description: Get recent nomic loop log lines
+      parameters:
+      - name: lines
+        in: query
+        schema:
+          type: integer
+          default: 100
+          maximum: 1000
+      responses:
+        '200':
+          description: Log lines
+  /api/nomic/risk-register:
+    get:
+      tags:
+      - System
+      summary: Risk register
+      description: Get risk register entries from nomic loop execution
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+      responses:
+        '200':
+          description: Risk entries
+  /api/modes:
+    get:
+      tags:
+      - System
+      summary: List operational modes
+      description: Get available operational modes (builtin + custom)
+      responses:
+        '200':
+          description: Available modes
+  /api/history/cycles:
+    get:
+      tags:
+      - System
+      summary: Cycle history
+      parameters:
+      - name: loop_id
+        in: query
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 50
+      responses:
+        '200':
+          description: Cycle history
+  /api/history/events:
+    get:
+      tags:
+      - System
+      summary: Event history
+      parameters:
+      - name: loop_id
+        in: query
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 100
+      responses:
+        '200':
+          description: Event history
+  /api/history/debates:
+    get:
+      tags:
+      - System
+      summary: Debate history
+      parameters:
+      - name: loop_id
+        in: query
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 50
+      responses:
+        '200':
+          description: Debate history
+  /api/history/summary:
+    get:
+      tags:
+      - System
+      summary: History summary
+      parameters:
+      - name: loop_id
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Summary statistics
+  /api/system/maintenance:
+    get:
+      tags:
+      - System
+      summary: Run database maintenance
+      parameters:
+      - name: task
+        in: query
+        schema:
+          type: string
+          enum:
+          - status
+          - vacuum
+          - analyze
+          - checkpoint
+          - full
+          default: status
+      responses:
+        '200':
+          description: Maintenance results
+  /api/openapi:
+    get:
+      tags:
+      - System
+      summary: OpenAPI specification
+      description: Get OpenAPI 3.0 schema for this API
+      responses:
+        '200':
+          description: OpenAPI schema
+          content:
+            application/json: {}
+  /api/agents:
+    get:
+      tags:
+      - Agents
+      summary: List all agents
+      description: Get list of all known agents with optional stats
+      parameters:
+      - name: include_stats
+        in: query
+        schema:
+          type: boolean
+          default: false
+      responses:
+        '200':
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agent'
+                  total:
+                    type: integer
+  /api/leaderboard:
+    get:
+      tags:
+      - Agents
+      summary: Agent leaderboard
+      description: Get agents ranked by ELO rating
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+          maximum: 100
+      - name: domain
+        in: query
+        schema:
+          type: string
+        description: Filter by expertise domain
+      responses:
+        '200':
+          description: Agent rankings
+  /api/rankings:
+    get:
+      tags:
+      - Agents
+      summary: Agent rankings
+      description: Alternative endpoint for agent rankings
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Agent rankings
+  /api/leaderboard-view:
+    get:
+      tags:
+      - Agents
+      summary: Leaderboard view data
+      description: Pre-formatted leaderboard data for frontend display
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 10
+      - name: domain
+        in: query
+        schema:
+          type: string
+      - name: loop_id
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Leaderboard view
+  /api/agent/{name}/profile:
+    get:
+      tags:
+      - Agents
+      summary: Get agent profile
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Agent profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '404': &id003
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/agent/{name}/history:
+    get:
+      tags:
+      - Agents
+      summary: Agent match history
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Match history
+  /api/agent/{name}/calibration:
+    get:
+      tags:
+      - Agents
+      summary: Agent calibration data
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Calibration data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Calibration'
+  /api/agent/{name}/calibration-curve:
+    get:
+      tags:
+      - Agents
+      summary: Agent calibration curve
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Calibration curve data
+  /api/agent/{name}/calibration-summary:
+    get:
+      tags:
+      - Agents
+      summary: Agent calibration summary
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Calibration summary
+  /api/agent/{name}/consistency:
+    get:
+      tags:
+      - Agents
+      summary: Agent consistency score
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Consistency metrics
+  /api/agent/{name}/flips:
+    get:
+      tags:
+      - Agents
+      summary: Agent position flips
+      description: Get instances where agent changed positions
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Position flips
+  /api/agent/{name}/network:
+    get:
+      tags:
+      - Agents
+      summary: Agent relationship network
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Relationship network
+  /api/agent/{name}/rivals:
+    get:
+      tags:
+      - Agents
+      summary: Agent rivals
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Rival agents
+  /api/agent/{name}/allies:
+    get:
+      tags:
+      - Agents
+      summary: Agent allies
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Allied agents
+  /api/agent/{name}/moments:
+    get:
+      tags:
+      - Agents
+      summary: Agent moments
+      description: Get significant moments for this agent
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Agent moments
+  /api/agent/{name}/reputation:
+    get:
+      tags:
+      - Agents
+      summary: Agent reputation
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Reputation data
+  /api/agent/{name}/persona:
+    get:
+      tags:
+      - Agents
+      summary: Agent persona
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Persona data
+  /api/agent/{name}/grounded-persona:
+    get:
+      tags:
+      - Agents
+      summary: Agent grounded persona
+      description: Get persona derived from debate performance
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Grounded persona
+  /api/agent/{name}/identity-prompt:
+    get:
+      tags:
+      - Agents
+      summary: Agent identity prompt
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Identity prompt
+  /api/agent/{name}/performance:
+    get:
+      tags:
+      - Agents
+      summary: Agent performance
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Performance metrics
+  /api/agent/{name}/domains:
+    get:
+      tags:
+      - Agents
+      summary: Agent expertise domains
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Domain expertise
+  /api/agent/{name}/accuracy:
+    get:
+      tags:
+      - Agents
+      summary: Agent accuracy
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Accuracy metrics
+  /api/agent/compare:
+    get:
+      tags:
+      - Agents
+      summary: Compare agents
+      description: Compare two agents side-by-side
+      parameters:
+      - name: agent_a
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: agent_b
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Comparison data
+  /api/matches/recent:
+    get:
+      tags:
+      - Agents
+      summary: Recent matches
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Recent matches
+  /api/calibration/leaderboard:
+    get:
+      tags:
+      - Agents
+      summary: Calibration leaderboard
+      description: Get agents ranked by calibration score
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Calibration rankings
+  /api/personas:
+    get:
+      tags:
+      - Agents
+      summary: List all personas
+      responses:
+        '200':
+          description: All personas
+  /api/debates:
+    get:
+      tags:
+      - Debates
+      summary: List debates
+      description: Get list of all debates (requires auth)
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+          maximum: 100
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          default: 0
+      responses:
+        '200':
+          description: List of debates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Debate'
+                  total:
+                    type: integer
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - Debates
+      summary: Create a new debate
+      description: Start a new multi-agent debate on a given topic
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebateCreateRequest'
+      responses:
+        '200':
+          description: Debate created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebateCreateResponse'
+        '400': &id001
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': &id002
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '402':
+          description: Quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/debate:
+    post:
+      tags:
+      - Debates
+      summary: Create a new debate (deprecated)
+      description: Deprecated. Use POST /api/debates instead.
+      deprecated: true
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebateCreateRequest'
+      responses:
+        '200':
+          description: Debate created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebateCreateResponse'
+        '400': *id001
+        '401': *id002
+  /api/debates/{id}:
+    get:
+      tags:
+      - Debates
+      summary: Get debate by ID
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Debate details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Debate'
+        '404': *id003
+  /api/debates/slug/{slug}:
+    get:
+      tags:
+      - Debates
+      summary: Get debate by slug
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Debate details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Debate'
+        '404': *id003
+  /api/debates/{id}/messages:
+    get:
+      tags:
+      - Debates
+      summary: Get debate messages
+      description: Get paginated message history for a debate
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          default: 0
+      responses:
+        '200':
+          description: Paginated messages
+  /api/debates/{id}/convergence:
+    get:
+      tags:
+      - Debates
+      summary: Get convergence status
+      description: Check if debate has reached semantic convergence
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Convergence status
+  /api/debates/{id}/citations:
+    get:
+      tags:
+      - Debates
+      summary: Get evidence citations
+      description: Get grounded verdict with evidence citations
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Citations and grounding score
+  /api/debates/{id}/evidence:
+    get:
+      tags:
+      - Debates
+      summary: Get debate evidence
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Evidence data
+  /api/debates/{id}/impasse:
+    get:
+      tags:
+      - Debates
+      summary: Get impasse status
+      description: Check if debate reached an impasse
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Impasse status
+  /api/debates/{id}/meta-critique:
+    get:
+      tags:
+      - Debates
+      summary: Get meta-critique
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Meta-critique data
+  /api/debates/{id}/graph/stats:
+    get:
+      tags:
+      - Debates
+      summary: Get debate graph stats
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Graph statistics
+  /api/debates/{id}/fork:
+    post:
+      tags:
+      - Debates
+      summary: Fork debate
+      description: Create a counterfactual branch from a specific round
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                branch_point:
+                  type: integer
+                  description: Round to branch from
+                new_premise:
+                  type: string
+                  description: New premise for fork
+      responses:
+        '201':
+          description: Forked debate created
+        '400': *id001
+  /api/debates/{id}/export/{format}:
+    get:
+      tags:
+      - Debates
+      summary: Export debate
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: format
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - json
+          - markdown
+          - html
+          - pdf
+      responses:
+        '200':
+          description: Exported debate
+  /api/debates/{id}/broadcast:
+    post:
+      tags:
+      - Debates
+      summary: Generate debate broadcast
+      description: Generate audio/video broadcast of debate
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                format:
+                  type: string
+                  enum:
+                  - audio
+                  - video
+                voices:
+                  type: object
+      responses:
+        '202':
+          description: Broadcast generation started
+      security:
+      - bearerAuth: []
+  /api/debates/{id}/publish/twitter:
+    post:
+      tags:
+      - Social
+      summary: Publish to Twitter
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Published to Twitter
+      security:
+      - bearerAuth: []
+  /api/debates/{id}/publish/youtube:
+    post:
+      tags:
+      - Social
+      summary: Publish to YouTube
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Published to YouTube
+      security:
+      - bearerAuth: []
+  /api/debates/{id}/red-team:
+    get:
+      tags:
+      - Auditing
+      summary: Get red team results
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Red team results
+  /api/search:
+    get:
+      tags:
+      - Debates
+      summary: Cross-debate search
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Search results
+  /api/dashboard/debates:
+    get:
+      tags:
+      - Debates
+      summary: Dashboard debates
+      description: Get debates formatted for dashboard display
+      parameters:
+      - name: domain
+        in: query
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 10
+      - name: hours
+        in: query
+        schema:
+          type: integer
+          default: 24
+      responses:
+        '200':
+          description: Dashboard data
+  /api/analytics/disagreements:
+    get:
+      tags:
+      - Analytics
+      summary: Disagreement analysis
+      description: Get metrics on agent disagreement patterns
+      responses:
+        '200':
+          description: Disagreement statistics
+  /api/analytics/role-rotation:
+    get:
+      tags:
+      - Analytics
+      summary: Role rotation stats
+      responses:
+        '200':
+          description: Role rotation data
+  /api/analytics/early-stops:
+    get:
+      tags:
+      - Analytics
+      summary: Early stop statistics
+      responses:
+        '200':
+          description: Early stop data
+  /api/ranking/stats:
+    get:
+      tags:
+      - Analytics
+      summary: Ranking statistics
+      responses:
+        '200':
+          description: Ranking stats
+  /api/memory/stats:
+    get:
+      tags:
+      - Analytics
+      summary: Memory statistics
+      responses:
+        '200':
+          description: Memory stats
+  /api/flips/recent:
+    get:
+      tags:
+      - Insights
+      summary: Recent position flips
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Recent flips
+  /api/flips/summary:
+    get:
+      tags:
+      - Insights
+      summary: Flip summary
+      responses:
+        '200':
+          description: Flip summary statistics
+  /api/insights/recent:
+    get:
+      tags:
+      - Insights
+      summary: Recent insights
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Recent insights
+  /api/insights/extract-detailed:
+    post:
+      tags:
+      - Insights
+      summary: Extract detailed insights
+      description: Computationally expensive insight extraction (requires auth)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Detailed insights
+      security:
+      - bearerAuth: []
+  /api/moments/summary:
+    get:
+      tags:
+      - Insights
+      summary: Moments summary
+      responses:
+        '200':
+          description: Moments summary
+  /api/moments/timeline:
+    get:
+      tags:
+      - Insights
+      summary: Moments timeline
+      responses:
+        '200':
+          description: Timeline data
+  /api/moments/trending:
+    get:
+      tags:
+      - Insights
+      summary: Trending moments
+      responses:
+        '200':
+          description: Trending moments
+  /api/moments/by-type/{type}:
+    get:
+      tags:
+      - Insights
+      summary: Moments by type
+      parameters:
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Moments of specified type
+  /api/consensus/similar:
+    get:
+      tags:
+      - Consensus
+      summary: Similar debates
+      description: Find debates similar to a given topic
+      parameters:
+      - name: topic
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 10
+      responses:
+        '200':
+          description: Similar debates
+  /api/consensus/settled:
+    get:
+      tags:
+      - Consensus
+      summary: Settled questions
+      parameters:
+      - name: threshold
+        in: query
+        schema:
+          type: number
+          default: 0.8
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Settled questions
+  /api/consensus/stats:
+    get:
+      tags:
+      - Consensus
+      summary: Consensus statistics
+      responses:
+        '200':
+          description: Consensus stats
+  /api/consensus/dissents:
+    get:
+      tags:
+      - Consensus
+      summary: Dissenting views
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Dissenting views
+  /api/consensus/contrarian-views:
+    get:
+      tags:
+      - Consensus
+      summary: Contrarian views
+      responses:
+        '200':
+          description: Contrarian views
+  /api/consensus/risk-warnings:
+    get:
+      tags:
+      - Consensus
+      summary: Risk warnings
+      responses:
+        '200':
+          description: Risk warnings
+  /api/consensus/domain/{domain}:
+    get:
+      tags:
+      - Consensus
+      summary: Domain consensus
+      parameters:
+      - name: domain
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Domain consensus data
+  /api/relationships/summary:
+    get:
+      tags:
+      - Relationships
+      summary: Relationship summary
+      responses:
+        '200':
+          description: Relationship summary
+  /api/relationships/graph:
+    get:
+      tags:
+      - Relationships
+      summary: Relationship graph
+      description: Get graph data for agent relationships
+      responses:
+        '200':
+          description: Graph data
+  /api/relationships/stats:
+    get:
+      tags:
+      - Relationships
+      summary: Relationship statistics
+      responses:
+        '200':
+          description: Relationship stats
+  /api/relationship/{agent_a}/{agent_b}:
+    get:
+      tags:
+      - Relationships
+      summary: Get relationship between two agents
+      parameters:
+      - name: agent_a
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: agent_b
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Relationship data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Relationship'
+  /api/memory/continuum/retrieve:
+    get:
+      tags:
+      - Memory
+      summary: Retrieve memories
+      description: Retrieve memories from continuum store
+      parameters:
+      - name: query
+        in: query
+        schema:
+          type: string
+      - name: tier
+        in: query
+        schema:
+          type: string
+          enum:
+          - fast
+          - medium
+          - slow
+          - glacial
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 10
+      responses:
+        '200':
+          description: Retrieved memories
+  /api/memory/continuum/consolidate:
+    post:
+      tags:
+      - Memory
+      summary: Consolidate memories
+      description: Trigger memory consolidation across tiers
+      responses:
+        '200':
+          description: Consolidation result
+      security:
+      - bearerAuth: []
+  /api/memory/continuum/cleanup:
+    post:
+      tags:
+      - Memory
+      summary: Cleanup memories
+      description: Remove expired memories
+      responses:
+        '200':
+          description: Cleanup result
+      security:
+      - bearerAuth: []
+  /api/memory/tier-stats:
+    get:
+      tags:
+      - Memory
+      summary: Memory tier statistics
+      responses:
+        '200':
+          description: Tier stats
+  /api/memory/archive-stats:
+    get:
+      tags:
+      - Memory
+      summary: Archive statistics
+      responses:
+        '200':
+          description: Archive stats
+  /api/belief-network/{debate_id}/cruxes:
+    get:
+      tags:
+      - Belief
+      summary: Get debate cruxes
+      parameters:
+      - name: debate_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Debate cruxes
+  /api/belief-network/{debate_id}/load-bearing-claims:
+    get:
+      tags:
+      - Belief
+      summary: Get load-bearing claims
+      parameters:
+      - name: debate_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Load-bearing claims
+  /api/debate/{debate_id}/graph-stats:
+    get:
+      tags:
+      - Belief
+      summary: Get debate graph stats
+      parameters:
+      - name: debate_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Graph statistics
+  /api/pulse/trending:
+    get:
+      tags:
+      - Pulse
+      summary: Trending topics
+      description: Get current trending debate topics
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 10
+          maximum: 50
+      responses:
+        '200':
+          description: Trending topics
+  /api/pulse/suggest:
+    get:
+      tags:
+      - Pulse
+      summary: Suggest debate topic
+      description: Get AI-suggested debate topic based on trends
+      parameters:
+      - name: category
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Suggested topic
+  /api/metrics:
+    get:
+      tags:
+      - Monitoring
+      summary: System metrics
+      responses:
+        '200':
+          description: Metrics data
+  /api/metrics/health:
+    get:
+      tags:
+      - Monitoring
+      summary: Metrics health
+      responses:
+        '200':
+          description: Metrics health
+  /api/metrics/cache:
+    get:
+      tags:
+      - Monitoring
+      summary: Cache metrics
+      responses:
+        '200':
+          description: Cache metrics
+  /api/metrics/system:
+    get:
+      tags:
+      - Monitoring
+      summary: System metrics
+      responses:
+        '200':
+          description: System metrics
+  /metrics:
+    get:
+      tags:
+      - Monitoring
+      summary: Prometheus metrics
+      description: Metrics in Prometheus format
+      responses:
+        '200':
+          description: Prometheus-formatted metrics
+          content:
+            text/plain: {}
+  /api/verification/status:
+    get:
+      tags:
+      - Verification
+      summary: Verification status
+      responses:
+        '200':
+          description: Verification status
+  /api/verification/formal-verify:
+    post:
+      tags:
+      - Verification
+      summary: Formal verification
+      description: Run formal verification on claims
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Verification result
+      security:
+      - bearerAuth: []
+  /api/debates/capability-probe:
+    post:
+      tags:
+      - Auditing
+      summary: Run capability probe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Probe results
+      security:
+      - bearerAuth: []
+  /api/debates/deep-audit:
+    post:
+      tags:
+      - Auditing
+      summary: Deep audit
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Audit results
+      security:
+      - bearerAuth: []
+  /api/probes/capability:
+    post:
+      tags:
+      - Auditing
+      summary: Capability probe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Probe results
+      security:
+      - bearerAuth: []
+  /api/documents:
+    get:
+      tags:
+      - Documents
+      summary: List documents
+      responses:
+        '200':
+          description: Document list
+  /api/documents/formats:
+    get:
+      tags:
+      - Documents
+      summary: Supported formats
+      responses:
+        '200':
+          description: Supported formats
+  /api/documents/upload:
+    post:
+      tags:
+      - Documents
+      summary: Upload document
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Document uploaded
+      security:
+      - bearerAuth: []
+  /api/podcast/feed.xml:
+    get:
+      tags:
+      - Media
+      summary: Podcast RSS feed
+      responses:
+        '200':
+          description: RSS feed
+          content:
+            application/xml: {}
+  /api/podcast/episodes:
+    get:
+      tags:
+      - Media
+      summary: Podcast episodes
+      responses:
+        '200':
+          description: Episode list
+  /api/youtube/auth:
+    get:
+      tags:
+      - Social
+      summary: YouTube auth URL
+      responses:
+        '200':
+          description: Auth URL
+  /api/youtube/callback:
+    get:
+      tags:
+      - Social
+      summary: YouTube OAuth callback
+      responses:
+        '200':
+          description: Auth complete
+  /api/youtube/status:
+    get:
+      tags:
+      - Social
+      summary: YouTube auth status
+      responses:
+        '200':
+          description: Auth status
+  /api/plugins:
+    get:
+      tags:
+      - Plugins
+      summary: List plugins
+      responses:
+        '200':
+          description: Plugin list
+  /api/plugins/{name}:
+    get:
+      tags:
+      - Plugins
+      summary: Get plugin details
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Plugin details
+  /api/plugins/{name}/run:
+    post:
+      tags:
+      - Plugins
+      summary: Run plugin
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Plugin result
+      security:
+      - bearerAuth: []
+  /api/laboratory/emergent-traits:
+    get:
+      tags:
+      - Laboratory
+      summary: Emergent traits
+      parameters:
+      - name: min_confidence
+        in: query
+        schema:
+          type: number
+          default: 0.5
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Emergent traits
+  /api/laboratory/cross-pollinations/suggest:
+    get:
+      tags:
+      - Laboratory
+      summary: Cross-pollination suggestions
+      responses:
+        '200':
+          description: Suggestions
+  /api/tournaments:
+    get:
+      tags:
+      - Tournaments
+      summary: List tournaments
+      responses:
+        '200':
+          description: Tournament list
+  /api/tournaments/{id}/standings:
+    get:
+      tags:
+      - Tournaments
+      summary: Tournament standings
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Standings
+  /api/genesis/stats:
+    get:
+      tags:
+      - Genesis
+      summary: Genesis statistics
+      responses:
+        '200':
+          description: Genesis stats
+  /api/genesis/events:
+    get:
+      tags:
+      - Genesis
+      summary: Genesis events
+      responses:
+        '200':
+          description: Genesis events
+  /api/genesis/lineage/{agent}:
+    get:
+      tags:
+      - Genesis
+      summary: Agent lineage
+      parameters:
+      - name: agent
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Lineage data
+  /api/genesis/tree/{agent}:
+    get:
+      tags:
+      - Genesis
+      summary: Agent tree
+      parameters:
+      - name: agent
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Tree data
+  /api/evolution/{agent}/history:
+    get:
+      tags:
+      - Evolution
+      summary: Agent evolution history
+      parameters:
+      - name: agent
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Evolution history
+  /api/replays:
+    get:
+      tags:
+      - Replays
+      summary: List replays
+      responses:
+        '200':
+          description: Replay list
+  /api/replays/{id}:
+    get:
+      tags:
+      - Replays
+      summary: Get replay
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Replay data
+  /api/learning/evolution:
+    get:
+      tags:
+      - Learning
+      summary: Learning evolution
+      responses:
+        '200':
+          description: Evolution data
+  /api/meta-learning/stats:
+    get:
+      tags:
+      - Learning
+      summary: Meta-learning statistics
+      responses:
+        '200':
+          description: Meta-learning stats
+  /api/critiques/patterns:
+    get:
+      tags:
+      - Critiques
+      summary: Critique patterns
+      responses:
+        '200':
+          description: Patterns
+  /api/critiques/archive:
+    get:
+      tags:
+      - Critiques
+      summary: Critique archive
+      responses:
+        '200':
+          description: Archive
+  /api/reputation/all:
+    get:
+      tags:
+      - Critiques
+      summary: All reputations
+      responses:
+        '200':
+          description: Reputations
+  /api/routing/best-teams:
+    get:
+      tags:
+      - Routing
+      summary: Best team combinations
+      parameters:
+      - name: min_debates
+        in: query
+        schema:
+          type: integer
+          default: 3
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 10
+      responses:
+        '200':
+          description: Best teams
+  /api/routing/recommendations:
+    post:
+      tags:
+      - Routing
+      summary: Agent recommendations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                primary_domain:
+                  type: string
+                secondary_domains:
+                  type: array
+                  items:
+                    type: string
+                required_traits:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Recommendations
+  /api/introspection/all:
+    get:
+      tags:
+      - Introspection
+      summary: All introspection data
+      responses:
+        '200':
+          description: Introspection data
+  /api/introspection/leaderboard:
+    get:
+      tags:
+      - Introspection
+      summary: Introspection leaderboard
+      responses:
+        '200':
+          description: Leaderboard
+  /api/introspection/agents:
+    get:
+      tags:
+      - Introspection
+      summary: Agent introspection list
+      responses:
+        '200':
+          description: Agent list
+  /api/introspection/agents/{name}:
+    get:
+      tags:
+      - Introspection
+      summary: Agent introspection
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Agent introspection
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        trace_id:
+          type: string
+          description: Request trace ID for debugging
+      required:
+      - error
+    PaginatedResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total items available
+        offset:
+          type: integer
+          description: Current offset
+        limit:
+          type: integer
+          description: Page size
+        has_more:
+          type: boolean
+          description: More items available
+    Agent:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Agent name
+        elo:
+          type: number
+          description: ELO rating
+        matches:
+          type: integer
+          description: Total matches played
+        wins:
+          type: integer
+          description: Total wins
+        losses:
+          type: integer
+          description: Total losses
+        calibration_score:
+          type: number
+          description: Calibration accuracy (0-1)
+    DebateStatus:
+      type: string
+      enum:
+      - created
+      - starting
+      - pending
+      - running
+      - in_progress
+      - completed
+      - failed
+      - cancelled
+      - paused
+      - active
+      - concluded
+      - archived
+    ConsensusResult:
+      type: object
+      properties:
+        reached:
+          type: boolean
+        agreement:
+          type: number
+        confidence:
+          type: number
+        final_answer:
+          type: string
+        conclusion:
+          type: string
+        supporting_agents:
+          type: array
+          items:
+            type: string
+        dissenting_agents:
+          type: array
+          items:
+            type: string
+    DebateCreateRequest:
+      type: object
+      properties:
+        task:
+          type: string
+        question:
+          type: string
+        agents:
+          type: array
+          items:
+            type: string
+        rounds:
+          type: integer
+        consensus:
+          type: string
+        context:
+          type: string
+        auto_select:
+          type: boolean
+        auto_select_config:
+          type: object
+        use_trending:
+          type: boolean
+        trending_category:
+          type: string
+    DebateCreateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        debate_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/DebateStatus'
+        task:
+          type: string
+        error:
+          type: string
+    Debate:
+      type: object
+      properties:
+        debate_id:
+          type: string
+        id:
+          type: string
+        slug:
+          type: string
+        task:
+          type: string
+        topic:
+          type: string
+          description: Alias for task
+        context:
+          type: string
+        status:
+          $ref: '#/components/schemas/DebateStatus'
+        outcome:
+          type: string
+        final_answer:
+          type: string
+        consensus:
+          $ref: '#/components/schemas/ConsensusResult'
+        consensus_proof:
+          type: object
+        consensus_reached:
+          type: boolean
+        confidence:
+          type: number
+        rounds_used:
+          type: integer
+        duration_seconds:
+          type: number
+        agents:
+          type: array
+          items:
+            type: string
+        rounds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Round'
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+    Message:
+      type: object
+      properties:
+        role:
+          type: string
+          enum:
+          - system
+          - user
+          - assistant
+        content:
+          type: string
+        agent:
+          type: string
+        agent_id:
+          type: string
+        round:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - healthy
+          - degraded
+          - unhealthy
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        checks:
+          type: object
+          additionalProperties:
+            type: object
+        response_time_ms:
+          type: number
+    Consensus:
+      type: object
+      properties:
+        reached:
+          type: boolean
+        topic:
+          type: string
+        verdict:
+          type: string
+        confidence:
+          type: number
+        participating_agents:
+          type: array
+          items:
+            type: string
+    Calibration:
+      type: object
+      properties:
+        agent:
+          type: string
+        score:
+          type: number
+          description: Calibration score (0-1)
+        bucket_stats:
+          type: array
+          items:
+            type: object
+        overconfidence_index:
+          type: number
+    Relationship:
+      type: object
+      properties:
+        agent_a:
+          type: string
+        agent_b:
+          type: string
+        alliance_score:
+          type: number
+        rivalry_score:
+          type: number
+        total_interactions:
+          type: integer
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: API token authentication. Set via ARAGORA_API_TOKEN environment
+        variable.
+security: []
