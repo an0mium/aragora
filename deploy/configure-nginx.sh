@@ -105,6 +105,9 @@ install_nginx_config() {
         rhel|unknown)
             # RHEL/CentOS/Amazon Linux use conf.d pattern
             # Also use conf.d as fallback for unknown distros (more universal)
+            # Remove old conflicting configs
+            sudo rm -f /etc/nginx/conf.d/aragora-api.conf 2>/dev/null || true
+            sudo rm -f /etc/nginx/conf.d/aragora-ws.conf 2>/dev/null || true
             sudo cp "$CONFIG_SOURCE" /etc/nginx/conf.d/aragora.conf
             echo "Installed to /etc/nginx/conf.d/aragora.conf"
             ;;
