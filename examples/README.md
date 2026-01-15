@@ -72,6 +72,28 @@ Demonstrates Aragora's Gauntlet system for adversarial validation and compliance
 
 **No API keys required** - views pre-computed results.
 
+### 5. TypeScript SDK Integration (5 min)
+
+```bash
+# Start server first
+python -m aragora.server.unified_server --port 8080
+
+# In another terminal
+npx ts-node examples/05_typescript_sdk.ts
+```
+
+Demonstrates using the Aragora TypeScript/JavaScript SDK to integrate debates into your applications.
+
+**What you'll see:**
+- Client initialization and health check
+- Creating and polling debates programmatically
+- Querying agent rankings and debate history
+- Proper error handling patterns
+
+**Prerequisites:**
+- Node.js 18+
+- `npm install aragora-js` (or use from `aragora-js/` directory)
+
 ## Troubleshooting
 
 **"Need at least 2 agents"**
