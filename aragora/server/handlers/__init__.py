@@ -73,18 +73,18 @@ from .persona import PersonaHandler
 from .plugins import PluginsHandler
 from .agents import ProbesHandler  # Moved to agents/
 from .pulse import PulseHandler
-from .relationship import RelationshipHandler
+from .social import RelationshipHandler  # Moved to social/
 from .replays import ReplaysHandler
 from .reviews import ReviewsHandler
 from .routing import RoutingHandler
 from .selection import SelectionHandler
-from .slack import SlackHandler
+from .social import SlackHandler  # Moved to social/
 from .social import SocialMediaHandler
 from .system import SystemHandler
 from .tournaments import TournamentHandler
 from .verification import VerificationHandler
 from .webhooks import WebhookHandler
-from .collaboration import CollaborationHandlers, get_collaboration_handlers
+from .social import CollaborationHandlers, get_collaboration_handlers  # Moved to social/
 
 # List of all handler classes for automatic dispatch registration
 # Order matters: more specific handlers should come first

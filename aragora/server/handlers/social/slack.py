@@ -48,14 +48,14 @@ def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Ta
     return task
 
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     auto_error_response,
     error_response,
     json_response,
 )
-from .utils.rate_limit import rate_limit
+from ..utils.rate_limit import rate_limit
 
 # Environment variables for Slack integration
 SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")

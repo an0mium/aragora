@@ -20,7 +20,7 @@ from typing import Optional
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.server.http_utils import run_async
 
-from .base import (
+from ..base import (
     SAFE_SLUG_PATTERN,
     BaseHandler,
     HandlerResult,

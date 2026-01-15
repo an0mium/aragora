@@ -25,14 +25,14 @@ from typing import Any, Dict, Optional, Tuple
 
 from aragora.server.validation.schema import SHARE_UPDATE_SCHEMA, validate_against_schema
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
     json_response,
 )
-from .utils.rate_limit import rate_limit
+from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 

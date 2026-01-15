@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.utils.optional_imports import try_import
 
-from .base import (
+from ..base import (
     SAFE_AGENT_PATTERN,
     BaseHandler,
     HandlerResult,
@@ -32,7 +32,7 @@ from .base import (
     json_response,
     table_exists,
 )
-from .utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 
