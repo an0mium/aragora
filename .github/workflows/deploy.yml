@@ -530,8 +530,117 @@ jobs:
           echo "  2. Security group allows SSH (port 22) from 0.0.0.0/0 or GitHub Actions IPs"
           echo "  3. The EC2_HOST secret contains the correct IP address"
 
+  deploy-ec2-2:
+    # EC2 Instance #2 for high availability (requires EC2_HOST_2 and EC2_SSH_KEY_2 secrets)
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2' || github.event.inputs.environment == null || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check if EC2 #2 is configured
+        id: check_config
+        run: |
+          if [ -z "${{ secrets.EC2_HOST_2 }}" ] || [ -z "${{ secrets.EC2_SSH_KEY_2 }}" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::notice::EC2 #2 secrets not configured - skipping deployment"
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure SSH
+        id: ssh_config
+        if: steps.check_config.outputs.configured == 'true'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY_2 }}" > ~/.ssh/ec2
+          chmod 600 ~/.ssh/ec2
+          if timeout 10 ssh-keyscan -H ${{ secrets.EC2_HOST_2 }} >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "ssh_ready=true" >> $GITHUB_OUTPUT
+            echo "SSH keyscan successful for EC2 #2"
+          else
+            echo "ssh_ready=false" >> $GITHUB_OUTPUT
+            echo "::warning::Could not reach EC2 #2 host"
+          fi
+
+      - name: Deploy to EC2 #2
+        id: ec2_deploy
+        if: steps.check_config.outputs.configured == 'true' && steps.ssh_config.outputs.ssh_ready == 'true'
+        run: |
+          ssh -i ~/.ssh/ec2 ec2-user@${{ secrets.EC2_HOST_2 }} << 'EOF'
+            set -e
+            cd ~/aragora || cd /home/ec2-user/aragora
+
+            PREVIOUS_COMMIT=$(git rev-parse HEAD)
+            echo "PREVIOUS_COMMIT=$PREVIOUS_COMMIT" > /tmp/aragora_deploy_state
+
+            git stash --include-untracked || true
+            git pull origin main
+            source venv/bin/activate
+            pip install -e . --quiet
+
+            mkdir -p ~/.nomic
+            chmod 755 ~/.nomic
+
+            if ! python -c "from aragora.server.unified_server import UnifiedServer; print('Import OK')" 2>&1; then
+              exit 1
+            fi
+
+            sudo systemctl stop aragora 2>/dev/null || true
+            sudo fuser -k 8765/tcp 2>/dev/null || true
+            sudo fuser -k 8080/tcp 2>/dev/null || true
+            sleep 2
+            sudo systemctl start aragora
+            sleep 5
+            if ! sudo systemctl is-active --quiet aragora; then
+              sudo journalctl -u aragora -n 100 --no-pager
+              exit 1
+            fi
+            echo "Deploy complete on EC2 #2"
+          EOF
+
+      - name: Verify deployment
+        id: ec2_verify
+        if: steps.check_config.outputs.configured == 'true' && steps.ssh_config.outputs.ssh_ready == 'true'
+        run: |
+          ssh -o ConnectTimeout=10 -i ~/.ssh/ec2 ec2-user@${{ secrets.EC2_HOST_2 }} 'bash -s' << 'VERIFYEOF'
+            for i in {1..12}; do
+              if curl -sf "http://localhost:8080/api/health" -o /dev/null 2>/dev/null; then
+                echo "Health check passed"
+                exit 0
+              fi
+              sleep 5
+            done
+            exit 1
+          VERIFYEOF
+          if [ $? -eq 0 ]; then
+            echo "health_ok=true" >> $GITHUB_OUTPUT
+          else
+            echo "health_ok=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Rollback on failure
+        if: steps.check_config.outputs.configured == 'true' && steps.ssh_config.outputs.ssh_ready == 'true' && steps.ec2_verify.outputs.health_ok == 'false'
+        run: |
+          ssh -o ConnectTimeout=30 -i ~/.ssh/ec2 ec2-user@${{ secrets.EC2_HOST_2 }} << 'EOF'
+            set -e
+            cd ~/aragora
+            if [ -f /tmp/aragora_deploy_state ]; then
+              source /tmp/aragora_deploy_state
+              git stash --include-untracked || true
+              git checkout $PREVIOUS_COMMIT
+              source venv/bin/activate
+              pip install -e . --quiet
+              sudo systemctl restart aragora
+              rm -f /tmp/aragora_deploy_state
+            fi
+          EOF
+
   notify:
-    needs: [deploy-cloudflare, deploy-ec2]
+    needs: [deploy-cloudflare, deploy-ec2, deploy-ec2-2]
     # Don't run notify when workflow is cancelled - prevents stuck "queued" jobs
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
@@ -544,4 +653,5 @@ jobs:
           echo "| Target | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Cloudflare Pages | ${{ needs.deploy-cloudflare.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| AWS EC2 | ${{ needs.deploy-ec2.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| AWS EC2 #1 | ${{ needs.deploy-ec2.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| AWS EC2 #2 | ${{ needs.deploy-ec2-2.result }} |" >> $GITHUB_STEP_SUMMARY

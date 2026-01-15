@@ -52,20 +52,16 @@ EOF
 
 ```bash
 cd ~/aragora
+source venv/bin/activate
 
 # Set database URL
 export DATABASE_URL="postgresql://USER:PASS@HOST:5432/DB"
 
-# Run alembic migrations (if available)
-alembic upgrade head
+# Check migration status
+python -m aragora.migrations status --database-url "$DATABASE_URL"
 
-# Or use built-in migration
-python3 -c "
-from aragora.persistence.database import init_database
-import asyncio
-asyncio.run(init_database('$DATABASE_URL'))
-print('Database initialized')
-"
+# Apply migrations
+python -m aragora.migrations upgrade --database-url "$DATABASE_URL"
 ```
 
 ## Step 4: Update EC2 Environment
