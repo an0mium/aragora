@@ -345,6 +345,14 @@ import {
   EvolutionSummaryResponse,
   AgentHistoryResponse,
   AgentPromptResponse,
+  // Broadcast types
+  BroadcastResult,
+  BroadcastOptions,
+  // Relationship types
+  RelationshipSummaryResponse,
+  RelationshipGraphResponse,
+  RelationshipStatsResponse,
+  PairDetailResponse,
 } from './types';
 
 // =============================================================================
@@ -3733,6 +3741,139 @@ class PersonasAPI {
 }
 
 // =============================================================================
+// Broadcast API (Podcast Generation)
+// =============================================================================
+
+/**
+ * API for generating podcast-style audio/video from debates.
+ *
+ * The broadcast system converts debate transcripts into engaging
+ * audio/video content suitable for podcasts or social media.
+ *
+ * @example
+ * ```typescript
+ * // Generate audio podcast for a debate
+ * const result = await client.broadcast.generate('debate-123');
+ * console.log(`Audio URL: ${result.audio_url}`);
+ *
+ * // Generate full broadcast with video
+ * const full = await client.broadcast.generateFull('debate-123', {
+ *   video: true,
+ *   title: 'AI Debate: Microservices vs Monoliths',
+ * });
+ * ```
+ */
+class BroadcastAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Generate basic broadcast (audio only) for a debate.
+   * @param debateId - Debate ID to generate broadcast from
+   */
+  async generate(debateId: string): Promise<BroadcastResult> {
+    return this.http.post<BroadcastResult>(
+      `/api/debates/${encodeURIComponent(debateId)}/broadcast`,
+      {}
+    );
+  }
+
+  /**
+   * Generate full broadcast with all options.
+   * @param debateId - Debate ID to generate broadcast from
+   * @param options - Broadcast generation options
+   */
+  async generateFull(debateId: string, options: BroadcastOptions = {}): Promise<BroadcastResult> {
+    const params = new URLSearchParams();
+    if (options.video !== undefined) params.set('video', String(options.video));
+    if (options.title) params.set('title', options.title);
+    if (options.description) params.set('description', options.description);
+    if (options.episode_number !== undefined) params.set('episode_number', String(options.episode_number));
+    if (options.rss !== undefined) params.set('rss', String(options.rss));
+
+    const queryString = params.toString();
+    const url = `/api/debates/${encodeURIComponent(debateId)}/broadcast/full${queryString ? `?${queryString}` : ''}`;
+    return this.http.post<BroadcastResult>(url, {});
+  }
+
+  /**
+   * Get RSS podcast feed XML.
+   * Returns raw XML string suitable for podcast clients.
+   */
+  async getRssFeed(): Promise<string> {
+    return this.http.get<string>('/api/podcast/feed.xml');
+  }
+}
+
+// =============================================================================
+// Relationship API (Agent Social Dynamics)
+// =============================================================================
+
+/**
+ * API for analyzing relationships between agents.
+ *
+ * Tracks how agents interact over time, including agreement rates,
+ * win/loss records, and rivalry dynamics.
+ *
+ * @example
+ * ```typescript
+ * // Get relationship overview
+ * const summary = await client.relationships.summary();
+ * console.log(`Most active pair: ${summary.most_active_pair?.agent_a} vs ${summary.most_active_pair?.agent_b}`);
+ *
+ * // Get relationship graph for visualization
+ * const graph = await client.relationships.graph({ minDebates: 5 });
+ * console.log(`Nodes: ${graph.nodes.length}, Edges: ${graph.edges.length}`);
+ *
+ * // Get detailed relationship between two agents
+ * const detail = await client.relationships.pairDetail('claude', 'gpt-4');
+ * console.log(`Agreement rate: ${detail.agreement_rate}%`);
+ * ```
+ */
+class RelationshipAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get global relationship summary.
+   */
+  async summary(): Promise<RelationshipSummaryResponse> {
+    return this.http.get<RelationshipSummaryResponse>('/api/relationships/summary');
+  }
+
+  /**
+   * Get relationship graph for visualization.
+   * @param options - Graph filtering options
+   */
+  async graph(options: { minDebates?: number; minScore?: number } = {}): Promise<RelationshipGraphResponse> {
+    const params = new URLSearchParams();
+    if (options.minDebates !== undefined) params.set('min_debates', String(options.minDebates));
+    if (options.minScore !== undefined) params.set('min_score', String(options.minScore));
+
+    const queryString = params.toString();
+    return this.http.get<RelationshipGraphResponse>(
+      `/api/relationships/graph${queryString ? `?${queryString}` : ''}`
+    );
+  }
+
+  /**
+   * Get relationship statistics.
+   */
+  async stats(): Promise<RelationshipStatsResponse> {
+    return this.http.get<RelationshipStatsResponse>('/api/relationships/stats');
+  }
+
+  /**
+   * Get detailed relationship between two specific agents.
+   * @param agentA - First agent name
+   * @param agentB - Second agent name
+   */
+  async pairDetail(agentA: string, agentB: string): Promise<PairDetailResponse> {
+    return this.http.get<PairDetailResponse>(
+      `/api/relationship/${encodeURIComponent(agentA)}/${encodeURIComponent(agentB)}`
+    );
+  }
+}
+
+// =============================================================================
 // Main Client
 // =============================================================================
 
@@ -3780,6 +3921,8 @@ export class AragoraClient {
   readonly learning: LearningAPI;
   readonly genesis: GenesisAPI;
   readonly evolution: EvolutionAPI;
+  readonly broadcast: BroadcastAPI;
+  readonly relationships: RelationshipAPI;
 
   /**
    * Create a new Aragora client.
@@ -3849,6 +3992,8 @@ export class AragoraClient {
     this.learning = new LearningAPI(this.http);
     this.genesis = new GenesisAPI(this.http);
     this.evolution = new EvolutionAPI(this.http);
+    this.broadcast = new BroadcastAPI(this.http);
+    this.relationships = new RelationshipAPI(this.http);
   }
 
   /**
