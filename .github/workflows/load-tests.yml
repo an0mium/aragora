@@ -76,9 +76,16 @@ jobs:
           # Create nomic directory for storage (optional but helps)
           mkdir -p .nomic
 
+          # Verify server can at least import
+          echo "Verifying server imports..."
+          python -c "from aragora.server.unified_server import run_unified_server; print('Server imports OK')"
+
           aragora serve --api-port 8080 --ws-port 8766 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+
+          # Give server a moment to start
+          sleep 3
 
           # Wait for server to be healthy (increased timeout for CI)
           for i in {1..60}; do
@@ -87,11 +94,21 @@ jobs:
               break
             fi
             echo "Waiting for server... ($i/60)"
+            # Show recent server logs to help debug
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "--- Server logs (last 20 lines) ---"
+              tail -20 /tmp/aragora-server.log || true
+              echo "--- End server logs ---"
+            fi
             sleep 2
           done
 
-          # Final health check
-          curl -fsS http://127.0.0.1:8080/api/health
+          # Final health check with better error output
+          if ! curl -fsS http://127.0.0.1:8080/api/health; then
+            echo "Health check failed. Server logs:"
+            cat /tmp/aragora-server.log
+            exit 1
+          fi
         env:
           ARAGORA_REDIS_URL: redis://localhost:6379/0
           ARAGORA_ENABLE_REDIS_RATE_LIMIT: "1"

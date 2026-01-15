@@ -1542,6 +1542,8 @@ class UnifiedServer:
 async def run_unified_server(
     http_port: int = 8080,
     ws_port: int = 8765,
+    http_host: Optional[str] = None,
+    ws_host: Optional[str] = None,
     static_dir: Optional[Path] = None,
     nomic_dir: Optional[Path] = None,
     ssl_cert: Optional[str] = None,
@@ -1553,12 +1555,15 @@ async def run_unified_server(
     Args:
         http_port: Port for HTTP API (default 8080)
         ws_port: Port for WebSocket streaming (default 8765)
+        http_host: Bind address for HTTP (default: from ARAGORA_BIND_HOST or 127.0.0.1)
+        ws_host: Bind address for WebSocket (default: from ARAGORA_BIND_HOST or 127.0.0.1)
         static_dir: Directory containing static files (dashboard build)
         nomic_dir: Path to .nomic directory for state access
         ssl_cert: Path to SSL certificate file (optional)
         ssl_key: Path to SSL private key file (optional)
 
     Environment variables:
+        ARAGORA_BIND_HOST: Default bind address (default: 127.0.0.1)
         ARAGORA_SSL_ENABLED: Set to 'true' to enable SSL
         ARAGORA_SSL_CERT: Path to SSL certificate
         ARAGORA_SSL_KEY: Path to SSL private key
@@ -1608,13 +1613,20 @@ async def run_unified_server(
     except (ImportError, OSError, RuntimeError) as e:
         logger.warning(f"[server] Demo data initialization failed: {e}")
 
-    server = UnifiedServer(
-        http_port=http_port,
-        ws_port=ws_port,
-        static_dir=static_dir,
-        nomic_dir=nomic_dir,
-        storage=storage,
-        ssl_cert=ssl_cert,
-        ssl_key=ssl_key,
-    )
+    # Build server kwargs, only passing host params if explicitly provided
+    server_kwargs: dict = {
+        "http_port": http_port,
+        "ws_port": ws_port,
+        "static_dir": static_dir,
+        "nomic_dir": nomic_dir,
+        "storage": storage,
+        "ssl_cert": ssl_cert,
+        "ssl_key": ssl_key,
+    }
+    if http_host is not None:
+        server_kwargs["http_host"] = http_host
+    if ws_host is not None:
+        server_kwargs["ws_host"] = ws_host
+
+    server = UnifiedServer(**server_kwargs)
     await server.start()

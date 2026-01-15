@@ -516,6 +516,8 @@ def cmd_serve(args: argparse.Namespace) -> None:
             run_unified_server(
                 http_port=args.api_port,
                 ws_port=args.ws_port,
+                http_host=args.host,
+                ws_host=args.host,
                 static_dir=static_dir,
             )
         )
@@ -602,14 +604,183 @@ def cmd_mcp_server(args: argparse.Namespace) -> None:
         print(
             "\nMCP (Model Context Protocol) enables integration with Claude Desktop and other MCP clients."
         )
-        sys.exit(1)
-    except Exception as e:
-        print(f"\nMCP server error: {e}")
-        print("\nTroubleshooting:")
-        print("  1. Ensure MCP is installed: pip install mcp")
-        print("  2. Check port availability (default: 3000)")
-        print("  3. Run 'aragora doctor' to diagnose issues")
-        sys.exit(1)
+
+
+def cmd_memory(args: argparse.Namespace) -> None:
+    """Handle 'memory' command - inspect ContinuumMemory tiers."""
+    from aragora.config import DB_MEMORY_PATH
+    from aragora.memory.continuum import ContinuumMemory, MemoryTier
+
+    db_path = getattr(args, "db", None) or DB_MEMORY_PATH
+    memory = ContinuumMemory(db_path=db_path)
+
+    action = getattr(args, "action", "stats")
+
+    if action == "stats":
+        stats = memory.get_stats()
+        print("\nContinuum Memory Statistics")
+        print("=" * 50)
+        print(f"Total memories: {stats.get('total_memories', 0)}")
+
+        by_tier = stats.get("by_tier", {})
+        if by_tier:
+            print("\nMemories by tier:")
+            tier_order = ["fast", "medium", "slow", "glacial"]
+            for tier in tier_order:
+                count = by_tier.get(tier, 0)
+                bar = "█" * min(count // 10, 30) if count > 0 else ""
+                print(f"  {tier:8}: {count:5} {bar}")
+
+        tier_metrics = memory.get_tier_metrics()
+        if tier_metrics:
+            print("\nTier Metrics:")
+            for tier, metrics in tier_metrics.items():
+                if isinstance(metrics, dict):
+                    promotions = metrics.get("promotions", 0)
+                    demotions = metrics.get("demotions", 0)
+                    if promotions or demotions:
+                        print(f"  {tier}: ↑{promotions} promotions, ↓{demotions} demotions")
+
+    elif action == "list":
+        tier_name = getattr(args, "tier", "fast")
+        limit = getattr(args, "limit", 10)
+
+        try:
+            tier = MemoryTier[tier_name.upper()]
+        except KeyError:
+            print(f"Invalid tier: {tier_name}. Use: fast, medium, slow, glacial")
+            return
+
+        entries = memory.retrieve(tiers=[tier], limit=limit)
+        print(f"\n{tier_name.upper()} Tier Memories ({len(entries)} entries)")
+        print("=" * 60)
+
+        for entry in entries:
+            importance = f"[{entry.importance:.2f}]" if hasattr(entry, "importance") else ""
+            content = entry.content[:80] + "..." if len(entry.content) > 80 else entry.content
+            print(f"  {importance} {entry.id}: {content}")
+
+    elif action == "consolidate":
+        print("Running memory consolidation...")
+        stats = memory.consolidate()
+        print(f"Consolidation complete:")
+        print(f"  Promotions: {stats.get('promotions', 0)}")
+        print(f"  Demotions: {stats.get('demotions', 0)}")
+
+    elif action == "cleanup":
+        print("Cleaning up expired memories...")
+        stats = memory.cleanup_expired_memories()
+        print(f"Cleanup complete: {stats}")
+
+
+def cmd_elo(args: argparse.Namespace) -> None:
+    """Handle 'elo' command - view ELO ratings and history."""
+    from aragora.config import DB_ELO_PATH
+    from aragora.ranking.elo import EloSystem
+
+    db_path = getattr(args, "db", None) or DB_ELO_PATH
+    elo = EloSystem(db_path=db_path)
+
+    action = getattr(args, "action", "leaderboard")
+
+    if action == "leaderboard":
+        limit = getattr(args, "limit", 10)
+        domain = getattr(args, "domain", None)
+
+        if domain:
+            ratings = elo.get_top_agents_for_domain(domain, limit=limit)
+            print(f"\nTop Agents in {domain}")
+        else:
+            ratings = elo.get_all_ratings()[:limit]
+            print("\nGlobal Leaderboard")
+
+        print("=" * 60)
+        print(f"{'Rank':>4}  {'Agent':<20}  {'ELO':>7}  {'W/L':>8}  {'Win%':>6}")
+        print("-" * 60)
+
+        for i, rating in enumerate(ratings, 1):
+            wins = rating.wins
+            losses = rating.losses
+            win_rate = f"{rating.win_rate:.1%}" if rating.games_played > 0 else "N/A"
+            print(f"{i:>4}  {rating.agent_name:<20}  {rating.elo:>7.0f}  {wins:>3}/{losses:<3}  {win_rate:>6}")
+
+    elif action == "history":
+        agent = getattr(args, "agent", None)
+        if not agent:
+            print("Error: --agent is required for history")
+            return
+
+        limit = getattr(args, "limit", 20)
+        history = elo.get_elo_history(agent, limit=limit)
+
+        print(f"\nELO History for {agent}")
+        print("=" * 40)
+
+        if not history:
+            print("  No history found")
+            return
+
+        for timestamp, rating in history:
+            print(f"  {timestamp[:19]}  {rating:>7.0f}")
+
+    elif action == "matches":
+        limit = getattr(args, "limit", 10)
+        matches = elo.get_recent_matches(limit=limit)
+
+        print("\nRecent Matches")
+        print("=" * 70)
+
+        if not matches:
+            print("  No matches found")
+            return
+
+        for match in matches:
+            winner = match.get("winner_name", "?")
+            loser = match.get("loser_name", "?")
+            is_draw = match.get("is_draw", False)
+            domain = match.get("domain", "general")[:15]
+
+            if is_draw:
+                print(f"  DRAW: {winner} vs {loser} [{domain}]")
+            else:
+                print(f"  {winner} beat {loser} [{domain}]")
+
+    elif action == "agent":
+        agent = getattr(args, "agent", None)
+        if not agent:
+            print("Error: --agent is required")
+            return
+
+        try:
+            rating = elo.get_rating(agent)
+            print(f"\nAgent: {rating.agent_name}")
+            print("=" * 40)
+            print(f"  ELO Rating:    {rating.elo:>7.0f}")
+            print(f"  Wins/Losses:   {rating.wins}/{rating.losses}")
+            print(f"  Win Rate:      {rating.win_rate:.1%}")
+            print(f"  Total Games:   {rating.games_played}")
+
+            if rating.calibration_accuracy > 0:
+                print(f"  Calibration:   {rating.calibration_accuracy:.1%}")
+
+            # Show best domains
+            best_domains = elo.get_best_domains(agent, limit=3)
+            if best_domains:
+                print("\n  Best Domains:")
+                for domain, elo_rating in best_domains:
+                    print(f"    {domain}: {elo_rating:.0f}")
+
+            # Show rivals
+            rivals = elo.get_rivals(agent, limit=3)
+            if rivals:
+                print("\n  Top Rivals:")
+                for rival in rivals:
+                    name = rival.get("partner", "?")
+                    losses = rival.get("total_losses", 0)
+                    print(f"    {name}: {losses} losses")
+
+        except Exception as e:
+            print(f"Agent not found: {agent}")
 
 
 def get_version() -> str:
@@ -894,6 +1065,49 @@ Examples:
     from aragora.cli.audit import create_audit_parser
 
     create_audit_parser(subparsers)
+
+    # Memory command (inspect ContinuumMemory tiers)
+    memory_parser = subparsers.add_parser(
+        "memory",
+        help="Inspect multi-tier memory system",
+        description="View and manage ContinuumMemory - the multi-tier learning system.",
+    )
+    memory_parser.add_argument(
+        "action",
+        nargs="?",
+        default="stats",
+        choices=["stats", "list", "consolidate", "cleanup"],
+        help="Action: stats (default), list, consolidate, cleanup",
+    )
+    memory_parser.add_argument(
+        "--tier",
+        "-t",
+        choices=["fast", "medium", "slow", "glacial"],
+        default="fast",
+        help="Memory tier to list (for 'list' action)",
+    )
+    memory_parser.add_argument("--limit", "-n", type=int, default=10, help="Max entries to show")
+    memory_parser.add_argument("--db", help="Database path (default: from config)")
+    memory_parser.set_defaults(func=cmd_memory)
+
+    # ELO command (view agent rankings and history)
+    elo_parser = subparsers.add_parser(
+        "elo",
+        help="View ELO ratings, leaderboards, and match history",
+        description="Inspect agent skill ratings, match history, and leaderboards.",
+    )
+    elo_parser.add_argument(
+        "action",
+        nargs="?",
+        default="leaderboard",
+        choices=["leaderboard", "history", "matches", "agent"],
+        help="Action: leaderboard (default), history, matches, agent",
+    )
+    elo_parser.add_argument("--agent", "-a", help="Agent name (for history/agent actions)")
+    elo_parser.add_argument("--domain", "-d", help="Filter by domain (for leaderboard)")
+    elo_parser.add_argument("--limit", "-n", type=int, default=10, help="Max entries to show")
+    elo_parser.add_argument("--db", help="Database path (default: from config)")
+    elo_parser.set_defaults(func=cmd_elo)
 
     # MCP Server command
     mcp_parser = subparsers.add_parser(

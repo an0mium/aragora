@@ -23,6 +23,17 @@ import pytest
 
 pytest.importorskip("pytest_benchmark")
 
+# Check if aragora_sdk is installed
+try:
+    import aragora_sdk
+
+    HAS_SDK = True
+except ImportError:
+    HAS_SDK = False
+
+# Skip all SDK tests if aragora_sdk is not installed
+pytestmark = pytest.mark.skipif(not HAS_SDK, reason="aragora_sdk not installed")
+
 
 class TestSDKClientBenchmarks:
     """Benchmark SDK client operations."""
