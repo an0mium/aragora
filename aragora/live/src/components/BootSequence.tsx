@@ -169,10 +169,22 @@ export function BootSequence({ onComplete, skip = false }: BootSequenceProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-bg z-50 flex items-center justify-center cursor-pointer">
+    <div
+      className="fixed inset-0 bg-bg z-50 flex items-center justify-center cursor-pointer"
+      role="button"
+      tabIndex={0}
+      aria-label="Boot sequence animation. Press any key or click to skip."
+      onClick={handleSkip}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleSkip();
+        }
+      }}
+    >
       <div className="max-w-2xl w-full p-8 font-mono text-sm">
         {/* Skip hint at top */}
-        <div className="text-center mb-4 text-acid-yellow/60 text-xs animate-pulse">
+        <div className="text-center mb-4 text-acid-yellow/60 text-xs animate-pulse" aria-hidden="true">
           Press any key or click to skip...
         </div>
 

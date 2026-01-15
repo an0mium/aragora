@@ -40,6 +40,8 @@ export function LandingCollapsibleSection({
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="w-full text-center mb-8 group cursor-pointer"
+          aria-expanded={isOpen}
+          aria-controls={`${id}-content`}
         >
           <p className="text-acid-green/50 font-mono text-xs mb-2">{'═'.repeat(30)}</p>
           <h2 className="text-acid-green font-mono text-lg flex items-center justify-center gap-3 group-hover:text-acid-cyan transition-colors">
@@ -60,6 +62,7 @@ export function LandingCollapsibleSection({
 
         {/* Collapsible Content */}
         <div
+          id={`${id}-content`}
           className={`transition-all duration-300 ease-in-out overflow-hidden ${
             isOpen ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
           }`}

@@ -161,13 +161,23 @@ function CapabilityProbePanelComponent({
       <div
         className="panel panel-compact cursor-pointer"
         onClick={() => setIsExpanded(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsExpanded(true);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={false}
+        aria-label="Expand capability probes panel"
       >
         <div className="flex items-center justify-between">
           <h3 className="panel-title-sm flex items-center gap-2">
             <span className="text-accent">{'>'}</span>
             CAPABILITY_PROBES {report ? `[${report.summary?.pass_rate ? Math.round(report.summary.pass_rate * 100) : 0}% pass]` : ''}
           </h3>
-          <span className="panel-toggle">[EXPAND]</span>
+          <span className="panel-toggle" aria-hidden="true">[EXPAND]</span>
         </div>
       </div>
     );

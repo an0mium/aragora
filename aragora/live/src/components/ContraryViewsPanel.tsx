@@ -52,6 +52,16 @@ export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
       <div
         className="panel panel-compact cursor-pointer hover:border-acid-green/30 transition-colors"
         onClick={() => setIsExpanded(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsExpanded(true);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={false}
+        aria-label="Expand contrary views panel"
       >
         <div className="flex items-center justify-between">
           <h3 className="panel-title-sm flex items-center gap-2">
@@ -59,7 +69,7 @@ export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
             CONTRARY_VIEWS
             {views.length > 0 && <span className="panel-badge">{views.length}</span>}
           </h3>
-          <span className="panel-toggle">[EXPAND]</span>
+          <span className="panel-toggle" aria-hidden="true">[EXPAND]</span>
         </div>
       </div>
     );

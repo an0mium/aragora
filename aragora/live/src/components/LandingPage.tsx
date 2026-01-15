@@ -156,6 +156,8 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
             <button
               onClick={() => setShowLearnMore(!showLearnMore)}
               className="w-full py-6 text-center group cursor-pointer"
+              aria-expanded={showLearnMore}
+              aria-controls="learn-more-content"
             >
               <div className="flex items-center justify-center gap-3">
                 <span className="text-acid-green/40 font-mono text-xs">{'─'.repeat(12)}</span>
@@ -173,9 +175,12 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
             </button>
 
             {/* Collapsible Content */}
-            <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
-              showLearnMore ? 'max-h-[8000px] opacity-100 pb-8' : 'max-h-0 opacity-0'
-            }`}>
+            <div
+              id="learn-more-content"
+              className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                showLearnMore ? 'max-h-[8000px] opacity-100 pb-8' : 'max-h-0 opacity-0'
+              }`}
+            >
 
               {/* Use Case Highlight */}
               <div className="max-w-2xl mx-auto mb-8 text-center">
