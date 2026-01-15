@@ -110,8 +110,9 @@ jobs:
             set -e
             cd /home/ubuntu/aragora
 
-            # Save current commit for rollback
+            # Save current commit for rollback (clean up stale state file first)
             PREVIOUS_COMMIT=$(git rev-parse HEAD)
+            rm -f /tmp/aragora_deploy_state 2>/dev/null || sudo rm -f /tmp/aragora_deploy_state 2>/dev/null || true
             echo "PREVIOUS_COMMIT=$PREVIOUS_COMMIT" > /tmp/aragora_deploy_state
             echo "Saved rollback point: $PREVIOUS_COMMIT"
 
@@ -312,8 +313,9 @@ jobs:
             set -e
             cd ~/aragora || cd /home/ec2-user/aragora || cd /home/ubuntu/aragora
 
-            # Save current commit for rollback
+            # Save current commit for rollback (clean up stale state file first)
             PREVIOUS_COMMIT=$(git rev-parse HEAD)
+            rm -f /tmp/aragora_deploy_state 2>/dev/null || sudo rm -f /tmp/aragora_deploy_state 2>/dev/null || true
             echo "PREVIOUS_COMMIT=$PREVIOUS_COMMIT" > /tmp/aragora_deploy_state
             echo "Saved rollback point: $PREVIOUS_COMMIT"
 
@@ -574,7 +576,9 @@ jobs:
             set -e
             cd ~/aragora || cd /home/ec2-user/aragora
 
+            # Clean up stale state file first to avoid permission issues
             PREVIOUS_COMMIT=$(git rev-parse HEAD)
+            rm -f /tmp/aragora_deploy_state 2>/dev/null || sudo rm -f /tmp/aragora_deploy_state 2>/dev/null || true
             echo "PREVIOUS_COMMIT=$PREVIOUS_COMMIT" > /tmp/aragora_deploy_state
 
             git stash --include-untracked || true
