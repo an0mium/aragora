@@ -334,17 +334,19 @@ class TestTokenBucketEdgeCases:
         assert retry_after > 0
 
     def test_consume_zero_tokens(self):
-        """Test consuming zero tokens."""
+        """Test consuming zero tokens returns False (invalid operation)."""
         bucket = TokenBucket(rate_per_minute=60, burst_size=5)
-        assert bucket.consume(0) is True
+        # Implementation rejects zero/negative token requests as invalid
+        assert bucket.consume(0) is False
         assert bucket.remaining == 5  # Should not consume
 
     def test_consume_negative_tokens(self):
-        """Test consuming negative tokens - should add tokens back."""
+        """Test consuming negative tokens returns False (invalid operation)."""
         bucket = TokenBucket(rate_per_minute=60, burst_size=5)
         initial = bucket.remaining
-        bucket.consume(-1)  # This is technically allowed
-        assert bucket.remaining >= initial  # Tokens added
+        # Implementation rejects negative token requests as invalid
+        assert bucket.consume(-1) is False
+        assert bucket.remaining == initial  # No change
 
     def test_consume_more_than_burst(self):
         """Test consuming more tokens than burst size."""
