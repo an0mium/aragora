@@ -222,7 +222,18 @@ and building on others' ideas."""
 
         Returns 'philosophical', 'ethics', 'technical', or 'general'.
         """
+        import re
+
         lower = question.lower()
+
+        def word_match(keywords: list[str]) -> bool:
+            """Check if any keyword appears as a whole word."""
+            for kw in keywords:
+                # Use word boundary regex to avoid substring matches
+                # e.g., "api" shouldn't match "capitalism"
+                if re.search(rf"\b{re.escape(kw)}\b", lower):
+                    return True
+            return False
 
         # Philosophical/Life/Theological domains - use philosophical personas
         philosophical_keywords = [
@@ -270,15 +281,27 @@ and building on others' ideas."""
             "fetus",
             "abortion",
         ]
-        if any(kw in lower for kw in philosophical_keywords):
+        if word_match(philosophical_keywords):
             return "philosophical"
 
-        # Ethics domain
-        ethics_keywords = ["should", "ethical", "moral", "right", "wrong", "justice", "fair", "harm"]
-        if any(kw in lower for kw in ethics_keywords):
+        # Ethics domain - questions about right/wrong, good/bad, should/shouldn't
+        ethics_keywords = [
+            "should",
+            "ethical",
+            "moral",
+            "right",
+            "wrong",
+            "justice",
+            "fair",
+            "harm",
+            "good or bad",
+            "bad or good",
+        ]
+        if word_match(ethics_keywords):
             return "ethics"
 
-        # Technical domain - keep existing personas
+        # Technical domain - keep existing personas (use word boundaries to avoid
+        # false positives like "capitalism" matching "api")
         technical_keywords = [
             "code",
             "api",
@@ -292,8 +315,12 @@ and building on others' ideas."""
             "microservice",
             "deployment",
             "infrastructure",
+            "programming",
+            "algorithm",
+            "backend",
+            "frontend",
         ]
-        if any(kw in lower for kw in technical_keywords):
+        if word_match(technical_keywords):
             return "technical"
 
         return "general"
@@ -324,7 +351,16 @@ and building on others' ideas."""
                 "Acknowledge complexity and avoid reductive technical framings."
             )
 
-        # Default: use existing persona system for technical/general questions
+        # For general questions, use a wise humanistic persona (not technical)
+        if question_domain == "general":
+            return (
+                "Approach this as a thoughtful, experienced, and friendly advisor. "
+                "Draw on broad knowledge, practical wisdom, and common sense. "
+                "Be clear, helpful, and accessible. Avoid technical jargon unless the "
+                "question specifically calls for it."
+            )
+
+        # Technical domain: use existing persona system for technical questions
         if not self.persona_manager:
             return ""
 

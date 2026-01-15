@@ -578,17 +578,21 @@ class WebSocketBroadcaster:
             self.client_manager.remove_client(client)
 
     def _group_events_by_agent(self, events: list[StreamEvent]) -> list[StreamEvent]:
-        """Reorder events to group TOKEN_DELTA by agent.
+        """Reorder events to group TOKEN_DELTA by agent while preserving sequence order.
 
         Non-token events maintain their relative order.
         Token events are grouped by agent for smoother frontend rendering,
         preventing visual interleaving during parallel agent generation.
 
+        IMPORTANT: After grouping, events are sorted by sequence number to ensure
+        monotonic order is preserved. This prevents sequence gaps from being
+        introduced by the grouping process.
+
         Args:
             events: List of events in arrival order
 
         Returns:
-            Reordered list with TOKEN_DELTA events grouped by agent
+            Reordered list with TOKEN_DELTA events grouped by agent, sorted by seq
         """
         from aragora.server.stream.events import StreamEventType
 
@@ -611,6 +615,10 @@ class WebSocketBroadcaster:
         # Flush remaining tokens (grouped by agent)
         for agent_tokens in token_groups.values():
             result.extend(agent_tokens)
+
+        # Sort by sequence to ensure monotonic order after grouping
+        # This prevents sequence gaps that could be introduced by the grouping
+        result.sort(key=lambda e: e.seq if e.seq else 0)
 
         return result
 
