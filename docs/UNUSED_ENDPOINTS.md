@@ -136,7 +136,7 @@ Last audited: 2026-01-14
 
 ### Phase 2: Power User Features (Q2 2026)
 - [x] Persona Editor (`/admin/personas`)
-- [ ] Complete Social OAuth flow
+- [x] Complete Social OAuth flow (`/settings` > Account > Connected Accounts)
 
 ### Phase 3: Enterprise Features (On Demand)
 - [ ] SSO configuration page (SAML/OIDC)
