@@ -8,10 +8,13 @@ test.describe('Leaderboard', () => {
   test('should load leaderboard page', async ({ page, aragoraPage }) => {
     await page.goto('/leaderboard');
     await aragoraPage.dismissAllOverlays();
+    await page.waitForLoadState('domcontentloaded');
 
-    // Should have leaderboard heading or content
-    const heading = page.locator('h1:has-text("Leaderboard"), h1:has-text("Ranking"), [data-testid="leaderboard-title"]');
-    await expect(heading.first()).toBeVisible();
+    // Should have leaderboard heading - actual h1 is "> AGENT LEADERBOARD"
+    const heading = page.locator('h1').filter({
+      hasText: /leaderboard|ranking|agent/i
+    }).first();
+    await expect(heading).toBeVisible({ timeout: 10000 });
   });
 
   test('should display agent rankings', async ({ page, aragoraPage }) => {

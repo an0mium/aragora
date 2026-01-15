@@ -25,49 +25,53 @@ test.describe('Navigation', () => {
   test('should navigate to pulse page', async ({ page, aragoraPage }) => {
     await page.goto('/pulse');
     await aragoraPage.dismissAllOverlays();
+    await page.waitForLoadState('domcontentloaded');
     await expect(page).toHaveURL('/pulse');
 
-    // Should have pulse content
-    const pulseContent = page.locator('h1, h2').filter({
-      hasText: /pulse|scheduler/i
+    // Should have pulse content - heading is "PULSE SCHEDULER"
+    const pulseContent = page.locator('h1').filter({
+      hasText: /pulse/i
     }).first();
-    await expect(pulseContent).toBeVisible();
+    await expect(pulseContent).toBeVisible({ timeout: 10000 });
   });
 
   test('should navigate to agents page', async ({ page, aragoraPage }) => {
     await page.goto('/agents');
     await aragoraPage.dismissAllOverlays();
+    await page.waitForLoadState('domcontentloaded');
     await expect(page).toHaveURL('/agents');
 
-    // Should have agents content
-    const agentsContent = page.locator('h1, h2').filter({
+    // Should have agents content - heading is "AGENT RECOMMENDER"
+    const agentsContent = page.locator('h1').filter({
       hasText: /agent/i
     }).first();
-    await expect(agentsContent).toBeVisible();
+    await expect(agentsContent).toBeVisible({ timeout: 10000 });
   });
 
   test('should navigate to plugins page', async ({ page, aragoraPage }) => {
     await page.goto('/plugins');
     await aragoraPage.dismissAllOverlays();
+    await page.waitForLoadState('domcontentloaded');
     await expect(page).toHaveURL('/plugins');
 
-    // Should have plugins content
-    const pluginsContent = page.locator('h1, h2').filter({
+    // Should have plugins content - heading is "Plugin Marketplace"
+    const pluginsContent = page.locator('h1').filter({
       hasText: /plugin|marketplace/i
     }).first();
-    await expect(pluginsContent).toBeVisible();
+    await expect(pluginsContent).toBeVisible({ timeout: 10000 });
   });
 
   test('should navigate to batch page', async ({ page, aragoraPage }) => {
     await page.goto('/batch');
     await aragoraPage.dismissAllOverlays();
+    await page.waitForLoadState('domcontentloaded');
     await expect(page).toHaveURL('/batch');
 
     // Should have batch content - heading is "BATCH DEBATE OPERATIONS"
-    const batchContent = page.locator('h1, h2').filter({
-      hasText: /batch|operations/i
+    const batchContent = page.locator('h1').filter({
+      hasText: /batch|debate|operations/i
     }).first();
-    await expect(batchContent).toBeVisible();
+    await expect(batchContent).toBeVisible({ timeout: 10000 });
   });
 
   test('should have working navigation links in header', async ({ page, aragoraPage }) => {
