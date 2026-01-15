@@ -21,11 +21,17 @@ export interface TranscriptMessage {
 
 export interface StreamingMessage {
   agent: string;
+  taskId: string;  // Task ID for distinguishing concurrent outputs from same agent
   content: string;
   isComplete: boolean;
   startTime: number;
   expectedSeq: number;  // Next expected agent_seq for ordering
   pendingTokens: Map<number, string>;  // Buffer for out-of-order tokens
+}
+
+// Helper to create composite key for streaming messages
+function makeStreamingKey(agent: string, taskId: string): string {
+  return taskId ? `${agent}:${taskId}` : agent;
 }
 
 export type DebateConnectionStatus = 'connecting' | 'streaming' | 'complete' | 'error';
@@ -125,7 +131,9 @@ export function useDebateWebSocket({
   }, []);
 
   // Orphaned stream cleanup - handles agents that never send token_end
-  const STREAM_TIMEOUT_MS = 60000; // 60 seconds
+  // NOTE: Backend agent timeout is 240s (4 min), stream chunk timeout is 90s
+  // Use 180s (3 min) to give agents time while still catching true orphans
+  const STREAM_TIMEOUT_MS = 180000; // 180 seconds (3 minutes)
   useEffect(() => {
     const interval = setInterval(() => {
       setStreamingMessages(prev => {
@@ -133,12 +141,12 @@ export function useDebateWebSocket({
         const updated = new Map(prev);
         let changed = false;
 
-        for (const [agent, msg] of Array.from(updated.entries())) {
+        for (const [streamKey, msg] of Array.from(updated.entries())) {
           if (now - msg.startTime > STREAM_TIMEOUT_MS) {
             // Convert stale stream to completed message with timeout indicator
             if (msg.content) {
               const timedOutMsg = {
-                agent: msg.agent,
+                agent: msg.agent,  // Use actual agent name, not composite key
                 content: msg.content + ' [stream timed out]',
                 timestamp: Date.now() / 1000,
               };
@@ -149,7 +157,7 @@ export function useDebateWebSocket({
                 setMessages(prevMsgs => [...prevMsgs, timedOutMsg]);
               }
             }
-            updated.delete(agent);
+            updated.delete(streamKey);
             changed = true;
           }
         }
@@ -550,11 +558,14 @@ export function useDebateWebSocket({
     // Token streaming events with sequence-based ordering
     else if (data.type === 'token_start') {
       const agent = (data.agent as string) || (eventData?.agent as string);
+      const taskId = (data.task_id as string) || '';  // Extract task_id for concurrent outputs
       if (agent) {
+        const streamKey = makeStreamingKey(agent, taskId);
         setStreamingMessages(prev => {
           const updated = new Map(prev);
-          updated.set(agent, {
+          updated.set(streamKey, {
             agent,
+            taskId,
             content: '',
             isComplete: false,
             startTime: Date.now(),
@@ -567,13 +578,15 @@ export function useDebateWebSocket({
       }
     } else if (data.type === 'token_delta') {
       const agent = (data.agent as string) || (eventData?.agent as string);
+      const taskId = (data.task_id as string) || '';  // Extract task_id for concurrent outputs
       const token = (eventData?.token as string) || '';
       const agentSeq = (data.agent_seq as number) || 0;  // Per-agent sequence number
 
       if (agent && token) {
+        const streamKey = makeStreamingKey(agent, taskId);
         setStreamingMessages(prev => {
           const updated = new Map(prev);
-          const existing = updated.get(agent);
+          const existing = updated.get(streamKey);
 
           if (existing) {
             // If we have sequence info, use it for ordering
@@ -592,7 +605,7 @@ export function useDebateWebSocket({
                   nextExpected++;
                 }
 
-                updated.set(agent, {
+                updated.set(streamKey, {
                   ...existing,
                   content: newContent,
                   expectedSeq: nextExpected,
@@ -602,7 +615,7 @@ export function useDebateWebSocket({
                 // Token arrived out of order - buffer it
                 const pending = new Map(existing.pendingTokens);
                 pending.set(agentSeq, token);
-                updated.set(agent, {
+                updated.set(streamKey, {
                   ...existing,
                   pendingTokens: pending,
                 });
@@ -610,15 +623,16 @@ export function useDebateWebSocket({
               // Ignore tokens with seq < expectedSeq (duplicate/old)
             } else {
               // No sequence info - fall back to simple append (backward compat)
-              updated.set(agent, {
+              updated.set(streamKey, {
                 ...existing,
                 content: existing.content + token,
               });
             }
           } else {
-            // First token for this agent (no token_start received)
-            updated.set(agent, {
+            // First token for this agent+task (no token_start received)
+            updated.set(streamKey, {
               agent,
+              taskId,
               content: token,
               isComplete: false,
               startTime: Date.now(),
@@ -631,10 +645,12 @@ export function useDebateWebSocket({
       }
     } else if (data.type === 'token_end') {
       const agent = (data.agent as string) || (eventData?.agent as string);
+      const taskId = (data.task_id as string) || '';  // Extract task_id for concurrent outputs
       if (agent) {
+        const streamKey = makeStreamingKey(agent, taskId);
         setStreamingMessages(prev => {
           const updated = new Map(prev);
-          const existing = updated.get(agent);
+          const existing = updated.get(streamKey);
           if (existing) {
             // Flush any remaining buffered tokens in order
             let finalContent = existing.content;
@@ -659,7 +675,7 @@ export function useDebateWebSocket({
               }
             }
           }
-          updated.delete(agent);
+          updated.delete(streamKey);
           return updated;
         });
       }
@@ -863,6 +879,35 @@ export function useDebateWebSocket({
         timestamp: (data.timestamp as number) || Date.now() / 1000,
       };
       addStreamEvent(event);
+    }
+
+    // Agent error events (agent failed but debate continues)
+    else if (data.type === 'agent_error') {
+      const event: StreamEvent = {
+        type: 'agent_error',
+        data: (eventData as Record<string, unknown>) || {},
+        timestamp: (data.timestamp as number) || Date.now() / 1000,
+        agent: (data.agent as string) || (eventData?.agent as string),
+      };
+      addStreamEvent(event);
+      // Log for debugging but don't show error state - debate continues
+      logger.warn(`[Agent Error] ${data.agent}: ${eventData?.message}`);
+    }
+
+    // Phase progress events (for detecting stalls and showing progress)
+    else if (data.type === 'phase_progress') {
+      const event: StreamEvent = {
+        type: 'phase_progress',
+        data: (eventData as Record<string, unknown>) || {},
+        timestamp: (data.timestamp as number) || Date.now() / 1000,
+      };
+      addStreamEvent(event);
+    }
+
+    // Heartbeat events (debate is still alive)
+    else if (data.type === 'heartbeat') {
+      // Just log - this confirms the debate is still running
+      logger.debug(`[Heartbeat] phase=${eventData?.phase} status=${eventData?.status}`);
     }
 
     // Evidence found events (real-time evidence collection)

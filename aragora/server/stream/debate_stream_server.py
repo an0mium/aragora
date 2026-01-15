@@ -396,7 +396,7 @@ class DebateStreamServer(ServerBase):
             self.update_loop_state(loop_id, phase=event.data.get("phase"))
 
     async def broadcast(self, event: StreamEvent) -> None:
-        """Send event to all connected clients."""
+        """Send event to all connected clients with per-client timeout protection."""
         if not self.clients:
             return
 
@@ -409,7 +409,12 @@ class DebateStreamServer(ServerBase):
 
         for client in clients_snapshot:
             try:
-                await client.send(message)
+                # Timeout prevents hanging if client disconnects mid-send
+                async with asyncio.timeout(5.0):
+                    await client.send(message)
+            except asyncio.TimeoutError:
+                logger.warning(f"Client send timed out during broadcast, marking for disconnect")
+                disconnected.add(client)
             except Exception as e:
                 logger.debug(f"Client disconnected during broadcast: {e}")
                 disconnected.add(client)
@@ -441,7 +446,12 @@ class DebateStreamServer(ServerBase):
 
         for client in clients_snapshot:
             try:
-                await client.send(message)
+                # Timeout prevents hanging if client disconnects mid-send
+                async with asyncio.timeout(5.0):
+                    await client.send(message)
+            except asyncio.TimeoutError:
+                logger.warning(f"Client send timed out during batch broadcast, marking for disconnect")
+                disconnected.add(client)
             except Exception as e:
                 logger.debug(f"Client disconnected during batch broadcast: {e}")
                 disconnected.add(client)

@@ -79,7 +79,11 @@ export type StreamEventType =
   | 'graph_node_added'
   // Matrix debate events
   | 'scenario_complete'
-  | 'matrix_complete';
+  | 'matrix_complete'
+  // Progress/heartbeat events (for detecting stalls)
+  | 'heartbeat'
+  | 'agent_error'
+  | 'phase_progress';
 
 // Base interface for all stream events
 interface StreamEventBase {

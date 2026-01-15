@@ -260,6 +260,71 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
             )
         )
 
+    def on_agent_error(
+        agent: str,
+        error_type: str,
+        message: str,
+        recoverable: bool = True,
+        phase: str = "",
+    ) -> None:
+        """Emit agent error event when an agent fails but debate continues.
+
+        This helps frontends understand why an agent produced placeholder output.
+        """
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.AGENT_ERROR,
+                data={
+                    "error_type": error_type,  # "timeout", "connection", "internal"
+                    "message": message,
+                    "recoverable": recoverable,
+                    "phase": phase,
+                },
+                agent=agent,
+                loop_id=loop_id,
+            )
+        )
+
+    def on_phase_progress(
+        phase: str,
+        completed: int,
+        total: int,
+        current_agent: str = "",
+    ) -> None:
+        """Emit progress within a phase (e.g., 3/8 agents have generated proposals).
+
+        This helps frontends show progress and detect stalls.
+        """
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.PHASE_PROGRESS,
+                data={
+                    "phase": phase,
+                    "completed": completed,
+                    "total": total,
+                    "current_agent": current_agent,
+                    "progress_pct": (completed / total * 100) if total > 0 else 0,
+                },
+                loop_id=loop_id,
+            )
+        )
+
+    def on_heartbeat(phase: str = "", status: str = "alive") -> None:
+        """Emit periodic heartbeat to indicate debate is still running.
+
+        Should be called every ~30 seconds during long-running phases.
+        """
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.HEARTBEAT,
+                data={
+                    "phase": phase,
+                    "status": status,
+                },
+                loop_id=loop_id,
+            )
+        )
+
     return {
         "on_debate_start": on_debate_start,
         "on_round_start": on_round_start,
@@ -269,6 +334,9 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
         "on_consensus": on_consensus,
         "on_synthesis": on_synthesis,
         "on_debate_end": on_debate_end,
+        "on_agent_error": on_agent_error,
+        "on_phase_progress": on_phase_progress,
+        "on_heartbeat": on_heartbeat,
     }
 
 

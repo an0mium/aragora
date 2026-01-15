@@ -105,6 +105,11 @@ class StreamEventType(Enum):
     BREAKPOINT = "breakpoint"  # Human intervention breakpoint triggered
     BREAKPOINT_RESOLVED = "breakpoint_resolved"  # Breakpoint resolved with guidance
 
+    # Progress/heartbeat events (for detecting stalled debates)
+    HEARTBEAT = "heartbeat"  # Periodic progress indicator
+    AGENT_ERROR = "agent_error"  # Agent encountered an error (but debate continues)
+    PHASE_PROGRESS = "phase_progress"  # Progress within a phase (e.g., 3/8 agents complete)
+
     # Mood/sentiment events (Real-Time Debate Drama)
     MOOD_DETECTED = "mood_detected"  # Agent emotional state analyzed
     MOOD_SHIFT = "mood_shift"  # Significant mood change detected

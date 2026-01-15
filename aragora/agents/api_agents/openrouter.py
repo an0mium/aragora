@@ -29,6 +29,32 @@ from aragora.exceptions import ExternalServiceError
 
 logger = logging.getLogger(__name__)
 
+# Fallback model chain for resilience when primary models fail
+# Maps primary model -> fallback model (used after max_retries exhausted)
+OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
+    # Qwen models -> DeepSeek
+    "qwen/qwen-2.5-72b-instruct": "deepseek/deepseek-chat",
+    "qwen/qwen3-235b-a22b": "deepseek/deepseek-chat",
+    "qwen/qwen3-max": "deepseek/deepseek-chat",
+    # DeepSeek -> GPT-4o-mini (fast, reliable)
+    "deepseek/deepseek-chat": "openai/gpt-4o-mini",
+    "deepseek/deepseek-chat-v3-0324": "openai/gpt-4o-mini",
+    "deepseek/deepseek-v3.2": "openai/gpt-4o-mini",
+    "deepseek/deepseek-reasoner": "anthropic/claude-3-haiku",
+    # Kimi -> Claude Haiku
+    "moonshotai/kimi-k2-0905": "anthropic/claude-3-haiku",
+    "moonshotai/kimi-k2-thinking": "anthropic/claude-3-haiku",
+    "moonshot/moonshot-v1-128k": "anthropic/claude-3-haiku",
+    # Mistral -> GPT-4o-mini
+    "mistralai/mistral-large-2411": "openai/gpt-4o-mini",
+    # Yi -> DeepSeek
+    "01-ai/yi-large": "deepseek/deepseek-chat",
+    # Llama -> GPT-4o-mini
+    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-4o-mini",
+    "meta-llama/llama-4-maverick": "openai/gpt-4o-mini",
+    "meta-llama/llama-4-scout": "openai/gpt-4o-mini",
+}
+
 
 @AgentRegistry.register(
     "openrouter",
@@ -96,7 +122,17 @@ class OpenRouterAgent(APIAgent):
         return prompt + "\n"
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using OpenRouter API with rate limiting and retry."""
+        """Generate a response using OpenRouter API with rate limiting, retry, and fallback."""
+        return await self._generate_with_model(self.model, prompt, context)
+
+    async def _generate_with_model(
+        self,
+        model: str,
+        prompt: str,
+        context: list[Message] | None = None,
+        is_fallback: bool = False,
+    ) -> str:
+        """Internal generate method that supports model fallback on failure."""
         max_retries = 3
         base_delay = 30  # Start with 30s backoff for rate limits
 
@@ -118,7 +154,7 @@ class OpenRouterAgent(APIAgent):
             messages.insert(0, {"role": "system", "content": self.system_prompt})
 
         payload = {
-            "model": self.model,
+            "model": model,
             "messages": messages,
             "max_tokens": 4096,
         }
@@ -160,12 +196,22 @@ class OpenRouterAgent(APIAgent):
 
                             if attempt < max_retries - 1:
                                 logger.warning(
-                                    f"OpenRouter rate limited (429), waiting {wait_time:.0f}s before retry {attempt + 2}/{max_retries}"
+                                    f"OpenRouter rate limited (429) for {model}, waiting {wait_time:.0f}s before retry {attempt + 2}/{max_retries}"
                                 )
                                 await asyncio.sleep(wait_time)
                                 last_error = "Rate limited (429)"
                                 continue
                             else:
+                                # Try fallback model if available (only once)
+                                if not is_fallback:
+                                    fallback = OPENROUTER_FALLBACK_MODELS.get(model)
+                                    if fallback:
+                                        logger.warning(
+                                            f"OpenRouter {model} exhausted retries, falling back to {fallback}"
+                                        )
+                                        return await self._generate_with_model(
+                                            fallback, prompt, context, is_fallback=True
+                                        )
                                 raise AgentRateLimitError(
                                     f"OpenRouter rate limited (429) after {max_retries} retries",
                                     agent_name=self.name,
@@ -206,10 +252,20 @@ class OpenRouterAgent(APIAgent):
                 if attempt < max_retries - 1:
                     wait_time = base_delay * (2**attempt)
                     logger.warning(
-                        f"OpenRouter connection error, waiting {wait_time:.0f}s before retry: {e}"
+                        f"OpenRouter connection error for {model}, waiting {wait_time:.0f}s before retry: {e}"
                     )
                     await asyncio.sleep(wait_time)
                     continue
+                # Try fallback model if available (only once)
+                if not is_fallback:
+                    fallback = OPENROUTER_FALLBACK_MODELS.get(model)
+                    if fallback:
+                        logger.warning(
+                            f"OpenRouter {model} connection failed, falling back to {fallback}"
+                        )
+                        return await self._generate_with_model(
+                            fallback, prompt, context, is_fallback=True
+                        )
                 raise AgentConnectionError(
                     f"OpenRouter connection failed after {max_retries} retries: {last_error}",
                     agent_name=self.name,

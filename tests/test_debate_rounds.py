@@ -396,8 +396,9 @@ class TestRevisionPhase:
 
         await phase.execute(ctx)
 
-        # Should be called for both critiques and revisions
-        assert on_message.call_count >= 4
+        # Should be called for revisions (critiques use on_critique hook)
+        # 2 agents = 2 revisions
+        assert on_message.call_count >= 2
 
     @pytest.mark.asyncio
     async def test_record_grounded_position(self):

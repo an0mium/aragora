@@ -22,8 +22,28 @@ from aragora.server.stream.arena_hooks import streaming_task_context
 # Timeout for async callbacks that can hang (evidence refresh, judge termination, etc.)
 DEFAULT_CALLBACK_TIMEOUT = 30.0
 
-# Timeout for the entire revision phase gather (prevents indefinite stalls)
-REVISION_PHASE_TIMEOUT = 90.0
+# Base timeout for the entire revision phase gather (prevents indefinite stalls)
+# Actual timeout is calculated dynamically based on agent count
+REVISION_PHASE_BASE_TIMEOUT = 120.0
+
+
+def _calculate_phase_timeout(num_agents: int, agent_timeout: float) -> float:
+    """Calculate dynamic phase timeout based on agent count.
+
+    Ensures phase timeout exceeds (agents / max_concurrent) * agent_timeout.
+    This prevents the phase from timing out before all agents can complete.
+
+    Args:
+        num_agents: Number of agents in the phase
+        agent_timeout: Per-agent timeout in seconds
+
+    Returns:
+        Phase timeout in seconds
+    """
+    # With bounded concurrency, worst case is sequential execution
+    # Add 60s buffer for gather overhead and safety margin
+    calculated = (num_agents / MAX_CONCURRENT_REVISIONS) * agent_timeout + 60.0
+    return max(calculated, REVISION_PHASE_BASE_TIMEOUT)
 
 
 async def _with_callback_timeout(coro, timeout: float = DEFAULT_CALLBACK_TIMEOUT, default=None):
@@ -403,7 +423,9 @@ class DebateRoundsPhase:
                 # Get full critique content
                 critique_content = crit_result.to_prompt()
 
-                # Emit critique event
+                # Emit critique event (includes full_content for activity feeds)
+                # NOTE: Previously also emitted on_message which caused duplicate display.
+                # on_critique now includes full_content, so on_message is not needed.
                 if "on_critique" in self.hooks:
                     self.hooks["on_critique"](
                         agent=critic.name,
@@ -412,15 +434,6 @@ class DebateRoundsPhase:
                         severity=crit_result.severity,
                         round_num=round_num,
                         full_content=critique_content,
-                    )
-
-                # Emit as message for activity feed
-                if "on_message" in self.hooks:
-                    self.hooks["on_message"](
-                        agent=critic.name,
-                        content=critique_content,
-                        role="critic",
-                        round_num=round_num,
                     )
 
                 # Record critique
@@ -496,15 +509,18 @@ class DebateRoundsPhase:
             revision_tasks.append(generate_revision_bounded(agent, revision_prompt))
             revision_agents.append(agent)
 
+        # Calculate dynamic phase timeout based on number of agents
+        phase_timeout = _calculate_phase_timeout(len(revision_agents), timeout)
+
         # Execute all revisions with bounded concurrency and phase-level timeout
         try:
             revision_results = await asyncio.wait_for(
                 asyncio.gather(*revision_tasks, return_exceptions=True),
-                timeout=REVISION_PHASE_TIMEOUT,
+                timeout=phase_timeout,
             )
         except asyncio.TimeoutError:
             logger.error(
-                f"revision_phase_timeout: phase exceeded {REVISION_PHASE_TIMEOUT}s limit, "
+                f"revision_phase_timeout: phase exceeded {phase_timeout:.0f}s limit, "
                 f"agents={[a.name for a in revision_agents]}"
             )
             # Return timeout errors for all pending agents

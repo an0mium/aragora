@@ -524,6 +524,7 @@ class Arena:
             chaos_director=self.chaos_director,
             performance_monitor=self.performance_monitor,
             enable_telemetry=enable_telemetry,
+            event_hooks=self.hooks,  # Pass hooks for agent error events
         )
         self.initial_messages = initial_messages or []
         self.trending_topic = trending_topic

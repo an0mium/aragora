@@ -139,8 +139,15 @@ class CritiqueMixin:
         if not issues and not suggestions:
             sentences = [s.strip() for s in response.replace("\n", " ").split(".") if s.strip()]
             mid = len(sentences) // 2
-            issues = sentences[:mid] if sentences else ["See full response"]
-            suggestions = sentences[mid:] if len(sentences) > mid else []
+            if sentences:
+                issues = sentences[:mid]
+                suggestions = sentences[mid:] if len(sentences) > mid else []
+            else:
+                # No sentences found - use full response as single issue
+                # This preserves content instead of showing unhelpful placeholder
+                full_response = response.strip()
+                issues = [full_response] if full_response else ["Agent response was empty"]
+                suggestions = []
             reasoning = response[:500]
         else:
             reasoning = response[:500]

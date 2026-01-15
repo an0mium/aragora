@@ -116,10 +116,10 @@ test.describe('Settings - Appearance Tab', () => {
   });
 
   test('should display theme options', async ({ page }) => {
-    // Theme options are in labels with capitalize class
-    await expect(page.locator('label').filter({ hasText: /^dark$/i }).first()).toBeVisible();
-    await expect(page.locator('label').filter({ hasText: /^light$/i }).first()).toBeVisible();
-    await expect(page.locator('label').filter({ hasText: /^system$/i }).first()).toBeVisible();
+    // Theme options are in labels with description text
+    await expect(page.locator('label').filter({ hasText: /dark.*theme/i }).first()).toBeVisible();
+    await expect(page.locator('label').filter({ hasText: /light.*theme/i }).first()).toBeVisible();
+    await expect(page.locator('label').filter({ hasText: /system.*preference/i }).first()).toBeVisible();
   });
 
   test('should allow selecting theme', async ({ page }) => {

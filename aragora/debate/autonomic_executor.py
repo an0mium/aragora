@@ -136,6 +136,7 @@ class AutonomicExecutor:
         chaos_director: Optional["ChaosDirector"] = None,
         performance_monitor: Optional["AgentPerformanceMonitor"] = None,
         enable_telemetry: bool = False,
+        event_hooks: Optional[dict] = None,  # Optional hooks for emitting events
     ):
         """
         Initialize the autonomic executor.
@@ -152,8 +153,10 @@ class AutonomicExecutor:
             chaos_director: Optional ChaosDirector for theatrical failure messages
             performance_monitor: Optional AgentPerformanceMonitor for telemetry
             enable_telemetry: Enable Prometheus/Blackbox telemetry emission
+            event_hooks: Optional dict of hooks for emitting agent events (on_agent_error, etc.)
         """
         self.circuit_breaker = circuit_breaker
+        self.event_hooks = event_hooks or {}
         # Use AGENT_TIMEOUT_SECONDS from config if not explicitly specified
         self.default_timeout = (
             default_timeout if default_timeout is not None else float(AGENT_TIMEOUT_SECONDS)
@@ -178,6 +181,32 @@ class AutonomicExecutor:
     def set_loop_id(self, loop_id: str) -> None:
         """Set the current loop/debate ID for wisdom retrieval."""
         self.loop_id = loop_id
+
+    def _emit_agent_error(
+        self,
+        agent_name: str,
+        error_type: str,
+        message: str,
+        recoverable: bool = True,
+        phase: str = "",
+    ) -> None:
+        """Emit an agent error event via hooks if available.
+
+        This notifies the frontend about agent failures so users understand
+        why an agent produced placeholder/error output.
+        """
+        on_agent_error = self.event_hooks.get("on_agent_error")
+        if on_agent_error:
+            try:
+                on_agent_error(
+                    agent=agent_name,
+                    error_type=error_type,
+                    message=message,
+                    recoverable=recoverable,
+                    phase=phase,
+                )
+            except Exception as e:
+                logger.debug(f"[Autonomic] Failed to emit agent error event: {e}")
 
     def _emit_agent_telemetry(
         self,
@@ -408,6 +437,15 @@ class AutonomicExecutor:
                 agent.name, "generate", start_time, success=False, error=e, input_text=prompt
             )
 
+            # Emit agent error event for frontend visibility
+            self._emit_agent_error(
+                agent.name,
+                error_type="timeout",
+                message=f"Agent timed out after {timeout_seconds:.1f}s",
+                recoverable=True,
+                phase=phase,
+            )
+
             # Use theatrical message if chaos director available
             if self.chaos_director:
                 return self.chaos_director.timeout_response(agent.name, timeout_seconds).message
@@ -432,6 +470,15 @@ class AutonomicExecutor:
                 agent.name, "generate", start_time, success=False, error=e, input_text=prompt
             )
 
+            # Emit agent error event for frontend visibility
+            self._emit_agent_error(
+                agent.name,
+                error_type="connection",
+                message=f"Connection failed: {e}",
+                recoverable=True,
+                phase=phase,
+            )
+
             # Use theatrical message if chaos director available
             if self.chaos_director:
                 return self.chaos_director.connection_response(agent.name).message
@@ -454,6 +501,15 @@ class AutonomicExecutor:
             # Emit telemetry for exception
             self._emit_agent_telemetry(
                 agent.name, "generate", start_time, success=False, error=e, input_text=prompt
+            )
+
+            # Emit agent error event for frontend visibility
+            self._emit_agent_error(
+                agent.name,
+                error_type="internal",
+                message=f"Internal error: {type(e).__name__}",
+                recoverable=False,
+                phase=phase,
             )
 
             # Use theatrical message if chaos director available

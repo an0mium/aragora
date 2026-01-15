@@ -62,6 +62,9 @@ class TestCreateArenaHooks:
             "on_consensus",
             "on_synthesis",
             "on_debate_end",
+            "on_agent_error",
+            "on_phase_progress",
+            "on_heartbeat",
         }
         assert set(hooks.keys()) == expected_hooks
 
