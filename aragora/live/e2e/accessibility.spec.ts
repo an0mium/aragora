@@ -22,7 +22,7 @@ test.describe('Accessibility - Critical Pages', () => {
   for (const page of CRITICAL_PAGES) {
     test(`${page.name} should have no critical accessibility violations`, async ({ page: browserPage, aragoraPage }) => {
       await browserPage.goto(page.path);
-      await aragoraPage.dismissBootAnimation();
+      await aragoraPage.dismissAllOverlays();
       await browserPage.waitForLoadState('domcontentloaded');
 
       const results = await new AxeBuilder({ page: browserPage })
@@ -55,8 +55,9 @@ test.describe('Accessibility - Critical Pages', () => {
 });
 
 test.describe('Accessibility - Interactive Components', () => {
-  test('Modal dialogs should be accessible', async ({ page }) => {
+  test('Modal dialogs should be accessible', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Try to open any modal (e.g., sign in)
@@ -77,8 +78,9 @@ test.describe('Accessibility - Interactive Components', () => {
     }
   });
 
-  test('Navigation should be keyboard accessible', async ({ page }) => {
+  test('Navigation should be keyboard accessible', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Test keyboard navigation
@@ -92,8 +94,9 @@ test.describe('Accessibility - Interactive Components', () => {
     expect(focusedElement).toBeTruthy();
   });
 
-  test('Forms should have proper labels', async ({ page }) => {
+  test('Forms should have proper labels', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const results = await new AxeBuilder({ page })
@@ -110,8 +113,9 @@ test.describe('Accessibility - Interactive Components', () => {
 });
 
 test.describe('Accessibility - Color Contrast', () => {
-  test('Text should have sufficient color contrast', async ({ page }) => {
+  test('Text should have sufficient color contrast', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const results = await new AxeBuilder({ page })
@@ -138,8 +142,9 @@ test.describe('Accessibility - Color Contrast', () => {
 });
 
 test.describe('Accessibility - ARIA', () => {
-  test('ARIA attributes should be valid', async ({ page }) => {
+  test('ARIA attributes should be valid', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const results = await new AxeBuilder({ page })
@@ -153,8 +158,9 @@ test.describe('Accessibility - ARIA', () => {
     expect(ariaViolations).toHaveLength(0);
   });
 
-  test('Interactive elements should have accessible names', async ({ page }) => {
+  test('Interactive elements should have accessible names', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const results = await new AxeBuilder({ page })
@@ -169,8 +175,9 @@ test.describe('Accessibility - ARIA', () => {
 });
 
 test.describe('Accessibility - Debates Page', () => {
-  test('Debate list should be accessible', async ({ page }) => {
+  test('Debate list should be accessible', async ({ page, aragoraPage }) => {
     await page.goto('/debates');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const results = await new AxeBuilder({ page })
@@ -184,9 +191,10 @@ test.describe('Accessibility - Debates Page', () => {
     expect(criticalViolations).toHaveLength(0);
   });
 
-  test('Debate viewer should be accessible', async ({ page }) => {
+  test('Debate viewer should be accessible', async ({ page, aragoraPage }) => {
     // Navigate to debates and click on first one if available
     await page.goto('/debates');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const debateLink = page.locator('a[href*="/debates/"]').first();
@@ -208,8 +216,9 @@ test.describe('Accessibility - Debates Page', () => {
 });
 
 test.describe('Accessibility - Screen Reader Compatibility', () => {
-  test('Page should have proper heading hierarchy', async ({ page }) => {
+  test('Page should have proper heading hierarchy', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const headings = await page.evaluate(() => {
@@ -226,8 +235,9 @@ test.describe('Accessibility - Screen Reader Compatibility', () => {
     expect(headings.h1Count).toBeLessThanOrEqual(1);
   });
 
-  test('Page should have skip links or landmarks', async ({ page }) => {
+  test('Page should have skip links or landmarks', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const hasLandmarks = await page.evaluate(() => {

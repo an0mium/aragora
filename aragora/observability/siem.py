@@ -46,7 +46,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -354,7 +353,6 @@ class SIEMClient:
 
     def _send_to_syslog(self, events: List[SecurityEvent]) -> None:
         """Send events to syslog."""
-        import socket
         import syslog
 
         for event in events:
