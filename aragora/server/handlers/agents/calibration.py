@@ -16,7 +16,7 @@ from typing import Optional
 
 from aragora.utils.optional_imports import try_import_class
 
-from .base import (
+from ..base import (
     SAFE_AGENT_PATTERN,
     BaseHandler,
     HandlerResult,
@@ -26,7 +26,7 @@ from .base import (
     handle_errors,
     json_response,
 )
-from .utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 

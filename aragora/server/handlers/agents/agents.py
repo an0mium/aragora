@@ -41,7 +41,7 @@ from aragora.config import (
 logger = logging.getLogger(__name__)
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
-from .base import (
+from ..base import (
     SAFE_AGENT_PATTERN,
     SAFE_ID_PATTERN,
     BaseHandler,
@@ -57,7 +57,7 @@ from .base import (
     ttl_cache,
     validate_path_segment,
 )
-from .utils.rate_limit import rate_limit
+from ..utils.rate_limit import rate_limit
 
 
 class AgentsHandler(BaseHandler):

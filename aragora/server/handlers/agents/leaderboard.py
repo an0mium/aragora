@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # Introspection limits
 MAX_INTROSPECTION_AGENTS = 50  # Prevent unbounded introspection calls
 
-from .base import (
+from ..base import (
     SAFE_ID_PATTERN,
     BaseHandler,
     HandlerResult,
@@ -40,7 +40,7 @@ from .base import (
     ttl_cache,
     validate_path_segment,
 )
-from .utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip
 
 # Rate limiter for leaderboard endpoints (60 requests per minute - cached data)
 _leaderboard_limiter = RateLimiter(requests_per_minute=60)

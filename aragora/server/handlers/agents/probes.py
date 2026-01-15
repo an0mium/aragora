@@ -21,7 +21,7 @@ from aragora.server.validation import validate_agent_name
 from aragora.server.validation.schema import PROBE_RUN_SCHEMA, validate_against_schema
 from aragora.utils.optional_imports import try_import
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,

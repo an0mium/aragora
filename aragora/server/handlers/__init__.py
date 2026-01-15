@@ -38,7 +38,7 @@ from .belief import BeliefHandler
 from .billing import BillingHandler
 from .breakpoints import BreakpointsHandler
 from .broadcast import BroadcastHandler
-from .calibration import CalibrationHandler
+from .agents import CalibrationHandler  # Moved to agents/
 from .checkpoints import CheckpointHandler
 from .consensus import ConsensusHandler
 from .critique import CritiqueHandler
@@ -59,7 +59,7 @@ from .health import HealthHandler
 from .insights import InsightsHandler
 from .introspection import IntrospectionHandler
 from .laboratory import LaboratoryHandler
-from .leaderboard import LeaderboardViewHandler
+from .agents import LeaderboardViewHandler  # Moved to agents/
 from .learning import LearningHandler
 from .matrix_debates import MatrixDebatesHandler
 from .memory import MemoryHandler
@@ -71,7 +71,7 @@ from .oauth import OAuthHandler
 from .organizations import OrganizationsHandler
 from .persona import PersonaHandler
 from .plugins import PluginsHandler
-from .probes import ProbesHandler
+from .agents import ProbesHandler  # Moved to agents/
 from .pulse import PulseHandler
 from .relationship import RelationshipHandler
 from .replays import ReplaysHandler
