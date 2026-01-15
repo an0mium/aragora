@@ -1,17 +1,29 @@
 # Aragora Deployment Guide
 
-Deploy the Aragora server to keep `aragora.ai` running 24/7.
+Deploy the Aragora server to keep `api.aragora.ai` running 24/7.
 
-## Quick Start (AWS Lightsail)
+## Current Architecture
+
+```
+api.aragora.ai → Cloudflare Tunnel → EC2 (3.141.158.91)
+                                      ├── nginx :80
+                                      ├── aragora :8080 (HTTP API)
+                                      └── aragora :8765 (WebSocket)
+```
+
+**Primary:** AWS EC2 via Cloudflare tunnel (`ringrift-cluster`)
+**Docs:** See `cloudflare-lb-setup.md` for Cloudflare configuration
+
+## Quick Start (AWS EC2)
 
 1. **Launch Instance**
-   - Go to AWS Lightsail
-   - Create Ubuntu 22.04 instance (1GB RAM minimum, 2GB recommended)
-   - Select "Networking" and open ports: 80, 443, 8080, 8765
+   - AWS EC2, Amazon Linux 2 or Ubuntu 22.04
+   - Instance type: t3.micro or larger
+   - Security group: Allow SSH (22), HTTP (80) from Cloudflare IPs
 
 2. **Connect and Install**
    ```bash
-   ssh ubuntu@your-instance-ip
+   ssh ec2-user@your-instance-ip
    git clone https://github.com/yourusername/aragora.git
    cd aragora
    ./deploy/setup-server.sh
@@ -19,33 +31,36 @@ Deploy the Aragora server to keep `aragora.ai` running 24/7.
 
 3. **Configure API Keys**
    ```bash
-   sudo nano /opt/aragora/.env
+   nano ~/aragora/.env
    ```
    Add your keys:
    ```
    ANTHROPIC_API_KEY=sk-ant-...
    OPENAI_API_KEY=sk-proj-...
    OPENROUTER_API_KEY=sk-or-...
-   GEMINI_API_KEY=AIza...
-   XAI_API_KEY=xai-...
    ```
 
-4. **Configure Domain**
+4. **Configure Nginx**
    ```bash
-   sudo nano /etc/nginx/sites-available/aragora
-   # Replace YOUR_DOMAIN with api.aragora.ai
-   sudo certbot --nginx -d api.aragora.ai
-   sudo systemctl restart aragora nginx
+   ./deploy/configure-nginx.sh
    ```
 
-## Docker Deployment
+5. **Start Services**
+   ```bash
+   sudo systemctl enable aragora
+   sudo systemctl start aragora
+   ```
 
-For containerized deployment:
+## GitHub Actions Deployment
 
-```bash
-cd deploy
-docker-compose up -d
-```
+Pushes to `main` branch automatically deploy via `.github/workflows/deploy.yml`:
+- Deploys to EC2 via SSH
+- Runs health checks
+- Rolls back on failure
+
+Required secrets:
+- `EC2_HOST` - EC2 public IP
+- `EC2_SSH_KEY` - SSH private key
 
 ## Management Commands
 
@@ -60,40 +75,53 @@ sudo journalctl -u aragora -f
 sudo systemctl restart aragora
 
 # Health check
-curl http://localhost:8080/healthz
+curl http://localhost:8080/api/health
+curl http://localhost/api/health  # via nginx
 ```
 
 ## Ports
 
 | Port | Service | Description |
 |------|---------|-------------|
-| 80   | nginx   | HTTP (redirects to HTTPS) |
-| 443  | nginx   | HTTPS |
+| 80   | nginx   | HTTP reverse proxy |
 | 8080 | aragora | HTTP API (internal) |
 | 8765 | aragora | WebSocket (internal) |
 
 ## Monitoring
 
-The server exposes health endpoints:
-- `GET /healthz` - Liveness probe
-- `GET /readyz` - Readiness probe  
-- `GET /api/health/detailed` - Detailed health
+Health endpoints:
+- `GET /api/health` - Basic health check
+- `GET /api/health/detailed` - Detailed health with all checks
 
-## SSL/TLS
+## Cloudflare Configuration
 
-Use Let's Encrypt for free SSL:
-```bash
-sudo certbot --nginx -d api.aragora.ai
-```
+See `cloudflare-lb-setup.md` for:
+- Tunnel configuration
+- Security group IP ranges
+- Health check settings
+- WebSocket session affinity
 
 ## Troubleshooting
 
 **Server won't start**
 ```bash
 sudo journalctl -u aragora -n 100
-python -m aragora doctor
+python -c "from aragora.server.unified_server import UnifiedServer; print('OK')"
 ```
 
-**WebSocket fails** - Check ports 8765 open in security group
+**Health check fails via nginx**
+```bash
+# Check nginx config
+sudo nginx -t
+# Check nginx routes to correct port
+curl -v http://localhost/api/health
+```
 
-**API 500 errors** - Check .env keys, run doctor
+**WebSocket fails**
+- Check nginx has WebSocket upgrade headers
+- Check port 8765 is running: `ss -tlnp | grep 8765`
+
+**Cloudflare 521 error**
+- Check security group allows Cloudflare IPs
+- Verify nginx is running on port 80
+- Check tunnel connector is running: `sudo systemctl status cloudflared`

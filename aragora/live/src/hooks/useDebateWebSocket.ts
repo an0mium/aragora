@@ -169,6 +169,23 @@ export function useDebateWebSocket({
     }
   }, [status]);
 
+  // Reset all state when debateId changes to prevent data leaking between debates
+  useEffect(() => {
+    // Clear all debate-specific state
+    setMessages([]);
+    setStreamingMessages(new Map());
+    setStreamEvents([]);
+    setTask('');
+    setAgents([]);
+    setHasCitations(false);
+    setStatus('connecting');
+    setError(null);
+    setErrorDetails(null);
+    setHasReceivedDebateStart(false);
+    seenMessagesRef.current.clear();
+    lastSeqRef.current = 0;
+  }, [debateId]);
+
   // Send vote to server
   const sendVote = useCallback((choice: string, intensity?: number) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

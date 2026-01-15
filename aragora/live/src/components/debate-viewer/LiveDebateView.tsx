@@ -155,7 +155,7 @@ export function LiveDebateView({
           <div
             ref={scrollContainerRef}
             onScroll={onScroll}
-            className="p-4 space-y-4 overflow-y-auto min-h-[400px] max-h-[4000px]"
+            className="p-4 space-y-4 min-h-[400px]"
           >
             {messages.length === 0 && streamingMessages.size === 0 && status === 'streaming' && (
               <div className="text-center py-8 text-text-muted font-mono">
@@ -169,7 +169,9 @@ export function LiveDebateView({
                 cruxes={showCruxHighlighting ? cruxes : undefined}
               />
             ))}
-            {Array.from(streamingMessages.values()).map((streamMsg) => (
+            {Array.from(streamingMessages.values())
+              .sort((a, b) => a.agent.localeCompare(b.agent))
+              .map((streamMsg) => (
               <StreamingMessageCard key={`streaming-${streamMsg.agent}`} message={streamMsg} />
             ))}
           </div>

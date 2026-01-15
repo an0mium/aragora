@@ -127,8 +127,10 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
 
   // Fetch cruxes when debate has messages (for highlighting)
   useEffect(() => {
-    // Only fetch if we have at least 3 messages and haven't fetched yet
-    if (liveMessages.length < 3 || cruxes.length > 0 || !isLiveDebate) return;
+    // Only fetch for non-adhoc debates that have at least 3 messages
+    // Ad-hoc debates don't have belief network traces, so skip to avoid 404s
+    const isAdhocDebate = debateId.startsWith('adhoc_');
+    if (liveMessages.length < 3 || cruxes.length > 0 || !isLiveDebate || isAdhocDebate) return;
 
     const fetchCruxes = async () => {
       try {
@@ -684,11 +686,7 @@ function LiveDebateView({
           <div
             ref={scrollContainerRef}
             onScroll={onScroll}
-            className={`p-4 space-y-4 overflow-y-auto ${
-              status === 'streaming'
-                ? 'h-[calc(100vh-150px)] md:h-[calc(100vh-200px)]'  // Adjust height for mobile header
-                : 'max-h-[calc(100vh-200px)] md:max-h-[calc(100vh-280px)]'
-            }`}
+            className="p-4 space-y-4 min-h-[400px]"
           >
             {messages.length === 0 && streamingMessages.size === 0 && status === 'streaming' && (
               <div className="text-center py-8 text-text-muted font-mono">
@@ -702,8 +700,10 @@ function LiveDebateView({
                 cruxes={showCruxHighlighting ? cruxes : undefined}
               />
             ))}
-            {/* Streaming messages */}
-            {Array.from(streamingMessages.values()).map((streamMsg) => (
+            {/* Streaming messages - sorted by agent name for stable visual ordering */}
+            {Array.from(streamingMessages.values())
+              .sort((a, b) => a.agent.localeCompare(b.agent))
+              .map((streamMsg) => (
               <StreamingMessageCard key={`streaming-${streamMsg.agent}`} message={streamMsg} />
             ))}
           </div>
@@ -861,7 +861,7 @@ function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateViewProps
             {'>'} DEBATE TRANSCRIPT
           </span>
         </div>
-        <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+        <div className="p-4 space-y-4 min-h-[400px]">
           {(debate.transcript as unknown as TranscriptMessage[]).map((msg, idx) => (
             <TranscriptMessageCard key={idx} message={msg} />
           ))}

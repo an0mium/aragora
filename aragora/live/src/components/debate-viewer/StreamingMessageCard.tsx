@@ -6,7 +6,7 @@ import type { StreamingMessageCardProps } from './types';
 export function StreamingMessageCard({ message }: StreamingMessageCardProps) {
   const colors = getAgentColors(message.agent);
   return (
-    <div className={`${colors.bg} border-2 ${colors.border} p-4 animate-pulse`}>
+    <div className={`${colors.bg} border-2 ${colors.border} p-4 animate-pulse min-h-[120px]`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className={`font-mono font-bold text-sm ${colors.text}`}>{message.agent.toUpperCase()}</span>
