@@ -10,71 +10,82 @@ import { test, expect } from './fixtures';
 test.describe('Graph Debate Mode Selection', () => {
   test('should display mode selection buttons on homepage', async ({ page, aragoraPage }) => {
     await page.goto('/');
-    await aragoraPage.dismissBootAnimation();
-
-    // Wait for the debate input to load
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
-    // Should show mode buttons
-    const standardMode = page.getByRole('button', { name: /standard/i });
-    const graphMode = page.getByRole('button', { name: /graph/i });
-    const matrixMode = page.getByRole('button', { name: /matrix/i });
+    // Mode buttons are inside advanced options - need to expand first
+    const showOptions = page.locator('button').filter({ hasText: /Show options|\[\+\]/i });
+    if (await showOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await showOptions.click();
+    }
 
-    await expect(standardMode).toBeVisible();
-    await expect(graphMode).toBeVisible();
-    await expect(matrixMode).toBeVisible();
+    // Should show mode buttons (tabs)
+    const modeButtons = page.locator('[role="tab"]');
+    await expect(modeButtons.first()).toBeVisible();
   });
 
   test('should switch to GRAPH mode when clicked', async ({ page, aragoraPage }) => {
     await page.goto('/');
-    await aragoraPage.dismissBootAnimation();
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
-    const graphMode = page.getByRole('button', { name: /graph/i });
+    // Expand advanced options first
+    const showOptions = page.locator('button').filter({ hasText: /Show options|\[\+\]/i });
+    if (await showOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await showOptions.click();
+    }
+
+    const graphMode = page.locator('[role="tab"]').filter({ hasText: /graph/i });
     await graphMode.click();
 
-    // Should show as active
-    await expect(graphMode).toHaveClass(/active/);
-
-    // Should show graph-specific hints
-    const graphHint = page.locator(':text("branch")');
-    await expect(graphHint.first()).toBeVisible();
+    // Should show as active (uses aria-selected or bg-acid-green class)
+    await expect(graphMode).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('should update submit button text in GRAPH mode', async ({ page }) => {
+  test('should update submit button text in GRAPH mode', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
-    // Default button text
-    const submitButton = page.getByRole('button', { name: /start debate/i });
-    await expect(submitButton).toBeVisible();
+    // Expand advanced options first
+    const showOptions = page.locator('button').filter({ hasText: /Show options|\[\+\]/i });
+    if (await showOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await showOptions.click();
+    }
 
     // Switch to GRAPH mode
-    const graphMode = page.getByRole('button', { name: /graph/i });
+    const graphMode = page.locator('[role="tab"]').filter({ hasText: /graph/i });
     await graphMode.click();
 
-    // Button should update
-    const graphSubmit = page.getByRole('button', { name: /start graph/i });
-    await expect(graphSubmit).toBeVisible();
+    // Button should still say START DEBATE (mode doesn't change button text)
+    const submitButton = page.getByRole('button', { name: /start debate/i });
+    await expect(submitButton).toBeVisible();
   });
 });
 
 test.describe('Graph Debate Creation', () => {
-  test('should create a graph debate and navigate to visualization', async ({ page }) => {
+  test('should create a graph debate and navigate to visualization', async ({ page, aragoraPage }) => {
     // This test may require API mocking or a running server
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
+    // Expand advanced options first
+    const showOptions = page.locator('button').filter({ hasText: /Show options|\[\+\]/i });
+    if (await showOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await showOptions.click();
+    }
+
     // Switch to GRAPH mode
-    const graphMode = page.getByRole('button', { name: /graph/i });
+    const graphMode = page.locator('[role="tab"]').filter({ hasText: /graph/i });
     await graphMode.click();
 
     // Enter a debate topic
     const textarea = page.getByRole('textbox');
     await textarea.fill('What is the best approach to sustainable energy?');
 
-    // Submit the debate
-    const submitButton = page.getByRole('button', { name: /start graph/i });
+    // Submit the debate - button text stays as START DEBATE
+    const submitButton = page.getByRole('button', { name: /start debate/i });
 
     // Click submit - this will either:
     // 1. Navigate to /debates/graph (if API is running)

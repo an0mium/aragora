@@ -1,11 +1,13 @@
 import { test, expect, mockApiResponse, mockDebate, mockAgents } from './fixtures';
 
 test.describe('Debate Creation', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, aragoraPage }) => {
     // Mock API endpoints
     await mockApiResponse(page, '**/api/health', { status: 'ok', version: '1.0.0' });
     await mockApiResponse(page, '**/api/agents', { agents: mockAgents });
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('should display debate input form', async ({ page }) => {
@@ -208,9 +210,11 @@ test.describe('Debate Creation', () => {
 });
 
 test.describe('Debate Creation - Keyboard Navigation', () => {
-  test('should allow tabbing through form elements', async ({ page }) => {
+  test('should allow tabbing through form elements', async ({ page, aragoraPage }) => {
     await mockApiResponse(page, '**/api/health', { status: 'ok' });
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
+    await page.waitForLoadState('domcontentloaded');
 
     // Focus the first input
     const questionInput = page.locator('textarea, input[type="text"]').first();

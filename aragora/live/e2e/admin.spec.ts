@@ -1,4 +1,17 @@
-import { test, expect } from './fixtures';
+import { test, expect, mockApiResponse } from './fixtures';
+
+// Mock health data for consistent testing
+const mockHealthData = {
+  status: 'healthy',
+  uptime_seconds: 3600,
+  version: '1.0.0',
+  components: {
+    database: { status: 'ok', latency_ms: 5 },
+    agents: { status: 'ok', available: 6 },
+    memory: { status: 'ok', usage_mb: 256 },
+    websocket: { status: 'ok', connections: 10 }
+  }
+};
 
 /**
  * E2E tests for Admin page.
@@ -8,6 +21,8 @@ import { test, expect } from './fixtures';
 
 test.describe('Admin Page', () => {
   test.beforeEach(async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
@@ -52,6 +67,8 @@ test.describe('Admin Page', () => {
 
 test.describe('Admin - Health Tab', () => {
   test.beforeEach(async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
@@ -99,6 +116,8 @@ test.describe('Admin - Health Tab', () => {
 
 test.describe('Admin - Agents Tab', () => {
   test.beforeEach(async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
@@ -134,6 +153,8 @@ test.describe('Admin - Agents Tab', () => {
 
 test.describe('Admin - Errors Tab', () => {
   test.beforeEach(async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
@@ -165,6 +186,8 @@ test.describe('Admin - Errors Tab', () => {
 
 test.describe('Admin - Metrics Tab', () => {
   test.beforeEach(async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
@@ -192,6 +215,8 @@ test.describe('Admin - Metrics Tab', () => {
 
 test.describe('Admin - Refresh Functionality', () => {
   test('should refresh data when clicking refresh button', async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
@@ -209,6 +234,8 @@ test.describe('Admin - Refresh Functionality', () => {
   });
 
   test('should auto-refresh data periodically', async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
@@ -233,6 +260,8 @@ test.describe('Admin - Refresh Functionality', () => {
 
 test.describe('Admin - Tab Navigation', () => {
   test('should switch between all tabs', async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
@@ -259,6 +288,8 @@ test.describe('Admin - Tab Navigation', () => {
   });
 
   test('should maintain tab selection on page focus', async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
@@ -280,6 +311,8 @@ test.describe('Admin - Tab Navigation', () => {
 
 test.describe('Admin - Header Navigation', () => {
   test('should have ASCII banner link to home', async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
@@ -293,6 +326,8 @@ test.describe('Admin - Header Navigation', () => {
   });
 
   test('should have backend selector', async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
@@ -303,6 +338,8 @@ test.describe('Admin - Header Navigation', () => {
   });
 
   test('should have theme toggle', async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
@@ -322,6 +359,8 @@ test.describe('Admin - Header Navigation', () => {
 
 test.describe('Admin - Responsive Layout', () => {
   test('should display correctly on mobile', async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
@@ -336,6 +375,8 @@ test.describe('Admin - Responsive Layout', () => {
   });
 
   test('should display correctly on tablet', async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();
@@ -351,6 +392,8 @@ test.describe('Admin - Responsive Layout', () => {
   });
 
   test('should display grid layout on desktop', async ({ page, aragoraPage }) => {
+    // Mock health endpoint for reliable testing
+    await mockApiResponse(page, '**/api/health', mockHealthData);
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.goto('/admin');
     await aragoraPage.dismissAllOverlays();

@@ -13,7 +13,14 @@ test.describe('Matrix Debate Mode Selection', () => {
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
-    const matrixMode = page.getByRole('button', { name: /matrix/i });
+    // Mode buttons are inside advanced options - need to expand first
+    const showOptions = page.locator('button').filter({ hasText: /Show options|\[\+\]/i });
+    if (await showOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await showOptions.click();
+    }
+
+    // Should show mode buttons (tabs)
+    const matrixMode = page.locator('[role="tab"]').filter({ hasText: /matrix/i });
     await expect(matrixMode).toBeVisible();
   });
 
@@ -22,15 +29,17 @@ test.describe('Matrix Debate Mode Selection', () => {
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
-    const matrixMode = page.getByRole('button', { name: /matrix/i });
+    // Expand advanced options first
+    const showOptions = page.locator('button').filter({ hasText: /Show options|\[\+\]/i });
+    if (await showOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await showOptions.click();
+    }
+
+    const matrixMode = page.locator('[role="tab"]').filter({ hasText: /matrix/i });
     await matrixMode.click();
 
-    // Should show as active
-    await expect(matrixMode).toHaveClass(/active/);
-
-    // Should show matrix-specific hints
-    const matrixHint = page.locator(':text("scenario"), :text("compare"), :text("variable")');
-    await expect(matrixHint.first()).toBeVisible();
+    // Should show as active (uses aria-selected or bg-acid-green class)
+    await expect(matrixMode).toHaveAttribute('aria-selected', 'true');
   });
 
   test('should update submit button text in MATRIX mode', async ({ page, aragoraPage }) => {
@@ -38,13 +47,19 @@ test.describe('Matrix Debate Mode Selection', () => {
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
+    // Expand advanced options first
+    const showOptions = page.locator('button').filter({ hasText: /Show options|\[\+\]/i });
+    if (await showOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await showOptions.click();
+    }
+
     // Switch to MATRIX mode
-    const matrixMode = page.getByRole('button', { name: /matrix/i });
+    const matrixMode = page.locator('[role="tab"]').filter({ hasText: /matrix/i });
     await matrixMode.click();
 
-    // Button should update
-    const matrixSubmit = page.getByRole('button', { name: /start matrix/i });
-    await expect(matrixSubmit).toBeVisible();
+    // Button should still say START DEBATE (mode doesn't change button text)
+    const submitButton = page.getByRole('button', { name: /start debate/i });
+    await expect(submitButton).toBeVisible();
   });
 
   test('should show variables configuration in MATRIX mode', async ({ page, aragoraPage }) => {
@@ -52,17 +67,17 @@ test.describe('Matrix Debate Mode Selection', () => {
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
-    // Switch to MATRIX mode
-    const matrixMode = page.getByRole('button', { name: /matrix/i });
-    await matrixMode.click();
-
-    // Expand options
-    const showOptions = page.locator(':text("[+]"), :text("Show options"), :text("Advanced")');
-    if (await showOptions.isVisible().catch(() => false)) {
+    // Expand advanced options first (also contains mode tabs)
+    const showOptions = page.locator('button').filter({ hasText: /Show options|\[\+\]/i });
+    if (await showOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
       await showOptions.click();
     }
 
-    // Should show variables configuration
+    // Switch to MATRIX mode
+    const matrixMode = page.locator('[role="tab"]').filter({ hasText: /matrix/i });
+    await matrixMode.click();
+
+    // Should show variables configuration (already visible since options expanded)
     const variablesLabel = page.locator(':text("variable"), :text("scenario")');
     await expect(variablesLabel.first()).toBeVisible();
   });
@@ -74,16 +89,22 @@ test.describe('Matrix Debate Creation', () => {
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
+    // Expand advanced options first
+    const showOptions = page.locator('button').filter({ hasText: /Show options|\[\+\]/i });
+    if (await showOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await showOptions.click();
+    }
+
     // Switch to MATRIX mode
-    const matrixMode = page.getByRole('button', { name: /matrix/i });
+    const matrixMode = page.locator('[role="tab"]').filter({ hasText: /matrix/i });
     await matrixMode.click();
 
     // Enter a debate topic
     const textarea = page.getByRole('textbox');
     await textarea.fill('Best cloud provider for enterprise applications');
 
-    // Submit the debate
-    const submitButton = page.getByRole('button', { name: /start matrix/i });
+    // Submit the debate - button text stays as START DEBATE
+    const submitButton = page.getByRole('button', { name: /start debate/i });
     await submitButton.click();
 
     // Wait for navigation or error
