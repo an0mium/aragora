@@ -457,6 +457,8 @@ class PulseHandler(BaseHandler):
             protocol = DebateProtocol(
                 rounds=rounds,
                 consensus=consensus,
+                convergence_detection=False,
+                early_stopping=False,
             )
 
             # Create arena
@@ -553,7 +555,12 @@ class PulseHandler(BaseHandler):
 
                     env = Environment(task=topic_text)
                     agents = get_agents_by_names(["anthropic-api", "openai-api"])
-                    protocol = DebateProtocol(rounds=rounds, consensus="majority")
+                    protocol = DebateProtocol(
+                        rounds=rounds,
+                        consensus="majority",
+                        convergence_detection=False,
+                        early_stopping=False,
+                    )
 
                     if not agents:
                         logger.warning("No agents available for scheduled debate")

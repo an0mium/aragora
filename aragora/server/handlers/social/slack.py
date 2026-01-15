@@ -428,7 +428,12 @@ class SlackHandler(BaseHandler):
             # Create debate
             env = Environment(task=f"Debate: {topic}")
             agents = get_agents_by_names(["anthropic-api", "openai-api"])
-            protocol = DebateProtocol(rounds=3, consensus="majority")
+            protocol = DebateProtocol(
+                rounds=3,
+                consensus="majority",
+                convergence_detection=False,
+                early_stopping=False,
+            )
 
             if not agents:
                 # Post error to Slack
@@ -999,7 +1004,12 @@ class SlackHandler(BaseHandler):
 
             env = Environment(task=f"Debate: {topic}")
             agents = get_agents_by_names(["anthropic-api", "openai-api"])
-            protocol = DebateProtocol(rounds=3, consensus="majority")
+            protocol = DebateProtocol(
+                rounds=3,
+                consensus="majority",
+                convergence_detection=False,
+                early_stopping=False,
+            )
 
             if not agents:
                 await self._post_message_async(channel, "Failed: No agents available")

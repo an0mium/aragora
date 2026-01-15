@@ -251,7 +251,11 @@ class MatrixDebatesHandler(BaseHandler):
 
                 # Run debate
                 env = Environment(task=scenario_task)
-                protocol = DebateProtocol(rounds=max_rounds)
+                protocol = DebateProtocol(
+                    rounds=max_rounds,
+                    convergence_detection=False,
+                    early_stopping=False,
+                )
                 arena = Arena(env, agents, protocol)
 
                 result = await arena.run()

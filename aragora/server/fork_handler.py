@@ -154,7 +154,12 @@ class ForkBridgeHandler:
             # Create environment with fork context
             task = f"[Branch: {hypothesis}]\n[Lead: {lead_agent}]\n\n{original_task}"
             env = Environment(task=task, max_rounds=3)
-            protocol = DebateProtocol(rounds=3, consensus="majority")
+            protocol = DebateProtocol(
+                rounds=3,
+                consensus="majority",
+                convergence_detection=False,
+                early_stopping=False,
+            )
 
             # Create arena with initial message context
             arena = Arena(
