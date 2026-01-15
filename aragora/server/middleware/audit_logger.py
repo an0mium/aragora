@@ -1,6 +1,18 @@
 """
 Audit Logging Middleware.
 
+DEPRECATION NOTICE:
+    This module provides HTTP middleware-specific audit logging. For new code,
+    use the unified audit system in aragora.audit instead:
+
+        from aragora.audit import AuditLog, AuditEvent, AuditCategory
+
+    The unified system supports all audit categories including AUTH, ACCESS,
+    API, and SECURITY events with compliance export (SOC 2, GDPR, HIPAA).
+
+    This module is maintained for backward compatibility with existing
+    middleware code that depends on AuditSeverity and audit_event().
+
 Provides security-focused audit logging for sensitive operations:
 - Authentication events (login, logout, token refresh, revocation)
 - Authorization events (permission checks, access denied)

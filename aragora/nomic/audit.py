@@ -1,6 +1,18 @@
 """
 Nomic Loop Audit Logging.
 
+DEPRECATION NOTICE:
+    This module provides Nomic-specific audit logging. For new code, consider
+    using the unified audit system in aragora.audit instead:
+
+        from aragora.audit import AuditLog, AuditEvent, AuditCategory
+
+    The unified system supports all audit categories including SYSTEM events
+    for Nomic loop tracking, with compliance export (SOC 2, GDPR, HIPAA).
+
+    This module is maintained for backward compatibility with existing
+    Nomic loop code that depends on AuditEventType and AuditLogger.
+
 Comprehensive audit trail for all Nomic loop operations.
 Stores events in SQLite for queryability and durability.
 

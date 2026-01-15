@@ -1,6 +1,18 @@
 """
 AuditStore - SQLite backend for audit logging and compliance.
 
+DEPRECATION NOTICE:
+    This module provides user/organization-specific audit storage. For new code,
+    use the unified audit system in aragora.audit instead:
+
+        from aragora.audit import AuditLog, AuditEvent, AuditCategory
+
+    The unified system supports all audit categories including AUTH, DATA,
+    ADMIN, and BILLING events with compliance export (SOC 2, GDPR, HIPAA).
+
+    This module is maintained for backward compatibility with existing
+    storage code that depends on AuditStore for UserStore composition.
+
 Extracted from UserStore to improve modularity.
 Provides audit trail functionality for:
 - User actions (login, logout, settings changes)
