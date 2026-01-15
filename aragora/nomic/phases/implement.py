@@ -552,8 +552,20 @@ CRITICAL SAFETY RULES:
         Returns:
             None if compliant, error message if violation detected
         """
+        # === CRITICAL: Always check protected files regardless of verifier ===
+        protected_violations = []
+        for file_path in modified_files:
+            for protected in self.protected_files:
+                # Check if protected file is in the path (handles both relative and absolute)
+                if protected in file_path or file_path.endswith(protected):
+                    protected_violations.append(
+                        f"Protected file modified: {file_path}"
+                    )
+        if protected_violations:
+            return "; ".join(protected_violations)
+
         if not self._constitution_verifier:
-            return None  # No verifier = skip check
+            return None  # No verifier = skip additional checks
 
         # Check if verifier is available/loaded
         if hasattr(self._constitution_verifier, "is_available"):
