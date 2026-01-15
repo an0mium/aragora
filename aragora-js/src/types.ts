@@ -3629,3 +3629,99 @@ export interface AgentPromptResponse {
   last_updated: string;
   performance_score: number;
 }
+
+// =============================================================================
+// Broadcast Types (Podcast Generation)
+// =============================================================================
+
+export interface BroadcastResult {
+  debate_id: string;
+  success: boolean;
+  audio_path: string | null;
+  audio_url: string | null;
+  video_path: string | null;
+  video_url: string | null;
+  rss_episode_guid: string | null;
+  duration_seconds: number | null;
+  steps_completed: string[];
+  generated_at: string;
+  error: string | null;
+}
+
+export interface BroadcastOptions {
+  video?: boolean;
+  title?: string;
+  description?: string;
+  episode_number?: number;
+  rss?: boolean;
+}
+
+// =============================================================================
+// Relationship Types (Agent Social Dynamics)
+// =============================================================================
+
+export interface AgentRelationship {
+  agent_a: string;
+  agent_b: string;
+  debate_count: number;
+  agreement_count: number;
+  a_wins: number;
+  b_wins: number;
+  agreement_rate: number;
+  rivalry_score: number;
+}
+
+export interface RelationshipSummaryResponse {
+  total_pairs: number;
+  total_debates: number;
+  avg_agreement_rate: number;
+  most_active_pair: AgentRelationship | null;
+  highest_agreement_pair: AgentRelationship | null;
+  highest_rivalry_pair: AgentRelationship | null;
+  agents: string[];
+}
+
+export interface RelationshipGraphNode {
+  id: string;
+  label: string;
+  debates: number;
+}
+
+export interface RelationshipGraphEdge {
+  source: string;
+  target: string;
+  weight: number;
+  agreement_rate: number;
+  debates: number;
+}
+
+export interface RelationshipGraphResponse {
+  nodes: RelationshipGraphNode[];
+  edges: RelationshipGraphEdge[];
+  total_debates: number;
+}
+
+export interface RelationshipStatsResponse {
+  total_pairs: number;
+  total_debates: number;
+  avg_debates_per_pair: number;
+  avg_agreement_rate: number;
+  std_agreement_rate: number;
+}
+
+export interface PairDetailResponse {
+  agent_a: string;
+  agent_b: string;
+  debate_count: number;
+  agreement_count: number;
+  a_wins: number;
+  b_wins: number;
+  agreement_rate: number;
+  rivalry_score: number;
+  recent_debates: Array<{
+    debate_id: string;
+    timestamp: string;
+    winner: string | null;
+    agreed: boolean;
+  }>;
+}
