@@ -1,12 +1,14 @@
 """
 Performance Benchmark Tests for Aragora.
 
-These tests measure performance characteristics and set baselines.
+These tests measure performance characteristics and validate against SLOs.
 Run with: pytest tests/benchmarks/ -v
 
 Optionally install pytest-benchmark for detailed statistics:
     pip install pytest-benchmark
     pytest tests/benchmarks/ --benchmark-only
+
+SLOs are defined in tests/slo_config.py and docs/PERFORMANCE_TARGETS.md.
 """
 
 from __future__ import annotations
@@ -21,6 +23,12 @@ from aragora.core import Environment, Critique, Vote
 from aragora.debate.orchestrator import Arena, DebateProtocol
 
 from .conftest import BenchmarkAgent, SimpleBenchmark
+from tests.slo_config import (
+    SLO,
+    assert_debate_slo,
+    assert_memory_ops_slo,
+    assert_elo_ops_slo,
+)
 
 
 # =============================================================================
@@ -33,7 +41,7 @@ class TestDebatePerformance:
 
     @pytest.mark.asyncio
     async def test_single_round_latency(self, benchmark_agents, benchmark_environment):
-        """Measure single debate round latency."""
+        """Measure single debate round latency against SLO."""
         protocol = DebateProtocol(rounds=1, consensus="any")
 
         with patch.object(
@@ -45,8 +53,8 @@ class TestDebatePerformance:
             result = await asyncio.wait_for(arena.run(), timeout=30.0)
             elapsed = time.perf_counter() - start
 
-        # Baseline: single round should complete in under 5 seconds
-        assert elapsed < 5.0, f"Single round took {elapsed:.2f}s (target: <5s)"
+        # Assert against centralized SLO
+        assert_debate_slo("single_round_max_sec", elapsed)
         assert result is not None
 
     @pytest.mark.asyncio
@@ -67,11 +75,10 @@ class TestDebatePerformance:
 
                 round_times[num_rounds] = elapsed
 
-        # Check scaling is roughly linear (not exponential)
+        # Check scaling is roughly linear (not exponential) against SLO
         if round_times[1] > 0:
             ratio = round_times[3] / round_times[1]
-            # Should be less than 5x for 3x rounds (allowing overhead)
-            assert ratio < 5.0, f"3 rounds took {ratio:.1f}x longer than 1 round"
+            assert_debate_slo("round_scaling_max_ratio", ratio)
 
     @pytest.mark.asyncio
     async def test_agent_count_scaling(self, benchmark_environment):
@@ -92,11 +99,10 @@ class TestDebatePerformance:
 
                 agent_times[num_agents] = elapsed
 
-        # Check scaling is sub-linear (agents run in parallel)
+        # Check scaling is sub-linear (agents run in parallel) against SLO
         if agent_times[2] > 0:
             ratio = agent_times[5] / agent_times[2]
-            # 5 agents shouldn't take 2.5x longer than 2 agents
-            assert ratio < 2.5, f"5 agents took {ratio:.1f}x longer than 2 agents"
+            assert_debate_slo("agent_scaling_max_ratio", ratio)
 
 
 # =============================================================================
@@ -132,10 +138,8 @@ class TestMemoryPerformance:
             store.store(critique)
         elapsed = time.perf_counter() - start
 
-        # Baseline: 100 writes should complete in under 1 second
-        assert elapsed < 1.0, f"100 writes took {elapsed:.2f}s (target: <1s)"
-        ops_per_sec = 100 / elapsed
-        assert ops_per_sec > 100, f"Only {ops_per_sec:.0f} ops/sec (target: >100)"
+        # Assert against centralized SLO
+        assert_memory_ops_slo("critique_write", 100, elapsed)
 
     @pytest.mark.asyncio
     async def test_critique_store_read(self, temp_benchmark_db):
@@ -164,8 +168,8 @@ class TestMemoryPerformance:
             store.get_recent(limit=10)
         elapsed = time.perf_counter() - start
 
-        # Baseline: 100 reads should complete in under 0.5 seconds
-        assert elapsed < 0.5, f"100 reads took {elapsed:.2f}s (target: <0.5s)"
+        # Assert against centralized SLO
+        assert_memory_ops_slo("critique_read", 100, elapsed)
 
 
 # =============================================================================
@@ -192,10 +196,8 @@ class TestEloPerformance:
             )
         elapsed = time.perf_counter() - start
 
-        # Baseline: 100 updates should complete in under 1 second
-        assert elapsed < 1.0, f"100 ELO updates took {elapsed:.2f}s (target: <1s)"
-        ops_per_sec = 100 / elapsed
-        assert ops_per_sec > 100, f"Only {ops_per_sec:.0f} ops/sec (target: >100)"
+        # Assert against centralized SLO
+        assert_elo_ops_slo("rating_update", 100, elapsed)
 
     def test_leaderboard_query(self, temp_benchmark_db):
         """Measure leaderboard query performance."""
@@ -217,8 +219,8 @@ class TestEloPerformance:
             system.get_leaderboard(limit=20)
         elapsed = time.perf_counter() - start
 
-        # Baseline: 100 queries should complete in under 0.5 seconds
-        assert elapsed < 0.5, f"100 leaderboard queries took {elapsed:.2f}s (target: <0.5s)"
+        # Assert against centralized SLO
+        assert_elo_ops_slo("leaderboard_query", 100, elapsed)
 
 
 # =============================================================================
@@ -253,9 +255,9 @@ class TestConcurrentPerformance:
         assert len(results) == num_debates
         assert all(r is not None for r in results)
 
-        # Concurrent debates shouldn't take num_debates times as long
+        # Assert against centralized SLO
         debates_per_sec = num_debates / elapsed
-        assert debates_per_sec > 0.5, f"Only {debates_per_sec:.2f} debates/sec"
+        assert_debate_slo("concurrent_min_per_sec", debates_per_sec)
 
     @pytest.mark.asyncio
     async def test_concurrent_memory_writes(self, temp_benchmark_db):
@@ -285,10 +287,15 @@ class TestConcurrentPerformance:
         elapsed = time.perf_counter() - start
 
         total_writes = num_writers * writes_per_writer
-        ops_per_sec = total_writes / elapsed
 
-        # Concurrent writes should still be reasonably fast
-        assert ops_per_sec > 50, f"Only {ops_per_sec:.0f} ops/sec (target: >50)"
+        # Concurrent writes use relaxed SLO (50% of normal)
+        # This accounts for lock contention in concurrent scenarios
+        ops_per_sec = total_writes / elapsed
+        min_concurrent_ops = SLO.MEMORY_OPS["critique_write"]["min_ops_per_sec"] * 0.5
+        assert ops_per_sec >= min_concurrent_ops, (
+            f"Concurrent critique writes: {ops_per_sec:.0f} ops/sec "
+            f"(target: >{min_concurrent_ops:.0f} ops/sec)"
+        )
 
 
 # =============================================================================
@@ -321,8 +328,11 @@ class TestPerformanceBaselines:
 
         if result.returncode == 0:
             elapsed = float(result.stdout.strip())
-            # Import should be under 3 seconds (subprocess has overhead)
-            assert elapsed < 3.0, f"Import took {elapsed:.2f}s (target: <3s)"
+            # Assert against centralized SLO
+            assert elapsed < SLO.STARTUP["import_max_sec"], (
+                f"Import took {elapsed:.2f}s "
+                f"(target: <{SLO.STARTUP['import_max_sec']}s)"
+            )
         else:
             # If subprocess fails, skip test rather than fail
             pytest.skip(f"Subprocess import failed: {result.stderr}")
