@@ -468,3 +468,14 @@ directory = "htmlcov"
 
 [tool.coverage.xml]
 output = "coverage.xml"
+
+[tool.bandit]
+# Security linting configuration
+exclude_dirs = ["tests", "node_modules", ".venv", "venv", "build", "dist"]
+skips = [
+    "B101",  # assert_used - OK in tests
+    "B104",  # hardcoded_bind_all_interfaces - OK for dev server
+    "B311",  # random - OK for non-crypto uses
+]
+# Target confidence level
+confidence = "HIGH"
