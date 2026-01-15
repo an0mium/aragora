@@ -154,6 +154,7 @@ class StreamEvent:
     loop_id: str = ""  # For multi-loop tracking
     seq: int = 0  # Global sequence number for ordering
     agent_seq: int = 0  # Per-agent sequence number for token ordering
+    task_id: str = ""  # Unique task identifier for concurrent outputs from same agent
 
     def to_dict(self) -> dict:
         result = {
@@ -167,6 +168,8 @@ class StreamEvent:
         }
         if self.loop_id:
             result["loop_id"] = self.loop_id
+        if self.task_id:
+            result["task_id"] = self.task_id
         return result
 
     def to_json(self) -> str:

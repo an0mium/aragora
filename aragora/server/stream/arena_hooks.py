@@ -5,12 +5,43 @@ Provides hooks that connect the Arena debate engine to the event streaming
 system, enabling real-time WebSocket broadcasts of debate events.
 """
 
+import contextvars
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Callable
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.server.stream.emitter import SyncEventEmitter
 from aragora.server.stream.events import StreamEvent, StreamEventType
+
+# Context variable to track current task_id for streaming events
+# This allows concurrent generate() calls from the same agent to be distinguished
+_current_task_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "current_task_id", default=""
+)
+
+
+@contextmanager
+def streaming_task_context(task_id: str):
+    """Context manager to set the current task_id for streaming events.
+
+    Use this when calling agent methods that may stream, to ensure their
+    TOKEN_* events include the task_id for proper grouping.
+
+    Example:
+        with streaming_task_context(f"{agent.name}:critique:{target}"):
+            result = await agent.critique(proposal, task, context)
+    """
+    token = _current_task_id.set(task_id)
+    try:
+        yield
+    finally:
+        _current_task_id.reset(token)
+
+
+def get_current_task_id() -> str:
+    """Get the current task_id for streaming events."""
+    return _current_task_id.get()
 
 
 def wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
@@ -36,6 +67,9 @@ def wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
 
     async def streaming_generate(prompt: str, context=None):
         """Streaming wrapper that emits TOKEN_* events."""
+        # Get current task_id from context variable (set by streaming_task_context)
+        task_id = get_current_task_id()
+
         # Emit start event
         emitter.emit(
             StreamEvent(
@@ -46,6 +80,7 @@ def wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
                     "timestamp": datetime.now().isoformat(),
                 },
                 agent=agent.name,
+                task_id=task_id,
             )
         )
 
@@ -64,6 +99,7 @@ def wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
                             "token": token,
                         },
                         agent=agent.name,
+                        task_id=task_id,
                     )
                 )
 
@@ -77,6 +113,7 @@ def wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
                         "full_response": full_response,
                     },
                     agent=agent.name,
+                    task_id=task_id,
                 )
             )
 
@@ -94,6 +131,7 @@ def wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
                         "full_response": full_response,
                     },
                     agent=agent.name,
+                    task_id=task_id,
                 )
             )
             # Fall back to non-streaming
@@ -237,4 +275,6 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
 __all__ = [
     "create_arena_hooks",
     "wrap_agent_for_streaming",
+    "streaming_task_context",
+    "get_current_task_id",
 ]

@@ -451,11 +451,12 @@ class DebateStreamServer(ServerBase):
                 self.clients -= disconnected
 
     def _group_events_by_agent(self, events: list[StreamEvent]) -> list[StreamEvent]:
-        """Reorder events to group TOKEN_DELTA by agent for smooth frontend rendering.
+        """Reorder events to group TOKEN_DELTA by (agent, task_id) for smooth frontend rendering.
 
         Non-token events maintain their relative order and trigger token flushes.
-        Token events are grouped by agent, reducing visual interleaving during
-        parallel agent generation.
+        Token events are grouped by (agent, task_id), reducing visual interleaving during
+        parallel agent generation. The task_id ensures concurrent outputs from the same
+        agent (e.g., multiple critiques) are kept separate.
 
         NOTE: We intentionally do NOT sort by global seq after grouping. The frontend
         uses agent_seq for per-agent token ordering, which correctly handles
@@ -463,28 +464,30 @@ class DebateStreamServer(ServerBase):
         and reintroduce interleaving.
         """
         result: list[StreamEvent] = []
-        token_groups: dict[str, list[StreamEvent]] = {}
+        # Key by (agent, task_id) to distinguish concurrent outputs from same agent
+        token_groups: dict[tuple[str, str], list[StreamEvent]] = {}
 
         for event in events:
             if event.type == StreamEventType.TOKEN_DELTA and event.agent:
-                # Buffer token events by agent
-                if event.agent not in token_groups:
-                    token_groups[event.agent] = []
-                token_groups[event.agent].append(event)
+                # Buffer token events by (agent, task_id)
+                key = (event.agent, event.task_id or "")
+                if key not in token_groups:
+                    token_groups[key] = []
+                token_groups[key].append(event)
             else:
                 # Flush buffered tokens before non-token event
-                # Sort each agent's tokens by agent_seq for correct ordering
-                for agent_tokens in token_groups.values():
-                    agent_tokens.sort(key=lambda e: e.agent_seq if e.agent_seq else 0)
-                    result.extend(agent_tokens)
+                # Sort each group's tokens by agent_seq for correct ordering
+                for group_tokens in token_groups.values():
+                    group_tokens.sort(key=lambda e: e.agent_seq if e.agent_seq else 0)
+                    result.extend(group_tokens)
                 token_groups.clear()
                 result.append(event)
 
-        # Flush remaining tokens (grouped by agent)
-        # Sort each agent's tokens by agent_seq for correct ordering
-        for agent_tokens in token_groups.values():
-            agent_tokens.sort(key=lambda e: e.agent_seq if e.agent_seq else 0)
-            result.extend(agent_tokens)
+        # Flush remaining tokens (grouped by agent+task_id)
+        # Sort each group's tokens by agent_seq for correct ordering
+        for group_tokens in token_groups.values():
+            group_tokens.sort(key=lambda e: e.agent_seq if e.agent_seq else 0)
+            result.extend(group_tokens)
 
         return result
 
