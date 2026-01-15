@@ -14,8 +14,15 @@ Key features:
 import asyncio
 import importlib
 import logging
-import resource
 import sys
+
+# resource module is Unix-only, used for memory limits
+try:
+    import resource
+
+    RESOURCE_AVAILABLE = True
+except ImportError:
+    RESOURCE_AVAILABLE = False  # Windows
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -265,7 +272,7 @@ class PluginRunner:
 
     def _set_resource_limits(self):
         """Set resource limits (Unix only)."""
-        if sys.platform == "win32":
+        if not RESOURCE_AVAILABLE:
             return
 
         try:
