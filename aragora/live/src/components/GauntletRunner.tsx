@@ -286,12 +286,22 @@ export function GauntletRunner({ initialDecision }: GauntletRunnerProps) {
               {isRunning ? (
                 <span className="flex items-center justify-center gap-2">
                   <LoadingSpinner />
-                  Running Gauntlet...
+                  Running Gauntlet... {wsProgress > 0 && `(${Math.round(wsProgress * 100)}%)`}
                 </span>
               ) : (
                 'Run Gauntlet'
               )}
             </button>
+
+            {/* Progress bar during run */}
+            {isRunning && wsProgress > 0 && (
+              <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-red-500 h-full transition-all duration-300"
+                  style={{ width: `${wsProgress * 100}%` }}
+                />
+              </div>
+            )}
 
             {error && (
               <p className="text-red-400 text-sm text-center">{error}</p>

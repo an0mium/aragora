@@ -345,6 +345,7 @@ export default function ABTestingPage() {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  aria-label="Filter by status"
                   className="bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text focus:border-acid-green focus:outline-none"
                 >
                   <option value="">All Statuses</option>
@@ -358,6 +359,7 @@ export default function ABTestingPage() {
                   value={agentFilter}
                   onChange={(e) => setAgentFilter(e.target.value)}
                   placeholder="Filter by agent..."
+                  aria-label="Filter by agent"
                   className="bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text placeholder:text-text-muted/50 focus:border-acid-green focus:outline-none flex-1 max-w-xs"
                 />
 

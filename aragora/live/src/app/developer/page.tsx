@@ -487,6 +487,7 @@ export default function DeveloperPortal() {
                         value={endpointParams[param.name] || ''}
                         onChange={(e) => setEndpointParams({ ...endpointParams, [param.name]: e.target.value })}
                         placeholder={param.required ? 'required' : 'optional'}
+                        aria-label={`Parameter: ${param.name}`}
                         className="flex-1 bg-background border border-acid-green/30 text-text text-xs font-mono p-2 focus:outline-none focus:border-acid-green"
                       />
                     </div>
@@ -497,11 +498,13 @@ export default function DeveloperPortal() {
               {/* Request Body */}
               {selectedEndpoint.method === 'POST' && (
                 <div>
-                  <label className="text-xs font-mono text-text-muted block mb-2">REQUEST BODY</label>
+                  <label htmlFor="request-body" className="text-xs font-mono text-text-muted block mb-2">REQUEST BODY</label>
                   <textarea
+                    id="request-body"
                     value={requestBody}
                     onChange={(e) => setRequestBody(e.target.value)}
                     rows={6}
+                    aria-label="Request body JSON"
                     className="w-full bg-background border border-acid-green/30 text-acid-green text-xs font-mono p-2 focus:outline-none focus:border-acid-green resize-none"
                   />
                 </div>

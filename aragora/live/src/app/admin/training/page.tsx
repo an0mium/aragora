@@ -474,10 +474,12 @@ export default function TrainingExportPage() {
                     </div>
                     <div className="max-w-md space-y-4">
                       <div className="space-y-2">
-                        <label className="font-mono text-xs text-text-muted">Compliance Persona</label>
+                        <label htmlFor="compliance-persona" className="font-mono text-xs text-text-muted">Compliance Persona</label>
                         <select
+                          id="compliance-persona"
                           value={options.gauntlet.persona}
                           onChange={e => updateGauntletOption('persona', e.target.value as typeof options.gauntlet.persona)}
+                          aria-label="Select compliance persona"
                           className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm text-text"
                         >
                           <option value="all">All Personas</option>
