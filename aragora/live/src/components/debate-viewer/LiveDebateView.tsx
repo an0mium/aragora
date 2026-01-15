@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
 import { UserParticipation } from '@/components/UserParticipation';
 import { CitationsPanel } from '@/components/CitationsPanel';
+import { DebateExportModal } from '@/components/DebateExportModal';
 import { TranscriptMessageCard } from './TranscriptMessageCard';
 import { StreamingMessageCard } from './StreamingMessageCard';
 import { ConsensusMeter } from './ConsensusMeter';
@@ -14,6 +15,7 @@ import { UncertaintyPanel } from '@/components/UncertaintyPanel';
 import { MoodTrackerPanel } from '@/components/MoodTrackerPanel';
 import { TokenStreamViewer } from '@/components/TokenStreamViewer';
 import { DebateInitializationProgress } from './DebateInitializationProgress';
+import { AudioDownloadSection } from './AudioDownloadSection';
 import { API_BASE_URL } from '@/config';
 import type { LiveDebateViewProps } from './types';
 
@@ -52,6 +54,7 @@ export function LiveDebateView({
   setShowCruxHighlighting,
 }: LiveDebateViewProps) {
   const statusConfig = STATUS_CONFIG[status];
+  const [showExportModal, setShowExportModal] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -223,7 +226,7 @@ export function LiveDebateView({
         <div className="bg-surface border border-acid-green/30">
           <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50">
             <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
-              {'>'} EXPORT & SHARE
+              {'>'} DOWNLOAD & SHARE
             </span>
           </div>
           <div className="p-4 space-y-4">
@@ -259,18 +262,29 @@ export function LiveDebateView({
                 >
                   [HTML]
                 </a>
+                <a
+                  href={`${API_BASE_URL}/api/debates/${debateId}/export/csv?table=messages`}
+                  download
+                  className="px-3 py-2 text-xs font-mono bg-bg border border-border text-text-muted hover:border-acid-green/40 transition-colors"
+                >
+                  [CSV]
+                </a>
               </div>
             </div>
 
-            {/* Audio Generation (placeholder for future) */}
+            {/* Audio Generation */}
             <div>
               <div className="text-xs font-mono text-text-muted mb-2 uppercase">Audio</div>
+              <AudioDownloadSection debateId={debateId} />
+            </div>
+
+            {/* Advanced Options */}
+            <div>
               <button
-                disabled
-                className="px-3 py-2 text-xs font-mono bg-bg border border-border text-text-muted opacity-50 cursor-not-allowed"
-                title="Audio generation coming soon"
+                onClick={() => setShowExportModal(true)}
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors cursor-pointer"
               >
-                [GENERATE AUDIO] (coming soon)
+                [MORE EXPORT OPTIONS...]
               </button>
             </div>
 
@@ -287,6 +301,13 @@ export function LiveDebateView({
           </div>
         </div>
       )}
+
+      {/* Export Modal for advanced options */}
+      <DebateExportModal
+        debateId={debateId}
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+      />
 
       {/* Resume auto-scroll button - appears when user scrolls up during streaming */}
       {userScrolled && status === 'streaming' && (
