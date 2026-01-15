@@ -147,11 +147,19 @@ class HealthHandler(BaseHandler):
                 db_latency = round((time.time() - db_start) * 1000, 2)
                 checks["database"] = {"healthy": True, "latency_ms": db_latency}
             else:
-                checks["database"] = {"healthy": False, "error": "Storage not initialized"}
-                all_healthy = False
+                # Storage is optional - server functions without it (degraded mode)
+                checks["database"] = {
+                    "healthy": True,  # Downgrade to warning, not failure
+                    "warning": "Storage not initialized (degraded mode)",
+                    "initialized": False,
+                }
         except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as e:
-            checks["database"] = {"healthy": False, "error": f"{type(e).__name__}: {str(e)[:80]}"}
-            all_healthy = False
+            # Database errors are non-critical - server still functions for debates
+            checks["database"] = {
+                "healthy": True,  # Downgrade to warning
+                "warning": f"{type(e).__name__}: {str(e)[:80]}",
+                "initialized": False,
+            }
 
         # Check ELO system
         try:

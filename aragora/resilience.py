@@ -497,6 +497,30 @@ class CircuitBreaker:
             return self._can_proceed_single()
         return self.is_available(entity)
 
+    def cooldown_remaining(self, entity: str | None = None) -> float:
+        """
+        Get remaining cooldown time in seconds.
+
+        Args:
+            entity: Optional entity name for multi-entity tracking.
+
+        Returns:
+            Seconds remaining until circuit can be tried again, or 0 if not in cooldown.
+        """
+        if entity is None:
+            if self._single_open_at == 0.0:
+                return 0.0
+            elapsed = time.time() - self._single_open_at
+            remaining = self.cooldown_seconds - elapsed
+            return max(0.0, remaining)
+        else:
+            open_at = self._circuit_open_at.get(entity, 0.0)
+            if open_at == 0.0:
+                return 0.0
+            elapsed = time.time() - open_at
+            remaining = self.cooldown_seconds - elapsed
+            return max(0.0, remaining)
+
     async def execute(
         self,
         func: Callable[..., Awaitable[T]],

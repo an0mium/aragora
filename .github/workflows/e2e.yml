@@ -56,6 +56,9 @@ jobs:
 
       - name: Start Aragora backend
         run: |
+          # Create nomic directory for storage (optional but helps)
+          mkdir -p .nomic
+
           aragora serve --api-port 8080 --ws-port 8766 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV

@@ -144,7 +144,7 @@ class AragoraAPIError(AragoraError):
         self.message = message or self.default_message
         self.code = code or self.default_code
         self.status_code = status_code or self.default_status_code
-        self.details = details
+        self._detail_message = details  # Store as separate attribute to avoid type conflict
         self.suggestion = suggestion
         self.context = context or ErrorContext(extra=extra)
 
@@ -152,7 +152,7 @@ class AragoraAPIError(AragoraError):
         if extra:
             self.context.extra.update(extra)
 
-        # Initialize AragoraError with message and context.extra as details
+        # Initialize AragoraError with message and context.extra as details (dict)
         super().__init__(self.message, self.context.extra)
 
     def to_dict(self, include_trace: bool = False) -> Dict[str, Any]:
@@ -163,8 +163,8 @@ class AragoraAPIError(AragoraError):
             "error_id": self.context.error_id,
         }
 
-        if self.details:
-            result["details"] = self.details
+        if self._detail_message:
+            result["details"] = self._detail_message
         if self.suggestion:
             result["suggestion"] = self.suggestion
         if self.context.extra:
