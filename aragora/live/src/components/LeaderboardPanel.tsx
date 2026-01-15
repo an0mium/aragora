@@ -371,6 +371,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
       {/* Tab Navigation */}
       <div className="panel-tabs mb-4" role="tablist" aria-label="Leaderboard views">
         <button
+          id="rankings-tab"
           onClick={() => setActiveTab('rankings')}
           role="tab"
           aria-selected={activeTab === 'rankings'}
@@ -385,6 +386,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
           Rankings
         </button>
         <button
+          id="matches-tab"
           onClick={() => setActiveTab('matches')}
           role="tab"
           aria-selected={activeTab === 'matches'}
@@ -399,6 +401,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
           Matches
         </button>
         <button
+          id="reputation-tab"
           onClick={() => setActiveTab('reputation')}
           role="tab"
           aria-selected={activeTab === 'reputation'}
@@ -413,6 +416,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
           Reputation
         </button>
         <button
+          id="teams-tab"
           onClick={() => setActiveTab('teams')}
           role="tab"
           aria-selected={activeTab === 'teams'}
@@ -427,7 +431,12 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
           Teams
         </button>
         <button
+          id="stats-tab"
           onClick={() => setActiveTab('stats')}
+          role="tab"
+          aria-selected={activeTab === 'stats'}
+          aria-controls="stats-panel"
+          tabIndex={activeTab === 'stats' ? 0 : -1}
           className={`px-3 py-1 rounded text-sm transition-colors whitespace-nowrap ${
             activeTab === 'stats'
               ? 'bg-accent text-bg font-medium'
@@ -437,7 +446,12 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
           Stats
         </button>
         <button
+          id="minds-tab"
           onClick={() => setActiveTab('minds')}
+          role="tab"
+          aria-selected={activeTab === 'minds'}
+          aria-controls="minds-panel"
+          tabIndex={activeTab === 'minds' ? 0 : -1}
           className={`px-3 py-1 rounded text-sm transition-colors whitespace-nowrap ${
             activeTab === 'minds'
               ? 'bg-accent text-bg font-medium'
@@ -450,18 +464,18 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
 
       {/* Rankings Tab */}
       {activeTab === 'rankings' && (
-        <div className="space-y-2 max-h-80 overflow-y-auto">
+        <div id="rankings-panel" role="tabpanel" aria-labelledby="rankings-tab" className="space-y-2 max-h-80 overflow-y-auto">
           {loading && <LeaderboardSkeleton count={5} />}
 
           {error && (
-            <div className="bg-red-900/20 border border-red-500/30 rounded p-3 mb-2">
-              <div className="text-red-400 text-sm font-medium mb-1">{error}</div>
+            <div className="bg-red-900/30 border border-red-500/40 rounded p-3 mb-2">
+              <div className="text-red-300 text-sm font-medium mb-1">{error}</div>
               {Object.keys(endpointErrors).length > 0 && (
                 <details className="text-xs">
-                  <summary className="cursor-pointer text-red-300 hover:text-red-200">
+                  <summary className="cursor-pointer text-red-200 hover:text-red-100">
                     Show details
                   </summary>
-                  <ul className="mt-2 space-y-1 text-red-300/80">
+                  <ul className="mt-2 space-y-1 text-red-200">
                     {Object.entries(endpointErrors).map(([endpoint, msg]) => (
                       <li key={endpoint}>
                         <span className="font-mono">{endpoint}:</span> {msg}
@@ -536,7 +550,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
 
       {/* Recent Matches Tab */}
       {activeTab === 'matches' && (
-        <div className="space-y-2 max-h-80 overflow-y-auto">
+        <div id="matches-panel" role="tabpanel" aria-labelledby="matches-tab" className="space-y-2 max-h-80 overflow-y-auto">
           {loading && (
             <MatchesSkeleton count={3} />
           )}
@@ -584,7 +598,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
 
       {/* Reputation Tab */}
       {activeTab === 'reputation' && (
-        <div className="space-y-2 max-h-80 overflow-y-auto">
+        <div id="reputation-panel" role="tabpanel" aria-labelledby="reputation-tab" className="space-y-2 max-h-80 overflow-y-auto">
           {loading && (
             <LeaderboardSkeleton count={3} />
           )}
@@ -643,7 +657,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
 
       {/* Teams Tab */}
       {activeTab === 'teams' && (
-        <div className="space-y-2 max-h-80 overflow-y-auto">
+        <div id="teams-panel" role="tabpanel" aria-labelledby="teams-tab" className="space-y-2 max-h-80 overflow-y-auto">
           {loading && (
             <div className="text-center text-text-muted py-4">Loading team data...</div>
           )}
@@ -696,7 +710,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
 
       {/* Stats Tab */}
       {activeTab === 'stats' && (
-        <div className="space-y-3 max-h-80 overflow-y-auto">
+        <div id="stats-panel" role="tabpanel" aria-labelledby="stats-tab" className="space-y-3 max-h-80 overflow-y-auto">
           {loading && (
             <StatsSkeleton />
           )}
@@ -781,7 +795,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
 
       {/* Minds (Introspection) Tab */}
       {activeTab === 'minds' && (
-        <div className="space-y-3 max-h-80 overflow-y-auto">
+        <div id="minds-panel" role="tabpanel" aria-labelledby="minds-tab" className="space-y-3 max-h-80 overflow-y-auto">
           {loading && (
             <IntrospectionListSkeleton count={2} />
           )}

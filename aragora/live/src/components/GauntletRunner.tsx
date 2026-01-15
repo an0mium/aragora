@@ -219,29 +219,33 @@ export function GauntletRunner({ initialDecision }: GauntletRunnerProps) {
             {/* Configuration */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label htmlFor="gauntlet-rounds" className="block text-sm font-medium text-slate-300 mb-2">
                   Rounds: {rounds}
                 </label>
                 <input
+                  id="gauntlet-rounds"
                   type="range"
                   min="1"
                   max="10"
                   value={rounds}
                   onChange={(e) => setRounds(parseInt(e.target.value))}
                   className="w-full accent-red-500"
+                  aria-label={`Gauntlet rounds: ${rounds}`}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label htmlFor="gauntlet-stress" className="block text-sm font-medium text-slate-300 mb-2">
                   Stress Level: {stressLevel}
                 </label>
                 <input
+                  id="gauntlet-stress"
                   type="range"
                   min="1"
                   max="10"
                   value={stressLevel}
                   onChange={(e) => setStressLevel(parseInt(e.target.value))}
                   className="w-full accent-red-500"
+                  aria-label={`Stress level: ${stressLevel}`}
                 />
               </div>
             </div>
