@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, ClassVar, Literal, Optional
 
 # Type aliases for agent role and stance
 AgentRole = Literal["proposer", "critic", "synthesizer", "judge"]
@@ -278,6 +278,9 @@ Final Answer:
 class Environment:
     """Defines a task environment for debate."""
 
+    # Maximum task length (prevents DoS via very long strings)
+    MAX_TASK_LENGTH: ClassVar[int] = 10000
+
     task: str
     context: str = ""  # additional context
     roles: list[str] = field(default_factory=lambda: ["proposer", "critic", "synthesizer"])
@@ -287,6 +290,15 @@ class Environment:
     consensus_threshold: float = 0.7  # fraction of agents that must agree
     # Document IDs attached to this debate (Heavy3-inspired)
     documents: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """Validate task input for safety."""
+        if not self.task or not self.task.strip():
+            raise ValueError("Task cannot be empty")
+        if len(self.task) > self.MAX_TASK_LENGTH:
+            raise ValueError(f"Task exceeds maximum length of {self.MAX_TASK_LENGTH} characters")
+        if "\x00" in self.task:
+            raise ValueError("Task contains invalid null bytes")
 
 
 class Agent(ABC):
