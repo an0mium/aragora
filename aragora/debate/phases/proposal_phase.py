@@ -17,6 +17,7 @@ from typing import Any, Callable, Optional
 from aragora.config import AGENT_TIMEOUT_SECONDS
 from aragora.debate.complexity_governor import get_complexity_governor
 from aragora.debate.types import AgentType, DebateContextType
+from aragora.server.stream.arena_hooks import streaming_task_context
 
 logger = logging.getLogger(__name__)
 
@@ -194,14 +195,17 @@ class ProposalPhase:
         try:
             # Use complexity-scaled timeout from governor
             timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
-            if self._with_timeout:
-                result = await self._with_timeout(
-                    self._generate_with_agent(agent, prompt, ctx.context_messages),
-                    agent.name,
-                    timeout_seconds=timeout,
-                )
-            else:
-                result = await self._generate_with_agent(agent, prompt, ctx.context_messages)
+            # Use unique task_id to prevent token interleaving between concurrent agents
+            task_id = f"{agent.name}:proposal"
+            with streaming_task_context(task_id):
+                if self._with_timeout:
+                    result = await self._with_timeout(
+                        self._generate_with_agent(agent, prompt, ctx.context_messages),
+                        agent.name,
+                        timeout_seconds=timeout,
+                    )
+                else:
+                    result = await self._generate_with_agent(agent, prompt, ctx.context_messages)
             return (agent, result)
         except Exception as e:
             return (agent, e)

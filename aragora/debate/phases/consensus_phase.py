@@ -24,6 +24,7 @@ from aragora.agents.errors import _build_error_action
 from aragora.config import AGENT_TIMEOUT_SECONDS
 from aragora.debate.complexity_governor import get_complexity_governor
 from aragora.debate.phases.weight_calculator import WeightCalculator
+from aragora.server.stream.arena_hooks import streaming_task_context
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Vote
@@ -613,10 +614,13 @@ class ConsensusPhase:
 
             try:
                 # Use per-attempt timeout with overall timeout managed by execute()
-                synthesis = await asyncio.wait_for(
-                    self._generate_with_agent(judge, judge_prompt, ctx.context_messages),
-                    timeout=self.JUDGE_TIMEOUT_PER_ATTEMPT,
-                )
+                # Use unique task_id to prevent token interleaving
+                task_id = f"{judge.name}:judge_synthesis"
+                with streaming_task_context(task_id):
+                    synthesis = await asyncio.wait_for(
+                        self._generate_with_agent(judge, judge_prompt, ctx.context_messages),
+                        timeout=self.JUDGE_TIMEOUT_PER_ATTEMPT,
+                    )
 
                 result.final_answer = synthesis
                 result.consensus_reached = True
@@ -1769,10 +1773,12 @@ class ConsensusPhase:
             synthesis_prompt = self._build_synthesis_prompt(ctx)
 
             # Generate synthesis with timeout (60s to fit within phase budget)
-            synthesis = await asyncio.wait_for(
-                synthesizer.generate(synthesis_prompt, ctx.context_messages),
-                timeout=60.0,
-            )
+            # Use unique task_id to prevent token interleaving
+            with streaming_task_context("synthesis-agent:opus_synthesis"):
+                synthesis = await asyncio.wait_for(
+                    synthesizer.generate(synthesis_prompt, ctx.context_messages),
+                    timeout=60.0,
+                )
             logger.info(f"synthesis_generated_opus chars={len(synthesis)}")
 
         except asyncio.TimeoutError:
@@ -1795,10 +1801,12 @@ class ConsensusPhase:
                     model="claude-sonnet-4-20250514",
                 )
                 synthesis_prompt = self._build_synthesis_prompt(ctx)
-                synthesis = await asyncio.wait_for(
-                    synthesizer.generate(synthesis_prompt, ctx.context_messages),
-                    timeout=30.0,
-                )
+                # Use unique task_id to prevent token interleaving
+                with streaming_task_context("synthesis-agent-fallback:sonnet_synthesis"):
+                    synthesis = await asyncio.wait_for(
+                        synthesizer.generate(synthesis_prompt, ctx.context_messages),
+                        timeout=30.0,
+                    )
                 logger.info(f"synthesis_generated_sonnet chars={len(synthesis)}")
             except Exception as e:
                 logger.warning(f"synthesis_sonnet_failed error={e}, using proposal combination")
