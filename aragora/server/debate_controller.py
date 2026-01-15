@@ -260,6 +260,9 @@ class DebateController:
             config: Debate configuration
             debate_id: Unique debate identifier
         """
+        import time
+
+        start_time = time.time()
         try:
             # Create event hooks for streaming with explicit loop_id
             # (prevents race condition when multiple debates run concurrently)
@@ -358,6 +361,19 @@ class DebateController:
                     data={"error": safe_msg, "debate_id": debate_id},
                 )
             )
+            # Emit DEBATE_END so frontend knows debate is finished
+            self.emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.DEBATE_END,
+                    data={
+                        "debate_id": debate_id,
+                        "duration": time.time() - start_time,
+                        "rounds": 0,
+                        "error": safe_msg,
+                    },
+                    loop_id=debate_id,
+                )
+            )
             logger.error(f"[debate] Validation error in {debate_id}: {e}")
 
         except Exception as e:
@@ -371,6 +387,19 @@ class DebateController:
                 StreamEvent(
                     type=StreamEventType.ERROR,
                     data={"error": safe_msg, "debate_id": debate_id},
+                )
+            )
+            # Emit DEBATE_END so frontend knows debate is finished
+            self.emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.DEBATE_END,
+                    data={
+                        "debate_id": debate_id,
+                        "duration": time.time() - start_time,
+                        "rounds": 0,
+                        "error": safe_msg,
+                    },
+                    loop_id=debate_id,
                 )
             )
 

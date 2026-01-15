@@ -420,16 +420,18 @@ export function useDebateWebSocket({
       setHasReceivedDebateStart(true);
       clearDebateStartTimeout();
     } else if (data.type === 'debate_end') {
-      setStatus('complete');
       // Clear fallback task text on debate end
       const endData = eventData as Record<string, unknown> | undefined;
+      const hasError = endData?.error as string | undefined;
+      // Set status based on whether there was an error
+      setStatus(hasError ? 'error' : 'complete');
       const summary = endData?.summary as Record<string, unknown> | undefined;
       const taskFromEvent = endData?.task as string || summary?.task as string;
       setTask(prev => {
         // If we have a task from the event, use it
         if (taskFromEvent) return taskFromEvent;
         // If current task is the fallback, clear it
-        if (prev === 'Debate in progress...') return 'Debate concluded';
+        if (prev === 'Debate in progress...') return hasError ? 'Debate failed' : 'Debate concluded';
         // Otherwise keep existing task
         return prev;
       });

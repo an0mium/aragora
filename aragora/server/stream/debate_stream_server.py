@@ -489,12 +489,13 @@ class DebateStreamServer(ServerBase):
         """
         while self._running:
             # Collect all pending events into a batch
-            events = list(self._emitter.drain())
+            # Use large batch size to prevent queue buildup with many concurrent agents
+            events = list(self._emitter.drain(max_batch_size=1000))
             if events:
                 # Group token events by agent for smoother streaming display
                 grouped = self._group_events_by_agent(events)
                 await self.broadcast_batch(grouped)
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.03)  # Faster drain rate for high-volume debates
 
     def register_loop(self, loop_id: str, name: str, path: str = "") -> None:
         """Register a new nomic loop instance."""
