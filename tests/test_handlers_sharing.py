@@ -17,7 +17,7 @@ class TestDebateVisibility:
 
     def test_visibility_values(self):
         """Visibility enum has expected values."""
-        from aragora.server.handlers.sharing import DebateVisibility
+        from aragora.server.handlers.social.sharing import DebateVisibility
 
         assert DebateVisibility.PRIVATE.value == "private"
         assert DebateVisibility.TEAM.value == "team"
@@ -25,7 +25,7 @@ class TestDebateVisibility:
 
     def test_visibility_from_string(self):
         """Can create visibility from string."""
-        from aragora.server.handlers.sharing import DebateVisibility
+        from aragora.server.handlers.social.sharing import DebateVisibility
 
         assert DebateVisibility("private") == DebateVisibility.PRIVATE
         assert DebateVisibility("team") == DebateVisibility.TEAM
@@ -33,7 +33,7 @@ class TestDebateVisibility:
 
     def test_invalid_visibility_raises(self):
         """Invalid visibility string raises ValueError."""
-        from aragora.server.handlers.sharing import DebateVisibility
+        from aragora.server.handlers.social.sharing import DebateVisibility
 
         with pytest.raises(ValueError):
             DebateVisibility("invalid")
@@ -49,7 +49,7 @@ class TestShareSettings:
 
     def test_default_values(self):
         """ShareSettings has correct defaults."""
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
         settings = ShareSettings(debate_id="test-123")
 
@@ -65,7 +65,7 @@ class TestShareSettings:
 
     def test_to_dict(self):
         """to_dict returns serializable dictionary."""
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
         settings = ShareSettings(
             debate_id="debate-1",
@@ -87,7 +87,7 @@ class TestShareSettings:
 
     def test_to_dict_no_token(self):
         """to_dict returns None share_url when no token."""
-        from aragora.server.handlers.sharing import ShareSettings
+        from aragora.server.handlers.social.sharing import ShareSettings
 
         settings = ShareSettings(debate_id="debate-1")
         result = settings.to_dict()
@@ -97,7 +97,7 @@ class TestShareSettings:
 
     def test_from_dict(self):
         """from_dict creates ShareSettings from dictionary."""
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
         data = {
             "debate_id": "debate-1",
@@ -123,7 +123,7 @@ class TestShareSettings:
 
     def test_from_dict_defaults(self):
         """from_dict uses defaults for missing fields."""
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
         data = {"debate_id": "debate-1"}
         settings = ShareSettings.from_dict(data)
@@ -134,21 +134,21 @@ class TestShareSettings:
 
     def test_is_expired_no_expiration(self):
         """is_expired returns False when no expiration set."""
-        from aragora.server.handlers.sharing import ShareSettings
+        from aragora.server.handlers.social.sharing import ShareSettings
 
         settings = ShareSettings(debate_id="test", expires_at=None)
         assert settings.is_expired is False
 
     def test_is_expired_future(self):
         """is_expired returns False for future expiration."""
-        from aragora.server.handlers.sharing import ShareSettings
+        from aragora.server.handlers.social.sharing import ShareSettings
 
         settings = ShareSettings(debate_id="test", expires_at=time.time() + 3600)  # 1 hour from now
         assert settings.is_expired is False
 
     def test_is_expired_past(self):
         """is_expired returns True for past expiration."""
-        from aragora.server.handlers.sharing import ShareSettings
+        from aragora.server.handlers.social.sharing import ShareSettings
 
         settings = ShareSettings(debate_id="test", expires_at=time.time() - 3600)  # 1 hour ago
         assert settings.is_expired is True
@@ -165,14 +165,14 @@ class TestShareStore:
     @pytest.fixture
     def store(self):
         """Create fresh ShareStore instance."""
-        from aragora.server.handlers.sharing import ShareStore
+        from aragora.server.handlers.social.sharing import ShareStore
 
         return ShareStore()
 
     @pytest.fixture
     def sample_settings(self):
         """Create sample ShareSettings."""
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
         return ShareSettings(
             debate_id="debate-1",
@@ -235,7 +235,7 @@ class TestShareStore:
 
     def test_revoke_token_no_token(self, store):
         """revoke_token returns False when no token exists."""
-        from aragora.server.handlers.sharing import ShareSettings
+        from aragora.server.handlers.social.sharing import ShareSettings
 
         settings = ShareSettings(debate_id="debate-1")
         store.save(settings)
@@ -274,7 +274,7 @@ class TestGetShareStore:
 
     def test_returns_store_instance(self):
         """get_share_store returns a store instance."""
-        from aragora.server.handlers import sharing
+        from aragora.server.handlers.social import sharing
 
         # Reset global
         sharing._share_store = None
@@ -287,8 +287,8 @@ class TestGetShareStore:
 
     def test_singleton_behavior(self):
         """get_share_store returns same instance on subsequent calls."""
-        from aragora.server.handlers import sharing
-        from aragora.server.handlers.sharing import ShareStore
+        from aragora.server.handlers.social import sharing
+        from aragora.server.handlers.social.sharing import ShareStore
 
         # Reset and set a known store
         test_store = ShareStore()
@@ -312,7 +312,7 @@ class TestSharingHandlerRouting:
     @pytest.fixture
     def handler(self):
         """Create SharingHandler instance."""
-        from aragora.server.handlers.sharing import SharingHandler
+        from aragora.server.handlers.social.sharing import SharingHandler
 
         return SharingHandler()
 
@@ -338,7 +338,7 @@ class TestExtractDebateId:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.sharing import SharingHandler
+        from aragora.server.handlers.social.sharing import SharingHandler
 
         return SharingHandler()
 
@@ -379,7 +379,7 @@ class TestSharingHandlerGet:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.sharing import SharingHandler, ShareStore
+        from aragora.server.handlers.social.sharing import SharingHandler, ShareStore
 
         handler = SharingHandler()
         handler._store = ShareStore()
@@ -415,7 +415,7 @@ class TestSharingHandlerGet:
 
     def test_get_share_settings_returns_existing(self, handler, mock_user):
         """Returns existing settings."""
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
         settings = ShareSettings(
             debate_id="debate-1",
@@ -437,7 +437,7 @@ class TestSharingHandlerGet:
 
     def test_get_share_settings_forbidden_for_other_owner(self, handler, mock_user):
         """Returns 403 if user doesn't own the debate."""
-        from aragora.server.handlers.sharing import ShareSettings
+        from aragora.server.handlers.social.sharing import ShareSettings
 
         settings = ShareSettings(
             debate_id="debate-1",
@@ -463,7 +463,7 @@ class TestGetSharedDebate:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.sharing import SharingHandler, ShareStore
+        from aragora.server.handlers.social.sharing import SharingHandler, ShareStore
 
         handler = SharingHandler()
         handler._store = ShareStore()
@@ -479,7 +479,7 @@ class TestGetSharedDebate:
 
     def test_shared_debate_expired(self, handler):
         """Returns 410 for expired share link."""
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
         settings = ShareSettings(
             debate_id="debate-1",
@@ -497,7 +497,7 @@ class TestGetSharedDebate:
 
     def test_shared_debate_not_public(self, handler):
         """Returns 403 for non-public debate."""
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
         settings = ShareSettings(
             debate_id="debate-1",
@@ -512,7 +512,7 @@ class TestGetSharedDebate:
 
     def test_shared_debate_success(self, handler):
         """Returns debate data for valid share link."""
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
         settings = ShareSettings(
             debate_id="debate-1",
@@ -533,7 +533,7 @@ class TestGetSharedDebate:
 
     def test_shared_debate_increments_view_count(self, handler):
         """Accessing shared debate increments view count."""
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
         settings = ShareSettings(
             debate_id="debate-1",
@@ -561,7 +561,7 @@ class TestSharingHandlerPost:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.sharing import SharingHandler, ShareStore
+        from aragora.server.handlers.social.sharing import SharingHandler, ShareStore
 
         handler = SharingHandler()
         handler._store = ShareStore()
@@ -597,7 +597,7 @@ class TestSharingHandlerPost:
 
     def test_update_visibility_to_public(self, handler, mock_user):
         """Can update visibility to public."""
-        from aragora.server.handlers.sharing import ShareSettings
+        from aragora.server.handlers.social.sharing import ShareSettings
 
         settings = ShareSettings(debate_id="debate-1", owner_id="user-1")
         handler._store.save(settings)
@@ -616,7 +616,7 @@ class TestSharingHandlerPost:
 
     def test_update_visibility_to_private_revokes_token(self, handler, mock_user):
         """Updating to private revokes share token."""
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
         settings = ShareSettings(
             debate_id="debate-1",
@@ -640,7 +640,7 @@ class TestSharingHandlerPost:
 
     def test_update_invalid_visibility(self, handler, mock_user):
         """Returns 400 for invalid visibility value."""
-        from aragora.server.handlers.sharing import ShareSettings
+        from aragora.server.handlers.social.sharing import ShareSettings
 
         settings = ShareSettings(debate_id="debate-1", owner_id="user-1")
         handler._store.save(settings)
@@ -656,7 +656,7 @@ class TestSharingHandlerPost:
 
     def test_update_expiration(self, handler, mock_user):
         """Can set expiration time."""
-        from aragora.server.handlers.sharing import ShareSettings
+        from aragora.server.handlers.social.sharing import ShareSettings
 
         settings = ShareSettings(debate_id="debate-1", owner_id="user-1")
         handler._store.save(settings)
@@ -674,7 +674,7 @@ class TestSharingHandlerPost:
 
     def test_update_clear_expiration(self, handler, mock_user):
         """Can clear expiration with zero or negative hours."""
-        from aragora.server.handlers.sharing import ShareSettings
+        from aragora.server.handlers.social.sharing import ShareSettings
 
         settings = ShareSettings(
             debate_id="debate-1",
@@ -696,7 +696,7 @@ class TestSharingHandlerPost:
 
     def test_update_allow_comments(self, handler, mock_user):
         """Can update allow_comments setting."""
-        from aragora.server.handlers.sharing import ShareSettings
+        from aragora.server.handlers.social.sharing import ShareSettings
 
         settings = ShareSettings(debate_id="debate-1", owner_id="user-1")
         handler._store.save(settings)
@@ -714,7 +714,7 @@ class TestSharingHandlerPost:
 
     def test_update_forbidden_for_other_owner(self, handler, mock_user):
         """Returns 403 if user doesn't own the debate."""
-        from aragora.server.handlers.sharing import ShareSettings
+        from aragora.server.handlers.social.sharing import ShareSettings
 
         settings = ShareSettings(debate_id="debate-1", owner_id="other-user")
         handler._store.save(settings)
@@ -739,7 +739,7 @@ class TestRevokeShare:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.sharing import SharingHandler, ShareStore
+        from aragora.server.handlers.social.sharing import SharingHandler, ShareStore
 
         handler = SharingHandler()
         handler._store = ShareStore()
@@ -772,7 +772,7 @@ class TestRevokeShare:
 
     def test_revoke_forbidden_for_other_owner(self, handler, mock_user):
         """Returns 403 if user doesn't own the debate."""
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
         settings = ShareSettings(
             debate_id="debate-1",
@@ -790,7 +790,7 @@ class TestRevokeShare:
 
     def test_revoke_success(self, handler, mock_user):
         """Successfully revokes share links."""
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
         settings = ShareSettings(
             debate_id="debate-1",
@@ -824,7 +824,7 @@ class TestGenerateShareToken:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.sharing import SharingHandler
+        from aragora.server.handlers.social.sharing import SharingHandler
 
         return SharingHandler()
 
@@ -862,7 +862,7 @@ class TestHandleMethod:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.sharing import SharingHandler, ShareStore
+        from aragora.server.handlers.social.sharing import SharingHandler, ShareStore
 
         handler = SharingHandler()
         handler._store = ShareStore()
@@ -904,7 +904,7 @@ class TestHandlePostMethod:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.sharing import SharingHandler, ShareStore
+        from aragora.server.handlers.social.sharing import SharingHandler, ShareStore
 
         handler = SharingHandler()
         handler._store = ShareStore()
@@ -946,7 +946,7 @@ class TestSharingIntegration:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.sharing import SharingHandler, ShareStore
+        from aragora.server.handlers.social.sharing import SharingHandler, ShareStore
 
         handler = SharingHandler()
         handler._store = ShareStore()

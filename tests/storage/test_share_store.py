@@ -495,7 +495,7 @@ class TestShareLinkStoreIntegration:
     def test_with_real_share_settings(self, memory_store):
         """Should work with actual ShareSettings class."""
         try:
-            from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+            from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
             settings = ShareSettings(
                 debate_id="real-debate-123",

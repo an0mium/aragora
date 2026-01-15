@@ -118,7 +118,7 @@ class TestFeatureRegistry:
             "memory",
             "competition",
             "security",
-            "general",
+            "system",
         }
         for feature_id, feature in FEATURE_REGISTRY.items():
             assert (
@@ -149,7 +149,7 @@ class TestFeatureDetection:
             assert not available
             assert "coming soon" in reason.lower()
 
-    @patch("aragora.server.handlers.features._check_pulse")
+    @patch("aragora.server.handlers.features.features._check_pulse")
     def test_pulse_availability_check(self, mock_check):
         """Test pulse feature detection."""
         mock_check.return_value = (True, None)
@@ -157,7 +157,7 @@ class TestFeatureDetection:
         assert available
         assert reason is None
 
-    @patch("aragora.server.handlers.features._check_pulse")
+    @patch("aragora.server.handlers.features.features._check_pulse")
     def test_pulse_unavailable_with_reason(self, mock_check):
         """Test pulse feature reports correct reason when unavailable."""
         mock_check.return_value = (False, "API keys not configured")
@@ -165,14 +165,14 @@ class TestFeatureDetection:
         assert not available
         assert "API keys" in reason
 
-    @patch("aragora.server.handlers.features._check_genesis")
+    @patch("aragora.server.handlers.features.features._check_genesis")
     def test_genesis_availability_check(self, mock_check):
         """Test genesis feature detection."""
         mock_check.return_value = (True, None)
         available, reason = _check_feature_available("genesis")
         assert available
 
-    @patch("aragora.server.handlers.features._check_elo")
+    @patch("aragora.server.handlers.features.features._check_elo")
     def test_elo_availability_check(self, mock_check):
         """Test ELO feature detection."""
         mock_check.return_value = (True, None)
@@ -188,7 +188,7 @@ class TestFeatureDetection:
 class TestHelperFunctions:
     """Tests for feature helper functions."""
 
-    @patch("aragora.server.handlers.features._check_feature_available")
+    @patch("aragora.server.handlers.features.features._check_feature_available")
     def test_get_all_features_structure(self, mock_check):
         """Test get_all_features returns correct structure."""
         mock_check.return_value = (True, None)
@@ -204,7 +204,7 @@ class TestHelperFunctions:
             assert "available" in info
             assert "endpoints" in info
 
-    @patch("aragora.server.handlers.features._check_feature_available")
+    @patch("aragora.server.handlers.features.features._check_feature_available")
     def test_get_available_features_returns_list(self, mock_check):
         """Test get_available_features returns list of IDs."""
         mock_check.return_value = (True, None)
@@ -213,7 +213,7 @@ class TestHelperFunctions:
         assert isinstance(available, list)
         assert all(isinstance(fid, str) for fid in available)
 
-    @patch("aragora.server.handlers.features._check_feature_available")
+    @patch("aragora.server.handlers.features.features._check_feature_available")
     def test_get_unavailable_features_returns_dict(self, mock_check):
         """Test get_unavailable_features returns dict with reasons."""
         mock_check.return_value = (False, "Test reason")

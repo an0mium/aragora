@@ -2,7 +2,14 @@
 
 from .collaboration import CollaborationHandlers, get_collaboration_handlers
 from .notifications import NotificationsHandler
-from .relationship import RelationshipHandler
+from .relationship import (
+    RelationshipHandler,
+    RelationshipScores,
+    compute_alliance_score,
+    compute_relationship_scores,
+    compute_rivalry_score,
+    determine_relationship_type,
+)
 from .sharing import DebateVisibility, ShareSettings, SharingHandler
 from .slack import SlackHandler
 from .relationship import _safe_error_message
@@ -24,6 +31,7 @@ __all__ = [
     "NotificationsHandler",
     "DebateVisibility",
     "RelationshipHandler",
+    "RelationshipScores",
     "ShareSettings",
     "SharingHandler",
     "SlackHandler",
@@ -34,5 +42,9 @@ __all__ = [
     "_safe_error_message",
     "_store_oauth_state",
     "_validate_oauth_state",
+    "compute_alliance_score",
+    "compute_relationship_scores",
+    "compute_rivalry_score",
+    "determine_relationship_type",
     "get_collaboration_handlers",
 ]

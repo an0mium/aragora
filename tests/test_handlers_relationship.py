@@ -53,7 +53,7 @@ class TestSummaryEndpoint:
         """Create handler with mock context."""
         return RelationshipHandler({"nomic_dir": Path("/tmp/test")})
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", False)
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", False)
     def test_summary_503_when_unavailable(self, handler):
         """Should return 503 when relationship tracker unavailable."""
         result = handler.handle("/api/relationships/summary", {}, Mock())
@@ -61,8 +61,8 @@ class TestSummaryEndpoint:
         data = json.loads(result.body)
         assert "not available" in data["error"]
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
-    @patch("aragora.server.handlers.relationship.RelationshipTracker")
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
+    @patch("aragora.server.handlers.social.relationship.RelationshipTracker")
     def test_summary_empty_database(self, mock_tracker_class, handler):
         """Should handle empty database gracefully."""
         import sqlite3
@@ -105,14 +105,14 @@ class TestGraphEndpoint:
         """Create handler with mock context."""
         return RelationshipHandler({"nomic_dir": Path("/tmp/test")})
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", False)
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", False)
     def test_graph_503_when_unavailable(self, handler):
         """Should return 503 when relationship tracker unavailable."""
         result = handler.handle("/api/relationships/graph", {}, Mock())
         assert result.status_code == 503
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
-    @patch("aragora.server.handlers.relationship.RelationshipTracker")
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
+    @patch("aragora.server.handlers.social.relationship.RelationshipTracker")
     def test_graph_respects_min_debates_param(self, mock_tracker_class, handler):
         """Should accept min_debates parameter."""
         import sqlite3
@@ -155,7 +155,7 @@ class TestPairDetailEndpoint:
         """Create handler with mock context."""
         return RelationshipHandler({"nomic_dir": Path("/tmp/test")})
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", False)
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", False)
     def test_pair_detail_503_when_unavailable(self, handler):
         """Should return 503 when relationship tracker unavailable."""
         result = handler.handle("/api/relationship/claude/gpt4", {}, Mock())
@@ -167,8 +167,8 @@ class TestPairDetailEndpoint:
         result = handler.handle("/api/relationship/../etc/passwd", {}, Mock())
         assert result is None or result.status_code == 400
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
-    @patch("aragora.server.handlers.relationship.RelationshipTracker")
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
+    @patch("aragora.server.handlers.social.relationship.RelationshipTracker")
     def test_pair_detail_returns_relationship_data(self, mock_tracker_class, handler):
         """Should return relationship data for valid pair."""
         mock_rel = Mock()
@@ -197,8 +197,8 @@ class TestPairDetailEndpoint:
         assert data["debate_count"] == 10
         assert data["relationship_type"] == "rivalry"
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
-    @patch("aragora.server.handlers.relationship.RelationshipTracker")
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
+    @patch("aragora.server.handlers.social.relationship.RelationshipTracker")
     def test_pair_detail_no_interactions(self, mock_tracker_class, handler):
         """Should handle pair with no recorded interactions."""
         mock_rel = Mock()
@@ -223,14 +223,14 @@ class TestStatsEndpoint:
         """Create handler with mock context."""
         return RelationshipHandler({"nomic_dir": Path("/tmp/test")})
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", False)
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", False)
     def test_stats_503_when_unavailable(self, handler):
         """Should return 503 when relationship tracker unavailable."""
         result = handler.handle("/api/relationships/stats", {}, Mock())
         assert result.status_code == 503
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
-    @patch("aragora.server.handlers.relationship.RelationshipTracker")
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
+    @patch("aragora.server.handlers.social.relationship.RelationshipTracker")
     def test_stats_returns_statistics(self, mock_tracker_class, handler):
         """Should return relationship statistics."""
         import sqlite3
@@ -383,8 +383,8 @@ class TestGraphEndpointEdgeCases:
         """Create handler with mock context."""
         return RelationshipHandler({"nomic_dir": Path("/tmp/test")})
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
-    @patch("aragora.server.handlers.relationship.RelationshipTracker")
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
+    @patch("aragora.server.handlers.social.relationship.RelationshipTracker")
     def test_graph_respects_min_score_param(self, mock_tracker_class, handler):
         """Should filter edges below min_score threshold."""
         import sqlite3
@@ -424,8 +424,8 @@ class TestGraphEndpointEdgeCases:
 
         Path(db_path).unlink(missing_ok=True)
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
-    @patch("aragora.server.handlers.relationship.RelationshipTracker")
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
+    @patch("aragora.server.handlers.social.relationship.RelationshipTracker")
     def test_graph_with_relationships(self, mock_tracker_class, handler):
         """Should return nodes and edges for relationships."""
         import sqlite3
@@ -477,7 +477,7 @@ class TestRateLimiting:
     def test_rate_limit_returns_429(self, handler):
         """Should return 429 when rate limit exceeded."""
         # Mock the rate limiter to always return False (limit exceeded)
-        with patch("aragora.server.handlers.relationship._relationship_limiter") as mock_limiter:
+        with patch("aragora.server.handlers.social.relationship._relationship_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
 
             mock_handler = Mock()
@@ -498,8 +498,8 @@ class TestTrackerInitialization:
         """Create handler with mock context."""
         return RelationshipHandler({"nomic_dir": Path("/tmp/test")})
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
-    @patch("aragora.server.handlers.relationship.RelationshipTracker")
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
+    @patch("aragora.server.handlers.social.relationship.RelationshipTracker")
     def test_tracker_uses_nomic_dir(self, mock_tracker_class, handler):
         """Should use nomic_dir for database path."""
         import tempfile
@@ -513,20 +513,20 @@ class TestTrackerInitialization:
             handler = RelationshipHandler({"nomic_dir": tmp_path})
 
             with patch(
-                "aragora.server.handlers.relationship.get_db_path",
+                "aragora.server.handlers.social.relationship.get_db_path",
                 return_value=positions_db,
             ):
                 handler._get_tracker(tmp_path)
                 mock_tracker_class.assert_called()
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
-    @patch("aragora.server.handlers.relationship.RelationshipTracker")
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
+    @patch("aragora.server.handlers.social.relationship.RelationshipTracker")
     def test_tracker_fallback_to_default(self, mock_tracker_class, handler):
         """Should fall back to default tracker when nomic_dir not set."""
         handler._get_tracker(None)
         mock_tracker_class.assert_called_with()
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", False)
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", False)
     def test_tracker_unavailable(self, handler):
         """Should return None when tracker not available."""
         result = handler._get_tracker(Path("/tmp"))
@@ -541,8 +541,8 @@ class TestSummaryEndpointEdgeCases:
         """Create handler with mock context."""
         return RelationshipHandler({"nomic_dir": Path("/tmp/test")})
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
-    @patch("aragora.server.handlers.relationship.RelationshipTracker")
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
+    @patch("aragora.server.handlers.social.relationship.RelationshipTracker")
     def test_summary_with_relationships(self, mock_tracker_class, handler):
         """Should return strongest rivalry and alliance."""
         import sqlite3
@@ -608,8 +608,8 @@ class TestPairDetailEdgeCases:
         # Path validation should fail
         assert result is None or result.status_code == 400
 
-    @patch("aragora.server.handlers.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
-    @patch("aragora.server.handlers.relationship.RelationshipTracker")
+    @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", True)
+    @patch("aragora.server.handlers.social.relationship.RelationshipTracker")
     def test_pair_detail_with_history(self, mock_tracker_class, handler):
         """Should include recent history when available."""
         mock_rel = Mock()
