@@ -42,7 +42,7 @@ import logging
 import os
 import re
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, TypedDict, Union
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.billing.auth.context import UserAuthContext
@@ -51,10 +51,91 @@ from aragora.protocols import AgentRating, HTTPRequestHandler
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from aragora.debate.calibration import CalibrationTracker
     from aragora.debate.embeddings import DebateEmbeddingsDatabase
+    from aragora.evidence.collector import EvidenceCollector
+    from aragora.evidence.store import EvidenceStore
+    from aragora.insights.moment_detector import MomentDetector
+    from aragora.memory.continuum import ContinuumMemory
     from aragora.memory.store import CritiqueStore
     from aragora.ranking.elo import EloSystem
     from aragora.server.storage import DebateStorage
+    from aragora.server.stream.ws_manager import WebSocketManager
+    from aragora.storage.documents import DocumentStore
+    from aragora.storage.webhooks import WebhookStore
+    from aragora.users.store import UserStore
+    from aragora.billing.usage import UsageTracker
+
+
+class ServerContext(TypedDict, total=False):
+    """Type definition for server context passed to handlers.
+
+    All fields are optional (total=False) since not all handlers need all resources.
+    Handlers should use ctx.get("key") to safely access optional fields.
+
+    Core Resources:
+        storage: Main debate storage
+        user_store: User authentication and profile storage
+        elo_system: Agent ELO rating system
+        nomic_dir: Path to Nomic session directory
+
+    Memory Systems:
+        continuum_memory: Cross-debate memory system
+        critique_store: Critique persistence
+
+    Analytics & Monitoring:
+        calibration_tracker: Prediction calibration tracking
+        moment_detector: Significant moment detection
+        usage_tracker: API usage tracking
+
+    Feature Stores:
+        document_store: Document persistence
+        evidence_store: Evidence snippet storage
+        evidence_collector: Evidence collection service
+        webhook_store: Webhook configuration storage
+        audio_store: Audio file storage
+
+    Event & Communication:
+        event_emitter: Event emission for pub/sub
+        ws_manager: WebSocket connection manager
+        connectors: External service connectors
+
+    Database Paths:
+        analytics_db: Path to analytics database
+        debate_embeddings: Debate embedding database
+    """
+
+    # Core Resources
+    storage: "DebateStorage"
+    user_store: "UserStore"
+    elo_system: "EloSystem"
+    nomic_dir: "Path"
+
+    # Memory Systems
+    continuum_memory: "ContinuumMemory"
+    critique_store: "CritiqueStore"
+
+    # Analytics & Monitoring
+    calibration_tracker: "CalibrationTracker"
+    moment_detector: "MomentDetector"
+    usage_tracker: "UsageTracker"
+
+    # Feature Stores
+    document_store: "DocumentStore"
+    evidence_store: "EvidenceStore"
+    evidence_collector: "EvidenceCollector"
+    webhook_store: "WebhookStore"
+    audio_store: Any  # AudioStore type if available
+
+    # Event & Communication
+    event_emitter: Any  # EventEmitter type if available
+    ws_manager: "WebSocketManager"
+    connectors: dict[str, Any]  # Service connectors
+
+    # Database Paths
+    analytics_db: str
+    debate_embeddings: "DebateEmbeddingsDatabase"
+
 
 # Import from extracted utility modules (re-exported for backwards compatibility)
 from aragora.server.error_utils import safe_error_message
@@ -773,13 +854,16 @@ class BaseHandler:
     their routes via the `routes` class attribute.
     """
 
-    def __init__(self, server_context: dict):
+    ctx: ServerContext
+
+    def __init__(self, server_context: ServerContext):
         """
         Initialize with server context.
 
         Args:
-            server_context: Dict containing shared server resources like
+            server_context: ServerContext containing shared server resources like
                            storage, elo_system, debate_embeddings, etc.
+                           See ServerContext TypedDict for available fields.
         """
         self.ctx = server_context
 

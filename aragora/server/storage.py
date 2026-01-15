@@ -360,6 +360,15 @@ class DebateStorage(SQLiteStore):
 
         return slug
 
+    def store(self, debate_data: dict, org_id: Optional[str] = None) -> str:
+        """
+        Store debate metadata (backwards-compatible alias for save_dict).
+
+        Returns the stored debate ID if provided, otherwise the generated slug.
+        """
+        slug = self.save_dict(debate_data, org_id=org_id)
+        return debate_data.get("id", slug)
+
     def get_by_slug(
         self, slug: str, org_id: Optional[str] = None, verify_ownership: bool = False
     ) -> Optional[dict]:

@@ -21,6 +21,9 @@ from aragora.debate.complexity_governor import get_complexity_governor
 # Timeout for async callbacks that can hang (evidence refresh, judge termination, etc.)
 DEFAULT_CALLBACK_TIMEOUT = 30.0
 
+# Timeout for the entire revision phase gather (prevents indefinite stalls)
+REVISION_PHASE_TIMEOUT = 90.0
+
 
 async def _with_callback_timeout(coro, timeout: float = DEFAULT_CALLBACK_TIMEOUT, default=None):
     """Execute coroutine with timeout, returning default on timeout.
@@ -486,8 +489,19 @@ class DebateRoundsPhase:
             revision_tasks.append(generate_revision_bounded(agent, revision_prompt))
             revision_agents.append(agent)
 
-        # Execute all revisions with bounded concurrency
-        revision_results = await asyncio.gather(*revision_tasks, return_exceptions=True)
+        # Execute all revisions with bounded concurrency and phase-level timeout
+        try:
+            revision_results = await asyncio.wait_for(
+                asyncio.gather(*revision_tasks, return_exceptions=True),
+                timeout=REVISION_PHASE_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            logger.error(
+                f"revision_phase_timeout: phase exceeded {REVISION_PHASE_TIMEOUT}s limit, "
+                f"agents={[a.name for a in revision_agents]}"
+            )
+            # Return timeout errors for all pending agents
+            revision_results = [asyncio.TimeoutError()] * len(revision_tasks)
 
         # Process results
         for agent, revised in zip(revision_agents, revision_results):

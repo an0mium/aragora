@@ -255,6 +255,10 @@ class ContinuumMemory(SQLiteStore):
                 resolved_path = base
             else:
                 resolved_path = base / "continuum_memory.db"
+        else:
+            candidate = Path(db_path)
+            if candidate.exists() and candidate.is_dir():
+                resolved_path = candidate / "continuum_memory.db"
 
         # Initialize SQLiteStore base class (handles schema creation)
         super().__init__(resolved_path)

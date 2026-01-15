@@ -242,6 +242,10 @@ class EloSystem:
         _validate_agent_name(agent_name)
         return self.get_rating(agent_name, use_cache=False)
 
+    def initialize_agent(self, agent_name: str, model: Optional[str] = None) -> AgentRating:
+        """Backward-compatible alias for register_agent."""
+        return self.register_agent(agent_name, model=model)
+
     def get_rating(self, agent_name: str, use_cache: bool = True) -> AgentRating:
         """Get or create rating for an agent.
 

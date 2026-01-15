@@ -224,7 +224,7 @@ and building on others' ideas."""
         """
         lower = question.lower()
 
-        # Philosophical/Life domains - use philosophical personas
+        # Philosophical/Life/Theological domains - use philosophical personas
         philosophical_keywords = [
             "meaning",
             "meaningful",
@@ -246,6 +246,29 @@ and building on others' ideas."""
             "fulfillment",
             "wellbeing",
             "flourishing",
+            # Theological/Religious keywords
+            "heaven",
+            "hell",
+            "afterlife",
+            "divine",
+            "god",
+            "theological",
+            "theology",
+            "religious",
+            "faith",
+            "spiritual",
+            "prayer",
+            "scripture",
+            "bible",
+            "sin",
+            "redemption",
+            "salvation",
+            "eternal",
+            "sacred",
+            "holy",
+            "angel",
+            "fetus",
+            "abortion",
         ]
         if any(kw in lower for kw in philosophical_keywords):
             return "philosophical"

@@ -9,7 +9,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Literal, Optional
+
+# Type aliases for agent role and stance
+AgentRole = Literal["proposer", "critic", "synthesizer", "judge"]
+AgentStance = Literal["affirmative", "negative", "neutral"]
 
 
 class TaskComplexity(Enum):
@@ -286,20 +290,36 @@ class Environment:
 
 
 class Agent(ABC):
-    """Abstract base class for all agents."""
+    """Abstract base class for all agents.
 
-    def __init__(self, name: str, model: str, role: str = "proposer"):
+    Attributes:
+        name: Unique identifier for the agent
+        model: The underlying model (e.g., "claude-3-opus", "gpt-4o")
+        role: The agent's role in the debate (proposer, critic, synthesizer, judge)
+        system_prompt: Custom system prompt for the agent
+        agent_type: Agent type identifier for routing and role assignment
+        stance: The agent's stance for asymmetric debate
+    """
+
+    name: str
+    model: str
+    role: AgentRole
+    system_prompt: str
+    agent_type: str
+    stance: AgentStance
+
+    def __init__(self, name: str, model: str, role: AgentRole = "proposer"):
         self.name = name
         self.model = model
         self.role = role
-        self.system_prompt: str = ""
+        self.system_prompt = ""
         # Agent type identifier for routing and role assignment
-        self.agent_type: str = "unknown"
+        self.agent_type = "unknown"
         # Stance for asymmetric debate: "affirmative", "negative", or "neutral"
         # - Affirmative: Defend/support proposals
         # - Negative: Challenge/critique proposals
         # - Neutral: Evaluate fairly without bias
-        self.stance: str = "neutral"
+        self.stance: AgentStance = "neutral"
 
     @abstractmethod
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:

@@ -22,6 +22,58 @@ from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
 
+# FTS query complexity limits to prevent DoS and improve performance
+MAX_FTS_QUERY_LENGTH = 500  # Maximum characters in FTS query
+MAX_FTS_TERMS = 20  # Maximum number of search terms
+FTS_SPECIAL_CHARS = set('"*(){}[]^:')  # Characters with special FTS5 meaning
+
+
+def sanitize_fts_query(query: str, max_length: int = MAX_FTS_QUERY_LENGTH, max_terms: int = MAX_FTS_TERMS) -> str:
+    """Sanitize and limit FTS query complexity.
+
+    Args:
+        query: Raw search query from user
+        max_length: Maximum query length in characters
+        max_terms: Maximum number of search terms
+
+    Returns:
+        Sanitized query safe for FTS5 MATCH clause
+
+    Example:
+        >>> sanitize_fts_query("hello world")
+        'hello world'
+        >>> sanitize_fts_query("hello*")  # Wildcard preserved
+        'hello*'
+        >>> sanitize_fts_query('test "phrase"')  # Quotes escaped
+        'test phrase'
+    """
+    if not query or not query.strip():
+        return ""
+
+    # Truncate to max length
+    query = query[:max_length]
+
+    # Remove or escape special characters that could cause issues
+    # Keep * for prefix matching but escape quotes and other operators
+    sanitized_chars = []
+    for char in query:
+        if char in FTS_SPECIAL_CHARS:
+            # Skip most special chars, keep * for wildcards
+            if char == '*':
+                sanitized_chars.append(char)
+            # Otherwise skip
+        else:
+            sanitized_chars.append(char)
+    query = "".join(sanitized_chars)
+
+    # Split into terms and limit count
+    terms = query.split()
+    if len(terms) > max_terms:
+        terms = terms[:max_terms]
+        logger.debug(f"FTS query truncated to {max_terms} terms")
+
+    return " ".join(terms)
+
 
 class EvidenceStore(SQLiteStore):
     """SQLite-based evidence persistence store."""
@@ -352,6 +404,12 @@ class EvidenceStore(SQLiteStore):
         Returns:
             List of matching evidence data
         """
+        # Sanitize query to prevent FTS injection and limit complexity
+        sanitized_query = sanitize_fts_query(query)
+        if not sanitized_query:
+            logger.debug("Empty FTS query after sanitization")
+            return []
+
         with self.connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
@@ -363,7 +421,7 @@ class EvidenceStore(SQLiteStore):
                 JOIN evidence e ON evidence_fts.evidence_id = e.id
                 WHERE evidence_fts MATCH ?
             """
-            params: List[Any] = [query]
+            params: List[Any] = [sanitized_query]
 
             if source_filter:
                 base_query += " AND e.source = ?"
@@ -436,12 +494,12 @@ class EvidenceStore(SQLiteStore):
             "could",
             "should",
         }
-        keywords = [w for w in words if w not in stop_words][:10]
+        keywords = [w for w in words if w not in stop_words][:MAX_FTS_TERMS]
 
         if not keywords:
             return []
 
-        # Build FTS query
+        # Build FTS query - keywords are already alphanumeric from regex
         query = " OR ".join(keywords)
 
         with self.connection() as conn:

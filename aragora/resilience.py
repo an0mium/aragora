@@ -14,12 +14,13 @@ import threading
 import time
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Generator, Optional
+from typing import Any, AsyncGenerator, Awaitable, Callable, Generator, Optional, TypeVar
 
 from aragora.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
+T = TypeVar("T")
 
 # Global circuit breaker registry for shared state across components (thread-safe)
 _circuit_breakers: dict[str, "CircuitBreaker"] = {}
@@ -274,6 +275,7 @@ class CircuitBreaker:
 
     failure_threshold: int = 3  # Consecutive failures before opening circuit
     cooldown_seconds: float = 60.0  # Seconds before attempting recovery
+    recovery_timeout: Optional[float] = None  # Backward-compatible alias for cooldown_seconds
     half_open_success_threshold: int = 2  # Successes needed to fully close
 
     # Internal state (initialized in __post_init__)
@@ -288,6 +290,10 @@ class CircuitBreaker:
 
     # Access tracking for memory management (pruning stale circuit breakers)
     _last_accessed: float = field(default_factory=time.time, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.recovery_timeout is not None:
+            self.cooldown_seconds = float(self.recovery_timeout)
 
     # Backward-compatible properties for single-entity mode
     @property
@@ -314,6 +320,11 @@ class CircuitBreaker:
             self._single_open_at = 0.0
             self._single_failures = 0
             self._single_successes = 0
+
+    @property
+    def state(self) -> str:
+        """Alias for get_status() in single-entity mode (backward compatibility)."""
+        return self.get_status()
 
     def record_failure(self, entity: str | None = None) -> bool:
         """
@@ -405,6 +416,18 @@ class CircuitBreaker:
         if entity is None:
             return self._can_proceed_single()
         return self.is_available(entity)
+
+    async def execute(
+        self,
+        func: Callable[..., Awaitable[T]],
+        *args: Any,
+        entity: str | None = None,
+        circuit_name: str | None = None,
+        **kwargs: Any,
+    ) -> T:
+        """Execute an async call with circuit breaker protection."""
+        async with self.protected_call(entity=entity, circuit_name=circuit_name):
+            return await func(*args, **kwargs)
 
     def _can_proceed_single(self) -> bool:
         """Check if single-entity circuit allows requests."""

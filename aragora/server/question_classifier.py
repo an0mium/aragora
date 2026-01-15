@@ -47,9 +47,14 @@ QUESTION_CATEGORIES = {
         "domains": ["fisma", "nist_800_53", "audit_trails"],
     },
     "ethical": {
-        "description": "Ethics, morality, philosophy questions",
-        "keywords": ["ethics", "moral", "right", "wrong", "should", "philosophy", "values"],
-        "domains": ["data_privacy", "access_control"],
+        "description": "Ethics, morality, philosophy, theology questions",
+        "keywords": [
+            "ethics", "moral", "right", "wrong", "should", "philosophy", "values",
+            "heaven", "hell", "god", "soul", "sin", "salvation", "afterlife",
+            "abortion", "euthanasia", "death", "life", "meaning", "purpose",
+            "religion", "spiritual", "faith", "belief", "conscience",
+        ],
+        "domains": ["philosophy", "ethics", "theology", "humanities"],
     },
     "financial": {
         "description": "Finance, economics, markets, money",

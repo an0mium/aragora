@@ -305,7 +305,7 @@ class FallbackMetrics:
         return total / attempts
 
 
-class AllProvidersExhaustedError(Exception):
+class AllProvidersExhaustedError(RuntimeError):
     """Raised when all providers in a fallback chain have failed."""
 
     def __init__(self, providers: list[str], last_error: Optional[Exception] = None):
@@ -364,7 +364,7 @@ class AgentFallbackChain:
 
     def __init__(
         self,
-        providers: list[str],
+        providers: list[Any],
         circuit_breaker: Optional["CircuitBreaker"] = None,
         max_retries: Optional[int] = None,
         max_fallback_time: Optional[float] = None,
@@ -372,7 +372,7 @@ class AgentFallbackChain:
         """Initialize the fallback chain.
 
         Args:
-            providers: Ordered list of provider names to try (first is primary)
+            providers: Ordered list of provider names or agent instances (first is primary)
             circuit_breaker: CircuitBreaker instance for tracking provider health
             max_retries: Maximum number of providers to try (default: 5)
             max_fallback_time: Maximum time in seconds for the entire fallback chain (default: 120)
@@ -386,6 +386,12 @@ class AgentFallbackChain:
         self.metrics = FallbackMetrics()
         self._provider_factories: dict[str, Callable[[], Any]] = {}
         self._cached_agents: dict[str, Any] = {}
+
+    def _provider_key(self, provider: Any) -> str:
+        """Return the name used for metrics/circuit breaker tracking."""
+        if isinstance(provider, str):
+            return provider
+        return getattr(provider, "name", str(provider))
 
     def register_provider(
         self,
@@ -402,8 +408,11 @@ class AgentFallbackChain:
             logger.warning(f"Registering provider '{name}' not in chain: {self.providers}")
         self._provider_factories[name] = factory
 
-    def _get_agent(self, provider: str) -> Optional[Any]:
+    def _get_agent(self, provider: Any) -> Optional[Any]:
         """Get or create an agent for the given provider."""
+        if not isinstance(provider, str):
+            return provider
+
         if provider in self._cached_agents:
             return self._cached_agents[provider]
 
@@ -438,7 +447,12 @@ class AgentFallbackChain:
 
     def get_available_providers(self) -> list[str]:
         """Get list of providers currently available (not circuit-broken)."""
-        return [p for p in self.providers if self._is_available(p)]
+        available: list[str] = []
+        for provider in self.providers:
+            provider_key = self._provider_key(provider)
+            if self._is_available(provider_key):
+                available.append(provider_key)
+        return available
 
     async def generate(
         self,
@@ -467,6 +481,7 @@ class AgentFallbackChain:
         retry_count = 0
 
         for i, provider in enumerate(self.providers):
+            provider_key = self._provider_key(provider)
             # Check retry limit
             if retry_count >= self.max_retries:
                 logger.warning(f"Max retries ({self.max_retries}) reached, stopping fallback chain")
@@ -478,15 +493,15 @@ class AgentFallbackChain:
                 raise FallbackTimeoutError(elapsed, self.max_fallback_time, tried_providers)
 
             # Skip if circuit breaker has this provider tripped
-            if not self._is_available(provider):
-                logger.debug(f"Skipping circuit-broken provider: {provider}")
+            if not self._is_available(provider_key):
+                logger.debug(f"Skipping circuit-broken provider: {provider_key}")
                 continue
 
             agent = self._get_agent(provider)
             if not agent:
                 continue
 
-            tried_providers.append(provider)
+            tried_providers.append(provider_key)
             retry_count += 1
             is_primary = i == 0
 
@@ -494,13 +509,13 @@ class AgentFallbackChain:
                 result = await agent.generate(prompt, context)
 
                 # Record success
-                self._record_success(provider)
+                self._record_success(provider_key)
                 if is_primary:
                     self.metrics.record_primary_attempt(success=True)
                 else:
-                    self.metrics.record_fallback_attempt(provider, success=True)
+                    self.metrics.record_fallback_attempt(provider_key, success=True)
                     logger.info(
-                        f"fallback_success provider={provider} "
+                        f"fallback_success provider={provider_key} "
                         f"fallback_rate={self.metrics.fallback_rate:.1%}"
                     )
 
@@ -508,18 +523,20 @@ class AgentFallbackChain:
 
             except Exception as e:
                 last_error = e
-                self._record_failure(provider)
+                self._record_failure(provider_key)
 
                 if is_primary:
                     self.metrics.record_primary_attempt(success=False)
-                    logger.warning(f"Primary provider '{provider}' failed: {e}, trying fallback")
+                    logger.warning(
+                        f"Primary provider '{provider_key}' failed: {e}, trying fallback"
+                    )
                 else:
-                    self.metrics.record_fallback_attempt(provider, success=False)
-                    logger.warning(f"Fallback provider '{provider}' failed: {e}")
+                    self.metrics.record_fallback_attempt(provider_key, success=False)
+                    logger.warning(f"Fallback provider '{provider_key}' failed: {e}")
 
                 # Check if this looks like a rate limit error
                 if self._is_rate_limit_error(e):
-                    logger.info(f"Rate limit detected for {provider}, moving to next")
+                    logger.info(f"Rate limit detected for {provider_key}, moving to next")
 
                 continue
 
@@ -552,6 +569,7 @@ class AgentFallbackChain:
         retry_count = 0
 
         for i, provider in enumerate(self.providers):
+            provider_key = self._provider_key(provider)
             # Check retry limit
             if retry_count >= self.max_retries:
                 logger.warning(f"Max retries ({self.max_retries}) reached for stream, stopping")
@@ -562,8 +580,8 @@ class AgentFallbackChain:
             if elapsed > self.max_fallback_time:
                 raise FallbackTimeoutError(elapsed, self.max_fallback_time, tried_providers)
 
-            if not self._is_available(provider):
-                logger.debug(f"Skipping circuit-broken provider: {provider}")
+            if not self._is_available(provider_key):
+                logger.debug(f"Skipping circuit-broken provider: {provider_key}")
                 continue
 
             agent = self._get_agent(provider)
@@ -572,10 +590,10 @@ class AgentFallbackChain:
 
             # Check if agent supports streaming
             if not hasattr(agent, "generate_stream"):
-                logger.debug(f"Provider {provider} doesn't support streaming, skipping")
+                logger.debug(f"Provider {provider_key} doesn't support streaming, skipping")
                 continue
 
-            tried_providers.append(provider)
+            tried_providers.append(provider_key)
             retry_count += 1
             is_primary = i == 0
 
@@ -586,12 +604,12 @@ class AgentFallbackChain:
                     if first_token is None:
                         first_token = token
                         # Stream started successfully
-                        self._record_success(provider)
+                        self._record_success(provider_key)
                         if is_primary:
                             self.metrics.record_primary_attempt(success=True)
                         else:
-                            self.metrics.record_fallback_attempt(provider, success=True)
-                            logger.info(f"fallback_stream_success provider={provider}")
+                            self.metrics.record_fallback_attempt(provider_key, success=True)
+                            logger.info(f"fallback_stream_success provider={provider_key}")
                     yield token
 
                 # If we got here, stream completed successfully
@@ -599,14 +617,14 @@ class AgentFallbackChain:
 
             except Exception as e:
                 last_error = e
-                self._record_failure(provider)
+                self._record_failure(provider_key)
 
                 if is_primary:
                     self.metrics.record_primary_attempt(success=False)
-                    logger.warning(f"Primary provider '{provider}' stream failed: {e}")
+                    logger.warning(f"Primary provider '{provider_key}' stream failed: {e}")
                 else:
-                    self.metrics.record_fallback_attempt(provider, success=False)
-                    logger.warning(f"Fallback provider '{provider}' stream failed: {e}")
+                    self.metrics.record_fallback_attempt(provider_key, success=False)
+                    logger.warning(f"Fallback provider '{provider_key}' stream failed: {e}")
 
                 continue
 
@@ -624,7 +642,7 @@ class AgentFallbackChain:
     def get_status(self) -> dict:
         """Get current status of the fallback chain."""
         return {
-            "providers": self.providers,
+            "providers": [self._provider_key(provider) for provider in self.providers],
             "available_providers": self.get_available_providers(),
             "limits": {
                 "max_retries": self.max_retries,

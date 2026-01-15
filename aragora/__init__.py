@@ -79,6 +79,8 @@ from typing import Any
 
 _EXPORT_MAP = {
     "Agent": ("aragora.core", "Agent"),
+    "AgentRole": ("aragora.core", "AgentRole"),
+    "AgentStance": ("aragora.core", "AgentStance"),
     "AgentConsistencyScore": ("aragora.insights.flip_detector", "AgentConsistencyScore"),
     "AgentPerformance": ("aragora.insights.extractor", "AgentPerformance"),
     "AgentProfile": ("aragora.routing", "AgentProfile"),
@@ -369,6 +371,8 @@ from aragora.__version__ import __version__  # noqa: E402
 __all__ = [
     # Core
     "Agent",
+    "AgentRole",
+    "AgentStance",
     "Critique",
     "DebateResult",
     "DisagreementReport",

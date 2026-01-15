@@ -220,6 +220,7 @@ class ConsensusPhase:
         - Timeout protection (default 120s)
         - Exception handling with fallback to 'none' mode
         - Graceful degradation when agents fail
+        - GUARANTEED synthesis generation (never fails silently)
 
         Args:
             ctx: The DebateContext with proposals and result
@@ -251,7 +252,24 @@ class ConsensusPhase:
             await self._handle_fallback_consensus(ctx, reason=f"error: {type(e).__name__}")
 
         # Always generate final synthesis regardless of consensus mode
-        await self._generate_mandatory_synthesis(ctx)
+        # This method is guaranteed to produce output (has internal fallbacks)
+        synthesis_generated = await self._generate_mandatory_synthesis(ctx)
+
+        if not synthesis_generated:
+            # This should never happen due to internal fallbacks, but log if it does
+            logger.error("synthesis_failed_all_fallbacks - this should not happen")
+            # Create minimal synthesis as last resort
+            if ctx.proposals:
+                fallback_synthesis = f"## Debate Summary\n\n{list(ctx.proposals.values())[0][:1000]}"
+                ctx.result.synthesis = fallback_synthesis
+                ctx.result.final_answer = fallback_synthesis
+                if self.hooks and "on_message" in self.hooks:
+                    self.hooks["on_message"](
+                        agent="synthesis-agent",
+                        content=fallback_synthesis,
+                        role="synthesis",
+                        round_num=(self.protocol.rounds if self.protocol else 3) + 1,
+                    )
 
     async def _execute_consensus(self, ctx: "DebateContext", consensus_mode: str) -> None:
         """Execute the consensus logic for the given mode."""
@@ -1674,7 +1692,7 @@ class ConsensusPhase:
     # Mandatory Final Synthesis
     # =========================================================================
 
-    async def _generate_mandatory_synthesis(self, ctx: "DebateContext") -> None:
+    async def _generate_mandatory_synthesis(self, ctx: "DebateContext") -> bool:
         """Generate mandatory final synthesis using Claude Opus 4.5.
 
         This runs after consensus is determined (by any mode) to ensure
@@ -1682,14 +1700,21 @@ class ConsensusPhase:
 
         Args:
             ctx: The DebateContext with proposals and consensus result
+
+        Returns:
+            bool: True if synthesis was successfully generated and emitted
         """
         # Skip if no proposals to synthesize
         if not ctx.proposals:
             logger.warning("synthesis_skipped reason=no_proposals")
-            return
+            return False
 
         logger.info("synthesis_generation_start")
 
+        synthesis = None
+        synthesis_source = "opus"
+
+        # Try 1: Claude Opus 4.5
         try:
             from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
@@ -1707,83 +1732,123 @@ class ConsensusPhase:
                 synthesizer.generate(synthesis_prompt, ctx.context_messages),
                 timeout=180.0,
             )
-
-            # Store synthesis in result
-            ctx.result.synthesis = synthesis
-            ctx.result.final_answer = synthesis
-
-            logger.info(f"synthesis_generated chars={len(synthesis)}")
-
-            # Emit explicit synthesis event (guaranteed delivery)
-            if self.hooks and "on_synthesis" in self.hooks:
-                self.hooks["on_synthesis"](
-                    content=synthesis,
-                    confidence=ctx.result.confidence if ctx.result else 0.0,
-                )
-
-            # Also emit as agent_message for backwards compatibility
-            if self.hooks and "on_message" in self.hooks:
-                rounds = self.protocol.rounds if self.protocol else 3
-                self.hooks["on_message"](
-                    agent="synthesis-agent",
-                    content=synthesis,
-                    role="synthesis",  # Special role for frontend styling
-                    round_num=rounds + 1,
-                )
-
-            # Notify spectator
-            if self._notify_spectator:
-                self._notify_spectator(
-                    "synthesis",
-                    agent="synthesis-agent",
-                    details=f"Final synthesis ({len(synthesis)} chars)",
-                    metric=ctx.result.confidence if ctx.result else 0.0,
-                )
+            logger.info(f"synthesis_generated_opus chars={len(synthesis)}")
 
         except asyncio.TimeoutError:
-            logger.warning("synthesis_timeout timeout=180s, using consensus fallback")
-            # Use existing final_answer from consensus as fallback
-            if ctx.result.final_answer:
-                synthesis = f"[Synthesis generated from consensus result]\n\n{ctx.result.final_answer}"
-                ctx.result.synthesis = synthesis
-                # Emit explicit synthesis event
-                if self.hooks and "on_synthesis" in self.hooks:
-                    self.hooks["on_synthesis"](
-                        content=synthesis,
-                        confidence=ctx.result.confidence if ctx.result else 0.0,
-                    )
-                # Still emit as agent_message for backwards compatibility
-                if self.hooks and "on_message" in self.hooks:
-                    rounds = self.protocol.rounds if self.protocol else 3
-                    self.hooks["on_message"](
-                        agent="synthesis-agent",
-                        content=synthesis,
-                        role="synthesis",
-                        round_num=rounds + 1,
-                    )
+            logger.warning("synthesis_opus_timeout timeout=180s, trying sonnet fallback")
+            synthesis_source = "sonnet"
         except ImportError as e:
-            logger.warning(f"synthesis_import_error: {e}")
+            logger.warning(f"synthesis_import_error: {e}, trying sonnet fallback")
+            synthesis_source = "sonnet"
         except Exception as e:
-            logger.warning(f"synthesis_generation_failed error={e}, using consensus fallback")
-            # Use existing final_answer from consensus as fallback
-            if ctx.result.final_answer:
-                synthesis = f"[Synthesis from consensus]\n\n{ctx.result.final_answer}"
-                ctx.result.synthesis = synthesis
-                # Emit explicit synthesis event
-                if self.hooks and "on_synthesis" in self.hooks:
-                    self.hooks["on_synthesis"](
-                        content=synthesis,
-                        confidence=ctx.result.confidence if ctx.result else 0.0,
-                    )
-                # Still emit as agent_message for backwards compatibility
-                if self.hooks and "on_message" in self.hooks:
-                    rounds = self.protocol.rounds if self.protocol else 3
-                    self.hooks["on_message"](
-                        agent="synthesis-agent",
-                        content=synthesis,
-                        role="synthesis",
-                        round_num=rounds + 1,
-                    )
+            logger.warning(f"synthesis_opus_failed error={e}, trying sonnet fallback")
+            synthesis_source = "sonnet"
+
+        # Try 2: Claude Sonnet fallback
+        if not synthesis:
+            try:
+                from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+                synthesizer = AnthropicAPIAgent(
+                    name="synthesis-agent-fallback",
+                    model="claude-sonnet-4-20250514",
+                )
+                synthesis_prompt = self._build_synthesis_prompt(ctx)
+                synthesis = await asyncio.wait_for(
+                    synthesizer.generate(synthesis_prompt, ctx.context_messages),
+                    timeout=120.0,
+                )
+                logger.info(f"synthesis_generated_sonnet chars={len(synthesis)}")
+            except Exception as e:
+                logger.warning(f"synthesis_sonnet_failed error={e}, using proposal combination")
+                synthesis_source = "combined"
+
+        # Try 3: Combine proposals as final fallback (always succeeds)
+        if not synthesis:
+            synthesis = self._combine_proposals_as_synthesis(ctx)
+            logger.info(f"synthesis_generated_combined chars={len(synthesis)}")
+
+        # Store synthesis in result
+        ctx.result.synthesis = synthesis
+        ctx.result.final_answer = synthesis
+
+        # Emit explicit synthesis event (guaranteed delivery)
+        if self.hooks and "on_synthesis" in self.hooks:
+            self.hooks["on_synthesis"](
+                content=synthesis,
+                confidence=ctx.result.confidence if ctx.result else 0.0,
+            )
+
+        # Also emit as agent_message for backwards compatibility
+        if self.hooks and "on_message" in self.hooks:
+            rounds = self.protocol.rounds if self.protocol else 3
+            self.hooks["on_message"](
+                agent="synthesis-agent",
+                content=synthesis,
+                role="synthesis",  # Special role for frontend styling
+                round_num=rounds + 1,
+            )
+
+        # Notify spectator
+        if self._notify_spectator:
+            self._notify_spectator(
+                "synthesis",
+                agent="synthesis-agent",
+                details=f"Final synthesis ({len(synthesis)} chars, source={synthesis_source})",
+                metric=ctx.result.confidence if ctx.result else 0.0,
+            )
+
+        return True
+
+    def _combine_proposals_as_synthesis(self, ctx: "DebateContext") -> str:
+        """Combine proposals into a synthesis when LLM generation fails.
+
+        This is a guaranteed fallback that always produces output.
+
+        Args:
+            ctx: The DebateContext with proposals
+
+        Returns:
+            Combined synthesis string
+        """
+        task = ctx.env.task if ctx.env else "the debate topic"
+        proposals = ctx.proposals
+
+        # If we have a winner, prioritize their proposal
+        winner = ctx.result.winner if ctx.result else None
+        if winner and winner in proposals:
+            winner_proposal = proposals[winner]
+            other_proposals = {k: v for k, v in proposals.items() if k != winner}
+
+            synthesis = f"""## Final Synthesis
+
+**Question:** {task}
+
+### Winning Position ({winner})
+
+{winner_proposal[:2000]}
+
+### Other Perspectives
+
+"""
+            for agent, prop in list(other_proposals.items())[:3]:
+                synthesis += f"**{agent}:** {prop[:500]}...\n\n"
+
+            return synthesis
+
+        # No winner - combine all proposals
+        synthesis = f"""## Final Synthesis
+
+**Question:** {task}
+
+### Combined Perspectives
+
+"""
+        for agent, prop in list(proposals.items())[:5]:
+            synthesis += f"**{agent}:**\n{prop[:800]}\n\n---\n\n"
+
+        synthesis += "\n*Note: This synthesis was automatically generated from agent proposals.*"
+        return synthesis
 
     def _build_synthesis_prompt(self, ctx: "DebateContext") -> str:
         """Build prompt for final synthesis generation.
