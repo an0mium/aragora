@@ -174,6 +174,11 @@ export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualize
       setBatchResult(data);
     } catch (err) {
       console.error('Batch verification failed:', err);
+      setBatchResult({
+        status: 'error',
+        error: 'Batch verification failed. Please try again.',
+        results: [],
+      });
     } finally {
       setLoading(false);
     }
@@ -200,6 +205,10 @@ export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualize
       setTranslationResult(data);
     } catch (err) {
       console.error('Translation failed:', err);
+      setTranslationResult({
+        status: 'error',
+        error: 'Translation failed. Please try again.',
+      });
     } finally {
       setLoading(false);
     }
