@@ -1330,6 +1330,15 @@ class UnifiedServer:
         except (ImportError, RuntimeError) as e:
             logger.debug(f"State cleanup task not started: {e}")
 
+        # Start stuck debate watchdog (auto-cancels debates running too long)
+        try:
+            from aragora.server.debate_utils import watchdog_stuck_debates
+
+            self._watchdog_task = asyncio.create_task(watchdog_stuck_debates())
+            logger.info("Stuck debate watchdog started (10 min timeout)")
+        except (ImportError, RuntimeError) as e:
+            logger.debug(f"Stuck debate watchdog not started: {e}")
+
         logger.info("Starting unified server...")
         protocol = "https" if self.ssl_enabled else "http"
         logger.info(f"  HTTP API:   {protocol}://localhost:{self.http_port}")
@@ -1466,6 +1475,18 @@ class UnifiedServer:
             logger.debug("State cleanup task stopped")
         except (ImportError, RuntimeError) as e:
             logger.debug(f"State cleanup shutdown: {e}")
+
+        # 4.7. Stop stuck debate watchdog
+        if hasattr(self, "_watchdog_task") and self._watchdog_task:
+            try:
+                self._watchdog_task.cancel()
+                try:
+                    await asyncio.wait_for(self._watchdog_task, timeout=2.0)
+                except asyncio.TimeoutError:
+                    pass
+                logger.debug("Stuck debate watchdog stopped")
+            except (asyncio.CancelledError, RuntimeError) as e:
+                logger.debug(f"Watchdog shutdown: {e}")
 
         # 5. Close WebSocket connections
         if hasattr(self, "stream_server") and self.stream_server:

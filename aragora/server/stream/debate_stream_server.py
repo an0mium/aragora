@@ -146,6 +146,11 @@ class DebateStreamServer(ServerBase):
         # Async lock for client set operations (prevents race conditions during broadcast)
         self._clients_lock = asyncio.Lock()
 
+        # Track which debate each client is subscribed to (for stream isolation)
+        # Key: ws_id (int), Value: debate_id (str)
+        # SECURITY: Prevents data leakage between concurrent debates
+        self._client_subscriptions: dict[int, str] = {}
+
     def _cleanup_stale_rate_limiters(self) -> None:
         """Remove rate limiters not accessed within TTL period."""
         self.cleanup_rate_limiters()
@@ -396,11 +401,16 @@ class DebateStreamServer(ServerBase):
             self.update_loop_state(loop_id, phase=event.data.get("phase"))
 
     async def broadcast(self, event: StreamEvent) -> None:
-        """Send event to all connected clients with per-client timeout protection."""
+        """Send event only to clients subscribed to the event's debate.
+
+        SECURITY: Filters events by subscription to prevent data leakage
+        between concurrent debates.
+        """
         if not self.clients:
             return
 
         message = event.to_json()
+        event_loop_id = event.loop_id
         disconnected = set()
 
         # Take snapshot under lock to prevent race conditions
@@ -408,23 +418,43 @@ class DebateStreamServer(ServerBase):
             clients_snapshot = list(self.clients)
 
         for client in clients_snapshot:
-            try:
-                # Timeout prevents hanging if client disconnects mid-send
-                async with asyncio.timeout(5.0):
-                    await client.send(message)
-            except asyncio.TimeoutError:
-                logger.warning(f"Client send timed out during broadcast, marking for disconnect")
-                disconnected.add(client)
-            except Exception as e:
-                logger.debug(f"Client disconnected during broadcast: {e}")
-                disconnected.add(client)
+            client_ws_id = id(client)
+            subscribed_id = self._client_subscriptions.get(client_ws_id)
+
+            # Send if:
+            # 1. Event has no loop_id (system-wide events)
+            # 2. Client is subscribed to this specific debate
+            # 3. Client has no subscription (legacy behavior)
+            should_send = (
+                not event_loop_id
+                or subscribed_id == event_loop_id
+                or subscribed_id is None
+            )
+
+            if should_send:
+                try:
+                    # Timeout prevents hanging if client disconnects mid-send
+                    async with asyncio.timeout(5.0):
+                        await client.send(message)
+                except asyncio.TimeoutError:
+                    logger.warning(f"Client send timed out during broadcast, marking for disconnect")
+                    disconnected.add(client)
+                except Exception as e:
+                    logger.debug(f"Client disconnected during broadcast: {e}")
+                    disconnected.add(client)
 
         if disconnected:
             async with self._clients_lock:
                 self.clients -= disconnected
+            # Cleanup subscription tracking for disconnected clients
+            for client in disconnected:
+                self._client_subscriptions.pop(id(client), None)
 
     async def broadcast_batch(self, events: list[StreamEvent]) -> None:
-        """Send multiple events to all connected clients in a single message.
+        """Send multiple events only to subscribed clients.
+
+        SECURITY: Filters events by subscription to prevent data leakage
+        between concurrent debates.
 
         Batching reduces WebSocket overhead by sending events as a JSON array
         instead of individual messages. Frontends should handle both single
@@ -436,6 +466,9 @@ class DebateStreamServer(ServerBase):
         if not self.clients or not events:
             return
 
+        # Determine loop_id from first event (batches are typically same-debate)
+        batch_loop_id = events[0].loop_id if events else None
+
         # Send as JSON array for batching efficiency
         message = json.dumps([e.to_dict() for e in events])
         disconnected = set()
@@ -445,16 +478,27 @@ class DebateStreamServer(ServerBase):
             clients_snapshot = list(self.clients)
 
         for client in clients_snapshot:
-            try:
-                # Timeout prevents hanging if client disconnects mid-send
-                async with asyncio.timeout(5.0):
-                    await client.send(message)
-            except asyncio.TimeoutError:
-                logger.warning(f"Client send timed out during batch broadcast, marking for disconnect")
-                disconnected.add(client)
-            except Exception as e:
-                logger.debug(f"Client disconnected during batch broadcast: {e}")
-                disconnected.add(client)
+            client_ws_id = id(client)
+            subscribed_id = self._client_subscriptions.get(client_ws_id)
+
+            # Send if subscribed to this debate or no subscription (legacy)
+            should_send = (
+                not batch_loop_id
+                or subscribed_id == batch_loop_id
+                or subscribed_id is None
+            )
+
+            if should_send:
+                try:
+                    # Timeout prevents hanging if client disconnects mid-send
+                    async with asyncio.timeout(5.0):
+                        await client.send(message)
+                except asyncio.TimeoutError:
+                    logger.warning(f"Client send timed out during batch broadcast, marking for disconnect")
+                    disconnected.add(client)
+                except Exception as e:
+                    logger.debug(f"Client disconnected during batch broadcast: {e}")
+                    disconnected.add(client)
 
         if disconnected:
             async with self._clients_lock:
@@ -1021,6 +1065,9 @@ class DebateStreamServer(ServerBase):
             f"(remaining_clients={len(self.clients)})"
         )
 
+        # SECURITY: Clean up subscription tracking to prevent stale entries
+        self._client_subscriptions.pop(ws_id, None)
+
         stored_client_id = self._client_ids.pop(ws_id, None)
         if stored_client_id:
             with self._rate_limiters_lock:
@@ -1106,9 +1153,14 @@ class DebateStreamServer(ServerBase):
                         websocket, data, ws_id, ws_token, is_authenticated, client_id
                     )
                 elif msg_type == "subscribe":
-                    # Handle explicit subscribe to a specific debate
-                    debate_id = data.get("debate_id")
+                    # SECURITY: Track client subscription for stream isolation
+                    # This ensures clients only receive events for debates they subscribed to
+                    debate_id = data.get("debate_id") or data.get("loop_id")
                     if debate_id:
+                        self._client_subscriptions[ws_id] = debate_id
+                        logger.info(
+                            f"[ws] Client {client_id[:8]}... subscribed to {debate_id}"
+                        )
                         await self._send_debate_state(websocket, debate_id)
                     else:
                         await websocket.send(

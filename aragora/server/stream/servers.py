@@ -193,6 +193,12 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         if nomic_dir:
             self._init_stores(nomic_dir)
 
+        # Track which debate each client is subscribed to (for stream isolation)
+        # Key: ws_id (int), Value: debate_id (str)
+        # SECURITY: Prevents data leakage between concurrent debates
+        self._client_subscriptions: dict[int, str] = {}
+        self._client_subscriptions_lock = threading.Lock()
+
     def _init_stores(self, nomic_dir: Path) -> None:
         """Initialize optional stores from nomic directory."""
         # EloSystem for leaderboard
@@ -1167,6 +1173,37 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                                 }
                             )
 
+                        elif msg_type == "subscribe":
+                            # SECURITY: Track client subscription for stream isolation
+                            # This ensures clients only receive events for debates they subscribed to
+                            debate_id = data.get("debate_id") or data.get("loop_id")
+                            if debate_id:
+                                with self._client_subscriptions_lock:
+                                    self._client_subscriptions[ws_id] = debate_id
+                                ws._bound_loop_id = debate_id  # type: ignore[attr-defined]
+                                logger.info(
+                                    f"[ws] Client {client_id[:8]}... subscribed to {debate_id}"
+                                )
+                                # Send current debate state if available
+                                with self._debate_states_lock:
+                                    state = self.debate_states.get(debate_id)
+                                if state:
+                                    await ws.send_json({
+                                        "type": "sync",
+                                        "data": state,
+                                        "debate_id": debate_id,
+                                    })
+                                else:
+                                    await ws.send_json({
+                                        "type": "subscribed",
+                                        "data": {"debate_id": debate_id},
+                                    })
+                            else:
+                                await ws.send_json({
+                                    "type": "error",
+                                    "data": {"message": "subscribe requires debate_id"},
+                                })
+
                         elif msg_type in ("user_vote", "user_suggestion"):
                             # Validate authentication for write operations
                             is_auth, auth_error = await self._validate_ws_auth_for_write(ws_id, ws)
@@ -1274,6 +1311,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         finally:
             self.clients.discard(ws)
             self._client_ids.pop(ws_id, None)
+            # Clean up subscription tracking (SECURITY: prevent stale entries)
+            with self._client_subscriptions_lock:
+                self._client_subscriptions.pop(ws_id, None)
             # Clean up rate limiter for this client (thread-safe)
             with self._rate_limiters_lock:
                 self._rate_limiters.pop(client_id, None)
@@ -1311,21 +1351,47 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                 }
                 message = json.dumps(event_dict)
 
-                # Broadcast to all clients
+                # SECURITY: Broadcast only to clients subscribed to this debate
+                # This prevents data leakage between concurrent debates
                 dead_clients = []
+                event_loop_id = event.loop_id
+                sent_count = 0
+
+                # Take snapshot of subscriptions to avoid holding lock during I/O
+                with self._client_subscriptions_lock:
+                    subscriptions_snapshot = dict(self._client_subscriptions)
+
                 for client in list(self.clients):
-                    try:
-                        await client.send_str(message)
-                    except Exception as e:
-                        logger.debug(
-                            "WebSocket client disconnected during broadcast: %s", type(e).__name__
-                        )
-                        dead_clients.append(client)
+                    client_ws_id = id(client)
+                    subscribed_id = subscriptions_snapshot.get(client_ws_id)
+
+                    # Send if:
+                    # 1. Event has no loop_id (system-wide events like heartbeat)
+                    # 2. Client is subscribed to this specific debate
+                    # 3. Client has no subscription (legacy behavior, will receive all)
+                    should_send = (
+                        not event_loop_id  # System events go to all
+                        or subscribed_id == event_loop_id  # Subscribed to this debate
+                        or subscribed_id is None  # No subscription = legacy client
+                    )
+
+                    if should_send:
+                        try:
+                            await client.send_str(message)
+                            sent_count += 1
+                        except Exception as e:
+                            logger.debug(
+                                "WebSocket client disconnected during broadcast: %s", type(e).__name__
+                            )
+                            dead_clients.append(client)
 
                 if dead_clients:
                     logger.info("Removed %d dead WebSocket client(s)", len(dead_clients))
                     for client in dead_clients:
                         self.clients.discard(client)
+                        # Also cleanup subscription tracking
+                        with self._client_subscriptions_lock:
+                            self._client_subscriptions.pop(id(client), None)
 
             except queue.Empty:
                 await asyncio.sleep(0.01)

@@ -229,6 +229,98 @@ _cleanup_stale_debates = cleanup_stale_debates
 _wrap_agent_for_streaming = wrap_agent_for_streaming
 
 
+# Stuck debate timeout (10 minutes for production, prevents indefinitely running debates)
+STUCK_DEBATE_TIMEOUT_SECONDS = 600
+
+
+async def watchdog_stuck_debates(check_interval: float = 60.0) -> None:
+    """Background coroutine to cleanup stuck debates.
+
+    Runs periodically to check for debates that have been running too long
+    without progress. Marks them as timed out and emits events.
+
+    Args:
+        check_interval: Seconds between checks (default 60s)
+    """
+    import asyncio
+
+    from aragora.server.stream import StreamEvent, StreamEventType
+
+    logger.info("[watchdog] Stuck debate watchdog started")
+
+    while True:
+        try:
+            await asyncio.sleep(check_interval)
+
+            now = time.time()
+            stuck_debates = []
+            manager = get_state_manager()
+
+            # Get all active debates and find stuck ones
+            debates = manager.get_active_debates()
+            for debate_id, state in debates.items():
+                if state.status in ("running", "starting"):
+                    elapsed = now - state.start_time
+                    if elapsed > STUCK_DEBATE_TIMEOUT_SECONDS:
+                        stuck_debates.append((debate_id, elapsed))
+
+            # Process stuck debates
+            for debate_id, elapsed in stuck_debates:
+                logger.warning(
+                    f"[watchdog] Cancelling stuck debate {debate_id} "
+                    f"(running for {elapsed:.0f}s, timeout: {STUCK_DEBATE_TIMEOUT_SECONDS}s)"
+                )
+
+                # Update status
+                update_debate_status(
+                    debate_id,
+                    "timeout",
+                    error=f"Debate timed out after {elapsed:.0f}s",
+                )
+                manager.update_debate_status(debate_id, status="timeout")
+
+                # Try to cancel the task if tracked
+                state = manager.get_debate(debate_id)
+                if state:
+                    task = state.metadata.get("_task")
+                    if task and hasattr(task, "cancel") and not getattr(task, "done", lambda: True)():
+                        try:
+                            task.cancel()
+                        except Exception as e:
+                            logger.debug(f"[watchdog] Task cancel failed for {debate_id}: {e}")
+
+                # Emit timeout event
+                try:
+                    from aragora.server.stream import get_event_emitter
+
+                    emitter = get_event_emitter()
+                    if emitter:
+                        emitter.emit(
+                            StreamEvent(
+                                type=StreamEventType.DEBATE_END,
+                                data={
+                                    "debate_id": debate_id,
+                                    "status": "timeout",
+                                    "reason": f"Debate timed out after {elapsed:.0f}s",
+                                    "duration": elapsed,
+                                },
+                                loop_id=debate_id,
+                            )
+                        )
+                except Exception as e:
+                    logger.debug(f"[watchdog] Event emission failed for {debate_id}: {e}")
+
+            if stuck_debates:
+                logger.info(f"[watchdog] Cleaned up {len(stuck_debates)} stuck debate(s)")
+
+        except asyncio.CancelledError:
+            logger.info("[watchdog] Stuck debate watchdog cancelled")
+            break
+        except Exception as e:
+            logger.error(f"[watchdog] Error in stuck debate watchdog: {e}")
+            # Continue running despite errors
+
+
 __all__ = [
     # State accessors
     "get_active_debates",
@@ -238,8 +330,10 @@ __all__ = [
     "cleanup_stale_debates",
     "increment_cleanup_counter",
     "wrap_agent_for_streaming",
+    "watchdog_stuck_debates",
     # Constants
     "_DEBATE_TTL_SECONDS",
+    "STUCK_DEBATE_TIMEOUT_SECONDS",
     # Backward compatibility (underscore-prefixed)
     "_active_debates",
     "_active_debates_lock",

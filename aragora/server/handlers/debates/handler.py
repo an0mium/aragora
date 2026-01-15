@@ -210,6 +210,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         "/api/debates/*/forks",  # GET - list all forks for a debate
         "/api/debates/*/verification-report",  # Verification feedback
         "/api/debates/*/summary",  # GET - human-readable summary
+        "/api/debates/*/cancel",  # POST - cancel running debate
         "/api/search",  # Cross-debate search
     ]
 
@@ -1280,6 +1281,13 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             if debate_id:
                 return self._create_followup_debate(handler, debate_id)
 
+        if path.endswith("/cancel"):
+            debate_id, err = self._extract_debate_id(path)
+            if err:
+                return error_response(err, 400)
+            if debate_id:
+                return self._cancel_debate(handler, debate_id)
+
         return None
 
     @rate_limit(rpm=5, limiter_name="debates_create")
@@ -1364,6 +1372,81 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
         # Note: Usage increment is handled by @require_quota decorator on success
         return json_response(response.to_dict(), status=response.status_code)
+
+    def _cancel_debate(self, handler, debate_id: str) -> HandlerResult:
+        """Cancel a running debate.
+
+        Marks the debate as cancelled and attempts to cancel any running tasks.
+
+        Args:
+            handler: The HTTP handler
+            debate_id: ID of the debate to cancel
+
+        Returns:
+            HandlerResult with cancellation status
+        """
+        from aragora.server.debate_utils import update_debate_status
+        from aragora.server.state import get_state_manager
+        from aragora.server.stream import StreamEvent, StreamEventType
+
+        manager = get_state_manager()
+        state = manager.get_debate(debate_id)
+
+        if not state:
+            # Check if debate exists in storage but already completed
+            storage = self.get_storage()
+            if storage:
+                debate = storage.get_debate(debate_id)
+                if debate:
+                    return error_response(
+                        f"Debate {debate_id} already completed (status: {debate.get('status', 'unknown')})",
+                        400,
+                    )
+            return error_response(f"Debate not found: {debate_id}", 404)
+
+        # Check if debate is in a cancellable state
+        if state.status not in ("running", "starting"):
+            return error_response(
+                f"Debate {debate_id} cannot be cancelled (status: {state.status})",
+                400,
+            )
+
+        # Mark as cancelled
+        update_debate_status(debate_id, "cancelled", error="Cancelled by user")
+        manager.update_debate_status(debate_id, status="cancelled")
+
+        # Try to cancel the asyncio task if tracked
+        task = state.metadata.get("_task")
+        if task and hasattr(task, "cancel") and not getattr(task, "done", lambda: True)():
+            try:
+                task.cancel()
+                logger.info(f"Cancelled running task for debate {debate_id}")
+            except Exception as e:
+                logger.warning(f"Failed to cancel task for {debate_id}: {e}")
+
+        # Emit cancellation event to all subscribers
+        stream_emitter = getattr(handler, "stream_emitter", None)
+        if stream_emitter:
+            stream_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.DEBATE_END,
+                    data={
+                        "debate_id": debate_id,
+                        "status": "cancelled",
+                        "reason": "Cancelled by user",
+                    },
+                    loop_id=debate_id,
+                )
+            )
+
+        logger.info(f"Debate {debate_id} cancelled by user")
+
+        return json_response({
+            "success": True,
+            "debate_id": debate_id,
+            "status": "cancelled",
+            "message": "Debate cancelled successfully",
+        })
 
     def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route PATCH requests to appropriate methods."""
