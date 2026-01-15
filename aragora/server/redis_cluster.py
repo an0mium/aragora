@@ -233,8 +233,15 @@ class RedisClusterClient:
             test_client.close()
             logger.info(f"Detected Redis Cluster at {host}:{port}")
             return True
-        except Exception:
-            logger.info("Detected standalone Redis (not a cluster)")
+        except ImportError:
+            logger.warning("redis package not installed for cluster detection")
+            return False
+        except (ConnectionError, TimeoutError) as e:
+            logger.debug(f"Connection failed during cluster detection: {type(e).__name__}: {e}")
+            return False
+        except Exception as e:
+            # ResponseError indicates standalone mode, other errors logged for debugging
+            logger.debug(f"Cluster detection result (standalone): {type(e).__name__}: {e}")
             return False
 
     def _create_client(self) -> Optional[Any]:
@@ -361,10 +368,16 @@ class RedisClusterClient:
             if self._client is not None:
                 try:
                     self._client.close()
-                except Exception:
-                    pass
+                except (ConnectionError, TimeoutError) as e:
+                    logger.debug(f"Error closing Redis client during reconnect: {type(e).__name__}: {e}")
+                except Exception as e:
+                    logger.warning(f"Unexpected error closing Redis client: {type(e).__name__}: {e}")
                 self._client = None
             self._client = self._create_client()
+            if self._client is not None:
+                logger.info("Redis client reconnected successfully")
+            else:
+                logger.warning("Redis client reconnection failed")
 
     # ==========================================================================
     # Standard Redis Operations (with retry)
@@ -628,7 +641,11 @@ class RedisClusterClient:
             if client is None:
                 return False
             return client.ping()
-        except Exception:
+        except (ConnectionError, TimeoutError) as e:
+            logger.debug(f"Redis ping failed: {type(e).__name__}: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"Unexpected error during Redis ping: {type(e).__name__}: {e}")
             return False
 
     def get_stats(self) -> Dict[str, Any]:
@@ -659,8 +676,10 @@ class RedisClusterClient:
                 try:
                     self._client.close()
                     logger.info("Redis cluster client closed")
+                except (ConnectionError, TimeoutError) as e:
+                    logger.debug(f"Connection error while closing Redis client: {type(e).__name__}: {e}")
                 except Exception as e:
-                    logger.error(f"Error closing Redis client: {e}")
+                    logger.error(f"Unexpected error closing Redis client: {type(e).__name__}: {e}")
                 finally:
                     self._client = None
                     self._available = False
