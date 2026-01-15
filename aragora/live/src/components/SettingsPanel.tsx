@@ -135,6 +135,12 @@ export function SettingsPanel() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [logoutAllStatus, setLogoutAllStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
+  // OAuth/Connected Accounts state
+  const [oauthProviders, setOauthProviders] = useState<{ id: string; name: string; enabled: boolean; auth_url: string }[]>([]);
+  const [linkedProviders, setLinkedProviders] = useState<{ provider: string; email: string | null; linked_at: string }[]>([]);
+  const [oauthLoading, setOauthLoading] = useState(true);
+  const [oauthLinkStatus, setOauthLinkStatus] = useState<Record<string, 'idle' | 'linking' | 'unlinking' | 'error'>>({});
+
   // Load preferences
   useEffect(() => {
     const stored = getStoredPreferences();
@@ -288,6 +294,105 @@ export function SettingsPanel() {
       setTimeout(() => setLogoutAllStatus('idle'), 3000);
     }
   }, [backendConfig.api, logoutAllStatus]);
+
+  // Fetch OAuth providers and user's linked accounts
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setOauthLoading(false);
+      return;
+    }
+
+    async function fetchOAuthData() {
+      setOauthLoading(true);
+      try {
+        // Fetch available providers
+        const providersRes = await fetch(`${backendConfig.api}/api/auth/oauth/providers`);
+        if (providersRes.ok) {
+          const data = await providersRes.json();
+          setOauthProviders(data.providers || []);
+        }
+
+        // Fetch user's linked providers
+        const linkedRes = await fetch(`${backendConfig.api}/api/user/oauth-providers`, {
+          credentials: 'include',
+        });
+        if (linkedRes.ok) {
+          const data = await linkedRes.json();
+          setLinkedProviders(data.providers || []);
+        }
+      } catch (error) {
+        console.warn('Failed to fetch OAuth data:', error);
+      } finally {
+        setOauthLoading(false);
+      }
+    }
+
+    fetchOAuthData();
+  }, [isAuthenticated, backendConfig.api]);
+
+  // Handle OAuth link - redirect to provider's auth URL
+  const handleOAuthLink = useCallback(async (providerId: string) => {
+    setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'linking' }));
+    try {
+      const response = await fetch(`${backendConfig.api}/api/auth/oauth/link`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: providerId,
+          redirect_url: `${window.location.origin}/settings?linked=${providerId}`,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.auth_url) {
+          // Redirect to OAuth provider
+          window.location.href = data.auth_url;
+        }
+      } else {
+        setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'error' }));
+        setTimeout(() => setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'idle' })), 3000);
+      }
+    } catch (error) {
+      console.error('OAuth link error:', error);
+      setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'error' }));
+      setTimeout(() => setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'idle' })), 3000);
+    }
+  }, [backendConfig.api]);
+
+  // Handle OAuth unlink
+  const handleOAuthUnlink = useCallback(async (providerId: string) => {
+    const confirmed = window.confirm(
+      `Unlink your ${providerId} account? You can still sign in with email/password.`
+    );
+    if (!confirmed) return;
+
+    setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'unlinking' }));
+    try {
+      const response = await fetch(`${backendConfig.api}/api/auth/oauth/unlink`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: providerId }),
+      });
+
+      if (response.ok) {
+        // Remove from linked providers
+        setLinkedProviders(prev => prev.filter(p => p.provider !== providerId));
+        setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'idle' }));
+      } else {
+        const data = await response.json().catch(() => ({}));
+        alert(data.error || 'Failed to unlink account');
+        setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'error' }));
+        setTimeout(() => setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'idle' })), 3000);
+      }
+    } catch (error) {
+      console.error('OAuth unlink error:', error);
+      setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'error' }));
+      setTimeout(() => setOauthLinkStatus(prev => ({ ...prev, [providerId]: 'idle' })), 3000);
+    }
+  }, [backendConfig.api]);
 
   // Fetch feature config from backend
   useEffect(() => {
@@ -1157,6 +1262,113 @@ export function SettingsPanel() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Connected Accounts (OAuth) */}
+              <div className="card p-6">
+                <h3 className="font-mono text-acid-green mb-4">Connected Accounts</h3>
+                <p className="font-mono text-xs text-text-muted mb-4">
+                  Link your social accounts for quick sign-in. You can always use email/password.
+                </p>
+
+                {oauthLoading ? (
+                  <div className="animate-pulse space-y-3">
+                    <div className="h-12 bg-surface rounded" />
+                  </div>
+                ) : oauthProviders.length === 0 ? (
+                  <p className="font-mono text-xs text-text-muted">
+                    No OAuth providers configured.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {oauthProviders.map((provider) => {
+                      const linked = linkedProviders.find(p => p.provider === provider.id);
+                      const status = oauthLinkStatus[provider.id] || 'idle';
+
+                      return (
+                        <div
+                          key={provider.id}
+                          className={`flex items-center justify-between p-3 rounded border ${
+                            linked
+                              ? 'border-acid-green/30 bg-acid-green/5'
+                              : 'border-acid-green/20 bg-surface/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Provider icon */}
+                            <div className="w-8 h-8 flex items-center justify-center bg-surface rounded">
+                              {provider.id === 'google' && (
+                                <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+                                  <path
+                                    fill="#4285F4"
+                                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                                  />
+                                  <path
+                                    fill="#34A853"
+                                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                                  />
+                                  <path
+                                    fill="#FBBC05"
+                                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                                  />
+                                  <path
+                                    fill="#EA4335"
+                                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                                  />
+                                </svg>
+                              )}
+                            </div>
+
+                            {/* Provider info */}
+                            <div>
+                              <div className="font-mono text-sm text-text">{provider.name}</div>
+                              {linked ? (
+                                <div className="font-mono text-xs text-acid-green">
+                                  Connected {linked.email ? `as ${linked.email}` : ''}
+                                </div>
+                              ) : (
+                                <div className="font-mono text-xs text-text-muted">
+                                  Not connected
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Link/Unlink button */}
+                          {linked ? (
+                            <button
+                              onClick={() => handleOAuthUnlink(provider.id)}
+                              disabled={status === 'unlinking'}
+                              className={`px-3 py-1 font-mono text-xs rounded transition-colors ${
+                                status === 'unlinking'
+                                  ? 'text-text-muted cursor-wait'
+                                  : status === 'error'
+                                  ? 'text-acid-red'
+                                  : 'text-acid-red/70 hover:text-acid-red hover:bg-acid-red/10'
+                              }`}
+                            >
+                              {status === 'unlinking' ? 'Unlinking...' : status === 'error' ? 'Error' : 'Unlink'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleOAuthLink(provider.id)}
+                              disabled={status === 'linking'}
+                              className={`px-3 py-1 font-mono text-xs rounded transition-colors ${
+                                status === 'linking'
+                                  ? 'text-text-muted cursor-wait'
+                                  : status === 'error'
+                                  ? 'text-acid-red'
+                                  : 'text-acid-cyan hover:text-acid-green hover:bg-acid-green/10'
+                              }`}
+                            >
+                              {status === 'linking' ? 'Linking...' : status === 'error' ? 'Error' : 'Link'}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="card p-6 border-acid-yellow/30">

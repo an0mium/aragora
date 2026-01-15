@@ -298,6 +298,7 @@ class OAuthHandler(BaseHandler):
         "/api/auth/oauth/link",
         "/api/auth/oauth/unlink",
         "/api/auth/oauth/providers",
+        "/api/user/oauth-providers",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -331,6 +332,9 @@ class OAuthHandler(BaseHandler):
 
         if path == "/api/auth/oauth/providers" and method == "GET":
             return self._handle_list_providers(handler)
+
+        if path == "/api/user/oauth-providers" and method == "GET":
+            return self._handle_get_user_providers(handler)
 
         return error_response("Method not allowed", 405)
 
@@ -653,6 +657,25 @@ class OAuthHandler(BaseHandler):
                     "auth_url": "/api/auth/oauth/google",
                 }
             )
+
+        return json_response({"providers": providers})
+
+    @handle_errors("get user OAuth providers")
+    def _handle_get_user_providers(self, handler) -> HandlerResult:
+        """Get OAuth providers linked to the current user."""
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+
+        # Get linked providers for this user
+        providers = []
+        if hasattr(user_store, "get_oauth_providers"):
+            providers = user_store.get_oauth_providers(auth_ctx.user_id)
+        elif hasattr(user_store, "_oauth_repo"):
+            providers = user_store._oauth_repo.get_providers_for_user(auth_ctx.user_id)
 
         return json_response({"providers": providers})
 
