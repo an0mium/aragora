@@ -287,7 +287,7 @@ class BaseConnector(ABC):
             try:
                 return await request_func()
 
-            except httpx.TimeoutException as e:
+            except httpx.TimeoutException:
                 last_error = ConnectorTimeoutError(
                     f"{operation} timed out",
                     connector_name=self.name,
