@@ -67,8 +67,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         "/api/evidence/collect",
     ]
 
-    @staticmethod
-    def can_handle(path: str) -> bool:
+    def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         return path.startswith("/api/evidence")
 

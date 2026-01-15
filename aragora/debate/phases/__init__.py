@@ -39,12 +39,7 @@ from aragora.debate.phases.proposal_phase import ProposalPhase
 from aragora.debate.phases.roles_manager import RolesManager
 from aragora.debate.phases.spectator import SpectatorMixin
 from aragora.debate.phases.vote_aggregator import AggregatedVotes, VoteAggregator
-from aragora.debate.phases.vote_collector import (
-    VoteCollector,
-    VoteCollectorCallbacks,
-    VoteCollectorConfig,
-    VoteCollectorDeps,
-)
+from aragora.debate.phases.vote_processor import VoteProcessor
 from aragora.debate.phases.vote_weighter import (
     VoteWeighter,
     VoteWeighterConfig,
@@ -80,10 +75,7 @@ __all__ = [
     "VoteAggregator",
     "AggregatedVotes",
     "WeightCalculator",
-    "VoteCollector",
-    "VoteCollectorConfig",
-    "VoteCollectorCallbacks",
-    "VoteCollectorDeps",
+    "VoteProcessor",
     "VoteWeighter",
     "VoteWeighterConfig",
     "VoteWeighterDeps",

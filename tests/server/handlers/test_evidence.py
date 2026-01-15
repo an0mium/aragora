@@ -115,19 +115,21 @@ class TestEvidenceHandlerRouting:
         """Test can_handle returns True for evidence paths."""
         from aragora.server.handlers.features.evidence import EvidenceHandler
 
-        assert EvidenceHandler.can_handle("/api/evidence") is True
-        assert EvidenceHandler.can_handle("/api/evidence/123") is True
-        assert EvidenceHandler.can_handle("/api/evidence/statistics") is True
-        assert EvidenceHandler.can_handle("/api/evidence/debate/d-123") is True
-        assert EvidenceHandler.can_handle("/api/evidence/search") is True
+        handler = EvidenceHandler({})
+        assert handler.can_handle("/api/evidence") is True
+        assert handler.can_handle("/api/evidence/123") is True
+        assert handler.can_handle("/api/evidence/statistics") is True
+        assert handler.can_handle("/api/evidence/debate/d-123") is True
+        assert handler.can_handle("/api/evidence/search") is True
 
     def test_cannot_handle_other_paths(self):
         """Test can_handle returns False for non-evidence paths."""
         from aragora.server.handlers.features.evidence import EvidenceHandler
 
-        assert EvidenceHandler.can_handle("/api/debates") is False
-        assert EvidenceHandler.can_handle("/api/health") is False
-        assert EvidenceHandler.can_handle("/api/leaderboard") is False
+        handler = EvidenceHandler({})
+        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/health") is False
+        assert handler.can_handle("/api/leaderboard") is False
 
 
 class TestListEvidence:
