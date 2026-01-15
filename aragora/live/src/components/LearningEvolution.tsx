@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { API_BASE_URL } from '@/config';
 
 interface PatternData {
   date: string;
@@ -46,7 +47,7 @@ export function LearningEvolution() {
   const fetchEvolutionData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/learning/evolution');
+      const response = await fetch(`${API_BASE_URL}/api/learning/evolution`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }

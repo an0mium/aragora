@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { ErrorWithRetry } from './RetryButton';
 import { fetchWithRetry } from '@/utils/retry';
 import { logger } from '@/utils/logger';
+import { API_BASE_URL } from '@/config';
 
 interface Replay {
   id: string;
@@ -62,7 +63,7 @@ export function ReplayBrowser() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetchWithRetry('/api/replays', undefined, { maxRetries: 2 });
+      const response = await fetchWithRetry(`${API_BASE_URL}/api/replays`, undefined, { maxRetries: 2 });
       if (response.ok) {
         const data = await response.json();
         setReplays(data);
@@ -84,7 +85,7 @@ export function ReplayBrowser() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetchWithRetry(`/api/replays/${replayId}`, undefined, { maxRetries: 2 });
+      const response = await fetchWithRetry(`${API_BASE_URL}/api/replays/${replayId}`, undefined, { maxRetries: 2 });
       if (response.ok) {
         const data = await response.json();
         setSelectedReplay(data);
@@ -102,7 +103,7 @@ export function ReplayBrowser() {
     setForking(eventId);
     try {
       const response = await fetchWithRetry(
-        `/api/replays/${replayId}/fork`,
+        `${API_BASE_URL}/api/replays/${replayId}/fork`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
