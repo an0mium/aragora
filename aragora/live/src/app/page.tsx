@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useNomicStream } from '@/hooks/useNomicStream';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
@@ -796,31 +797,31 @@ export default function Home() {
           <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 py-1.5">
             <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
               <span className="text-[9px] font-mono text-text-muted/40 mr-2 shrink-0">EXPLORE:</span>
-              <a href="/debates" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[ARCHIVE]</a>
-              <a href="/debates/graph" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[GRAPH]</a>
-              <a href="/debates/matrix" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-gold hover:bg-gold/5 transition-colors shrink-0">[MATRIX]</a>
-              <a href="/agents" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[AGENTS]</a>
-              <a href="/network" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[NETWORK]</a>
-              <a href="/insights" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[INSIGHTS]</a>
-              <a href="/evidence" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[EVIDENCE]</a>
-              <a href="/training" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[TRAINING]</a>
-              <a href="/pulse" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[PULSE]</a>
-              <a href="/gauntlet" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[GAUNTLET]</a>
-              <a href="/leaderboard" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-gold hover:bg-gold/5 transition-colors shrink-0">[RANKS]</a>
-              <a href="/analytics" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[ANALYTICS]</a>
-              <a href="/probe" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-yellow hover:bg-acid-yellow/5 transition-colors shrink-0">[PROBE]</a>
-              <a href="/checkpoints" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[SAVES]</a>
-              <a href="/verify" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-purple hover:bg-acid-purple/5 transition-colors shrink-0">[PROOFS]</a>
-              <a href="/quality" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[QUALITY]</a>
-              <a href="/calibration" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-gold hover:bg-gold/5 transition-colors shrink-0">[CALIBRATE]</a>
-              <a href="/modes" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-warning hover:bg-warning/5 transition-colors shrink-0">[MODES]</a>
-              <a href="/compare" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[COMPARE]</a>
-              <a href="/crux" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-purple hover:bg-acid-purple/5 transition-colors shrink-0">[CRUX]</a>
-              <a href="/red-team" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-warning hover:bg-warning/5 transition-colors shrink-0">[REDTEAM]</a>
-              <a href="/memory-analytics" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[MEM]</a>
-              <a href="/webhooks" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[HOOKS]</a>
-              <a href="/admin" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-warning hover:bg-warning/5 transition-colors shrink-0">[ADMIN]</a>
-              <a href="/developer" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[DEV]</a>
+              <Link href="/debates" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[ARCHIVE]</Link>
+              <Link href="/debates/graph" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[GRAPH]</Link>
+              <Link href="/debates/matrix" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-gold hover:bg-gold/5 transition-colors shrink-0">[MATRIX]</Link>
+              <Link href="/agents" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[AGENTS]</Link>
+              <Link href="/network" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[NETWORK]</Link>
+              <Link href="/insights" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[INSIGHTS]</Link>
+              <Link href="/evidence" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[EVIDENCE]</Link>
+              <Link href="/training" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[TRAINING]</Link>
+              <Link href="/pulse" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[PULSE]</Link>
+              <Link href="/gauntlet" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[GAUNTLET]</Link>
+              <Link href="/leaderboard" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-gold hover:bg-gold/5 transition-colors shrink-0">[RANKS]</Link>
+              <Link href="/analytics" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[ANALYTICS]</Link>
+              <Link href="/probe" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-yellow hover:bg-acid-yellow/5 transition-colors shrink-0">[PROBE]</Link>
+              <Link href="/checkpoints" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[SAVES]</Link>
+              <Link href="/verify" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-purple hover:bg-acid-purple/5 transition-colors shrink-0">[PROOFS]</Link>
+              <Link href="/quality" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[QUALITY]</Link>
+              <Link href="/calibration" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-gold hover:bg-gold/5 transition-colors shrink-0">[CALIBRATE]</Link>
+              <Link href="/modes" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-warning hover:bg-warning/5 transition-colors shrink-0">[MODES]</Link>
+              <Link href="/compare" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[COMPARE]</Link>
+              <Link href="/crux" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-purple hover:bg-acid-purple/5 transition-colors shrink-0">[CRUX]</Link>
+              <Link href="/red-team" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-warning hover:bg-warning/5 transition-colors shrink-0">[REDTEAM]</Link>
+              <Link href="/memory-analytics" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[MEM]</Link>
+              <Link href="/webhooks" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[HOOKS]</Link>
+              <Link href="/admin" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-warning hover:bg-warning/5 transition-colors shrink-0">[ADMIN]</Link>
+              <Link href="/developer" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[DEV]</Link>
             </div>
           </div>
         </div>
