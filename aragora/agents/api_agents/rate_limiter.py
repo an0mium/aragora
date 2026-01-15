@@ -11,58 +11,14 @@ Provides token bucket rate limiting for API calls with:
 import asyncio
 import logging
 import os
-import random
 import threading
 import time
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
+from aragora.shared.rate_limiting import ExponentialBackoff
+
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class ExponentialBackoff:
-    """Exponential backoff with jitter for rate limit recovery.
-
-    When quota is exhausted (429/403), uses exponential backoff to avoid
-    hammering the API. Each consecutive failure doubles the delay up to max_delay.
-    """
-
-    base_delay: float = 1.0  # Initial delay in seconds
-    max_delay: float = 60.0  # Maximum delay cap
-    jitter: float = 0.1  # Jitter factor (0.1 = 10% random variance)
-    failure_count: int = field(default=0, init=False)
-    _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
-
-    def get_delay(self) -> float:
-        """Calculate next delay with exponential backoff and jitter."""
-        with self._lock:
-            delay = min(self.base_delay * (2**self.failure_count), self.max_delay)
-            jitter_amount = delay * self.jitter
-            return delay + random.uniform(0, jitter_amount)
-
-    def record_failure(self) -> float:
-        """Record a failure and return the delay to wait."""
-        with self._lock:
-            self.failure_count += 1
-            delay = min(self.base_delay * (2**self.failure_count), self.max_delay)
-            jitter_amount = delay * self.jitter
-            final_delay = delay + random.uniform(0, jitter_amount)
-            logger.info(f"backoff_failure count={self.failure_count} delay={final_delay:.1f}s")
-            return final_delay
-
-    def reset(self) -> None:
-        """Reset failure count after successful request."""
-        with self._lock:
-            if self.failure_count > 0:
-                logger.debug(f"backoff_reset previous_failures={self.failure_count}")
-                self.failure_count = 0
-
-    @property
-    def is_backing_off(self) -> bool:
-        """Check if currently in backoff state."""
-        with self._lock:
-            return self.failure_count > 0
 
 
 @dataclass

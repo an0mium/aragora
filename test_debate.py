@@ -5,7 +5,8 @@ Quick test of the aragora multi-agent debate framework.
 
 import asyncio
 import sys
-sys.path.insert(0, '/Users/armand/Development/aragora')
+
+sys.path.insert(0, "/Users/armand/Development/aragora")
 
 from aragora.agents import create_agent
 from aragora.debate import Arena, DebateProtocol
@@ -42,9 +43,9 @@ async def test_simple_debate():
     result = await arena.run()
 
     # Print results
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("DEBATE SUMMARY")
-    print("="*60)
+    print("=" * 60)
     print(result.summary())
 
     # Show stats

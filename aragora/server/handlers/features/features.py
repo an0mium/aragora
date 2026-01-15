@@ -868,9 +868,9 @@ class FeaturesHandler(BaseHandler):
                 "total_endpoints": total_endpoints,
                 "frontend_integrated": integrated_count,
                 "hidden_features": hidden_count,
-                "integration_percentage": round(integrated_count / total_endpoints * 100, 1)
-                if total_endpoints > 0
-                else 0,
+                "integration_percentage": (
+                    round(integrated_count / total_endpoints * 100, 1) if total_endpoints > 0 else 0
+                ),
                 "endpoints": catalog,
                 "by_category": by_category,
                 "by_stability": by_stability,

@@ -531,15 +531,9 @@ class TestSequenceNumberOrdering:
         emitter = SyncEventEmitter(loop_id="test-loop")
 
         # Emit events alternating between agents
-        emitter.emit(
-            StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent1")
-        )
-        emitter.emit(
-            StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent2")
-        )
-        emitter.emit(
-            StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent1")
-        )
+        emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent1"))
+        emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent2"))
+        emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent1"))
 
         events = emitter.drain()
 
@@ -590,9 +584,7 @@ class TestQueueOverflowProtection:
 
         # Fill queue
         for _ in range(3):
-            emitter.emit(
-                StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={})
-            )
+            emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}))
 
         # This should trigger overflow
         emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}))
@@ -630,9 +622,7 @@ class TestAudienceInboxOverflow:
 
         # Fill inbox
         for i in range(5):
-            inbox.put(
-                AudienceMessage(type="vote", loop_id="test", payload={"i": i})
-            )
+            inbox.put(AudienceMessage(type="vote", loop_id="test", payload={"i": i}))
 
         # Should have dropped 2 messages
         assert inbox._overflow_count == 2

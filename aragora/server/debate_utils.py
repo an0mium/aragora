@@ -283,7 +283,11 @@ async def watchdog_stuck_debates(check_interval: float = 60.0) -> None:
                 state = manager.get_debate(debate_id)
                 if state:
                     task = state.metadata.get("_task")
-                    if task and hasattr(task, "cancel") and not getattr(task, "done", lambda: True)():
+                    if (
+                        task
+                        and hasattr(task, "cancel")
+                        and not getattr(task, "done", lambda: True)()
+                    ):
                         try:
                             task.cancel()
                         except Exception as e:

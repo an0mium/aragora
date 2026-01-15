@@ -41,7 +41,10 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+
+if TYPE_CHECKING:
+    from aragora.typing import RedisClientProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +203,7 @@ class RedisClusterClient:
             config: Cluster configuration (uses environment if not provided)
         """
         self.config = config or get_cluster_config()
-        self._client: Optional[Any] = None
+        self._client: Optional[RedisClientProtocol] = None
         self._is_cluster: bool = False
         self._available: bool = False
         self._lock = threading.Lock()
@@ -244,7 +247,7 @@ class RedisClusterClient:
             logger.debug(f"Cluster detection result (standalone): {type(e).__name__}: {e}")
             return False
 
-    def _create_client(self) -> Optional[Any]:
+    def _create_client(self) -> Optional["RedisClientProtocol"]:
         """Create appropriate Redis client based on mode."""
         if not self.config.nodes:
             logger.warning("No Redis nodes configured")
@@ -258,9 +261,7 @@ class RedisClusterClient:
 
             if self._is_cluster:
                 # Create cluster client
-                startup_nodes = [
-                    ClusterNode(host, port) for host, port in self.config.nodes
-                ]
+                startup_nodes = [ClusterNode(host, port) for host, port in self.config.nodes]
 
                 client: Any = RedisCluster(
                     startup_nodes=startup_nodes,
@@ -275,9 +276,7 @@ class RedisClusterClient:
 
                 # Test cluster connectivity
                 client.ping()
-                logger.info(
-                    f"Redis Cluster connected: {len(self.config.nodes)} startup nodes"
-                )
+                logger.info(f"Redis Cluster connected: {len(self.config.nodes)} startup nodes")
             else:
                 # Create standalone client with connection pool
                 host, port = self.config.nodes[0]
@@ -305,7 +304,7 @@ class RedisClusterClient:
             logger.error(f"Failed to connect to Redis: {e}")
             return None
 
-    def get_client(self) -> Optional[Any]:
+    def get_client(self) -> Optional["RedisClientProtocol"]:
         """Get or create Redis client (thread-safe lazy initialization)."""
         if self._client is not None:
             return self._client
@@ -360,7 +359,7 @@ class RedisClusterClient:
                         self._reconnect()
 
         logger.error(f"Redis operation failed after {retries + 1} attempts: {last_error}")
-        raise last_error  # type: ignore
+        raise last_error
 
     def _reconnect(self) -> None:
         """Force reconnection to cluster."""
@@ -369,9 +368,13 @@ class RedisClusterClient:
                 try:
                     self._client.close()
                 except (ConnectionError, TimeoutError) as e:
-                    logger.debug(f"Error closing Redis client during reconnect: {type(e).__name__}: {e}")
+                    logger.debug(
+                        f"Error closing Redis client during reconnect: {type(e).__name__}: {e}"
+                    )
                 except Exception as e:
-                    logger.warning(f"Unexpected error closing Redis client: {type(e).__name__}: {e}")
+                    logger.warning(
+                        f"Unexpected error closing Redis client: {type(e).__name__}: {e}"
+                    )
                 self._client = None
             self._client = self._create_client()
             if self._client is not None:
@@ -388,7 +391,7 @@ class RedisClusterClient:
 
         def _get() -> Optional[str]:
             client = self.get_client()
-            return client.get(key)  # type: ignore
+            return client.get(key)
 
         return self._execute_with_retry(_get)
 
@@ -405,7 +408,7 @@ class RedisClusterClient:
 
         def _set() -> bool:
             client = self.get_client()
-            return client.set(key, value, ex=ex, px=px, nx=nx, xx=xx)  # type: ignore
+            return client.set(key, value, ex=ex, px=px, nx=nx, xx=xx)
 
         return self._execute_with_retry(_set)
 
@@ -414,7 +417,7 @@ class RedisClusterClient:
 
         def _delete() -> int:
             client = self.get_client()
-            return client.delete(*keys)  # type: ignore
+            return client.delete(*keys)
 
         return self._execute_with_retry(_delete)
 
@@ -423,7 +426,7 @@ class RedisClusterClient:
 
         def _exists() -> int:
             client = self.get_client()
-            return client.exists(*keys)  # type: ignore
+            return client.exists(*keys)
 
         return self._execute_with_retry(_exists)
 
@@ -432,7 +435,7 @@ class RedisClusterClient:
 
         def _expire() -> bool:
             client = self.get_client()
-            return client.expire(key, seconds)  # type: ignore
+            return client.expire(key, seconds)
 
         return self._execute_with_retry(_expire)
 
@@ -441,7 +444,7 @@ class RedisClusterClient:
 
         def _ttl() -> int:
             client = self.get_client()
-            return client.ttl(key)  # type: ignore
+            return client.ttl(key)
 
         return self._execute_with_retry(_ttl)
 
@@ -450,7 +453,7 @@ class RedisClusterClient:
 
         def _incr() -> int:
             client = self.get_client()
-            return client.incr(key)  # type: ignore
+            return client.incr(key)
 
         return self._execute_with_retry(_incr)
 
@@ -459,7 +462,7 @@ class RedisClusterClient:
 
         def _decr() -> int:
             client = self.get_client()
-            return client.decr(key)  # type: ignore
+            return client.decr(key)
 
         return self._execute_with_retry(_decr)
 
@@ -472,7 +475,7 @@ class RedisClusterClient:
 
         def _hget() -> Optional[str]:
             client = self.get_client()
-            return client.hget(name, key)  # type: ignore
+            return client.hget(name, key)
 
         return self._execute_with_retry(_hget)
 
@@ -481,7 +484,7 @@ class RedisClusterClient:
 
         def _hset() -> int:
             client = self.get_client()
-            return client.hset(name, key, value)  # type: ignore
+            return client.hset(name, key, value)
 
         return self._execute_with_retry(_hset)
 
@@ -490,7 +493,7 @@ class RedisClusterClient:
 
         def _hgetall() -> Dict[str, str]:
             client = self.get_client()
-            return client.hgetall(name)  # type: ignore
+            return client.hgetall(name)
 
         return self._execute_with_retry(_hgetall)
 
@@ -499,7 +502,7 @@ class RedisClusterClient:
 
         def _hdel() -> int:
             client = self.get_client()
-            return client.hdel(name, *keys)  # type: ignore
+            return client.hdel(name, *keys)
 
         return self._execute_with_retry(_hdel)
 
@@ -512,7 +515,7 @@ class RedisClusterClient:
 
         def _zadd() -> int:
             client = self.get_client()
-            return client.zadd(name, mapping)  # type: ignore
+            return client.zadd(name, mapping)
 
         return self._execute_with_retry(_zadd)
 
@@ -521,7 +524,7 @@ class RedisClusterClient:
 
         def _zrem() -> int:
             client = self.get_client()
-            return client.zrem(name, *members)  # type: ignore
+            return client.zrem(name, *members)
 
         return self._execute_with_retry(_zrem)
 
@@ -530,7 +533,7 @@ class RedisClusterClient:
 
         def _zcard() -> int:
             client = self.get_client()
-            return client.zcard(name)  # type: ignore
+            return client.zcard(name)
 
         return self._execute_with_retry(_zcard)
 
@@ -545,18 +548,16 @@ class RedisClusterClient:
 
         def _zrangebyscore() -> List[Any]:
             client = self.get_client()
-            return client.zrangebyscore(name, min, max, withscores=withscores)  # type: ignore
+            return client.zrangebyscore(name, min, max, withscores=withscores)
 
         return self._execute_with_retry(_zrangebyscore)
 
-    def zremrangebyscore(
-        self, name: str, min: Union[float, str], max: Union[float, str]
-    ) -> int:
+    def zremrangebyscore(self, name: str, min: Union[float, str], max: Union[float, str]) -> int:
         """Remove members by score range."""
 
         def _zremrangebyscore() -> int:
             client = self.get_client()
-            return client.zremrangebyscore(name, min, max)  # type: ignore
+            return client.zremrangebyscore(name, min, max)
 
         return self._execute_with_retry(_zremrangebyscore)
 
@@ -677,7 +678,9 @@ class RedisClusterClient:
                     self._client.close()
                     logger.info("Redis cluster client closed")
                 except (ConnectionError, TimeoutError) as e:
-                    logger.debug(f"Connection error while closing Redis client: {type(e).__name__}: {e}")
+                    logger.debug(
+                        f"Connection error while closing Redis client: {type(e).__name__}: {e}"
+                    )
                 except Exception as e:
                     logger.error(f"Unexpected error closing Redis client: {type(e).__name__}: {e}")
                 finally:

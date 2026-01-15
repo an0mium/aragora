@@ -611,9 +611,7 @@ class TestOrganizationInvitation:
         """Cannot accept already accepted invitation."""
         from aragora.billing.models import OrganizationInvitation
 
-        inv = OrganizationInvitation(
-            org_id="org-123", email="user@example.com", status="accepted"
-        )
+        inv = OrganizationInvitation(org_id="org-123", email="user@example.com", status="accepted")
 
         result = inv.accept()
 
@@ -649,9 +647,7 @@ class TestOrganizationInvitation:
         """Cannot revoke already accepted invitation."""
         from aragora.billing.models import OrganizationInvitation
 
-        inv = OrganizationInvitation(
-            org_id="org-123", email="user@example.com", status="accepted"
-        )
+        inv = OrganizationInvitation(org_id="org-123", email="user@example.com", status="accepted")
 
         result = inv.revoke()
 
@@ -662,9 +658,7 @@ class TestOrganizationInvitation:
         """to_dict should exclude token by default."""
         from aragora.billing.models import OrganizationInvitation
 
-        inv = OrganizationInvitation(
-            org_id="org-123", email="user@example.com", role="admin"
-        )
+        inv = OrganizationInvitation(org_id="org-123", email="user@example.com", role="admin")
         data = inv.to_dict()
 
         assert "token" not in data

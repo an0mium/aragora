@@ -117,7 +117,9 @@ def batch_exists(
 
     for chunk in chunked(ids, batch_size):
         placeholders = ", ".join("?" * len(chunk))
-        query = f"SELECT {id_column} FROM {table} WHERE {id_column} IN ({placeholders})"  # nosec B608
+        query = (
+            f"SELECT {id_column} FROM {table} WHERE {id_column} IN ({placeholders})"  # nosec B608
+        )
 
         try:
             cursor = conn.execute(query, chunk)

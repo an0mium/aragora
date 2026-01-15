@@ -74,7 +74,7 @@ class SLO:
         "single_round_max_sec": 5.0,
         "round_scaling_max_ratio": 5.0,  # 3 rounds should be < 5x of 1 round
         "agent_scaling_max_ratio": 2.5,  # 5 agents should be < 2.5x of 2 agents
-        "concurrent_min_per_sec": 0.5,   # Minimum debates per second
+        "concurrent_min_per_sec": 0.5,  # Minimum debates per second
     }
 
     # Import time targets
@@ -205,8 +205,7 @@ def assert_latency_slo(
     if elapsed_ms is not None:
         target = targets[percentile]
         assert elapsed_ms <= target, (
-            f"SLO violation: {operation} {percentile} = {elapsed_ms:.1f}ms "
-            f"(target: {target}ms)"
+            f"SLO violation: {operation} {percentile} = {elapsed_ms:.1f}ms " f"(target: {target}ms)"
         )
 
     if metrics is not None:
@@ -250,8 +249,7 @@ def assert_throughput_slo(
     target = targets[target_key]
 
     assert ops_per_sec >= target, (
-        f"SLO violation: {category} throughput = {ops_per_sec:.1f}/sec "
-        f"(target: {target}/sec)"
+        f"SLO violation: {category} throughput = {ops_per_sec:.1f}/sec " f"(target: {target}/sec)"
     )
 
 
@@ -269,8 +267,7 @@ def assert_memory_ops_slo(
     min_ops = targets["min_ops_per_sec"]
 
     assert ops_per_sec >= min_ops, (
-        f"SLO violation: {operation} = {ops_per_sec:.0f} ops/sec "
-        f"(target: >{min_ops} ops/sec)"
+        f"SLO violation: {operation} = {ops_per_sec:.0f} ops/sec " f"(target: >{min_ops} ops/sec)"
     )
 
 
@@ -288,8 +285,7 @@ def assert_elo_ops_slo(
     min_ops = targets["min_ops_per_sec"]
 
     assert ops_per_sec >= min_ops, (
-        f"SLO violation: {operation} = {ops_per_sec:.0f} ops/sec "
-        f"(target: >{min_ops} ops/sec)"
+        f"SLO violation: {operation} = {ops_per_sec:.0f} ops/sec " f"(target: >{min_ops} ops/sec)"
     )
 
 
@@ -306,18 +302,12 @@ def assert_debate_slo(
     # For "_max_" metrics, actual should be less than target
     # For "_min_" metrics, actual should be greater than target
     if "_max_" in metric:
-        assert actual <= target, (
-            f"SLO violation: {metric} = {actual:.2f} (max: {target})"
-        )
+        assert actual <= target, f"SLO violation: {metric} = {actual:.2f} (max: {target})"
     elif "_min_" in metric:
-        assert actual >= target, (
-            f"SLO violation: {metric} = {actual:.2f} (min: {target})"
-        )
+        assert actual >= target, f"SLO violation: {metric} = {actual:.2f} (min: {target})"
     else:
         # Ratio checks - actual should be less than target
-        assert actual <= target, (
-            f"SLO violation: {metric} = {actual:.2f} (target: <{target})"
-        )
+        assert actual <= target, f"SLO violation: {metric} = {actual:.2f} (target: <{target})"
 
 
 def assert_error_rate_slo(
@@ -336,6 +326,5 @@ def assert_error_rate_slo(
     threshold = targets[threshold_key]
 
     assert error_rate <= threshold, (
-        f"SLO violation: {category} = {error_rate:.2f}% "
-        f"(target: <{threshold}%)"
+        f"SLO violation: {category} = {error_rate:.2f}% " f"(target: <{threshold}%)"
     )

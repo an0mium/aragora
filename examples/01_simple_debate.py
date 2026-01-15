@@ -31,6 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Load .env file
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
@@ -49,11 +50,11 @@ async def run_simple_debate():
     # Try to create agents based on available API keys
     # Prioritize paid APIs (more reliable) over free tiers
     agent_configs = [
-        ("anthropic-api", "proposer"),   # Claude API (reliable)
-        ("openai-api", "critic"),        # OpenAI API (reliable)
-        ("grok", "synthesizer"),         # xAI Grok
-        ("kimi", "critic"),              # Moonshot Kimi
-        ("gemini", "critic"),            # Google Gemini (often quota limited)
+        ("anthropic-api", "proposer"),  # Claude API (reliable)
+        ("openai-api", "critic"),  # OpenAI API (reliable)
+        ("grok", "synthesizer"),  # xAI Grok
+        ("kimi", "critic"),  # Moonshot Kimi
+        ("gemini", "critic"),  # Google Gemini (often quota limited)
     ]
 
     agents = []
@@ -95,9 +96,9 @@ Provide a concrete API design with:
 
     # Configure debate protocol
     protocol = DebateProtocol(
-        rounds=2,              # Keep short for demo
+        rounds=2,  # Keep short for demo
         consensus="majority",  # Majority vote for consensus
-        early_stopping=True,   # Stop early if consensus reached
+        early_stopping=True,  # Stop early if consensus reached
     )
 
     # Create and run debate

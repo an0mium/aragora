@@ -364,9 +364,7 @@ async def run_gauntlet_load_test(
             await client.wait_for_completion(gauntlet_id, timeout=180.0)
 
     # Run concurrent tests
-    tasks = [
-        run_single_gauntlet(random.choice(specs)) for _ in range(concurrent)
-    ]
+    tasks = [run_single_gauntlet(random.choice(specs)) for _ in range(concurrent)]
 
     await asyncio.gather(*tasks, return_exceptions=True)
     await client.close()

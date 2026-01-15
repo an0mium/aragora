@@ -47,7 +47,11 @@ from aragora.nomic.checkpoints import (
     list_checkpoints,
     cleanup_old_checkpoints,
 )
-from aragora.nomic.metrics import NOMIC_CYCLES_IN_PROGRESS, NOMIC_CYCLES_TOTAL, NOMIC_PHASE_TRANSITIONS
+from aragora.nomic.metrics import (
+    NOMIC_CYCLES_IN_PROGRESS,
+    NOMIC_CYCLES_TOTAL,
+    NOMIC_PHASE_TRANSITIONS,
+)
 from aragora.nomic.recovery import (
     RecoveryStrategy,
     RecoveryDecision,

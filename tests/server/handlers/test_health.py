@@ -82,8 +82,8 @@ class TestReadinessProbe:
 
     def test_readiness_with_no_deps_returns_ready(self, health_handler):
         """Readiness should return ready when no deps configured."""
-        with patch.object(health_handler, 'get_storage', return_value=None):
-            with patch.object(health_handler, 'get_elo_system', return_value=None):
+        with patch.object(health_handler, "get_storage", return_value=None):
+            with patch.object(health_handler, "get_elo_system", return_value=None):
                 result = health_handler.handle("/readyz", {}, None)
 
         assert result is not None
@@ -95,8 +95,8 @@ class TestReadinessProbe:
         """Readiness should return ready when storage is available."""
         mock_storage = MagicMock()
 
-        with patch.object(health_handler, 'get_storage', return_value=mock_storage):
-            with patch.object(health_handler, 'get_elo_system', return_value=None):
+        with patch.object(health_handler, "get_storage", return_value=mock_storage):
+            with patch.object(health_handler, "get_elo_system", return_value=None):
                 result = health_handler.handle("/readyz", {}, None)
 
         assert result is not None
@@ -107,8 +107,8 @@ class TestReadinessProbe:
 
     def test_readiness_with_storage_error_returns_not_ready(self, health_handler):
         """Readiness should return not_ready when storage fails."""
-        with patch.object(health_handler, 'get_storage', side_effect=RuntimeError("DB error")):
-            with patch.object(health_handler, 'get_elo_system', return_value=None):
+        with patch.object(health_handler, "get_storage", side_effect=RuntimeError("DB error")):
+            with patch.object(health_handler, "get_elo_system", return_value=None):
                 result = health_handler.handle("/readyz", {}, None)
 
         assert result is not None
@@ -123,9 +123,9 @@ class TestComprehensiveHealthCheck:
 
     def test_health_returns_status(self, health_handler):
         """Health check should return status and checks."""
-        with patch.object(health_handler, 'get_storage', return_value=None):
-            with patch.object(health_handler, 'get_elo_system', return_value=None):
-                with patch.object(health_handler, 'get_nomic_dir', return_value=None):
+        with patch.object(health_handler, "get_storage", return_value=None):
+            with patch.object(health_handler, "get_elo_system", return_value=None):
+                with patch.object(health_handler, "get_nomic_dir", return_value=None):
                     result = health_handler.handle("/api/health", {}, None)
 
         assert result is not None
@@ -137,9 +137,9 @@ class TestComprehensiveHealthCheck:
 
     def test_health_includes_uptime(self, health_handler):
         """Health check should include uptime."""
-        with patch.object(health_handler, 'get_storage', return_value=None):
-            with patch.object(health_handler, 'get_elo_system', return_value=None):
-                with patch.object(health_handler, 'get_nomic_dir', return_value=None):
+        with patch.object(health_handler, "get_storage", return_value=None):
+            with patch.object(health_handler, "get_elo_system", return_value=None):
+                with patch.object(health_handler, "get_nomic_dir", return_value=None):
                     result = health_handler.handle("/api/health", {}, None)
 
         body = json.loads(result.body)
@@ -148,9 +148,9 @@ class TestComprehensiveHealthCheck:
 
     def test_health_includes_response_time(self, health_handler):
         """Health check should include response time."""
-        with patch.object(health_handler, 'get_storage', return_value=None):
-            with patch.object(health_handler, 'get_elo_system', return_value=None):
-                with patch.object(health_handler, 'get_nomic_dir', return_value=None):
+        with patch.object(health_handler, "get_storage", return_value=None):
+            with patch.object(health_handler, "get_elo_system", return_value=None):
+                with patch.object(health_handler, "get_nomic_dir", return_value=None):
                     result = health_handler.handle("/api/health", {}, None)
 
         body = json.loads(result.body)
@@ -163,9 +163,9 @@ class TestDetailedHealthCheck:
 
     def test_detailed_health_returns_components(self, health_handler):
         """Detailed health should return component status."""
-        with patch.object(health_handler, 'get_storage', return_value=None):
-            with patch.object(health_handler, 'get_elo_system', return_value=None):
-                with patch.object(health_handler, 'get_nomic_dir', return_value=None):
+        with patch.object(health_handler, "get_storage", return_value=None):
+            with patch.object(health_handler, "get_elo_system", return_value=None):
+                with patch.object(health_handler, "get_nomic_dir", return_value=None):
                     result = health_handler.handle("/api/health/detailed", {}, None)
 
         assert result is not None
@@ -180,9 +180,9 @@ class TestDeepHealthCheck:
 
     def test_deep_health_returns_comprehensive_checks(self, health_handler):
         """Deep health should return comprehensive checks."""
-        with patch.object(health_handler, 'get_storage', return_value=None):
-            with patch.object(health_handler, 'get_elo_system', return_value=None):
-                with patch.object(health_handler, 'get_nomic_dir', return_value=None):
+        with patch.object(health_handler, "get_storage", return_value=None):
+            with patch.object(health_handler, "get_elo_system", return_value=None):
+                with patch.object(health_handler, "get_nomic_dir", return_value=None):
                     result = health_handler.handle("/api/health/deep", {}, None)
 
         assert result is not None
@@ -193,9 +193,9 @@ class TestDeepHealthCheck:
 
     def test_deep_health_includes_ai_providers(self, health_handler):
         """Deep health should check AI provider availability."""
-        with patch.object(health_handler, 'get_storage', return_value=None):
-            with patch.object(health_handler, 'get_elo_system', return_value=None):
-                with patch.object(health_handler, 'get_nomic_dir', return_value=None):
+        with patch.object(health_handler, "get_storage", return_value=None):
+            with patch.object(health_handler, "get_elo_system", return_value=None):
+                with patch.object(health_handler, "get_nomic_dir", return_value=None):
                     result = health_handler.handle("/api/health/deep", {}, None)
 
         body = json.loads(result.body)
@@ -207,7 +207,7 @@ class TestFilesystemHealthCheck:
 
     def test_filesystem_check_with_temp_dir(self, health_handler):
         """Filesystem check should work with temp directory."""
-        with patch.object(health_handler, 'get_nomic_dir', return_value=None):
+        with patch.object(health_handler, "get_nomic_dir", return_value=None):
             result = health_handler._check_filesystem_health()
 
         assert result["healthy"] is True
@@ -215,8 +215,8 @@ class TestFilesystemHealthCheck:
 
     def test_filesystem_check_returns_error_on_permission_denied(self, health_handler):
         """Filesystem check should return error on permission denied."""
-        with patch.object(health_handler, 'get_nomic_dir', return_value=None):
-            with patch('pathlib.Path.write_text', side_effect=PermissionError("denied")):
+        with patch.object(health_handler, "get_nomic_dir", return_value=None):
+            with patch("pathlib.Path.write_text", side_effect=PermissionError("denied")):
                 result = health_handler._check_filesystem_health()
 
         assert result["healthy"] is False
@@ -228,7 +228,7 @@ class TestRedisHealthCheck:
 
     def test_redis_check_without_config(self, health_handler):
         """Redis check should return healthy when not configured."""
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True):
             result = health_handler._check_redis_health()
 
         assert result["healthy"] is True
@@ -240,7 +240,7 @@ class TestAIProvidersHealthCheck:
 
     def test_ai_providers_check_without_keys(self, health_handler):
         """AI providers check should work without any keys."""
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True):
             result = health_handler._check_ai_providers_health()
 
         assert result["healthy"] is True
@@ -249,7 +249,7 @@ class TestAIProvidersHealthCheck:
 
     def test_ai_providers_check_with_anthropic_key(self, health_handler):
         """AI providers check should detect Anthropic key."""
-        with patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-ant-test12345'}, clear=True):
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-ant-test12345"}, clear=True):
             result = health_handler._check_ai_providers_health()
 
         assert result["healthy"] is True

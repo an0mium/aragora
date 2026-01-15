@@ -261,9 +261,14 @@ def with_resilience(
         async def call_external_api(prompt: str) -> str:
             return await api.generate(prompt)
     """
+
     def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         name = circuit_name or f"func_{func.__name__}"
-        circuit_breaker = get_circuit_breaker(name, failure_threshold, cooldown_seconds) if use_circuit_breaker else None
+        circuit_breaker = (
+            get_circuit_breaker(name, failure_threshold, cooldown_seconds)
+            if use_circuit_breaker
+            else None
+        )
 
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             # Check circuit breaker
@@ -285,7 +290,7 @@ def with_resilience(
 
                     # Calculate backoff delay
                     if backoff == "exponential":
-                        delay = min(2 ** attempt, 30.0)  # Cap at 30s
+                        delay = min(2**attempt, 30.0)  # Cap at 30s
                     elif backoff == "linear":
                         delay = attempt + 1
                     else:  # constant

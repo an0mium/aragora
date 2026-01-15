@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
@@ -71,9 +72,9 @@ async def run_security_audit_debate():
 
     # Red team vs Blue team agents
     agent_configs = [
-        ("anthropic-api", "red_team"),    # Attack perspective
-        ("openai-api", "blue_team"),       # Defense perspective
-        ("gemini", "compliance"),          # Compliance perspective
+        ("anthropic-api", "red_team"),  # Attack perspective
+        ("openai-api", "blue_team"),  # Defense perspective
+        ("gemini", "compliance"),  # Compliance perspective
     ]
 
     agents = []

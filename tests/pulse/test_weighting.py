@@ -110,9 +110,7 @@ class TestSourceWeightingSystem:
 
     def test_weight_topic_high_volume(self, system):
         """Test that high volume increases score."""
-        low_volume = TrendingTopic(
-            platform="hackernews", topic="Test", volume=10, category="tech"
-        )
+        low_volume = TrendingTopic(platform="hackernews", topic="Test", volume=10, category="tech")
         high_volume = TrendingTopic(
             platform="hackernews", topic="Test", volume=100000, category="tech"
         )

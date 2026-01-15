@@ -250,9 +250,8 @@ class SIEMClient:
 
             # Flush if batch full or interval elapsed
             now = time.time()
-            should_flush = (
-                len(batch) >= self.config.batch_size
-                or (batch and now - last_flush >= self.config.flush_interval)
+            should_flush = len(batch) >= self.config.batch_size or (
+                batch and now - last_flush >= self.config.flush_interval
             )
 
             if should_flush and batch:
@@ -292,11 +291,13 @@ class SIEMClient:
         import urllib.request
 
         for event in events:
-            data = json.dumps({
-                "event": event.to_dict(),
-                "index": self.config.index,
-                "sourcetype": "aragora:security",
-            }).encode("utf-8")
+            data = json.dumps(
+                {
+                    "event": event.to_dict(),
+                    "index": self.config.index,
+                    "sourcetype": "aragora:security",
+                }
+            ).encode("utf-8")
 
             req = urllib.request.Request(
                 self.config.endpoint,
@@ -335,11 +336,13 @@ class SIEMClient:
         import urllib.request
 
         for event in events:
-            data = json.dumps({
-                **event.to_dict(),
-                "ddsource": "aragora",
-                "service": "aragora-security",
-            }).encode("utf-8")
+            data = json.dumps(
+                {
+                    **event.to_dict(),
+                    "ddsource": "aragora",
+                    "service": "aragora-security",
+                }
+            ).encode("utf-8")
 
             req = urllib.request.Request(
                 self.config.endpoint or "https://http-intake.logs.datadoghq.com/api/v2/logs",

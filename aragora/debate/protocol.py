@@ -25,7 +25,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Re-export CircuitBreaker for backwards compatibility
-__all__ = ["CircuitBreaker", "DebateProtocol", "RoundPhase", "STRUCTURED_ROUND_PHASES", "user_vote_multiplier"]
+__all__ = [
+    "ARAGORA_AI_PROTOCOL",
+    "CircuitBreaker",
+    "DebateProtocol",
+    "RoundPhase",
+    "STRUCTURED_ROUND_PHASES",
+    "user_vote_multiplier",
+]
 
 
 @dataclass
@@ -39,8 +46,18 @@ class RoundPhase:
     cognitive_mode: str  # Analyst, Skeptic, Lateral, Synthesizer, etc.
 
 
-# Default 7-round structured debate format
+# Default 9-round structured debate format for aragora.ai
+# Round 0 (Context Gathering) runs parallel with Round 1
+# Rounds 1-7 are the core debate cycle
+# Round 8 (Adjudication) handles voting, judge verdict, and final synthesis
 STRUCTURED_ROUND_PHASES: list[RoundPhase] = [
+    RoundPhase(
+        number=0,
+        name="Context Gathering",
+        description="Gather background information, evidence, and assign personas",
+        focus="Research, evidence collection, historical context, persona assignment",
+        cognitive_mode="Researcher",
+    ),
     RoundPhase(
         number=1,
         name="Initial Analysis",
@@ -86,9 +103,16 @@ STRUCTURED_ROUND_PHASES: list[RoundPhase] = [
     RoundPhase(
         number=7,
         name="Final Synthesis",
-        description="Consolidate all perspectives into final positions",
-        focus="Actionable conclusions, confidence levels, remaining uncertainties",
+        description="Each agent synthesizes discussion and revises proposal to final form",
+        focus="Polished final positions, integrated insights, honest uncertainty",
         cognitive_mode="Synthesizer",
+    ),
+    RoundPhase(
+        number=8,
+        name="Final Adjudication",
+        description="Voting, judge verdict, Opus 4.5 synthesis, download links",
+        focus="Final votes, judge selection, 1200-word conclusion, export formats",
+        cognitive_mode="Adjudicator",
     ),
 ]
 
@@ -98,18 +122,20 @@ class DebateProtocol:
     """Configuration for how debates are conducted."""
 
     topology: Literal["all-to-all", "sparse", "round-robin", "ring", "star", "random-graph"] = (
-        "round-robin"
+        "all-to-all"
     )
     topology_sparsity: float = (
         0.5  # fraction of possible critique connections (for sparse/random-graph)
     )
     topology_hub_agent: Optional[str] = None  # for star topology, which agent is the hub
-    rounds: int = 7  # Structured 7-round format for thorough debates
+    rounds: int = 8  # Structured 8-round format (0-7), Round 8 is adjudication
 
     # Structured round phases: Use predefined phase structure for each round
     # When enabled, each round has a specific focus (Analysis, Skeptic, Lateral, etc.)
     use_structured_phases: bool = True  # Enable structured 7-round format
-    round_phases: Optional[list[RoundPhase]] = None  # Custom phases (uses STRUCTURED_ROUND_PHASES if None)
+    round_phases: Optional[list[RoundPhase]] = (
+        None  # Custom phases (uses STRUCTURED_ROUND_PHASES if None)
+    )
 
     consensus: Literal[
         "majority",
@@ -119,14 +145,14 @@ class DebateProtocol:
         "weighted",
         "supermajority",
         "any",
-    ] = "majority"
+    ] = "judge"
     consensus_threshold: float = 0.6  # fraction needed for majority
     allow_abstain: bool = True
     require_reasoning: bool = True
 
     # Role assignments
-    proposer_count: int = 1  # how many agents propose initially
-    critic_count: int = -1  # -1 means all non-proposers critique
+    proposer_count: int = -1  # -1 means all agents propose (default for 9-round format)
+    critic_count: int = -1  # -1 means all agents critique
     critique_required: bool = True  # require critiques before consensus
 
     # Judge selection (for consensus="judge" mode)
@@ -149,10 +175,12 @@ class DebateProtocol:
 
     # Early stopping: End debate when agents agree further rounds won't help
     # Based on ai-counsel pattern - can save 40-70% API costs
-    # Increased thresholds to ensure debates reach synthesis phase
+    # Set to near-impossible thresholds to ensure full 9-round debates
     early_stopping: bool = True
-    early_stop_threshold: float = 0.75  # fraction of agents saying stop to trigger (was 0.66)
-    min_rounds_before_early_stop: int = 3  # minimum rounds before allowing early exit (was 2)
+    early_stop_threshold: float = (
+        0.95  # fraction of agents saying stop to trigger (near-impossible)
+    )
+    min_rounds_before_early_stop: int = 7  # minimum rounds before allowing early exit
 
     # Asymmetric debate roles: Assign affirmative/negative/neutral stances
     # Forces perspective diversity, prevents premature consensus
@@ -162,7 +190,9 @@ class DebateProtocol:
     # Semantic convergence detection
     # Auto-detect consensus without explicit voting
     convergence_detection: bool = True
-    convergence_threshold: float = 0.85  # Similarity for convergence
+    convergence_threshold: float = (
+        0.95  # Similarity for convergence (high bar to prevent premature consensus)
+    )
     divergence_threshold: float = 0.40  # Below this is diverging
 
     # Vote option grouping: Merge semantically similar vote choices
@@ -268,7 +298,7 @@ class DebateProtocol:
         """Get the phase configuration for a specific round.
 
         Args:
-            round_number: 1-indexed round number
+            round_number: 0-indexed round number (0 = Context Gathering, 1-7 = debate, 8 = Adjudication)
 
         Returns:
             RoundPhase for the round, or None if not using structured phases
@@ -277,8 +307,8 @@ class DebateProtocol:
             return None
 
         phases = self.round_phases or STRUCTURED_ROUND_PHASES
-        if 1 <= round_number <= len(phases):
-            return phases[round_number - 1]
+        if 0 <= round_number < len(phases):
+            return phases[round_number]
         return None
 
 
@@ -316,3 +346,51 @@ def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
         # intensity=neutral -> 1.0, intensity=scale -> max_multiplier
         ratio = (intensity - neutral) / (scale - neutral) if scale > neutral else 0
         return 1.0 + (protocol.user_vote_intensity_max_multiplier - 1.0) * ratio
+
+
+# =============================================================================
+# Aragora.ai Web UI Default Protocol
+# =============================================================================
+# This preset is used for debates launched from the aragora.ai main input field.
+# CLI, SDK, and API users retain full flexibility with custom configurations.
+
+ARAGORA_AI_PROTOCOL = DebateProtocol(
+    # 9-round structured format
+    rounds=9,
+    use_structured_phases=True,
+    round_phases=None,  # Uses STRUCTURED_ROUND_PHASES (9 rounds)
+    # Judge-based consensus for final decision
+    consensus="judge",
+    consensus_threshold=0.6,
+    # All agents participate
+    topology="all-to-all",
+    proposer_count=-1,  # All agents propose
+    critic_count=-1,  # All agents critique
+    # Near-impossible early stopping (require 95% uniform consensus)
+    early_stopping=True,
+    early_stop_threshold=0.95,
+    min_rounds_before_early_stop=7,
+    # High convergence bar to prevent premature consensus
+    convergence_detection=True,
+    convergence_threshold=0.95,
+    divergence_threshold=0.40,
+    # Enable Trickster for hollow consensus detection
+    enable_trickster=True,
+    trickster_sensitivity=0.7,
+    # Enable all quality features
+    enable_calibration=True,
+    enable_rhetorical_observer=True,
+    enable_evolution=True,
+    enable_evidence_weighting=True,
+    verify_claims_during_consensus=True,
+    enable_research=True,
+    # Role rotation for cognitive diversity
+    role_rotation=True,
+    role_matching=True,
+    # Extended timeouts for 9-round debates
+    timeout_seconds=1800,  # 30 minutes total
+    round_timeout_seconds=150,  # 2.5 minutes per round
+    debate_rounds_timeout_seconds=900,  # 15 minutes for debate rounds phase
+    # Enable breakpoints for human intervention
+    enable_breakpoints=True,
+)

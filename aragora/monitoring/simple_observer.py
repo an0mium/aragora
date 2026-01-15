@@ -147,9 +147,7 @@ class SimpleObserver:
             self._logger.error(f"Agent {record['agent']} failed: {error}")
         else:
             record["status"] = "success"
-            self._logger.info(
-                f"Agent {record['agent']} completed in {record['duration']:.2f}s"
-            )
+            self._logger.info(f"Agent {record['agent']} completed in {record['duration']:.2f}s")
 
     def record_loop_id_issue(self, ws_id: str, present: bool, source: str) -> None:
         """Record a loop_id issue in WebSocket communication.
@@ -164,9 +162,7 @@ class SimpleObserver:
             Source of the issue (e.g., "client", "server").
         """
         status = "present" if present else "missing"
-        self._logger.info(
-            f"Loop ID {status} for {ws_id} from {source}"
-        )
+        self._logger.info(f"Loop ID {status} for {ws_id} from {source}")
 
     def get_failure_rate(self) -> float:
         """Calculate the current failure rate.
@@ -201,8 +197,7 @@ class SimpleObserver:
 
         # Count timeout incidents (duration > timeout)
         timeout_incidents = sum(
-            1 for m in completed
-            if m.get("duration", 0) > m.get("timeout", float("inf"))
+            1 for m in completed if m.get("duration", 0) > m.get("timeout", float("inf"))
         )
 
         return {

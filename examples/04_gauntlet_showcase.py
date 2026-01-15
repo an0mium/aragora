@@ -151,7 +151,11 @@ def show_epic_debate():
             headline = consensus.get("headline", "N/A")
             confidence = consensus.get("confidence", 0)
             print(f"    Headline: {headline[:60]}...")
-            print(f"    Confidence: {confidence:.0%}" if isinstance(confidence, float) else f"    Confidence: {confidence}")
+            print(
+                f"    Confidence: {confidence:.0%}"
+                if isinstance(confidence, float)
+                else f"    Confidence: {confidence}"
+            )
 
         # Show key insights
         insights = debate.get("key_insights", [])
@@ -182,7 +186,8 @@ def show_cli_usage():
     print("GAUNTLET CLI: Command-Line Usage")
     print("=" * 60)
 
-    print("""
+    print(
+        """
   Run adversarial validation from the command line:
 
   # Quick stress-test of a spec
@@ -202,7 +207,8 @@ def show_cli_usage():
     thorough - Comprehensive analysis (10-15 minutes)
     code     - Code-specific checks (security, bugs, style)
     policy   - Policy-specific compliance checks
-""")
+"""
+    )
 
 
 def main():
@@ -220,7 +226,8 @@ def main():
     print("\n" + "=" * 60)
     print("NEXT STEPS")
     print("=" * 60)
-    print("""
+    print(
+        """
   1. Run a gauntlet on your own spec:
      aragora gauntlet my-spec.md
 
@@ -232,7 +239,8 @@ def main():
 
   4. Integrate in CI/CD:
      aragora gauntlet spec.md && echo "PASSED" || echo "FAILED"
-""")
+"""
+    )
     print("=" * 60 + "\n")
 
 

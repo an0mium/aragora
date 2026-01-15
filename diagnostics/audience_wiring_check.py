@@ -19,6 +19,7 @@ from dataclasses import dataclass
 @dataclass
 class ArenaCall:
     """Represents an Arena instantiation found in code."""
+
     filepath: str
     line: int
     has_event_emitter: bool
@@ -29,14 +30,14 @@ class ArenaCall:
 def find_arena_calls(filepath: Path) -> list[ArenaCall]:
     """Find all Arena() calls in a Python file."""
     try:
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             source = f.read()
         tree = ast.parse(source)
     except (SyntaxError, UnicodeDecodeError):
         return []
 
     calls = []
-    lines = source.split('\n')
+    lines = source.split("\n")
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
@@ -47,28 +48,30 @@ def find_arena_calls(filepath: Path) -> list[ArenaCall]:
             elif isinstance(node.func, ast.Attribute):
                 func_name = node.func.attr
 
-            if func_name == 'Arena':
+            if func_name == "Arena":
                 # Check for event_emitter and loop_id arguments
                 has_event_emitter = False
                 has_loop_id = False
 
                 for keyword in node.keywords:
-                    if keyword.arg == 'event_emitter':
+                    if keyword.arg == "event_emitter":
                         has_event_emitter = True
-                    if keyword.arg == 'loop_id':
+                    if keyword.arg == "loop_id":
                         has_loop_id = True
 
                 # Get context (the line of code)
                 line_num = node.lineno
                 context = lines[line_num - 1].strip() if line_num <= len(lines) else ""
 
-                calls.append(ArenaCall(
-                    filepath=str(filepath),
-                    line=line_num,
-                    has_event_emitter=has_event_emitter,
-                    has_loop_id=has_loop_id,
-                    context=context[:100],  # Truncate for display
-                ))
+                calls.append(
+                    ArenaCall(
+                        filepath=str(filepath),
+                        line=line_num,
+                        has_event_emitter=has_event_emitter,
+                        has_loop_id=has_loop_id,
+                        context=context[:100],  # Truncate for display
+                    )
+                )
 
     return calls
 
@@ -78,14 +81,14 @@ def scan_codebase(root: Path) -> list[ArenaCall]:
     all_calls = []
 
     # Directories to skip
-    skip_dirs = {'.git', '__pycache__', 'node_modules', '.comparison', 'venv', '.venv'}
+    skip_dirs = {".git", "__pycache__", "node_modules", ".comparison", "venv", ".venv"}
 
     for dirpath, dirnames, filenames in os.walk(root):
         # Filter out skip directories
         dirnames[:] = [d for d in dirnames if d not in skip_dirs]
 
         for filename in filenames:
-            if filename.endswith('.py'):
+            if filename.endswith(".py"):
                 filepath = Path(dirpath) / filename
                 calls = find_arena_calls(filepath)
                 all_calls.extend(calls)
@@ -141,7 +144,9 @@ def main():
     print()
     print("=" * 70)
     if missing_emitter:
-        print(f"RESULT: {len(missing_emitter)} Arena calls need event_emitter for audience participation")
+        print(
+            f"RESULT: {len(missing_emitter)} Arena calls need event_emitter for audience participation"
+        )
     else:
         print("RESULT: All Arena calls have event_emitter wired!")
     print("=" * 70)

@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class BenchmarkResult:
     """Result of a benchmark run."""
+
     name: str
     iterations: int
     total_time_ms: float
@@ -83,14 +84,24 @@ def calculate_percentile(data: List[float], percentile: float) -> float:
     return sorted_data[min(index, len(sorted_data) - 1)]
 
 
-def create_benchmark_result(name: str, latencies: List[float], extra: dict = None) -> BenchmarkResult:
+def create_benchmark_result(
+    name: str, latencies: List[float], extra: dict = None
+) -> BenchmarkResult:
     """Create a BenchmarkResult from latency measurements."""
     if not latencies:
         return BenchmarkResult(
-            name=name, iterations=0, total_time_ms=0, min_latency_ms=0,
-            max_latency_ms=0, mean_latency_ms=0, median_latency_ms=0,
-            p95_latency_ms=0, p99_latency_ms=0, std_dev_ms=0,
-            throughput_ops_per_sec=0, extra=extra or {},
+            name=name,
+            iterations=0,
+            total_time_ms=0,
+            min_latency_ms=0,
+            max_latency_ms=0,
+            mean_latency_ms=0,
+            median_latency_ms=0,
+            p95_latency_ms=0,
+            p99_latency_ms=0,
+            std_dev_ms=0,
+            throughput_ops_per_sec=0,
+            extra=extra or {},
         )
 
     total_time = sum(latencies)
@@ -148,6 +159,7 @@ class MemoryTierBenchmark:
             self.memory.close()
         if self._temp_dir:
             import shutil
+
             shutil.rmtree(self._temp_dir, ignore_errors=True)
 
     def benchmark_write_latency(self, tier: MemoryTier) -> BenchmarkResult:
@@ -270,6 +282,7 @@ class MemoryTierBenchmark:
         latencies = []
 
         import random
+
         for i in range(self.iterations):
             if random.random() < 0.8:
                 # Access recent
@@ -298,6 +311,7 @@ class MemoryTierBenchmark:
 
     def benchmark_concurrent_writes(self, concurrency: int = 10) -> BenchmarkResult:
         """Benchmark concurrent write operations."""
+
         async def write_task(task_id: int, tier: MemoryTier) -> List[float]:
             latencies = []
             per_task = self.iterations // concurrency
@@ -418,13 +432,17 @@ class MemoryTierBenchmark:
         if write_results:
             lines.append("Write Operations:")
             for r in write_results:
-                lines.append(f"  {r.name}: {r.mean_latency_ms:.3f}ms avg, {r.throughput_ops_per_sec:.0f} ops/sec")
+                lines.append(
+                    f"  {r.name}: {r.mean_latency_ms:.3f}ms avg, {r.throughput_ops_per_sec:.0f} ops/sec"
+                )
             lines.append("")
 
         if read_results:
             lines.append("Read Operations:")
             for r in read_results:
-                lines.append(f"  {r.name}: {r.mean_latency_ms:.3f}ms avg, {r.throughput_ops_per_sec:.0f} ops/sec")
+                lines.append(
+                    f"  {r.name}: {r.mean_latency_ms:.3f}ms avg, {r.throughput_ops_per_sec:.0f} ops/sec"
+                )
             lines.append("")
 
         if other_results:
@@ -441,7 +459,9 @@ def main():
     parser = argparse.ArgumentParser(description="Memory Tier Latency Benchmarks")
     parser.add_argument("--iterations", type=int, default=100, help="Iterations per benchmark")
     parser.add_argument("--concurrent", type=int, default=10, help="Concurrency level")
-    parser.add_argument("--db-path", type=str, default=None, help="Database path (temp if not specified)")
+    parser.add_argument(
+        "--db-path", type=str, default=None, help="Database path (temp if not specified)"
+    )
     args = parser.parse_args()
 
     benchmark = MemoryTierBenchmark(

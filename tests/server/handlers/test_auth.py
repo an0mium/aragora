@@ -146,7 +146,9 @@ class MockUserStore:
         user_id = self.users_by_email.get(email.lower())
         return self.users.get(user_id) if user_id else None
 
-    def create_user(self, email: str, password_hash: str, password_salt: str, name: str) -> MockUser:
+    def create_user(
+        self, email: str, password_hash: str, password_salt: str, name: str
+    ) -> MockUser:
         user = MockUser(
             id=f"user-{len(self.users) + 1}",
             email=email.lower(),
@@ -204,6 +206,7 @@ def make_mock_handler(body: dict | None = None, method: str = "POST", headers: d
 def clear_rate_limiters():
     """Clear rate limiter state before each test."""
     from aragora.server.handlers.utils.rate_limit import _limiters
+
     # Clear each limiter's buckets, not just the dict
     for limiter in _limiters.values():
         limiter.clear()
@@ -413,11 +416,13 @@ class TestAuthHandlerRegistration:
         mock_hash.return_value = ("hashed", "salt")
         mock_tokens.return_value = MockTokenPair()
 
-        handler = make_mock_handler({
-            "email": "new@example.com",
-            "password": "securepass123",
-            "name": "New User",
-        })
+        handler = make_mock_handler(
+            {
+                "email": "new@example.com",
+                "password": "securepass123",
+                "name": "New User",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/register", {}, handler, "POST")
 
@@ -429,10 +434,12 @@ class TestAuthHandlerRegistration:
 
     @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     def test_register_invalid_email(self, auth_handler):
-        handler = make_mock_handler({
-            "email": "invalid",
-            "password": "securepass123",
-        })
+        handler = make_mock_handler(
+            {
+                "email": "invalid",
+                "password": "securepass123",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/register", {}, handler, "POST")
 
@@ -443,10 +450,12 @@ class TestAuthHandlerRegistration:
 
     @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     def test_register_weak_password(self, auth_handler):
-        handler = make_mock_handler({
-            "email": "test@example.com",
-            "password": "short",
-        })
+        handler = make_mock_handler(
+            {
+                "email": "test@example.com",
+                "password": "short",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/register", {}, handler, "POST")
 
@@ -491,10 +500,12 @@ class TestAuthHandlerLogin:
         mock_lockout_instance.is_locked.return_value = False
         mock_lockout.return_value = mock_lockout_instance
 
-        handler = make_mock_handler({
-            "email": "test@example.com",
-            "password": "correct_password",
-        })
+        handler = make_mock_handler(
+            {
+                "email": "test@example.com",
+                "password": "correct_password",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/login", {}, handler, "POST")
 
@@ -517,10 +528,12 @@ class TestAuthHandlerLogin:
         mock_lockout_instance.record_failure.return_value = (1, None)
         mock_lockout.return_value = mock_lockout_instance
 
-        handler = make_mock_handler({
-            "email": "test@example.com",
-            "password": "wrong_password",
-        })
+        handler = make_mock_handler(
+            {
+                "email": "test@example.com",
+                "password": "wrong_password",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/login", {}, handler, "POST")
 
@@ -534,10 +547,12 @@ class TestAuthHandlerLogin:
         mock_lockout_instance.is_locked.return_value = False
         mock_lockout.return_value = mock_lockout_instance
 
-        handler = make_mock_handler({
-            "email": "nonexistent@example.com",
-            "password": "anypassword",
-        })
+        handler = make_mock_handler(
+            {
+                "email": "nonexistent@example.com",
+                "password": "anypassword",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/login", {}, handler, "POST")
 
@@ -553,10 +568,12 @@ class TestAuthHandlerLogin:
         mock_lockout_instance.get_remaining_time.return_value = 300
         mock_lockout.return_value = mock_lockout_instance
 
-        handler = make_mock_handler({
-            "email": "test@example.com",
-            "password": "anypassword",
-        })
+        handler = make_mock_handler(
+            {
+                "email": "test@example.com",
+                "password": "anypassword",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/login", {}, handler, "POST")
 
@@ -575,10 +592,12 @@ class TestAuthHandlerLogin:
         mock_lockout_instance.is_locked.return_value = False
         mock_lockout.return_value = mock_lockout_instance
 
-        handler = make_mock_handler({
-            "email": "test@example.com",
-            "password": "correct_password",
-        })
+        handler = make_mock_handler(
+            {
+                "email": "test@example.com",
+                "password": "correct_password",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/login", {}, handler, "POST")
 
@@ -599,10 +618,12 @@ class TestAuthHandlerLogin:
         mock_lockout.return_value = mock_lockout_instance
         mock_pending.return_value = "pending_token_123"
 
-        handler = make_mock_handler({
-            "email": "test@example.com",
-            "password": "correct_password",
-        })
+        handler = make_mock_handler(
+            {
+                "email": "test@example.com",
+                "password": "correct_password",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/login", {}, handler, "POST")
 
@@ -826,10 +847,12 @@ class TestAuthHandlerPasswordChange:
         mock_auth.return_value = MockAuthContext()
         mock_hash.return_value = ("new_hash", "new_salt")
 
-        handler = make_mock_handler({
-            "current_password": "correct_password",
-            "new_password": "new_secure_password",
-        })
+        handler = make_mock_handler(
+            {
+                "current_password": "correct_password",
+                "new_password": "new_secure_password",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/password", {}, handler, "POST")
 
@@ -846,10 +869,12 @@ class TestAuthHandlerPasswordChange:
 
         mock_auth.return_value = MockAuthContext()
 
-        handler = make_mock_handler({
-            "current_password": "wrong_password",
-            "new_password": "new_secure_password",
-        })
+        handler = make_mock_handler(
+            {
+                "current_password": "wrong_password",
+                "new_password": "new_secure_password",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/password", {}, handler, "POST")
 
@@ -864,10 +889,12 @@ class TestAuthHandlerPasswordChange:
 
         mock_auth.return_value = MockAuthContext()
 
-        handler = make_mock_handler({
-            "current_password": "correct_password",
-            "new_password": "short",
-        })
+        handler = make_mock_handler(
+            {
+                "current_password": "correct_password",
+                "new_password": "short",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/password", {}, handler, "POST")
 
@@ -1061,10 +1088,12 @@ class TestAuthHandlerMFA:
         totp = pyotp.TOTP(secret)
         code = totp.now()
 
-        handler = make_mock_handler({
-            "code": code,
-            "pending_token": "pending_token_123",
-        })
+        handler = make_mock_handler(
+            {
+                "code": code,
+                "pending_token": "pending_token_123",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/mfa/verify", {}, handler, "POST")
 
@@ -1080,10 +1109,12 @@ class TestAuthHandlerMFA:
 
         mock_pending.return_value = None
 
-        handler = make_mock_handler({
-            "code": "123456",
-            "pending_token": "invalid_token",
-        })
+        handler = make_mock_handler(
+            {
+                "code": "123456",
+                "pending_token": "invalid_token",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/mfa/verify", {}, handler, "POST")
 
@@ -1182,10 +1213,12 @@ class TestAuthHandlerServiceUnavailable:
         # Create handler without user_store
         auth_handler = AuthHandler({})
 
-        handler = make_mock_handler({
-            "email": "test@example.com",
-            "password": "securepass123",
-        })
+        handler = make_mock_handler(
+            {
+                "email": "test@example.com",
+                "password": "securepass123",
+            }
+        )
 
         result = auth_handler.handle("/api/auth/register", {}, handler, "POST")
 

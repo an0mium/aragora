@@ -203,6 +203,7 @@ class TestTwitterOAuthStateIntegration:
         from aragora.server.handlers.social import _store_oauth_state, _validate_oauth_state
 
         import secrets
+
         state = secrets.token_urlsafe(32)
 
         # Store and validate

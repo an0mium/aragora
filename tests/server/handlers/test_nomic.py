@@ -255,8 +255,7 @@ class TestNomicMetrics:
         """Nomic metrics should return a metrics summary."""
         with patch.object(nomic_handler, "_get_nomic_metrics") as mock_metrics:
             mock_metrics.return_value = MagicMock(
-                body=json.dumps({"metrics": {"cycles": 10}}).encode(),
-                status_code=200
+                body=json.dumps({"metrics": {"cycles": 10}}).encode(), status_code=200
             )
             result = nomic_handler.handle("/api/nomic/metrics", {}, mock_http_handler)
 
@@ -271,8 +270,7 @@ class TestRiskRegister:
         """Risk register should return risk entries."""
         with patch.object(nomic_handler, "_get_risk_register") as mock_risk:
             mock_risk.return_value = MagicMock(
-                body=json.dumps({"risks": [], "total": 0}).encode(),
-                status_code=200
+                body=json.dumps({"risks": [], "total": 0}).encode(), status_code=200
             )
             result = nomic_handler.handle("/api/nomic/risk-register", {}, mock_http_handler)
 
@@ -283,10 +281,11 @@ class TestRiskRegister:
         """Risk register should respect limit parameter."""
         with patch.object(nomic_handler, "_get_risk_register") as mock_risk:
             mock_risk.return_value = MagicMock(
-                body=json.dumps({"risks": [], "total": 0}).encode(),
-                status_code=200
+                body=json.dumps({"risks": [], "total": 0}).encode(), status_code=200
             )
-            result = nomic_handler.handle("/api/nomic/risk-register", {"limit": "10"}, mock_http_handler)
+            result = nomic_handler.handle(
+                "/api/nomic/risk-register", {"limit": "10"}, mock_http_handler
+            )
 
         assert result is not None
         # Verify limit was passed (clamped to valid range)

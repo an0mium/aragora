@@ -7,7 +7,7 @@ system, enabling real-time WebSocket broadcasts of debate events.
 
 import contextvars
 import logging
-import time
+import uuid
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Callable
@@ -76,8 +76,8 @@ def wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
 
         # Fallback: generate unique ID if context not set (prevents text interleaving)
         if not task_id:
-            # Use timestamp + agent name to create unique task_id
-            task_id = f"{agent.name}:stream:{int(time.time() * 1000) % 100000}"
+            # Use UUID for truly unique task_id (prevents collision in concurrent streams)
+            task_id = f"{debate_id}:{agent.name}:{uuid.uuid4().hex[:8]}"
             logger.warning(
                 f"Missing task_id for {agent.name}, using fallback: {task_id}. "
                 "Consider wrapping the generate() call with streaming_task_context()."

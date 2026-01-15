@@ -145,9 +145,11 @@ class AuditEvent:
         """Create from dictionary."""
         return cls(
             id=data.get("id", str(uuid4())),
-            timestamp=datetime.fromisoformat(data["timestamp"])
-            if isinstance(data.get("timestamp"), str)
-            else data.get("timestamp", datetime.utcnow()),
+            timestamp=(
+                datetime.fromisoformat(data["timestamp"])
+                if isinstance(data.get("timestamp"), str)
+                else data.get("timestamp", datetime.utcnow())
+            ),
             category=AuditCategory(data.get("category", "system")),
             action=data.get("action", ""),
             actor_id=data.get("actor_id", ""),

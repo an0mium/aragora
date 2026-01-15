@@ -388,9 +388,7 @@ class ProbesHandler(BaseHandler):
                 )
 
     @handle_errors("list probe reports")
-    def _list_probe_reports(
-        self, handler, query_params: dict
-    ) -> HandlerResult:
+    def _list_probe_reports(self, handler, query_params: dict) -> HandlerResult:
         """
         GET /api/probes/reports - List all stored probe reports.
 
@@ -422,15 +420,17 @@ class ProbesHandler(BaseHandler):
             for report_file in agent_dir.glob("*.json"):
                 try:
                     data = json.loads(report_file.read_text())
-                    reports.append({
-                        "report_id": data.get("report_id", report_file.stem),
-                        "target_agent": agent_dir.name,
-                        "probes_run": data.get("probes_run", 0),
-                        "vulnerabilities_found": data.get("vulnerabilities_found", 0),
-                        "vulnerability_rate": data.get("vulnerability_rate", 0),
-                        "created_at": data.get("created_at", ""),
-                        "file_name": report_file.name,
-                    })
+                    reports.append(
+                        {
+                            "report_id": data.get("report_id", report_file.stem),
+                            "target_agent": agent_dir.name,
+                            "probes_run": data.get("probes_run", 0),
+                            "vulnerabilities_found": data.get("vulnerabilities_found", 0),
+                            "vulnerability_rate": data.get("vulnerability_rate", 0),
+                            "created_at": data.get("created_at", ""),
+                            "file_name": report_file.name,
+                        }
+                    )
                 except (json.JSONDecodeError, IOError) as e:
                     logger.debug("Skipping invalid probe file %s: %s", report_file, e)
 

@@ -408,7 +408,9 @@ class TestDebatesHandlerMessages:
             if suffix == "/messages":
                 assert extra_params_fn is not None
                 # Test the extra params function
-                params = extra_params_fn("/api/debates/test/messages", {"limit": "25", "offset": "10"})
+                params = extra_params_fn(
+                    "/api/debates/test/messages", {"limit": "25", "offset": "10"}
+                )
                 assert params["limit"] == 25
                 assert params["offset"] == 10
                 break

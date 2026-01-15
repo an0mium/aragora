@@ -26,7 +26,10 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, TypedDict
+
+if TYPE_CHECKING:
+    from aragora.typing import EventEmitterProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -243,7 +246,7 @@ class ContinuumMemory(SQLiteStore):
         self,
         db_path: str = DB_MEMORY_PATH,
         tier_manager: Optional[TierManager] = None,
-        event_emitter: Any = None,
+        event_emitter: Optional["EventEmitterProtocol"] = None,
         storage_path: Optional[str] = None,
         base_dir: Optional[str] = None,
     ):

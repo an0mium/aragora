@@ -57,9 +57,13 @@ class OutputSanitizer:
 
         result = raw_output.strip()
         if not result:
+            # Log detailed debug info for troubleshooting empty outputs
+            # Include repr of original for debugging encoding/control char issues
+            original_sample = repr(raw_output[:200]) if original_len > 0 else "empty"
             logger.warning(
-                f"[Stability] {agent_name}: output empty after sanitization "
-                f"(original was {original_len} chars, stripped {stripped_chars})"
+                f"[Stability] {agent_name}: output empty after sanitization. "
+                f"Original: {original_len} chars, stripped: {stripped_chars}. "
+                f"Sample: {original_sample}"
             )
             return "(Agent produced empty output)"
 

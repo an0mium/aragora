@@ -158,12 +158,12 @@ class ContextInitializer:
             logger.info("background_research_started")
 
         # 10. Start evidence collection in background (non-blocking)
-        if self.evidence_collector and self.protocol and getattr(
-            self.protocol, "enable_evidence_collection", True
+        if (
+            self.evidence_collector
+            and self.protocol
+            and getattr(self.protocol, "enable_evidence_collection", True)
         ):
-            ctx.background_evidence_task = asyncio.create_task(
-                self._collect_evidence(ctx)
-            )
+            ctx.background_evidence_task = asyncio.create_task(self._collect_evidence(ctx))
             logger.info("background_evidence_started")
 
         # 11. Initialize DebateResult

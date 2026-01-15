@@ -93,21 +93,25 @@ def simple_protocol():
 @pytest.fixture
 def patched_arena_init():
     """Patch Arena internal initialization to avoid heavy setup."""
-    with patch.object(Arena, '_init_roles_and_stances', return_value=None), \
-         patch.object(Arena, '_init_phases', return_value=None), \
-         patch.object(Arena, '_init_termination_checker', return_value=None), \
-         patch.object(Arena, '_init_trackers', return_value=None), \
-         patch.object(Arena, '_init_user_participation', return_value=None), \
-         patch.object(Arena, '_init_event_bus', return_value=None), \
-         patch.object(Arena, '_init_convergence', return_value=None), \
-         patch.object(Arena, '_init_caches', return_value=None):
+    with (
+        patch.object(Arena, "_init_roles_and_stances", return_value=None),
+        patch.object(Arena, "_init_phases", return_value=None),
+        patch.object(Arena, "_init_termination_checker", return_value=None),
+        patch.object(Arena, "_init_trackers", return_value=None),
+        patch.object(Arena, "_init_user_participation", return_value=None),
+        patch.object(Arena, "_init_event_bus", return_value=None),
+        patch.object(Arena, "_init_convergence", return_value=None),
+        patch.object(Arena, "_init_caches", return_value=None),
+    ):
         yield
 
 
 class TestArenaInitialization:
     """Tests for Arena initialization."""
 
-    def test_arena_init_minimal(self, simple_environment, mock_agents, simple_protocol, patched_arena_init):
+    def test_arena_init_minimal(
+        self, simple_environment, mock_agents, simple_protocol, patched_arena_init
+    ):
         """Arena should initialize with minimal configuration."""
         arena = Arena(
             environment=simple_environment,
@@ -125,7 +129,9 @@ class TestArenaInitialization:
         # We skip this test if it's too slow - the parameter passing is verified in from_config
         pass  # ELO is initialized in _init_trackers which requires full setup
 
-    def test_arena_init_with_memory(self, simple_environment, mock_agents, simple_protocol, patched_arena_init):
+    def test_arena_init_with_memory(
+        self, simple_environment, mock_agents, simple_protocol, patched_arena_init
+    ):
         """Arena should accept memory store."""
         mock_memory = MagicMock()
         arena = Arena(
@@ -137,7 +143,9 @@ class TestArenaInitialization:
 
         assert arena.memory == mock_memory
 
-    def test_arena_requires_at_least_two_agents(self, simple_environment, mock_agent, simple_protocol, patched_arena_init):
+    def test_arena_requires_at_least_two_agents(
+        self, simple_environment, mock_agent, simple_protocol, patched_arena_init
+    ):
         """Arena should require at least 2 agents."""
         # Arena with single agent should still initialize but will fail at debate time
         arena = Arena(
@@ -152,10 +160,12 @@ class TestArenaDebateFlow:
     """Tests for debate execution flow."""
 
     @pytest.mark.asyncio
-    async def test_arena_run_returns_result(self, simple_environment, mock_agents, simple_protocol, patched_arena_init):
+    async def test_arena_run_returns_result(
+        self, simple_environment, mock_agents, simple_protocol, patched_arena_init
+    ):
         """Arena.run() should return a DebateResult."""
         # Patch internal methods to prevent actual execution
-        with patch.object(Arena, '_run_inner') as mock_run_inner:
+        with patch.object(Arena, "_run_inner") as mock_run_inner:
             mock_run_inner.return_value = DebateResult(
                 consensus_reached=True,
                 confidence=0.85,
@@ -177,9 +187,11 @@ class TestArenaDebateFlow:
             assert result.confidence == 0.85
 
     @pytest.mark.asyncio
-    async def test_arena_run_with_correlation_id(self, simple_environment, mock_agents, simple_protocol, patched_arena_init):
+    async def test_arena_run_with_correlation_id(
+        self, simple_environment, mock_agents, simple_protocol, patched_arena_init
+    ):
         """Arena.run() should accept correlation_id."""
-        with patch.object(Arena, '_run_inner') as mock_run_inner:
+        with patch.object(Arena, "_run_inner") as mock_run_inner:
             mock_run_inner.return_value = DebateResult(
                 consensus_reached=True,
                 confidence=0.8,
@@ -202,7 +214,9 @@ class TestArenaDebateFlow:
 class TestJudgeSelection:
     """Tests for judge selection strategies."""
 
-    def test_arena_stores_judge_selection_strategy(self, simple_environment, mock_agents, patched_arena_init):
+    def test_arena_stores_judge_selection_strategy(
+        self, simple_environment, mock_agents, patched_arena_init
+    ):
         """Arena should store judge selection strategy from protocol."""
         protocol = DebateProtocol(
             rounds=1,
@@ -218,7 +232,9 @@ class TestJudgeSelection:
 
         assert arena.protocol.judge_selection == "elo_ranked"
 
-    def test_arena_default_judge_selection(self, simple_environment, mock_agents, simple_protocol, patched_arena_init):
+    def test_arena_default_judge_selection(
+        self, simple_environment, mock_agents, simple_protocol, patched_arena_init
+    ):
         """Arena should have default judge selection."""
         arena = Arena(
             environment=simple_environment,
@@ -227,7 +243,7 @@ class TestJudgeSelection:
         )
 
         # Protocol should have a judge_selection attribute
-        assert hasattr(arena.protocol, 'judge_selection')
+        assert hasattr(arena.protocol, "judge_selection")
 
 
 class TestConsensusConfiguration:
@@ -253,7 +269,9 @@ class TestConsensusConfiguration:
         )
         assert arena.protocol.consensus == "unanimous"
 
-    def test_arena_supermajority_consensus(self, simple_environment, mock_agents, patched_arena_init):
+    def test_arena_supermajority_consensus(
+        self, simple_environment, mock_agents, patched_arena_init
+    ):
         """Arena should support supermajority consensus."""
         protocol = DebateProtocol(rounds=1, consensus="supermajority")
         arena = Arena(
@@ -291,7 +309,9 @@ class TestArenaConfiguration:
 class TestArenaAgentManagement:
     """Tests for agent management in Arena."""
 
-    def test_arena_agent_count(self, simple_environment, mock_agents, simple_protocol, patched_arena_init):
+    def test_arena_agent_count(
+        self, simple_environment, mock_agents, simple_protocol, patched_arena_init
+    ):
         """Arena should track agent count."""
         arena = Arena(
             environment=simple_environment,
@@ -300,7 +320,9 @@ class TestArenaAgentManagement:
         )
         assert len(arena.agents) == len(mock_agents)
 
-    def test_arena_agent_names_preserved(self, simple_environment, mock_agents, simple_protocol, patched_arena_init):
+    def test_arena_agent_names_preserved(
+        self, simple_environment, mock_agents, simple_protocol, patched_arena_init
+    ):
         """Arena should preserve agent names."""
         arena = Arena(
             environment=simple_environment,
@@ -325,7 +347,9 @@ class TestEnvironmentHandling:
         )
         assert arena.env.task == "Test task"
 
-    def test_arena_stores_environment_context(self, mock_agents, simple_protocol, patched_arena_init):
+    def test_arena_stores_environment_context(
+        self, mock_agents, simple_protocol, patched_arena_init
+    ):
         """Arena should store environment context."""
         env = Environment(task="Test task", context="science context")
         arena = Arena(
@@ -350,7 +374,9 @@ class TestEnvironmentHandling:
 class TestArenaFromConfig:
     """Tests for Arena.from_config() factory method."""
 
-    def test_from_config_creates_arena(self, simple_environment, mock_agents, simple_protocol, patched_arena_init):
+    def test_from_config_creates_arena(
+        self, simple_environment, mock_agents, simple_protocol, patched_arena_init
+    ):
         """from_config should create a valid Arena."""
         config = ArenaConfig()
         arena = Arena.from_config(
@@ -391,7 +417,15 @@ class TestDebateProtocolDataclass:
 
     def test_protocol_consensus_types(self):
         """Protocol should support all consensus types."""
-        for consensus_type in ["majority", "unanimous", "judge", "none", "weighted", "supermajority", "any"]:
+        for consensus_type in [
+            "majority",
+            "unanimous",
+            "judge",
+            "none",
+            "weighted",
+            "supermajority",
+            "any",
+        ]:
             protocol = DebateProtocol(consensus=consensus_type)
             assert protocol.consensus == consensus_type
 

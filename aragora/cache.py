@@ -89,9 +89,12 @@ class CacheStats:
             hits=d.get("hits", 0),
             misses=d.get("misses", 0),
             hit_rate=d.get("hit_rate", 0.0),
-            extra={k: v for k, v in d.items() if k not in {
-                "size", "maxsize", "ttl_seconds", "hits", "misses", "hit_rate"
-            }} or None,
+            extra={
+                k: v
+                for k, v in d.items()
+                if k not in {"size", "maxsize", "ttl_seconds", "hits", "misses", "hit_rate"}
+            }
+            or None,
         )
 
 

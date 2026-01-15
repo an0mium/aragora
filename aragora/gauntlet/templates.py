@@ -422,9 +422,7 @@ def list_templates() -> list[dict]:
                 "strict"
                 if config.criteria.max_critical_findings == 0
                 and config.criteria.max_high_findings == 0
-                else "standard"
-                if config.criteria.max_high_findings <= 3
-                else "lenient"
+                else "standard" if config.criteria.max_high_findings <= 3 else "lenient"
             ),
         }
         for template, config in _TEMPLATES.items()

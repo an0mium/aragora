@@ -77,6 +77,7 @@ class TestHandleAuditEventsSignature:
     def test_is_async_function(self):
         """handle_audit_events should be an async function."""
         import asyncio
+
         assert asyncio.iscoroutinefunction(handle_audit_events)
 
 
@@ -86,6 +87,7 @@ class TestHandleAuditStatsSignature:
     def test_is_async_function(self):
         """handle_audit_stats should be an async function."""
         import asyncio
+
         assert asyncio.iscoroutinefunction(handle_audit_stats)
 
 
@@ -95,6 +97,7 @@ class TestHandleAuditExportSignature:
     def test_is_async_function(self):
         """handle_audit_export should be an async function."""
         import asyncio
+
         assert asyncio.iscoroutinefunction(handle_audit_export)
 
 
@@ -104,6 +107,7 @@ class TestHandleAuditVerifySignature:
     def test_is_async_function(self):
         """handle_audit_verify should be an async function."""
         import asyncio
+
         assert asyncio.iscoroutinefunction(handle_audit_verify)
 
 
@@ -113,26 +117,31 @@ class TestModuleExports:
     def test_exports_handle_audit_events(self):
         """Should export handle_audit_events."""
         from aragora.server.handlers import audit_export
+
         assert "handle_audit_events" in audit_export.__all__
 
     def test_exports_handle_audit_export(self):
         """Should export handle_audit_export."""
         from aragora.server.handlers import audit_export
+
         assert "handle_audit_export" in audit_export.__all__
 
     def test_exports_handle_audit_stats(self):
         """Should export handle_audit_stats."""
         from aragora.server.handlers import audit_export
+
         assert "handle_audit_stats" in audit_export.__all__
 
     def test_exports_handle_audit_verify(self):
         """Should export handle_audit_verify."""
         from aragora.server.handlers import audit_export
+
         assert "handle_audit_verify" in audit_export.__all__
 
     def test_exports_register_handlers(self):
         """Should export register_handlers."""
         from aragora.server.handlers import audit_export
+
         assert "register_handlers" in audit_export.__all__
 
 
@@ -196,6 +205,7 @@ class TestHandleAuditExportValidation:
     async def test_invalid_json_returns_400(self):
         """Invalid JSON body should return 400."""
         import json
+
         request = MagicMock()
         request.json = AsyncMock(side_effect=json.JSONDecodeError("test", "test", 0))
 
@@ -205,10 +215,9 @@ class TestHandleAuditExportValidation:
     async def test_invalid_date_format_returns_400(self):
         """Invalid date format should return 400."""
         request = MagicMock()
-        request.json = AsyncMock(return_value={
-            "start_date": "not-a-date",
-            "end_date": "2024-01-01"
-        })
+        request.json = AsyncMock(
+            return_value={"start_date": "not-a-date", "end_date": "2024-01-01"}
+        )
 
         response = await handle_audit_export(request)
         assert response.status == 400
@@ -217,17 +226,20 @@ class TestHandleAuditExportValidation:
         """Invalid export format should return 400."""
         # Mock the audit log
         import aragora.server.handlers.audit_export as audit_module
+
         mock_audit = MagicMock()
         original_get_audit_log = audit_module.get_audit_log
         audit_module.get_audit_log = lambda: mock_audit
 
         try:
             request = MagicMock()
-            request.json = AsyncMock(return_value={
-                "start_date": "2024-01-01",
-                "end_date": "2024-01-31",
-                "format": "invalid_format"
-            })
+            request.json = AsyncMock(
+                return_value={
+                    "start_date": "2024-01-01",
+                    "end_date": "2024-01-31",
+                    "format": "invalid_format",
+                }
+            )
 
             response = await handle_audit_export(request)
             assert response.status == 400
@@ -259,6 +271,7 @@ class TestHandleAuditVerifyValidation:
         """Empty body should be valid (verify all)."""
         import json
         import aragora.server.handlers.audit_export as audit_module
+
         mock_audit = MagicMock()
         mock_audit.verify_integrity = MagicMock(return_value=(True, []))
         original_get_audit_log = audit_module.get_audit_log

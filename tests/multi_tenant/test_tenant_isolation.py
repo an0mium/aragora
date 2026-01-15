@@ -492,7 +492,9 @@ class TestPersonaTenantIsolation:
         assert "sox" in DEFAULT_PERSONAS or "security" in DEFAULT_PERSONAS
 
         # Verify at least some personas exist
-        assert len(DEFAULT_PERSONAS) >= 10, f"Expected at least 10 personas, got {len(DEFAULT_PERSONAS)}"
+        assert (
+            len(DEFAULT_PERSONAS) >= 10
+        ), f"Expected at least 10 personas, got {len(DEFAULT_PERSONAS)}"
 
 
 # Performance Tests for Multi-Tenant Operations

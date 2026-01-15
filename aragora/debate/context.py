@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, DebateResult, Environment, Message
+    from aragora.typing import EventEmitterProtocol
 
 
 def _default_environment() -> "Environment":
@@ -144,7 +145,7 @@ class DebateContext:
     ratings_cache: dict[str, Any] = field(default_factory=dict)
     """Batch-fetched AgentRating objects by agent name."""
 
-    event_emitter: Any = None
+    event_emitter: Optional["EventEmitterProtocol"] = None
     """Optional event emitter for WebSocket event streaming."""
 
     loop_id: str = ""

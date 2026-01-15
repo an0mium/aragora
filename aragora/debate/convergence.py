@@ -35,7 +35,9 @@ logger = logging.getLogger(__name__)
 # Re-export cache utilities
 from aragora.debate.cache.embeddings_lru import (
     EmbeddingCache,
+    cleanup_embedding_cache,
     get_embedding_cache,
+    get_scoped_embedding_cache,
     reset_embedding_cache,
 )
 
@@ -536,6 +538,7 @@ class ConvergenceDetector:
         divergence_threshold: float = 0.40,
         min_rounds_before_check: int = 1,
         consecutive_rounds_needed: int = 1,
+        debate_id: Optional[str] = None,
     ):
         """
         Initialize convergence detector.
@@ -545,12 +548,14 @@ class ConvergenceDetector:
             divergence_threshold: Below this is diverging (default 0.40)
             min_rounds_before_check: Minimum rounds before checking (default 1)
             consecutive_rounds_needed: Stable rounds needed for convergence (default 1)
+            debate_id: Debate ID for scoped caching (prevents cross-debate contamination)
         """
         self.convergence_threshold = convergence_threshold
         self.divergence_threshold = divergence_threshold
         self.min_rounds_before_check = min_rounds_before_check
         self.consecutive_rounds_needed = consecutive_rounds_needed
         self.consecutive_stable_count = 0
+        self.debate_id = debate_id
         self.backend = self._select_backend()
 
         logger.info(f"ConvergenceDetector initialized with {self.backend.__class__.__name__}")
@@ -560,11 +565,12 @@ class ConvergenceDetector:
         Select best available similarity backend.
 
         Tries: SentenceTransformer -> TF-IDF -> Jaccard
+        Passes debate_id to SentenceTransformerBackend for scoped caching.
         """
         env_override = _normalize_backend_name(os.getenv(_ENV_CONVERGENCE_BACKEND, ""))
         if env_override:
             try:
-                backend = get_similarity_backend(env_override)
+                backend = get_similarity_backend(env_override, debate_id=self.debate_id)
                 logger.info(f"Using {env_override} backend via {_ENV_CONVERGENCE_BACKEND}")
                 return backend
             except Exception as e:
@@ -574,7 +580,7 @@ class ConvergenceDetector:
 
         # Try sentence transformers (best)
         try:
-            backend = SentenceTransformerBackend()
+            backend = SentenceTransformerBackend(debate_id=self.debate_id)
             logger.info("Using SentenceTransformerBackend (best accuracy)")
             return backend
         except ImportError as e:
@@ -684,7 +690,9 @@ class ConvergenceDetector:
 __all__ = [
     # Cache (re-exported)
     "EmbeddingCache",
+    "cleanup_embedding_cache",
     "get_embedding_cache",
+    "get_scoped_embedding_cache",
     "reset_embedding_cache",
     # Backends (re-exported)
     "SimilarityBackend",

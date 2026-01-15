@@ -601,9 +601,7 @@ def format_consistency_for_ui(score: AgentConsistencyScore) -> dict:
         "consistency_class": (
             "high"
             if score.consistency_score > 0.8
-            else "medium"
-            if score.consistency_score > 0.5
-            else "low"
+            else "medium" if score.consistency_score > 0.5 else "low"
         ),
         "total_positions": score.total_positions,
         "flip_rate": f"{score.flip_rate:.0%}",

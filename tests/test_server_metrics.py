@@ -103,17 +103,28 @@ def reset_global_metrics():
     """Reset global metrics between tests."""
     # Clear Counter metrics
     for metric in [
-        API_REQUESTS, AGENT_REQUESTS, AGENT_TOKENS, AUTH_FAILURES,
-        RATE_LIMIT_HITS, SECURITY_VIOLATIONS, DEBATES_TOTAL,
-        CONSENSUS_REACHED, AGENT_ERRORS, AGENT_PARTICIPATION,
-        SUBSCRIPTION_EVENTS, USAGE_DEBATES, USAGE_TOKENS,
+        API_REQUESTS,
+        AGENT_REQUESTS,
+        AGENT_TOKENS,
+        AUTH_FAILURES,
+        RATE_LIMIT_HITS,
+        SECURITY_VIOLATIONS,
+        DEBATES_TOTAL,
+        CONSENSUS_REACHED,
+        AGENT_ERRORS,
+        AGENT_PARTICIPATION,
+        SUBSCRIPTION_EVENTS,
+        USAGE_DEBATES,
+        USAGE_TOKENS,
     ]:
         with metric._lock:
             metric._values.clear()
 
     # Clear Gauge metrics
     for metric in [
-        ACTIVE_DEBATES, CIRCUIT_BREAKERS_OPEN, CONSENSUS_QUALITY,
+        ACTIVE_DEBATES,
+        CIRCUIT_BREAKERS_OPEN,
+        CONSENSUS_QUALITY,
         LAST_DEBATE_TIMESTAMP,
     ]:
         with metric._lock:
@@ -183,6 +194,7 @@ class TestCounter:
 
     def test_counter_thread_safety(self, counter):
         """Counter should be thread-safe."""
+
         def increment_many():
             for _ in range(100):
                 counter.inc(method="GET", status="200")
@@ -268,9 +280,9 @@ class TestHistogram:
     def test_observe_updates_buckets(self, histogram):
         """observe() should update appropriate buckets."""
         histogram.observe(0.05, endpoint="/api/test")  # <= 0.1
-        histogram.observe(0.3, endpoint="/api/test")   # <= 0.5
-        histogram.observe(0.8, endpoint="/api/test")   # <= 1.0
-        histogram.observe(3.0, endpoint="/api/test")   # <= 5.0
+        histogram.observe(0.3, endpoint="/api/test")  # <= 0.5
+        histogram.observe(0.8, endpoint="/api/test")  # <= 1.0
+        histogram.observe(3.0, endpoint="/api/test")  # <= 5.0
 
         collected = histogram.collect()
         assert len(collected) == 1
@@ -337,11 +349,11 @@ class TestPercentiles:
         for _ in range(10):
             histogram.observe(0.05, endpoint="/test")  # 10 at 0.05
         for _ in range(5):
-            histogram.observe(0.3, endpoint="/test")   # 5 at 0.3
+            histogram.observe(0.3, endpoint="/test")  # 5 at 0.3
         for _ in range(3):
-            histogram.observe(0.8, endpoint="/test")   # 3 at 0.8
+            histogram.observe(0.8, endpoint="/test")  # 3 at 0.8
         for _ in range(2):
-            histogram.observe(3.0, endpoint="/test")   # 2 at 3.0
+            histogram.observe(3.0, endpoint="/test")  # 2 at 3.0
 
         p50 = get_percentile(histogram, 50, endpoint="/test")
         p90 = get_percentile(histogram, 90, endpoint="/test")
@@ -509,6 +521,7 @@ class TestClassifyAgentError:
 
     def test_unknown_error(self):
         """Should classify unknown errors as unknown."""
+
         class CustomError(Exception):
             pass
 

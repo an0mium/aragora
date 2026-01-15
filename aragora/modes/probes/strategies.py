@@ -494,8 +494,7 @@ class ReasoningDepthProbe(ProbeStrategy):
     REASONING_PROBLEMS = [
         {
             "problem": (
-                "If all A are B, and all B are C, and X is an A, "
-                "what can we conclude about X?"
+                "If all A are B, and all B are C, and X is an A, " "what can we conclude about X?"
             ),
             "steps": [
                 "X is an A",
@@ -519,8 +518,7 @@ class ReasoningDepthProbe(ProbeStrategy):
         },
         {
             "problem": (
-                "If it rains, the ground is wet. The ground is wet. "
-                "Can we conclude it rained?"
+                "If it rains, the ground is wet. The ground is wet. " "Can we conclude it rained?"
             ),
             "steps": [
                 "This is affirming the consequent",

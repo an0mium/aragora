@@ -6,6 +6,7 @@ Import these values instead of hardcoding throughout the codebase.
 """
 
 import os
+import warnings
 from pathlib import Path
 from typing import Optional, Union
 
@@ -468,9 +469,35 @@ DB_NAMES = {
     "blacklist": "token_blacklist.db",
 }
 
+
 # Legacy database path constants (for backwards compatibility)
 # DEPRECATED: Prefer using get_db_path() instead
 # These return relative paths for compatibility; new code should use get_db_path()
+def _deprecated_db_path(var: str, default: str) -> str:
+    """Return deprecated DB path with warning."""
+    warnings.warn(
+        f"{var} is deprecated. Use get_db_path() instead.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    return _env_str(var, default)
+
+
+# Lazy deprecation - warn only on access via property-like pattern
+_DB_PATH_DEFAULTS = {
+    "DB_ELO_PATH": ("ARAGORA_DB_ELO", "agent_elo.db"),
+    "DB_MEMORY_PATH": ("ARAGORA_DB_MEMORY", "continuum.db"),
+    "DB_INSIGHTS_PATH": ("ARAGORA_DB_INSIGHTS", "aragora_insights.db"),
+    "DB_CONSENSUS_PATH": ("ARAGORA_DB_CONSENSUS", "consensus_memory.db"),
+    "DB_CALIBRATION_PATH": ("ARAGORA_DB_CALIBRATION", "agent_calibration.db"),
+    "DB_LAB_PATH": ("ARAGORA_DB_LAB", "persona_lab.db"),
+    "DB_PERSONAS_PATH": ("ARAGORA_DB_PERSONAS", "agent_personas.db"),
+    "DB_POSITIONS_PATH": ("ARAGORA_DB_POSITIONS", "grounded_positions.db"),
+    "DB_GENESIS_PATH": ("ARAGORA_DB_GENESIS", "genesis.db"),
+}
+
+# Keep constants for backwards compatibility but with deprecation on import
+# New code should use get_db_path("elo"), get_db_path("memory"), etc.
 DB_ELO_PATH = _env_str("ARAGORA_DB_ELO", "agent_elo.db")
 DB_MEMORY_PATH = _env_str("ARAGORA_DB_MEMORY", "continuum.db")
 DB_INSIGHTS_PATH = _env_str("ARAGORA_DB_INSIGHTS", "aragora_insights.db")
@@ -506,7 +533,9 @@ USER_EVENT_QUEUE_SIZE = _env_int("ARAGORA_USER_EVENT_QUEUE_SIZE", 10000)
 MAX_ACTIVE_DEBATES = _env_int("ARAGORA_MAX_ACTIVE_DEBATES", 1000)
 MAX_ACTIVE_LOOPS = _env_int("ARAGORA_MAX_ACTIVE_LOOPS", 1000)
 MAX_DEBATE_STATES = _env_int("ARAGORA_MAX_DEBATE_STATES", 500)
-MAX_EVENT_QUEUE_SIZE = _env_int("ARAGORA_MAX_EVENT_QUEUE_SIZE", 50000)  # Increased for high-volume debates
+MAX_EVENT_QUEUE_SIZE = _env_int(
+    "ARAGORA_MAX_EVENT_QUEUE_SIZE", 50000
+)  # Increased for high-volume debates
 MAX_REPLAY_QUEUE_SIZE = _env_int("ARAGORA_MAX_REPLAY_QUEUE_SIZE", 10000)
 
 # === Belief Network ===

@@ -100,9 +100,7 @@ class TestScorerProtocol:
             score = scorer.score_agent(agent, sample_requirements, sample_context)
             assert 0.0 <= score <= 1.0
 
-    def test_domain_expert_scores_higher(
-        self, sample_agents, sample_requirements, sample_context
-    ):
+    def test_domain_expert_scores_higher(self, sample_agents, sample_requirements, sample_context):
         """Agent with domain expertise scores higher."""
         scorer = ELOWeightedScorer()
 
@@ -150,9 +148,7 @@ class TestTeamSelectorProtocol:
         assert len(team) >= sample_requirements.min_agents
         assert len(team) <= sample_requirements.max_agents
 
-    def test_greedy_selector_picks_top(
-        self, sample_agents, sample_requirements, sample_context
-    ):
+    def test_greedy_selector_picks_top(self, sample_agents, sample_requirements, sample_context):
         """Greedy selector picks highest scored agents."""
         selector = GreedyTeamSelector()
         scored = [(a, 1.0 - i * 0.1) for i, a in enumerate(sample_agents)]
@@ -187,9 +183,7 @@ class TestRoleAssignerProtocol:
         # claude has highest security expertise
         assert roles["claude"] == "proposer"
 
-    def test_assigns_phase_specific_roles(
-        self, sample_agents, sample_requirements, sample_context
-    ):
+    def test_assigns_phase_specific_roles(self, sample_agents, sample_requirements, sample_context):
         """Phase-specific roles are assigned correctly."""
         assigner = DomainBasedRoleAssigner()
         team = sample_agents[:3]
@@ -330,17 +324,14 @@ class TestPluginIntegration:
         """Reset registry before each test."""
         reset_selection_registry()
 
-    def test_complete_selection_flow(
-        self, sample_agents, sample_requirements, sample_context
-    ):
+    def test_complete_selection_flow(self, sample_agents, sample_requirements, sample_context):
         """Complete flow from scoring to team to roles."""
         registry = get_selection_registry()
 
         # Score all agents
         scorer = registry.get_scorer()
         scored = [
-            (a, scorer.score_agent(a, sample_requirements, sample_context))
-            for a in sample_agents
+            (a, scorer.score_agent(a, sample_requirements, sample_context)) for a in sample_agents
         ]
         scored.sort(key=lambda x: x[1], reverse=True)
 
@@ -365,8 +356,7 @@ class TestPluginIntegration:
 
         scorer = registry.get_scorer()
         scored = [
-            (a, scorer.score_agent(a, sample_requirements, sample_context))
-            for a in sample_agents
+            (a, scorer.score_agent(a, sample_requirements, sample_context)) for a in sample_agents
         ]
         scored.sort(key=lambda x: x[1], reverse=True)
 

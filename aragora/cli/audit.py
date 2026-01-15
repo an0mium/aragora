@@ -200,8 +200,7 @@ def cmd_query(args: argparse.Namespace) -> int:
             ts = event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
             outcome = "+" if event.outcome.value == "success" else "-"
             print(
-                f"[{ts}] {outcome} {event.category.value}:{event.action} "
-                f"actor={event.actor_id}"
+                f"[{ts}] {outcome} {event.category.value}:{event.action} " f"actor={event.actor_id}"
             )
             if event.resource_type:
                 print(f"           resource={event.resource_type}:{event.resource_id}")
@@ -273,7 +272,17 @@ Examples:
     query_parser.add_argument(
         "--category",
         "-c",
-        choices=["auth", "access", "data", "admin", "billing", "debate", "api", "security", "system"],
+        choices=[
+            "auth",
+            "access",
+            "data",
+            "admin",
+            "billing",
+            "debate",
+            "api",
+            "security",
+            "system",
+        ],
         help="Filter by category",
     )
     query_parser.add_argument("--actor", "-a", help="Filter by actor ID")

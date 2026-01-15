@@ -330,8 +330,7 @@ class TestPerformanceBaselines:
             elapsed = float(result.stdout.strip())
             # Assert against centralized SLO
             assert elapsed < SLO.STARTUP["import_max_sec"], (
-                f"Import took {elapsed:.2f}s "
-                f"(target: <{SLO.STARTUP['import_max_sec']}s)"
+                f"Import took {elapsed:.2f}s " f"(target: <{SLO.STARTUP['import_max_sec']}s)"
             )
         else:
             # If subprocess fails, skip test rather than fail

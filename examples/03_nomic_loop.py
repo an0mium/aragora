@@ -51,6 +51,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Load .env file
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
@@ -111,7 +112,7 @@ FILES: <which files would be affected>""",
         print(f"Confidence: {result.confidence:.0%}")
 
         # Extract improvement summary
-        lines = self.improvement.split('\n')
+        lines = self.improvement.split("\n")
         for line in lines[:5]:
             if line.strip():
                 print(f"  {line[:80]}")
@@ -202,13 +203,13 @@ Keep the design focused and minimal.""",
         # Extract a short summary from the improvement
         summary = "improvement proposal"
         if self.improvement:
-            for line in self.improvement.split('\n'):
-                if 'IMPROVEMENT:' in line.upper():
-                    summary = line.split(':', 1)[-1].strip()[:50]
+            for line in self.improvement.split("\n"):
+                if "IMPROVEMENT:" in line.upper():
+                    summary = line.split(":", 1)[-1].strip()[:50]
                     break
 
         if self.dry_run:
-            print(f"[DRY RUN] Would commit: \"{summary}...\"")
+            print(f'[DRY RUN] Would commit: "{summary}..."')
         else:
             print(f"Changes {'applied' if verified else 'rejected'}")
 

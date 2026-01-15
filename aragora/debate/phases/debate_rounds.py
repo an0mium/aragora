@@ -58,6 +58,7 @@ async def _with_callback_timeout(coro, timeout: float = DEFAULT_CALLBACK_TIMEOUT
         logger.warning(f"Callback timed out after {timeout}s, using default: {default}")
         return default
 
+
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message
     from aragora.debate.context import DebateContext
@@ -289,6 +290,17 @@ class DebateRoundsPhase:
             if round_num == 1 and self._context_initializer:
                 await self._context_initializer.await_background_context(ctx)
 
+            # Round 7 special handling: Final Synthesis
+            # Each agent synthesizes the discussion and revises their proposal to final form
+            # This skips the normal critique/revision cycle
+            if self.protocol and self.protocol.use_structured_phases and round_num == 7:
+                round_phase = self.protocol.get_round_phase(round_num)
+                if round_phase and "Final Synthesis" in round_phase.name:
+                    logger.info(f"round_7_final_synthesis agents={len(ctx.proposers)}")
+                    await self._execute_final_synthesis_round(ctx, round_num)
+                    result.rounds_used = round_num
+                    continue  # Skip normal critique/revision, move to Round 8
+
             # Get and filter critics
             critics = self._get_critics(ctx)
 
@@ -374,7 +386,10 @@ class DebateRoundsPhase:
                     if self._with_timeout:
                         crit_result = await self._with_timeout(
                             self._critique_with_agent(
-                                critic, proposal, ctx.env.task if ctx.env else "", ctx.context_messages,
+                                critic,
+                                proposal,
+                                ctx.env.task if ctx.env else "",
+                                ctx.context_messages,
                                 target_agent=proposal_agent,
                             ),
                             critic.name,
@@ -382,7 +397,10 @@ class DebateRoundsPhase:
                         )
                     else:
                         crit_result = await self._critique_with_agent(
-                            critic, proposal, ctx.env.task if ctx.env else "", ctx.context_messages,
+                            critic,
+                            proposal,
+                            ctx.env.task if ctx.env else "",
+                            ctx.context_messages,
                             target_agent=proposal_agent,
                         )
                 return (critic, proposal_agent, crit_result)
@@ -563,7 +581,9 @@ class DebateRoundsPhase:
         phase_timeout = _calculate_phase_timeout(len(revision_agents), timeout)
 
         # Emit heartbeat before revision phase
-        self._emit_heartbeat(f"revision_round_{round_num}", f"starting_{len(revision_agents)}_agents")
+        self._emit_heartbeat(
+            f"revision_round_{round_num}", f"starting_{len(revision_agents)}_agents"
+        )
 
         # Periodic heartbeat task during long-running revisions
         async def heartbeat_during_revisions():
@@ -857,9 +877,7 @@ class DebateRoundsPhase:
         # Judge-based termination (with timeout protection)
         if self._check_judge_termination:
             result = await _with_callback_timeout(
-                self._check_judge_termination(
-                    round_num, ctx.proposals, ctx.context_messages
-                ),
+                self._check_judge_termination(round_num, ctx.proposals, ctx.context_messages),
                 timeout=DEFAULT_CALLBACK_TIMEOUT,
                 default=(True, "Judge check timed out"),  # Continue on timeout
             )
@@ -870,9 +888,7 @@ class DebateRoundsPhase:
         # Early stopping (agent votes) with timeout protection
         if self._check_early_stopping:
             should_continue = await _with_callback_timeout(
-                self._check_early_stopping(
-                    round_num, ctx.proposals, ctx.context_messages
-                ),
+                self._check_early_stopping(round_num, ctx.proposals, ctx.context_messages),
                 timeout=DEFAULT_CALLBACK_TIMEOUT,
                 default=True,  # Continue on timeout
             )
@@ -956,3 +972,155 @@ class DebateRoundsPhase:
     def get_partial_critiques(self) -> list["Critique"]:
         """Get partial critiques for timeout recovery."""
         return self._partial_critiques
+
+    async def _execute_final_synthesis_round(
+        self,
+        ctx: "DebateContext",
+        round_num: int,
+    ) -> None:
+        """Execute Round 7: Final Synthesis.
+
+        Each agent synthesizes the discussion and revises their proposal to final form.
+        This is different from normal rounds - agents write their polished final position
+        incorporating insights from the entire debate.
+
+        Args:
+            ctx: The DebateContext with proposals and critiques
+            round_num: Round number (should be 7)
+        """
+        from aragora.core import Message
+
+        result = ctx.result
+        proposals = ctx.proposals
+
+        # Get all proposers
+        proposers = ctx.proposers if ctx.proposers else ctx.agents
+
+        # Filter through circuit breaker
+        if self.circuit_breaker:
+            try:
+                available = self.circuit_breaker.filter_available_agents(list(proposers))
+                if len(available) < len(proposers):
+                    skipped = [p.name for p in proposers if p not in available]
+                    logger.info(f"circuit_breaker_skip_synthesis skipped={skipped}")
+                proposers = available
+            except Exception as e:
+                logger.error(f"Circuit breaker filter error for synthesis: {e}")
+
+        # Each proposer writes their final synthesis
+        for agent in proposers:
+            try:
+                prompt = self._build_final_synthesis_prompt(
+                    agent=agent,
+                    current_proposal=proposals.get(agent.name, ""),
+                    all_proposals=proposals,
+                    critiques=ctx.critiques,
+                    round_num=round_num,
+                )
+
+                # Generate final synthesis with timeout
+                final_proposal = await asyncio.wait_for(
+                    self._generate_revision(agent, prompt, ctx.context_messages),
+                    timeout=self.agent_timeout,
+                )
+
+                if final_proposal:
+                    proposals[agent.name] = final_proposal
+
+                    # Record as message
+                    msg = Message(
+                        role="final_synthesis",
+                        agent=agent.name,
+                        content=final_proposal,
+                        round=round_num,
+                    )
+                    ctx.add_message(msg)
+                    result.messages.append(msg)
+                    self._partial_messages.append(msg)
+
+                    # Emit event
+                    if "on_message" in self.hooks:
+                        self.hooks["on_message"](
+                            agent=agent.name,
+                            content=final_proposal,
+                            role="final_synthesis",
+                            round_num=round_num,
+                            full_content=final_proposal,
+                        )
+
+                    logger.info(f"final_synthesis_complete agent={agent.name}")
+
+            except asyncio.TimeoutError:
+                logger.warning(f"Final synthesis timeout for agent {agent.name}")
+            except Exception as e:
+                logger.error(f"Final synthesis error for agent {agent.name}: {e}")
+
+        # Notify spectator
+        if self._notify_spectator:
+            self._notify_spectator(
+                "final_synthesis",
+                details="All agents have submitted final syntheses",
+                agent="system",
+            )
+
+    def _build_final_synthesis_prompt(
+        self,
+        agent: "Agent",
+        current_proposal: str,
+        all_proposals: dict,
+        critiques: list,
+        round_num: int,
+    ) -> str:
+        """Build prompt for Round 7 final synthesis.
+
+        Args:
+            agent: The agent writing the synthesis
+            current_proposal: Agent's current proposal
+            all_proposals: All proposals from all agents
+            critiques: List of critiques from the debate
+            round_num: Round number (7)
+
+        Returns:
+            Formatted prompt for final synthesis
+        """
+        # Get other agents' proposals
+        other_proposals = "\n\n".join(
+            f"**{name}:** {prop[:1200]}..."
+            for name, prop in all_proposals.items()
+            if name != agent.name and prop
+        )
+
+        # Get recent critique summaries
+        critique_summary = "\n".join(
+            f"- {getattr(c, 'critic', 'Unknown')} on {getattr(c, 'target', 'Unknown')}: {getattr(c, 'summary', str(c)[:200])}"
+            for c in critiques[-15:]  # Last 15 critiques
+        )
+
+        return f"""## ROUND 7: FINAL SYNTHESIS
+
+You are {agent.name}. This is your FINAL opportunity to revise your proposal.
+
+After 6 rounds of debate, critique, and refinement, you must now present your
+polished, definitive position that incorporates the strongest insights from
+the entire discussion.
+
+### Your Current Proposal
+{current_proposal[:2000] if current_proposal else "(No previous proposal)"}
+
+### Other Agents' Current Positions
+{other_proposals if other_proposals else "(No other proposals available)"}
+
+### Key Critiques from the Debate
+{critique_summary if critique_summary else "(No critiques recorded)"}
+
+### Your Task
+Write your FINAL, POLISHED proposal that:
+
+1. **Incorporates the strongest points** raised by other agents during the debate
+2. **Addresses the most compelling critiques** of your position
+3. **Presents your clearest, most defensible position** with supporting reasoning
+4. **Acknowledges remaining uncertainties** honestly and explicitly
+5. **Provides actionable conclusions** where applicable
+
+This is your final word. Make it count. Be thorough but focused.
+Write in a clear, confident voice while acknowledging genuine complexity."""

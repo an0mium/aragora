@@ -625,9 +625,7 @@ class TestMatchFiltering:
         )
 
         # No completed matches yet
-        completed = manager.get_matches(
-            tournament_id=tournament.tournament_id, completed_only=True
-        )
+        completed = manager.get_matches(tournament_id=tournament.tournament_id, completed_only=True)
         assert len(completed) == 0
 
         # Complete one match
@@ -637,9 +635,7 @@ class TestMatchFiltering:
         )
 
         # Now should have one completed
-        completed = manager.get_matches(
-            tournament_id=tournament.tournament_id, completed_only=True
-        )
+        completed = manager.get_matches(tournament_id=tournament.tournament_id, completed_only=True)
         assert len(completed) == 1
 
 

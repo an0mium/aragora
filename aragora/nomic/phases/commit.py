@@ -100,9 +100,7 @@ class CommitPhase:
                 )
                 commit_info = diff_result.stdout if diff_result.returncode == 0 else ""
 
-                gate_decision = await self._commit_gate.require_approval(
-                    commit_info, gate_context
-                )
+                gate_decision = await self._commit_gate.require_approval(commit_info, gate_context)
 
                 if gate_decision.status == ApprovalStatus.APPROVED:
                     self._log(f"  [gate] Commit approved by {gate_decision.approver}")

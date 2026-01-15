@@ -29,16 +29,14 @@ from aragora.nomic import (
 )
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
 # =============================================================================
 # Custom Handlers
 # =============================================================================
+
 
 async def simple_context_handler(context: StateContext, event: Event):
     """
@@ -145,6 +143,7 @@ async def simple_recovery_handler(context: StateContext, event: Event):
 # Main Example
 # =============================================================================
 
+
 async def run_example():
     """Run the state machine example."""
     print("\n" + "=" * 60)
@@ -199,9 +198,9 @@ async def run_example():
     print(f"Events Logged: {metrics['event_count']}")
     print(f"Errors: {metrics['error_count']}")
 
-    if metrics['state_durations']:
+    if metrics["state_durations"]:
         print("\nState Durations:")
-        for state, duration in metrics['state_durations'].items():
+        for state, duration in metrics["state_durations"].items():
             print(f"  {state}: {duration:.2f}s")
 
     print("\n" + "=" * 60 + "\n")

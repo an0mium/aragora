@@ -163,7 +163,7 @@ def inject_version_headers(version: str) -> dict[str, str]:
                 headers["X-API-Sunset"] = version_info.sunset_date
                 headers["Warning"] = (
                     f'299 - "API version {version} is deprecated. '
-                    f'Sunset date: {version_info.sunset_date}. '
+                    f"Sunset date: {version_info.sunset_date}. "
                     f'Please migrate to {CURRENT_VERSION}."'
                 )
 
@@ -246,11 +246,7 @@ def get_all_versions() -> list[dict]:
     Returns:
         List of version info dicts
     """
-    return [
-        info
-        for v in sorted(API_VERSIONS.keys())
-        if (info := get_version_info(v)) is not None
-    ]
+    return [info for v in sorted(API_VERSIONS.keys()) if (info := get_version_info(v)) is not None]
 
 
 # =============================================================================

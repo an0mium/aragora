@@ -257,7 +257,9 @@ Respond with just "yes" or "no".""",
         import asyncio
 
         try:
-            logger.info(f"[claude_web_search] Researching with {RESEARCH_MODEL}: {question[:100]}...")
+            logger.info(
+                f"[claude_web_search] Researching with {RESEARCH_MODEL}: {question[:100]}..."
+            )
 
             # Define the sync API call to run in thread pool
             def _call_claude():
@@ -310,7 +312,7 @@ Focus on facts and cite your sources.""",
             summary = "\n".join(summary_parts)
 
             # Extract URLs from the summary (Claude typically includes them)
-            url_pattern = r'https?://[^\s\)\]\"\'<>]+'
+            url_pattern = r"https?://[^\s\)\]\"\'<>]+"
             found_urls = re.findall(url_pattern, summary)
             sources = list(set(found_urls))[:10]
 
@@ -354,6 +356,7 @@ Focus on facts and cite your sources.""",
         """Extract domain name from URL for display."""
         try:
             from urllib.parse import urlparse
+
             parsed = urlparse(url)
             return parsed.netloc or url[:50]
         except Exception:
@@ -390,9 +393,7 @@ Focus on facts and cite your sources.""",
 
         return query.strip()
 
-    async def search(
-        self, question: str, max_results: int = 5
-    ) -> ResearchResult:
+    async def search(self, question: str, max_results: int = 5) -> ResearchResult:
         """Perform web search for the question.
 
         Tries available search APIs in order of preference:
@@ -464,9 +465,7 @@ Focus on facts and cite your sources.""",
 
         # Summarize the results with Claude
         try:
-            snippets = "\n\n".join(
-                f"Source: {r.title}\n{r.snippet}" for r in result.results[:5]
-            )
+            snippets = "\n\n".join(f"Source: {r.title}\n{r.snippet}" for r in result.results[:5])
 
             response = self.anthropic_client.messages.create(
                 model=RESEARCH_MODEL,

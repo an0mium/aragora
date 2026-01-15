@@ -76,9 +76,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
         print("\nUsage this period:")
         print(f"  Debates: {usage.get('debates', 0)} / {limits.get('debates', 'unlimited')}")
-        print(
-            f"  Tokens: {usage.get('tokens', 0):,} / {limits.get('tokens', 'unlimited'):,}"
-        )
+        print(f"  Tokens: {usage.get('tokens', 0):,} / {limits.get('tokens', 'unlimited'):,}")
         cost = usage.get("cost_usd", "0")
         print(f"  Cost: ${float(cost):.2f}")
 
@@ -200,9 +198,7 @@ def cmd_usage(args: argparse.Namespace) -> int:
         return 1
 
 
-def cmd_usage_local(
-    args: argparse.Namespace, period_start: datetime, period_end: datetime
-) -> int:
+def cmd_usage_local(args: argparse.Namespace, period_start: datetime, period_end: datetime) -> int:
     """Show local usage when server not available."""
     try:
         from aragora.billing.usage import UsageTracker
@@ -359,24 +355,18 @@ Examples:
 
     # Status
     status_parser = billing_subparsers.add_parser("status", help="Show billing status")
-    status_parser.add_argument(
-        "--server", "-s", default=DEFAULT_API_URL, help="API server URL"
-    )
+    status_parser.add_argument("--server", "-s", default=DEFAULT_API_URL, help="API server URL")
     status_parser.set_defaults(func=cmd_status)
 
     # Usage
     usage_parser = billing_subparsers.add_parser("usage", help="Show usage details")
     usage_parser.add_argument("--month", "-m", help="Month to show (YYYY-MM)")
     usage_parser.add_argument("--verbose", "-v", action="store_true", help="Show daily breakdown")
-    usage_parser.add_argument(
-        "--server", "-s", default=DEFAULT_API_URL, help="API server URL"
-    )
+    usage_parser.add_argument("--server", "-s", default=DEFAULT_API_URL, help="API server URL")
     usage_parser.set_defaults(func=cmd_usage)
 
     # Subscribe
-    subscribe_parser = billing_subparsers.add_parser(
-        "subscribe", help="Subscribe to a plan"
-    )
+    subscribe_parser = billing_subparsers.add_parser("subscribe", help="Subscribe to a plan")
     subscribe_parser.add_argument(
         "--plan",
         "-p",
@@ -387,21 +377,15 @@ Examples:
     subscribe_parser.add_argument(
         "--open", "-o", action="store_true", help="Open checkout in browser"
     )
-    subscribe_parser.add_argument(
-        "--server", "-s", default=DEFAULT_API_URL, help="API server URL"
-    )
+    subscribe_parser.add_argument("--server", "-s", default=DEFAULT_API_URL, help="API server URL")
     subscribe_parser.set_defaults(func=cmd_subscribe)
 
     # Portal
-    portal_parser = billing_subparsers.add_parser(
-        "portal", help="Open billing management portal"
-    )
+    portal_parser = billing_subparsers.add_parser("portal", help="Open billing management portal")
     portal_parser.add_argument(
         "--no-open", action="store_true", help="Don't open browser automatically"
     )
-    portal_parser.add_argument(
-        "--server", "-s", default=DEFAULT_API_URL, help="API server URL"
-    )
+    portal_parser.add_argument("--server", "-s", default=DEFAULT_API_URL, help="API server URL")
     portal_parser.set_defaults(func=cmd_portal)
 
     # Invoices
@@ -409,9 +393,7 @@ Examples:
     invoices_parser.add_argument(
         "--limit", "-n", type=int, default=10, help="Number of invoices to show"
     )
-    invoices_parser.add_argument(
-        "--server", "-s", default=DEFAULT_API_URL, help="API server URL"
-    )
+    invoices_parser.add_argument("--server", "-s", default=DEFAULT_API_URL, help="API server URL")
     invoices_parser.set_defaults(func=cmd_invoices)
 
     # Default to status

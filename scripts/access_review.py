@@ -121,39 +121,47 @@ def get_access_findings(
     # Check for dormant account
     inactivity_days = calculate_inactivity_days(user.last_login_at)
     if inactivity_days is not None and inactivity_days > inactive_threshold:
-        findings.append({
-            "type": "DORMANT_ACCOUNT",
-            "severity": "MEDIUM" if user.role in ELEVATED_ROLES else "LOW",
-            "message": f"Account inactive for {inactivity_days} days (threshold: {inactive_threshold})",
-            "recommendation": "Review account necessity, consider deactivation",
-        })
+        findings.append(
+            {
+                "type": "DORMANT_ACCOUNT",
+                "severity": "MEDIUM" if user.role in ELEVATED_ROLES else "LOW",
+                "message": f"Account inactive for {inactivity_days} days (threshold: {inactive_threshold})",
+                "recommendation": "Review account necessity, consider deactivation",
+            }
+        )
 
     # Check for never logged in
     if user.last_login_at is None:
-        findings.append({
-            "type": "NEVER_LOGGED_IN",
-            "severity": "MEDIUM",
-            "message": "User has never logged in since account creation",
-            "recommendation": "Verify account is needed, remove if unused",
-        })
+        findings.append(
+            {
+                "type": "NEVER_LOGGED_IN",
+                "severity": "MEDIUM",
+                "message": "User has never logged in since account creation",
+                "recommendation": "Verify account is needed, remove if unused",
+            }
+        )
 
     # Check for admin without MFA
     if user.role in ELEVATED_ROLES and not getattr(user, "mfa_enabled", False):
-        findings.append({
-            "type": "ADMIN_NO_MFA",
-            "severity": "HIGH",
-            "message": "Elevated role without MFA enabled",
-            "recommendation": "Require MFA for all admin accounts",
-        })
+        findings.append(
+            {
+                "type": "ADMIN_NO_MFA",
+                "severity": "HIGH",
+                "message": "Elevated role without MFA enabled",
+                "recommendation": "Require MFA for all admin accounts",
+            }
+        )
 
     # Check for API key without expiration tracking
     if user.api_key and not user.api_key_expires_at:
-        findings.append({
-            "type": "API_KEY_NO_EXPIRY",
-            "severity": "LOW",
-            "message": "API key has no expiration date",
-            "recommendation": "Rotate API key with proper expiration",
-        })
+        findings.append(
+            {
+                "type": "API_KEY_NO_EXPIRY",
+                "severity": "LOW",
+                "message": "API key has no expiration date",
+                "recommendation": "Rotate API key with proper expiration",
+            }
+        )
 
     return findings
 
@@ -239,11 +247,13 @@ def generate_access_report(
 
         for finding in findings:
             report["summary"]["findings_by_severity"][finding["severity"]] += 1
-            report["findings"].append({
-                "user_id": user.id,
-                "email": user.email,
-                **finding,
-            })
+            report["findings"].append(
+                {
+                    "user_id": user.id,
+                    "email": user.email,
+                    **finding,
+                }
+            )
 
         # Include audit log if requested
         if include_audit and user.id:
@@ -260,25 +270,31 @@ def generate_access_report(
 
     # Generate recommendations
     if report["summary"]["findings_by_severity"]["HIGH"] > 0:
-        report["recommendations"].append({
-            "priority": "CRITICAL",
-            "action": "Address all HIGH severity findings immediately",
-            "details": f"{report['summary']['findings_by_severity']['HIGH']} high severity issues found",
-        })
+        report["recommendations"].append(
+            {
+                "priority": "CRITICAL",
+                "action": "Address all HIGH severity findings immediately",
+                "details": f"{report['summary']['findings_by_severity']['HIGH']} high severity issues found",
+            }
+        )
 
     if report["summary"]["dormant_accounts"] > 0:
-        report["recommendations"].append({
-            "priority": "HIGH",
-            "action": "Review and deactivate dormant accounts",
-            "details": f"{report['summary']['dormant_accounts']} accounts inactive >{inactive_threshold} days",
-        })
+        report["recommendations"].append(
+            {
+                "priority": "HIGH",
+                "action": "Review and deactivate dormant accounts",
+                "details": f"{report['summary']['dormant_accounts']} accounts inactive >{inactive_threshold} days",
+            }
+        )
 
     if report["summary"]["accounts_without_mfa"] > 0:
-        report["recommendations"].append({
-            "priority": "MEDIUM",
-            "action": "Enable MFA for accounts without it",
-            "details": f"{report['summary']['accounts_without_mfa']} accounts without MFA",
-        })
+        report["recommendations"].append(
+            {
+                "priority": "MEDIUM",
+                "action": "Enable MFA for accounts without it",
+                "details": f"{report['summary']['accounts_without_mfa']} accounts without MFA",
+            }
+        )
 
     return report
 
@@ -340,42 +356,46 @@ def export_csv(report: dict, output_path: Path) -> None:
         writer = csv.writer(f)
 
         # Header
-        writer.writerow([
-            "User ID",
-            "Email",
-            "Name",
-            "Role",
-            "Access Level",
-            "Org ID",
-            "Active",
-            "MFA Enabled",
-            "Created At",
-            "Last Login",
-            "Inactivity Days",
-            "Has API Key",
-            "Finding Count",
-            "High Findings",
-        ])
+        writer.writerow(
+            [
+                "User ID",
+                "Email",
+                "Name",
+                "Role",
+                "Access Level",
+                "Org ID",
+                "Active",
+                "MFA Enabled",
+                "Created At",
+                "Last Login",
+                "Inactivity Days",
+                "Has API Key",
+                "Finding Count",
+                "High Findings",
+            ]
+        )
 
         # Data
         for user in report["users"]:
             high_findings = sum(1 for f in user["findings"] if f["severity"] == "HIGH")
-            writer.writerow([
-                user["user_id"],
-                user["email"],
-                user["name"],
-                user["role"],
-                user["access_level"],
-                user["org_id"] or "",
-                "Yes" if user["is_active"] else "No",
-                "Yes" if user["mfa_enabled"] else "No",
-                user["created_at"],
-                user["last_login_at"] or "Never",
-                user["inactivity_days"] or "N/A",
-                "Yes" if user["has_api_key"] else "No",
-                len(user["findings"]),
-                high_findings,
-            ])
+            writer.writerow(
+                [
+                    user["user_id"],
+                    user["email"],
+                    user["name"],
+                    user["role"],
+                    user["access_level"],
+                    user["org_id"] or "",
+                    "Yes" if user["is_active"] else "No",
+                    "Yes" if user["mfa_enabled"] else "No",
+                    user["created_at"],
+                    user["last_login_at"] or "Never",
+                    user["inactivity_days"] or "N/A",
+                    "Yes" if user["has_api_key"] else "No",
+                    len(user["findings"]),
+                    high_findings,
+                ]
+            )
 
     logger.info(f"CSV exported to {output_path}")
 
@@ -481,13 +501,17 @@ Examples:
     if args.format == "console":
         print(format_console_output(report))
     elif args.format == "csv":
-        output_path = Path(args.output) if args.output else Path(
-            f"access_review_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        output_path = (
+            Path(args.output)
+            if args.output
+            else Path(f"access_review_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
         )
         export_csv(report, output_path)
     elif args.format == "json":
-        output_path = Path(args.output) if args.output else Path(
-            f"access_review_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        output_path = (
+            Path(args.output)
+            if args.output
+            else Path(f"access_review_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
         )
         export_json(report, output_path)
 

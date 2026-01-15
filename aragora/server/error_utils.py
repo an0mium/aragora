@@ -17,8 +17,7 @@ import warnings
 
 # Emit deprecation warning on import
 warnings.warn(
-    "aragora.server.error_utils is deprecated. "
-    "Import from aragora.server.errors instead.",
+    "aragora.server.error_utils is deprecated. " "Import from aragora.server.errors instead.",
     DeprecationWarning,
     stacklevel=2,
 )

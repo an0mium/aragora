@@ -77,7 +77,7 @@ class TestDebateProtocol:
     def test_default_protocol(self):
         """Test default protocol settings."""
         protocol = DebateProtocol()
-        assert protocol.rounds == 5  # Default increased for more thorough debates
+        assert protocol.rounds == 7  # Structured 7-round format for thorough debates
         assert protocol.consensus == "majority"
         assert protocol.early_stopping is True
 

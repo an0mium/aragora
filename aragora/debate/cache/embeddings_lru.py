@@ -7,11 +7,16 @@ Performance impact:
     - Without cache: O(n²) encode calls for n texts
     - With cache: O(n) encode calls (amortized)
     - Expected speedup: 10-100x for repeated text comparisons
+
+Note: For generic caching with TTL expiry, see aragora.utils.cache.TTLCache.
+EmbeddingCache is specialized for numpy arrays with database persistence
+and does not use TTL (embeddings don't expire).
 """
 
 import hashlib
 import logging
 import threading
+from collections import OrderedDict
 from typing import Optional
 
 import numpy as np
@@ -49,8 +54,8 @@ class EmbeddingCache:
         self.max_size = max_size
         self.persist = persist
         self.db_path = db_path
-        self._cache: dict[str, np.ndarray] = {}
-        self._access_order: list[str] = []
+        # Use OrderedDict for O(1) LRU operations (vs O(n) with list)
+        self._cache: OrderedDict[str, np.ndarray] = OrderedDict()
         self._lock = threading.RLock()
         self._hits = 0
         self._misses = 0
@@ -66,10 +71,8 @@ class EmbeddingCache:
         with self._lock:
             if key in self._cache:
                 self._hits += 1
-                # Move to end of access order (LRU)
-                if key in self._access_order:
-                    self._access_order.remove(key)
-                self._access_order.append(key)
+                # Move to end for LRU (O(1) with OrderedDict)
+                self._cache.move_to_end(key)
                 return self._cache[key]
 
         # Try persistent cache
@@ -96,14 +99,14 @@ class EmbeddingCache:
 
     def _store_in_memory(self, key: str, embedding: np.ndarray) -> None:
         """Store in memory cache with LRU eviction."""
-        # Evict oldest entries if at capacity
-        while len(self._cache) >= self.max_size and self._access_order:
-            oldest = self._access_order.pop(0)
-            self._cache.pop(oldest, None)
+        # Evict oldest entries if at capacity (O(1) with OrderedDict.popitem)
+        while len(self._cache) >= self.max_size:
+            self._cache.popitem(last=False)
 
+        # If key exists, move to end; otherwise add at end
+        if key in self._cache:
+            self._cache.move_to_end(key)
         self._cache[key] = embedding
-        if key not in self._access_order:
-            self._access_order.append(key)
 
     def _load_from_db(self, key: str) -> Optional[np.ndarray]:
         """Load embedding from database."""
@@ -176,14 +179,135 @@ class EmbeddingCache:
         """Clear the cache."""
         with self._lock:
             self._cache.clear()
-            self._access_order.clear()
             self._hits = 0
             self._misses = 0
 
 
-# Global embedding cache instance
+class EmbeddingCacheManager:
+    """
+    Manager for per-debate embedding caches.
+
+    Prevents cross-debate contamination by providing isolated caches
+    for each debate_id. This fixes topic mixing caused by shared
+    convergence detection embeddings.
+    """
+
+    def __init__(self):
+        self._caches: dict[str, EmbeddingCache] = {}
+        self._lock = threading.Lock()
+        self._default_max_size = 1024
+        self._default_persist = False
+        self._default_db_path: Optional[str] = None
+
+    def configure(
+        self,
+        max_size: int = 1024,
+        persist: bool = False,
+        db_path: Optional[str] = None,
+    ) -> None:
+        """Configure default settings for new caches."""
+        with self._lock:
+            self._default_max_size = max_size
+            self._default_persist = persist
+            self._default_db_path = db_path
+
+    def get_cache(self, debate_id: str) -> EmbeddingCache:
+        """
+        Get or create cache for a specific debate.
+
+        Args:
+            debate_id: Unique identifier for the debate
+
+        Returns:
+            EmbeddingCache instance isolated to this debate
+        """
+        with self._lock:
+            if debate_id not in self._caches:
+                db_path = self._default_db_path
+                if self._default_persist and db_path is None:
+                    from aragora.persistence.db_config import (
+                        DatabaseType,
+                        get_db_path_str,
+                    )
+
+                    db_path = get_db_path_str(DatabaseType.EMBEDDINGS)
+
+                self._caches[debate_id] = EmbeddingCache(
+                    max_size=self._default_max_size,
+                    persist=self._default_persist,
+                    db_path=db_path,
+                )
+                logger.debug(f"Created new embedding cache for debate {debate_id}")
+
+            return self._caches[debate_id]
+
+    def cleanup(self, debate_id: str) -> None:
+        """
+        Remove and clear cache for a completed debate.
+
+        Should be called when a debate ends to free memory.
+
+        Args:
+            debate_id: Debate ID to cleanup
+        """
+        with self._lock:
+            if debate_id in self._caches:
+                self._caches[debate_id].clear()
+                del self._caches[debate_id]
+                logger.debug(f"Cleaned up embedding cache for debate {debate_id}")
+
+    def get_stats(self) -> dict:
+        """Get statistics for all active caches."""
+        with self._lock:
+            return {
+                "active_debates": len(self._caches),
+                "debates": {
+                    debate_id: cache.get_stats() for debate_id, cache in self._caches.items()
+                },
+            }
+
+    def clear_all(self) -> None:
+        """Clear all caches (for testing)."""
+        with self._lock:
+            for cache in self._caches.values():
+                cache.clear()
+            self._caches.clear()
+
+
+# Global cache manager instance
+_cache_manager = EmbeddingCacheManager()
+
+# Legacy: Global embedding cache instance (deprecated, use get_scoped_embedding_cache)
 _embedding_cache: Optional[EmbeddingCache] = None
 _embedding_cache_lock = threading.Lock()
+
+
+def get_scoped_embedding_cache(debate_id: str) -> EmbeddingCache:
+    """
+    Get embedding cache scoped to a specific debate.
+
+    This is the preferred method for getting caches in debate context.
+    It prevents cross-debate contamination.
+
+    Args:
+        debate_id: Unique identifier for the debate
+
+    Returns:
+        EmbeddingCache instance isolated to this debate
+    """
+    return _cache_manager.get_cache(debate_id)
+
+
+def cleanup_embedding_cache(debate_id: str) -> None:
+    """
+    Cleanup embedding cache for a completed debate.
+
+    Should be called when a debate ends.
+
+    Args:
+        debate_id: Debate ID to cleanup
+    """
+    _cache_manager.cleanup(debate_id)
 
 
 def get_embedding_cache(
@@ -193,6 +317,9 @@ def get_embedding_cache(
 ) -> EmbeddingCache:
     """
     Get or create global embedding cache.
+
+    DEPRECATED: Use get_scoped_embedding_cache(debate_id) instead.
+    This function exists for backward compatibility.
 
     Args:
         max_size: Maximum cache entries
@@ -220,6 +347,10 @@ def get_embedding_cache(
                 persist=persist,
                 db_path=db_path,
             )
+            logger.warning(
+                "Using global embedding cache. For debate context, "
+                "use get_scoped_embedding_cache(debate_id) to prevent contamination."
+            )
 
         return _embedding_cache
 
@@ -231,10 +362,15 @@ def reset_embedding_cache() -> None:
         if _embedding_cache is not None:
             _embedding_cache.clear()
         _embedding_cache = None
+    # Also clear manager caches
+    _cache_manager.clear_all()
 
 
 __all__ = [
     "EmbeddingCache",
+    "EmbeddingCacheManager",
     "get_embedding_cache",
+    "get_scoped_embedding_cache",
+    "cleanup_embedding_cache",
     "reset_embedding_cache",
 ]

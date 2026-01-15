@@ -208,9 +208,7 @@ async def run_websocket_load_test(
     connect_tasks = [client.connect() for client in clients]
     await asyncio.gather(*connect_tasks)
 
-    print(
-        f"Connected {metrics.connections_successful}/{metrics.connections_attempted} clients"
-    )
+    print(f"Connected {metrics.connections_successful}/{metrics.connections_attempted} clients")
 
     if metrics.connections_successful == 0:
         metrics.end_time = time.time()
@@ -229,11 +227,7 @@ async def run_websocket_load_test(
                 )
 
     # Receive messages for duration
-    receive_tasks = [
-        client.receive_messages(duration)
-        for client in clients
-        if client.connected
-    ]
+    receive_tasks = [client.receive_messages(duration) for client in clients if client.connected]
     await asyncio.gather(*receive_tasks)
 
     # Close all connections

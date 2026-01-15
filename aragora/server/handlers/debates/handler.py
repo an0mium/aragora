@@ -599,15 +599,21 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             active = _active_debates[slug]
             # Return minimal info for in-progress debate
             # Support both "task" (new) and "question" (legacy) field names
-            return json_response({
-                "id": slug,
-                "debate_id": slug,
-                "task": active.get("task") or active.get("question", ""),
-                "status": normalize_status(active.get("status", "starting")),
-                "agents": active.get("agents", "").split(",") if isinstance(active.get("agents"), str) else active.get("agents", []),
-                "rounds": active.get("rounds", 3),
-                "in_progress": True,
-            })
+            return json_response(
+                {
+                    "id": slug,
+                    "debate_id": slug,
+                    "task": active.get("task") or active.get("question", ""),
+                    "status": normalize_status(active.get("status", "starting")),
+                    "agents": (
+                        active.get("agents", "").split(",")
+                        if isinstance(active.get("agents"), str)
+                        else active.get("agents", [])
+                    ),
+                    "rounds": active.get("rounds", 3),
+                    "in_progress": True,
+                }
+            )
 
         return error_response(f"Debate not found: {slug}", 404)
 
@@ -1441,12 +1447,14 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
         logger.info(f"Debate {debate_id} cancelled by user")
 
-        return json_response({
-            "success": True,
-            "debate_id": debate_id,
-            "status": "cancelled",
-            "message": "Debate cancelled successfully",
-        })
+        return json_response(
+            {
+                "success": True,
+                "debate_id": debate_id,
+                "status": "cancelled",
+                "message": "Debate cancelled successfully",
+            }
+        )
 
     def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route PATCH requests to appropriate methods."""

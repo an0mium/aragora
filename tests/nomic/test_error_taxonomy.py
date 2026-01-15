@@ -28,6 +28,7 @@ class TestErrorTypeDetection:
     def test_detects_timeout_error(self):
         """Should detect timeout errors."""
         import asyncio
+
         error = asyncio.TimeoutError("Operation timed out")
         category = classify_error(error, phase="verify")
         assert category.type == ErrorType.TIMEOUT
@@ -87,6 +88,7 @@ class TestSeverityClassification:
     def test_timeout_in_debate_is_recoverable(self):
         """Timeout in debate phase should be recoverable."""
         import asyncio
+
         error = asyncio.TimeoutError()
         category = classify_error(error, phase="debate")
         assert category.severity == Severity.RECOVERABLE

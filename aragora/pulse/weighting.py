@@ -172,9 +172,7 @@ class SourceWeightingSystem:
         import math
 
         normalized_volume = math.log10(max(1, topic.volume) + 1) / 6  # 6 = log10(1M)
-        volume_component = (
-            min(1.0, normalized_volume * source_weight.volume_multiplier) * 0.30
-        )
+        volume_component = min(1.0, normalized_volume * source_weight.volume_multiplier) * 0.30
 
         authority_component = source_weight.authority_score * 0.30
 
@@ -264,13 +262,19 @@ class SourceWeightingSystem:
             platform=platform.lower(),
             base_credibility=credibility if credibility is not None else current.base_credibility,
             authority_score=authority if authority is not None else current.authority_score,
-            volume_multiplier=volume_multiplier if volume_multiplier is not None else current.volume_multiplier,
-            freshness_weight=freshness_weight if freshness_weight is not None else current.freshness_weight,
+            volume_multiplier=(
+                volume_multiplier if volume_multiplier is not None else current.volume_multiplier
+            ),
+            freshness_weight=(
+                freshness_weight if freshness_weight is not None else current.freshness_weight
+            ),
             description=current.description,
         )
 
         self.source_weights[platform.lower()] = updated
-        logger.info(f"Updated source weight for {platform}: credibility={updated.base_credibility:.2f}")
+        logger.info(
+            f"Updated source weight for {platform}: credibility={updated.base_credibility:.2f}"
+        )
 
         return updated
 
@@ -296,9 +300,9 @@ class SourceWeightingSystem:
 
         # Trim to max history
         if len(self._source_performance[platform_lower]) > self._max_history:
-            self._source_performance[platform_lower] = self._source_performance[
-                platform_lower
-            ][-self._max_history:]
+            self._source_performance[platform_lower] = self._source_performance[platform_lower][
+                -self._max_history :
+            ]
 
     def get_adaptive_credibility(self, platform: str) -> float:
         """

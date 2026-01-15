@@ -284,7 +284,9 @@ class TestGetUsage:
         handler = BillingHandler({})  # No user_store
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-            mock_extract.return_value = Mock(is_authenticated=True, user_id="user-123", role="owner")
+            mock_extract.return_value = Mock(
+                is_authenticated=True, user_id="user-123", role="owner"
+            )
             result = handler._get_usage(mock_handler)
 
         assert result.status_code == 503
@@ -445,9 +447,7 @@ class TestCreateCheckout:
         assert result.status_code == 401
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
-    def test_create_checkout_free_tier_rejected(
-        self, mock_extract, billing_handler, mock_handler
-    ):
+    def test_create_checkout_free_tier_rejected(self, mock_extract, billing_handler, mock_handler):
         """Test cannot checkout free tier - rejected by schema validation."""
         mock_extract.return_value = Mock(
             is_authenticated=True,

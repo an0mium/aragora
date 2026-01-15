@@ -48,23 +48,17 @@ class TestSQLConnectorInit:
 
     def test_init_detects_postgresql(self):
         """Should detect PostgreSQL from connection string."""
-        connector = SQLConnector(
-            connection_string="postgresql://user:pass@localhost:5432/db"
-        )
+        connector = SQLConnector(connection_string="postgresql://user:pass@localhost:5432/db")
         assert connector._database_type == "postgresql"
 
     def test_init_detects_mysql(self):
         """Should detect MySQL from connection string."""
-        connector = SQLConnector(
-            connection_string="mysql://user:pass@localhost:3306/db"
-        )
+        connector = SQLConnector(connection_string="mysql://user:pass@localhost:3306/db")
         assert connector._database_type == "mysql"
 
     def test_init_detects_sqlite(self):
         """Should detect SQLite from connection string."""
-        connector = SQLConnector(
-            connection_string="sqlite:///path/to/db.sqlite"
-        )
+        connector = SQLConnector(connection_string="sqlite:///path/to/db.sqlite")
         assert connector._database_type == "sqlite"
 
     def test_source_type_is_database(self):
@@ -265,10 +259,7 @@ class TestSQLiteQueries:
 
         # Now query in read-only
         connector._read_only = True
-        result = await connector.execute_query(
-            "SELECT * FROM test WHERE id = ?",
-            params=(1,)
-        )
+        result = await connector.execute_query("SELECT * FROM test WHERE id = ?", params=(1,))
 
         assert result.row_count == 1
         assert result.rows[0]["name"] == "Alice"
@@ -287,20 +278,18 @@ class TestSQLiteQueries:
 
         # Setup
         conn = await connector._get_connection()
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE articles (
                 id INTEGER,
                 title TEXT,
                 content TEXT,
                 author TEXT
             )
-        """)
-        conn.execute(
-            "INSERT INTO articles VALUES (1, 'Article 1', 'Content one', 'Alice')"
+        """
         )
-        conn.execute(
-            "INSERT INTO articles VALUES (2, 'Article 2', 'Content two', 'Bob')"
-        )
+        conn.execute("INSERT INTO articles VALUES (1, 'Article 1', 'Content one', 'Alice')")
+        conn.execute("INSERT INTO articles VALUES (2, 'Article 2', 'Content two', 'Bob')")
         conn.commit()
 
         connector._read_only = True
@@ -362,9 +351,7 @@ class TestContextManager:
     @pytest.mark.asyncio
     async def test_context_manager_closes_connection(self):
         """Context manager should close connection on exit."""
-        async with SQLConnector(
-            connection_string="sqlite://:memory:"
-        ) as connector:
+        async with SQLConnector(connection_string="sqlite://:memory:") as connector:
             # Connection created on first use
             await connector._get_connection()
             assert connector._connection is not None

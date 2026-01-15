@@ -55,19 +55,23 @@ class PerformanceProfiler:
                     count = cursor.fetchone()[0]
                     elapsed = (time.perf_counter() - start) * 1000
 
-                    results["queries"].append({
-                        "db": db_path.name,
-                        "table": table,
-                        "rows": count,
-                        "count_ms": round(elapsed, 2),
-                    })
+                    results["queries"].append(
+                        {
+                            "db": db_path.name,
+                            "table": table,
+                            "rows": count,
+                            "count_ms": round(elapsed, 2),
+                        }
+                    )
 
                 conn.close()
             except Exception as e:
-                results["queries"].append({
-                    "db": db_path.name,
-                    "error": str(e),
-                })
+                results["queries"].append(
+                    {
+                        "db": db_path.name,
+                        "error": str(e),
+                    }
+                )
 
         return results
 
@@ -90,15 +94,19 @@ class PerformanceProfiler:
             try:
                 __import__(module)
                 elapsed = (time.perf_counter() - start) * 1000
-                results["imports"].append({
-                    "module": module,
-                    "time_ms": round(elapsed, 2),
-                })
+                results["imports"].append(
+                    {
+                        "module": module,
+                        "time_ms": round(elapsed, 2),
+                    }
+                )
             except Exception as e:
-                results["imports"].append({
-                    "module": module,
-                    "error": str(e),
-                })
+                results["imports"].append(
+                    {
+                        "module": module,
+                        "error": str(e),
+                    }
+                )
 
         return results
 
@@ -114,8 +122,10 @@ class PerformanceProfiler:
             class MockAgent(Agent):
                 async def generate(self, prompt: str, context=None) -> str:
                     return "Mock response"
+
                 async def critique(self, proposal: str, task: str, context=None):
                     return None
+
                 async def vote(self, proposals: dict, task: str):
                     return None
 
@@ -278,7 +288,9 @@ class PerformanceProfiler:
         db = self.results.get("database", {})
         for query in db.get("queries", [])[:10]:
             if "error" not in query:
-                print(f"  {query['db']}/{query['table']}: {query['rows']} rows ({query['count_ms']}ms)")
+                print(
+                    f"  {query['db']}/{query['table']}: {query['rows']} rows ({query['count_ms']}ms)"
+                )
 
         print("\n" + "=" * 60)
 
@@ -287,6 +299,7 @@ class PerformanceProfiler:
 
 async def main():
     import sys
+
     full = "--full" in sys.argv
 
     profiler = PerformanceProfiler()

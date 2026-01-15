@@ -448,7 +448,11 @@ class RouteIndex:
             "_tournament_handler": ["/api/tournaments/"],
             "_memory_handler": ["/api/memory/"],
             "_document_handler": ["/api/documents/"],
-            "_auditing_handler": ["/api/debates/capability-probe", "/api/debates/deep-audit", "/api/redteam/"],
+            "_auditing_handler": [
+                "/api/debates/capability-probe",
+                "/api/debates/deep-audit",
+                "/api/redteam/",
+            ],
             "_relationship_handler": ["/api/relationship/"],
             "_moments_handler": ["/api/moments/"],
             "_persona_handler": ["/api/personas", "/api/agent/"],

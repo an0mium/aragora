@@ -426,7 +426,7 @@ class SubsystemCoordinator:
             # Format memories for prompt injection
             lines = ["Relevant learnings from past debates:"]
             for mem in memories:
-                lines.append(f"- {mem.get('summary', mem.get('content', ''))}") # type: ignore[attr-defined]
+                lines.append(f"- {mem.get('summary', mem.get('content', ''))}")  # type: ignore[attr-defined]
             return "\n".join(lines)
         except Exception as e:
             logger.debug("Continuum context retrieval failed: %s", e)

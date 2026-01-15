@@ -133,10 +133,7 @@ class TrainingEmitter:
             training_records = []
 
             # 1. Export SFT data from high-confidence debates
-            if (
-                result.confidence >= self.sft_confidence_threshold
-                and result.consensus_reached
-            ):
+            if result.confidence >= self.sft_confidence_threshold and result.consensus_reached:
                 sft_record = self.build_sft_record(ctx)
                 if sft_record:
                     training_records.append(sft_record)
@@ -232,9 +229,7 @@ class TrainingEmitter:
                 continue
             content = getattr(msg, "content", str(msg))
             # Keep the most substantive response per agent
-            if agent_name not in agent_responses or len(content) > len(
-                agent_responses[agent_name]
-            ):
+            if agent_name not in agent_responses or len(content) > len(agent_responses[agent_name]):
                 agent_responses[agent_name] = content[:2000]
 
         if not agent_responses:

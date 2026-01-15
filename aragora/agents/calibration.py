@@ -352,7 +352,8 @@ class CalibrationTracker(SQLiteStore):
             db_path = str(self.db_path)
             conn = sqlite3_module.connect(db_path, timeout=self._timeout)
             try:
-                conn.execute("""
+                conn.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS temperature_params (
                         agent TEXT PRIMARY KEY,
                         temperature REAL DEFAULT 1.0,
@@ -360,7 +361,8 @@ class CalibrationTracker(SQLiteStore):
                         last_tuned TEXT,
                         predictions_at_tune INTEGER DEFAULT 0
                     )
-                """)
+                """
+                )
                 conn.commit()
             finally:
                 conn.close()
@@ -368,9 +370,7 @@ class CalibrationTracker(SQLiteStore):
             # Log but don't fail - the table might already exist or be created elsewhere
             import logging
 
-            logging.getLogger(__name__).warning(
-                f"Failed to ensure temperature_params table: {e}"
-            )
+            logging.getLogger(__name__).warning(f"Failed to ensure temperature_params table: {e}")
 
     def record_prediction(
         self,

@@ -262,7 +262,9 @@ class ConsensusPhase:
             logger.error("synthesis_failed_all_fallbacks - this should not happen")
             # Create minimal synthesis as last resort
             if ctx.proposals:
-                fallback_synthesis = f"## Debate Summary\n\n{list(ctx.proposals.values())[0][:1000]}"
+                fallback_synthesis = (
+                    f"## Debate Summary\n\n{list(ctx.proposals.values())[0][:1000]}"
+                )
                 ctx.result.synthesis = fallback_synthesis
                 ctx.result.final_answer = fallback_synthesis
                 if self.hooks and "on_message" in self.hooks:
@@ -468,9 +470,7 @@ class ConsensusPhase:
         )
 
         # Apply evidence citation bonuses if enabled
-        vote_counts = self._apply_evidence_citation_bonuses(
-            ctx, votes, vote_counts, choice_mapping
-        )
+        vote_counts = self._apply_evidence_citation_bonuses(ctx, votes, vote_counts, choice_mapping)
 
         ctx.vote_tally = dict(vote_counts)
 
@@ -1934,6 +1934,26 @@ class ConsensusPhase:
                 metric=ctx.result.confidence if ctx.result else 0.0,
             )
 
+        # Generate export download links for aragora.ai debates
+        debate_id = getattr(ctx, "debate_id", None) or getattr(ctx.result, "debate_id", None)
+        if debate_id:
+            ctx.result.export_links = {
+                "json": f"/api/debates/{debate_id}/export/json",
+                "markdown": f"/api/debates/{debate_id}/export/md",
+                "html": f"/api/debates/{debate_id}/export/html",
+                "txt": f"/api/debates/{debate_id}/export/txt",
+                "csv_summary": f"/api/debates/{debate_id}/export/csv?table=summary",
+                "csv_messages": f"/api/debates/{debate_id}/export/csv?table=messages",
+            }
+            logger.info(f"export_links_generated debate_id={debate_id}")
+
+            # Emit export ready event
+            if self.hooks and "on_export_ready" in self.hooks:
+                self.hooks["on_export_ready"](
+                    debate_id=debate_id,
+                    links=ctx.result.export_links,
+                )
+
         return True
 
     def _combine_proposals_as_synthesis(self, ctx: "DebateContext") -> str:
@@ -2014,24 +2034,31 @@ class ConsensusPhase:
                     critique_items.append(f"- {c.agent} on {c.target}: {summary}")
             critiques_text = "\n".join(critique_items)
 
-        return f"""You are generating the FINAL SYNTHESIS for a multi-agent AI debate.
+        return f"""You are Claude Opus 4.5, tasked with creating the DEFINITIVE synthesis of this multi-agent AI debate.
 
 ## ORIGINAL QUESTION
 {task}
 
-## AGENT PROPOSALS
+## AGENT FINAL PROPOSALS
 {proposals_text}
 
 ## KEY CRITIQUES
 {critiques_text if critiques_text else "No critiques recorded."}
 
 ## YOUR TASK
-Create a clear, authoritative FINAL SYNTHESIS that:
+Create a comprehensive synthesis of **approximately 1200 words** (minimum 1000, maximum 1400) that includes:
 
-1. **ANSWER**: State the definitive answer/conclusion clearly
-2. **REASONING**: Summarize the key reasoning from the debate
-3. **CONSENSUS**: Note where agents agreed and any unresolved points
-4. **RECOMMENDATION**: Provide a concrete actionable takeaway
+1. **DEFINITIVE ANSWER** (2-3 sentences): State the conclusion clearly and authoritatively
 
-Write in a clear, confident tone. This is the FINAL WORD on this debate.
-Keep your response focused and under 1200 words."""
+2. **REASONING SUMMARY** (~300 words): Present the key arguments and evidence that emerged from the debate. Identify the strongest reasoning chains.
+
+3. **CONSENSUS ANALYSIS** (~200 words): Detail where agents agreed and areas of genuine disagreement. Note which disagreements were resolved and which remain.
+
+4. **SYNTHESIS OF PERSPECTIVES** (~300 words): Integrate the strongest points from each agent's position. Show how different viewpoints complement or challenge each other.
+
+5. **ACTIONABLE RECOMMENDATIONS** (~200 words): Provide concrete, practical takeaways. What should someone do with this conclusion?
+
+6. **REMAINING QUESTIONS** (~100 words): Note any unresolved issues, edge cases, or areas that merit further exploration.
+
+Write authoritatively. This is the FINAL WORD on this debate.
+Your response MUST be approximately 1200 words to provide comprehensive coverage."""

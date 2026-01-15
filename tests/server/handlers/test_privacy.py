@@ -37,6 +37,7 @@ def _always_allowed(key: str) -> bool:
 def disable_rate_limits():
     """Disable rate limits for all tests in this module."""
     import sys
+
     rl_module = sys.modules["aragora.server.handlers.utils.rate_limit"]
 
     # Patch all existing limiters to always allow
@@ -479,7 +480,9 @@ class TestAccountDeletion:
     @patch("aragora.server.handlers.privacy.extract_user_from_request")
     def test_deletion_requires_password(self, mock_extract, handler, user_store, auth_context):
         mock_extract.return_value = auth_context
-        mock_handler = create_mock_handler("DELETE", {"password": "wrong_password", "confirm": True})
+        mock_handler = create_mock_handler(
+            "DELETE", {"password": "wrong_password", "confirm": True}
+        )
 
         result = handler.handle("/api/privacy/account", {}, mock_handler, "DELETE")
 
@@ -571,7 +574,9 @@ class TestPrivacyPreferences:
         assert get_status(result) == 401
 
     @patch("aragora.server.handlers.privacy.extract_user_from_request")
-    def test_get_preferences_returns_defaults(self, mock_extract, handler, user_store, auth_context):
+    def test_get_preferences_returns_defaults(
+        self, mock_extract, handler, user_store, auth_context
+    ):
         user_store.preferences["user-123"] = {}
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")

@@ -219,7 +219,9 @@ class TestNewsAPIConnector:
 
     def test_source_credibility_unknown(self, connector):
         """Test unknown source scoring."""
-        confidence, authority = connector._calculate_source_credibility("random-blog", "Random Blog")
+        confidence, authority = connector._calculate_source_credibility(
+            "random-blog", "Random Blog"
+        )
         assert confidence == connector.default_confidence
         assert authority == 0.55
 

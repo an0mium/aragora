@@ -332,20 +332,24 @@ def extract_test_failures(test_output: str) -> list[dict]:
     # Match pytest failure patterns
     failure_pattern = r"FAILED\s+([\w/]+\.py)::([\w\[\]]+)"
     for match in re.finditer(failure_pattern, test_output):
-        failures.append({
-            "file": match.group(1),
-            "test": match.group(2),
-            "type": "assertion",
-        })
+        failures.append(
+            {
+                "file": match.group(1),
+                "test": match.group(2),
+                "type": "assertion",
+            }
+        )
 
     # Match error patterns
     error_pattern = r"ERROR\s+([\w/]+\.py)::([\w\[\]]+)"
     for match in re.finditer(error_pattern, test_output):
-        failures.append({
-            "file": match.group(1),
-            "test": match.group(2),
-            "type": "error",
-        })
+        failures.append(
+            {
+                "file": match.group(1),
+                "test": match.group(2),
+                "type": "error",
+            }
+        )
 
     return failures
 

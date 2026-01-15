@@ -400,9 +400,7 @@ class ProbeFilter:
             status = (
                 "OK"
                 if profile.probe_score >= 0.7
-                else "WARN"
-                if profile.probe_score >= 0.5
-                else "RISK"
+                else "WARN" if profile.probe_score >= 0.5 else "RISK"
             )
             weakness = f" [{profile.dominant_weakness}]" if profile.dominant_weakness else ""
             lines.append(

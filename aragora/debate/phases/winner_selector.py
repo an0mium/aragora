@@ -99,9 +99,7 @@ class WinnerSelector:
         result.final_answer = proposals.get(
             winner_agent, list(proposals.values())[0] if proposals else ""
         )
-        result.consensus_reached = (
-            (count / total_votes >= threshold) if total_votes > 0 else False
-        )
+        result.consensus_reached = (count / total_votes >= threshold) if total_votes > 0 else False
         result.confidence = count / total_votes if total_votes > 0 else 0.5
         ctx.winner_agent = winner_agent
         result.winner = winner_agent
@@ -133,9 +131,7 @@ class WinnerSelector:
             if agent != winner_agent:
                 result.dissenting_views.append(f"[{agent}]: {prop}")
 
-        logger.info(
-            f"consensus_winner winner={winner_agent} votes={count}/{len(ctx.agents)}"
-        )
+        logger.info(f"consensus_winner winner={winner_agent} votes={count}/{len(ctx.agents)}")
 
         if self._notify_spectator:
             self._notify_spectator(
@@ -154,9 +150,7 @@ class WinnerSelector:
         if self.position_tracker:
             try:
                 debate_id = (
-                    result.id
-                    if hasattr(result, "id")
-                    else (ctx.env.task[:50] if ctx.env else "")
+                    result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
                 )
                 self.position_tracker.finalize_debate(
                     debate_id=debate_id,
@@ -183,13 +177,9 @@ class WinnerSelector:
         result = ctx.result
         try:
             debate_id = (
-                result.id
-                if hasattr(result, "id")
-                else (ctx.env.task[:50] if ctx.env else "")
+                result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
             )
-            domain = (
-                self._extract_debate_domain() if self._extract_debate_domain else "general"
-            )
+            domain = self._extract_debate_domain() if self._extract_debate_domain else "general"
             for v in result.votes:
                 if not isinstance(v, Exception):
                     canonical = choice_mapping.get(v.choice, v.choice)
@@ -204,9 +194,7 @@ class WinnerSelector:
             logger.debug(f"calibration_recorded predictions={len(result.votes)}")
         except Exception as e:
             category, msg, exc_info = _build_error_action(e, "calibration")
-            logger.warning(
-                f"calibration_error category={category} error={msg}", exc_info=exc_info
-            )
+            logger.warning(f"calibration_error category={category} error={msg}", exc_info=exc_info)
 
     def set_unanimous_winner(
         self,
@@ -260,15 +248,9 @@ class WinnerSelector:
         if self.calibration_tracker:
             try:
                 debate_id = (
-                    result.id
-                    if hasattr(result, "id")
-                    else (ctx.env.task[:50] if ctx.env else "")
+                    result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
                 )
-                domain = (
-                    self._extract_debate_domain()
-                    if self._extract_debate_domain
-                    else "general"
-                )
+                domain = self._extract_debate_domain() if self._extract_debate_domain else "general"
                 for v in result.votes:
                     if not isinstance(v, Exception):
                         correct = v.choice == winner
@@ -279,9 +261,7 @@ class WinnerSelector:
                             domain=domain,
                             debate_id=debate_id,
                         )
-                logger.debug(
-                    f"calibration_recorded_unanimous predictions={len(result.votes)}"
-                )
+                logger.debug(f"calibration_recorded_unanimous predictions={len(result.votes)}")
             except Exception as e:
                 category, msg, exc_info = _build_error_action(e, "calibration")
                 logger.warning(

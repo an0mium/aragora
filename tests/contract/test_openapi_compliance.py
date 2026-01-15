@@ -274,9 +274,9 @@ class TestOpenAPIResponses:
                             error_codes_found.add(status)
 
             # Should have at least error responses defined somewhere
-            assert "400" in error_codes_found or "401" in error_codes_found, (
-                "No error responses (400/401) found in any endpoint"
-            )
+            assert (
+                "400" in error_codes_found or "401" in error_codes_found
+            ), "No error responses (400/401) found in any endpoint"
 
     def test_success_responses_have_content(self, openapi_spec: dict) -> None:
         """200/201 responses should define response content."""

@@ -14,7 +14,11 @@ from typing import Any, Optional
 
 import numpy as np
 
-from aragora.debate.cache.embeddings_lru import EmbeddingCache, get_embedding_cache
+from aragora.debate.cache.embeddings_lru import (
+    EmbeddingCache,
+    get_embedding_cache,
+    get_scoped_embedding_cache,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +252,7 @@ class SentenceTransformerBackend(SimilarityBackend):
         model_name: str = "all-MiniLM-L6-v2",
         use_embedding_cache: bool = True,
         persist_embeddings: bool = False,
+        debate_id: Optional[str] = None,
     ):
         """
         Initialize sentence transformer backend.
@@ -256,6 +261,7 @@ class SentenceTransformerBackend(SimilarityBackend):
             model_name: Sentence transformer model name
             use_embedding_cache: Enable embedding-level caching (default True)
             persist_embeddings: Persist embeddings to database (default False)
+            debate_id: Debate ID for scoped cache (prevents cross-debate contamination)
         """
         try:
             from sentence_transformers import SentenceTransformer
@@ -274,13 +280,19 @@ class SentenceTransformerBackend(SimilarityBackend):
                 SentenceTransformerBackend._model_name_cache = model_name
 
             self.cosine_similarity = cosine_similarity
+            self.debate_id = debate_id
 
             # Initialize embedding cache
             if use_embedding_cache:
-                self.embedding_cache = get_embedding_cache(
-                    max_size=1024,
-                    persist=persist_embeddings,
-                )
+                if debate_id:
+                    # Use debate-scoped cache to prevent cross-debate contamination
+                    self.embedding_cache = get_scoped_embedding_cache(debate_id)
+                else:
+                    # Fall back to global cache (deprecated but backwards compatible)
+                    self.embedding_cache = get_embedding_cache(
+                        max_size=1024,
+                        persist=persist_embeddings,
+                    )
             else:
                 self.embedding_cache = None
 
@@ -412,12 +424,16 @@ class SentenceTransformerBackend(SimilarityBackend):
         return similarities
 
 
-def get_similarity_backend(preferred: str = "auto") -> SimilarityBackend:
+def get_similarity_backend(
+    preferred: str = "auto",
+    debate_id: Optional[str] = None,
+) -> SimilarityBackend:
     """
     Get a similarity backend by name.
 
     Args:
         preferred: Backend preference: "auto", "sentence-transformer", "tfidf", "jaccard"
+        debate_id: Debate ID for scoped caching (prevents cross-debate contamination)
 
     Returns:
         Requested backend instance
@@ -436,11 +452,11 @@ def get_similarity_backend(preferred: str = "auto") -> SimilarityBackend:
         return TFIDFBackend()
 
     if preferred == "sentence-transformer":
-        return SentenceTransformerBackend()
+        return SentenceTransformerBackend(debate_id=debate_id)
 
     # Auto-select best available
     try:
-        return SentenceTransformerBackend()
+        return SentenceTransformerBackend(debate_id=debate_id)
     except ImportError:
         logger.debug("sentence-transformers not available for auto-select")
     except RuntimeError as e:

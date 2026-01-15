@@ -441,6 +441,106 @@ class FeatureSettings(BaseSettings):
         return getattr(self, attr, False)
 
 
+class MemoryTierSettings(BaseSettings):
+    """Memory tier configuration for ContinuumMemory."""
+
+    model_config = SettingsConfigDict(env_prefix="ARAGORA_MEMORY_")
+
+    # Fast tier (immediate patterns)
+    fast_max_items: int = Field(default=1000, ge=100, le=10000, alias="ARAGORA_MEMORY_FAST_MAX")
+    fast_half_life_hours: float = Field(
+        default=1.0, ge=0.5, le=24.0, alias="ARAGORA_MEMORY_FAST_TTL"
+    )
+
+    # Medium tier (tactical learning)
+    medium_max_items: int = Field(default=5000, ge=500, le=50000, alias="ARAGORA_MEMORY_MEDIUM_MAX")
+    medium_half_life_hours: float = Field(
+        default=24.0, ge=1.0, le=168.0, alias="ARAGORA_MEMORY_MEDIUM_TTL"
+    )
+
+    # Slow tier (strategic learning)
+    slow_max_items: int = Field(default=10000, ge=1000, le=100000, alias="ARAGORA_MEMORY_SLOW_MAX")
+    slow_half_life_hours: float = Field(
+        default=168.0, ge=24.0, le=720.0, alias="ARAGORA_MEMORY_SLOW_TTL"
+    )
+
+    # Glacial tier (foundational knowledge)
+    glacial_max_items: int = Field(
+        default=50000, ge=5000, le=500000, alias="ARAGORA_MEMORY_GLACIAL_MAX"
+    )
+    glacial_half_life_hours: float = Field(
+        default=720.0, ge=168.0, le=8760.0, alias="ARAGORA_MEMORY_GLACIAL_TTL"
+    )
+
+    # Consolidation thresholds
+    promotion_cooldown_hours: float = Field(
+        default=1.0, ge=0.1, le=24.0, alias="ARAGORA_MEMORY_PROMOTION_COOLDOWN"
+    )
+    consolidation_threshold: float = Field(
+        default=3.0, ge=1.0, le=10.0, alias="ARAGORA_MEMORY_CONSOLIDATION_THRESHOLD"
+    )
+    retention_multiplier: float = Field(
+        default=2.0, ge=1.0, le=5.0, alias="ARAGORA_MEMORY_RETENTION_MULTIPLIER"
+    )
+
+
+class ConsensusSettings(BaseSettings):
+    """Consensus detection thresholds."""
+
+    model_config = SettingsConfigDict(env_prefix="ARAGORA_CONSENSUS_")
+
+    # Similarity threshold for semantic convergence
+    similarity_threshold: float = Field(
+        default=0.85, ge=0.5, le=1.0, alias="ARAGORA_CONSENSUS_SIMILARITY"
+    )
+    # Minimum vote ratio for consensus
+    min_vote_ratio: float = Field(default=0.6, ge=0.5, le=1.0, alias="ARAGORA_CONSENSUS_MIN_VOTES")
+    # Early exit threshold (high confidence)
+    early_exit_threshold: float = Field(
+        default=0.95, ge=0.8, le=1.0, alias="ARAGORA_CONSENSUS_EARLY_EXIT"
+    )
+    # Supermajority threshold
+    supermajority_threshold: float = Field(
+        default=0.67, ge=0.5, le=1.0, alias="ARAGORA_CONSENSUS_SUPERMAJORITY"
+    )
+
+
+class ProviderRateLimitSettings(BaseSettings):
+    """Provider-specific rate limits (requests per minute)."""
+
+    model_config = SettingsConfigDict(env_prefix="ARAGORA_PROVIDER_")
+
+    # Rate limits in requests per minute
+    anthropic_rpm: int = Field(default=1000, ge=1, le=10000, alias="ARAGORA_PROVIDER_ANTHROPIC_RPM")
+    openai_rpm: int = Field(default=500, ge=1, le=10000, alias="ARAGORA_PROVIDER_OPENAI_RPM")
+    mistral_rpm: int = Field(default=300, ge=1, le=10000, alias="ARAGORA_PROVIDER_MISTRAL_RPM")
+    gemini_rpm: int = Field(default=60, ge=1, le=10000, alias="ARAGORA_PROVIDER_GEMINI_RPM")
+    grok_rpm: int = Field(default=500, ge=1, le=10000, alias="ARAGORA_PROVIDER_GROK_RPM")
+    deepseek_rpm: int = Field(default=200, ge=1, le=10000, alias="ARAGORA_PROVIDER_DEEPSEEK_RPM")
+    openrouter_rpm: int = Field(
+        default=500, ge=1, le=10000, alias="ARAGORA_PROVIDER_OPENROUTER_RPM"
+    )
+
+    # Tokens per minute (optional, 0 = no limit)
+    anthropic_tpm: int = Field(
+        default=100000, ge=0, le=1000000, alias="ARAGORA_PROVIDER_ANTHROPIC_TPM"
+    )
+    openai_tpm: int = Field(default=90000, ge=0, le=1000000, alias="ARAGORA_PROVIDER_OPENAI_TPM")
+    mistral_tpm: int = Field(default=50000, ge=0, le=1000000, alias="ARAGORA_PROVIDER_MISTRAL_TPM")
+    gemini_tpm: int = Field(default=30000, ge=0, le=1000000, alias="ARAGORA_PROVIDER_GEMINI_TPM")
+    grok_tpm: int = Field(default=100000, ge=0, le=1000000, alias="ARAGORA_PROVIDER_GROK_TPM")
+
+    def get_rpm(self, provider: str) -> int:
+        """Get RPM limit for a provider."""
+        attr = f"{provider.lower().replace('-', '_')}_rpm"
+        return getattr(self, attr, 100)
+
+    def get_tpm(self, provider: str) -> int:
+        """Get TPM limit for a provider."""
+        attr = f"{provider.lower().replace('-', '_')}_tpm"
+        return getattr(self, attr, 0)
+
+
 class Settings(BaseSettings):
     """
     Main settings class aggregating all configuration sections.
@@ -474,6 +574,9 @@ class Settings(BaseSettings):
     _evidence: Optional[EvidenceSettings] = None
     _sso: Optional[SSOSettings] = None
     _features: Optional[FeatureSettings] = None
+    _memory_tier: Optional[MemoryTierSettings] = None
+    _consensus: Optional[ConsensusSettings] = None
+    _provider_rate_limit: Optional[ProviderRateLimitSettings] = None
 
     @property
     def auth(self) -> AuthSettings:
@@ -564,6 +667,24 @@ class Settings(BaseSettings):
         if self._features is None:
             self._features = FeatureSettings()
         return self._features
+
+    @property
+    def memory_tier(self) -> MemoryTierSettings:
+        if self._memory_tier is None:
+            self._memory_tier = MemoryTierSettings()
+        return self._memory_tier
+
+    @property
+    def consensus(self) -> ConsensusSettings:
+        if self._consensus is None:
+            self._consensus = ConsensusSettings()
+        return self._consensus
+
+    @property
+    def provider_rate_limit(self) -> ProviderRateLimitSettings:
+        if self._provider_rate_limit is None:
+            self._provider_rate_limit = ProviderRateLimitSettings()
+        return self._provider_rate_limit
 
 
 @lru_cache()

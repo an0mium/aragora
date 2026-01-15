@@ -144,6 +144,7 @@ from aragora.exceptions import (
     EvidenceNotFoundError,
     EvidenceParseError,
 )
+
 # Verification errors
 from aragora.exceptions import VerificationError as BaseVerificationError
 from aragora.exceptions import (
@@ -178,6 +179,7 @@ from aragora.server.errors import (
     InternalError,
     ServiceUnavailableError,
 )
+
 # Domain errors - import with API prefix to avoid confusion
 from aragora.server.errors import DebateError as APIDebateError
 from aragora.server.errors import MemoryError as APIMemoryError

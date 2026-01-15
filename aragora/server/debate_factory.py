@@ -81,8 +81,8 @@ class DebateConfig:
 
     question: str
     agents_str: str = "anthropic-api,openai-api"
-    rounds: int = 3
-    consensus: str = "majority"
+    rounds: int = 8  # 9-round format (0-8), default for all debates
+    consensus: str = "judge"  # Judge-based consensus for final decisions
     debate_id: Optional[str] = None
     trending_topic: Optional["TrendingTopic"] = None  # TrendingTopic from pulse
 
@@ -274,7 +274,7 @@ class DebateFactory:
         """
         from aragora.core import Environment
         from aragora.debate.arena_builder import ArenaBuilder
-        from aragora.debate.protocol import DebateProtocol
+        from aragora.debate.protocol import ARAGORA_AI_PROTOCOL, DebateProtocol
 
         # Parse and create agents
         specs = config.parse_agent_specs()
@@ -291,21 +291,52 @@ class DebateFactory:
                 f"(need at least 2). Failed: {', '.join(failed_names)}"
             )
 
-        # Create environment and protocol
+        # Create environment - use 9 rounds for aragora.ai web debates
         env = Environment(
             task=config.question,
             context="",
-            max_rounds=config.rounds,
+            max_rounds=9,  # 9-round format for web UI
         )
+
+        # Use ARAGORA_AI_PROTOCOL for web debates - 9 rounds with all features enabled
+        # This creates a comprehensive debate with:
+        # - Round 0: Context gathering (parallel with Round 1)
+        # - Rounds 1-6: Structured debate phases
+        # - Round 7: Final synthesis (each agent revises)
+        # - Round 8: Voting, judge verdict, Opus 4.5 summary
         protocol = DebateProtocol(
-            rounds=config.rounds,
-            consensus=config.consensus,  # type: ignore[arg-type]
+            rounds=9,
+            consensus=config.consensus or "judge",  # type: ignore[arg-type]
             proposer_count=len(agent_result.agents),
             topology="all-to-all",
-            # Disable early termination for ad-hoc debates to ensure full rounds
-            early_stopping=False,
-            convergence_detection=False,
-            min_rounds_before_early_stop=config.rounds,
+            # 9-round structured format
+            use_structured_phases=True,
+            # Near-impossible early stopping (require 95% uniform consensus)
+            early_stopping=True,
+            early_stop_threshold=0.95,
+            min_rounds_before_early_stop=7,
+            # High convergence bar to prevent premature consensus
+            convergence_detection=True,
+            convergence_threshold=0.95,
+            # Enable Trickster for hollow consensus detection
+            enable_trickster=True,
+            trickster_sensitivity=0.7,
+            # Enable all quality features
+            enable_calibration=True,
+            enable_rhetorical_observer=True,
+            enable_evolution=True,
+            enable_evidence_weighting=True,
+            verify_claims_during_consensus=True,
+            enable_research=True,
+            # Role rotation for cognitive diversity
+            role_rotation=True,
+            role_matching=True,
+            # Extended timeouts for 9-round debates
+            timeout_seconds=1800,  # 30 minutes total
+            round_timeout_seconds=150,  # 2.5 minutes per round
+            debate_rounds_timeout_seconds=900,  # 15 minutes for debate rounds
+            # Enable breakpoints for human intervention
+            enable_breakpoints=True,
         )
 
         # Build arena using ArenaBuilder for cleaner configuration
@@ -315,9 +346,10 @@ class DebateFactory:
             .with_event_hooks(event_hooks or {})
             .with_event_emitter(self.stream_emitter)
             .with_loop_id(config.debate_id or "")
+            .with_strict_loop_scoping(True)  # Enable strict scoping for web debates
         )
 
-        # Add optional subsystems if available
+        # Add all available subsystems for comprehensive 9-round debates
         if self.persona_manager:
             builder = builder.with_persona_manager(self.persona_manager)
         if self.debate_embeddings:
@@ -336,6 +368,9 @@ class DebateFactory:
             builder = builder.with_moment_detector(self.moment_detector)
         if config.trending_topic:
             builder = builder.with_trending_topic(config.trending_topic)
+
+        # Enable position ledger auto-creation for truth grounding
+        builder = builder.with_enable_position_ledger(True)
 
         return builder.build()
 

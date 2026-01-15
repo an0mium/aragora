@@ -19,7 +19,10 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from aragora.typing import EventEmitterProtocol
 
 from aragora.config import (
     CACHE_TTL_CALIBRATION_LB,
@@ -196,7 +199,9 @@ class EloSystem:
     _stats_cache: TTLCache[dict] = TTLCache(maxsize=10, ttl_seconds=CACHE_TTL_LB_STATS)
     _calibration_cache: TTLCache[list] = TTLCache(maxsize=20, ttl_seconds=CACHE_TTL_CALIBRATION_LB)
 
-    def __init__(self, db_path: str = DB_ELO_PATH, event_emitter: Any = None):
+    def __init__(
+        self, db_path: str = DB_ELO_PATH, event_emitter: Optional["EventEmitterProtocol"] = None
+    ):
         resolved_path = resolve_db_path(db_path)
         self.db_path = Path(resolved_path)
         self._db = EloDatabase(resolved_path)
@@ -718,16 +723,12 @@ class EloSystem:
             winner_name = winner or (debate_id or "")
             loser_name = loser or participants
             if not winner_name or not loser_name:
-                raise ValueError(
-                    "winner and loser must be provided for legacy record_match calls"
-                )
+                raise ValueError("winner and loser must be provided for legacy record_match calls")
             if scores is None or isinstance(scores, bool):
                 draw_flag = (
                     draw
                     if draw is not None
-                    else bool(scores)
-                    if isinstance(scores, bool)
-                    else False
+                    else bool(scores) if isinstance(scores, bool) else False
                 )
                 scores = self._build_match_scores(winner_name, loser_name, draw_flag)
             participants_list = [winner_name, loser_name]

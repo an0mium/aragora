@@ -28,7 +28,9 @@ MAX_FTS_TERMS = 20  # Maximum number of search terms
 FTS_SPECIAL_CHARS = set('"*(){}[]^:')  # Characters with special FTS5 meaning
 
 
-def sanitize_fts_query(query: str, max_length: int = MAX_FTS_QUERY_LENGTH, max_terms: int = MAX_FTS_TERMS) -> str:
+def sanitize_fts_query(
+    query: str, max_length: int = MAX_FTS_QUERY_LENGTH, max_terms: int = MAX_FTS_TERMS
+) -> str:
     """Sanitize and limit FTS query complexity.
 
     Args:
@@ -59,7 +61,7 @@ def sanitize_fts_query(query: str, max_length: int = MAX_FTS_QUERY_LENGTH, max_t
     for char in query:
         if char in FTS_SPECIAL_CHARS:
             # Skip most special chars, keep * for wildcards
-            if char == '*':
+            if char == "*":
                 sanitized_chars.append(char)
             # Otherwise skip
         else:

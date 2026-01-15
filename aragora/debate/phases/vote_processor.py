@@ -125,9 +125,7 @@ class VoteProcessor:
             """Cast a vote for a single agent with timeout protection."""
             logger.debug(f"agent_voting agent={agent.name}")
             try:
-                timeout = get_complexity_governor().get_scaled_timeout(
-                    float(AGENT_TIMEOUT_SECONDS)
-                )
+                timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
                 if self._with_timeout:
                     vote_result = await self._with_timeout(
                         self._vote_with_agent(agent, ctx.proposals, task),
@@ -138,9 +136,7 @@ class VoteProcessor:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
             except Exception as e:
-                logger.warning(
-                    f"vote_exception agent={agent.name} error={type(e).__name__}: {e}"
-                )
+                logger.warning(f"vote_exception agent={agent.name} error={type(e).__name__}: {e}")
                 return (agent, e)
 
         async def collect_all_votes() -> None:
@@ -160,17 +156,13 @@ class VoteProcessor:
                     if isinstance(vote_result, Exception):
                         logger.error(f"vote_error agent={agent.name} error={vote_result}")
                     else:
-                        logger.error(
-                            f"vote_error agent={agent.name} error=vote returned None"
-                        )
+                        logger.error(f"vote_error agent={agent.name} error=vote returned None")
                 else:
                     votes.append(vote_result)
                     self._handle_vote_success(ctx, agent, vote_result)
 
         try:
-            await asyncio.wait_for(
-                collect_all_votes(), timeout=self.vote_collection_timeout
-            )
+            await asyncio.wait_for(collect_all_votes(), timeout=self.vote_collection_timeout)
         except asyncio.TimeoutError:
             logger.warning(
                 f"vote_collection_timeout collected={len(votes)} "
@@ -179,9 +171,7 @@ class VoteProcessor:
 
         return votes
 
-    async def collect_votes_with_errors(
-        self, ctx: "DebateContext"
-    ) -> tuple[list["Vote"], int]:
+    async def collect_votes_with_errors(self, ctx: "DebateContext") -> tuple[list["Vote"], int]:
         """Collect votes with error tracking.
 
         Used for unanimity mode where we need to track errors.
@@ -203,9 +193,7 @@ class VoteProcessor:
             """Cast a vote for unanimous consensus with timeout protection."""
             logger.debug(f"agent_voting_unanimous agent={agent.name}")
             try:
-                timeout = get_complexity_governor().get_scaled_timeout(
-                    float(AGENT_TIMEOUT_SECONDS)
-                )
+                timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
                 if self._with_timeout:
                     vote_result = await self._with_timeout(
                         self._vote_with_agent(agent, ctx.proposals, task),
@@ -217,8 +205,7 @@ class VoteProcessor:
                 return (agent, vote_result)
             except Exception as e:
                 logger.warning(
-                    f"vote_exception_unanimous agent={agent.name} "
-                    f"error={type(e).__name__}: {e}"
+                    f"vote_exception_unanimous agent={agent.name} " f"error={type(e).__name__}: {e}"
                 )
                 return (agent, e)
 
@@ -239,13 +226,10 @@ class VoteProcessor:
 
                 if vote_result is None or isinstance(vote_result, Exception):
                     if isinstance(vote_result, Exception):
-                        logger.error(
-                            f"vote_error_unanimous agent={agent.name} error={vote_result}"
-                        )
+                        logger.error(f"vote_error_unanimous agent={agent.name} error={vote_result}")
                     else:
                         logger.error(
-                            f"vote_error_unanimous agent={agent.name} "
-                            "error=vote returned None"
+                            f"vote_error_unanimous agent={agent.name} " "error=vote returned None"
                         )
                     voting_errors += 1
                 else:
@@ -253,9 +237,7 @@ class VoteProcessor:
                     self._handle_vote_success(ctx, agent, vote_result, unanimous=True)
 
         try:
-            await asyncio.wait_for(
-                collect_all_votes(), timeout=self.vote_collection_timeout
-            )
+            await asyncio.wait_for(collect_all_votes(), timeout=self.vote_collection_timeout)
         except asyncio.TimeoutError:
             missing = len(ctx.agents) - len(votes) - voting_errors
             voting_errors += missing
@@ -302,9 +284,7 @@ class VoteProcessor:
         if self.position_tracker:
             try:
                 debate_id = (
-                    result.id
-                    if hasattr(result, "id")
-                    else (ctx.env.task[:50] if ctx.env else "")
+                    result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
                 )
                 self.position_tracker.record_position(
                     debate_id=debate_id,
@@ -479,9 +459,7 @@ class VoteProcessor:
                 intensity = user_vote.get("intensity", 5)
 
                 if self._user_vote_multiplier:
-                    intensity_multiplier = self._user_vote_multiplier(
-                        intensity, self.protocol
-                    )
+                    intensity_multiplier = self._user_vote_multiplier(intensity, self.protocol)
                 else:
                     intensity_multiplier = 1.0
 
@@ -518,7 +496,7 @@ class VoteProcessor:
         Returns:
             Normalized agent name or original choice if no match
         """
-        choice_lower = choice.lower().strip().strip('"\'')
+        choice_lower = choice.lower().strip().strip("\"'")
         agent_names = [a.name for a in agents]
 
         # Direct match

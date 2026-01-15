@@ -252,7 +252,9 @@ class ServerBase:
             event_round = event.get("round", 0)
         else:
             loop_id = event.loop_id
-            event_type = event.type.value if isinstance(event.type, StreamEventType) else str(event.type)
+            event_type = (
+                event.type.value if isinstance(event.type, StreamEventType) else str(event.type)
+            )
             event_data = event.data or {}
             event_agent = event.agent
             event_round = event.round
@@ -285,7 +287,9 @@ class ServerBase:
                     {
                         "agent": event_agent,
                         "content": event_data.get("content", ""),  # Full content - never truncate
-                        "role": event_data.get("role", "agent"),  # Preserve role for synthesis detection
+                        "role": event_data.get(
+                            "role", "agent"
+                        ),  # Preserve role for synthesis detection
                         "round": event_round,
                     }
                 )

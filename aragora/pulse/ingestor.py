@@ -670,7 +670,9 @@ class GoogleTrendsIngestor(PulseIngestor):
                 # Find all items in the RSS feed
                 for item in root.findall(".//item")[:limit]:
                     title = item.find("title")
-                    traffic = item.find("{https://trends.google.com/trends/trendingsearches/daily}approx_traffic")
+                    traffic = item.find(
+                        "{https://trends.google.com/trends/trendingsearches/daily}approx_traffic"
+                    )
 
                     if title is not None:
                         # Parse traffic number (e.g., "200K+" -> 200000)
@@ -696,7 +698,9 @@ class GoogleTrendsIngestor(PulseIngestor):
                         )
                         topics.append(topic)
 
-                logger.info(f"[google_trends] Fetched {len(topics)} real trending searches from Google")
+                logger.info(
+                    f"[google_trends] Fetched {len(topics)} real trending searches from Google"
+                )
                 return topics
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
@@ -704,13 +708,21 @@ class GoogleTrendsIngestor(PulseIngestor):
     def _categorize_topic(self, topic: str) -> str:
         """Categorize Google Trends topic based on keywords."""
         topic_lower = topic.lower()
-        if any(word in topic_lower for word in ["ai", "tech", "software", "app", "google", "apple", "microsoft"]):
+        if any(
+            word in topic_lower
+            for word in ["ai", "tech", "software", "app", "google", "apple", "microsoft"]
+        ):
             return "tech"
-        elif any(word in topic_lower for word in ["election", "president", "congress", "vote", "political"]):
+        elif any(
+            word in topic_lower
+            for word in ["election", "president", "congress", "vote", "political"]
+        ):
             return "politics"
         elif any(word in topic_lower for word in ["climate", "environment", "weather", "storm"]):
             return "environment"
-        elif any(word in topic_lower for word in ["game", "sport", "nfl", "nba", "soccer", "football"]):
+        elif any(
+            word in topic_lower for word in ["game", "sport", "nfl", "nba", "soccer", "football"]
+        ):
             return "sports"
         elif any(word in topic_lower for word in ["movie", "show", "celebrity", "music", "album"]):
             return "entertainment"

@@ -3387,7 +3387,11 @@ The most valuable proposals combine deep analysis with actionable implementation
                     for i, part in enumerate(parts):
                         if len(part) == 8 and part.isdigit():
                             timestamp_str = part
-                            if i + 1 < len(parts) and len(parts[i + 1]) == 6 and parts[i + 1].isdigit():
+                            if (
+                                i + 1 < len(parts)
+                                and len(parts[i + 1]) == 6
+                                and parts[i + 1].isdigit()
+                            ):
                                 timestamp_str += parts[i + 1]
                             break
 
@@ -3409,7 +3413,9 @@ The most valuable proposals combine deep analysis with actionable implementation
                                 result["deleted"] += 1
                                 self._log(f"  [cleanup] Deleted old branch: {branch}")
                             else:
-                                result["errors"].append(f"Failed to delete {branch}: {delete_result.stderr}")
+                                result["errors"].append(
+                                    f"Failed to delete {branch}: {delete_result.stderr}"
+                                )
                         else:
                             result["preserved"] += 1
                     else:
@@ -3530,9 +3536,12 @@ The most valuable proposals combine deep analysis with actionable implementation
             else:
                 # Fallback: simple regex extraction
                 import re
+
                 failures = []
                 for match in re.finditer(r"FAILED\s+([\w/]+\.py)::([\w\[\]]+)", test_output):
-                    failures.append({"file": match.group(1), "test": match.group(2), "type": "assertion"})
+                    failures.append(
+                        {"file": match.group(1), "test": match.group(2), "type": "assertion"}
+                    )
 
             if not failures:
                 return
@@ -3541,12 +3550,14 @@ The most valuable proposals combine deep analysis with actionable implementation
             conn = self.critique_store.conn if hasattr(self.critique_store, "conn") else None
             if not conn:
                 import sqlite3
+
                 conn = sqlite3.connect(self.critique_store.db_path)
 
             cursor = conn.cursor()
 
             # Ensure patterns table exists
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS patterns (
                     id INTEGER PRIMARY KEY,
                     issue_type TEXT,
@@ -3557,7 +3568,8 @@ The most valuable proposals combine deep analysis with actionable implementation
                     last_seen TEXT,
                     design_context TEXT
                 )
-            """)
+            """
+            )
 
             # Record each failure
             now = datetime.now().isoformat()
@@ -3569,7 +3581,7 @@ The most valuable proposals combine deep analysis with actionable implementation
                 # Check if pattern exists
                 cursor.execute(
                     "SELECT id, failure_count FROM patterns WHERE issue_type = ? AND issue_text = ?",
-                    (failure_type, test_name)
+                    (failure_type, test_name),
                 )
                 existing = cursor.fetchone()
 
@@ -3577,14 +3589,20 @@ The most valuable proposals combine deep analysis with actionable implementation
                     # Increment failure count
                     cursor.execute(
                         "UPDATE patterns SET failure_count = failure_count + 1, last_seen = ? WHERE id = ?",
-                        (now, existing[0])
+                        (now, existing[0]),
                     )
                 else:
                     # Insert new pattern
                     cursor.execute(
                         """INSERT INTO patterns (issue_type, issue_text, file_path, failure_count, last_seen, design_context)
                            VALUES (?, ?, ?, 1, ?, ?)""",
-                        (failure_type, test_name, file_path, now, design_context[:500] if design_context else "")
+                        (
+                            failure_type,
+                            test_name,
+                            file_path,
+                            now,
+                            design_context[:500] if design_context else "",
+                        ),
                     )
 
             conn.commit()
@@ -7728,9 +7746,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         return {
             "phase": "debate",
             "improvement": result["improvement"],
-            "final_answer": result[
-                "improvement"
-            ],  # Alias for backward compat with _run_cycle_impl
+            "final_answer": result["improvement"],  # Alias for backward compat with _run_cycle_impl
             "consensus_reached": result["consensus_reached"],
             "confidence": result["confidence"],
         }

@@ -108,6 +108,7 @@ class TestTrainingHandlerFormats:
         # Result is a HandlerResult, need to check body
         assert result.status_code == 200
         import json
+
         body = json.loads(result.body.decode("utf-8"))
         assert "formats" in body
         assert "output_formats" in body
@@ -118,6 +119,7 @@ class TestTrainingHandlerFormats:
         handler = TrainingHandler({})
         result = handler.handle_formats("/api/training/formats", {}, None)
         import json
+
         body = json.loads(result.body.decode("utf-8"))
         assert "sft" in body["formats"]
         assert "description" in body["formats"]["sft"]
@@ -128,6 +130,7 @@ class TestTrainingHandlerFormats:
         handler = TrainingHandler({})
         result = handler.handle_formats("/api/training/formats", {}, None)
         import json
+
         body = json.loads(result.body.decode("utf-8"))
         assert "dpo" in body["formats"]
         assert "description" in body["formats"]["dpo"]
@@ -137,6 +140,7 @@ class TestTrainingHandlerFormats:
         handler = TrainingHandler({})
         result = handler.handle_formats("/api/training/formats", {}, None)
         import json
+
         body = json.loads(result.body.decode("utf-8"))
         assert "gauntlet" in body["formats"]
         assert "description" in body["formats"]["gauntlet"]
@@ -146,6 +150,7 @@ class TestTrainingHandlerFormats:
         handler = TrainingHandler({})
         result = handler.handle_formats("/api/training/formats", {}, None)
         import json
+
         body = json.loads(result.body.decode("utf-8"))
         assert "json" in body["output_formats"]
         assert "jsonl" in body["output_formats"]
@@ -213,6 +218,7 @@ class TestTrainingHandlerStats:
         handler = TrainingHandler({})
         result = handler.handle_stats("/api/training/stats", {}, None)
         import json
+
         body = json.loads(result.body.decode("utf-8"))
         assert "available_exporters" in body
         assert isinstance(body["available_exporters"], list)
@@ -222,6 +228,7 @@ class TestTrainingHandlerStats:
         handler = TrainingHandler({})
         result = handler.handle_stats("/api/training/stats", {}, None)
         import json
+
         body = json.loads(result.body.decode("utf-8"))
         assert "export_directory" in body
 
@@ -230,6 +237,7 @@ class TestTrainingHandlerStats:
         handler = TrainingHandler({})
         result = handler.handle_stats("/api/training/stats", {}, None)
         import json
+
         body = json.loads(result.body.decode("utf-8"))
         assert "exported_files" in body
         assert isinstance(body["exported_files"], list)

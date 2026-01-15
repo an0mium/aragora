@@ -564,9 +564,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             if len(agent_list) > MAX_AGENTS_PER_DEBATE:
                 with _active_debates_lock:
                     _active_debates[debate_id]["status"] = "error"
-                    _active_debates[debate_id]["error"] = (
-                        f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
-                    )
+                    _active_debates[debate_id][
+                        "error"
+                    ] = f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
                     _active_debates[debate_id]["completed_at"] = time.time()
                 return
             if len(agent_list) < 2:
@@ -1188,21 +1188,27 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                                 with self._debate_states_lock:
                                     state = self.debate_states.get(debate_id)
                                 if state:
-                                    await ws.send_json({
-                                        "type": "sync",
-                                        "data": state,
-                                        "debate_id": debate_id,
-                                    })
+                                    await ws.send_json(
+                                        {
+                                            "type": "sync",
+                                            "data": state,
+                                            "debate_id": debate_id,
+                                        }
+                                    )
                                 else:
-                                    await ws.send_json({
-                                        "type": "subscribed",
-                                        "data": {"debate_id": debate_id},
-                                    })
+                                    await ws.send_json(
+                                        {
+                                            "type": "subscribed",
+                                            "data": {"debate_id": debate_id},
+                                        }
+                                    )
                             else:
-                                await ws.send_json({
-                                    "type": "error",
-                                    "data": {"message": "subscribe requires debate_id"},
-                                })
+                                await ws.send_json(
+                                    {
+                                        "type": "error",
+                                        "data": {"message": "subscribe requires debate_id"},
+                                    }
+                                )
 
                         elif msg_type in ("user_vote", "user_suggestion"):
                             # Validate authentication for write operations
@@ -1381,7 +1387,8 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                             sent_count += 1
                         except Exception as e:
                             logger.debug(
-                                "WebSocket client disconnected during broadcast: %s", type(e).__name__
+                                "WebSocket client disconnected during broadcast: %s",
+                                type(e).__name__,
                             )
                             dead_clients.append(client)
 

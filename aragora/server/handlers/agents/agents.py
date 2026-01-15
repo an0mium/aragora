@@ -400,9 +400,7 @@ class AgentsHandler(BaseHandler):
             from aragora.agents.fallback import get_local_fallback_providers, is_local_llm_available
 
             health["fallback"] = {
-                "openrouter_available": bool(
-                    __import__("os").environ.get("OPENROUTER_API_KEY")
-                ),
+                "openrouter_available": bool(__import__("os").environ.get("OPENROUTER_API_KEY")),
                 "local_llm_available": is_local_llm_available(),
                 "local_providers": get_local_fallback_providers(),
             }
@@ -430,9 +428,7 @@ class AgentsHandler(BaseHandler):
                 # Check if required API key is configured
                 env_var = spec.get("env_var")
                 if env_var:
-                    agent_health["api_key_configured"] = bool(
-                        __import__("os").environ.get(env_var)
-                    )
+                    agent_health["api_key_configured"] = bool(__import__("os").environ.get(env_var))
                     agent_health["available"] = agent_health["api_key_configured"]
                 else:
                     # CLI agents or agents without API keys
@@ -453,18 +449,18 @@ class AgentsHandler(BaseHandler):
 
         # Calculate summary
         available_count = sum(
-            1 for a in health["agents"].values()
+            1
+            for a in health["agents"].values()
             if isinstance(a, dict) and a.get("available", False)
         )
-        total_count = sum(
-            1 for a in health["agents"].values()
-            if isinstance(a, dict)
-        )
+        total_count = sum(1 for a in health["agents"].values() if isinstance(a, dict))
 
         health["summary"] = {
             "available_agents": available_count,
             "total_agents": total_count,
-            "availability_rate": round(available_count / total_count, 2) if total_count > 0 else 0.0,
+            "availability_rate": (
+                round(available_count / total_count, 2) if total_count > 0 else 0.0
+            ),
         }
 
         # Downgrade status if too few agents available
@@ -516,9 +512,7 @@ class AgentsHandler(BaseHandler):
                                     "consistency_class": (
                                         "high"
                                         if consistency >= 0.8
-                                        else "medium"
-                                        if consistency >= 0.6
-                                        else "low"
+                                        else "medium" if consistency >= 0.6 else "low"
                                     ),
                                 }
                         except Exception as e:

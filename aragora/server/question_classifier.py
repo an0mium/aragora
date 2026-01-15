@@ -23,42 +23,114 @@ logger = logging.getLogger(__name__)
 QUESTION_CATEGORIES = {
     "technical": {
         "description": "Software, technology, engineering questions",
-        "keywords": ["code", "software", "api", "database", "architecture", "performance", "bug", "deploy"],
+        "keywords": [
+            "code",
+            "software",
+            "api",
+            "database",
+            "architecture",
+            "performance",
+            "bug",
+            "deploy",
+        ],
         "domains": ["architecture", "performance", "api_design", "database", "security", "testing"],
     },
     "legal": {
         "description": "Law, regulations, compliance, lawsuits",
-        "keywords": ["law", "legal", "lawsuit", "court", "regulation", "compliance", "rights", "contract"],
+        "keywords": [
+            "law",
+            "legal",
+            "lawsuit",
+            "court",
+            "regulation",
+            "compliance",
+            "rights",
+            "contract",
+        ],
         "domains": ["sox_compliance", "pci_dss", "hipaa", "gdpr", "finra", "fda_21_cfr"],
     },
     "security": {
         "description": "Cybersecurity, privacy, data protection",
-        "keywords": ["security", "privacy", "encryption", "breach", "hack", "vulnerability", "authentication"],
+        "keywords": [
+            "security",
+            "privacy",
+            "encryption",
+            "breach",
+            "hack",
+            "vulnerability",
+            "authentication",
+        ],
         "domains": ["security", "encryption", "access_control", "data_privacy"],
     },
     "scientific": {
         "description": "Science, research, methodology questions",
-        "keywords": ["research", "study", "science", "experiment", "data", "evidence", "hypothesis"],
+        "keywords": [
+            "research",
+            "study",
+            "science",
+            "experiment",
+            "data",
+            "evidence",
+            "hypothesis",
+        ],
         "domains": ["testing", "documentation", "error_handling"],
     },
     "political": {
         "description": "Politics, policy, government, elections",
-        "keywords": ["policy", "government", "election", "political", "congress", "president", "vote"],
+        "keywords": [
+            "policy",
+            "government",
+            "election",
+            "political",
+            "congress",
+            "president",
+            "vote",
+        ],
         "domains": ["fisma", "nist_800_53", "audit_trails"],
     },
     "ethical": {
         "description": "Ethics, morality, philosophy, theology questions",
         "keywords": [
-            "ethics", "moral", "right", "wrong", "should", "philosophy", "values",
-            "heaven", "hell", "god", "soul", "sin", "salvation", "afterlife",
-            "abortion", "euthanasia", "death", "life", "meaning", "purpose",
-            "religion", "spiritual", "faith", "belief", "conscience",
+            "ethics",
+            "moral",
+            "right",
+            "wrong",
+            "should",
+            "philosophy",
+            "values",
+            "heaven",
+            "hell",
+            "god",
+            "soul",
+            "sin",
+            "salvation",
+            "afterlife",
+            "abortion",
+            "euthanasia",
+            "death",
+            "life",
+            "meaning",
+            "purpose",
+            "religion",
+            "spiritual",
+            "faith",
+            "belief",
+            "conscience",
         ],
         "domains": ["philosophy", "ethics", "theology", "humanities"],
     },
     "financial": {
         "description": "Finance, economics, markets, money",
-        "keywords": ["finance", "economic", "market", "money", "investment", "bank", "stock", "trade"],
+        "keywords": [
+            "finance",
+            "economic",
+            "market",
+            "money",
+            "investment",
+            "bank",
+            "stock",
+            "trade",
+        ],
         "domains": ["sox_compliance", "finra", "audit_trails"],
     },
     "healthcare": {
@@ -233,7 +305,9 @@ Guidelines:
             result = json.loads(content)
 
             # Validate personas exist
-            valid_personas = [p for p in result.get("recommended_personas", []) if p in available_personas]
+            valid_personas = [
+                p for p in result.get("recommended_personas", []) if p in available_personas
+            ]
             if len(valid_personas) < 2:
                 # Fallback to simple classification
                 return self.classify_simple(question)
@@ -251,9 +325,7 @@ Guidelines:
             logger.warning(f"Classification failed, using simple fallback: {e}")
             return self.classify_simple(question)
 
-    def _select_personas_for_domains(
-        self, domains: list[str], complexity: str
-    ) -> list[str]:
+    def _select_personas_for_domains(self, domains: list[str], complexity: str) -> list[str]:
         """Select personas that have expertise in given domains."""
         persona_scores: dict[str, float] = {}
 
@@ -280,7 +352,7 @@ Guidelines:
         # Ensure diversity: add a contrarian if not present
         if "grok" not in selected and "contrarian" not in selected:
             if "grok" in DEFAULT_PERSONAS:
-                selected = selected[:count - 1] + ["grok"]
+                selected = selected[: count - 1] + ["grok"]
 
         return selected
 
@@ -311,7 +383,9 @@ Guidelines:
         return ",".join(agents)
 
 
-def classify_and_assign_agents(question: str, use_llm: bool = True) -> tuple[str, QuestionClassification]:
+def classify_and_assign_agents(
+    question: str, use_llm: bool = True
+) -> tuple[str, QuestionClassification]:
     """Convenience function to classify question and get agent string.
 
     Args:

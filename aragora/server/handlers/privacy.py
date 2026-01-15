@@ -60,7 +60,10 @@ class PrivacyHandler(BaseHandler):
             return self._handle_export(handler, query_params)
 
         # Data inventory
-        if path in ("/api/privacy/data-inventory", "/api/v2/users/me/data-inventory") and method == "GET":
+        if (
+            path in ("/api/privacy/data-inventory", "/api/v2/users/me/data-inventory")
+            and method == "GET"
+        ):
             return self._handle_data_inventory(handler)
 
         # Account deletion
@@ -148,8 +151,12 @@ class PrivacyHandler(BaseHandler):
         if user.api_key_prefix:
             data["api_key"] = {
                 "prefix": user.api_key_prefix,
-                "created_at": user.api_key_created_at.isoformat() if user.api_key_created_at else None,
-                "expires_at": user.api_key_expires_at.isoformat() if user.api_key_expires_at else None,
+                "created_at": (
+                    user.api_key_created_at.isoformat() if user.api_key_created_at else None
+                ),
+                "expires_at": (
+                    user.api_key_expires_at.isoformat() if user.api_key_expires_at else None
+                ),
             }
 
         # Organization membership
@@ -392,12 +399,14 @@ class PrivacyHandler(BaseHandler):
 
         logger.info(f"Account deleted: {self._hash_for_audit(user.email)}")
 
-        return json_response({
-            "message": "Account deleted successfully",
-            "deletion_id": deletion_result["deletion_id"],
-            "data_deleted": deletion_result["data_deleted"],
-            "retention_note": "Audit logs retained for 7 years per compliance requirements",
-        })
+        return json_response(
+            {
+                "message": "Account deleted successfully",
+                "deletion_id": deletion_result["deletion_id"],
+                "data_deleted": deletion_result["data_deleted"],
+                "retention_note": "Audit logs retained for 7 years per compliance requirements",
+            }
+        )
 
     def _perform_account_deletion(self, user_store, user, reason: str) -> dict:
         """Perform the actual account deletion with data anonymization."""
@@ -487,6 +496,7 @@ class PrivacyHandler(BaseHandler):
     def _hash_for_audit(self, value: str) -> str:
         """Hash a value for audit logging (privacy-preserving)."""
         import hashlib
+
         return hashlib.sha256(value.encode()).hexdigest()[:16]
 
     @handle_errors("get privacy preferences")
@@ -503,12 +513,14 @@ class PrivacyHandler(BaseHandler):
         preferences = user_store.get_user_preferences(auth_ctx.user_id) or {}
         privacy_prefs = preferences.get("privacy", {})
 
-        return json_response({
-            "do_not_sell": privacy_prefs.get("do_not_sell", False),
-            "marketing_opt_out": privacy_prefs.get("marketing_opt_out", False),
-            "analytics_opt_out": privacy_prefs.get("analytics_opt_out", False),
-            "third_party_sharing": privacy_prefs.get("third_party_sharing", True),
-        })
+        return json_response(
+            {
+                "do_not_sell": privacy_prefs.get("do_not_sell", False),
+                "marketing_opt_out": privacy_prefs.get("marketing_opt_out", False),
+                "analytics_opt_out": privacy_prefs.get("analytics_opt_out", False),
+                "third_party_sharing": privacy_prefs.get("third_party_sharing", True),
+            }
+        )
 
     @rate_limit(rpm=5, limiter_name="privacy_preferences")
     @handle_errors("update privacy preferences")
@@ -536,7 +548,12 @@ class PrivacyHandler(BaseHandler):
         privacy_prefs = current.get("privacy", {})
 
         # Update allowed fields
-        allowed_fields = ["do_not_sell", "marketing_opt_out", "analytics_opt_out", "third_party_sharing"]
+        allowed_fields = [
+            "do_not_sell",
+            "marketing_opt_out",
+            "analytics_opt_out",
+            "third_party_sharing",
+        ]
         for field in allowed_fields:
             if field in body:
                 privacy_prefs[field] = bool(body[field])
@@ -556,10 +573,12 @@ class PrivacyHandler(BaseHandler):
 
         logger.info(f"Privacy preferences updated for user: {auth_ctx.user_id}")
 
-        return json_response({
-            "message": "Privacy preferences updated",
-            "preferences": privacy_prefs,
-        })
+        return json_response(
+            {
+                "message": "Privacy preferences updated",
+                "preferences": privacy_prefs,
+            }
+        )
 
 
 __all__ = ["PrivacyHandler"]

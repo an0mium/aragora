@@ -477,7 +477,9 @@ class TestRateLimiting:
     def test_rate_limit_returns_429(self, handler):
         """Should return 429 when rate limit exceeded."""
         # Mock the rate limiter to always return False (limit exceeded)
-        with patch("aragora.server.handlers.social.relationship._relationship_limiter") as mock_limiter:
+        with patch(
+            "aragora.server.handlers.social.relationship._relationship_limiter"
+        ) as mock_limiter:
             mock_limiter.is_allowed.return_value = False
 
             mock_handler = Mock()

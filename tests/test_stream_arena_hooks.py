@@ -415,9 +415,7 @@ class TestWrapAgentForStreaming:
 
         await agent.generate("Test")
 
-        start_event = next(
-            e for e in mock_emitter.events if e.type == StreamEventType.TOKEN_START
-        )
+        start_event = next(e for e in mock_emitter.events if e.type == StreamEventType.TOKEN_START)
         assert start_event.data["debate_id"] == "debate-xyz"
         assert start_event.data["agent"] == "test_agent"
         assert start_event.agent == "test_agent"
@@ -438,9 +436,7 @@ class TestWrapAgentForStreaming:
 
         await agent.generate("Test")
 
-        delta_event = next(
-            e for e in mock_emitter.events if e.type == StreamEventType.TOKEN_DELTA
-        )
+        delta_event = next(e for e in mock_emitter.events if e.type == StreamEventType.TOKEN_DELTA)
         assert delta_event.data["token"] == "Hello"
         assert delta_event.data["debate_id"] == "debate-123"
         assert delta_event.data["agent"] == "test_agent"
@@ -462,9 +458,7 @@ class TestWrapAgentForStreaming:
 
         await agent.generate("Test")
 
-        end_event = next(
-            e for e in mock_emitter.events if e.type == StreamEventType.TOKEN_END
-        )
+        end_event = next(e for e in mock_emitter.events if e.type == StreamEventType.TOKEN_END)
         assert end_event.data["full_response"] == "Hello World"
 
     @pytest.mark.asyncio
@@ -488,9 +482,7 @@ class TestWrapAgentForStreaming:
         assert result == "Partial"
 
         # TOKEN_END should have error info
-        end_event = next(
-            e for e in mock_emitter.events if e.type == StreamEventType.TOKEN_END
-        )
+        end_event = next(e for e in mock_emitter.events if e.type == StreamEventType.TOKEN_END)
         assert "error" in end_event.data
         assert end_event.data["full_response"] == "Partial"
 

@@ -148,7 +148,9 @@ class TestGetScorerInfo:
         defaults = json.loads(defaults_result.body)
         scorer_name = defaults["scorer"]
 
-        result = selection_handler.handle(f"/api/selection/scorers/{scorer_name}", {}, mock_http_handler)
+        result = selection_handler.handle(
+            f"/api/selection/scorers/{scorer_name}", {}, mock_http_handler
+        )
 
         assert result is not None
         assert result.status_code == 200
@@ -159,7 +161,9 @@ class TestGetScorerInfo:
         """Get scorer info for unknown scorer should return 404."""
         _selection_limiter._buckets.clear()
 
-        result = selection_handler.handle("/api/selection/scorers/nonexistent_scorer", {}, mock_http_handler)
+        result = selection_handler.handle(
+            "/api/selection/scorers/nonexistent_scorer", {}, mock_http_handler
+        )
 
         assert result is not None
         assert result.status_code == 404
@@ -178,7 +182,9 @@ class TestGetTeamSelectorInfo:
         defaults = json.loads(defaults_result.body)
         selector_name = defaults["team_selector"]
 
-        result = selection_handler.handle(f"/api/selection/team-selectors/{selector_name}", {}, mock_http_handler)
+        result = selection_handler.handle(
+            f"/api/selection/team-selectors/{selector_name}", {}, mock_http_handler
+        )
 
         assert result is not None
         assert result.status_code == 200
@@ -187,7 +193,9 @@ class TestGetTeamSelectorInfo:
         """Get team selector info for unknown selector should return 404."""
         _selection_limiter._buckets.clear()
 
-        result = selection_handler.handle("/api/selection/team-selectors/nonexistent", {}, mock_http_handler)
+        result = selection_handler.handle(
+            "/api/selection/team-selectors/nonexistent", {}, mock_http_handler
+        )
 
         assert result is not None
         assert result.status_code == 404
@@ -204,7 +212,9 @@ class TestGetRoleAssignerInfo:
         defaults = json.loads(defaults_result.body)
         assigner_name = defaults["role_assigner"]
 
-        result = selection_handler.handle(f"/api/selection/role-assigners/{assigner_name}", {}, mock_http_handler)
+        result = selection_handler.handle(
+            f"/api/selection/role-assigners/{assigner_name}", {}, mock_http_handler
+        )
 
         assert result is not None
         assert result.status_code == 200
@@ -213,7 +223,9 @@ class TestGetRoleAssignerInfo:
         """Get role assigner info for unknown assigner should return 404."""
         _selection_limiter._buckets.clear()
 
-        result = selection_handler.handle("/api/selection/role-assigners/nonexistent", {}, mock_http_handler)
+        result = selection_handler.handle(
+            "/api/selection/role-assigners/nonexistent", {}, mock_http_handler
+        )
 
         assert result is not None
         assert result.status_code == 404
@@ -226,9 +238,9 @@ class TestScoreAgents:
         """Score agents with valid request should return scored list."""
         _selection_limiter._buckets.clear()
 
-        handler = make_post_handler({
-            "task_description": "Implement a new feature for user authentication"
-        })
+        handler = make_post_handler(
+            {"task_description": "Implement a new feature for user authentication"}
+        )
 
         result = selection_handler.handle_post("/api/selection/score", {}, handler)
 
@@ -248,12 +260,14 @@ class TestScoreAgents:
         """Score agents with explicit domain should use that domain."""
         _selection_limiter._buckets.clear()
 
-        handler = make_post_handler({
-            "task_description": "Build a REST API",
-            "primary_domain": "software_engineering",
-            "secondary_domains": ["architecture"],
-            "required_traits": ["analytical"]
-        })
+        handler = make_post_handler(
+            {
+                "task_description": "Build a REST API",
+                "primary_domain": "software_engineering",
+                "secondary_domains": ["architecture"],
+                "required_traits": ["analytical"],
+            }
+        )
 
         result = selection_handler.handle_post("/api/selection/score", {}, handler)
 
@@ -279,10 +293,9 @@ class TestScoreAgents:
         """Score agents with invalid scorer name should return 400."""
         _selection_limiter._buckets.clear()
 
-        handler = make_post_handler({
-            "task_description": "Test task",
-            "scorer": "nonexistent_scorer"
-        })
+        handler = make_post_handler(
+            {"task_description": "Test task", "scorer": "nonexistent_scorer"}
+        )
 
         result = selection_handler.handle_post("/api/selection/score", {}, handler)
 
@@ -297,10 +310,9 @@ class TestSelectTeam:
         """Select team with valid request should return team."""
         _selection_limiter._buckets.clear()
 
-        handler = make_post_handler({
-            "task_description": "Design a distributed system",
-            "team_size": 3
-        })
+        handler = make_post_handler(
+            {"task_description": "Design a distributed system", "team_size": 3}
+        )
 
         result = selection_handler.handle_post("/api/selection/team", {}, handler)
 

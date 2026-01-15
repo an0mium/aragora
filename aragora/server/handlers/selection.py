@@ -126,11 +126,13 @@ class SelectionHandler(BaseHandler):
     def _get_defaults(self) -> HandlerResult:
         """Get default plugin configuration."""
         plugin_registry = get_selection_registry()
-        return json_response({
-            "scorer": plugin_registry._default_scorer,
-            "team_selector": plugin_registry._default_team_selector,
-            "role_assigner": plugin_registry._default_role_assigner,
-        })
+        return json_response(
+            {
+                "scorer": plugin_registry._default_scorer,
+                "team_selector": plugin_registry._default_team_selector,
+                "role_assigner": plugin_registry._default_role_assigner,
+            }
+        )
 
     @handle_errors("get scorer")
     def _get_scorer(self, name: str) -> HandlerResult:
@@ -180,7 +182,9 @@ class SelectionHandler(BaseHandler):
             logger.debug(f"Invalid JSON in score_agents request: {type(e).__name__}: {e}")
             return error_response("Invalid JSON body", 400)
         except Exception as e:
-            logger.warning(f"Unexpected error parsing score_agents request: {type(e).__name__}: {e}")
+            logger.warning(
+                f"Unexpected error parsing score_agents request: {type(e).__name__}: {e}"
+            )
             return error_response("Invalid JSON body", 400)
 
         task_description = body.get("task_description")
@@ -221,22 +225,26 @@ class SelectionHandler(BaseHandler):
         scored_agents = []
         for agent in agent_pool.values():
             score = scorer.score_agent(agent, requirements, context)
-            scored_agents.append({
-                "name": agent.name,
-                "type": agent.agent_type,
-                "score": round(score, 4),
-                "domain_expertise": agent.expertise.get(primary_domain, 0.5),
-                "elo_rating": agent.elo_rating,
-            })
+            scored_agents.append(
+                {
+                    "name": agent.name,
+                    "type": agent.agent_type,
+                    "score": round(score, 4),
+                    "domain_expertise": agent.expertise.get(primary_domain, 0.5),
+                    "elo_rating": agent.elo_rating,
+                }
+            )
 
         # Sort by score
         scored_agents.sort(key=lambda x: x["score"], reverse=True)  # type: ignore[arg-type, return-value]
 
-        return json_response({
-            "scorer_used": scorer.name,
-            "agents": scored_agents,
-            "task_id": requirements.task_id,
-        })
+        return json_response(
+            {
+                "scorer_used": scorer.name,
+                "agents": scored_agents,
+                "task_id": requirements.task_id,
+            }
+        )
 
     @handle_errors("select team")
     def _select_team(self, handler) -> HandlerResult:
@@ -306,14 +314,16 @@ class SelectionHandler(BaseHandler):
         # Build response
         team_members = []
         for agent in team:
-            team_members.append({
-                "name": agent.name,
-                "type": agent.agent_type,
-                "role": roles.get(agent.name, "participant"),
-                "score": next((s for a, s in scored_agents if a.name == agent.name), 0),
-                "expertise": agent.expertise,
-                "elo_rating": agent.elo_rating,
-            })
+            team_members.append(
+                {
+                    "name": agent.name,
+                    "type": agent.agent_type,
+                    "role": roles.get(agent.name, "participant"),
+                    "score": next((s for a, s in scored_agents if a.name == agent.name), 0),
+                    "expertise": agent.expertise,
+                    "elo_rating": agent.elo_rating,
+                }
+            )
 
         # Calculate metrics
         expected_quality = sum(m["score"] for m in team_members) / len(team_members) if team_members else 0  # type: ignore[misc]
@@ -330,24 +340,27 @@ class SelectionHandler(BaseHandler):
             f"Diversity: {diversity_score:.0%}, Quality: {expected_quality:.0%}"
         )
 
-        return json_response({
-            "team_id": f"team-{requirements.task_id}",
-            "task_id": requirements.task_id,
-            "agents": team_members,
-            "expected_quality": round(expected_quality, 4),
-            "expected_cost": round(expected_cost, 2),
-            "diversity_score": round(diversity_score, 4),
-            "rationale": rationale,
-            "plugins_used": {
-                "scorer": scorer.name,
-                "team_selector": team_selector.name,
-                "role_assigner": role_assigner.name,
-            },
-        })
+        return json_response(
+            {
+                "team_id": f"team-{requirements.task_id}",
+                "task_id": requirements.task_id,
+                "agents": team_members,
+                "expected_quality": round(expected_quality, 4),
+                "expected_cost": round(expected_cost, 2),
+                "diversity_score": round(diversity_score, 4),
+                "rationale": rationale,
+                "plugins_used": {
+                    "scorer": scorer.name,
+                    "team_selector": team_selector.name,
+                    "role_assigner": role_assigner.name,
+                },
+            }
+        )
 
     def _get_json_body(self, handler) -> dict:
         """Extract JSON body from request handler."""
         if hasattr(handler, "request_body"):
             import json
+
             return json.loads(handler.request_body.decode("utf-8"))
         return {}

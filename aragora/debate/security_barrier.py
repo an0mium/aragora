@@ -110,9 +110,7 @@ class SecurityBarrier:
                     (
                         self.redact(v)
                         if isinstance(v, str)
-                        else self.redact_dict(v)
-                        if isinstance(v, dict)
-                        else v
+                        else self.redact_dict(v) if isinstance(v, dict) else v
                     )
                     for v in value
                 ]

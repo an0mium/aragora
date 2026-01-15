@@ -113,7 +113,9 @@ class MockGauntletStorage:
             }
         return None
 
-    def list_recent(self, limit: int = 20, offset: int = 0, verdict: str = None, min_severity: str = None):
+    def list_recent(
+        self, limit: int = 20, offset: int = 0, verdict: str = None, min_severity: str = None
+    ):
         results = list(self.results.values())
         return results[offset : offset + limit]
 
@@ -185,6 +187,7 @@ def gauntlet_handler():
 def clear_gauntlet_runs():
     """Clear in-memory gauntlet runs and rate limiters before each test."""
     from aragora.server.handlers.utils.rate_limit import _limiters
+
     _gauntlet_runs.clear()
     # Clear all handler rate limiters
     for limiter in _limiters.values():
@@ -246,9 +249,7 @@ class TestGauntletListPersonas:
 
                     handler = make_mock_handler()
 
-                    result = await gauntlet_handler.handle(
-                        "/api/gauntlet/personas", "GET", handler
-                    )
+                    result = await gauntlet_handler.handle("/api/gauntlet/personas", "GET", handler)
 
                     assert result is not None
                     assert result.status_code == 200
@@ -289,9 +290,7 @@ class TestGauntletStartRun:
             handler.rfile = BytesIO(b"invalid")
             handler.client_address = ("127.0.0.1", 12345)
 
-            result = await gauntlet_handler.handle(
-                "/api/gauntlet/run", "POST", handler
-            )
+            result = await gauntlet_handler.handle("/api/gauntlet/run", "POST", handler)
 
             assert result is not None
             assert result.status_code == 400
@@ -313,9 +312,7 @@ class TestGauntletStartRun:
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth:
                 mock_auth.return_value = MockAuthContext()
 
-                result = await gauntlet_handler.handle(
-                    "/api/gauntlet/run", "POST", handler
-                )
+                result = await gauntlet_handler.handle("/api/gauntlet/run", "POST", handler)
 
                 assert result is not None
                 assert result.status_code == 429
@@ -343,9 +340,7 @@ class TestGauntletGetStatus:
 
             handler = make_mock_handler(path="/api/gauntlet/gauntlet-test123")
 
-            result = await gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-test123", "GET", handler
-            )
+            result = await gauntlet_handler.handle("/api/gauntlet/gauntlet-test123", "GET", handler)
 
             assert result is not None
             assert result.status_code == 200
@@ -364,9 +359,7 @@ class TestGauntletGetStatus:
 
             handler = make_mock_handler(path="/api/gauntlet/gauntlet-test123")
 
-            result = await gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-test123", "GET", handler
-            )
+            result = await gauntlet_handler.handle("/api/gauntlet/gauntlet-test123", "GET", handler)
 
             assert result is not None
             assert result.status_code == 200
@@ -393,9 +386,7 @@ class TestGauntletGetStatus:
         with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
             handler = make_mock_handler(path="/api/gauntlet/../etc/passwd")
 
-            result = await gauntlet_handler.handle(
-                "/api/gauntlet/../etc/passwd", "GET", handler
-            )
+            result = await gauntlet_handler.handle("/api/gauntlet/../etc/passwd", "GET", handler)
 
             # Should reject invalid ID
             assert result is not None
@@ -529,9 +520,7 @@ class TestGauntletListResults:
 
                 handler = make_mock_handler(path="/api/gauntlet/results")
 
-                result = await gauntlet_handler.handle(
-                    "/api/gauntlet/results", "GET", handler
-                )
+                result = await gauntlet_handler.handle("/api/gauntlet/results", "GET", handler)
 
                 assert result is not None
                 assert result.status_code == 200
@@ -550,9 +539,7 @@ class TestGauntletListResults:
 
                 handler = make_mock_handler(path="/api/gauntlet/results?limit=10&offset=5")
 
-                result = await gauntlet_handler.handle(
-                    "/api/gauntlet/results", "GET", handler
-                )
+                result = await gauntlet_handler.handle("/api/gauntlet/results", "GET", handler)
 
                 assert result is not None
                 assert result.status_code == 200
@@ -651,7 +638,9 @@ class TestGauntletDeleteResult:
                 mock_storage_instance.delete.return_value = False
                 mock_storage.return_value = mock_storage_instance
 
-                handler = make_mock_handler(path="/api/gauntlet/gauntlet-nonexistent", method="DELETE")
+                handler = make_mock_handler(
+                    path="/api/gauntlet/gauntlet-nonexistent", method="DELETE"
+                )
 
                 result = await gauntlet_handler.handle(
                     "/api/gauntlet/gauntlet-nonexistent", "DELETE", handler
@@ -785,9 +774,7 @@ class TestGauntletIdValidation:
         with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
             handler = make_mock_handler(path="/api/gauntlet/../../etc/passwd")
 
-            result = await gauntlet_handler.handle(
-                "/api/gauntlet/../../etc/passwd", "GET", handler
-            )
+            result = await gauntlet_handler.handle("/api/gauntlet/../../etc/passwd", "GET", handler)
 
             assert result is not None
             assert result.status_code == 400

@@ -105,9 +105,7 @@ class TestRequireMFA:
 
         with patch("aragora.server.middleware.mfa.get_current_user") as mock_get_user:
             mock_get_user.return_value = user
-            with patch(
-                "aragora.server.middleware.mfa._get_user_store_from_handler"
-            ) as mock_store:
+            with patch("aragora.server.middleware.mfa._get_user_store_from_handler") as mock_store:
                 mock_store.return_value = user_store
                 result = protected_endpoint(handler)
 
@@ -130,9 +128,7 @@ class TestRequireMFA:
 
         with patch("aragora.server.middleware.mfa.get_current_user") as mock_get_user:
             mock_get_user.return_value = user
-            with patch(
-                "aragora.server.middleware.mfa._get_user_store_from_handler"
-            ) as mock_store:
+            with patch("aragora.server.middleware.mfa._get_user_store_from_handler") as mock_store:
                 mock_store.return_value = user_store
                 result = protected_endpoint(handler)
 
@@ -151,9 +147,7 @@ class TestRequireAdminMFA:
         def admin_endpoint(handler, user):
             return {"success": True}, 200, {}
 
-        user = MockUser(
-            id="user_1", email="test@example.com", role="user", mfa_enabled=False
-        )
+        user = MockUser(id="user_1", email="test@example.com", role="user", mfa_enabled=False)
         user_store = MockUserStore()
         user_store.add_user(user)
         handler = MockHandler(user=user, user_store=user_store)
@@ -172,18 +166,14 @@ class TestRequireAdminMFA:
         def admin_endpoint(handler, user):
             return {"success": True}
 
-        user = MockUser(
-            id="admin_1", email="admin@example.com", role="admin", mfa_enabled=False
-        )
+        user = MockUser(id="admin_1", email="admin@example.com", role="admin", mfa_enabled=False)
         user_store = MockUserStore()
         user_store.add_user(user)
         handler = MockHandler(user=user, user_store=user_store)
 
         with patch("aragora.server.middleware.mfa.get_current_user") as mock_get_user:
             mock_get_user.return_value = user
-            with patch(
-                "aragora.server.middleware.mfa._get_user_store_from_handler"
-            ) as mock_store:
+            with patch("aragora.server.middleware.mfa._get_user_store_from_handler") as mock_store:
                 mock_store.return_value = user_store
                 result = admin_endpoint(handler)
 
@@ -199,18 +189,14 @@ class TestRequireAdminMFA:
         def admin_endpoint(handler, user):
             return {"admin": True}, 200, {}
 
-        user = MockUser(
-            id="admin_1", email="admin@example.com", role="admin", mfa_enabled=True
-        )
+        user = MockUser(id="admin_1", email="admin@example.com", role="admin", mfa_enabled=True)
         user_store = MockUserStore()
         user_store.add_user(user)
         handler = MockHandler(user=user, user_store=user_store)
 
         with patch("aragora.server.middleware.mfa.get_current_user") as mock_get_user:
             mock_get_user.return_value = user
-            with patch(
-                "aragora.server.middleware.mfa._get_user_store_from_handler"
-            ) as mock_store:
+            with patch("aragora.server.middleware.mfa._get_user_store_from_handler") as mock_store:
                 mock_store.return_value = user_store
                 result = admin_endpoint(handler)
 
@@ -225,18 +211,14 @@ class TestRequireAdminMFA:
         def admin_endpoint(handler, user):
             return {"success": True}
 
-        user = MockUser(
-            id="owner_1", email="owner@example.com", role="owner", mfa_enabled=False
-        )
+        user = MockUser(id="owner_1", email="owner@example.com", role="owner", mfa_enabled=False)
         user_store = MockUserStore()
         user_store.add_user(user)
         handler = MockHandler(user=user, user_store=user_store)
 
         with patch("aragora.server.middleware.mfa.get_current_user") as mock_get_user:
             mock_get_user.return_value = user
-            with patch(
-                "aragora.server.middleware.mfa._get_user_store_from_handler"
-            ) as mock_store:
+            with patch("aragora.server.middleware.mfa._get_user_store_from_handler") as mock_store:
                 mock_store.return_value = user_store
                 result = admin_endpoint(handler)
 
@@ -254,9 +236,7 @@ class TestRequireAdminWithMFA:
         def sensitive_endpoint(handler, user):
             return {"success": True}
 
-        user = MockUser(
-            id="user_1", email="test@example.com", role="user", mfa_enabled=True
-        )
+        user = MockUser(id="user_1", email="test@example.com", role="user", mfa_enabled=True)
         handler = MockHandler(user=user)
 
         with patch("aragora.server.middleware.mfa.get_current_user") as mock_get_user:
@@ -275,18 +255,14 @@ class TestRequireAdminWithMFA:
         def sensitive_endpoint(handler, user):
             return {"success": True}
 
-        user = MockUser(
-            id="admin_1", email="admin@example.com", role="admin", mfa_enabled=False
-        )
+        user = MockUser(id="admin_1", email="admin@example.com", role="admin", mfa_enabled=False)
         user_store = MockUserStore()
         user_store.add_user(user)
         handler = MockHandler(user=user, user_store=user_store)
 
         with patch("aragora.server.middleware.mfa.get_current_user") as mock_get_user:
             mock_get_user.return_value = user
-            with patch(
-                "aragora.server.middleware.mfa._get_user_store_from_handler"
-            ) as mock_store:
+            with patch("aragora.server.middleware.mfa._get_user_store_from_handler") as mock_store:
                 mock_store.return_value = user_store
                 result = sensitive_endpoint(handler)
 
@@ -302,18 +278,14 @@ class TestRequireAdminWithMFA:
         def sensitive_endpoint(handler, user):
             return {"sensitive": True}, 200, {}
 
-        user = MockUser(
-            id="admin_1", email="admin@example.com", role="admin", mfa_enabled=True
-        )
+        user = MockUser(id="admin_1", email="admin@example.com", role="admin", mfa_enabled=True)
         user_store = MockUserStore()
         user_store.add_user(user)
         handler = MockHandler(user=user, user_store=user_store)
 
         with patch("aragora.server.middleware.mfa.get_current_user") as mock_get_user:
             mock_get_user.return_value = user
-            with patch(
-                "aragora.server.middleware.mfa._get_user_store_from_handler"
-            ) as mock_store:
+            with patch("aragora.server.middleware.mfa._get_user_store_from_handler") as mock_store:
                 mock_store.return_value = user_store
                 result = sensitive_endpoint(handler)
 
@@ -439,9 +411,7 @@ class TestEnforceAdminMFAPolicy:
         """Admin without MFA should be non-compliant and enforced."""
         from aragora.server.middleware.mfa import enforce_admin_mfa_policy
 
-        user = MockUser(
-            id="admin_1", email="admin@example.com", role="admin", mfa_enabled=False
-        )
+        user = MockUser(id="admin_1", email="admin@example.com", role="admin", mfa_enabled=False)
         user_store = MockUserStore()
         user_store.add_user(user)
 
@@ -467,18 +437,14 @@ class TestMFAIntegration:
             return {"count": call_count[0]}, 200, {}
 
         # Admin with MFA should increment count
-        admin = MockUser(
-            id="admin_1", email="admin@example.com", role="admin", mfa_enabled=True
-        )
+        admin = MockUser(id="admin_1", email="admin@example.com", role="admin", mfa_enabled=True)
         user_store = MockUserStore()
         user_store.add_user(admin)
         handler = MockHandler(user=admin, user_store=user_store)
 
         with patch("aragora.server.middleware.mfa.get_current_user") as mock_get_user:
             mock_get_user.return_value = admin
-            with patch(
-                "aragora.server.middleware.mfa._get_user_store_from_handler"
-            ) as mock_store:
+            with patch("aragora.server.middleware.mfa._get_user_store_from_handler") as mock_store:
                 mock_store.return_value = user_store
                 result = counted_endpoint(handler)
 

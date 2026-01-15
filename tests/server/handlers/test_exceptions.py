@@ -318,9 +318,7 @@ class TestHandleHandlerError:
         """Should respect include_traceback flag."""
         logger = logging.getLogger("test")
         exc = HandlerValidationError("Bad input")
-        status, message = handle_handler_error(
-            exc, "validate", logger, include_traceback=True
-        )
+        status, message = handle_handler_error(exc, "validate", logger, include_traceback=True)
         assert status == 400
 
 
@@ -377,9 +375,7 @@ class TestIsRetryableError:
 
     def test_service_unavailable_is_retryable(self):
         """Service unavailable errors should be retryable."""
-        assert is_retryable_error(
-            HandlerExternalServiceError("DB", "down", unavailable=True)
-        )
+        assert is_retryable_error(HandlerExternalServiceError("DB", "down", unavailable=True))
 
     def test_timeout_is_retryable(self):
         """Timeout errors should be retryable."""

@@ -636,8 +636,7 @@ class TestGauntletEmitterIntegration:
         emitter.emit_progress(1.0)
 
         progress_event = [
-            e for e in capture_events.events
-            if e.type == StreamEventType.GAUNTLET_PROGRESS
+            e for e in capture_events.events if e.type == StreamEventType.GAUNTLET_PROGRESS
         ][0]
         assert progress_event.data["attacks_run"] == 3
         assert progress_event.data["probes_run"] == 5

@@ -280,8 +280,13 @@ class TestCodeReviewTemplate:
     def test_has_required_roles(self):
         """Should have all required reviewer roles."""
         role_names = {r.name for r in CODE_REVIEW_TEMPLATE.roles}
-        expected = {"author", "security_critic", "performance_critic",
-                    "maintainability_critic", "synthesizer"}
+        expected = {
+            "author",
+            "security_critic",
+            "performance_critic",
+            "maintainability_critic",
+            "synthesizer",
+        }
         assert role_names == expected
 
     def test_has_required_phases(self):

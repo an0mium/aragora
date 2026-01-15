@@ -412,7 +412,9 @@ class AutonomicExecutor:
                     logger.info(f"[Autonomic] Agent {agent.name} retry succeeded")
                     sanitized = retry_sanitized
                 else:
-                    logger.warning(f"[Autonomic] Agent {agent.name} retry also produced empty output")
+                    logger.warning(
+                        f"[Autonomic] Agent {agent.name} retry also produced empty output"
+                    )
 
             # Record successful completion
             if tracking_id and self.performance_monitor:

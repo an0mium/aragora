@@ -213,9 +213,7 @@ class TestQualityEdgeCases:
     def test_all_caps_topic(self):
         """Test handling ALL CAPS topics."""
         filter = TopicQualityFilter()
-        topic = TrendingTopic(
-            "twitter", "THIS IS ALL CAPS AND PROBABLY SPAM", 1000, "general"
-        )
+        topic = TrendingTopic("twitter", "THIS IS ALL CAPS AND PROBABLY SPAM", 1000, "general")
 
         score = filter.score_topic(topic)
 
@@ -225,9 +223,7 @@ class TestQualityEdgeCases:
     def test_emoji_spam(self):
         """Test handling excessive emojis."""
         filter = TopicQualityFilter(max_emoji_ratio=0.05)  # Stricter emoji limit
-        topic = TrendingTopic(
-            "twitter", "🚀🚀🚀🚀🚀 TO THE MOON 🌙🌙🌙🌙🌙", 5000, "crypto"
-        )
+        topic = TrendingTopic("twitter", "🚀🚀🚀🚀🚀 TO THE MOON 🌙🌙🌙🌙🌙", 5000, "crypto")
 
         score = filter.score_topic(topic)
 

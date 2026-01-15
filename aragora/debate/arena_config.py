@@ -20,6 +20,7 @@ from aragora.typing import (
     DebateEmbeddingsProtocol,
     DissentRetrieverProtocol,
     EloSystemProtocol,
+    EventEmitterProtocol,
     EvidenceCollectorProtocol,
     FlipDetectorProtocol,
     InsightStoreProtocol,
@@ -113,7 +114,7 @@ class ArenaConfig:
     # Core subsystems (typically injected)
     memory: Optional[Any] = None  # CritiqueStore
     event_hooks: Optional[Dict[str, Any]] = None
-    event_emitter: Optional[Any] = None  # EventEmitter
+    event_emitter: Optional[EventEmitterProtocol] = None
     spectator: Optional[SpectatorStream] = None
     debate_embeddings: Optional[DebateEmbeddingsProtocol] = None
     insight_store: Optional[InsightStoreProtocol] = None

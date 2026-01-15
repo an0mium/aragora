@@ -120,9 +120,11 @@ class CritiqueMixin:
                 match = re.search(r"(\d+\.?\d*)", line)
                 if match:
                     try:
-                        severity = min(1.0, max(0.0, float(match.group(1))))
-                        if severity > 1:
-                            severity = severity / 10  # Handle 0-10 scale
+                        raw_severity = float(match.group(1))
+                        # Scale BEFORE clamping to handle 0-10 scale
+                        if raw_severity > 1.0:
+                            raw_severity = raw_severity / 10.0
+                        severity = min(1.0, max(0.0, raw_severity))
                     except (ValueError, TypeError):
                         pass
             elif line.startswith(("-", "*", "•")):

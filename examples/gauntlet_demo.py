@@ -63,9 +63,9 @@ def print_finding(finding, index: int) -> None:
     """Print a finding with formatting."""
     severity_colors = {
         "CRITICAL": "\033[91m",  # Red
-        "HIGH": "\033[93m",      # Yellow
-        "MEDIUM": "\033[94m",    # Blue
-        "LOW": "\033[92m",       # Green
+        "HIGH": "\033[93m",  # Yellow
+        "MEDIUM": "\033[94m",  # Blue
+        "LOW": "\033[92m",  # Green
     }
     reset = "\033[0m"
 
@@ -242,13 +242,15 @@ async def main():
         description="Gauntlet Demo - Showcase adversarial stress-testing"
     )
     parser.add_argument(
-        "--demo", "-d",
+        "--demo",
+        "-d",
         choices=["security", "gdpr", "scaling", "all"],
         default="all",
         help="Which demo to run (default: all)",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Show more detailed findings",
     )
@@ -272,18 +274,18 @@ async def main():
 
     # Summary
     print_banner("DEMO SUMMARY", "=")
-    print("\n{:<15} {:<20} {:>10} {:>10}".format(
-        "Demo", "Verdict", "Findings", "Critical"
-    ))
+    print("\n{:<15} {:<20} {:>10} {:>10}".format("Demo", "Verdict", "Findings", "Critical"))
     print("-" * 60)
     for r in results:
         if "error" not in r:
-            print("{:<15} {:<20} {:>10} {:>10}".format(
-                r["demo"],
-                r["verdict"].upper(),
-                r["findings"],
-                r["critical"],
-            ))
+            print(
+                "{:<15} {:<20} {:>10} {:>10}".format(
+                    r["demo"],
+                    r["verdict"].upper(),
+                    r["findings"],
+                    r["critical"],
+                )
+            )
 
     print("\n" + "=" * 70)
     print(" The Gauntlet has spoken. Review your specifications before deployment.")

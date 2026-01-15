@@ -37,17 +37,39 @@ NEWSAPI_SOURCES_URL = "https://newsapi.org/v2/top-headlines/sources"
 
 # Source credibility tiers (subjective but useful for weighting)
 HIGH_CREDIBILITY_SOURCES = {
-    "reuters", "associated-press", "bbc-news", "the-economist",
-    "financial-times", "the-wall-street-journal", "bloomberg",
-    "the-washington-post", "the-new-york-times", "npr",
-    "abc-news", "cbs-news", "nbc-news", "pbs",
+    "reuters",
+    "associated-press",
+    "bbc-news",
+    "the-economist",
+    "financial-times",
+    "the-wall-street-journal",
+    "bloomberg",
+    "the-washington-post",
+    "the-new-york-times",
+    "npr",
+    "abc-news",
+    "cbs-news",
+    "nbc-news",
+    "pbs",
 }
 
 MEDIUM_CREDIBILITY_SOURCES = {
-    "cnn", "fox-news", "msnbc", "politico", "the-hill",
-    "usa-today", "time", "newsweek", "business-insider",
-    "techcrunch", "wired", "ars-technica", "the-verge",
-    "engadget", "mashable", "vice-news",
+    "cnn",
+    "fox-news",
+    "msnbc",
+    "politico",
+    "the-hill",
+    "usa-today",
+    "time",
+    "newsweek",
+    "business-insider",
+    "techcrunch",
+    "wired",
+    "ars-technica",
+    "the-verge",
+    "engadget",
+    "mashable",
+    "vice-news",
 }
 
 
@@ -406,6 +428,7 @@ class NewsAPIConnector(BaseConnector):
         # URL for evidence ID
         url = article.get("url", "")
         import hashlib
+
         evidence_id = f"newsapi:{hashlib.md5(url.encode(), usedforsecurity=False).hexdigest()[:12]}"
 
         # Published date
@@ -505,8 +528,13 @@ class NewsAPIConnector(BaseConnector):
             List of Evidence objects from tech sources
         """
         tech_sources = [
-            "techcrunch", "wired", "ars-technica", "the-verge",
-            "engadget", "hacker-news", "recode",
+            "techcrunch",
+            "wired",
+            "ars-technica",
+            "the-verge",
+            "engadget",
+            "hacker-news",
+            "recode",
         ]
 
         if query:

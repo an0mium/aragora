@@ -63,9 +63,7 @@ def require_mfa(func: Callable) -> Callable:
             full_user = user_store.get_user_by_id(user.id)
             if full_user:
                 if not getattr(full_user, "mfa_enabled", False):
-                    logger.warning(
-                        f"MFA required but not enabled for user: {user.id}"
-                    )
+                    logger.warning(f"MFA required but not enabled for user: {user.id}")
                     return error_response(
                         "MFA required. Please enable MFA at /api/auth/mfa/setup",
                         403,
@@ -75,9 +73,7 @@ def require_mfa(func: Callable) -> Callable:
             # If no user store, check metadata (fallback)
             mfa_enabled = user.metadata.get("mfa_enabled", False)
             if not mfa_enabled:
-                logger.warning(
-                    f"MFA required but status unknown for user: {user.id}"
-                )
+                logger.warning(f"MFA required but status unknown for user: {user.id}")
                 return error_response(
                     "MFA required. Please enable MFA at /api/auth/mfa/setup",
                     403,
@@ -213,8 +209,7 @@ def require_admin_with_mfa(func: Callable) -> Callable:
                 f"attempted sensitive operation without MFA"
             )
             return error_response(
-                "This operation requires MFA. "
-                "Please enable MFA at /api/auth/mfa/setup",
+                "This operation requires MFA. " "Please enable MFA at /api/auth/mfa/setup",
                 403,
                 code="MFA_REQUIRED",
             )
@@ -252,6 +247,7 @@ def check_mfa_status(user_id: str, user_store: Any) -> dict:
     backup_count = 0
     if getattr(user, "mfa_backup_codes", None):
         import json
+
         try:
             backup_hashes = json.loads(user.mfa_backup_codes)
             backup_count = len(backup_hashes)
@@ -308,9 +304,7 @@ def enforce_admin_mfa_policy(
             if created_at:
                 if isinstance(created_at, str):
                     try:
-                        created_at = datetime.fromisoformat(
-                            created_at.replace("Z", "+00:00")
-                        )
+                        created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
                     except ValueError:
                         created_at = None
 
@@ -319,6 +313,7 @@ def enforce_admin_mfa_policy(
                     now = datetime.utcnow()
                     if hasattr(grace_end, "tzinfo") and grace_end.tzinfo:
                         from datetime import timezone
+
                         now = datetime.now(timezone.utc)
 
                     if now < grace_end:

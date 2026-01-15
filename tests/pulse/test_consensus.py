@@ -261,9 +261,7 @@ class TestConsensusSimilarity:
         """Test keyword extraction removes stopwords."""
         consensus = CrossSourceConsensus()
 
-        keywords = consensus._extract_keywords(
-            "The quick brown fox jumps over the lazy dog"
-        )
+        keywords = consensus._extract_keywords("The quick brown fox jumps over the lazy dog")
 
         # Common stopwords should be removed
         assert "the" not in keywords

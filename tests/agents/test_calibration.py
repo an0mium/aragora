@@ -314,9 +314,7 @@ class TestCalibrationTrackerAutoTune:
     def test_delete_agent_removes_temperature_params(self, tracker):
         """Deleting agent should also remove temperature params."""
         tracker.record_prediction("agent1", 0.8, True, "general")
-        tracker.save_temperature_params(
-            "agent1", TemperatureParams(temperature=1.5)
-        )
+        tracker.save_temperature_params("agent1", TemperatureParams(temperature=1.5))
 
         tracker.delete_agent_data("agent1")
 

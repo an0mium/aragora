@@ -558,9 +558,7 @@ CRITICAL SAFETY RULES:
             for protected in self.protected_files:
                 # Check if protected file is in the path (handles both relative and absolute)
                 if protected in file_path or file_path.endswith(protected):
-                    protected_violations.append(
-                        f"Protected file modified: {file_path}"
-                    )
+                    protected_violations.append(f"Protected file modified: {file_path}")
         if protected_violations:
             return "; ".join(protected_violations)
 

@@ -399,7 +399,9 @@ class NomicIntegration:
 
             except Exception as e:
                 # If probing fails, assume moderate reliability
-                logger.debug(f"Agent probing failed for {agent.name}, using default weight: {type(e).__name__}")
+                logger.debug(
+                    f"Agent probing failed for {agent.name}, using default weight: {type(e).__name__}"
+                )
                 weights[agent.name] = 0.75
 
         self._agent_weights = weights

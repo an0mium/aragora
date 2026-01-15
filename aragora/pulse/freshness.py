@@ -209,9 +209,7 @@ class FreshnessCalculator:
 
     def _get_half_life(self, platform: str) -> float:
         """Get half-life for a platform."""
-        return self._platform_half_lives.get(
-            platform.lower(), self.config.half_life_hours
-        )
+        return self._platform_half_lives.get(platform.lower(), self.config.half_life_hours)
 
     def _apply_decay(self, age_hours: float, half_life_hours: float) -> float:
         """Apply decay model to calculate freshness."""
@@ -304,9 +302,7 @@ class FreshnessCalculator:
         curve = []
         for i in range(points + 1):
             hours = i * step
-            freshness = max(
-                self.config.min_freshness, self._apply_decay(hours, half_life)
-            )
+            freshness = max(self.config.min_freshness, self._apply_decay(hours, half_life))
             curve.append({"hours": hours, "freshness": freshness})
 
         return curve

@@ -320,9 +320,7 @@ async def create_default_executor() -> DebateExecutor:
         )
 
         # Convert agent strings to Agent objects
-        agents = [
-            create_agent(cast("AgentType", agent_type)) for agent_type in payload.agents
-        ]
+        agents = [create_agent(cast("AgentType", agent_type)) for agent_type in payload.agents]
 
         # Run debate
         start_time = time.time()

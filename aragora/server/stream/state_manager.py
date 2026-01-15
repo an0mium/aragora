@@ -345,6 +345,7 @@ def get_state_manager() -> DebateStateManager:
     This alias is kept for backward compatibility.
     """
     import warnings
+
     warnings.warn(
         "stream.state_manager.get_state_manager() is deprecated. "
         "Use get_stream_state_manager() for streaming or "

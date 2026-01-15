@@ -348,7 +348,9 @@ class GenesisHandler(BaseHandler):
                                 enriched_node["created_at"] = event.timestamp
                                 break
                 except Exception as e:
-                    logger.debug(f"Optional event lookup failed for genome lineage: {type(e).__name__}")
+                    logger.debug(
+                        f"Optional event lookup failed for genome lineage: {type(e).__name__}"
+                    )
 
                 enriched_lineage.append(enriched_node)
 
@@ -585,7 +587,7 @@ class GenesisHandler(BaseHandler):
             # Build a mapping of genome_id -> genomes that have it as a parent
             children_map: dict[str, list] = {}
             for g in all_genomes:
-                for parent_id in (g.parent_genomes or []):
+                for parent_id in g.parent_genomes or []:
                     if parent_id not in children_map:
                         children_map[parent_id] = []
                     children_map[parent_id].append(g)
@@ -605,31 +607,35 @@ class GenesisHandler(BaseHandler):
                 for child in children_map.get(current_id, []):
                     if child.genome_id not in visited:
                         visited.add(child.genome_id)
-                        descendants.append({
-                            "genome_id": child.genome_id,
-                            "name": child.name,
-                            "generation": child.generation,
-                            "fitness_score": child.fitness_score,
-                            "parent_ids": child.parent_genomes or [],
-                            "depth": depth + 1,
-                        })
+                        descendants.append(
+                            {
+                                "genome_id": child.genome_id,
+                                "name": child.name,
+                                "generation": child.generation,
+                                "fitness_score": child.fitness_score,
+                                "parent_ids": child.parent_genomes or [],
+                                "depth": depth + 1,
+                            }
+                        )
                         queue.append((child.genome_id, depth + 1))
                         max_generation = max(max_generation, child.generation)
 
             # Sort by depth, then by fitness
             descendants.sort(key=lambda x: (x["depth"], -(x["fitness_score"] or 0)))
 
-            return json_response({
-                "genome_id": genome_id,
-                "root_genome": {
-                    "name": root.name,
-                    "generation": root.generation,
-                    "fitness_score": root.fitness_score,
-                },
-                "descendants": descendants,
-                "total_descendants": len(descendants),
-                "max_generation": max_generation,
-            })
+            return json_response(
+                {
+                    "genome_id": genome_id,
+                    "root_genome": {
+                        "name": root.name,
+                        "generation": root.generation,
+                        "fitness_score": root.fitness_score,
+                    },
+                    "descendants": descendants,
+                    "total_descendants": len(descendants),
+                    "max_generation": max_generation,
+                }
+            )
 
         except Exception as e:
             return error_response(_safe_error_message(e, "genome_descendants"), 500)

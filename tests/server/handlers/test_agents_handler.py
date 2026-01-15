@@ -301,13 +301,15 @@ class TestAgentsHandlerAgentEndpoint:
         handler.extract_path_param = MagicMock(return_value=("claude", None))
 
         # Need to mock extract_path_param to return agent and opponent
-        with patch.object(handler, 'extract_path_param', side_effect=[
-            ("claude", None),  # First call returns agent name
-            ("gpt", None),     # Second call returns opponent name
-        ]):
-            result = handler._handle_agent_endpoint(
-                "/api/agent/claude/head-to-head/gpt", {}
-            )
+        with patch.object(
+            handler,
+            "extract_path_param",
+            side_effect=[
+                ("claude", None),  # First call returns agent name
+                ("gpt", None),  # Second call returns opponent name
+            ],
+        ):
+            result = handler._handle_agent_endpoint("/api/agent/claude/head-to-head/gpt", {})
             handler._get_head_to_head.assert_called_once_with("claude", "gpt")
 
     def test_opponent_briefing_routing(self):
@@ -315,13 +317,15 @@ class TestAgentsHandlerAgentEndpoint:
         handler = AgentsHandler({})
         handler._get_opponent_briefing = MagicMock(return_value={"status": 200})
 
-        with patch.object(handler, 'extract_path_param', side_effect=[
-            ("claude", None),
-            ("gpt", None),
-        ]):
-            result = handler._handle_agent_endpoint(
-                "/api/agent/claude/opponent-briefing/gpt", {}
-            )
+        with patch.object(
+            handler,
+            "extract_path_param",
+            side_effect=[
+                ("claude", None),
+                ("gpt", None),
+            ],
+        ):
+            result = handler._handle_agent_endpoint("/api/agent/claude/opponent-briefing/gpt", {})
             handler._get_opponent_briefing.assert_called_once_with("claude", "gpt")
 
 

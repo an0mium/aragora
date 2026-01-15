@@ -232,7 +232,9 @@ class TestGetCheckpoint:
 
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.store = mock_store
-            result = await checkpoint_handler.handle("/api/checkpoints/cp-123", {}, mock_http_handler)
+            result = await checkpoint_handler.handle(
+                "/api/checkpoints/cp-123", {}, mock_http_handler
+            )
 
         assert result is not None
         assert result.status_code == 200
@@ -318,9 +320,7 @@ class TestDeleteCheckpoint:
 
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.store = mock_store
-            result = await checkpoint_handler.handle(
-                "/api/checkpoints/cp-123", {}, handler
-            )
+            result = await checkpoint_handler.handle("/api/checkpoints/cp-123", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -335,9 +335,7 @@ class TestDeleteCheckpoint:
 
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.store = mock_store
-            result = await checkpoint_handler.handle(
-                "/api/checkpoints/nonexistent", {}, handler
-            )
+            result = await checkpoint_handler.handle("/api/checkpoints/nonexistent", {}, handler)
 
         assert result is not None
         assert result.status_code == 404

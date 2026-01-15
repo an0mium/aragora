@@ -43,6 +43,7 @@ class TestModuleExports:
     def test_exports_batch_operations_mixin(self):
         """Should export BatchOperationsMixin."""
         from aragora.server.handlers.debates import batch
+
         assert "BatchOperationsMixin" in batch.__all__
 
 
@@ -51,6 +52,7 @@ class TestBatchStatusValidation:
 
     def test_get_batch_status_validates_id(self):
         """_get_batch_status should validate batch ID."""
+
         # Create a mock class that uses the mixin
         class MockHandler(BatchOperationsMixin):
             pass
@@ -64,6 +66,7 @@ class TestBatchStatusValidation:
 
     def test_get_batch_status_sanitizes_input(self):
         """_get_batch_status should sanitize input."""
+
         class MockHandler(BatchOperationsMixin):
             pass
 
@@ -79,28 +82,31 @@ class TestListBatchesValidation:
 
     def test_list_batches_handles_no_queue(self):
         """_list_batches should handle no queue gracefully."""
+
         class MockHandler(BatchOperationsMixin):
             pass
 
         handler = MockHandler()
 
         # Mock get_debate_queue_sync at the import location inside the method
-        with patch('aragora.server.debate_queue.get_debate_queue_sync', return_value=None):
+        with patch("aragora.server.debate_queue.get_debate_queue_sync", return_value=None):
             result = handler._list_batches(limit=10)
             import json
-            body = json.loads(result.body.decode('utf-8'))
+
+            body = json.loads(result.body.decode("utf-8"))
             assert body["batches"] == []
             assert body["count"] == 0
 
     def test_list_batches_validates_status_filter(self):
         """_list_batches should validate status filter."""
+
         class MockHandler(BatchOperationsMixin):
             pass
 
         handler = MockHandler()
 
         # Mock get_debate_queue_sync
-        with patch('aragora.server.debate_queue.get_debate_queue_sync') as mock:
+        with patch("aragora.server.debate_queue.get_debate_queue_sync") as mock:
             mock.return_value = MagicMock()
             # Invalid status should return error
             result = handler._list_batches(limit=10, status_filter="invalid_status")
@@ -112,20 +118,23 @@ class TestQueueStatus:
 
     def test_get_queue_status_no_queue(self):
         """_get_queue_status should handle no queue."""
+
         class MockHandler(BatchOperationsMixin):
             pass
 
         handler = MockHandler()
 
-        with patch('aragora.server.debate_queue.get_debate_queue_sync', return_value=None):
+        with patch("aragora.server.debate_queue.get_debate_queue_sync", return_value=None):
             result = handler._get_queue_status()
             import json
-            body = json.loads(result.body.decode('utf-8'))
+
+            body = json.loads(result.body.decode("utf-8"))
             assert body["active"] is False
             assert "Queue not initialized" in body["message"]
 
     def test_get_queue_status_with_queue(self):
         """_get_queue_status should return queue stats."""
+
         class MockHandler(BatchOperationsMixin):
             pass
 
@@ -141,10 +150,11 @@ class TestQueueStatus:
             {"status": "completed"},
         ]
 
-        with patch('aragora.server.debate_queue.get_debate_queue_sync', return_value=mock_queue):
+        with patch("aragora.server.debate_queue.get_debate_queue_sync", return_value=mock_queue):
             result = handler._get_queue_status()
             import json
-            body = json.loads(result.body.decode('utf-8'))
+
+            body = json.loads(result.body.decode("utf-8"))
             assert body["active"] is True
             assert body["max_concurrent"] == 5
             assert body["active_count"] == 2
@@ -156,6 +166,7 @@ class TestCreateDebateExecutor:
 
     def test_returns_callable(self):
         """_create_debate_executor should return a callable."""
+
         class MockHandler(BatchOperationsMixin):
             pass
 

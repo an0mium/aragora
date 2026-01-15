@@ -81,7 +81,8 @@ class EventEmitterBridge:
         # Emit to spectator (console/file) - only pass supported params
         if self.spectator:
             spectator_kwargs = {
-                k: v for k, v in kwargs.items()
+                k: v
+                for k, v in kwargs.items()
                 if k in ("agent", "details", "metric", "round_number")
             }
             self.spectator.emit(event_type, **spectator_kwargs)

@@ -288,9 +288,7 @@ class AuditLogger:
             )
         )
 
-    def log_cycle_end(
-        self, cycle_id: str, success: bool, duration_seconds: float
-    ) -> bool:
+    def log_cycle_end(self, cycle_id: str, success: bool, duration_seconds: float) -> bool:
         """Log cycle end event."""
         return self.log(
             AuditEvent(
@@ -518,9 +516,7 @@ class AuditLogger:
                 duration = event.metadata.get("duration_seconds", 0.0)
 
         # Determine overall status
-        cycle_end = next(
-            (e for e in events if e.event_type == AuditEventType.CYCLE_END), None
-        )
+        cycle_end = next((e for e in events if e.event_type == AuditEventType.CYCLE_END), None)
 
         return {
             "cycle_id": cycle_id,

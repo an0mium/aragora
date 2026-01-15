@@ -438,19 +438,23 @@ class BeliefHandler(BaseHandler):
             claim_id = node.claim_id
             node_ids.add(claim_id)
 
-            belief = node.get_belief_distribution() if hasattr(node, "get_belief_distribution") else None
+            belief = (
+                node.get_belief_distribution() if hasattr(node, "get_belief_distribution") else None
+            )
 
-            nodes.append({
-                "id": claim_id,
-                "claim_id": claim_id,
-                "statement": node.claim_statement,
-                "author": node.author,
-                "centrality": node_data.get("centrality", 0.5),
-                "is_crux": claim_id in crux_ids,
-                "crux_score": crux_scores.get(claim_id),
-                "entropy": node_data.get("entropy", 0.5),
-                "belief": belief,
-            })
+            nodes.append(
+                {
+                    "id": claim_id,
+                    "claim_id": claim_id,
+                    "statement": node.claim_statement,
+                    "author": node.author,
+                    "centrality": node_data.get("centrality", 0.5),
+                    "is_crux": claim_id in crux_ids,
+                    "crux_score": crux_scores.get(claim_id),
+                    "entropy": node_data.get("entropy", 0.5),
+                    "belief": belief,
+                }
+            )
 
         # Build links from influence relationships
         links = []
@@ -458,22 +462,26 @@ class BeliefHandler(BaseHandler):
             source = edge.get("source")
             target = edge.get("target")
             if source in node_ids and target in node_ids:
-                links.append({
-                    "source": source,
-                    "target": target,
-                    "weight": edge.get("weight", 0.5),
-                    "type": edge.get("type", "influences"),
-                })
+                links.append(
+                    {
+                        "source": source,
+                        "target": target,
+                        "weight": edge.get("weight", 0.5),
+                        "type": edge.get("type", "influences"),
+                    }
+                )
 
-        return json_response({
-            "nodes": nodes,
-            "links": links,
-            "metadata": {
-                "debate_id": debate_id,
-                "total_claims": len(nodes),
-                "crux_count": len(crux_ids),
-            },
-        })
+        return json_response(
+            {
+                "nodes": nodes,
+                "links": links,
+                "metadata": {
+                    "debate_id": debate_id,
+                    "total_claims": len(nodes),
+                    "crux_count": len(crux_ids),
+                },
+            }
+        )
 
     @handle_errors("belief network export")
     def _export_belief_network(
@@ -525,37 +533,43 @@ class BeliefHandler(BaseHandler):
 
             claim_id = node.claim_id
             node_ids.add(claim_id)
-            nodes_data.append({
-                "id": claim_id,
-                "statement": node.claim_statement,
-                "author": node.author,
-                "centrality": node_data.get("centrality", 0.5),
-                "is_crux": claim_id in crux_ids,
-            })
+            nodes_data.append(
+                {
+                    "id": claim_id,
+                    "statement": node.claim_statement,
+                    "author": node.author,
+                    "centrality": node_data.get("centrality", 0.5),
+                    "is_crux": claim_id in crux_ids,
+                }
+            )
 
         for edge in network.get_all_edges():
             source = edge.get("source")
             target = edge.get("target")
             if source in node_ids and target in node_ids:
-                edges_data.append({
-                    "source": source,
-                    "target": target,
-                    "weight": edge.get("weight", 0.5),
-                    "type": edge.get("type", "influences"),
-                })
+                edges_data.append(
+                    {
+                        "source": source,
+                        "target": target,
+                        "weight": edge.get("weight", 0.5),
+                        "type": edge.get("type", "influences"),
+                    }
+                )
 
         if format_type == "csv":
             # Return CSV-friendly structure
-            return json_response({
-                "format": "csv",
-                "debate_id": debate_id,
-                "nodes_csv": nodes_data,
-                "edges_csv": edges_data,
-                "headers": {
-                    "nodes": ["id", "statement", "author", "centrality", "is_crux"],
-                    "edges": ["source", "target", "weight", "type"],
-                },
-            })
+            return json_response(
+                {
+                    "format": "csv",
+                    "debate_id": debate_id,
+                    "nodes_csv": nodes_data,
+                    "edges_csv": edges_data,
+                    "headers": {
+                        "nodes": ["id", "statement", "author", "centrality", "is_crux"],
+                        "edges": ["source", "target", "weight", "type"],
+                    },
+                }
+            )
 
         elif format_type == "graphml":
             # Build GraphML XML
@@ -572,39 +586,52 @@ class BeliefHandler(BaseHandler):
             ]
 
             for node in nodes_data:
-                statement_escaped = node["statement"].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                statement_escaped = (
+                    node["statement"]
+                    .replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                )
                 graphml_lines.append(f'    <node id="{node["id"]}">')
                 graphml_lines.append(f'      <data key="statement">{statement_escaped}</data>')
                 graphml_lines.append(f'      <data key="author">{node["author"]}</data>')
                 graphml_lines.append(f'      <data key="centrality">{node["centrality"]}</data>')
-                graphml_lines.append(f'      <data key="is_crux">{str(node["is_crux"]).lower()}</data>')
-                graphml_lines.append('    </node>')
+                graphml_lines.append(
+                    f'      <data key="is_crux">{str(node["is_crux"]).lower()}</data>'
+                )
+                graphml_lines.append("    </node>")
 
             for i, edge in enumerate(edges_data):
-                graphml_lines.append(f'    <edge id="e{i}" source="{edge["source"]}" target="{edge["target"]}">')
+                graphml_lines.append(
+                    f'    <edge id="e{i}" source="{edge["source"]}" target="{edge["target"]}">'
+                )
                 graphml_lines.append(f'      <data key="weight">{edge["weight"]}</data>')
                 graphml_lines.append(f'      <data key="type">{edge["type"]}</data>')
-                graphml_lines.append('    </edge>')
+                graphml_lines.append("    </edge>")
 
-            graphml_lines.extend(['  </graph>', '</graphml>'])
+            graphml_lines.extend(["  </graph>", "</graphml>"])
 
-            return json_response({
-                "format": "graphml",
-                "debate_id": debate_id,
-                "content": "\n".join(graphml_lines),
-                "content_type": "application/xml",
-            })
+            return json_response(
+                {
+                    "format": "graphml",
+                    "debate_id": debate_id,
+                    "content": "\n".join(graphml_lines),
+                    "content_type": "application/xml",
+                }
+            )
 
         else:
             # Default JSON format
-            return json_response({
-                "format": "json",
-                "debate_id": debate_id,
-                "nodes": nodes_data,
-                "edges": edges_data,
-                "summary": {
-                    "total_nodes": len(nodes_data),
-                    "total_edges": len(edges_data),
-                    "crux_count": len(crux_ids),
-                },
-            })
+            return json_response(
+                {
+                    "format": "json",
+                    "debate_id": debate_id,
+                    "nodes": nodes_data,
+                    "edges": edges_data,
+                    "summary": {
+                        "total_nodes": len(nodes_data),
+                        "total_edges": len(edges_data),
+                        "crux_count": len(crux_ids),
+                    },
+                }
+            )

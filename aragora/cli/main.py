@@ -702,7 +702,9 @@ def cmd_elo(args: argparse.Namespace) -> None:
             wins = rating.wins
             losses = rating.losses
             win_rate = f"{rating.win_rate:.1%}" if rating.games_played > 0 else "N/A"
-            print(f"{i:>4}  {rating.agent_name:<20}  {rating.elo:>7.0f}  {wins:>3}/{losses:<3}  {win_rate:>6}")
+            print(
+                f"{i:>4}  {rating.agent_name:<20}  {rating.elo:>7.0f}  {wins:>3}/{losses:<3}  {win_rate:>6}"
+            )
 
     elif action == "history":
         agent = getattr(args, "agent", None)

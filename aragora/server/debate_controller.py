@@ -46,8 +46,8 @@ class DebateRequest:
 
     question: str
     agents_str: str = "anthropic-api,openai-api,gemini,grok"
-    rounds: int = 3
-    consensus: str = "majority"
+    rounds: int = 8  # 9-round format (0-8), default for all debates
+    consensus: str = "judge"  # Judge-based consensus for final decisions
     auto_select: bool = False
     auto_select_config: dict = None
     use_trending: bool = False
@@ -78,15 +78,15 @@ class DebateRequest:
             raise ValueError("question must be under 10,000 characters")
 
         try:
-            rounds = min(max(int(data.get("rounds", 3)), 1), 10)
+            rounds = min(max(int(data.get("rounds", 8)), 1), 10)
         except (ValueError, TypeError):
-            rounds = 3
+            rounds = 8
 
         return cls(
             question=question,
             agents_str=data.get("agents", "anthropic-api,openai-api,gemini,grok"),
             rounds=rounds,
-            consensus=data.get("consensus", "majority"),
+            consensus=data.get("consensus", "judge"),
             auto_select=data.get("auto_select", False),
             auto_select_config=data.get("auto_select_config", {}),
             use_trending=data.get("use_trending", False),
@@ -351,13 +351,19 @@ class DebateController:
                     messages_data = []
                     if hasattr(result, "messages") and result.messages:
                         for msg in result.messages:
-                            messages_data.append({
-                                "role": msg.role,
-                                "agent": msg.agent,
-                                "content": msg.content,
-                                "round": msg.round,
-                                "timestamp": msg.timestamp.isoformat() if hasattr(msg.timestamp, "isoformat") else str(msg.timestamp),
-                            })
+                            messages_data.append(
+                                {
+                                    "role": msg.role,
+                                    "agent": msg.agent,
+                                    "content": msg.content,
+                                    "round": msg.round,
+                                    "timestamp": (
+                                        msg.timestamp.isoformat()
+                                        if hasattr(msg.timestamp, "isoformat")
+                                        else str(msg.timestamp)
+                                    ),
+                                }
+                            )
 
                     debate_data = {
                         "id": debate_id,
@@ -368,9 +374,7 @@ class DebateController:
                         "consensus_reached": result.consensus_reached,
                         "confidence": result.confidence,
                         "grounded_verdict": (
-                            result.grounded_verdict.to_dict()
-                            if result.grounded_verdict
-                            else None
+                            result.grounded_verdict.to_dict() if result.grounded_verdict else None
                         ),
                         "messages": messages_data,
                     }

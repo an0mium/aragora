@@ -195,8 +195,9 @@ def user_store():
     store = MockUserStore()
     # Admin users must have MFA enabled with enough backup codes (SOC 2 CC5-01)
     # backup_codes must be a JSON list of hashes, >= 3 codes to pass policy
-    backup_codes_json = json.dumps(["hash1", "hash2", "hash3", "hash4", "hash5",
-                                    "hash6", "hash7", "hash8", "hash9", "hash10"])
+    backup_codes_json = json.dumps(
+        ["hash1", "hash2", "hash3", "hash4", "hash5", "hash6", "hash7", "hash8", "hash9", "hash10"]
+    )
     admin = MockUser(
         id="admin-123",
         email="admin@example.com",
@@ -448,10 +449,13 @@ class TestAdminRevenueStats:
 
         handler = make_mock_handler()
 
-        with patch("aragora.billing.models.TIER_LIMITS", {
-            "free": MagicMock(price_monthly_cents=0),
-            "starter": MagicMock(price_monthly_cents=2900),
-        }):
+        with patch(
+            "aragora.billing.models.TIER_LIMITS",
+            {
+                "free": MagicMock(price_monthly_cents=0),
+                "starter": MagicMock(price_monthly_cents=2900),
+            },
+        ):
             result = admin_handler.handle("/api/admin/revenue", {}, handler, "GET")
 
         assert result is not None

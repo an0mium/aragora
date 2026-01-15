@@ -131,45 +131,53 @@ def _build_proof_tree(result: dict) -> Optional[list]:
     nodes = []
 
     # Root node: the claim
-    nodes.append({
-        "id": "root",
-        "type": "claim",
-        "content": result.get("claim", "Original claim"),
-        "children": ["translation"],
-    })
+    nodes.append(
+        {
+            "id": "root",
+            "type": "claim",
+            "content": result.get("claim", "Original claim"),
+            "children": ["translation"],
+        }
+    )
 
     # Translation node
-    nodes.append({
-        "id": "translation",
-        "type": "translation",
-        "content": formal_statement,
-        "language": result.get("language", "unknown"),
-        "children": ["verification"],
-    })
+    nodes.append(
+        {
+            "id": "translation",
+            "type": "translation",
+            "content": formal_statement,
+            "language": result.get("language", "unknown"),
+            "children": ["verification"],
+        }
+    )
 
     # Verification node
     status = result.get("status", "unknown")
-    nodes.append({
-        "id": "verification",
-        "type": "verification",
-        "content": f"Status: {status}",
-        "is_verified": result.get("is_verified", False),
-        "proof_hash": result.get("proof_hash"),
-        "children": [],
-    })
+    nodes.append(
+        {
+            "id": "verification",
+            "type": "verification",
+            "content": f"Status: {status}",
+            "is_verified": result.get("is_verified", False),
+            "proof_hash": result.get("proof_hash"),
+            "children": [],
+        }
+    )
 
     # If we have proof steps, add them
     proof_steps = result.get("proof_steps", [])
     if proof_steps:
         nodes[-1]["children"] = [f"step_{i}" for i in range(len(proof_steps))]
         for i, step in enumerate(proof_steps):
-            nodes.append({
-                "id": f"step_{i}",
-                "type": "proof_step",
-                "content": step,
-                "step_number": i + 1,
-                "children": [],
-            })
+            nodes.append(
+                {
+                    "id": f"step_{i}",
+                    "type": "proof_step",
+                    "content": step,
+                    "step_number": i + 1,
+                    "children": [],
+                }
+            )
 
     return nodes
 
@@ -568,22 +576,21 @@ class FormalVerificationHandler(BaseHandler):
 
         # Apply status filter
         if status_filter:
-            all_entries = [
-                e for e in all_entries
-                if e.result.get("status") == status_filter
-            ]
+            all_entries = [e for e in all_entries if e.result.get("status") == status_filter]
 
         total = len(all_entries)
 
         # Apply pagination
         paginated = all_entries[offset : offset + limit]
 
-        return json_response({
-            "entries": [e.to_dict() for e in paginated],
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "entries": [e.to_dict() for e in paginated],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     @handle_errors("verification history entry")
     def _handle_get_history_entry(self, path: str) -> HandlerResult:
@@ -629,10 +636,12 @@ class FormalVerificationHandler(BaseHandler):
                 proof_tree = _build_proof_tree({**entry.result, "claim": entry.claim})
 
             if not proof_tree:
-                return json_response({
-                    "nodes": [],
-                    "message": "No proof tree available for this verification",
-                })
+                return json_response(
+                    {
+                        "nodes": [],
+                        "message": "No proof tree available for this verification",
+                    }
+                )
 
             return json_response({"nodes": proof_tree})
 

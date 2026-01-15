@@ -228,18 +228,25 @@ async def main() -> int:
     print("\nDETAILS")
     print("-" * 60)
     for result in results:
-        print(f"{result['fixture_id']}: quality={result['quality_score']}, "
-              f"latency={result['latency_seconds']}s, "
-              f"coverage={result['coverage_score']}, "
-              f"verdict={result['verdict']}")
+        print(
+            f"{result['fixture_id']}: quality={result['quality_score']}, "
+            f"latency={result['latency_seconds']}s, "
+            f"coverage={result['coverage_score']}, "
+            f"verdict={result['verdict']}"
+        )
 
     if args.output:
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps({
-            "summary": summary,
-            "results": results,
-        }, indent=2))
+        output_path.write_text(
+            json.dumps(
+                {
+                    "summary": summary,
+                    "results": results,
+                },
+                indent=2,
+            )
+        )
         print(f"\nSaved results to {output_path}")
 
     return 0

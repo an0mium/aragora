@@ -31,9 +31,7 @@ except ImportError:
     HAS_BENCHMARK = False
 
 # Skip benchmark-specific tests if plugin not installed
-requires_benchmark = pytest.mark.skipif(
-    not HAS_BENCHMARK, reason="pytest-benchmark not installed"
-)
+requires_benchmark = pytest.mark.skipif(not HAS_BENCHMARK, reason="pytest-benchmark not installed")
 
 
 @requires_benchmark

@@ -111,21 +111,22 @@ class ConcreteRepository(DatabaseRepository):
 
     def _init_schema(self):
         with self.connection() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS test_items (
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     value INTEGER DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
             conn.commit()
 
     def insert(self, id: str, name: str, value: int = 0) -> None:
         with self.connection() as conn:
             conn.execute(
-                "INSERT INTO test_items (id, name, value) VALUES (?, ?, ?)",
-                (id, name, value)
+                "INSERT INTO test_items (id, name, value) VALUES (?, ?, ?)", (id, name, value)
             )
             conn.commit()
         self._notify_change("insert")

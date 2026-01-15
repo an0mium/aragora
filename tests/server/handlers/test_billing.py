@@ -213,7 +213,9 @@ class MockSubscription:
 
     id: str = "sub_test123"
     status: str = "active"
-    current_period_end: datetime = field(default_factory=lambda: datetime.utcnow() + timedelta(days=15))
+    current_period_end: datetime = field(
+        default_factory=lambda: datetime.utcnow() + timedelta(days=15)
+    )
     cancel_at_period_end: bool = False
     trial_start: datetime | None = None
     trial_end: datetime | None = None
@@ -391,7 +393,9 @@ class TestBillingHandlerGetSubscription:
     @patch("aragora.server.handlers.admin.billing._billing_limiter")
     @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
     @patch("aragora.server.handlers.admin.billing.get_stripe_client")
-    def test_get_subscription_with_stripe(self, mock_stripe, mock_auth, mock_limiter, billing_handler):
+    def test_get_subscription_with_stripe(
+        self, mock_stripe, mock_auth, mock_limiter, billing_handler
+    ):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext()
 
@@ -791,9 +795,7 @@ class TestBillingHandlerWebhook:
     @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.admin.billing._is_duplicate_webhook")
     @patch("aragora.server.handlers.admin.billing._mark_webhook_processed")
-    def test_webhook_unhandled_event(
-        self, mock_mark, mock_duplicate, mock_parse, billing_handler
-    ):
+    def test_webhook_unhandled_event(self, mock_mark, mock_duplicate, mock_parse, billing_handler):
         mock_event = MagicMock()
         mock_event.event_id = "evt_unknown"
         mock_event.type = "customer.created"  # Unhandled event type

@@ -90,7 +90,9 @@ async def handle_audit_events(request: web.Request) -> web.Response:
         try:
             query.category = AuditCategory(params["category"])
         except ValueError:
-            return web.json_response({"error": f"Invalid category: {params['category']}"}, status=400)
+            return web.json_response(
+                {"error": f"Invalid category: {params['category']}"}, status=400
+            )
 
     if params.get("action"):
         query.action = params["action"]

@@ -426,9 +426,7 @@ class DebateStreamServer(ServerBase):
             # 2. Client is subscribed to this specific debate
             # 3. Client has no subscription (legacy behavior)
             should_send = (
-                not event_loop_id
-                or subscribed_id == event_loop_id
-                or subscribed_id is None
+                not event_loop_id or subscribed_id == event_loop_id or subscribed_id is None
             )
 
             if should_send:
@@ -437,7 +435,9 @@ class DebateStreamServer(ServerBase):
                     async with asyncio.timeout(5.0):
                         await client.send(message)
                 except asyncio.TimeoutError:
-                    logger.warning(f"Client send timed out during broadcast, marking for disconnect")
+                    logger.warning(
+                        f"Client send timed out during broadcast, marking for disconnect"
+                    )
                     disconnected.add(client)
                 except Exception as e:
                     logger.debug(f"Client disconnected during broadcast: {e}")
@@ -483,9 +483,7 @@ class DebateStreamServer(ServerBase):
 
             # Send if subscribed to this debate or no subscription (legacy)
             should_send = (
-                not batch_loop_id
-                or subscribed_id == batch_loop_id
-                or subscribed_id is None
+                not batch_loop_id or subscribed_id == batch_loop_id or subscribed_id is None
             )
 
             if should_send:
@@ -494,7 +492,9 @@ class DebateStreamServer(ServerBase):
                     async with asyncio.timeout(5.0):
                         await client.send(message)
                 except asyncio.TimeoutError:
-                    logger.warning(f"Client send timed out during batch broadcast, marking for disconnect")
+                    logger.warning(
+                        f"Client send timed out during batch broadcast, marking for disconnect"
+                    )
                     disconnected.add(client)
                 except Exception as e:
                     logger.debug(f"Client disconnected during batch broadcast: {e}")
@@ -801,30 +801,42 @@ class DebateStreamServer(ServerBase):
             state = self.debate_states.get(debate_id)
 
         if state:
-            await websocket.send(json.dumps({
-                "type": "sync",
-                "data": state,
-                "debate_id": debate_id,
-            }))
+            await websocket.send(
+                json.dumps(
+                    {
+                        "type": "sync",
+                        "data": state,
+                        "debate_id": debate_id,
+                    }
+                )
+            )
             # If debate is in progress, resend debate_start for UI consistency
             if not state.get("ended"):
-                await websocket.send(json.dumps({
-                    "type": "debate_start",
-                    "loop_id": debate_id,
-                    "data": {
-                        "debate_id": debate_id,
-                        "status": "in_progress",
-                        "task": state.get("task", ""),
-                        "agents": state.get("agents", []),
-                    }
-                }))
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "debate_start",
+                            "loop_id": debate_id,
+                            "data": {
+                                "debate_id": debate_id,
+                                "status": "in_progress",
+                                "task": state.get("task", ""),
+                                "agents": state.get("agents", []),
+                            },
+                        }
+                    )
+                )
         else:
             # No state yet, send waiting status
-            await websocket.send(json.dumps({
-                "type": "sync",
-                "data": {"debate_id": debate_id, "status": "waiting"},
-                "debate_id": debate_id,
-            }))
+            await websocket.send(
+                json.dumps(
+                    {
+                        "type": "sync",
+                        "data": {"debate_id": debate_id, "status": "waiting"},
+                        "debate_id": debate_id,
+                    }
+                )
+            )
 
     async def _parse_message(self, message: str) -> dict | None:
         """Parse and validate incoming WebSocket message.
@@ -1054,7 +1066,9 @@ class DebateStreamServer(ServerBase):
                 )
             )
 
-    async def _cleanup_connection(self, client_ip: str, client_id: str, ws_id: int, websocket) -> None:
+    async def _cleanup_connection(
+        self, client_ip: str, client_id: str, ws_id: int, websocket
+    ) -> None:
         """Clean up resources after connection closes."""
         async with self._clients_lock:
             self.clients.discard(websocket)
@@ -1156,16 +1170,16 @@ class DebateStreamServer(ServerBase):
                     debate_id = data.get("debate_id") or data.get("loop_id")
                     if debate_id:
                         self._client_subscriptions[ws_id] = debate_id
-                        logger.info(
-                            f"[ws] Client {client_id[:8]}... subscribed to {debate_id}"
-                        )
+                        logger.info(f"[ws] Client {client_id[:8]}... subscribed to {debate_id}")
                         await self._send_debate_state(websocket, debate_id)
                     else:
                         await websocket.send(
-                            json.dumps({
-                                "type": "error",
-                                "data": {"message": "subscribe requires debate_id"}
-                            })
+                            json.dumps(
+                                {
+                                    "type": "error",
+                                    "data": {"message": "subscribe requires debate_id"},
+                                }
+                            )
                         )
 
         except Exception as e:

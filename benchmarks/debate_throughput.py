@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class BenchmarkResult:
     """Result of a benchmark run."""
+
     name: str
     iterations: int
     total_time_ms: float
@@ -85,14 +86,24 @@ def calculate_percentile(data: List[float], percentile: float) -> float:
     return sorted_data[min(index, len(sorted_data) - 1)]
 
 
-def create_benchmark_result(name: str, latencies: List[float], extra: dict = None) -> BenchmarkResult:
+def create_benchmark_result(
+    name: str, latencies: List[float], extra: dict = None
+) -> BenchmarkResult:
     """Create a BenchmarkResult from latency measurements."""
     if not latencies:
         return BenchmarkResult(
-            name=name, iterations=0, total_time_ms=0, min_latency_ms=0,
-            max_latency_ms=0, mean_latency_ms=0, median_latency_ms=0,
-            p95_latency_ms=0, p99_latency_ms=0, std_dev_ms=0,
-            throughput_ops_per_sec=0, extra=extra or {},
+            name=name,
+            iterations=0,
+            total_time_ms=0,
+            min_latency_ms=0,
+            max_latency_ms=0,
+            mean_latency_ms=0,
+            median_latency_ms=0,
+            p95_latency_ms=0,
+            p99_latency_ms=0,
+            std_dev_ms=0,
+            throughput_ops_per_sec=0,
+            extra=extra or {},
         )
 
     total_time = sum(latencies)
@@ -145,8 +156,7 @@ class MockAgent(Agent):
 
         # Simulate API call latency
         delay = self.response_delay_ms + random.uniform(
-            -self.response_variation_ms,
-            self.response_variation_ms
+            -self.response_variation_ms, self.response_variation_ms
         )
         delay = max(1, delay)  # Minimum 1ms
 
@@ -160,10 +170,7 @@ class MockAgent(Agent):
 
     def get_stats(self) -> dict:
         """Get agent statistics."""
-        avg_response = (
-            self.total_response_time_ms / self.call_count
-            if self.call_count > 0 else 0
-        )
+        avg_response = self.total_response_time_ms / self.call_count if self.call_count > 0 else 0
         return {
             "name": self.name,
             "call_count": self.call_count,
@@ -238,7 +245,9 @@ class DebateThroughputBenchmark:
                 "debate_id": debate_id,
                 "total_time_ms": total_time,
                 "rounds": result.rounds if hasattr(result, "rounds") else self.rounds_per_debate,
-                "consensus_reached": result.consensus_reached if hasattr(result, "consensus_reached") else False,
+                "consensus_reached": (
+                    result.consensus_reached if hasattr(result, "consensus_reached") else False
+                ),
                 "agent_response_times": agent_response_times,
                 "success": True,
             }
@@ -280,11 +289,9 @@ class DebateThroughputBenchmark:
 
     async def benchmark_concurrent_debates(self, concurrency: int = 3) -> BenchmarkResult:
         """Benchmark concurrent debate execution."""
+
         async def run_debate_batch(batch_id: int, batch_size: int) -> List[dict]:
-            tasks = [
-                self.run_single_debate(batch_id * batch_size + i)
-                for i in range(batch_size)
-            ]
+            tasks = [self.run_single_debate(batch_id * batch_size + i) for i in range(batch_size)]
             return await asyncio.gather(*tasks)
 
         start_time = time.perf_counter()
@@ -476,7 +483,9 @@ class DebateThroughputBenchmark:
         lines = ["=" * 60, "DEBATE THROUGHPUT BENCHMARK SUMMARY", "=" * 60, ""]
 
         for r in self.results:
-            throughput_str = f"{r.throughput_ops_per_sec:.2f} ops/sec" if r.throughput_ops_per_sec > 0 else "N/A"
+            throughput_str = (
+                f"{r.throughput_ops_per_sec:.2f} ops/sec" if r.throughput_ops_per_sec > 0 else "N/A"
+            )
             lines.append(f"{r.name}:")
             lines.append(f"  Mean latency: {r.mean_latency_ms:.2f}ms")
             lines.append(f"  P95 latency: {r.p95_latency_ms:.2f}ms")
@@ -484,10 +493,7 @@ class DebateThroughputBenchmark:
             lines.append("")
 
         # Calculate overall throughput
-        single_debate_result = next(
-            (r for r in self.results if "Single debate" in r.name),
-            None
-        )
+        single_debate_result = next((r for r in self.results if "Single debate" in r.name), None)
         if single_debate_result and single_debate_result.mean_latency_ms > 0:
             debates_per_min = 60000 / single_debate_result.mean_latency_ms
             lines.append(f"Estimated throughput: {debates_per_min:.1f} debates/minute")

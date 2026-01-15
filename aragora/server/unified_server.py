@@ -170,9 +170,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     # Used to include X-RateLimit-* headers in all responses
     _rate_limit_result: Optional["RateLimitResult"] = None
 
-    def send_error(
-        self, code: int, message: str | None = None, explain: str | None = None
-    ) -> None:
+    def send_error(self, code: int, message: str | None = None, explain: str | None = None) -> None:
         """Override send_error to include CORS headers.
 
         The default BaseHTTPRequestHandler.send_error() doesn't include CORS headers,
@@ -566,7 +564,10 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
             agent_string, classification = classify_and_assign_agents(question, use_llm=False)
 
-            if classification.recommended_personas and len(classification.recommended_personas) >= 2:
+            if (
+                classification.recommended_personas
+                and len(classification.recommended_personas) >= 2
+            ):
                 logger.info(
                     f"[auto_select] Classified as '{classification.category}' "
                     f"(confidence={classification.confidence:.2f}), "
@@ -579,7 +580,9 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
                     f"'{classification.category}', falling back to AgentSelector"
                 )
         except Exception as e:
-            logger.warning(f"[auto_select] Question classification failed: {e}, using AgentSelector")
+            logger.warning(
+                f"[auto_select] Question classification failed: {e}, using AgentSelector"
+            )
 
         # Fall back to AgentSelector
         if not ROUTING_AVAILABLE:
@@ -998,7 +1001,10 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         # Support all REST methods including DELETE for privacy endpoints
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Filename, Authorization, Accept, Origin, X-Requested-With")
+        self.send_header(
+            "Access-Control-Allow-Headers",
+            "Content-Type, X-Filename, Authorization, Accept, Origin, X-Requested-With",
+        )
         # Cache preflight response for 1 hour to reduce OPTIONS requests
         self.send_header("Access-Control-Max-Age", "3600")
 

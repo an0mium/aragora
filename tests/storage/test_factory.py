@@ -111,25 +111,31 @@ class TestIsPostgresConfigured:
             assert is_postgres_configured() is False
 
     def test_configured_with_aragora_dsn(self):
-        with patch.dict(os.environ, {
-            "ARAGORA_DB_BACKEND": "postgres",
-            "ARAGORA_POSTGRES_DSN": "postgres://user:pass@localhost/db"
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_DB_BACKEND": "postgres",
+                "ARAGORA_POSTGRES_DSN": "postgres://user:pass@localhost/db",
+            },
+        ):
             assert is_postgres_configured() is True
 
     def test_configured_with_database_url(self):
-        with patch.dict(os.environ, {
-            "ARAGORA_DB_BACKEND": "postgres",
-            "DATABASE_URL": "postgres://user:pass@localhost/db"
-        }):
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_DB_BACKEND": "postgres", "DATABASE_URL": "postgres://user:pass@localhost/db"},
+        ):
             assert is_postgres_configured() is True
 
     def test_aragora_dsn_takes_precedence(self):
-        with patch.dict(os.environ, {
-            "ARAGORA_DB_BACKEND": "postgres",
-            "ARAGORA_POSTGRES_DSN": "postgres://primary@localhost/db",
-            "DATABASE_URL": "postgres://fallback@localhost/db"
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_DB_BACKEND": "postgres",
+                "ARAGORA_POSTGRES_DSN": "postgres://primary@localhost/db",
+                "DATABASE_URL": "postgres://fallback@localhost/db",
+            },
+        ):
             # Just testing that it's configured - precedence handled internally
             assert is_postgres_configured() is True
 
@@ -254,10 +260,9 @@ class TestStorageInfo:
     """Tests for storage_info function."""
 
     def test_sqlite_info(self, tmp_path):
-        with patch.dict(os.environ, {
-            "ARAGORA_DB_BACKEND": "sqlite",
-            "ARAGORA_NOMIC_DIR": str(tmp_path)
-        }):
+        with patch.dict(
+            os.environ, {"ARAGORA_DB_BACKEND": "sqlite", "ARAGORA_NOMIC_DIR": str(tmp_path)}
+        ):
             info = storage_info()
 
             assert info["backend"] == "sqlite"
@@ -277,10 +282,13 @@ class TestStorageInfo:
             assert info["postgres_configured"] is False
 
     def test_postgres_info_with_dsn(self):
-        with patch.dict(os.environ, {
-            "ARAGORA_DB_BACKEND": "postgres",
-            "ARAGORA_POSTGRES_DSN": "postgres://user:secret@localhost:5432/mydb"
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_DB_BACKEND": "postgres",
+                "ARAGORA_POSTGRES_DSN": "postgres://user:secret@localhost:5432/mydb",
+            },
+        ):
             info = storage_info()
 
             assert info["backend"] == "postgres"
@@ -292,10 +300,13 @@ class TestStorageInfo:
             assert "***" in info["dsn_redacted"]
 
     def test_dsn_password_redaction(self):
-        with patch.dict(os.environ, {
-            "ARAGORA_DB_BACKEND": "postgres",
-            "ARAGORA_POSTGRES_DSN": "postgres://admin:SuperSecret123@db.example.com:5432/aragora"
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_DB_BACKEND": "postgres",
+                "ARAGORA_POSTGRES_DSN": "postgres://admin:SuperSecret123@db.example.com:5432/aragora",
+            },
+        ):
             info = storage_info()
 
             dsn = info["dsn_redacted"]
@@ -304,10 +315,10 @@ class TestStorageInfo:
             assert "db.example.com:5432/aragora" in dsn
 
     def test_dsn_without_password(self):
-        with patch.dict(os.environ, {
-            "ARAGORA_DB_BACKEND": "postgres",
-            "ARAGORA_POSTGRES_DSN": "postgres://localhost/db"
-        }):
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_DB_BACKEND": "postgres", "ARAGORA_POSTGRES_DSN": "postgres://localhost/db"},
+        ):
             info = storage_info()
             # Should handle DSN without @ symbol
             assert "dsn_redacted" in info

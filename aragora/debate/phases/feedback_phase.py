@@ -975,7 +975,7 @@ class FeedbackPhase:
             consensus_record = self.consensus_memory.store_consensus(
                 topic=ctx.env.task,
                 conclusion=result.final_answer[:2000],
-                strength=strength.value if hasattr(strength, 'value') else str(strength),
+                strength=strength.value if hasattr(strength, "value") else str(strength),
                 confidence=result.confidence,
                 participating_agents=[a.name for a in ctx.agents],
                 agreeing_agents=agreeing_agents,

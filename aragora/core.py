@@ -193,6 +193,10 @@ class DebateResult:
     avg_novelty: float = 1.0  # Average novelty (1.0 = fresh ideas, 0.0 = repetitive)
     # Formal verification result (from Lean4/Z3)
     formal_verification: Optional[dict[str, Any]] = None  # FormalProofResult.to_dict()
+    # Export download links (populated after debate completion for aragora.ai)
+    export_links: Optional[dict[str, str]] = None  # Format -> URL mapping
+    # Final synthesis from Claude Opus 4.5 (1200-word comprehensive summary)
+    synthesis: str = ""
 
     def __post_init__(self) -> None:
         if self.debate_id:

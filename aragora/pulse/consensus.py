@@ -100,18 +100,94 @@ class CrossSourceConsensus:
 
         # Common words to ignore in comparison
         self._stopwords = {
-            "the", "a", "an", "is", "are", "was", "were", "be", "been",
-            "being", "have", "has", "had", "do", "does", "did", "will",
-            "would", "could", "should", "may", "might", "must", "shall",
-            "can", "need", "dare", "ought", "used", "to", "of", "in",
-            "for", "on", "with", "at", "by", "from", "as", "into",
-            "through", "during", "before", "after", "above", "below",
-            "between", "under", "again", "further", "then", "once",
-            "here", "there", "when", "where", "why", "how", "all",
-            "each", "few", "more", "most", "other", "some", "such",
-            "no", "nor", "not", "only", "own", "same", "so", "than",
-            "too", "very", "just", "and", "but", "if", "or", "because",
-            "until", "while", "about", "against", "this", "that",
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "shall",
+            "can",
+            "need",
+            "dare",
+            "ought",
+            "used",
+            "to",
+            "of",
+            "in",
+            "for",
+            "on",
+            "with",
+            "at",
+            "by",
+            "from",
+            "as",
+            "into",
+            "through",
+            "during",
+            "before",
+            "after",
+            "above",
+            "below",
+            "between",
+            "under",
+            "again",
+            "further",
+            "then",
+            "once",
+            "here",
+            "there",
+            "when",
+            "where",
+            "why",
+            "how",
+            "all",
+            "each",
+            "few",
+            "more",
+            "most",
+            "other",
+            "some",
+            "such",
+            "no",
+            "nor",
+            "not",
+            "only",
+            "own",
+            "same",
+            "so",
+            "than",
+            "too",
+            "very",
+            "just",
+            "and",
+            "but",
+            "if",
+            "or",
+            "because",
+            "until",
+            "while",
+            "about",
+            "against",
+            "this",
+            "that",
         }
 
     def detect_consensus(
@@ -295,10 +371,7 @@ class CrossSourceConsensus:
             keyword_sim = 0
 
         # Weighted combination
-        combined = (
-            sequence_sim * (1 - self.keyword_weight)
-            + keyword_sim * self.keyword_weight
-        )
+        combined = sequence_sim * (1 - self.keyword_weight) + keyword_sim * self.keyword_weight
 
         return combined
 
@@ -318,10 +391,7 @@ class CrossSourceConsensus:
         words = self._normalize_text(text).split()
 
         # Remove stopwords and short words
-        keywords = {
-            w for w in words
-            if w not in self._stopwords and len(w) >= 3
-        }
+        keywords = {w for w in words if w not in self._stopwords and len(w) >= 3}
 
         return keywords
 
@@ -335,17 +405,14 @@ class CrossSourceConsensus:
 
         # Volume factor (log scale)
         import math
+
         volume_score = min(1.0, math.log10(max(1, cluster.total_volume) + 1) / 6)
 
         # Topic count factor
         count_score = min(1.0, len(cluster.topics) / 5)
 
         # Weighted combination
-        consensus = (
-            platform_score * 0.50 +
-            volume_score * 0.30 +
-            count_score * 0.20
-        )
+        consensus = platform_score * 0.50 + volume_score * 0.30 + count_score * 0.20
 
         return consensus
 

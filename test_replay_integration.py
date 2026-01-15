@@ -25,7 +25,7 @@ def test_recorder():
             topic="Test debate topic",
             proposal="Test proposal",
             agents=[{"name": "Agent1", "role": "proposer"}, {"name": "Agent2", "role": "critic"}],
-            storage_dir=str(replay_dir)
+            storage_dir=str(replay_dir),
         )
 
         print("✓ Recorder created")
@@ -45,6 +45,7 @@ def test_recorder():
 
         # Wait a bit for async writing
         import time
+
         time.sleep(0.1)
 
         # Finalize
@@ -58,7 +59,7 @@ def test_recorder():
 
         if meta_file.exists():
             print("✓ Meta file created")
-            with open(meta_file, 'r') as f:
+            with open(meta_file, "r") as f:
                 meta = json.load(f)
             print(f"  Status: {meta.get('status')}")
             print(f"  Event count: {meta.get('event_count')}")
@@ -68,7 +69,7 @@ def test_recorder():
         if events_file.exists():
             print("✓ Events file created")
             # Count events
-            with open(events_file, 'r') as f:
+            with open(events_file, "r") as f:
                 events = [json.loads(line) for line in f]
             print(f"✓ Recorded {len(events)} events")
             for event in events:

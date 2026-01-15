@@ -223,7 +223,9 @@ class TestArXivConnector:
             mock_response = MagicMock()
             mock_response.status_code = 500
             mock_response.raise_for_status = MagicMock(
-                side_effect=httpx.HTTPStatusError("Server Error", request=MagicMock(), response=mock_response)
+                side_effect=httpx.HTTPStatusError(
+                    "Server Error", request=MagicMock(), response=mock_response
+                )
             )
 
             mock_client_instance = AsyncMock()

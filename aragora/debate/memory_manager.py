@@ -11,6 +11,8 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+from aragora.typing import EventEmitterProtocol
+
 from aragora.agents.errors import _build_error_action
 
 if TYPE_CHECKING:
@@ -25,6 +27,17 @@ from aragora.memory.continuum import MemoryTier
 from aragora.memory.tier_analytics import TierAnalyticsTracker
 
 logger = logging.getLogger(__name__)
+
+
+# Event types emitted by MemoryManager (for documentation and consistency)
+class MemoryEventType:
+    """Constants for memory-related event types."""
+
+    MEMORY_STORED = "memory:stored"
+    MEMORY_RETRIEVED = "memory:retrieved"
+    MEMORY_PROMOTED = "memory:promoted"
+    PATTERN_CACHED = "pattern:cached"
+    PATTERN_RETRIEVED = "pattern:retrieved"
 
 
 class MemoryManager:
@@ -43,7 +56,7 @@ class MemoryManager:
         consensus_memory: Optional["ConsensusMemory"] = None,
         debate_embeddings: Optional["DebateEmbeddingsDatabase"] = None,
         domain_extractor: Optional[Callable[[], str]] = None,
-        event_emitter: Optional[Any] = None,  # SyncEventEmitter - avoid circular import
+        event_emitter: Optional[EventEmitterProtocol] = None,
         spectator: Optional["SpectatorStream"] = None,
         loop_id: str = "",
         tier_analytics_tracker: Optional[TierAnalyticsTracker] = None,
@@ -79,6 +92,25 @@ class MemoryManager:
         # Pattern cache: (timestamp, formatted_patterns) - TTL 5 minutes
         self._patterns_cache: tuple[float, str] | None = None
         self._patterns_cache_ttl: float = 300.0  # 5 minutes
+
+    def _emit_event(self, event_type: str, **data: Any) -> None:
+        """Emit a memory event if event_emitter is configured.
+
+        Args:
+            event_type: The event type (see MemoryEventType constants)
+            **data: Event data to include
+        """
+        if self.event_emitter is None:
+            return
+        try:
+            # Use emit_sync if available (SyncEventEmitter), otherwise emit
+            emit_fn = getattr(self.event_emitter, "emit_sync", None)
+            if emit_fn is None:
+                emit_fn = getattr(self.event_emitter, "emit", None)
+            if emit_fn is not None:
+                emit_fn(event_type, loop_id=self.loop_id, **data)
+        except Exception as e:
+            logger.debug(f"Failed to emit memory event {event_type}: {e}")
 
     def _get_domain(self) -> str:
         """Get current debate domain from extractor or default."""
@@ -138,8 +170,9 @@ class MemoryManager:
             if belief_cruxes:
                 metadata["crux_claims"] = belief_cruxes[:10]  # Limit to 10 cruxes
 
+            memory_id = f"debate_outcome_{result.id[:8]}"
             self.continuum_memory.add(
-                id=f"debate_outcome_{result.id[:8]}",
+                id=memory_id,
                 content=memory_content,
                 tier=tier,
                 importance=importance,
@@ -147,6 +180,16 @@ class MemoryManager:
             )
             logger.info(
                 f"  [continuum] Stored outcome as {tier}-tier memory (importance: {importance:.2f})"
+            )
+
+            # Emit memory stored event
+            self._emit_event(
+                MemoryEventType.MEMORY_STORED,
+                memory_id=memory_id,
+                tier=tier.value if hasattr(tier, "value") else str(tier),
+                importance=importance,
+                domain=domain,
+                debate_id=result.id,
             )
 
         except Exception as e:

@@ -165,8 +165,7 @@ class ProposalPhase:
 
         # Create tasks for parallel execution
         tasks = [
-            asyncio.create_task(self._generate_single_proposal(ctx, agent))
-            for agent in proposers
+            asyncio.create_task(self._generate_single_proposal(ctx, agent)) for agent in proposers
         ]
 
         # Wait for all proposals and process as they complete
@@ -262,7 +261,9 @@ class ProposalPhase:
             except Exception as e:
                 logger.debug(f"Recorder error for proposal: {e}")
 
-    def _record_positions(self, ctx: "DebateContextType", agent: "AgentType", proposal: str) -> None:
+    def _record_positions(
+        self, ctx: "DebateContextType", agent: "AgentType", proposal: str
+    ) -> None:
         """Record positions for truth-grounded personas."""
         debate_id = ctx.debate_id or ctx.env.task[:50]
 

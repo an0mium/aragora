@@ -28,7 +28,10 @@ from aragora.debate.complexity_governor import (
     get_complexity_governor,
 )
 from aragora.debate.context import DebateContext
-from aragora.debate.convergence import ConvergenceDetector
+from aragora.debate.convergence import (
+    ConvergenceDetector,
+    cleanup_embedding_cache,
+)
 from aragora.debate.event_bridge import EventEmitterBridge
 from aragora.debate.event_bus import EventBus
 from aragora.debate.extensions import ArenaExtensions
@@ -183,7 +186,7 @@ class Arena:
         checkpoint_manager=None,  # Optional CheckpointManager for debate resume
         enable_checkpointing: bool = False,  # Auto-create CheckpointManager if True
         performance_monitor=None,  # Optional AgentPerformanceMonitor for telemetry
-        enable_performance_monitor: bool = False,  # Auto-create PerformanceMonitor if True
+        enable_performance_monitor: bool = True,  # Auto-create PerformanceMonitor if True
         enable_telemetry: bool = False,  # Enable Prometheus/Blackbox telemetry emission
         use_airlock: bool = False,  # Wrap agents with AirlockProxy for timeout protection
         airlock_config=None,  # Optional AirlockConfig for customization
@@ -831,18 +834,56 @@ class Arena:
         self.roles_manager.assign_stances(round_num=0)
         self.roles_manager.apply_agreement_intensity()
 
-    def _init_convergence(self) -> None:
-        """Initialize convergence detection if enabled."""
+    def _init_convergence(self, debate_id: Optional[str] = None) -> None:
+        """Initialize convergence detection if enabled.
+
+        Args:
+            debate_id: Debate ID for scoped caching (prevents cross-debate contamination).
+                       If not provided, will be set later via _reinit_convergence_for_debate.
+        """
         self.convergence_detector = None
+        self._convergence_debate_id = debate_id
         if self.protocol.convergence_detection:
             self.convergence_detector = ConvergenceDetector(
                 convergence_threshold=self.protocol.convergence_threshold,
                 divergence_threshold=self.protocol.divergence_threshold,
                 min_rounds_before_check=1,
+                debate_id=debate_id,
             )
 
         # Track responses for convergence detection
         self._previous_round_responses: dict[str, str] = {}
+
+    def _reinit_convergence_for_debate(self, debate_id: str) -> None:
+        """Reinitialize convergence detector with debate-specific cache.
+
+        Called at the start of run() to ensure embedding cache is isolated
+        per debate, preventing cross-debate topic contamination.
+
+        Args:
+            debate_id: Unique ID for this debate run
+        """
+        if self._convergence_debate_id == debate_id:
+            return  # Already initialized for this debate
+
+        self._convergence_debate_id = debate_id
+        if self.protocol.convergence_detection:
+            self.convergence_detector = ConvergenceDetector(
+                convergence_threshold=self.protocol.convergence_threshold,
+                divergence_threshold=self.protocol.divergence_threshold,
+                min_rounds_before_check=1,
+                debate_id=debate_id,
+            )
+            logger.debug(f"Reinitialized convergence detector for debate {debate_id}")
+
+    def _cleanup_convergence_cache(self) -> None:
+        """Cleanup embedding cache for the current debate.
+
+        Called at the end of run() to free memory and prevent leaks.
+        """
+        if self._convergence_debate_id:
+            cleanup_embedding_cache(self._convergence_debate_id)
+            logger.debug(f"Cleaned up embedding cache for debate {self._convergence_debate_id}")
 
     def _init_caches(self) -> None:
         """Initialize caches for computed values.
@@ -1463,6 +1504,10 @@ class Arena:
         if not correlation_id:
             correlation_id = f"corr-{debate_id[:8]}"
 
+        # Reinitialize convergence detector with debate-scoped cache
+        # This prevents cross-debate embedding contamination
+        self._reinit_convergence_for_debate(debate_id)
+
         # Extract domain early for metrics
         domain = self._extract_debate_domain()
 
@@ -1639,6 +1684,9 @@ class Arena:
         # Extensions handle their own error handling and won't fail the debate
         self.extensions.on_debate_complete(ctx, ctx.result, self.agents)
 
+        # Cleanup debate-scoped embedding cache to free memory
+        self._cleanup_convergence_cache()
+
         return ctx.finalize_result()
 
     # NOTE: Legacy _run_inner code (1,300+ lines) removed after successful phase integration.
@@ -1714,8 +1762,9 @@ class Arena:
             elo_system=self.elo_system,
             judge_selection=self.protocol.judge_selection,
             generate_fn=generate_wrapper,
-            build_vote_prompt_fn=lambda candidates,
-            props: self.prompt_builder.build_judge_vote_prompt(candidates, props),
+            build_vote_prompt_fn=lambda candidates, props: self.prompt_builder.build_judge_vote_prompt(
+                candidates, props
+            ),
             sanitize_fn=OutputSanitizer.sanitize_agent_output,
             consensus_memory=self.consensus_memory,
         )

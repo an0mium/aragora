@@ -315,6 +315,18 @@ class User:
     # Token revocation - increment to invalidate all existing tokens
     token_version: int = 1
 
+    def __post_init__(self) -> None:
+        """Warn about deprecated field usage."""
+        if self.api_key is not None:
+            import warnings
+
+            warnings.warn(
+                "User.api_key is deprecated and will be removed. "
+                "Use generate_api_key() to create hashed API keys.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
     def set_password(self, password: str) -> None:
         """Set user password."""
         self.password_hash, self.password_salt = hash_password(password)

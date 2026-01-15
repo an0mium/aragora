@@ -193,10 +193,7 @@ class TestCheckMfaStatus:
 
     def test_mfa_enabled_with_secret(self):
         user_store = MockUserStore()
-        user_store.users["user-123"] = MockUser(
-            mfa_enabled=True,
-            mfa_secret="TESTSECRET123456"
-        )
+        user_store.users["user-123"] = MockUser(mfa_enabled=True, mfa_secret="TESTSECRET123456")
 
         status = check_mfa_status("user-123", user_store)
 
@@ -207,9 +204,7 @@ class TestCheckMfaStatus:
         user_store = MockUserStore()
         backup_codes = json.dumps(["hash1", "hash2", "hash3", "hash4", "hash5"])
         user_store.users["user-123"] = MockUser(
-            mfa_enabled=True,
-            mfa_secret="SECRET",
-            mfa_backup_codes=backup_codes
+            mfa_enabled=True, mfa_secret="SECRET", mfa_backup_codes=backup_codes
         )
 
         status = check_mfa_status("user-123", user_store)
@@ -219,10 +214,7 @@ class TestCheckMfaStatus:
 
     def test_invalid_backup_codes_json(self):
         user_store = MockUserStore()
-        user_store.users["user-123"] = MockUser(
-            mfa_enabled=True,
-            mfa_backup_codes="invalid json"
-        )
+        user_store.users["user-123"] = MockUser(mfa_enabled=True, mfa_backup_codes="invalid json")
 
         status = check_mfa_status("user-123", user_store)
 
@@ -254,10 +246,7 @@ class TestEnforceAdminMfaPolicy:
         user_store = MockUserStore()
         backup_codes = json.dumps(["h1", "h2", "h3", "h4", "h5"])
         user_store.users["admin-123"] = MockUser(
-            id="admin-123",
-            mfa_enabled=True,
-            mfa_secret="SECRET",
-            mfa_backup_codes=backup_codes
+            id="admin-123", mfa_enabled=True, mfa_secret="SECRET", mfa_backup_codes=backup_codes
         )
 
         result = enforce_admin_mfa_policy(user, user_store)
@@ -272,9 +261,7 @@ class TestEnforceAdminMfaPolicy:
         user_store = MockUserStore()
         backup_codes = json.dumps(["h1", "h2"])  # Only 2 codes
         user_store.users["admin-123"] = MockUser(
-            id="admin-123",
-            mfa_enabled=True,
-            mfa_backup_codes=backup_codes
+            id="admin-123", mfa_enabled=True, mfa_backup_codes=backup_codes
         )
 
         result = enforce_admin_mfa_policy(user, user_store)
@@ -290,10 +277,7 @@ class TestEnforceAdminMfaPolicy:
         user.role = "owner"
 
         user_store = MockUserStore()
-        user_store.users["owner-123"] = MockUser(
-            id="owner-123",
-            mfa_enabled=False
-        )
+        user_store.users["owner-123"] = MockUser(id="owner-123", mfa_enabled=False)
 
         result = enforce_admin_mfa_policy(user, user_store)
 
@@ -306,10 +290,7 @@ class TestEnforceAdminMfaPolicy:
         user.role = "superadmin"
 
         user_store = MockUserStore()
-        user_store.users["super-123"] = MockUser(
-            id="super-123",
-            mfa_enabled=False
-        )
+        user_store.users["super-123"] = MockUser(id="super-123", mfa_enabled=False)
 
         result = enforce_admin_mfa_policy(user, user_store)
 
@@ -325,9 +306,7 @@ class TestEnforceAdminMfaPolicy:
         # Created 3 days ago
         created = datetime.now(timezone.utc) - timedelta(days=3)
         user_store.users["new-admin"] = MockUser(
-            id="new-admin",
-            mfa_enabled=False,
-            created_at=created
+            id="new-admin", mfa_enabled=False, created_at=created
         )
 
         result = enforce_admin_mfa_policy(user, user_store, grace_period_days=7)
@@ -346,9 +325,7 @@ class TestEnforceAdminMfaPolicy:
         # Created 10 days ago
         created = datetime.now(timezone.utc) - timedelta(days=10)
         user_store.users["old-admin"] = MockUser(
-            id="old-admin",
-            mfa_enabled=False,
-            created_at=created
+            id="old-admin", mfa_enabled=False, created_at=created
         )
 
         result = enforce_admin_mfa_policy(user, user_store, grace_period_days=7)
@@ -485,11 +462,7 @@ class TestRequireAdminMfaDecorator:
             return {"success": True}
 
         user_store = MockUserStore()
-        user_store.users["admin-123"] = MockUser(
-            id="admin-123",
-            role="admin",
-            mfa_enabled=False
-        )
+        user_store.users["admin-123"] = MockUser(id="admin-123", role="admin", mfa_enabled=False)
         handler = make_mock_handler(ctx={"user_store": user_store})
 
         result = endpoint(handler)
@@ -510,11 +483,7 @@ class TestRequireAdminMfaDecorator:
             return {"success": True, "admin": True}
 
         user_store = MockUserStore()
-        user_store.users["admin-123"] = MockUser(
-            id="admin-123",
-            role="admin",
-            mfa_enabled=True
-        )
+        user_store.users["admin-123"] = MockUser(id="admin-123", role="admin", mfa_enabled=True)
         handler = make_mock_handler(ctx={"user_store": user_store})
 
         result = endpoint(handler)
@@ -535,11 +504,7 @@ class TestRequireAdminMfaDecorator:
             return {"success": True}
 
         user_store = MockUserStore()
-        user_store.users["owner-123"] = MockUser(
-            id="owner-123",
-            role="owner",
-            mfa_enabled=False
-        )
+        user_store.users["owner-123"] = MockUser(id="owner-123", role="owner", mfa_enabled=False)
         handler = make_mock_handler(ctx={"user_store": user_store})
 
         result = endpoint(handler)
@@ -584,10 +549,7 @@ class TestRequireAdminWithMfaDecorator:
             return {"success": True}
 
         user_store = MockUserStore()
-        user_store.users["admin-123"] = MockUser(
-            id="admin-123",
-            mfa_enabled=False
-        )
+        user_store.users["admin-123"] = MockUser(id="admin-123", mfa_enabled=False)
         handler = make_mock_handler(ctx={"user_store": user_store})
 
         result = endpoint(handler)
@@ -608,10 +570,7 @@ class TestRequireAdminWithMfaDecorator:
             return {"success": True, "sensitive_op": True}
 
         user_store = MockUserStore()
-        user_store.users["admin-123"] = MockUser(
-            id="admin-123",
-            mfa_enabled=True
-        )
+        user_store.users["admin-123"] = MockUser(id="admin-123", mfa_enabled=True)
         handler = make_mock_handler(ctx={"user_store": user_store})
 
         result = endpoint(handler)

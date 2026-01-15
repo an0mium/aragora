@@ -280,9 +280,7 @@ class DesignGate(ApprovalGate):
             metadata={"complexity_score": complexity, "files_affected": files_affected},
         )
 
-    async def _request_interactive_approval(
-        self, design: str, context: Dict[str, Any]
-    ) -> bool:
+    async def _request_interactive_approval(self, design: str, context: Dict[str, Any]) -> bool:
         """Request interactive approval from user."""
         # Check for non-interactive mode
         if not sys.stdin.isatty():
