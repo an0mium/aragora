@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
@@ -31,7 +31,7 @@ from .base import (
     json_response,
     safe_json_parse,
 )
-from .utils.rate_limit import rate_limit
+from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 

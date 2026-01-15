@@ -50,7 +50,7 @@ from .evidence import EvidenceHandler
 from .evolution import EvolutionHandler
 from .evolution_ab_testing import EvolutionABTestingHandler
 from .features import FeaturesHandler
-from .formal_verification import FormalVerificationHandler
+from .verification import FormalVerificationHandler  # Moved to verification/
 from .gallery import GalleryHandler
 from .gauntlet import GauntletHandler
 from .genesis import GenesisHandler

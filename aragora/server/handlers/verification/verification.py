@@ -16,7 +16,7 @@ from aragora.server.middleware.rate_limit import rate_limit
 from aragora.server.validation.schema import VERIFICATION_SCHEMA, validate_against_schema
 from aragora.utils.optional_imports import try_import
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
