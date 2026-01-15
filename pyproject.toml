@@ -261,7 +261,6 @@ module = [
     "aragora.plugins.builtin.security",
     "aragora.plugins.builtin.tests",
     # Added strict - Phase 9 server handlers (Jan 2026)
-    "aragora.server.handlers.health",
     "aragora.server.handlers.reviews",
     "aragora.server.handlers.docs",
     "aragora.server.handlers.exceptions",
@@ -276,22 +275,90 @@ module = [
     "aragora.utils.cache_registry",
     "aragora.utils.token_helpers",
     # Added strict - Phase 11 handlers expansion (Jan 2026)
-    "aragora.server.handlers.memory_analytics",
-    "aragora.server.handlers.verification",
     "aragora.server.handlers.laboratory",
     "aragora.server.handlers.critique",
     "aragora.server.handlers.introspection",
-    "aragora.server.handlers.audio",
     "aragora.server.handlers.breakpoints",
     "aragora.server.handlers.moments",
-    "aragora.server.handlers.evolution",
-    "aragora.server.handlers.graph_debates",
-    "aragora.server.handlers.broadcast",
-    "aragora.server.handlers.insights",
     "aragora.server.handlers.gallery",
     "aragora.server.handlers.persona",
     "aragora.server.handlers.nomic",
     "aragora.server.handlers.selection",
+    # Added strict - Phase 14 handler reorganization (Jan 2026)
+    # Core handler infrastructure
+    "aragora.server.handlers.base",
+    "aragora.server.handlers.types",
+    # Admin handlers (admin/ subdirectory)
+    "aragora.server.handlers.admin.health",
+    "aragora.server.handlers.admin.admin",
+    "aragora.server.handlers.admin.billing",
+    "aragora.server.handlers.admin.dashboard",
+    "aragora.server.handlers.admin.system",
+    # Agent handlers (agents/ subdirectory)
+    "aragora.server.handlers.agents.agents",
+    "aragora.server.handlers.agents.calibration",
+    "aragora.server.handlers.agents.leaderboard",
+    "aragora.server.handlers.agents.probes",
+    # Auth handlers (auth/ subdirectory)
+    "aragora.server.handlers.auth.handler",
+    "aragora.server.handlers.auth.store",
+    "aragora.server.handlers.auth.validation",
+    # Debate handlers (debates/ subdirectory)
+    "aragora.server.handlers.debates.handler",
+    "aragora.server.handlers.debates.batch",
+    "aragora.server.handlers.debates.fork",
+    "aragora.server.handlers.debates.graph_debates",
+    "aragora.server.handlers.debates.matrix_debates",
+    # Evolution handlers (evolution/ subdirectory)
+    "aragora.server.handlers.evolution.handler",
+    "aragora.server.handlers.evolution.ab_testing",
+    # Feature handlers (features/ subdirectory)
+    "aragora.server.handlers.features.audio",
+    "aragora.server.handlers.features.broadcast",
+    "aragora.server.handlers.features.documents",
+    "aragora.server.handlers.features.evidence",
+    "aragora.server.handlers.features.features",
+    "aragora.server.handlers.features.plugins",
+    "aragora.server.handlers.features.pulse",
+    # Memory handlers (memory/ subdirectory)
+    "aragora.server.handlers.memory.memory",
+    "aragora.server.handlers.memory.memory_analytics",
+    "aragora.server.handlers.memory.insights",
+    "aragora.server.handlers.memory.learning",
+    # Social handlers (social/ subdirectory)
+    "aragora.server.handlers.social.collaboration",
+    "aragora.server.handlers.social.notifications",
+    "aragora.server.handlers.social.relationship",
+    "aragora.server.handlers.social.sharing",
+    "aragora.server.handlers.social.slack",
+    "aragora.server.handlers.social.social_media",
+    # Verification handlers (verification/ subdirectory)
+    "aragora.server.handlers.verification.verification",
+    "aragora.server.handlers.verification.formal_verification",
+    # Utils handlers (utils/ subdirectory)
+    "aragora.server.handlers.utils.decorators",
+    "aragora.server.handlers.utils.params",
+    "aragora.server.handlers.utils.rate_limit",
+    "aragora.server.handlers.utils.responses",
+    "aragora.server.handlers.utils.routing",
+    "aragora.server.handlers.utils.safe_data",
+    # Root-level handlers
+    "aragora.server.handlers.analytics",
+    "aragora.server.handlers.audit_export",
+    "aragora.server.handlers.auditing",
+    "aragora.server.handlers.belief",
+    "aragora.server.handlers.checkpoints",
+    "aragora.server.handlers.consensus",
+    "aragora.server.handlers.gauntlet",
+    "aragora.server.handlers.genesis",
+    "aragora.server.handlers.metrics",
+    "aragora.server.handlers.oauth",
+    "aragora.server.handlers.organizations",
+    "aragora.server.handlers.replays",
+    "aragora.server.handlers.sso",
+    "aragora.server.handlers.tournaments",
+    "aragora.server.handlers.training",
+    "aragora.server.handlers.webhooks",
     # Added strict - Phase 11 broadcast modules (Jan 2026)
     "aragora.broadcast.script_gen",
     "aragora.broadcast.mixer",
@@ -322,11 +389,22 @@ disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
 
-# Moderate settings - check untyped defs but don't require annotations
-# Note: Several modules promoted to strict in Phase 7 (Jan 2026)
+# Moderate settings - fallback for any new handler modules
+# Note: Most handlers promoted to strict in Phase 14 (Jan 2026)
+# This acts as a fallback for __init__.py files and new handlers
 [[tool.mypy.overrides]]
 module = [
-    "aragora.server.handlers.*",
+    "aragora.server.handlers.__init__",
+    "aragora.server.handlers.admin.__init__",
+    "aragora.server.handlers.agents.__init__",
+    "aragora.server.handlers.auth.__init__",
+    "aragora.server.handlers.debates.__init__",
+    "aragora.server.handlers.evolution.__init__",
+    "aragora.server.handlers.features.__init__",
+    "aragora.server.handlers.memory.__init__",
+    "aragora.server.handlers.social.__init__",
+    "aragora.server.handlers.verification.__init__",
+    "aragora.server.handlers.utils.__init__",
 ]
 check_untyped_defs = true
 
@@ -415,7 +493,8 @@ module = [
     "aragora.storage.schema",
     "aragora.db.migrate",
     "aragora.server.middleware.*",
-    "aragora.server.handlers.cache",
+    "aragora.server.handlers.admin.cache",
+    "aragora.server.handlers.utils.database",
     "aragora.plugins.runner",
     "aragora.nomic.recovery",
     "aragora.logging_config",
