@@ -135,7 +135,7 @@ def clear_rate_limiters():
 
     # Clear evidence handler module-level rate limiters
     try:
-        import aragora.server.handlers.evidence as evidence_module
+        import aragora.server.handlers.features.evidence as evidence_module
 
         if hasattr(evidence_module, "_evidence_read_limiter"):
             evidence_module._evidence_read_limiter._buckets.clear()
@@ -155,7 +155,7 @@ def clear_rate_limiters():
     except (ImportError, AttributeError):
         pass
     try:
-        import aragora.server.handlers.evidence as evidence_module
+        import aragora.server.handlers.features.evidence as evidence_module
 
         if hasattr(evidence_module, "_evidence_read_limiter"):
             evidence_module._evidence_read_limiter._buckets.clear()
