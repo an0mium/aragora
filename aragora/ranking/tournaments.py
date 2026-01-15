@@ -185,7 +185,7 @@ class TournamentManager:
     Example:
         manager = TournamentManager(db_path="tournaments/contest.db")
         tournament = manager.create_tournament(
-            name="Q1 2024 Championship",
+            name="Weekly Championship",
             participants=["claude", "gpt4", "gemini"],
             bracket_type="round_robin"
         )

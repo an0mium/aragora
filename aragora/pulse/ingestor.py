@@ -269,11 +269,11 @@ class TwitterIngestor(PulseIngestor):
     def _mock_trending_data(self, limit: int) -> List[TrendingTopic]:
         """Mock trending data for development/testing."""
         mock_topics = [
-            TrendingTopic("twitter", "#AIJobDisplacement", 125000, "tech"),
-            TrendingTopic("twitter", "#ClimateChange", 98000, "environment"),
-            TrendingTopic("twitter", "#Election2024", 200000, "politics"),
-            TrendingTopic("twitter", "#QuantumComputing", 45000, "tech"),
-            TrendingTopic("twitter", "#RenewableEnergy", 78000, "environment"),
+            TrendingTopic("twitter", "#AIAgents2026", 125000, "tech"),
+            TrendingTopic("twitter", "#ClimateAction", 98000, "environment"),
+            TrendingTopic("twitter", "#AGISafety", 200000, "tech"),
+            TrendingTopic("twitter", "#QuantumSupremacy", 45000, "tech"),
+            TrendingTopic("twitter", "#SustainableAI", 78000, "environment"),
         ]
         return mock_topics[:limit]
 
