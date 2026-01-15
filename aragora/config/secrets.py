@@ -136,27 +136,27 @@ class SecretManager:
             return {}
 
         try:
-            from botocore.exceptions import ClientError
-
             response = client.get_secret_value(SecretId=self.config.secret_name)
             secret_string = response.get("SecretString", "{}")
             secrets: dict[str, str] = json.loads(secret_string)
             logger.info(f"Loaded {len(secrets)} secrets from AWS Secrets Manager")
             return secrets
-        except ClientError as e:
-            error_code = e.response.get("Error", {}).get("Code", "")
-            if error_code == "ResourceNotFoundException":
-                logger.warning(f"Secret '{self.config.secret_name}' not found in AWS")
-            elif error_code == "AccessDeniedException":
-                logger.warning("Access denied to AWS Secrets Manager")
-            else:
-                logger.error(f"AWS Secrets Manager error: {e}")
-            return {}
         except json.JSONDecodeError:
             logger.error("Failed to parse secrets JSON from AWS")
             return {}
         except Exception as e:
-            logger.error(f"Unexpected error loading secrets: {e}")
+            # Handle botocore.exceptions.ClientError without direct import
+            # to avoid import issues when botocore is not installed
+            if type(e).__name__ == "ClientError" and hasattr(e, "response"):
+                error_code = e.response.get("Error", {}).get("Code", "")
+                if error_code == "ResourceNotFoundException":
+                    logger.warning(f"Secret '{self.config.secret_name}' not found in AWS")
+                elif error_code == "AccessDeniedException":
+                    logger.warning("Access denied to AWS Secrets Manager")
+                else:
+                    logger.error(f"AWS Secrets Manager error: {e}")
+            else:
+                logger.error(f"Unexpected error loading secrets: {e}")
             return {}
 
     def _initialize(self) -> None:

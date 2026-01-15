@@ -241,6 +241,7 @@ class TestSecretManagerAWS:
                 client = manager._get_aws_client()
                 assert client is None
 
+    @pytest.mark.skipif(ClientError is None, reason="botocore not installed")
     def test_aws_handles_resource_not_found(self):
         """Gracefully handles missing secret in AWS."""
         config = SecretsConfig(use_aws=True)
@@ -257,6 +258,7 @@ class TestSecretManagerAWS:
             secrets = manager._load_from_aws()
             assert secrets == {}
 
+    @pytest.mark.skipif(ClientError is None, reason="botocore not installed")
     def test_aws_handles_access_denied(self):
         """Gracefully handles access denied from AWS."""
         config = SecretsConfig(use_aws=True)

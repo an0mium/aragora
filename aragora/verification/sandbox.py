@@ -17,8 +17,15 @@ Usage:
 import asyncio
 import logging
 import os
-import resource
 import shutil
+
+# resource module is Unix-only, used for memory limits
+try:
+    import resource
+
+    RESOURCE_AVAILABLE = True
+except ImportError:
+    RESOURCE_AVAILABLE = False  # Windows
 import signal
 import tempfile
 from dataclasses import dataclass
@@ -151,8 +158,11 @@ class ProofSandbox:
         """
         Set resource limits for the subprocess.
 
-        Called in the subprocess via preexec_fn.
+        Called in the subprocess via preexec_fn (Unix only).
         """
+        if not RESOURCE_AVAILABLE:
+            return
+
         # Memory limit (soft and hard)
         memory_bytes = self.config.memory_mb * 1024 * 1024
         try:
