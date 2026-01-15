@@ -185,7 +185,7 @@ export default function PricingPage() {
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4" suppressHydrationWarning>
               {mounted ? (
                 isAuthenticated ? (
                   <Link
