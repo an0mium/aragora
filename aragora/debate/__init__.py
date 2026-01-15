@@ -143,6 +143,14 @@ _EXPORT_MAP = {
     ),
     "theatrical_error": ("aragora.debate.chaos_theater", "theatrical_error"),
     "theatrical_timeout": ("aragora.debate.chaos_theater", "theatrical_timeout"),
+    # Translation / Multilingual
+    "Language": ("aragora.debate.translation", "Language"),
+    "TranslationResult": ("aragora.debate.translation", "TranslationResult"),
+    "TranslationService": ("aragora.debate.translation", "TranslationService"),
+    "MultilingualDebateConfig": ("aragora.debate.translation", "MultilingualDebateConfig"),
+    "MultilingualDebateManager": ("aragora.debate.translation", "MultilingualDebateManager"),
+    "get_translation_service": ("aragora.debate.translation", "get_translation_service"),
+    "get_multilingual_manager": ("aragora.debate.translation", "get_multilingual_manager"),
 }
 
 
@@ -300,4 +308,12 @@ __all__ = [
     "SharedEvidence",
     "Contradiction",
     "EvidenceGap",
+    # Translation / Multilingual
+    "Language",
+    "TranslationResult",
+    "TranslationService",
+    "MultilingualDebateConfig",
+    "MultilingualDebateManager",
+    "get_translation_service",
+    "get_multilingual_manager",
 ]

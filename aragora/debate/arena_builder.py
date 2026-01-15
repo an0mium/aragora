@@ -250,6 +250,10 @@ class ArenaBuilder:
         self._auto_export_training: bool = False
         self._training_export_min_confidence: float = 0.75
 
+        # Multilingual support
+        self._multilingual_manager: Any = None
+        self._default_language: str = "en"
+
     # =========================================================================
     # Protocol Configuration
     # =========================================================================
@@ -778,6 +782,54 @@ class ArenaBuilder:
             tracker: TierAnalyticsTracker instance
         """
         self._tier_analytics_tracker = tracker
+        return self
+
+    # =========================================================================
+    # Multilingual Support
+    # =========================================================================
+
+    def with_multilingual(
+        self,
+        manager: Any = None,
+        default_language: str = "en",
+        auto_translate: bool = True,
+    ) -> "ArenaBuilder":
+        """Configure multilingual debate support.
+
+        Enables automatic translation between different participant languages,
+        language detection, and multilingual conclusion generation.
+
+        Args:
+            manager: MultilingualDebateManager instance (created if None)
+            default_language: ISO 639-1 language code (default: "en")
+            auto_translate: Enable automatic message translation
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            arena = (
+                ArenaBuilder(env, agents)
+                .with_multilingual(default_language="es")
+                .build()
+            )
+        """
+        if manager is None:
+            from aragora.debate.translation import (
+                Language,
+                MultilingualDebateConfig,
+                MultilingualDebateManager,
+            )
+
+            lang = Language.from_code(default_language) or Language.ENGLISH
+            config = MultilingualDebateConfig(
+                default_language=lang,
+                auto_translate=auto_translate,
+            )
+            manager = MultilingualDebateManager(config=config)
+
+        self._multilingual_manager = manager
+        self._default_language = default_language
         return self
 
     # =========================================================================
