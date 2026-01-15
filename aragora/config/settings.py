@@ -223,8 +223,10 @@ class DatabaseSettings(BaseSettings):
     # PostgreSQL configuration
     url: Optional[str] = Field(default=None, alias="DATABASE_URL")
     backend: str = Field(default="sqlite", alias="ARAGORA_DB_BACKEND")
-    pool_size: int = Field(default=5, ge=1, le=100, alias="ARAGORA_DB_POOL_SIZE")
-    pool_max_overflow: int = Field(default=10, ge=0, le=100, alias="ARAGORA_DB_POOL_OVERFLOW")
+    # Pool size should accommodate max_concurrent_debates * 2 (read + write)
+    # Default: 20 base + 15 overflow = 35 total connections
+    pool_size: int = Field(default=20, ge=1, le=100, alias="ARAGORA_DB_POOL_SIZE")
+    pool_max_overflow: int = Field(default=15, ge=0, le=100, alias="ARAGORA_DB_POOL_OVERFLOW")
 
     # Legacy paths (for backwards compatibility)
     elo_path: str = Field(default="agent_elo.db", alias="ARAGORA_DB_ELO")

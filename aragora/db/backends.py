@@ -96,8 +96,9 @@ class DatabaseConfig:
     pg_ssl_mode: str = "prefer"
 
     # Connection pool settings
-    pool_size: int = 10
-    pool_max_overflow: int = 5
+    # Should accommodate max_concurrent_debates * 2 (read + write)
+    pool_size: int = 20
+    pool_max_overflow: int = 15
     pool_timeout: float = 30.0
 
     # Raw connection URL (takes precedence over individual settings)
@@ -134,8 +135,8 @@ class DatabaseConfig:
             pg_ssl_mode=os.getenv(
                 "ARAGORA_PG_SSL_MODE", "require"
             ),  # Default to require for managed
-            pool_size=int(os.getenv("ARAGORA_DB_POOL_SIZE", "10")),
-            pool_max_overflow=int(os.getenv("ARAGORA_DB_POOL_MAX_OVERFLOW", "5")),
+            pool_size=int(os.getenv("ARAGORA_DB_POOL_SIZE", "20")),
+            pool_max_overflow=int(os.getenv("ARAGORA_DB_POOL_MAX_OVERFLOW", "15")),
             pool_timeout=float(os.getenv("ARAGORA_DB_POOL_TIMEOUT", "30.0")),
         )
 
