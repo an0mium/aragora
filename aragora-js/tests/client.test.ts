@@ -513,4 +513,202 @@ describe('AragoraClient', () => {
       });
     });
   });
+
+  describe('broadcast', () => {
+    describe('generate()', () => {
+      it('should generate basic broadcast for a debate', async () => {
+        const mockResponse = {
+          broadcast_id: 'broadcast-123',
+          debate_id: 'debate-456',
+          status: 'completed',
+          audio_url: 'https://cdn.example.com/broadcast.mp3',
+          duration_seconds: 180,
+          transcript: 'Welcome to the debate...',
+        };
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        const result = await client.broadcast.generate('debate-456');
+        expect(result.broadcast_id).toBe('broadcast-123');
+        expect(result.debate_id).toBe('debate-456');
+        expect(result.audio_url).toBeDefined();
+      });
+    });
+
+    describe('generateFull()', () => {
+      it('should generate full broadcast with options', async () => {
+        const mockResponse = {
+          broadcast_id: 'broadcast-789',
+          debate_id: 'debate-456',
+          status: 'completed',
+          audio_url: 'https://cdn.example.com/broadcast.mp3',
+          video_url: 'https://cdn.example.com/broadcast.mp4',
+          duration_seconds: 300,
+          format: 'podcast',
+        };
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        const result = await client.broadcast.generateFull('debate-456', {
+          format: 'podcast',
+          include_video: true,
+        });
+
+        expect(result.broadcast_id).toBe('broadcast-789');
+        expect(result.video_url).toBeDefined();
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/api/debates/debate-456/broadcast/full'),
+          expect.any(Object)
+        );
+      });
+
+      it('should handle broadcast generation without options', async () => {
+        const mockResponse = {
+          broadcast_id: 'broadcast-simple',
+          debate_id: 'debate-456',
+          status: 'completed',
+        };
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        const result = await client.broadcast.generateFull('debate-456');
+        expect(result.broadcast_id).toBe('broadcast-simple');
+      });
+    });
+  });
+
+  describe('relationships', () => {
+    describe('summary()', () => {
+      it('should get relationship summary', async () => {
+        const mockResponse = {
+          total_relationships: 150,
+          active_pairs: 45,
+          avg_collaboration_score: 0.72,
+          strongest_pair: { agents: ['claude', 'gpt-4'], score: 0.95 },
+          weakest_pair: { agents: ['agent-a', 'agent-b'], score: 0.23 },
+        };
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        const result = await client.relationships.summary();
+        expect(result.total_relationships).toBe(150);
+        expect(result.strongest_pair.score).toBe(0.95);
+        expect(mockFetch).toHaveBeenCalledWith(
+          'http://localhost:8080/api/relationships/summary',
+          expect.any(Object)
+        );
+      });
+    });
+
+    describe('graph()', () => {
+      it('should get relationship graph', async () => {
+        const mockResponse = {
+          nodes: [
+            { id: 'claude', debates: 50, elo: 1850 },
+            { id: 'gpt-4', debates: 45, elo: 1820 },
+          ],
+          edges: [
+            { source: 'claude', target: 'gpt-4', weight: 0.85, debates: 20 },
+          ],
+        };
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        const result = await client.relationships.graph();
+        expect(result.nodes).toHaveLength(2);
+        expect(result.edges).toHaveLength(1);
+        expect(result.edges[0].weight).toBe(0.85);
+      });
+
+      it('should filter graph by minimum debates', async () => {
+        const mockResponse = {
+          nodes: [{ id: 'claude', debates: 50, elo: 1850 }],
+          edges: [],
+        };
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        await client.relationships.graph({ minDebates: 10 });
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('min_debates=10'),
+          expect.any(Object)
+        );
+      });
+    });
+
+    describe('stats()', () => {
+      it('should get relationship statistics', async () => {
+        const mockResponse = {
+          total_debates_analyzed: 1000,
+          unique_agent_pairs: 78,
+          avg_debates_per_pair: 12.8,
+          most_active_pair: { agents: ['claude', 'gpt-4'], count: 45 },
+          collaboration_distribution: {
+            high: 15,
+            medium: 35,
+            low: 28,
+          },
+        };
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        const result = await client.relationships.stats();
+        expect(result.total_debates_analyzed).toBe(1000);
+        expect(result.collaboration_distribution.high).toBe(15);
+      });
+    });
+
+    describe('pairDetail()', () => {
+      it('should get detailed relationship between two agents', async () => {
+        const mockResponse = {
+          agent_a: 'claude',
+          agent_b: 'gpt-4',
+          total_debates: 45,
+          wins: { claude: 20, 'gpt-4': 18, draws: 7 },
+          collaboration_score: 0.85,
+          recent_debates: [
+            { id: 'debate-1', winner: 'claude', date: '2024-01-15' },
+            { id: 'debate-2', winner: 'gpt-4', date: '2024-01-14' },
+          ],
+          topics: ['security', 'architecture', 'testing'],
+        };
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        const result = await client.relationships.pairDetail('claude', 'gpt-4');
+        expect(result.agent_a).toBe('claude');
+        expect(result.agent_b).toBe('gpt-4');
+        expect(result.total_debates).toBe(45);
+        expect(result.collaboration_score).toBe(0.85);
+        expect(mockFetch).toHaveBeenCalledWith(
+          'http://localhost:8080/api/relationship/claude/gpt-4',
+          expect.any(Object)
+        );
+      });
+    });
+  });
 });
