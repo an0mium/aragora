@@ -1734,11 +1734,36 @@ class ConsensusPhase:
                 )
 
         except asyncio.TimeoutError:
-            logger.warning("synthesis_timeout timeout=90s")
+            logger.warning("synthesis_timeout timeout=90s, using consensus fallback")
+            # Use existing final_answer from consensus as fallback
+            if ctx.result.final_answer:
+                synthesis = f"[Synthesis generated from consensus result]\n\n{ctx.result.final_answer}"
+                ctx.result.synthesis = synthesis
+                # Still emit the message so frontend shows completion
+                if self.hooks and "on_message" in self.hooks:
+                    rounds = self.protocol.rounds if self.protocol else 3
+                    self.hooks["on_message"](
+                        agent="synthesis-agent",
+                        content=synthesis,
+                        role="synthesis",
+                        round_num=rounds + 1,
+                    )
         except ImportError as e:
             logger.warning(f"synthesis_import_error: {e}")
         except Exception as e:
-            logger.warning(f"synthesis_generation_failed error={e}")
+            logger.warning(f"synthesis_generation_failed error={e}, using consensus fallback")
+            # Use existing final_answer from consensus as fallback
+            if ctx.result.final_answer:
+                synthesis = f"[Synthesis from consensus]\n\n{ctx.result.final_answer}"
+                ctx.result.synthesis = synthesis
+                if self.hooks and "on_message" in self.hooks:
+                    rounds = self.protocol.rounds if self.protocol else 3
+                    self.hooks["on_message"](
+                        agent="synthesis-agent",
+                        content=synthesis,
+                        role="synthesis",
+                        round_num=rounds + 1,
+                    )
 
     def _build_synthesis_prompt(self, ctx: "DebateContext") -> str:
         """Build prompt for final synthesis generation.

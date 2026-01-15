@@ -52,9 +52,10 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
         name: str = "mistral-api",
         model: str = "mistral-large-2512",
         role: str = "proposer",
-        timeout: int = 120,
+        timeout: int = 60,  # Lower timeout - Mistral tends to stall
         api_key: str | None = None,
         enable_fallback: bool = True,
+        circuit_breaker_threshold: int = 3,  # Lower threshold for faster fallback
     ):
         super().__init__(
             name=name,
@@ -63,6 +64,8 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
             timeout=timeout,
             api_key=api_key or get_api_key("MISTRAL_API_KEY"),
             base_url="https://api.mistral.ai/v1",
+            circuit_breaker_threshold=circuit_breaker_threshold,
+            circuit_breaker_cooldown=60.0,  # Shorter cooldown
         )
         self.agent_type = "mistral"
         self.enable_fallback = enable_fallback

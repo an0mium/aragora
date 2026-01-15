@@ -577,17 +577,58 @@ class WebSocketBroadcaster:
         for client in disconnected:
             self.client_manager.remove_client(client)
 
+    def _group_events_by_agent(self, events: list[StreamEvent]) -> list[StreamEvent]:
+        """Reorder events to group TOKEN_DELTA by agent.
+
+        Non-token events maintain their relative order.
+        Token events are grouped by agent for smoother frontend rendering,
+        preventing visual interleaving during parallel agent generation.
+
+        Args:
+            events: List of events in arrival order
+
+        Returns:
+            Reordered list with TOKEN_DELTA events grouped by agent
+        """
+        from aragora.server.stream.events import StreamEventType
+
+        result: list[StreamEvent] = []
+        token_groups: dict[str, list[StreamEvent]] = {}
+
+        for event in events:
+            if event.type == StreamEventType.TOKEN_DELTA and event.agent:
+                # Buffer token events by agent
+                if event.agent not in token_groups:
+                    token_groups[event.agent] = []
+                token_groups[event.agent].append(event)
+            else:
+                # Flush buffered tokens before non-token event
+                for agent_tokens in token_groups.values():
+                    result.extend(agent_tokens)
+                token_groups.clear()
+                result.append(event)
+
+        # Flush remaining tokens (grouped by agent)
+        for agent_tokens in token_groups.values():
+            result.extend(agent_tokens)
+
+        return result
+
     async def drain_loop(self) -> None:
         """Background task that drains emitter queue and broadcasts.
 
         Uses batching to reduce WebSocket overhead. Should be started
         as an asyncio task when the server starts.
+
+        Token events are grouped by agent for smoother streaming display,
+        preventing visual interleaving during parallel generation.
         """
         self._running = True
         while self._running:
             events = list(self._emitter.drain())
             if events:
-                await self.broadcast_batch(events)
+                grouped = self._group_events_by_agent(events)
+                await self.broadcast_batch(grouped)
             await asyncio.sleep(0.05)
 
     def stop(self) -> None:

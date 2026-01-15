@@ -156,19 +156,19 @@ class ProposalPhase:
     async def _generate_proposals_parallel(
         self, ctx: "DebateContextType", proposers: list["AgentType"]
     ) -> None:
-        """Generate proposals in parallel with streaming output."""
+        """Generate proposals in parallel."""
 
         if not proposers:
             logger.warning("No proposers available for proposal phase")
             return
 
         # Create tasks for parallel execution
-        tasks = []
-        for agent in proposers:
-            task = asyncio.create_task(self._generate_single_proposal(ctx, agent))
-            tasks.append(task)
+        tasks = [
+            asyncio.create_task(self._generate_single_proposal(ctx, agent))
+            for agent in proposers
+        ]
 
-        # Stream output as each agent finishes
+        # Wait for all proposals and process as they complete
         for completed_task in asyncio.as_completed(tasks):
             try:
                 agent, result_or_error = await completed_task

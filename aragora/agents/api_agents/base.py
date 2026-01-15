@@ -27,6 +27,9 @@ class APIAgent(CritiqueMixin, Agent):
         base_url: str | None = None,
         circuit_breaker: CircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
+        # Circuit breaker configuration (allows per-agent tuning)
+        circuit_breaker_threshold: int = 8,
+        circuit_breaker_cooldown: float = 90.0,
         # Generation parameters (can be set from Persona)
         temperature: float | None = None,
         top_p: float | None = None,
@@ -50,8 +53,8 @@ class APIAgent(CritiqueMixin, Agent):
             self._circuit_breaker = circuit_breaker
         elif enable_circuit_breaker:
             self._circuit_breaker = CircuitBreaker(
-                failure_threshold=8,  # Higher threshold for nomic loop stability
-                cooldown_seconds=90.0,  # Longer cooldown to allow recovery
+                failure_threshold=circuit_breaker_threshold,
+                cooldown_seconds=circuit_breaker_cooldown,
             )
         else:
             self._circuit_breaker = None

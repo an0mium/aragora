@@ -116,21 +116,27 @@ class QuotaFallbackMixin:
         return self.OPENROUTER_MODEL_MAP.get(model, self.DEFAULT_FALLBACK_MODEL)
 
     def is_quota_error(self, status_code: int, error_text: str) -> bool:
-        """Check if an error indicates quota/rate limit issues.
+        """Check if an error indicates quota/rate limit issues or timeouts.
 
         This is a unified check that works across providers:
         - 429: Rate limit (all providers)
         - 403: Can indicate quota exceeded (Gemini)
+        - 408, 504, 524: Timeout errors (should trigger fallback)
 
         Args:
             status_code: HTTP status code from response
             error_text: Error message text from response body
 
         Returns:
-            True if this appears to be a quota/rate limit error
+            True if this appears to be a quota/rate limit/timeout error
         """
         # 429 is universally rate limit
         if status_code == 429:
+            return True
+
+        # Timeout status codes - treat as quota to trigger fallback
+        # 408: Request Timeout, 504: Gateway Timeout, 524: Cloudflare timeout
+        if status_code in (408, 504, 524):
             return True
 
         # 403 can indicate quota exceeded (especially for Gemini)
@@ -140,8 +146,12 @@ class QuotaFallbackMixin:
             if any(kw in error_lower for kw in ["quota", "exceeded", "billing"]):
                 return True
 
-        # Check for quota-related keywords in any error
+        # Check for timeout keywords in error text
         error_lower = error_text.lower()
+        if "timeout" in error_lower or "timed out" in error_lower:
+            return True
+
+        # Check for quota-related keywords in any error
         return any(kw in error_lower for kw in QUOTA_ERROR_KEYWORDS)
 
     def _get_openrouter_fallback(self) -> Optional["OpenRouterAgent"]:
