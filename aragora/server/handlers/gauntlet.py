@@ -878,7 +878,7 @@ class GauntletHandler(BaseHandler):
         # Get result
         run = None
         result = None
-        _result_obj = None  # TODO: use for enhanced report
+        _result_obj = None  # GauntletResult object for enhanced report (in-memory only)
 
         if gauntlet_id in _gauntlet_runs:
             run = _gauntlet_runs[gauntlet_id]
@@ -963,6 +963,32 @@ class GauntletHandler(BaseHandler):
                 "categories": sorted(list(categories)),
                 "severities": severities,
             }
+
+        # Enhanced report data from GauntletResult object (in-memory runs only)
+        if _result_obj is not None:
+            enhanced: dict[str, Any] = {}
+            if hasattr(_result_obj, "verdict_reasoning") and _result_obj.verdict_reasoning:
+                enhanced["verdict_reasoning"] = _result_obj.verdict_reasoning
+            if hasattr(_result_obj, "attack_summary"):
+                enhanced["attack_summary"] = (
+                    _result_obj.attack_summary.__dict__
+                    if hasattr(_result_obj.attack_summary, "__dict__")
+                    else str(_result_obj.attack_summary)
+                )
+            if hasattr(_result_obj, "probe_summary"):
+                enhanced["probe_summary"] = (
+                    _result_obj.probe_summary.__dict__
+                    if hasattr(_result_obj.probe_summary, "__dict__")
+                    else str(_result_obj.probe_summary)
+                )
+            if hasattr(_result_obj, "scenario_summary"):
+                enhanced["scenario_summary"] = (
+                    _result_obj.scenario_summary.__dict__
+                    if hasattr(_result_obj.scenario_summary, "__dict__")
+                    else str(_result_obj.scenario_summary)
+                )
+            if enhanced:
+                report["enhanced"] = enhanced
 
         if format_type == "json":
             return json_response(report)
