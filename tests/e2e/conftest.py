@@ -96,9 +96,19 @@ class E2EAgent(Agent):
             choice = self.name
             confidence = self.stubbornness
         else:
-            # Vote for first non-self proposal
-            other_choices = [k for k in proposals.keys() if k != self.name]
-            choice = other_choices[0] if other_choices else self.name
+            # Prefer proposals that align with our position for majority convergence
+            position = self.position.lower()
+            aligned = [
+                agent
+                for agent, proposal in proposals.items()
+                if position and position in str(proposal).lower()
+            ]
+            if aligned:
+                choice = aligned[0]
+            else:
+                # Fallback to first non-self proposal
+                other_choices = [k for k in proposals.keys() if k != self.name]
+                choice = other_choices[0] if other_choices else self.name
             confidence = 0.7
 
         return Vote(

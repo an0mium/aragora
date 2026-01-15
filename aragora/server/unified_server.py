@@ -541,7 +541,11 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         return UnifiedHandler._debate_controller
 
     def _auto_select_agents(self, question: str, config: dict) -> str:
-        """Select optimal agents using AgentSelector.
+        """Select optimal agents using question classification and AgentSelector.
+
+        First tries the QuestionClassifier to match question type to appropriate
+        personas (e.g., ethical/theological -> philosopher, humanist).
+        Falls back to AgentSelector if classifier returns no recommendations.
 
         Args:
             question: The debate question/topic
@@ -556,6 +560,28 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         Returns:
             Comma-separated string of agent types with optional roles
         """
+        # Try question classifier first for better persona matching
+        try:
+            from aragora.server.question_classifier import classify_and_assign_agents
+
+            agent_string, classification = classify_and_assign_agents(question, use_llm=False)
+
+            if classification.recommended_personas and len(classification.recommended_personas) >= 2:
+                logger.info(
+                    f"[auto_select] Classified as '{classification.category}' "
+                    f"(confidence={classification.confidence:.2f}), "
+                    f"personas={classification.recommended_personas}"
+                )
+                return agent_string
+            else:
+                logger.info(
+                    f"[auto_select] Classifier returned insufficient personas for "
+                    f"'{classification.category}', falling back to AgentSelector"
+                )
+        except Exception as e:
+            logger.warning(f"[auto_select] Question classification failed: {e}, using AgentSelector")
+
+        # Fall back to AgentSelector
         if not ROUTING_AVAILABLE:
             return "gemini,anthropic-api"  # Fallback
 

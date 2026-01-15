@@ -351,8 +351,13 @@ export function useDebateWebSocket({
   // Process a single event from the WebSocket
   const processEvent = useCallback((data: Record<string, unknown>) => {
     // Track sequence numbers for gap detection
+    // Note: Token events (token_delta) are intentionally reordered by the server
+    // to group tokens by agent for smoother rendering. This causes expected
+    // sequence gaps that are not actual message loss. Only log warnings for
+    // non-token events where gaps indicate actual problems.
     if (data.seq && typeof data.seq === 'number' && data.seq > 0) {
-      if (lastSeqRef.current > 0 && data.seq > lastSeqRef.current + 1) {
+      const isTokenEvent = data.type === 'token_delta';
+      if (lastSeqRef.current > 0 && data.seq > lastSeqRef.current + 1 && !isTokenEvent) {
         const gap = data.seq - lastSeqRef.current - 1;
         console.warn(`[WebSocket] Sequence gap detected: expected ${lastSeqRef.current + 1}, got ${data.seq} (${gap} events missed)`);
       }

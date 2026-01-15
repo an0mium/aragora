@@ -50,6 +50,15 @@ EXPERTISE_DOMAINS = [
     "data_privacy",  # Data privacy and protection
     "access_control",  # Access control and authentication
     "encryption",  # Encryption and key management
+    # Philosophical/humanities domains
+    "philosophy",  # General philosophy and logic
+    "ethics",  # Moral philosophy and applied ethics
+    "theology",  # Religious and theological questions
+    "humanities",  # Arts, literature, culture
+    "sociology",  # Social structures and dynamics
+    "psychology",  # Human behavior and cognition
+    "existential_philosophy",  # Existentialism, meaning, purpose
+    "phenomenology",  # Consciousness and experience
 ]
 
 # Predefined personality traits
