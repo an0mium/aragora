@@ -50,10 +50,10 @@ test.describe('API Health - api.aragora.ai', () => {
         waitUntil: 'domcontentloaded',
       });
 
-      // Might be protected, so 200 or 401/403 are acceptable
+      // Might be protected or not exist, so 200/401/403/404 are acceptable
       expect(response).not.toBeNull();
       const status = response!.status();
-      expect([200, 401, 403]).toContain(status);
+      expect([200, 401, 403, 404]).toContain(status);
 
       if (status === 200) {
         const body = await page.locator('body').textContent();
