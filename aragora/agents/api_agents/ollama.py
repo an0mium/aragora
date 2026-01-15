@@ -260,10 +260,15 @@ class OllamaAgent(APIAgent):
                 )
 
     async def critique(
-        self, proposal: str, task: str, context: list[Message] | None = None
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
     ) -> Critique:
         """Critique a proposal using Ollama."""
-        critique_prompt = f"""You are a critical reviewer. Analyze this proposal:
+        target_desc = f" from {target_agent}" if target_agent else ""
+        critique_prompt = f"""You are a critical reviewer. Analyze this proposal{target_desc}:
 
 Task: {task}
 
@@ -283,7 +288,7 @@ SEVERITY: X.X (0.0 minor to 1.0 critical)
 REASONING: explanation"""
 
         response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
+        return self._parse_critique(response, target_agent or "proposal", proposal)
 
 
 __all__ = ["OllamaAgent"]

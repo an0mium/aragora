@@ -271,6 +271,7 @@ class TinkerAgent(APIAgent):
         proposal: str,
         task: str,
         context: list[Message] | None = None,
+        target_agent: str | None = None,
     ) -> Critique:
         """
         Critique a proposal using Tinker API.
@@ -279,12 +280,14 @@ class TinkerAgent(APIAgent):
             proposal: The proposal to critique
             task: The task/prompt the proposal was for
             context: Previous messages
+            target_agent: Name of the agent whose proposal is being critiqued
 
         Returns:
             Critique with issues, suggestions, severity, reasoning
         """
+        target_desc = f" from {target_agent}" if target_agent else ""
         critique_prompt = (
-            f"Critique the following proposal for this task:\n\n"
+            f"Critique the following proposal{target_desc} for this task:\n\n"
             f"Task: {task}\n\n"
             f"Proposal:\n{proposal}\n\n"
             "Identify:\n"
@@ -295,7 +298,7 @@ class TinkerAgent(APIAgent):
         )
 
         response = await self.respond(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
+        return self._parse_critique(response, target_agent or "proposal", proposal)
 
     def set_adapter(self, adapter: str | None) -> None:
         """

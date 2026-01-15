@@ -6,6 +6,8 @@ system, enabling real-time WebSocket broadcasts of debate events.
 """
 
 import contextvars
+import logging
+import time
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Callable
@@ -13,6 +15,8 @@ from typing import Callable
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.server.stream.emitter import SyncEventEmitter
 from aragora.server.stream.events import StreamEvent, StreamEventType
+
+logger = logging.getLogger(__name__)
 
 # Context variable to track current task_id for streaming events
 # This allows concurrent generate() calls from the same agent to be distinguished
@@ -69,6 +73,15 @@ def wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
         """Streaming wrapper that emits TOKEN_* events."""
         # Get current task_id from context variable (set by streaming_task_context)
         task_id = get_current_task_id()
+
+        # Fallback: generate unique ID if context not set (prevents text interleaving)
+        if not task_id:
+            # Use timestamp + agent name to create unique task_id
+            task_id = f"{agent.name}:stream:{int(time.time() * 1000) % 100000}"
+            logger.warning(
+                f"Missing task_id for {agent.name}, using fallback: {task_id}. "
+                "Consider wrapping the generate() call with streaming_task_context()."
+            )
 
         # Emit start event
         emitter.emit(

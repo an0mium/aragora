@@ -325,10 +325,15 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                     )
 
     async def critique(
-        self, proposal: str, task: str, context: list[Message] | None = None
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
     ) -> Critique:
         """Critique a proposal using Gemini."""
-        critique_prompt = f"""You are a critical reviewer. Analyze this proposal for the given task.
+        target_desc = f" from {target_agent}" if target_agent else ""
+        critique_prompt = f"""You are a critical reviewer. Analyze this proposal{target_desc} for the given task.
 
 Task: {task}
 
@@ -344,7 +349,7 @@ Provide a structured critique with:
 Be constructive but thorough."""
 
         response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
+        return self._parse_critique(response, target_agent or "proposal", proposal)
 
 
 __all__ = ["GeminiAgent"]

@@ -397,10 +397,15 @@ class OpenRouterAgent(APIAgent):
                 )
 
     async def critique(
-        self, proposal: str, task: str, context: list[Message] | None = None
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
     ) -> Critique:
         """Critique a proposal using OpenRouter API."""
-        critique_prompt = f"""Critically analyze this proposal:
+        target_desc = f" from {target_agent}" if target_agent else ""
+        critique_prompt = f"""Critically analyze this proposal{target_desc}:
 
 Task: {task}
 Proposal: {proposal}
@@ -418,7 +423,7 @@ SEVERITY: X.X
 REASONING: explanation"""
 
         response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
+        return self._parse_critique(response, target_agent or "proposal", proposal)
 
 
 # Convenience aliases for specific OpenRouter models

@@ -399,16 +399,27 @@ Provide structured feedback:
 - REASONING: Brief explanation"""
 
     async def critique(
-        self, proposal: str, task: str, context: list[Message] | None = None
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
     ) -> Critique:
         """Critique a proposal using this CLI agent.
 
         Default implementation uses _build_critique_prompt and generate.
         Subclasses can override for custom critique behavior.
+
+        Args:
+            proposal: The proposal content to critique
+            task: The debate task/question
+            context: Optional conversation context
+            target_agent: Name of the agent whose proposal is being critiqued
         """
         critique_prompt = self._build_critique_prompt(proposal, task)
         response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
+        # Use target_agent if provided, otherwise fall back to generic "proposal"
+        return self._parse_critique(response, target_agent or "proposal", proposal)
 
 
 @AgentRegistry.register(

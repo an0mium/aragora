@@ -220,10 +220,15 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                     raise AgentStreamError(str(e), agent_name=self.name)
 
     async def critique(
-        self, proposal: str, task: str, context: list[Message] | None = None
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
     ) -> Critique:
         """Critique a proposal using Anthropic API."""
-        critique_prompt = f"""Analyze this proposal critically:
+        target_desc = f"from {target_agent}" if target_agent else ""
+        critique_prompt = f"""Analyze this proposal {target_desc} critically:
 
 Task: {task}
 
@@ -237,7 +242,7 @@ Provide structured feedback:
 - REASONING: Brief explanation"""
 
         response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
+        return self._parse_critique(response, target_agent or "proposal", proposal)
 
 
 __all__ = ["AnthropicAPIAgent"]

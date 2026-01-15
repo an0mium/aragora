@@ -120,12 +120,13 @@ class DemoAgent(Agent):
         proposal: str,
         task: str,
         context: list[Message] | None = None,
+        target_agent: str | None = None,
     ) -> Critique:
         issues = list(_CRITIQUE_ISSUES)
         suggestions = list(_CRITIQUE_SUGGESTIONS)
         return Critique(
             agent=self.name,
-            target_agent="proposal",
+            target_agent=target_agent or "proposal",
             target_content=_truncate(proposal, 200),
             issues=issues,
             suggestions=suggestions,

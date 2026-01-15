@@ -349,14 +349,16 @@ class DebateRoundsPhase:
                     if self._with_timeout:
                         crit_result = await self._with_timeout(
                             self._critique_with_agent(
-                                critic, proposal, ctx.env.task if ctx.env else "", ctx.context_messages
+                                critic, proposal, ctx.env.task if ctx.env else "", ctx.context_messages,
+                                target_agent=proposal_agent,
                             ),
                             critic.name,
                             timeout_seconds=timeout,
                         )
                     else:
                         crit_result = await self._critique_with_agent(
-                            critic, proposal, ctx.env.task if ctx.env else "", ctx.context_messages
+                            critic, proposal, ctx.env.task if ctx.env else "", ctx.context_messages,
+                            target_agent=proposal_agent,
                         )
                 return (critic, proposal_agent, crit_result)
             except Exception as e:

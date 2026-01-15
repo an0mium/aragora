@@ -234,10 +234,15 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
                     raise AgentStreamError(str(e), agent_name=self.name)
 
     async def critique(
-        self, proposal: str, task: str, context: list[Message] | None = None
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
     ) -> Critique:
         """Critique a proposal using the API."""
-        critique_prompt = f"""Critically analyze this proposal:
+        target_desc = f" from {target_agent}" if target_agent else ""
+        critique_prompt = f"""Critically analyze this proposal{target_desc}:
 
 Task: {task}
 Proposal: {proposal}
@@ -255,7 +260,7 @@ SEVERITY: X.X
 REASONING: explanation"""
 
         response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)  # type: ignore[attr-defined]
+        return self._parse_critique(response, target_agent or "proposal", proposal)  # type: ignore[attr-defined]
 
 
 __all__ = ["OpenAICompatibleMixin"]

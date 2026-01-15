@@ -525,6 +525,7 @@ class AutonomicExecutor:
         context: list["Message"],
         phase: str = "",
         round_num: int = 0,
+        target_agent: Optional[str] = None,
     ) -> Optional["Critique"]:
         """
         Get critique from an agent with autonomic error handling.
@@ -536,6 +537,7 @@ class AutonomicExecutor:
             context: Conversation context
             phase: Current debate phase (for telemetry)
             round_num: Current round number (for telemetry)
+            target_agent: Name of the agent being critiqued (for fallback messages)
 
         Returns:
             Critique object or None on failure
@@ -548,7 +550,7 @@ class AutonomicExecutor:
             )
 
         try:
-            result = await agent.critique(proposal, task, context)
+            result = await agent.critique(proposal, task, context, target_agent=target_agent)
             if tracking_id and self.performance_monitor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=True, response=str(result) if result else None

@@ -288,6 +288,13 @@ class SyncEventEmitter:
         if self._loop_id and not event.loop_id:
             event.loop_id = self._loop_id
 
+        # Warn on TOKEN events with empty task_id (can cause text interleaving)
+        if event.type.name.startswith("TOKEN") and not event.task_id:
+            logger.warning(
+                f"[stream] TOKEN event for {event.agent} has empty task_id. "
+                "This may cause text interleaving between concurrent streams."
+            )
+
         # Assign sequence numbers AND queue event atomically (thread-safe)
         # This prevents race conditions where events get dropped but their
         # sequence numbers are already assigned, causing sequence gaps

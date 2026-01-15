@@ -163,8 +163,16 @@ class AirlockProxy:
         proposal: str,
         task: str,
         context: Optional[list["Message"]] = None,
+        target_agent: Optional[str] = None,
     ) -> "Critique":
-        """Critique a proposal with timeout handling."""
+        """Critique a proposal with timeout handling.
+
+        Args:
+            proposal: The proposal content to critique
+            task: The debate task/question
+            context: Optional conversation context
+            target_agent: Name of the agent being critiqued (for fallback messages)
+        """
         from aragora.core import Critique
 
         async def coro_factory() -> "Critique":
@@ -174,7 +182,7 @@ class AirlockProxy:
             "critique",
             coro_factory,
             timeout=self._config.critique_timeout,
-            fallback=self._critique_fallback(proposal, task),
+            fallback=self._critique_fallback(proposal, task, target_agent or "unknown"),
         )
 
         # If fallback returned a dict, convert to Critique
@@ -410,11 +418,17 @@ class AirlockProxy:
             f"Unable to generate response for: {prompt[:100]}...]"
         )
 
-    def _critique_fallback(self, proposal: str, task: str) -> dict:
-        """Generate a fallback critique."""
+    def _critique_fallback(self, proposal: str, task: str, target_agent: str) -> dict:
+        """Generate a fallback critique.
+
+        Args:
+            proposal: The proposal content that was being critiqued
+            task: The debate task/question
+            target_agent: Name of the agent being critiqued
+        """
         return {
             "agent": self._agent.name,
-            "target_agent": "unknown",
+            "target_agent": target_agent,
             "target_content": proposal[:200],
             "issues": [f"Agent {self._agent.name} was unable to respond in time"],
             "suggestions": ["Consider increasing timeout or retrying"],
