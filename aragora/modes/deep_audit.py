@@ -276,7 +276,12 @@ For each question, provide:
 Be rigorous but fair. Your goal is to ensure we haven't missed critical issues."""
 
         try:
-            cross_exam_result = await synthesizer.generate(cross_exam_prompt, [])
+            from aragora.server.stream.arena_hooks import streaming_task_context
+
+            synth_name = getattr(synthesizer, "name", "synthesizer")
+            task_id = f"{synth_name}:deep_audit_crossexam"
+            with streaming_task_context(task_id):
+                cross_exam_result = await synthesizer.generate(cross_exam_prompt, [])
             logger.info(f"Synthesizer cross-examination complete ({len(cross_exam_result)} chars)")
             return cross_exam_result
         except Exception as e:

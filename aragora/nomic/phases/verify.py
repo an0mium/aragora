@@ -322,7 +322,12 @@ Provide a brief verification report:
 
 Be concise - this is a quality gate, not a full review."""
 
-            audit_response = await self.codex.generate(audit_prompt)
+            from aragora.server.stream.arena_hooks import streaming_task_context
+
+            codex_name = getattr(self.codex, "name", "codex")
+            task_id = f"{codex_name}:nomic_verify"
+            with streaming_task_context(task_id):
+                audit_response = await self.codex.generate(audit_prompt)
             if audit_response:
                 # Check if audit has concerns
                 if "CONCERNS" in audit_response.upper() and "APPROVE" not in audit_response.upper():

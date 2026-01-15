@@ -90,6 +90,15 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
     'Should governments implement universal basic income to mitigate AI job impacts?',
     'If eliminating climate change required giving up the internet, should we make that trade?',
     'In 2034, should voting be mandatory with AI-assisted candidate matching?',
+    'What widely-used technology will future generations condemn us for, the way we now view asbestos or leaded gasoline?',
+    'If you could instantly eradicate one widely accepted social norm with no backlash, what would it be and why?',
+
+    // Provocative Hypotheticals
+    'If you had to live-stream your entire digital life to everyone you know for 30 days, what would you pay to avoid it?',
+    'If every person who ever lived could vote on whether humanity should voluntarily end tomorrow, would extinction win?',
+    'If a Transparency Patch made every thought about others audible, which institution would collapse first: Marriage, Politics, Law, or Religion?',
+    'What skill or knowledge that you are proud of will be completely obsolete within your lifetime?',
+    'If aliens visited Earth and could only observe one person for 24 hours to understand humanity, who would you choose?',
 
     // Multi-Agent Debate
     'Is consensus among AI agents more reliable than a single powerful model?',

@@ -207,11 +207,16 @@ class ProbesHandler(BaseHandler):
         # Define run_agent_fn callback for prober
         async def run_agent_fn(target_agent, prompt: str) -> str:
             """Execute agent with probe prompt."""
+            from aragora.server.stream.arena_hooks import streaming_task_context
+
+            agent_name = getattr(target_agent, "name", "probe-agent")
+            task_id = f"{agent_name}:probe"
             try:
-                if asyncio.iscoroutinefunction(target_agent.generate):
-                    raw_output = await target_agent.generate(prompt)
-                else:
-                    raw_output = target_agent.generate(prompt)
+                with streaming_task_context(task_id):
+                    if asyncio.iscoroutinefunction(target_agent.generate):
+                        raw_output = await target_agent.generate(prompt)
+                    else:
+                        raw_output = target_agent.generate(prompt)
                 return OutputSanitizer.sanitize_agent_output(raw_output, target_agent.name)
             except Exception as e:
                 return f"[Agent Error: {str(e)}]"

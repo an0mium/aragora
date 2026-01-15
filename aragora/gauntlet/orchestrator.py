@@ -131,7 +131,12 @@ class GauntletOrchestrator:
 
     async def _default_run_agent(self, agent, prompt: str) -> str:
         """Default agent runner using agent.generate()."""
-        return await agent.generate(prompt, [])
+        from aragora.server.stream.arena_hooks import streaming_task_context
+
+        agent_name = getattr(agent, "name", "gauntlet-agent")
+        task_id = f"{agent_name}:gauntlet"
+        with streaming_task_context(task_id):
+            return await agent.generate(prompt, [])
 
     async def run(
         self,

@@ -175,8 +175,13 @@ async def generate_implement_plan(
         repo_path=str(repo_path),
     )
 
+    from aragora.server.stream.arena_hooks import streaming_task_context
+
     logger.info("  Generating implementation plan with Gemini...")
-    response = await gemini.generate(prompt)
+    gemini_name = getattr(gemini, "name", "gemini")
+    task_id = f"{gemini_name}:impl_planner"
+    with streaming_task_context(task_id):
+        response = await gemini.generate(prompt)
 
     # Extract and parse JSON
     json_str = extract_json(response)
@@ -292,7 +297,12 @@ async def decompose_failed_task(
     )
 
     try:
-        response = await gemini.generate(prompt)
+        from aragora.server.stream.arena_hooks import streaming_task_context
+
+        gemini_name = getattr(gemini, "name", "gemini")
+        task_id = f"{gemini_name}:impl_decompose"
+        with streaming_task_context(task_id):
+            response = await gemini.generate(prompt)
         json_str = extract_json(response)
         data = json.loads(json_str)
 

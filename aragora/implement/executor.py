@@ -239,8 +239,13 @@ Make only the changes specified. Follow existing code style."""
         start_time = time.time()
 
         try:
+            from aragora.server.stream.arena_hooks import streaming_task_context
+
             # Execute with the selected agent
-            await agent.generate(prompt, context=[])
+            agent_name = getattr(agent, "name", "impl-agent")
+            task_id = f"{agent_name}:impl_execute"
+            with streaming_task_context(task_id):
+                await agent.generate(prompt, context=[])
 
             # Get the diff to see what changed
             diff = self._get_git_diff()
@@ -526,7 +531,12 @@ Be concise and actionable."""
 Focus on correctness, security, and maintainability.
 Be constructive but thorough."""
 
-            response = await self._codex.generate(review_prompt, context=[])
+            from aragora.server.stream.arena_hooks import streaming_task_context
+
+            codex_name = getattr(self._codex, "name", "codex")
+            task_id = f"{codex_name}:impl_review"
+            with streaming_task_context(task_id):
+                response = await self._codex.generate(review_prompt, context=[])
             duration = time.time() - start_time
 
             logger.info(f"    Review completed in {duration:.1f}s")

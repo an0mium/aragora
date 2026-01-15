@@ -203,7 +203,12 @@ class GraphDebatesHandler(BaseHandler):
 
             # Define run_agent function
             async def run_agent(agent, prompt: str, context: list) -> str:
-                return await agent.generate(prompt, context)
+                from aragora.server.stream.arena_hooks import streaming_task_context
+
+                agent_name = getattr(agent, "name", "graph-agent")
+                task_id = f"{agent_name}:graph_debate"
+                with streaming_task_context(task_id):
+                    return await agent.generate(prompt, context)
 
             # Run the debate
             graph = await orchestrator.run_debate(

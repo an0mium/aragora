@@ -223,11 +223,15 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
 
     async def _gather_with_agent(self, agent: Any, name: str, harness: str) -> Tuple[str, str, str]:
         """Run exploration with one agent."""
+        from aragora.server.stream.arena_hooks import streaming_task_context
+
         agent_start = time.perf_counter()
         try:
             self._log(f"  {name} ({harness}): exploring codebase...", agent=name)
             prompt = self._build_explore_prompt()
-            result = await agent.generate(prompt, context=[])
+            task_id = f"{name}:nomic_context"
+            with streaming_task_context(task_id):
+                result = await agent.generate(prompt, context=[])
             self._log(f"  {name}: complete ({len(result) if result else 0} chars)", agent=name)
             # Emit agent's full exploration result
             if result:
