@@ -330,6 +330,7 @@ def init_phases(arena: "Arena") -> None:
         check_early_stopping=arena._check_early_stopping,
         refresh_evidence=arena._refresh_evidence_for_round,
         checkpoint_callback=arena._create_checkpoint if arena.checkpoint_manager else None,
+        context_initializer=arena.context_initializer,
     )
 
     # Phase 3: Consensus Resolution

@@ -110,6 +110,7 @@ class DebateRoundsPhase:
         checkpoint_callback: Optional[
             Callable
         ] = None,  # Async callback to save checkpoint after each round
+        context_initializer: Any = None,  # ContextInitializer for background task awaiting
     ):
         """
         Initialize the debate rounds phase.
@@ -138,6 +139,7 @@ class DebateRoundsPhase:
             inject_challenge: Callback to inject trickster challenge into context
             refresh_evidence: Async callback to refresh evidence based on round claims
             checkpoint_callback: Async callback to save checkpoint after each round
+            context_initializer: ContextInitializer for awaiting background research/evidence
         """
         self.protocol = protocol
         self.circuit_breaker = circuit_breaker
@@ -164,6 +166,7 @@ class DebateRoundsPhase:
         self._inject_challenge = inject_challenge
         self._refresh_evidence = refresh_evidence
         self._checkpoint_callback = checkpoint_callback
+        self._context_initializer = context_initializer
 
         # Internal state
         self._partial_messages: list["Message"] = []
@@ -266,6 +269,11 @@ class DebateRoundsPhase:
                     self.recorder.record_phase_change(f"round_{round_num}_start")
                 except Exception as e:
                     logger.debug(f"Recorder error for round start: {e}")
+
+            # Await background research/evidence before round 1 critiques
+            # This ensures research context is available for critique prompts
+            if round_num == 1 and self._context_initializer:
+                await self._context_initializer.await_background_context(ctx)
 
             # Get and filter critics
             critics = self._get_critics(ctx)

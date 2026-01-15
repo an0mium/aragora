@@ -154,6 +154,16 @@ class DebateContext:
     """IDs of insights that were injected into this debate (for usage tracking)."""
 
     # =========================================================================
+    # Background Tasks (for parallel research/evidence collection)
+    # =========================================================================
+
+    background_research_task: Any = None
+    """Background asyncio.Task for pre-debate research (runs parallel to proposals)."""
+
+    background_evidence_task: Any = None
+    """Background asyncio.Task for evidence collection (runs parallel to proposals)."""
+
+    # =========================================================================
     # Convergence State
     # =========================================================================
 

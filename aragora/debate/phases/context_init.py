@@ -149,11 +149,22 @@ class ContextInitializer:
         # 8. Inject historical dissents from ConsensusMemory
         self._inject_historical_dissents(ctx)
 
-        # 9. Perform pre-debate research (async)
-        await self._perform_pre_debate_research(ctx)
+        # 9. Start research in background (non-blocking for fast startup)
+        # Research runs in parallel with proposals, results injected before round 2
+        if self.protocol and getattr(self.protocol, "enable_research", False):
+            ctx.background_research_task = asyncio.create_task(
+                self._perform_pre_debate_research(ctx)
+            )
+            logger.info("background_research_started")
 
-        # 10. Collect evidence (auto-collection from connectors)
-        await self._collect_evidence(ctx)
+        # 10. Start evidence collection in background (non-blocking)
+        if self.evidence_collector and self.protocol and getattr(
+            self.protocol, "enable_evidence_collection", True
+        ):
+            ctx.background_evidence_task = asyncio.create_task(
+                self._collect_evidence(ctx)
+            )
+            logger.info("background_evidence_started")
 
         # 11. Initialize DebateResult
         ctx.result = DebateResult(
@@ -470,6 +481,46 @@ class ContextInitializer:
         except Exception as e:
             logger.warning(f"evidence_collection_error error={e}")
             # Continue without evidence - don't break the debate
+
+    async def await_background_context(self, ctx: "DebateContext") -> None:
+        """Await and cleanup background research/evidence tasks.
+
+        Called before round 2 to ensure research context is available for critiques.
+        This method is safe to call multiple times - completed tasks are cleaned up.
+        """
+        tasks = []
+        task_names = []
+
+        if ctx.background_research_task and not ctx.background_research_task.done():
+            tasks.append(ctx.background_research_task)
+            task_names.append("research")
+
+        if ctx.background_evidence_task and not ctx.background_evidence_task.done():
+            tasks.append(ctx.background_evidence_task)
+            task_names.append("evidence")
+
+        if not tasks:
+            return
+
+        logger.info(f"awaiting_background_context tasks={task_names}")
+
+        try:
+            # Wait up to 30s for background tasks to complete
+            await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=True),
+                timeout=30.0,
+            )
+            logger.info("background_context_complete")
+        except asyncio.TimeoutError:
+            logger.warning("background_context_timeout")
+            # Cancel any still-running tasks
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+
+        # Clear task references
+        ctx.background_research_task = None
+        ctx.background_evidence_task = None
 
     def _init_context_messages(self, ctx: "DebateContext") -> None:
         """Initialize context messages for fork debates."""
