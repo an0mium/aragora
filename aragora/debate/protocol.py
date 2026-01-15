@@ -25,7 +25,72 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Re-export CircuitBreaker for backwards compatibility
-__all__ = ["CircuitBreaker", "DebateProtocol", "user_vote_multiplier"]
+__all__ = ["CircuitBreaker", "DebateProtocol", "RoundPhase", "STRUCTURED_ROUND_PHASES", "user_vote_multiplier"]
+
+
+@dataclass
+class RoundPhase:
+    """Configuration for a structured debate round phase."""
+
+    number: int  # Round number (1-indexed)
+    name: str  # Phase name (e.g., "Initial Analysis")
+    description: str  # What this phase accomplishes
+    focus: str  # Key focus area for agents
+    cognitive_mode: str  # Analyst, Skeptic, Lateral, Synthesizer, etc.
+
+
+# Default 7-round structured debate format
+STRUCTURED_ROUND_PHASES: list[RoundPhase] = [
+    RoundPhase(
+        number=1,
+        name="Initial Analysis",
+        description="Establish foundational understanding and key considerations",
+        focus="Core facts, assumptions, and initial positions",
+        cognitive_mode="Analyst",
+    ),
+    RoundPhase(
+        number=2,
+        name="Skeptical Review",
+        description="Challenge assumptions and identify weaknesses",
+        focus="Logical flaws, unsupported claims, edge cases",
+        cognitive_mode="Skeptic",
+    ),
+    RoundPhase(
+        number=3,
+        name="Lateral Exploration",
+        description="Explore alternative perspectives and creative solutions",
+        focus="Novel approaches, analogies, unconventional ideas",
+        cognitive_mode="Lateral Thinker",
+    ),
+    RoundPhase(
+        number=4,
+        name="Devil's Advocacy",
+        description="Argue the strongest opposing viewpoint",
+        focus="Counter-arguments, risks, unintended consequences",
+        cognitive_mode="Devil's Advocate",
+    ),
+    RoundPhase(
+        number=5,
+        name="Synthesis",
+        description="Integrate insights from previous rounds",
+        focus="Common ground, reconciling tensions, emerging consensus",
+        cognitive_mode="Synthesizer",
+    ),
+    RoundPhase(
+        number=6,
+        name="Cross-Examination",
+        description="Direct questioning between agents on remaining disputes",
+        focus="Clarifying disagreements, testing convictions",
+        cognitive_mode="Examiner",
+    ),
+    RoundPhase(
+        number=7,
+        name="Final Synthesis",
+        description="Consolidate all perspectives into final positions",
+        focus="Actionable conclusions, confidence levels, remaining uncertainties",
+        cognitive_mode="Synthesizer",
+    ),
+]
 
 
 @dataclass
@@ -39,7 +104,13 @@ class DebateProtocol:
         0.5  # fraction of possible critique connections (for sparse/random-graph)
     )
     topology_hub_agent: Optional[str] = None  # for star topology, which agent is the hub
-    rounds: int = 5  # Increased from 3 for more thorough debates
+    rounds: int = 7  # Structured 7-round format for thorough debates
+
+    # Structured round phases: Use predefined phase structure for each round
+    # When enabled, each round has a specific focus (Analysis, Skeptic, Lateral, etc.)
+    use_structured_phases: bool = True  # Enable structured 7-round format
+    round_phases: Optional[list[RoundPhase]] = None  # Custom phases (uses STRUCTURED_ROUND_PHASES if None)
+
     consensus: Literal[
         "majority",
         "unanimous",
@@ -78,9 +149,10 @@ class DebateProtocol:
 
     # Early stopping: End debate when agents agree further rounds won't help
     # Based on ai-counsel pattern - can save 40-70% API costs
+    # Increased thresholds to ensure debates reach synthesis phase
     early_stopping: bool = True
-    early_stop_threshold: float = 0.66  # fraction of agents saying stop to trigger
-    min_rounds_before_early_stop: int = 2  # minimum rounds before allowing early exit
+    early_stop_threshold: float = 0.75  # fraction of agents saying stop to trigger (was 0.66)
+    min_rounds_before_early_stop: int = 3  # minimum rounds before allowing early exit (was 2)
 
     # Asymmetric debate roles: Assign affirmative/negative/neutral stances
     # Forces perspective diversity, prevents premature consensus
@@ -136,11 +208,15 @@ class DebateProtocol:
     # Debate timeout (seconds) - prevents runaway debates
     # Uses ARAGORA_DEBATE_TIMEOUT env var (default 900s = 15 min)
     # Set to 0 for unlimited (not recommended for production)
-    timeout_seconds: int = DEBATE_TIMEOUT_SECONDS  # Max time for entire debate
+    # Increased to 1200s (20 min) to allow 6+ min for 7-round debates
+    timeout_seconds: int = max(1200, DEBATE_TIMEOUT_SECONDS)  # Max time for entire debate
 
     # Round timeout should exceed agent timeout (AGENT_TIMEOUT_SECONDS)
-    # to allow all parallel agents to complete. Adds a fixed margin for overhead.
-    round_timeout_seconds: int = AGENT_TIMEOUT_SECONDS + 60  # Per-round timeout
+    # to allow all parallel agents to complete. Minimum 90s per round for thorough analysis.
+    round_timeout_seconds: int = max(90, AGENT_TIMEOUT_SECONDS + 60)  # Per-round timeout
+
+    # Debate rounds phase timeout - at least 6 minutes (360s) for all rounds
+    debate_rounds_timeout_seconds: int = 420  # 7 minutes for debate_rounds phase
 
     # Breakpoints: Human-in-the-loop intervention points
     # When enabled, debates can pause at critical moments for human guidance
@@ -180,6 +256,23 @@ class DebateProtocol:
         default_factory=lambda: ["z3_smt"]
     )  # Languages to try: z3_smt, lean4
     formal_verification_timeout: float = 30.0  # Timeout for proof search (seconds)
+
+    def get_round_phase(self, round_number: int) -> Optional[RoundPhase]:
+        """Get the phase configuration for a specific round.
+
+        Args:
+            round_number: 1-indexed round number
+
+        Returns:
+            RoundPhase for the round, or None if not using structured phases
+        """
+        if not self.use_structured_phases:
+            return None
+
+        phases = self.round_phases or STRUCTURED_ROUND_PHASES
+        if 1 <= round_number <= len(phases):
+            return phases[round_number - 1]
+        return None
 
 
 def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
