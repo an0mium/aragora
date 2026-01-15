@@ -175,7 +175,11 @@ class SelectionHandler(BaseHandler):
         """Score agents for a task."""
         try:
             body = self._get_json_body(handler)
-        except Exception:
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.debug(f"Invalid JSON in score_agents request: {type(e).__name__}: {e}")
+            return error_response("Invalid JSON body", 400)
+        except Exception as e:
+            logger.warning(f"Unexpected error parsing score_agents request: {type(e).__name__}: {e}")
             return error_response("Invalid JSON body", 400)
 
         task_description = body.get("task_description")
@@ -238,7 +242,11 @@ class SelectionHandler(BaseHandler):
         """Select an optimal team for a task."""
         try:
             body = self._get_json_body(handler)
-        except Exception:
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.debug(f"Invalid JSON in select_team request: {type(e).__name__}: {e}")
+            return error_response("Invalid JSON body", 400)
+        except Exception as e:
+            logger.warning(f"Unexpected error parsing select_team request: {type(e).__name__}: {e}")
             return error_response("Invalid JSON body", 400)
 
         task_description = body.get("task_description")
