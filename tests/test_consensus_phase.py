@@ -63,6 +63,8 @@ class MockDebateResult:
     rounds_used: int = 0
     debate_cruxes: list = field(default_factory=list)
     evidence_suggestions: list = field(default_factory=list)
+    winner: str | None = None  # Added for synthesis generation
+    synthesis: str | None = None  # Added for synthesis generation
 
 
 @dataclass

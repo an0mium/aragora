@@ -451,15 +451,16 @@ class DebateStreamServer(ServerBase):
                 self.clients -= disconnected
 
     def _group_events_by_agent(self, events: list[StreamEvent]) -> list[StreamEvent]:
-        """Reorder events to group TOKEN_DELTA by agent while preserving sequence order.
+        """Reorder events to group TOKEN_DELTA by agent for smooth frontend rendering.
 
-        Non-token events maintain their relative order.
-        Token events are grouped by agent for smoother frontend rendering,
-        reducing visual interleaving during parallel agent generation.
+        Non-token events maintain their relative order and trigger token flushes.
+        Token events are grouped by agent, reducing visual interleaving during
+        parallel agent generation.
 
-        IMPORTANT: After grouping, events are sorted by sequence number to ensure
-        monotonic order is preserved. This prevents sequence gaps from being
-        introduced by the grouping process.
+        NOTE: We intentionally do NOT sort by global seq after grouping. The frontend
+        uses agent_seq for per-agent token ordering, which correctly handles
+        out-of-order tokens. Sorting by global seq would undo the agent grouping
+        and reintroduce interleaving.
         """
         result: list[StreamEvent] = []
         token_groups: dict[str, list[StreamEvent]] = {}
@@ -472,18 +473,18 @@ class DebateStreamServer(ServerBase):
                 token_groups[event.agent].append(event)
             else:
                 # Flush buffered tokens before non-token event
+                # Sort each agent's tokens by agent_seq for correct ordering
                 for agent_tokens in token_groups.values():
+                    agent_tokens.sort(key=lambda e: e.agent_seq if e.agent_seq else 0)
                     result.extend(agent_tokens)
                 token_groups.clear()
                 result.append(event)
 
         # Flush remaining tokens (grouped by agent)
+        # Sort each agent's tokens by agent_seq for correct ordering
         for agent_tokens in token_groups.values():
+            agent_tokens.sort(key=lambda e: e.agent_seq if e.agent_seq else 0)
             result.extend(agent_tokens)
-
-        # Sort by sequence to ensure monotonic order after grouping
-        # This prevents sequence gaps that could be introduced by the grouping
-        result.sort(key=lambda e: e.seq if e.seq else 0)
 
         return result
 
