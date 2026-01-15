@@ -735,7 +735,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
     @require_storage
     def _export_debate(self, handler, debate_id: str, format: str, table: str) -> HandlerResult:
         """Export debate in specified format."""
-        valid_formats = {"json", "csv", "html"}
+        valid_formats = {"json", "csv", "html", "txt", "md"}
         if format not in valid_formats:
             return error_response(f"Invalid format: {format}. Valid: {valid_formats}", 400)
 
@@ -749,6 +749,10 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 return json_response(debate)
             elif format == "csv":
                 return self._format_csv(debate, table)
+            elif format == "txt":
+                return self._format_txt(debate)
+            elif format == "md":
+                return self._format_md(debate)
             else:  # format == "html"
                 return self._format_html(debate)
 
@@ -786,6 +790,30 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         from aragora.server.debate_export import format_debate_html
 
         result = format_debate_html(debate)
+        return HandlerResult(
+            status_code=200,
+            content_type=result.content_type,
+            body=result.content,
+            headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
+        )
+
+    def _format_txt(self, debate: dict) -> HandlerResult:
+        """Format debate as plain text transcript."""
+        from aragora.server.debate_export import format_debate_txt
+
+        result = format_debate_txt(debate)
+        return HandlerResult(
+            status_code=200,
+            content_type=result.content_type,
+            body=result.content,
+            headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
+        )
+
+    def _format_md(self, debate: dict) -> HandlerResult:
+        """Format debate as Markdown transcript."""
+        from aragora.server.debate_export import format_debate_md
+
+        result = format_debate_md(debate)
         return HandlerResult(
             status_code=200,
             content_type=result.content_type,

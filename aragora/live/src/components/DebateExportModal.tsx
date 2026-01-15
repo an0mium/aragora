@@ -11,7 +11,7 @@ interface DebateExportModalProps {
   apiBase?: string;
 }
 
-type ExportFormat = 'json' | 'csv' | 'dot' | 'html';
+type ExportFormat = 'json' | 'csv' | 'dot' | 'html' | 'txt' | 'md';
 type ExportTable = 'summary' | 'messages' | 'critiques' | 'votes' | 'verifications';
 
 const DEFAULT_API_BASE = API_BASE_URL;
@@ -21,6 +21,8 @@ const FORMAT_DESCRIPTIONS: Record<ExportFormat, string> = {
   csv: 'Tabular data for spreadsheet analysis',
   dot: 'GraphViz DOT format for visualization',
   html: 'Standalone HTML page for sharing',
+  txt: 'Plain text transcript for easy reading',
+  md: 'Markdown transcript for documentation',
 };
 
 const TABLE_OPTIONS: { value: ExportTable; label: string }[] = [
@@ -111,7 +113,7 @@ export function DebateExportModal({
         <div className="mb-4">
           <label className="block text-sm text-zinc-400 mb-2">Format</label>
           <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Export format">
-            {(['json', 'csv', 'dot', 'html'] as ExportFormat[]).map((f) => (
+            {(['txt', 'md', 'json', 'csv', 'html', 'dot'] as ExportFormat[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFormat(f)}

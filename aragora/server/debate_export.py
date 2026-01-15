@@ -1,7 +1,7 @@
 """
 Debate export formatting utilities.
 
-Provides CSV and HTML export formatters for debates.
+Provides CSV, HTML, TXT, and Markdown export formatters for debates.
 Extracted from handlers/debates.py for better modularity.
 """
 
@@ -9,6 +9,7 @@ import csv
 import html
 import io
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 # Type alias for csv.writer return type (csv._writer is internal)
@@ -325,3 +326,220 @@ def _build_html_template(
     </div>
 </body>
 </html>"""
+
+
+def format_debate_txt(debate: dict) -> ExportResult:
+    """Format debate as plain text transcript.
+
+    Args:
+        debate: Debate data dictionary
+
+    Returns:
+        ExportResult with plain text content
+    """
+    debate_id = debate.get("slug", debate.get("id", "export"))
+    topic = debate.get("topic", "Untitled Debate")
+    messages = debate.get("messages", [])
+    consensus = debate.get("consensus_reached", False)
+    final_answer = debate.get("final_answer", "")
+    synthesis = debate.get("synthesis", "")
+
+    lines = []
+    lines.append("=" * 70)
+    lines.append("ARAGORA DEBATE TRANSCRIPT")
+    lines.append("=" * 70)
+    lines.append("")
+    lines.append(f"Topic: {topic}")
+    lines.append(f"Debate ID: {debate_id}")
+    lines.append(f"Started: {debate.get('started_at', 'N/A')}")
+    lines.append(f"Ended: {debate.get('ended_at', 'N/A')}")
+    lines.append(f"Rounds: {debate.get('rounds_used', 0)}")
+    lines.append(f"Consensus Reached: {'Yes' if consensus else 'No'}")
+    lines.append("")
+    lines.append("-" * 70)
+    lines.append("DEBATE TIMELINE")
+    lines.append("-" * 70)
+    lines.append("")
+
+    current_round = -1
+    for msg in messages:
+        round_num = msg.get("round", 0)
+        if round_num != current_round:
+            current_round = round_num
+            lines.append("")
+            lines.append(f"--- Round {current_round} ---")
+            lines.append("")
+
+        agent = msg.get("agent", "unknown")
+        role = msg.get("role", "speaker")
+        content = msg.get("content", "")
+        timestamp = msg.get("timestamp", "")
+
+        lines.append(f"[{agent.upper()}] ({role})")
+        if timestamp:
+            lines.append(f"Time: {timestamp}")
+        lines.append("")
+        lines.append(content)
+        lines.append("")
+        lines.append("-" * 40)
+        lines.append("")
+
+    # Add critiques section if present
+    critiques = debate.get("critiques", [])
+    if critiques:
+        lines.append("")
+        lines.append("-" * 70)
+        lines.append("CRITIQUES")
+        lines.append("-" * 70)
+        lines.append("")
+        for critique in critiques:
+            critic = critique.get("critic", "unknown")
+            target = critique.get("target", "unknown")
+            severity = critique.get("severity", 0)
+            summary = critique.get("summary", "")
+            lines.append(f"{critic} -> {target} (severity: {severity})")
+            lines.append(summary)
+            lines.append("")
+
+    # Add synthesis/conclusion
+    lines.append("")
+    lines.append("=" * 70)
+    lines.append("CONCLUSION")
+    lines.append("=" * 70)
+    lines.append("")
+
+    if synthesis:
+        lines.append("SYNTHESIS:")
+        lines.append(synthesis)
+        lines.append("")
+
+    if final_answer:
+        lines.append("FINAL ANSWER:")
+        lines.append(final_answer)
+    elif not synthesis:
+        lines.append("No conclusion reached.")
+
+    lines.append("")
+    lines.append("-" * 70)
+    lines.append("Exported from Aragora")
+    lines.append("-" * 70)
+
+    content = "\n".join(lines)
+
+    return ExportResult(
+        content=content.encode("utf-8"),
+        content_type="text/plain; charset=utf-8",
+        filename=f"debate-{debate_id}.txt",
+    )
+
+
+def format_debate_md(debate: dict) -> ExportResult:
+    """Format debate as Markdown transcript.
+
+    Args:
+        debate: Debate data dictionary
+
+    Returns:
+        ExportResult with Markdown content
+    """
+    debate_id = debate.get("slug", debate.get("id", "export"))
+    topic = debate.get("topic", "Untitled Debate")
+    messages = debate.get("messages", [])
+    consensus = debate.get("consensus_reached", False)
+    final_answer = debate.get("final_answer", "")
+    synthesis = debate.get("synthesis", "")
+
+    lines = []
+    lines.append(f"# Aragora Debate: {topic}")
+    lines.append("")
+    lines.append("## Metadata")
+    lines.append("")
+    lines.append(f"- **Debate ID:** `{debate_id}`")
+    lines.append(f"- **Started:** {debate.get('started_at', 'N/A')}")
+    lines.append(f"- **Ended:** {debate.get('ended_at', 'N/A')}")
+    lines.append(f"- **Rounds:** {debate.get('rounds_used', 0)}")
+    lines.append(f"- **Consensus Reached:** {'Yes' if consensus else 'No'}")
+    lines.append(f"- **Confidence:** {debate.get('confidence', 0):.1%}")
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    lines.append("## Debate Timeline")
+    lines.append("")
+
+    current_round = -1
+    for msg in messages:
+        round_num = msg.get("round", 0)
+        if round_num != current_round:
+            current_round = round_num
+            lines.append(f"### Round {current_round}")
+            lines.append("")
+
+        agent = msg.get("agent", "unknown")
+        role = msg.get("role", "speaker")
+        content = msg.get("content", "")
+        timestamp = msg.get("timestamp", "")
+
+        # Format agent name with role badge
+        role_emoji = {"speaker": "💬", "critic": "🔍", "judge": "⚖️"}.get(role, "💬")
+        lines.append(f"#### {role_emoji} {agent}")
+        if timestamp:
+            lines.append(f"*{timestamp}*")
+        lines.append("")
+        lines.append(content)
+        lines.append("")
+
+    # Add critiques section if present
+    critiques = debate.get("critiques", [])
+    if critiques:
+        lines.append("---")
+        lines.append("")
+        lines.append("## Critiques")
+        lines.append("")
+        for critique in critiques:
+            critic = critique.get("critic", "unknown")
+            target = critique.get("target", "unknown")
+            severity = critique.get("severity", 0)
+            summary = critique.get("summary", "")
+            severity_bar = "🔴" if severity > 0.7 else "🟡" if severity > 0.4 else "🟢"
+            lines.append(f"### {critic} → {target} {severity_bar}")
+            lines.append(f"*Severity: {severity:.1%}*")
+            lines.append("")
+            lines.append(summary)
+            lines.append("")
+
+    # Add synthesis/conclusion
+    lines.append("---")
+    lines.append("")
+    lines.append("## Conclusion")
+    lines.append("")
+
+    if synthesis:
+        lines.append("### Synthesis")
+        lines.append("")
+        lines.append(synthesis)
+        lines.append("")
+
+    if final_answer:
+        lines.append("### Final Answer")
+        lines.append("")
+        if consensus:
+            lines.append("> ✅ **Consensus Reached**")
+        else:
+            lines.append("> ⚠️ **No Consensus**")
+        lines.append("")
+        lines.append(final_answer)
+    elif not synthesis:
+        lines.append("*No conclusion reached.*")
+
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    lines.append("*Exported from [Aragora](https://aragora.ai)*")
+
+    content = "\n".join(lines)
+
+    return ExportResult(
+        content=content.encode("utf-8"),
+        content_type="text/markdown; charset=utf-8",
+        filename=f"debate-{debate_id}.md",
+    )
