@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
@@ -251,15 +252,19 @@ class SecretManager:
         return self.get_secrets(billing_secrets)
 
 
-# Global singleton instance
+# Global singleton instance with thread-safe initialization
 _manager: SecretManager | None = None
+_manager_lock = threading.Lock()
 
 
 def get_secret_manager() -> SecretManager:
-    """Get the global secret manager instance."""
+    """Get the global secret manager instance (thread-safe)."""
     global _manager
     if _manager is None:
-        _manager = SecretManager()
+        with _manager_lock:
+            # Double-checked locking pattern
+            if _manager is None:
+                _manager = SecretManager()
     return _manager
 
 
