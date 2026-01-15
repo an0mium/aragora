@@ -215,8 +215,11 @@ class DebateController:
         # Set loop_id on emitter
         self.emitter.set_loop_id(debate_id)
 
-        # Parse agent names for immediate event
-        agent_names = [a.strip() for a in agents_str.split(",") if a.strip()]
+        # Parse agent names for immediate event (handle both string and list)
+        if isinstance(agents_str, str):
+            agent_names = [a.strip() for a in agents_str.split(",") if a.strip()]
+        else:
+            agent_names = list(agents_str) if agents_str else []
 
         # Emit immediate DEBATE_START event so clients see progress within seconds
         # (The debate phases will emit more detailed events as they execute)
