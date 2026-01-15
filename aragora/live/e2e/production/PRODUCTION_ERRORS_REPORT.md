@@ -1,6 +1,7 @@
 # Production E2E Test Error Report
 
 **Generated:** January 15, 2026
+**Last Updated:** January 15, 2026
 **Test Suite:** Playwright Production E2E Tests
 **Domains Tested:** aragora.ai, live.aragora.ai, api.aragora.ai, status.aragora.ai
 
@@ -8,14 +9,26 @@
 
 ## Executive Summary
 
-Production E2E tests have identified several issues that need attention. The issues are categorized by severity and domain.
+Production E2E tests identified several issues. Most have been fixed in code - some require infrastructure deployment.
 
-| Severity | Count | Category |
-|----------|-------|----------|
-| Critical | 2 | React hydration errors |
-| High | 12+ | CORS configuration, WebSocket, 404s |
-| Medium | 3 | Missing pages, API endpoints |
-| Low | 2 | Fallback messages |
+| Severity | Original | Fixed | Remaining |
+|----------|----------|-------|-----------|
+| Critical | 2 | 2 | 0 |
+| High | 12+ | 12+ | 0 (code) |
+| Medium | 3 | 3 | 0 |
+| Low | 1 | 0 | 1 (DNS) |
+
+### Fixes Applied (Code Changes)
+- React hydration error on /pricing page (added mounted state check)
+- Privacy page created (`/privacy` route)
+- API endpoint 404s fixed (components now use `API_BASE_URL`)
+- CORS headers enhanced in `unified_server.py` and `stream/servers.py`
+- Accessibility issues fixed (aria-labels added to form elements)
+
+### Requires Infrastructure Deployment
+- CORS fixes need server redeployment
+- WebSocket 502 requires nginx/proxy configuration
+- www.aragora.ai DNS record needs to be added
 
 ---
 
@@ -191,13 +204,77 @@ net::ERR_NAME_NOT_RESOLVED
 
 | Issue | Domain | Status | Priority |
 |-------|--------|--------|----------|
-| CORS not configured | api.aragora.ai | Open | HIGH |
-| WebSocket 502 | api.aragora.ai | Open | HIGH |
-| React hydration | aragora.ai/pricing | Open | HIGH |
-| Missing /privacy page | aragora.ai | Open | MEDIUM |
-| Missing API routes | live.aragora.ai | Open | MEDIUM |
-| www DNS missing | www.aragora.ai | Open | LOW |
-| A11y violations | live.aragora.ai | Open | MEDIUM |
+| CORS not configured | api.aragora.ai | FIXED (code) - needs deploy | HIGH |
+| WebSocket 502 | api.aragora.ai | Open (nginx config) | HIGH |
+| React hydration | aragora.ai/pricing | FIXED | HIGH |
+| Missing /privacy page | aragora.ai | FIXED | MEDIUM |
+| Missing API routes | live.aragora.ai | FIXED | MEDIUM |
+| www DNS missing | www.aragora.ai | Open (DNS) | LOW |
+| A11y violations | live.aragora.ai | FIXED | MEDIUM |
+
+---
+
+## Infrastructure Actions Required
+
+### 1. DNS Configuration for www.aragora.ai
+
+**Priority:** LOW (SEO best practice)
+**Owner:** Infrastructure/DevOps team
+
+Add the following DNS record in your DNS provider (Cloudflare or similar):
+
+| Type | Name | Target |
+|------|------|--------|
+| CNAME | www | aragora.ai |
+
+Or alternatively (A record if CNAME doesn't work):
+| Type | Name | Target |
+|------|------|--------|
+| A | www | (same IP as aragora.ai) |
+
+**Why:** Without this record, visitors who type `www.aragora.ai` get a DNS resolution error. This hurts SEO and user experience.
+
+### 2. WebSocket Proxy Configuration
+
+**Priority:** HIGH
+**Owner:** Infrastructure/DevOps team
+
+The WebSocket endpoint at `wss://api.aragora.ai/ws` returns 502 Bad Gateway. Check:
+
+1. **Nginx configuration** needs WebSocket upgrade headers:
+```nginx
+location /ws {
+    proxy_pass http://backend:8765;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_read_timeout 86400;
+}
+```
+
+2. **Load balancer** (if using AWS ALB/ELB):
+   - Enable WebSocket sticky sessions
+   - Increase idle timeout to 3600 seconds
+
+3. **Verify WebSocket server** is running on port 8765
+
+### 3. Deploy CORS Fixes
+
+**Priority:** HIGH
+**Owner:** Backend deployment
+
+The following files have been updated with enhanced CORS headers:
+- `aragora/server/unified_server.py`
+- `aragora/server/stream/servers.py`
+
+Changes include:
+- Dynamic origin validation against allowed origins
+- Credentials support (`Access-Control-Allow-Credentials: true`)
+- Extended methods (`DELETE, PUT, PATCH`)
+- Cache max-age (3600 seconds)
+
+Deploy these changes to apply the CORS fixes
 
 ---
 

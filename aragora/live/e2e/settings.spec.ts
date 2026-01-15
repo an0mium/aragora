@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 /**
  * E2E tests for Settings page.
@@ -7,8 +7,9 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('Settings Page', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, aragoraPage }) => {
     await page.goto('/settings');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
   });
 
@@ -41,8 +42,9 @@ test.describe('Settings Page', () => {
 });
 
 test.describe('Settings - Features Tab', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, aragoraPage }) => {
     await page.goto('/settings');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
   });
 
@@ -79,8 +81,9 @@ test.describe('Settings - Features Tab', () => {
 });
 
 test.describe('Settings - Debate Tab', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, aragoraPage }) => {
     await page.goto('/settings');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
     await page.getByRole('tab', { name: /debate/i }).click();
   });
@@ -105,8 +108,9 @@ test.describe('Settings - Debate Tab', () => {
 });
 
 test.describe('Settings - Appearance Tab', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, aragoraPage }) => {
     await page.goto('/settings');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
     await page.getByRole('tab', { name: /appearance/i }).click();
   });
@@ -134,8 +138,9 @@ test.describe('Settings - Appearance Tab', () => {
 });
 
 test.describe('Settings - API Keys Tab', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, aragoraPage }) => {
     await page.goto('/settings');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
     await page.getByRole('tab', { name: /api keys/i }).click();
   });
@@ -161,8 +166,9 @@ test.describe('Settings - API Keys Tab', () => {
 });
 
 test.describe('Settings - Integrations Tab', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, aragoraPage }) => {
     await page.goto('/settings');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
     await page.getByRole('tab', { name: /integrations/i }).click();
   });
@@ -183,16 +189,19 @@ test.describe('Settings - Integrations Tab', () => {
 });
 
 test.describe('Settings - Navigation', () => {
-  test('should navigate back to dashboard', async ({ page }) => {
+  test('should navigate back to dashboard', async ({ page, aragoraPage }) => {
     await page.goto('/settings');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     await page.getByRole('link', { name: /dashboard/i }).click();
+    await aragoraPage.dismissAllOverlays();
     await expect(page).toHaveURL('/');
   });
 
-  test('should persist settings after navigation', async ({ page }) => {
+  test('should persist settings after navigation', async ({ page, aragoraPage }) => {
     await page.goto('/settings');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Change a setting
@@ -204,7 +213,9 @@ test.describe('Settings - Navigation', () => {
 
     // Navigate away and back
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.goto('/settings');
+    await aragoraPage.dismissAllOverlays();
     await page.getByRole('tab', { name: /appearance/i }).click();
 
     // Setting should be persisted (localStorage)

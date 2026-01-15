@@ -8,16 +8,18 @@ import { test, expect } from './fixtures';
  */
 
 test.describe('Matrix Debate Mode Selection', () => {
-  test('should display MATRIX mode button on homepage', async ({ page }) => {
+  test('should display MATRIX mode button on homepage', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const matrixMode = page.getByRole('button', { name: /matrix/i });
     await expect(matrixMode).toBeVisible();
   });
 
-  test('should switch to MATRIX mode when clicked', async ({ page }) => {
+  test('should switch to MATRIX mode when clicked', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const matrixMode = page.getByRole('button', { name: /matrix/i });
@@ -31,8 +33,9 @@ test.describe('Matrix Debate Mode Selection', () => {
     await expect(matrixHint.first()).toBeVisible();
   });
 
-  test('should update submit button text in MATRIX mode', async ({ page }) => {
+  test('should update submit button text in MATRIX mode', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Switch to MATRIX mode
@@ -44,8 +47,9 @@ test.describe('Matrix Debate Mode Selection', () => {
     await expect(matrixSubmit).toBeVisible();
   });
 
-  test('should show variables configuration in MATRIX mode', async ({ page }) => {
+  test('should show variables configuration in MATRIX mode', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Switch to MATRIX mode
@@ -65,8 +69,9 @@ test.describe('Matrix Debate Mode Selection', () => {
 });
 
 test.describe('Matrix Debate Creation', () => {
-  test('should create a matrix debate and navigate to visualization', async ({ page }) => {
+  test('should create a matrix debate and navigate to visualization', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Switch to MATRIX mode
@@ -96,24 +101,27 @@ test.describe('Matrix Debate Creation', () => {
 });
 
 test.describe('Matrix Debate Visualization Page', () => {
-  test('should load matrix debates page', async ({ page }) => {
+  test('should load matrix debates page', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
 
     // Should have the page content
     const mainContent = page.locator('main, [data-testid="matrix-container"]');
     await expect(mainContent.first()).toBeVisible();
   });
 
-  test('should display matrix debates title', async ({ page }) => {
+  test('should display matrix debates title', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const title = page.locator('h1, h2').filter({ hasText: /matrix/i });
     await expect(title.first()).toBeVisible();
   });
 
-  test('should show matrix list or empty state', async ({ page }) => {
+  test('should show matrix list or empty state', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Either matrices exist or empty state
@@ -129,8 +137,9 @@ test.describe('Matrix Debate Visualization Page', () => {
 });
 
 test.describe('Matrix Grid Display', () => {
-  test('should display scenario grid when matrix is selected', async ({ page }) => {
+  test('should display scenario grid when matrix is selected', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for grid elements
@@ -141,8 +150,9 @@ test.describe('Matrix Grid Display', () => {
     expect(true).toBeTruthy(); // Page loads without error
   });
 
-  test('should show scenario cells with status indicators', async ({ page }) => {
+  test('should show scenario cells with status indicators', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for scenario cells
@@ -155,8 +165,9 @@ test.describe('Matrix Grid Display', () => {
     }
   });
 
-  test('should display confidence scores in cells', async ({ page }) => {
+  test('should display confidence scores in cells', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for percentage indicators
@@ -169,8 +180,9 @@ test.describe('Matrix Grid Display', () => {
 });
 
 test.describe('Matrix Scenario Details', () => {
-  test('should show scenario details panel when cell clicked', async ({ page }) => {
+  test('should show scenario details panel when cell clicked', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Find and click a scenario cell
@@ -190,8 +202,9 @@ test.describe('Matrix Scenario Details', () => {
 });
 
 test.describe('Matrix Filtering', () => {
-  test('should have filter controls', async ({ page }) => {
+  test('should have filter controls', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for filter controls
@@ -202,8 +215,9 @@ test.describe('Matrix Filtering', () => {
     expect(true).toBeTruthy();
   });
 
-  test('should have consensus filter checkbox', async ({ page }) => {
+  test('should have consensus filter checkbox', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for consensus filter
@@ -213,8 +227,9 @@ test.describe('Matrix Filtering', () => {
     expect(true).toBeTruthy();
   });
 
-  test('should have confidence slider', async ({ page }) => {
+  test('should have confidence slider', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for confidence slider
@@ -226,8 +241,9 @@ test.describe('Matrix Filtering', () => {
 });
 
 test.describe('Matrix Comparison Mode', () => {
-  test('should show compare button when multiple scenarios selected', async ({ page }) => {
+  test('should show compare button when multiple scenarios selected', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Try to select multiple scenarios
@@ -248,8 +264,9 @@ test.describe('Matrix Comparison Mode', () => {
 });
 
 test.describe('Matrix Statistics', () => {
-  test('should display scenario count', async ({ page }) => {
+  test('should display scenario count', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for scenario count
@@ -259,8 +276,9 @@ test.describe('Matrix Statistics', () => {
     expect(true).toBeTruthy();
   });
 
-  test('should display consensus rate', async ({ page }) => {
+  test('should display consensus rate', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for consensus rate
@@ -272,8 +290,9 @@ test.describe('Matrix Statistics', () => {
 });
 
 test.describe('Matrix Debate with Query Parameters', () => {
-  test('should load specific matrix when id parameter provided', async ({ page }) => {
+  test('should load specific matrix when id parameter provided', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix?id=test-matrix-123');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Page should attempt to load the specified matrix
@@ -281,8 +300,9 @@ test.describe('Matrix Debate with Query Parameters', () => {
     await expect(content).toBeVisible();
   });
 
-  test('should handle invalid matrix id gracefully', async ({ page }) => {
+  test('should handle invalid matrix id gracefully', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix?id=invalid-nonexistent-id');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Should show error or empty state, not crash
@@ -292,9 +312,10 @@ test.describe('Matrix Debate with Query Parameters', () => {
 });
 
 test.describe('Matrix Debate Responsiveness', () => {
-  test('should be responsive on mobile viewport', async ({ page }) => {
+  test('should be responsive on mobile viewport', async ({ page, aragoraPage }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Grid should adapt or scroll horizontally
@@ -302,18 +323,20 @@ test.describe('Matrix Debate Responsiveness', () => {
     await expect(content).toBeVisible();
   });
 
-  test('should be responsive on tablet viewport', async ({ page }) => {
+  test('should be responsive on tablet viewport', async ({ page, aragoraPage }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const content = page.locator('main');
     await expect(content).toBeVisible();
   });
 
-  test('should work on desktop viewport', async ({ page }) => {
+  test('should work on desktop viewport', async ({ page, aragoraPage }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const content = page.locator('main');
@@ -322,8 +345,9 @@ test.describe('Matrix Debate Responsiveness', () => {
 });
 
 test.describe('Matrix Export', () => {
-  test('should have export button', async ({ page }) => {
+  test('should have export button', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for export functionality
@@ -335,8 +359,9 @@ test.describe('Matrix Export', () => {
 });
 
 test.describe('Matrix Refresh', () => {
-  test('should have refresh button', async ({ page }) => {
+  test('should have refresh button', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const refreshButton = page.getByRole('button', { name: /refresh/i });
@@ -344,8 +369,9 @@ test.describe('Matrix Refresh', () => {
     await expect(refreshButton).toBeEnabled();
   });
 
-  test('should reload data when refresh clicked', async ({ page }) => {
+  test('should reload data when refresh clicked', async ({ page, aragoraPage }) => {
     await page.goto('/debates/matrix');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const refreshButton = page.getByRole('button', { name: /refresh/i });

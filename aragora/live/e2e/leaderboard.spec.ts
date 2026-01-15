@@ -134,8 +134,9 @@ test.describe('Leaderboard', () => {
 });
 
 test.describe('Leaderboard Filtering', () => {
-  test('should filter by time period', async ({ page }) => {
+  test('should filter by time period', async ({ page, aragoraPage }) => {
     await page.goto('/leaderboard');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for time period selector
@@ -152,8 +153,9 @@ test.describe('Leaderboard Filtering', () => {
     }
   });
 
-  test('should filter by agent type', async ({ page }) => {
+  test('should filter by agent type', async ({ page, aragoraPage }) => {
     await page.goto('/leaderboard');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for agent type filter
@@ -169,8 +171,9 @@ test.describe('Leaderboard Filtering', () => {
 });
 
 test.describe('Agent Details', () => {
-  test('should link to agent detail page', async ({ page }) => {
+  test('should link to agent detail page', async ({ page, aragoraPage }) => {
     await page.goto('/leaderboard');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Click on agent name if it's a link
@@ -180,12 +183,14 @@ test.describe('Agent Details', () => {
 
     if (await agentLink.isVisible().catch(() => false)) {
       await agentLink.click();
+      await aragoraPage.dismissAllOverlays();
       await expect(page).toHaveURL(/agent/i);
     }
   });
 
-  test('should show agent performance chart', async ({ page }) => {
+  test('should show agent performance chart', async ({ page, aragoraPage }) => {
     await page.goto('/leaderboard');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Some leaderboards show inline charts

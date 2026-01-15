@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 /**
  * E2E tests for Admin page.
@@ -7,8 +7,9 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('Admin Page', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, aragoraPage }) => {
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
   });
 
@@ -34,22 +35,25 @@ test.describe('Admin Page', () => {
     await expect(page.getByRole('button', { name: /refresh/i })).toBeVisible({ timeout: 5000 });
   });
 
-  test('should navigate back to dashboard', async ({ page }) => {
+  test('should navigate back to dashboard', async ({ page, aragoraPage }) => {
     const dashboardLink = page.getByText(/dashboard/i).first();
     await dashboardLink.click();
+    await aragoraPage.dismissAllOverlays();
     await expect(page).toHaveURL('/');
   });
 
-  test('should navigate to settings', async ({ page }) => {
+  test('should navigate to settings', async ({ page, aragoraPage }) => {
     const settingsLink = page.getByText(/settings/i).first();
     await settingsLink.click();
+    await aragoraPage.dismissAllOverlays();
     await expect(page).toHaveURL(/settings/);
   });
 });
 
 test.describe('Admin - Health Tab', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, aragoraPage }) => {
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
     // Health tab should be default, but click it to be sure
     const healthTab = page.getByRole('button', { name: /health/i });
@@ -94,8 +98,9 @@ test.describe('Admin - Health Tab', () => {
 });
 
 test.describe('Admin - Agents Tab', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, aragoraPage }) => {
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
     await page.getByRole('button', { name: /agents/i }).click();
   });
@@ -128,8 +133,9 @@ test.describe('Admin - Agents Tab', () => {
 });
 
 test.describe('Admin - Errors Tab', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, aragoraPage }) => {
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
     await page.getByRole('button', { name: /errors/i }).click();
   });
@@ -158,8 +164,9 @@ test.describe('Admin - Errors Tab', () => {
 });
 
 test.describe('Admin - Metrics Tab', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, aragoraPage }) => {
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
     await page.getByRole('button', { name: /metrics/i }).click();
   });
@@ -184,8 +191,9 @@ test.describe('Admin - Metrics Tab', () => {
 });
 
 test.describe('Admin - Refresh Functionality', () => {
-  test('should refresh data when clicking refresh button', async ({ page }) => {
+  test('should refresh data when clicking refresh button', async ({ page, aragoraPage }) => {
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     const refreshButton = page.getByRole('button', { name: /refresh/i });
@@ -200,8 +208,9 @@ test.describe('Admin - Refresh Functionality', () => {
     await expect(refreshButton).toContainText(/refresh/i, { timeout: 10000 });
   });
 
-  test('should auto-refresh data periodically', async ({ page }) => {
+  test('should auto-refresh data periodically', async ({ page, aragoraPage }) => {
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // The admin page auto-refreshes every 30 seconds
@@ -223,8 +232,9 @@ test.describe('Admin - Refresh Functionality', () => {
 });
 
 test.describe('Admin - Tab Navigation', () => {
-  test('should switch between all tabs', async ({ page }) => {
+  test('should switch between all tabs', async ({ page, aragoraPage }) => {
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Start at health tab
@@ -248,8 +258,9 @@ test.describe('Admin - Tab Navigation', () => {
     await expect(metricsArea.first()).toBeVisible();
   });
 
-  test('should maintain tab selection on page focus', async ({ page }) => {
+  test('should maintain tab selection on page focus', async ({ page, aragoraPage }) => {
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Select agents tab
@@ -268,19 +279,22 @@ test.describe('Admin - Tab Navigation', () => {
 });
 
 test.describe('Admin - Header Navigation', () => {
-  test('should have ASCII banner link to home', async ({ page }) => {
+  test('should have ASCII banner link to home', async ({ page, aragoraPage }) => {
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Click the banner/logo area
     const bannerLink = page.locator('header a').first();
     await bannerLink.click();
+    await aragoraPage.dismissAllOverlays();
 
     await expect(page).toHaveURL('/');
   });
 
-  test('should have backend selector', async ({ page }) => {
+  test('should have backend selector', async ({ page, aragoraPage }) => {
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Backend selector should be visible in header
@@ -288,8 +302,9 @@ test.describe('Admin - Header Navigation', () => {
     await expect(backendSelector.first()).toBeVisible();
   });
 
-  test('should have theme toggle', async ({ page }) => {
+  test('should have theme toggle', async ({ page, aragoraPage }) => {
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Theme toggle should be in header
@@ -306,9 +321,10 @@ test.describe('Admin - Header Navigation', () => {
 });
 
 test.describe('Admin - Responsive Layout', () => {
-  test('should display correctly on mobile', async ({ page }) => {
+  test('should display correctly on mobile', async ({ page, aragoraPage }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Title should be visible
@@ -319,9 +335,10 @@ test.describe('Admin - Responsive Layout', () => {
     await expect(tabContainer).toBeVisible();
   });
 
-  test('should display correctly on tablet', async ({ page }) => {
+  test('should display correctly on tablet', async ({ page, aragoraPage }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     await expect(page.getByText(/system administration/i)).toBeVisible();
@@ -333,9 +350,10 @@ test.describe('Admin - Responsive Layout', () => {
     }
   });
 
-  test('should display grid layout on desktop', async ({ page }) => {
+  test('should display grid layout on desktop', async ({ page, aragoraPage }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.goto('/admin');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Health tab should show grid layout with 4 columns

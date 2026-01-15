@@ -1,12 +1,13 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 /**
  * E2E tests for API health and WebSocket connectivity.
  */
 
 test.describe('API Health', () => {
-  test('should connect to API server', async ({ page }) => {
+  test('should connect to API server', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
 
     // Wait for any API calls to complete
     await page.waitForLoadState('domcontentloaded');
@@ -16,7 +17,7 @@ test.describe('API Health', () => {
     await expect(mainContent.first()).toBeVisible();
   });
 
-  test('should handle API errors gracefully', async ({ page }) => {
+  test('should handle API errors gracefully', async ({ page, aragoraPage }) => {
     // Intercept API calls and simulate error
     await page.route('**/api/**', (route) => {
       route.fulfill({
@@ -27,6 +28,7 @@ test.describe('API Health', () => {
     });
 
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
 
     // Should show error state, not crash
     const body = page.locator('body');
@@ -38,7 +40,7 @@ test.describe('API Health', () => {
     expect(hasError).toBeDefined();
   });
 
-  test('should retry failed requests', async ({ page }) => {
+  test('should retry failed requests', async ({ page, aragoraPage }) => {
     let requestCount = 0;
 
     // Fail first request, succeed second
@@ -56,13 +58,14 @@ test.describe('API Health', () => {
     });
 
     await page.goto('/debates');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForTimeout(2000); // Wait for potential retry
 
     // App should have retried
     expect(requestCount).toBeGreaterThanOrEqual(1);
   });
 
-  test('should show loading states', async ({ page }) => {
+  test('should show loading states', async ({ page, aragoraPage }) => {
     // Delay API response
     await page.route('**/api/**', async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -70,6 +73,7 @@ test.describe('API Health', () => {
     });
 
     await page.goto('/debates');
+    await aragoraPage.dismissAllOverlays();
 
     // Should show loading indicator
     const loadingIndicator = page.locator(
@@ -83,7 +87,7 @@ test.describe('API Health', () => {
 });
 
 test.describe('WebSocket Connectivity', () => {
-  test('should attempt WebSocket connection', async ({ page }) => {
+  test('should attempt WebSocket connection', async ({ page, aragoraPage }) => {
     let wsConnected = false;
 
     // Listen for WebSocket connections
@@ -92,14 +96,16 @@ test.describe('WebSocket Connectivity', () => {
     });
 
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForTimeout(2000);
 
     // WebSocket may or may not be used depending on page
     expect(wsConnected).toBeDefined();
   });
 
-  test('should handle WebSocket disconnect gracefully', async ({ page }) => {
+  test('should handle WebSocket disconnect gracefully', async ({ page, aragoraPage }) => {
     await page.goto('/debates');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Close any WebSocket connections
@@ -115,7 +121,7 @@ test.describe('WebSocket Connectivity', () => {
 });
 
 test.describe('Data Fetching', () => {
-  test('should cache repeated requests', async ({ page }) => {
+  test('should cache repeated requests', async ({ page, aragoraPage }) => {
     const requests: string[] = [];
 
     await page.route('**/api/**', (route) => {
@@ -124,19 +130,23 @@ test.describe('Data Fetching', () => {
     });
 
     await page.goto('/debates');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Navigate away and back
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
     await page.goto('/debates');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Should have some caching (not double requests for same data)
     expect(requests.length).toBeDefined();
   });
 
-  test('should handle pagination API correctly', async ({ page }) => {
+  test('should handle pagination API correctly', async ({ page, aragoraPage }) => {
     await page.goto('/debates');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for pagination or load more
@@ -152,9 +162,10 @@ test.describe('Data Fetching', () => {
 });
 
 test.describe('Error Boundaries', () => {
-  test('should catch rendering errors', async ({ page }) => {
+  test('should catch rendering errors', async ({ page, aragoraPage }) => {
     // This tests that the app has error boundaries
     await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
 
     // Inject an error
     await page.evaluate(() => {
@@ -169,8 +180,9 @@ test.describe('Error Boundaries', () => {
     await expect(body).toBeVisible();
   });
 
-  test('should show friendly error message on crash', async ({ page }) => {
+  test('should show friendly error message on crash', async ({ page, aragoraPage }) => {
     await page.goto('/nonexistent-route-that-should-404');
+    await aragoraPage.dismissAllOverlays();
 
     // Should show 404 or not found page
     const notFound = page.locator(':text("404"), :text("not found"), :text("Not Found")');
