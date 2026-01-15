@@ -140,6 +140,8 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
   const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  const [graphError, setGraphError] = useState<string | null>(null);
   const [apiUnavailable, setApiUnavailable] = useState(false);
   const [activeTab, setActiveTab] = useState<'dissent' | 'evidence' | 'graph'>('dissent');
   const [searchDebateId, setSearchDebateId] = useState('');
@@ -202,9 +204,11 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
   const fetchEvidence = useCallback(async () => {
     if (!searchDebateId.trim()) {
       setEvidence([]);
+      setEvidenceError(null);
       return;
     }
 
+    setEvidenceError(null);
     try {
       const response = await fetchWithRetry(
         `${apiBase}/api/debates/${searchDebateId}/evidence`,
@@ -217,19 +221,27 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
         setEvidence(data.evidence || data.citations || []);
       } else {
         setEvidence([]);
+        if (response.status === 404) {
+          // Not an error - just no evidence found
+        } else {
+          setEvidenceError(`Failed to fetch evidence (${response.status})`);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch evidence:', err);
       setEvidence([]);
+      setEvidenceError('Unable to fetch evidence. Please check your connection.');
     }
   }, [apiBase, searchDebateId]);
 
   const fetchGraphNodes = useCallback(async () => {
     if (!searchDebateId.trim()) {
       setGraphNodes([]);
+      setGraphError(null);
       return;
     }
 
+    setGraphError(null);
     try {
       const response = await fetchWithRetry(
         `${apiBase}/api/debates/graph/${searchDebateId}/nodes`,
@@ -242,10 +254,16 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
         setGraphNodes(data.nodes || []);
       } else {
         setGraphNodes([]);
+        if (response.status === 404) {
+          // Not an error - just no graph found
+        } else {
+          setGraphError(`Failed to fetch graph nodes (${response.status})`);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch graph nodes:', err);
       setGraphNodes([]);
+      setGraphError('Unable to fetch argument graph. Please check your connection.');
     }
   }, [apiBase, searchDebateId]);
 
@@ -517,6 +535,19 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
             />
           </div>
 
+          {/* Evidence Error Display */}
+          {evidenceError && (
+            <div className="bg-acid-red/10 border border-acid-red/30 rounded px-4 py-3 flex items-center justify-between">
+              <span className="font-mono text-sm text-acid-red">{evidenceError}</span>
+              <button
+                onClick={fetchEvidence}
+                className="font-mono text-xs text-acid-red hover:text-acid-red/80 transition-colors"
+              >
+                [RETRY]
+              </button>
+            </div>
+          )}
+
           {/* Evidence Sources Breakdown */}
           {evidence.length > 0 && (
             <div className="card p-4">
@@ -645,6 +676,19 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
               className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
             />
           </div>
+
+          {/* Graph Error Display */}
+          {graphError && (
+            <div className="bg-acid-red/10 border border-acid-red/30 rounded px-4 py-3 flex items-center justify-between">
+              <span className="font-mono text-sm text-acid-red">{graphError}</span>
+              <button
+                onClick={fetchGraphNodes}
+                className="font-mono text-xs text-acid-red hover:text-acid-red/80 transition-colors"
+              >
+                [RETRY]
+              </button>
+            </div>
+          )}
 
           <div className="card p-4">
             <h3 className="font-mono text-acid-green mb-4">

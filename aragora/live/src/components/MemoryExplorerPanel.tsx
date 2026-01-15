@@ -109,6 +109,8 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
   const [selectedTiers, setSelectedTiers] = useState<string[]>(['fast', 'medium', 'slow', 'glacial']);
   const [minImportance, setMinImportance] = useState(0);
   const [critiqueFilter, setCritiqueFilter] = useState({ agent: '', debateId: '' });
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [critiqueError, setCritiqueError] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -159,10 +161,12 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
   const searchMemories = useCallback(async () => {
     if (!searchQuery.trim()) {
       setMemories([]);
+      setSearchError(null);
       return;
     }
 
     try {
+      setSearchError(null);
       const tiersParam = selectedTiers.join(',');
       // Use the newer /api/memory/search endpoint
       const response = await fetchWithRetry(
@@ -174,14 +178,18 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
       if (response.ok) {
         const data = await response.json();
         setMemories(data.memories || []);
+      } else {
+        setSearchError('Search failed. Please try again.');
       }
     } catch (err) {
       console.error('Search failed:', err);
+      setSearchError('Unable to search memories. Please check your connection.');
     }
   }, [apiBase, searchQuery, selectedTiers, minImportance]);
 
   const fetchCritiques = useCallback(async () => {
     try {
+      setCritiqueError(null);
       const params = new URLSearchParams({ limit: '30' });
       if (critiqueFilter.agent) params.append('agent', critiqueFilter.agent);
       if (critiqueFilter.debateId) params.append('debate_id', critiqueFilter.debateId);
@@ -197,10 +205,12 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
         setCritiques(data.critiques || []);
       } else {
         setCritiques([]);
+        setCritiqueError('Failed to load critiques. Please try again.');
       }
     } catch (err) {
       console.error('Fetching critiques failed:', err);
       setCritiques([]);
+      setCritiqueError('Unable to load critiques. Please check your connection.');
     }
   }, [apiBase, critiqueFilter]);
 
@@ -467,7 +477,12 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
             <h3 className="font-mono text-acid-green mb-4">
               Results ({memories.length})
             </h3>
-            {memories.length === 0 ? (
+            {searchError && (
+              <div className="mb-4 p-3 bg-warning/10 border border-warning/30 rounded text-warning font-mono text-sm">
+                {searchError}
+              </div>
+            )}
+            {!searchError && memories.length === 0 ? (
               <p className="text-text-muted font-mono text-sm">
                 {searchQuery ? 'No memories found.' : 'Enter a search query to find memories.'}
               </p>
@@ -540,7 +555,12 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
             <h3 className="font-mono text-acid-green mb-4">
               Agent Critiques ({critiques.length})
             </h3>
-            {critiques.length === 0 ? (
+            {critiqueError && (
+              <div className="mb-4 p-3 bg-warning/10 border border-warning/30 rounded text-warning font-mono text-sm">
+                {critiqueError}
+              </div>
+            )}
+            {!critiqueError && critiques.length === 0 ? (
               <p className="text-text-muted font-mono text-sm">
                 No critiques found. Critiques are recorded when agents analyze and critique
                 each other&apos;s arguments during debates.

@@ -73,6 +73,7 @@ function VerificationHistoryPanelInner({
   const [error, setError] = useState<string | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<VerificationEntry | null>(null);
   const [proofTree, setProofTree] = useState<ProofTreeNode[] | null>(null);
+  const [proofTreeError, setProofTreeError] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
   const limit = 20;
 
@@ -97,6 +98,7 @@ function VerificationHistoryPanelInner({
   }, [apiBase, offset]);
 
   const fetchProofTree = useCallback(async (entryId: string) => {
+    setProofTreeError(null);
     try {
       const response = await fetchWithRetry(
         `${apiBase}/api/verify/history/${entryId}/tree`
@@ -109,6 +111,7 @@ function VerificationHistoryPanelInner({
     } catch (err) {
       console.error('Failed to load proof tree:', err);
       setProofTree(null);
+      setProofTreeError('Unable to load proof tree. Click to retry.');
     }
   }, [apiBase]);
 
@@ -121,6 +124,7 @@ function VerificationHistoryPanelInner({
       fetchProofTree(selectedEntry.id);
     } else {
       setProofTree(null);
+      setProofTreeError(null);
     }
   }, [selectedEntry, fetchProofTree]);
 
@@ -225,6 +229,20 @@ function VerificationHistoryPanelInner({
                     <div>
                       <span className="text-gray-500">Error: </span>
                       <span className="text-red-400">{entry.result.error_message}</span>
+                    </div>
+                  )}
+
+                  {proofTreeError && (
+                    <div
+                      className="mt-2 pt-2 border-t border-green-500/10 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (selectedEntry) fetchProofTree(selectedEntry.id);
+                      }}
+                    >
+                      <div className="text-red-400 text-xs hover:text-red-300 transition-colors">
+                        {proofTreeError}
+                      </div>
                     </div>
                   )}
 

@@ -16,7 +16,7 @@ from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 from aragora.server.validation import validate_debate_id
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
@@ -24,7 +24,7 @@ from .base import (
     get_int_param,
     json_response,
 )
-from .utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 

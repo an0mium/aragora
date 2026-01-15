@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 # This allows FeedbackPhase to record outcomes that persist across requests
 import threading
 
-from .base import (
+from ..base import (
     SAFE_ID_PATTERN,
     BaseHandler,
     HandlerResult,
@@ -51,7 +51,7 @@ from .base import (
     ttl_cache,
     validate_path_segment,
 )
-from .utils.rate_limit import rate_limit
+from ..utils.rate_limit import rate_limit
 
 _pulse_lock = threading.Lock()
 _shared_pulse_manager = None

@@ -262,19 +262,24 @@ function CompareView({
 }) {
   const [comparison, setComparison] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [compareError, setCompareError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchComparison = async () => {
       try {
+        setCompareError(null);
         const response = await fetch(
           `${apiBase}/api/gauntlet/${result1.gauntlet_id}/compare/${result2.gauntlet_id}`
         );
         if (response.ok) {
           const data = await response.json();
           setComparison(data);
+        } else {
+          setCompareError('Failed to load comparison. Please try again.');
         }
       } catch (err) {
         console.error('Failed to fetch comparison:', err);
+        setCompareError('Unable to compare results. Please check your connection.');
       } finally {
         setLoading(false);
       }
@@ -302,6 +307,10 @@ function CompareView({
       {loading ? (
         <div className="text-center py-8 text-acid-green font-mono animate-pulse">
           Loading comparison...
+        </div>
+      ) : compareError ? (
+        <div className="p-4 bg-warning/10 border border-warning/30 rounded text-warning font-mono text-sm">
+          {compareError}
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
@@ -400,6 +409,7 @@ export function GauntletDashboard({
   const [heatmapData, setHeatmapData] = useState<HeatmapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [heatmapError, setHeatmapError] = useState<string | null>(null);
   const [verdictFilter, setVerdictFilter] = useState<string | null>(null);
   const [showCompare, setShowCompare] = useState(false);
 
@@ -433,13 +443,17 @@ export function GauntletDashboard({
 
   const fetchHeatmap = useCallback(async (gauntletId: string) => {
     try {
+      setHeatmapError(null);
       const response = await fetch(`${apiBase}/api/gauntlet/${gauntletId}/heatmap`);
       if (response.ok) {
         const data = await response.json();
         setHeatmapData(data);
+      } else {
+        setHeatmapError('Failed to load heatmap data.');
       }
     } catch (err) {
       console.error('Failed to fetch heatmap:', err);
+      setHeatmapError('Unable to load heatmap. Please try again.');
     }
   }, [apiBase]);
 
@@ -699,10 +713,16 @@ export function GauntletDashboard({
           </div>
 
           {/* Heatmap */}
-          {selectedResult && heatmapData && (
+          {selectedResult && (heatmapData || heatmapError) && (
             <div className="bg-surface border border-acid-yellow/30 rounded-lg p-4">
               <h3 className="font-mono text-acid-yellow text-sm mb-4">RISK HEATMAP</h3>
-              <HeatmapVisualization data={heatmapData} />
+              {heatmapError ? (
+                <div className="p-3 bg-warning/10 border border-warning/30 rounded text-warning font-mono text-sm">
+                  {heatmapError}
+                </div>
+              ) : heatmapData ? (
+                <HeatmapVisualization data={heatmapData} />
+              ) : null}
             </div>
           )}
         </div>

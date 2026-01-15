@@ -525,7 +525,7 @@ class HealthHandler(BaseHandler):
 
         # Add handler cache status
         try:
-            from aragora.server.handlers.cache import get_cache_stats
+            from aragora.server.handlers.admin.cache import get_cache_stats
 
             cache_stats = get_cache_stats()
             health["handler_cache"] = {

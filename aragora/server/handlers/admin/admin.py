@@ -319,7 +319,7 @@ class AdminHandler(BaseHandler):
 
         # Get cache stats if available
         try:
-            from aragora.server.handlers.cache import get_cache_stats
+            from aragora.server.handlers.admin.cache import get_cache_stats
 
             metrics["cache"] = get_cache_stats()
         except Exception as e:
