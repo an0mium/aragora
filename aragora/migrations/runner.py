@@ -9,6 +9,7 @@ import importlib
 import logging
 import os
 import pkgutil
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
@@ -249,8 +250,9 @@ class MigrationRunner:
         self._backend.close()
 
 
-# Global runner instance
+# Global runner instance with thread-safe initialization
 _runner: Optional[MigrationRunner] = None
+_runner_lock = threading.Lock()
 
 
 def get_migration_runner(
@@ -258,14 +260,17 @@ def get_migration_runner(
     database_url: Optional[str] = None,
 ) -> MigrationRunner:
     """
-    Get or create the global migration runner.
+    Get or create the global migration runner (thread-safe).
 
     Automatically loads migrations from the migrations package.
     """
     global _runner
     if _runner is None:
-        _runner = MigrationRunner(db_path=db_path, database_url=database_url)
-        _load_migrations(_runner)
+        with _runner_lock:
+            # Double-checked locking pattern
+            if _runner is None:
+                _runner = MigrationRunner(db_path=db_path, database_url=database_url)
+                _load_migrations(_runner)
     return _runner
 
 
