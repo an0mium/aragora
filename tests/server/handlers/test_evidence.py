@@ -98,7 +98,7 @@ def mock_evidence_collector():
 @pytest.fixture
 def handler(mock_evidence_store, mock_evidence_collector):
     """Create an EvidenceHandler instance with mocks."""
-    from aragora.server.handlers.evidence import EvidenceHandler
+    from aragora.server.handlers.features.evidence import EvidenceHandler
 
     ctx = {
         "evidence_store": mock_evidence_store,
@@ -113,7 +113,7 @@ class TestEvidenceHandlerRouting:
 
     def test_can_handle_evidence_paths(self):
         """Test can_handle returns True for evidence paths."""
-        from aragora.server.handlers.evidence import EvidenceHandler
+        from aragora.server.handlers.features.evidence import EvidenceHandler
 
         assert EvidenceHandler.can_handle("/api/evidence") is True
         assert EvidenceHandler.can_handle("/api/evidence/123") is True
@@ -123,7 +123,7 @@ class TestEvidenceHandlerRouting:
 
     def test_cannot_handle_other_paths(self):
         """Test can_handle returns False for non-evidence paths."""
-        from aragora.server.handlers.evidence import EvidenceHandler
+        from aragora.server.handlers.features.evidence import EvidenceHandler
 
         assert EvidenceHandler.can_handle("/api/debates") is False
         assert EvidenceHandler.can_handle("/api/health") is False

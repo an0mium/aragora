@@ -183,10 +183,16 @@ def gauntlet_handler():
 
 @pytest.fixture(autouse=True)
 def clear_gauntlet_runs():
-    """Clear in-memory gauntlet runs before each test."""
+    """Clear in-memory gauntlet runs and rate limiters before each test."""
+    from aragora.server.handlers.utils.rate_limit import _limiters
     _gauntlet_runs.clear()
+    # Clear all handler rate limiters
+    for limiter in _limiters.values():
+        limiter.clear()
     yield
     _gauntlet_runs.clear()
+    for limiter in _limiters.values():
+        limiter.clear()
 
 
 # ===========================================================================
@@ -245,8 +251,8 @@ class TestGauntletListPersonas:
                     )
 
                     assert result is not None
-                    assert result[1] == 200
-                    data = json.loads(result[0])
+                    assert result.status_code == 200
+                    data = json.loads(result.body)
                     assert "personas" in data
                     assert "count" in data
 
@@ -260,7 +266,7 @@ class TestGauntletListPersonas:
                 result = gauntlet_handler._list_personas()
 
                 assert result is not None
-                data = json.loads(result[0])
+                data = json.loads(result.body)
                 assert data["personas"] == []
                 assert "error" in data
 
@@ -288,7 +294,7 @@ class TestGauntletStartRun:
             )
 
             assert result is not None
-            assert result[1] == 400
+            assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_start_gauntlet_quota_exceeded(self, gauntlet_handler):
@@ -312,8 +318,8 @@ class TestGauntletStartRun:
                 )
 
                 assert result is not None
-                assert result[1] == 429
-                data = json.loads(result[0])
+                assert result.status_code == 429
+                data = json.loads(result.body)
                 assert data["code"] == "quota_exceeded"
 
 
@@ -342,8 +348,8 @@ class TestGauntletGetStatus:
             )
 
             assert result is not None
-            assert result[1] == 200
-            data = json.loads(result[0])
+            assert result.status_code == 200
+            data = json.loads(result.body)
             assert data["status"] == "pending"
 
     @pytest.mark.asyncio
@@ -363,7 +369,7 @@ class TestGauntletGetStatus:
             )
 
             assert result is not None
-            assert result[1] == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_get_status_not_found(self, gauntlet_handler):
@@ -373,14 +379,14 @@ class TestGauntletGetStatus:
                 mock_storage_instance.get.return_value = None
                 mock_storage.return_value = mock_storage_instance
 
-                handler = make_mock_handler(path="/api/gauntlet/nonexistent")
+                handler = make_mock_handler(path="/api/gauntlet/gauntlet-nonexistent")
 
                 result = await gauntlet_handler.handle(
-                    "/api/gauntlet/nonexistent", "GET", handler
+                    "/api/gauntlet/gauntlet-nonexistent", "GET", handler
                 )
 
                 assert result is not None
-                assert result[1] == 404
+                assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_status_invalid_id(self, gauntlet_handler):
@@ -393,7 +399,7 @@ class TestGauntletGetStatus:
 
             # Should reject invalid ID
             assert result is not None
-            assert result[1] == 400
+            assert result.status_code == 400
 
 
 # ===========================================================================
@@ -420,7 +426,7 @@ class TestGauntletGetReceipt:
             )
 
             assert result is not None
-            assert result[1] == 400
+            assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_get_receipt_json_format(self, gauntlet_handler):
@@ -451,7 +457,7 @@ class TestGauntletGetReceipt:
             )
 
             assert result is not None
-            assert result[1] == 200
+            assert result.status_code == 200
 
 
 # ===========================================================================
@@ -477,7 +483,7 @@ class TestGauntletGetHeatmap:
             )
 
             assert result is not None
-            assert result[1] == 400
+            assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_get_heatmap_json_format(self, gauntlet_handler):
@@ -501,7 +507,7 @@ class TestGauntletGetHeatmap:
             )
 
             assert result is not None
-            assert result[1] == 200
+            assert result.status_code == 200
 
 
 # ===========================================================================
@@ -528,8 +534,8 @@ class TestGauntletListResults:
                 )
 
                 assert result is not None
-                assert result[1] == 200
-                data = json.loads(result[0])
+                assert result.status_code == 200
+                data = json.loads(result.body)
                 assert "results" in data
                 assert "total" in data
 
@@ -549,8 +555,8 @@ class TestGauntletListResults:
                 )
 
                 assert result is not None
-                assert result[1] == 200
-                data = json.loads(result[0])
+                assert result.status_code == 200
+                data = json.loads(result.body)
                 assert data["limit"] == 10
                 assert data["offset"] == 5
 
@@ -582,7 +588,7 @@ class TestGauntletCompareResults:
                 )
 
                 assert result is not None
-                assert result[1] == 200
+                assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_compare_not_found(self, gauntlet_handler):
@@ -601,7 +607,7 @@ class TestGauntletCompareResults:
                 )
 
                 assert result is not None
-                assert result[1] == 404
+                assert result.status_code == 404
 
 
 # ===========================================================================
@@ -630,8 +636,8 @@ class TestGauntletDeleteResult:
                 )
 
                 assert result is not None
-                assert result[1] == 200
-                data = json.loads(result[0])
+                assert result.status_code == 200
+                data = json.loads(result.body)
                 assert data["deleted"] is True
 
                 # Should be removed from in-memory
@@ -645,14 +651,14 @@ class TestGauntletDeleteResult:
                 mock_storage_instance.delete.return_value = False
                 mock_storage.return_value = mock_storage_instance
 
-                handler = make_mock_handler(path="/api/gauntlet/nonexistent", method="DELETE")
+                handler = make_mock_handler(path="/api/gauntlet/gauntlet-nonexistent", method="DELETE")
 
                 result = await gauntlet_handler.handle(
-                    "/api/gauntlet/nonexistent", "DELETE", handler
+                    "/api/gauntlet/gauntlet-nonexistent", "DELETE", handler
                 )
 
                 assert result is not None
-                assert result[1] == 404
+                assert result.status_code == 404
 
 
 # ===========================================================================
@@ -696,8 +702,8 @@ class TestGauntletExportReport:
             )
 
             assert result is not None
-            assert result[1] == 200
-            data = json.loads(result[0])
+            assert result.status_code == 200
+            data = json.loads(result.body)
             assert "summary" in data
             assert "findings_summary" in data
 
@@ -716,7 +722,7 @@ class TestGauntletExportReport:
             )
 
             assert result is not None
-            assert result[1] == 400
+            assert result.status_code == 400
 
 
 # ===========================================================================
@@ -784,7 +790,7 @@ class TestGauntletIdValidation:
             )
 
             assert result is not None
-            assert result[1] == 400
+            assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_accept_valid_id(self, gauntlet_handler):
@@ -803,4 +809,4 @@ class TestGauntletIdValidation:
             )
 
             assert result is not None
-            assert result[1] == 200
+            assert result.status_code == 200

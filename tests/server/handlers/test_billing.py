@@ -1,5 +1,5 @@
 """
-Tests for aragora.server.handlers.billing - Billing API handler.
+Tests for aragora.server.handlers.admin.billing - Billing API handler.
 
 Tests cover:
 - Get plans
@@ -324,8 +324,8 @@ class TestBillingHandlerGetPlans:
         result = billing_handler.handle("/api/billing/plans", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert result.status_code == 200
+        data = json.loads(result.body)
         assert "plans" in data
         assert len(data["plans"]) > 0
 
@@ -341,7 +341,7 @@ class TestBillingHandlerGetPlans:
         result = billing_handler.handle("/api/billing/plans", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 405
+        assert result.status_code == 405
 
 
 # ===========================================================================
@@ -352,8 +352,8 @@ class TestBillingHandlerGetPlans:
 class TestBillingHandlerGetUsage:
     """Tests for get usage endpoint."""
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
-    @patch("aragora.server.handlers.base.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
     def test_get_usage_success(self, mock_auth, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext()
@@ -368,7 +368,7 @@ class TestBillingHandlerGetUsage:
 
             assert result is not None
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
     def test_get_usage_rate_limited(self, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = False
 
@@ -377,7 +377,7 @@ class TestBillingHandlerGetUsage:
         result = billing_handler.handle("/api/billing/usage", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 429
+        assert result.status_code == 429
 
 
 # ===========================================================================
@@ -388,9 +388,9 @@ class TestBillingHandlerGetUsage:
 class TestBillingHandlerGetSubscription:
     """Tests for get subscription endpoint."""
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
-    @patch("aragora.server.handlers.base.extract_user_from_request")
-    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.billing.get_stripe_client")
     def test_get_subscription_with_stripe(self, mock_stripe, mock_auth, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext()
@@ -420,10 +420,10 @@ class TestBillingHandlerGetSubscription:
 class TestBillingHandlerCheckout:
     """Tests for checkout endpoint."""
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
-    @patch("aragora.server.handlers.base.extract_user_from_request")
-    @patch("aragora.server.handlers.billing.get_stripe_client")
-    @patch("aragora.server.handlers.billing.validate_against_schema")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.billing.get_stripe_client")
+    @patch("aragora.server.handlers.admin.billing.validate_against_schema")
     def test_create_checkout_success(
         self, mock_validate, mock_stripe, mock_auth, mock_limiter, billing_handler
     ):
@@ -463,7 +463,7 @@ class TestBillingHandlerCheckout:
 class TestBillingHandlerPortal:
     """Tests for billing portal endpoint."""
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
     def test_create_portal_no_return_url(self, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
 
@@ -485,7 +485,7 @@ class TestBillingHandlerPortal:
 class TestBillingHandlerCancel:
     """Tests for cancel subscription endpoint."""
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
     def test_cancel_wrong_method(self, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
 
@@ -494,7 +494,7 @@ class TestBillingHandlerCancel:
         result = billing_handler.handle("/api/billing/cancel", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 405
+        assert result.status_code == 405
 
 
 # ===========================================================================
@@ -505,7 +505,7 @@ class TestBillingHandlerCancel:
 class TestBillingHandlerResume:
     """Tests for resume subscription endpoint."""
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
     def test_resume_wrong_method(self, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
 
@@ -514,7 +514,7 @@ class TestBillingHandlerResume:
         result = billing_handler.handle("/api/billing/resume", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 405
+        assert result.status_code == 405
 
 
 # ===========================================================================
@@ -525,8 +525,8 @@ class TestBillingHandlerResume:
 class TestBillingHandlerUsageExport:
     """Tests for usage export endpoint."""
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
-    @patch("aragora.server.handlers.billing.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
     def test_export_usage_not_authenticated(self, mock_auth, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext(is_authenticated=False)
@@ -536,7 +536,7 @@ class TestBillingHandlerUsageExport:
         result = billing_handler.handle("/api/billing/usage/export", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 401
+        assert result.status_code == 401
 
 
 # ===========================================================================
@@ -547,8 +547,8 @@ class TestBillingHandlerUsageExport:
 class TestBillingHandlerUsageForecast:
     """Tests for usage forecast endpoint."""
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
-    @patch("aragora.server.handlers.billing.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
     def test_forecast_success(self, mock_auth, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext()
@@ -558,13 +558,13 @@ class TestBillingHandlerUsageForecast:
         result = billing_handler.handle("/api/billing/usage/forecast", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert result.status_code == 200
+        data = json.loads(result.body)
         assert "forecast" in data
         assert "projection" in data["forecast"]
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
-    @patch("aragora.server.handlers.billing.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
     def test_forecast_not_authenticated(self, mock_auth, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext(is_authenticated=False)
@@ -574,7 +574,7 @@ class TestBillingHandlerUsageForecast:
         result = billing_handler.handle("/api/billing/usage/forecast", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 401
+        assert result.status_code == 401
 
 
 # ===========================================================================
@@ -585,8 +585,8 @@ class TestBillingHandlerUsageForecast:
 class TestBillingHandlerInvoices:
     """Tests for invoices endpoint."""
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
-    @patch("aragora.server.handlers.billing.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
     def test_invoices_not_authenticated(self, mock_auth, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext(is_authenticated=False)
@@ -596,10 +596,10 @@ class TestBillingHandlerInvoices:
         result = billing_handler.handle("/api/billing/invoices", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 401
+        assert result.status_code == 401
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
-    @patch("aragora.server.handlers.billing.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing.extract_user_from_request")
     def test_invoices_no_org(self, mock_auth, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
         mock_auth.return_value = MockAuthContext()
@@ -612,7 +612,7 @@ class TestBillingHandlerInvoices:
         result = billing_handler.handle("/api/billing/invoices", {}, handler, "GET")
 
         assert result is not None
-        assert result[1] == 404
+        assert result.status_code == 404
 
 
 # ===========================================================================
@@ -633,10 +633,10 @@ class TestBillingHandlerWebhook:
         result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 400
+        assert result.status_code == 400
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
-    @patch("aragora.server.handlers.billing._is_duplicate_webhook")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
+    @patch("aragora.server.handlers.admin.billing._is_duplicate_webhook")
     def test_webhook_duplicate_event(self, mock_duplicate, mock_parse, billing_handler):
         mock_event = MagicMock()
         mock_event.event_id = "evt_test123"
@@ -653,13 +653,13 @@ class TestBillingHandlerWebhook:
         result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert result.status_code == 200
+        data = json.loads(result.body)
         assert data.get("duplicate") is True
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
-    @patch("aragora.server.handlers.billing._is_duplicate_webhook")
-    @patch("aragora.server.handlers.billing._mark_webhook_processed")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
+    @patch("aragora.server.handlers.admin.billing._is_duplicate_webhook")
+    @patch("aragora.server.handlers.admin.billing._mark_webhook_processed")
     def test_webhook_checkout_completed(
         self, mock_mark, mock_duplicate, mock_parse, billing_handler
     ):
@@ -680,12 +680,12 @@ class TestBillingHandlerWebhook:
         result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 200
+        assert result.status_code == 200
         mock_mark.assert_called_once_with("evt_test123")
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
-    @patch("aragora.server.handlers.billing._is_duplicate_webhook")
-    @patch("aragora.server.handlers.billing._mark_webhook_processed")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
+    @patch("aragora.server.handlers.admin.billing._is_duplicate_webhook")
+    @patch("aragora.server.handlers.admin.billing._mark_webhook_processed")
     def test_webhook_subscription_deleted(
         self, mock_mark, mock_duplicate, mock_parse, billing_handler
     ):
@@ -705,12 +705,12 @@ class TestBillingHandlerWebhook:
         result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 200
+        assert result.status_code == 200
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
-    @patch("aragora.server.handlers.billing._is_duplicate_webhook")
-    @patch("aragora.server.handlers.billing._mark_webhook_processed")
-    @patch("aragora.server.handlers.billing.get_recovery_store")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
+    @patch("aragora.server.handlers.admin.billing._is_duplicate_webhook")
+    @patch("aragora.server.handlers.admin.billing._mark_webhook_processed")
+    @patch("aragora.billing.payment_recovery.get_recovery_store")
     def test_webhook_invoice_paid(
         self, mock_recovery, mock_mark, mock_duplicate, mock_parse, billing_handler
     ):
@@ -738,12 +738,12 @@ class TestBillingHandlerWebhook:
         result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 200
+        assert result.status_code == 200
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
-    @patch("aragora.server.handlers.billing._is_duplicate_webhook")
-    @patch("aragora.server.handlers.billing._mark_webhook_processed")
-    @patch("aragora.server.handlers.billing.get_recovery_store")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
+    @patch("aragora.server.handlers.admin.billing._is_duplicate_webhook")
+    @patch("aragora.server.handlers.admin.billing._mark_webhook_processed")
+    @patch("aragora.billing.payment_recovery.get_recovery_store")
     @patch("aragora.billing.notifications.get_billing_notifier")
     def test_webhook_invoice_failed(
         self, mock_notifier, mock_recovery, mock_mark, mock_duplicate, mock_parse, billing_handler
@@ -784,13 +784,13 @@ class TestBillingHandlerWebhook:
         result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert result.status_code == 200
+        data = json.loads(result.body)
         assert data.get("failure_tracked") is True
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
-    @patch("aragora.server.handlers.billing._is_duplicate_webhook")
-    @patch("aragora.server.handlers.billing._mark_webhook_processed")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
+    @patch("aragora.server.handlers.admin.billing._is_duplicate_webhook")
+    @patch("aragora.server.handlers.admin.billing._mark_webhook_processed")
     def test_webhook_unhandled_event(
         self, mock_mark, mock_duplicate, mock_parse, billing_handler
     ):
@@ -809,8 +809,8 @@ class TestBillingHandlerWebhook:
         result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 200
-        data = json.loads(result[0])
+        assert result.status_code == 200
+        data = json.loads(result.body)
         assert data.get("received") is True
 
 
@@ -822,7 +822,7 @@ class TestBillingHandlerWebhook:
 class TestBillingHandlerAuditLog:
     """Tests for audit log endpoint."""
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
     def test_audit_log_wrong_method(self, mock_limiter, billing_handler):
         mock_limiter.is_allowed.return_value = True
 
@@ -831,7 +831,7 @@ class TestBillingHandlerAuditLog:
         result = billing_handler.handle("/api/billing/audit-log", {}, handler, "POST")
 
         assert result is not None
-        assert result[1] == 405
+        assert result.status_code == 405
 
 
 # ===========================================================================
@@ -842,11 +842,11 @@ class TestBillingHandlerAuditLog:
 class TestBillingHandlerServiceUnavailable:
     """Tests for service unavailable scenarios."""
 
-    @patch("aragora.server.handlers.billing._billing_limiter")
+    @patch("aragora.server.handlers.admin.billing._billing_limiter")
     def test_usage_no_user_store(self, mock_limiter):
         mock_limiter.is_allowed.return_value = True
 
-        handler_ctx = BillingHandler(ctx={})
+        handler_ctx = BillingHandler({})
 
         with patch.object(handler_ctx, "_get_usage") as mock_method:
             mock_method.return_value = (json.dumps({"error": "Service unavailable"}), 503)
