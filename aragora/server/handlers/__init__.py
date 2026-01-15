@@ -56,14 +56,14 @@ from .gauntlet import GauntletHandler
 from .genesis import GenesisHandler
 from .graph_debates import GraphDebatesHandler
 from .health import HealthHandler
-from .insights import InsightsHandler
+from .memory import InsightsHandler  # Moved to memory/
 from .introspection import IntrospectionHandler
 from .laboratory import LaboratoryHandler
 from .agents import LeaderboardViewHandler  # Moved to agents/
-from .learning import LearningHandler
+from .memory import LearningHandler  # Moved to memory/
 from .matrix_debates import MatrixDebatesHandler
-from .memory import MemoryHandler
-from .memory_analytics import MemoryAnalyticsHandler
+from .memory import MemoryHandler  # memory/ subdirectory
+from .memory import MemoryAnalyticsHandler  # Moved to memory/
 from .metrics import MetricsHandler
 from .moments import MomentsHandler
 from .nomic import NomicHandler

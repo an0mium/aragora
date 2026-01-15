@@ -16,7 +16,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
@@ -25,7 +25,7 @@ from .base import (
     handle_errors,
     json_response,
 )
-from .utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 

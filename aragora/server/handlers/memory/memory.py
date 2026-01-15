@@ -20,7 +20,7 @@ import logging
 import time
 from typing import Optional
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
@@ -31,7 +31,7 @@ from .base import (
     json_response,
     safe_error_message,
 )
-from .utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip
 
 # Rate limiters for memory endpoints
 _retrieve_limiter = RateLimiter(requests_per_minute=60)  # Read operations
@@ -422,7 +422,7 @@ class MemoryHandler(BaseHandler):
         """Route DELETE memory requests to appropriate methods with auth."""
         from aragora.billing.jwt_auth import extract_user_from_request
 
-        from .utils.rate_limit import RateLimiter, get_client_ip
+        from ..utils.rate_limit import RateLimiter, get_client_ip
 
         if path.startswith("/api/memory/continuum/"):
             # Require authentication for state mutation
