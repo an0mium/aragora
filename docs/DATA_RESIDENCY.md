@@ -311,7 +311,7 @@ We follow a strict legal process. See our Law Enforcement Guidelines document.
 
 **EU Representative:**
 Aragora EU Representative
-[Address TBD]
+*(Address to be published upon GDPR Article 27 appointment)*
 eu-rep@aragora.ai
 
 ---
