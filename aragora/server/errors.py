@@ -2,10 +2,15 @@
 Standardized error handling for Aragora server.
 
 This module provides:
-1. Base exception hierarchy for API errors
+1. Base exception hierarchy for API errors (inherits from AragoraError)
 2. Error response formatting
 3. Error logging utilities
 4. HTTP status code mapping
+
+The API error hierarchy inherits from AragoraError (from aragora.exceptions),
+unifying the error handling across the entire codebase. This allows catching
+all Aragora errors with `except AragoraError` while still enabling specific
+handling of API errors with `except AragoraAPIError`.
 
 Usage:
     from aragora.server.errors import (
@@ -33,6 +38,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Optional, Type
+
+from aragora.exceptions import AragoraError
 
 logger = logging.getLogger(__name__)
 
@@ -104,8 +111,12 @@ class ErrorContext:
     extra: Dict[str, Any] = field(default_factory=dict)
 
 
-class AragoraAPIError(Exception):
+class AragoraAPIError(AragoraError):
     """Base exception for all Aragora API errors.
+
+    Inherits from AragoraError to unify the error hierarchy across the codebase.
+    This allows catching all Aragora errors with `except AragoraError` while
+    still enabling specific handling of API errors with `except AragoraAPIError`.
 
     Attributes:
         message: Human-readable error message
@@ -141,7 +152,8 @@ class AragoraAPIError(Exception):
         if extra:
             self.context.extra.update(extra)
 
-        super().__init__(self.message)
+        # Initialize AragoraError with message and context.extra as details
+        super().__init__(self.message, self.context.extra)
 
     def to_dict(self, include_trace: bool = False) -> Dict[str, Any]:
         """Convert error to dictionary for API response."""

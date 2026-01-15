@@ -80,6 +80,8 @@ from .models import (
 if TYPE_CHECKING:
     import aiohttp
 
+from aragora.exceptions import AragoraError
+
 logger = logging.getLogger(__name__)
 
 
@@ -154,8 +156,11 @@ class RateLimiter:
         self._last_request = asyncio.get_event_loop().time()
 
 
-class AragoraAPIError(Exception):
-    """Base exception for API errors.
+class AragoraAPIError(AragoraError):
+    """Base exception for API errors in the SDK client.
+
+    Inherits from AragoraError to unify the error hierarchy, allowing
+    all Aragora exceptions to be caught with `except AragoraError`.
 
     Attributes:
         message: Human-readable error message
@@ -174,10 +179,17 @@ class AragoraAPIError(Exception):
         self.code = code
         self.status_code = status_code
         self.suggestion = suggestion
+        self._base_message = message
         full_message = message
         if suggestion:
             full_message = f"{message}. Suggestion: {suggestion}"
-        super().__init__(full_message)
+        self._full_message = full_message
+        # Initialize AragoraError with message
+        super().__init__(full_message, {"code": code, "status_code": status_code})
+
+    def __str__(self) -> str:
+        """Return simple message format for SDK backward compatibility."""
+        return self._full_message
 
 
 class RateLimitError(AragoraAPIError):
