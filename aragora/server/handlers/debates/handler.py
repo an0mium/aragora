@@ -597,10 +597,11 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         if slug in _active_debates:
             active = _active_debates[slug]
             # Return minimal info for in-progress debate
+            # Support both "task" (new) and "question" (legacy) field names
             return json_response({
                 "id": slug,
                 "debate_id": slug,
-                "task": active.get("question", ""),
+                "task": active.get("task") or active.get("question", ""),
                 "status": normalize_status(active.get("status", "starting")),
                 "agents": active.get("agents", "").split(",") if isinstance(active.get("agents"), str) else active.get("agents", []),
                 "rounds": active.get("rounds", 3),

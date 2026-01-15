@@ -198,14 +198,15 @@ class DebateController:
             except Exception as e:
                 logger.warning(f"Auto-select failed, using defaults: {e}")
 
-        # Track debate state
+        # Track debate state (use "task" not "question" for StateManager compatibility)
         with _active_debates_lock:
             _active_debates[debate_id] = {
                 "id": debate_id,
-                "question": request.question,
+                "task": request.question,
                 "status": "starting",
                 "agents": agents_str,
                 "rounds": request.rounds,
+                "total_rounds": request.rounds,
             }
 
         # Periodic cleanup
@@ -213,6 +214,19 @@ class DebateController:
 
         # Set loop_id on emitter
         self.emitter.set_loop_id(debate_id)
+
+        # Parse agent names for immediate event
+        agent_names = [a.strip() for a in agents_str.split(",") if a.strip()]
+
+        # Emit immediate DEBATE_START event so clients see progress within seconds
+        # (The debate phases will emit more detailed events as they execute)
+        self.emitter.emit(
+            StreamEvent(
+                type=StreamEventType.DEBATE_START,
+                data={"task": request.question, "agents": agent_names},
+                loop_id=debate_id,
+            )
+        )
 
         # Fetch trending topic if requested
         trending_topic = None
