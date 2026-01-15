@@ -586,6 +586,29 @@ class ContinuumMemory(SQLiteStore):
             )
             entries.append(entry)
 
+        # Emit MEMORY_RECALL event if memories were retrieved
+        if entries and self.event_emitter:
+            try:
+                from aragora.server.stream.events import StreamEvent, StreamEventType
+
+                tier_counts = {}
+                for e in entries:
+                    tier_counts[e.tier.value] = tier_counts.get(e.tier.value, 0) + 1
+
+                self.event_emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.MEMORY_RECALL,
+                        data={
+                            "count": len(entries),
+                            "query": query[:100] if query else None,
+                            "tier_distribution": tier_counts,
+                            "top_importance": max(e.importance for e in entries),
+                        },
+                    )
+                )
+            except (ImportError, AttributeError, TypeError):
+                pass  # Stream module not available or emitter misconfigured
+
         return AwaitableList(entries)
 
     def update_outcome(

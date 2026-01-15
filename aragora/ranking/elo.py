@@ -75,9 +75,6 @@ K_FACTOR = ELO_K_FACTOR
 CALIBRATION_MIN_COUNT = ELO_CALIBRATION_MIN_COUNT
 
 
-# Import from centralized location (defined here for backwards compatibility)
-
-
 # Maximum agent name length (matches SAFE_AGENT_PATTERN in validation/entities.py)
 MAX_AGENT_NAME_LENGTH = 32
 
@@ -199,10 +196,11 @@ class EloSystem:
     _stats_cache: TTLCache[dict] = TTLCache(maxsize=10, ttl_seconds=CACHE_TTL_LB_STATS)
     _calibration_cache: TTLCache[list] = TTLCache(maxsize=20, ttl_seconds=CACHE_TTL_CALIBRATION_LB)
 
-    def __init__(self, db_path: str = DB_ELO_PATH):
+    def __init__(self, db_path: str = DB_ELO_PATH, event_emitter: Any = None):
         resolved_path = resolve_db_path(db_path)
         self.db_path = Path(resolved_path)
         self._db = EloDatabase(resolved_path)
+        self.event_emitter = event_emitter  # For emitting ELO update events
 
         # Delegate to extracted modules (lazy initialization)
         self._relationship_tracker: RelationshipTracker | None = None
@@ -853,6 +851,28 @@ class EloSystem:
             invalidate_on_event("match_recorded")
         except ImportError:
             pass  # Handlers may not be available in all contexts
+
+        # Emit ELO update events for each agent
+        if self.event_emitter and elo_changes:
+            try:
+                from aragora.server.stream.events import StreamEvent, StreamEventType
+
+                for agent_name, elo_change in elo_changes.items():
+                    new_rating = ratings.get(agent_name, 1500) + elo_change
+                    self.event_emitter.emit(
+                        StreamEvent(
+                            type=StreamEventType.AGENT_ELO_UPDATED,
+                            data={
+                                "agent": agent_name,
+                                "elo_change": elo_change,
+                                "new_elo": new_rating,
+                                "debate_id": debate_id,
+                                "domain": domain,
+                            },
+                        )
+                    )
+            except (ImportError, AttributeError, TypeError):
+                pass  # Stream module not available or emitter misconfigured
 
         return elo_changes
 
