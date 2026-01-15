@@ -99,6 +99,107 @@ kill -USR1 $(pgrep -f aragora)  # Graceful reload if supported
 - Monitor `aragora_websocket_connections` metric
 - Set up alerts when connections exceed 80% of max
 
+#### nginx WebSocket Configuration (502 Errors)
+
+If using nginx as a reverse proxy, WebSocket connections require specific configuration to avoid 502 errors:
+
+**Symptoms:**
+- `wss://api.aragora.ai/ws` returns 502 Bad Gateway
+- WebSocket connections work locally but fail behind nginx
+- Connections drop immediately after upgrade
+
+**Required nginx Configuration:**
+
+```nginx
+# /etc/nginx/sites-available/aragora-api
+upstream aragora_api {
+    server 127.0.0.1:8080;
+}
+
+upstream aragora_ws {
+    server 127.0.0.1:8765;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api.aragora.ai;
+
+    # SSL configuration (managed by certbot or similar)
+    ssl_certificate /etc/letsencrypt/live/api.aragora.ai/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.aragora.ai/privkey.pem;
+
+    # Regular API endpoints
+    location /api/ {
+        proxy_pass http://aragora_api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # WebSocket endpoint - CRITICAL: requires upgrade headers
+    location /ws {
+        proxy_pass http://aragora_ws;
+        proxy_http_version 1.1;
+
+        # Required for WebSocket upgrade
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Forward client info
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # Timeouts for long-lived connections
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+
+        # Disable buffering for real-time
+        proxy_buffering off;
+    }
+}
+```
+
+**Key Configuration Points:**
+
+| Setting | Purpose |
+|---------|---------|
+| `proxy_http_version 1.1` | Required for WebSocket (HTTP/1.1 keep-alive) |
+| `Upgrade $http_upgrade` | Passes WebSocket upgrade header |
+| `Connection "upgrade"` | Signals connection upgrade |
+| `proxy_read_timeout 3600s` | Prevents timeout during long debates |
+| `proxy_buffering off` | Ensures real-time event delivery |
+
+**Testing WebSocket After Configuration:**
+
+```bash
+# Test nginx config
+sudo nginx -t
+
+# Reload nginx
+sudo systemctl reload nginx
+
+# Test WebSocket connection
+websocat wss://api.aragora.ai/ws -v
+
+# Or with curl (shows upgrade headers)
+curl -v -N \
+  -H "Connection: Upgrade" \
+  -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Version: 13" \
+  -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" \
+  https://api.aragora.ai/ws
+```
+
+**Cloudflare Considerations:**
+
+If using Cloudflare, ensure WebSocket support is enabled:
+1. Log into Cloudflare Dashboard
+2. Select domain → Network
+3. Enable "WebSockets" toggle
+4. Set SSL/TLS mode to "Full" or "Full (strict)"
+
 ---
 
 ### 2. Rate Limit False Positives
@@ -174,6 +275,77 @@ curl -X POST http://localhost:8080/api/debug/agent-test \
   -H "Content-Type: application/json" \
   -d '{"agent": "claude", "prompt": "Say hello"}'
 ```
+
+#### Agent Error Events (AGENT_ERROR)
+
+The system emits `agent_error` WebSocket events when an agent fails but the debate continues. These provide visibility into transient failures.
+
+**Event Format:**
+```json
+{
+  "type": "agent_error",
+  "timestamp": "2026-01-15T10:30:00Z",
+  "agent": "mistral_proposer",
+  "data": {
+    "error_type": "timeout",
+    "message": "Agent timed out after 180s",
+    "recoverable": true,
+    "phase": "proposal"
+  }
+}
+```
+
+**Error Types:**
+
+| Error Type | Description | Recoverable |
+|------------|-------------|-------------|
+| `timeout` | Agent exceeded response timeout | Yes |
+| `quota_exceeded` | Provider rate limit hit | Yes (with fallback) |
+| `empty_output` | Agent returned empty response | Yes |
+| `api_error` | Provider API returned error | Depends |
+| `circuit_open` | Circuit breaker tripped | Yes (after cooldown) |
+| `sanitization` | Output contained invalid chars | Yes |
+
+**Monitoring Agent Errors:**
+
+```bash
+# Watch for agent errors in real-time (via WebSocket client)
+websocat wss://api.aragora.ai/ws | jq 'select(.type == "agent_error")'
+
+# Check agent error metrics
+curl http://localhost:8080/api/metrics | grep agent_error
+
+# View recent agent errors via API
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/system/errors?type=agent_error&limit=20
+```
+
+**Interpreting Error Messages:**
+
+| Message | Cause | Action |
+|---------|-------|--------|
+| "tripped over an edge case and is recovering" | ChaosDirector theatrical message for timeout/error | Normal - agent will retry or fallback |
+| "(Agent produced empty output)" | OutputSanitizer detected empty response | Check agent provider status |
+| "Agent timed out after Xs" | Response exceeded timeout | Consider increasing timeout |
+| "Circuit breaker open" | Too many consecutive failures | Wait for cooldown or manual reset |
+
+**Fallback Chain Behavior:**
+
+When an API agent fails, the system automatically tries fallback models via OpenRouter:
+
+```
+Primary Model → OpenRouter Fallback Chain:
+  1. anthropic/claude-sonnet-4
+  2. openai/gpt-4o
+  3. google/gemini-2.0-flash-thinking-exp
+  4. meta-llama/llama-3.1-70b-instruct
+```
+
+The fallback is triggered on:
+- 429 (Rate limit exceeded)
+- 503 (Service unavailable)
+- Connection timeout
+- Empty response after retries
 
 ---
 
@@ -2242,6 +2414,105 @@ curl -sf 'http://prometheus:9090/api/v1/query?query=
 
 ---
 
+## Infrastructure Action Items
+
+### Outstanding Tasks (SOC 2)
+
+These items require external coordination or vendor selection:
+
+#### CC7-01: Penetration Test
+
+**Status:** Vendor selection required
+
+**Requirements:**
+- Annual penetration test for SOC 2 Type II
+- Scope: API endpoints, WebSocket connections, authentication flows
+- Deliverables: Executive summary, technical findings, remediation guidance
+
+**Recommended Vendors:**
+1. **NCC Group** - Enterprise-focused, comprehensive methodology
+2. **Cobalt** - Pentest-as-a-Service, continuous testing model
+3. **BreachLock** - AI-assisted pentesting with human verification
+4. **Synack** - Red team crowdsourced testing
+
+**Budget Range:** $15,000 - $40,000 depending on scope
+
+**Timeline:**
+- Vendor selection: 1 week
+- Scheduling: 2-3 weeks lead time
+- Testing: 1-2 weeks
+- Remediation: 2-4 weeks
+- Retest: 1 week
+
+**Action Required:**
+1. Obtain 3 quotes from vendors
+2. Review scope with security team
+3. Schedule test window (avoid production peaks)
+4. Prepare test credentials and documentation
+
+#### www DNS Configuration
+
+**Status:** Pending
+
+**Current State:**
+- `aragora.ai` - configured and working
+- `www.aragora.ai` - needs CNAME or redirect configuration
+
+**Resolution Options:**
+
+1. **Cloudflare Redirect Rule (Recommended)**
+   ```
+   Rule: If hostname equals "www.aragora.ai"
+   Action: Redirect to "https://aragora.ai" with status 301
+   ```
+
+2. **CNAME Record**
+   ```dns
+   www    CNAME   aragora.ai
+   ```
+   Note: Requires Cloudflare proxy to handle SSL
+
+3. **Page Rule (Legacy)**
+   ```
+   URL: www.aragora.ai/*
+   Setting: Forwarding URL (301 Permanent)
+   Destination: https://aragora.ai/$1
+   ```
+
+**Verification:**
+```bash
+# Test www redirect
+curl -sI https://www.aragora.ai | grep -E "^(HTTP|Location)"
+# Expected: HTTP/2 301 + Location: https://aragora.ai/
+
+# Test apex domain
+curl -sI https://aragora.ai | grep "^HTTP"
+# Expected: HTTP/2 200
+```
+
+### Agent Health Monitoring
+
+A new endpoint is available to monitor agent health:
+
+```bash
+# Check agent health status
+curl https://api.aragora.ai/api/agents/health | jq
+
+# Response includes:
+# - overall_status: healthy/degraded/unhealthy
+# - circuit_breakers: per-agent circuit breaker state
+# - fallback: OpenRouter and local LLM availability
+# - agents: per-agent type availability
+# - summary: aggregate availability metrics
+```
+
+**Key Metrics:**
+- `overall_status`: Overall system health
+- `summary.availability_rate`: Percentage of agents available
+- `circuit_breakers.*`: Individual agent circuit states
+
+---
+
 ## See Also
 
 - [INDEX.md](INDEX.md) - Complete documentation navigation
@@ -2252,4 +2523,4 @@ curl -sf 'http://prometheus:9090/api/v1/query?query=
 
 ---
 
-*Last updated: 2026-01-14*
+*Last updated: 2026-01-15*

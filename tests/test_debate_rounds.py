@@ -766,7 +766,7 @@ class TestEdgeCases:
 
         critique_calls = []
 
-        async def critique_mock(critic, proposal, task, context):
+        async def critique_mock(critic, proposal, task, context, target_agent=None):
             critique_calls.append(critic.name)
             return MockCritique()
 

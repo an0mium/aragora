@@ -13,6 +13,7 @@ import { RhetoricalObservationsPanel } from './RhetoricalObservationsPanel';
 import { UncertaintyPanel } from '@/components/UncertaintyPanel';
 import { MoodTrackerPanel } from '@/components/MoodTrackerPanel';
 import { TokenStreamViewer } from '@/components/TokenStreamViewer';
+import { DebateInitializationProgress } from './DebateInitializationProgress';
 import { API_BASE_URL } from '@/config';
 import type { LiveDebateViewProps } from './types';
 
@@ -160,9 +161,11 @@ export function LiveDebateView({
             className="p-4 space-y-4 min-h-[400px]"
           >
             {messages.length === 0 && streamingMessages.size === 0 && status === 'streaming' && (
-              <div className="text-center py-8 text-text-muted font-mono">
-                <div className="animate-pulse">Waiting for agents to respond...</div>
-              </div>
+              <DebateInitializationProgress
+                task={task}
+                agents={agents}
+                streamEvents={streamEvents}
+              />
             )}
             {messages.map((msg, idx) => (
               <TranscriptMessageCard

@@ -251,6 +251,61 @@ class TestCreateArenaHooks:
         assert event.data["duration"] == 123.45
         assert event.data["rounds"] == 3
 
+    def test_on_agent_error_emits_event(self, mock_emitter):
+        """on_agent_error should emit AGENT_ERROR event with error details."""
+        hooks = create_arena_hooks(mock_emitter)
+
+        hooks["on_agent_error"](
+            agent="mistral",
+            error_type="timeout",
+            message="Agent timed out after 180s",
+            recoverable=True,
+            phase="proposal",
+        )
+
+        assert len(mock_emitter.events) == 1
+        event = mock_emitter.events[0]
+        assert event.type == StreamEventType.AGENT_ERROR
+        assert event.data["error_type"] == "timeout"
+        assert event.data["message"] == "Agent timed out after 180s"
+        assert event.data["recoverable"] is True
+        assert event.data["phase"] == "proposal"
+        assert event.agent == "mistral"
+
+    def test_on_phase_progress_emits_event(self, mock_emitter):
+        """on_phase_progress should emit PHASE_PROGRESS event with progress info."""
+        hooks = create_arena_hooks(mock_emitter)
+
+        hooks["on_phase_progress"](
+            phase="critique",
+            completed=3,
+            total=8,
+            current_agent="claude",
+        )
+
+        assert len(mock_emitter.events) == 1
+        event = mock_emitter.events[0]
+        assert event.type == StreamEventType.PHASE_PROGRESS
+        assert event.data["phase"] == "critique"
+        assert event.data["completed"] == 3
+        assert event.data["total"] == 8
+        assert event.data["current_agent"] == "claude"
+
+    def test_on_heartbeat_emits_event(self, mock_emitter):
+        """on_heartbeat should emit HEARTBEAT event with status."""
+        hooks = create_arena_hooks(mock_emitter)
+
+        hooks["on_heartbeat"](
+            phase="round_2",
+            status="alive",
+        )
+
+        assert len(mock_emitter.events) == 1
+        event = mock_emitter.events[0]
+        assert event.type == StreamEventType.HEARTBEAT
+        assert event.data["phase"] == "round_2"
+        assert event.data["status"] == "alive"
+
     def test_full_debate_lifecycle(self, mock_emitter):
         """Should emit events in order for a complete debate."""
         hooks = create_arena_hooks(mock_emitter)

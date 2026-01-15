@@ -883,9 +883,12 @@ class Arena:
             phases=phases_dict,
             config=PhaseConfig(
                 total_timeout_seconds=timeout,
-                # Per-phase timeout: at least 120s or half the total, whichever is larger
-                # This ensures phases have enough time, especially consensus with synthesis
-                phase_timeout_seconds=max(120.0, timeout / 2),
+                # Per-phase timeout: at least 300s or 80% of total, whichever is larger
+                # This ensures phases have enough time for:
+                # - Complex debate rounds with multiple agents
+                # - Consensus phase with synthesis generation (has 3-tier fallback)
+                # - Recovery from slow agent responses
+                phase_timeout_seconds=max(300.0, timeout * 0.8),
                 enable_tracing=True,
             ),
         )

@@ -65,6 +65,7 @@ class AgentsHandler(BaseHandler):
 
     ROUTES = [
         "/api/agents",
+        "/api/agents/health",
         "/api/agents/local",
         "/api/agents/local/status",
         "/api/leaderboard",
@@ -94,6 +95,8 @@ class AgentsHandler(BaseHandler):
         """Check if this handler can process the given path."""
         if path == "/api/agents":
             return True
+        if path == "/api/agents/health":
+            return True
         if path in ("/api/agents/local", "/api/agents/local/status"):
             return True
         if path in ("/api/leaderboard", "/api/rankings"):
@@ -110,6 +113,10 @@ class AgentsHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route agent requests to appropriate methods."""
+        # Agent health endpoint (must come before /api/agents check)
+        if path == "/api/agents/health":
+            return self._get_agent_health()
+
         # Local LLM endpoints (must come before /api/agents check)
         if path == "/api/agents/local":
             return self._list_local_agents()
@@ -341,6 +348,132 @@ class AgentsHandler(BaseHandler):
                     "error": str(e),
                 }
             )
+
+    @rate_limit(rpm=30, limiter_name="agent_health")
+    @handle_errors("get agent health")
+    def _get_agent_health(self) -> HandlerResult:
+        """Get runtime health status for all agents.
+
+        Returns agent availability based on circuit breaker states,
+        fallback chain status, and recent error metrics.
+
+        Returns:
+            Dict with health status for each agent type and overall system health
+        """
+        import time
+
+        health: dict[str, Any] = {
+            "timestamp": time.time(),
+            "overall_status": "healthy",
+            "agents": {},
+            "circuit_breakers": {},
+            "fallback": {},
+        }
+
+        # Get circuit breaker status
+        try:
+            from aragora.resilience import get_circuit_breaker
+
+            cb = get_circuit_breaker()
+            if cb:
+                # Get all tracked agents from circuit breaker
+                states = cb.get_all_states() if hasattr(cb, "get_all_states") else {}
+                for agent_name, state in states.items():
+                    health["circuit_breakers"][agent_name] = {
+                        "state": state.get("state", "unknown"),
+                        "failure_count": state.get("failure_count", 0),
+                        "last_failure": state.get("last_failure_time"),
+                        "available": state.get("state") != "open",
+                    }
+
+                    # Mark overall as degraded if any circuit is open
+                    if state.get("state") == "open":
+                        health["overall_status"] = "degraded"
+        except ImportError:
+            health["circuit_breakers"]["_note"] = "CircuitBreaker module not available"
+        except Exception as e:
+            logger.debug(f"Could not get circuit breaker status: {e}")
+            health["circuit_breakers"]["_error"] = str(e)
+
+        # Get fallback chain status
+        try:
+            from aragora.agents.fallback import get_local_fallback_providers, is_local_llm_available
+
+            health["fallback"] = {
+                "openrouter_available": bool(
+                    __import__("os").environ.get("OPENROUTER_API_KEY")
+                ),
+                "local_llm_available": is_local_llm_available(),
+                "local_providers": get_local_fallback_providers(),
+            }
+        except ImportError:
+            health["fallback"]["_note"] = "Fallback module not available"
+        except Exception as e:
+            logger.debug(f"Could not get fallback status: {e}")
+            health["fallback"]["_error"] = str(e)
+
+        # Get registered agent types and their availability
+        try:
+            from aragora.agents.registry import AgentRegistry, register_all_agents
+
+            register_all_agents()
+            all_agents = AgentRegistry.list_all()
+
+            for agent_type, spec in all_agents.items():
+                agent_health = {
+                    "type": spec.get("category", "unknown"),
+                    "requires_api_key": spec.get("requires_api_key", False),
+                    "api_key_configured": False,
+                    "available": False,
+                }
+
+                # Check if required API key is configured
+                env_var = spec.get("env_var")
+                if env_var:
+                    agent_health["api_key_configured"] = bool(
+                        __import__("os").environ.get(env_var)
+                    )
+                    agent_health["available"] = agent_health["api_key_configured"]
+                else:
+                    # CLI agents or agents without API keys
+                    agent_health["available"] = True
+
+                # Check circuit breaker state
+                cb_state = health["circuit_breakers"].get(agent_type, {})
+                if cb_state.get("state") == "open":
+                    agent_health["available"] = False
+                    agent_health["circuit_breaker_open"] = True
+
+                health["agents"][agent_type] = agent_health
+        except ImportError:
+            health["agents"]["_note"] = "AgentRegistry not available"
+        except Exception as e:
+            logger.debug(f"Could not get agent registry: {e}")
+            health["agents"]["_error"] = str(e)
+
+        # Calculate summary
+        available_count = sum(
+            1 for a in health["agents"].values()
+            if isinstance(a, dict) and a.get("available", False)
+        )
+        total_count = sum(
+            1 for a in health["agents"].values()
+            if isinstance(a, dict)
+        )
+
+        health["summary"] = {
+            "available_agents": available_count,
+            "total_agents": total_count,
+            "availability_rate": round(available_count / total_count, 2) if total_count > 0 else 0.0,
+        }
+
+        # Downgrade status if too few agents available
+        if total_count > 0 and available_count / total_count < 0.5:
+            health["overall_status"] = "degraded"
+        if available_count == 0 and total_count > 0:
+            health["overall_status"] = "unhealthy"
+
+        return json_response(health)
 
     @rate_limit(rpm=30, limiter_name="leaderboard")
     def _get_leaderboard(self, limit: int, domain: Optional[str]) -> HandlerResult:

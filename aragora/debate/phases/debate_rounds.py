@@ -173,6 +173,17 @@ class DebateRoundsPhase:
         self._partial_critiques: list["Critique"] = []
         self._previous_round_responses: dict[str, str] = {}
 
+    def _emit_heartbeat(self, phase: str, status: str = "alive") -> None:
+        """Emit heartbeat to indicate debate is still running.
+
+        Prevents frontend timeouts during long-running operations.
+        """
+        if "on_heartbeat" in self.hooks:
+            try:
+                self.hooks["on_heartbeat"](phase=phase, status=status)
+            except Exception as e:
+                logger.debug(f"Heartbeat emission failed: {e}")
+
     def _observe_rhetorical_patterns(
         self,
         agent: str,
@@ -239,6 +250,9 @@ class DebateRoundsPhase:
         for round_num in range(1, rounds + 1):
             logger.info(f"round_start round={round_num}")
 
+            # Emit heartbeat at round start
+            self._emit_heartbeat(f"round_{round_num}", "starting")
+
             # Update role assignments
             if self._update_role_assignments:
                 self._update_role_assignments(round_num=round_num)
@@ -298,6 +312,9 @@ class DebateRoundsPhase:
                     await self._checkpoint_callback(ctx, round_num)
                 except Exception as e:
                     logger.debug(f"Checkpoint failed for round {round_num}: {e}")
+
+            # Emit heartbeat before convergence check
+            self._emit_heartbeat(f"round_{round_num}", "checking_convergence")
 
             # Convergence detection
             should_break = self._check_convergence(ctx, round_num)
@@ -394,7 +411,12 @@ class DebateRoundsPhase:
                     asyncio.create_task(generate_critique_bounded(critic, proposal_agent, proposal))
                 )
 
+        # Emit heartbeat before critique phase
+        self._emit_heartbeat(f"critique_round_{round_num}", "generating_critiques")
+
         # Stream output as each critique completes
+        critique_count = 0
+        total_critiques = len(critique_tasks)
         for completed_task in asyncio.as_completed(critique_tasks):
             try:
                 critic, proposal_agent, crit_result = await completed_task
@@ -403,6 +425,14 @@ class DebateRoundsPhase:
             except Exception as e:
                 logger.error(f"task_exception phase=critique error={e}")
                 continue
+
+            critique_count += 1
+            # Emit heartbeat every 3 critiques to signal progress
+            if critique_count % 3 == 0 or critique_count == total_critiques:
+                self._emit_heartbeat(
+                    f"critique_round_{round_num}",
+                    f"completed_{critique_count}_of_{total_critiques}",
+                )
 
             if isinstance(crit_result, Exception):
                 logger.error(
@@ -522,6 +552,9 @@ class DebateRoundsPhase:
         # Calculate dynamic phase timeout based on number of agents
         phase_timeout = _calculate_phase_timeout(len(revision_agents), timeout)
 
+        # Emit heartbeat before revision phase
+        self._emit_heartbeat(f"revision_round_{round_num}", f"starting_{len(revision_agents)}_agents")
+
         # Execute all revisions with bounded concurrency and phase-level timeout
         try:
             revision_results = await asyncio.wait_for(
@@ -537,7 +570,15 @@ class DebateRoundsPhase:
             revision_results = [asyncio.TimeoutError()] * len(revision_tasks)
 
         # Process results
+        revision_count = 0
+        total_revisions = len(revision_agents)
         for agent, revised in zip(revision_agents, revision_results):
+            revision_count += 1
+            # Emit heartbeat for each completed revision
+            self._emit_heartbeat(
+                f"revision_round_{round_num}",
+                f"processed_{revision_count}_of_{total_revisions}",
+            )
             if isinstance(revised, BaseException):
                 logger.error(f"revision_error agent={agent.name} error={revised}")
                 if self.circuit_breaker:
