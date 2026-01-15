@@ -5,7 +5,7 @@ These are candidates for either:
 1. **UI Development** - Build frontend components to expose these features
 2. **Deprecation** - Remove if no longer needed
 
-Last audited: 2026-01-13
+Last audited: 2026-01-14
 
 ## Summary
 
@@ -112,16 +112,31 @@ Last audited: 2026-01-13
 
 ---
 
+## Decision Matrix
+
+| Handler | Decision | Rationale | Timeline |
+|---------|----------|-----------|----------|
+| training | **BUILD UI** | High value for ML teams, differentiator | Q1 2026 |
+| gallery | **BUILD UI** | Community engagement, public showcase | Q1 2026 |
+| social | **KEEP** | Partial UI exists, OAuth needs completion | Q2 2026 |
+| persona | **BUILD UI** | Power user feature, enables customization | Q2 2026 |
+| auditing | **KEEP** | Required for SOC 2 compliance | Q1 2026 |
+| sso | **KEEP** | Enterprise feature, build on demand | On request |
+
+**No endpoints scheduled for deprecation at this time.** All unused endpoints serve valid use cases.
+
+---
+
 ## Action Items
 
-### Phase 1: High-Value Features
+### Phase 1: High-Value Features (Q1 2026)
 - [ ] Training Export UI in admin console
 - [ ] Public Gallery page
+- [ ] Audit log integration (SOC 2 requirement)
 
-### Phase 2: Power User Features
+### Phase 2: Power User Features (Q2 2026)
 - [ ] Persona Editor
 - [ ] Complete Social OAuth flow
 
-### Phase 3: Enterprise Features
-- [ ] SSO configuration page
-- [ ] Audit log viewer in admin console
+### Phase 3: Enterprise Features (On Demand)
+- [ ] SSO configuration page (SAML/OIDC)
