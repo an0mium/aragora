@@ -1714,7 +1714,14 @@ class ConsensusPhase:
 
             logger.info(f"synthesis_generated chars={len(synthesis)}")
 
-            # Emit as special "synthesis" message for frontend
+            # Emit explicit synthesis event (guaranteed delivery)
+            if self.hooks and "on_synthesis" in self.hooks:
+                self.hooks["on_synthesis"](
+                    content=synthesis,
+                    confidence=ctx.result.confidence if ctx.result else 0.0,
+                )
+
+            # Also emit as agent_message for backwards compatibility
             if self.hooks and "on_message" in self.hooks:
                 rounds = self.protocol.rounds if self.protocol else 3
                 self.hooks["on_message"](
@@ -1739,7 +1746,13 @@ class ConsensusPhase:
             if ctx.result.final_answer:
                 synthesis = f"[Synthesis generated from consensus result]\n\n{ctx.result.final_answer}"
                 ctx.result.synthesis = synthesis
-                # Still emit the message so frontend shows completion
+                # Emit explicit synthesis event
+                if self.hooks and "on_synthesis" in self.hooks:
+                    self.hooks["on_synthesis"](
+                        content=synthesis,
+                        confidence=ctx.result.confidence if ctx.result else 0.0,
+                    )
+                # Still emit as agent_message for backwards compatibility
                 if self.hooks and "on_message" in self.hooks:
                     rounds = self.protocol.rounds if self.protocol else 3
                     self.hooks["on_message"](
@@ -1756,6 +1769,13 @@ class ConsensusPhase:
             if ctx.result.final_answer:
                 synthesis = f"[Synthesis from consensus]\n\n{ctx.result.final_answer}"
                 ctx.result.synthesis = synthesis
+                # Emit explicit synthesis event
+                if self.hooks and "on_synthesis" in self.hooks:
+                    self.hooks["on_synthesis"](
+                        content=synthesis,
+                        confidence=ctx.result.confidence if ctx.result else 0.0,
+                    )
+                # Still emit as agent_message for backwards compatibility
                 if self.hooks and "on_message" in self.hooks:
                     rounds = self.protocol.rounds if self.protocol else 3
                     self.hooks["on_message"](

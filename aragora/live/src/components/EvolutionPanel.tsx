@@ -97,9 +97,13 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
       if (response.ok) {
         const data = await response.json();
         setStats(data);
+        setError(null);  // Clear error on success
+      } else {
+        setError('Failed to load evolution stats. Please try again.');
       }
     } catch (err) {
       console.error('Failed to fetch genesis stats:', err);
+      setError('Unable to connect to evolution API. Please check your connection.');
     }
   }, [apiBase]);
 
@@ -112,6 +116,7 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
       }
     } catch (err) {
       console.error('Failed to fetch genomes:', err);
+      // Don't override main error if already set
     }
   }, [apiBase]);
 
@@ -124,6 +129,7 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
       }
     } catch (err) {
       console.error('Failed to fetch events:', err);
+      // Don't override main error if already set
     }
   }, [apiBase]);
 
@@ -136,6 +142,7 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
       }
     } catch (err) {
       console.error('Failed to fetch patterns:', err);
+      // Don't override main error if already set
     }
   }, [apiBase]);
 

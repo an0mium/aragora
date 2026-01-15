@@ -614,11 +614,36 @@ export function useDebateWebSocket({
       }
     }
 
+    // Explicit synthesis event - guaranteed delivery of final conclusion
+    else if (data.type === 'synthesis') {
+      const content = (eventData?.content as string) || '';
+      const confidence = (eventData?.confidence as number) || 0;
+      if (content) {
+        const synthesisMsg: TranscriptMessage = {
+          agent: 'synthesis-agent',
+          role: 'synthesis',
+          content,
+          timestamp: (data.timestamp as number) || Date.now() / 1000,
+        };
+        addMessageIfNew(synthesisMsg);
+
+        // Track as stream event for panels
+        const streamEvent: StreamEvent = {
+          type: 'synthesis',
+          data: { content, confidence, agent: 'synthesis-agent' },
+          timestamp: (data.timestamp as number) || Date.now() / 1000,
+          agent: 'synthesis-agent',
+        };
+        addStreamEvent(streamEvent);
+      }
+    }
+
     // Consensus events - create synthesis message with full answer
     else if (data.type === 'consensus') {
       const reached = eventData?.reached as boolean;
       const confidence = eventData?.confidence as number || 0;
       const answer = eventData?.answer as string || '';
+      const synthesis = eventData?.synthesis as string || '';  // Fallback synthesis in consensus data
 
       // First add a status message
       const statusMsg: TranscriptMessage = {
@@ -629,12 +654,13 @@ export function useDebateWebSocket({
       };
       addMessageIfNew(statusMsg);
 
-      // If there's an answer/synthesis, add it as a synthesis message (triggers special styling)
-      if (answer && reached) {
+      // If there's a fallback synthesis in consensus data and no explicit synthesis was received
+      const synthContent = synthesis || answer;
+      if (synthContent && reached) {
         const synthesisMsg: TranscriptMessage = {
           agent: 'consensus',  // This triggers isSynthesis check in TranscriptMessageCard
           role: 'synthesis',
-          content: answer,
+          content: synthContent,
           timestamp: ((data.timestamp as number) || Date.now() / 1000) + 0.001, // Slightly later to ensure ordering
         };
         addMessageIfNew(synthesisMsg);

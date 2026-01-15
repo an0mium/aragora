@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-01-14
+
+### Added
+- **OAuth E2E test suite**: Comprehensive OAuth testing for social integrations
+  - `tests/oauth/test_google_oauth.py`: 7 tests for Google OAuth state management
+  - `tests/oauth/test_youtube_oauth.py`: 8 tests for YouTube OAuth flows
+  - `tests/oauth/test_twitter_oauth.py`: 16 tests for Twitter publishing and OAuth
+  - Tests cover state uniqueness, replay prevention, entropy validation, handler routes
+- **SDK capability probes API**: Test agents for vulnerabilities
+  - `ProbesAPI` with `run()` method for capability probing
+  - Probe types: contradiction, hallucination, sycophancy, persistence, confidence calibration, reasoning depth, edge cases
+  - Comprehensive probe report with vulnerability rates and recommendations
+- **SDK verification history**: Query and analyze past verifications
+  - `translate()`: Convert claims to formal language
+  - `history()`: Query verification history with pagination
+  - `getHistoryEntry()`: Get specific verification details
+  - `getProofTree()`: Get proof tree for verification entry
+- **Performance benchmarks**: Documented baseline metrics
+  - 11 API component benchmarks with latency metrics (μs)
+  - 17 rate limiting benchmark tests
+  - Results documented in `docs/PERFORMANCE.md`
+- **Frontend verification panels**: UI for verification features
+  - Verification history panel with search and filtering
+  - Probe reports panel with vulnerability visualization
+- **Philosophical personas**: New agent personas for deeper discourse
+  - Philosopher, humanist, existentialist personas
+  - Domain detection for topic-appropriate persona selection
+- **Async memory wrappers**: Non-blocking memory operations
+  - `add_async()`, `store()`, `get_async()`, `retrieve_async()`, `update_outcome_async()`
+  - Offloads blocking SQLite I/O to event loop executor
+- **Callback timeout protection**: Prevent hanging debates
+  - 30-second timeout for judge termination, early stopping, evidence refresh
+  - Graceful fallback on timeout
+
+### Changed
+- **TypeScript SDK v1.1.0**: Major feature additions
+  - Added ProbesAPI for capability probing
+  - Extended VerificationAPI with history and proof tree methods
+  - New types: ProbeType, ProbeRunRequest, ProbeResult, ProbeReport, VerificationHistoryEntry
+- **Test count**: Increased from 23,363 to 23,448 test functions (+85)
+- **Resilience improvements**: Synthesis fallback and token grouping
+- **Arena hooks**: Enhanced event handling with additional safety checks
+
+### Fixed
+- **WebSocket state reset**: Reset all debate state when debateId changes
+  - Prevents data leaking between debates when navigating
+- **Type safety**: Resolved remaining mypy and ruff violations
+- **Stream events**: Improved arena hooks and event handling
+
+### Documentation
+- **Performance baseline**: `docs/PERFORMANCE.md` with automated benchmark results
+- **OAuth testing guide**: Documentation for running E2E OAuth tests
+- **Evidence API guide**: Updated documentation for evidence endpoints
+
+### Security
+- **OAuth state validation**: Comprehensive replay attack prevention tests
+- **State entropy verification**: Minimum 32-character state tokens validated
+
 ## [1.4.0] - 2026-01-14
 
 ### Added

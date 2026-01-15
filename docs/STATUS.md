@@ -1,53 +1,59 @@
 # Aragora Project Status
 
-*Last updated: January 14, 2026 (14:45 UTC)*
+*Last updated: January 14, 2026 (15:30 UTC)*
 
 ## Current Release
+
+### v1.5.0 - OAuth, SDK Probes & Performance Release (January 2026)
+
+**Production Ready** - Aragora 1.5.0 completes Sprint 10-12 with comprehensive OAuth E2E testing, SDK capability probes API, and documented performance baselines.
+
+#### Key Highlights
+- **23,448+ tests** collected and passing (+85 from v1.4.0)
+- **OAuth E2E Suite**: 31 tests for Google, YouTube, Twitter OAuth flows
+- **SDK v1.1.0**: Capability probes API and verification history endpoints
+- **Performance Baseline**: Documented benchmark results in PERFORMANCE.md
+- **Async Memory**: Non-blocking memory operations with async wrappers
+- **Callback Timeouts**: Prevents hanging debates with 30s timeout protection
+- **Philosophical Personas**: New personas for deeper discourse
+- **0 HIGH severity security issues** (Bandit scan clean)
+- **4 TODO markers** (well below 15 target)
+- **9.3/10 production readiness score**
+
+#### What's New in 1.5.0
+
+**OAuth E2E Testing (Sprint 11)**
+- **Google OAuth**: 7 tests for state management, replay prevention, entropy
+- **YouTube OAuth**: 8 tests for social OAuth flows and handler routes
+- **Twitter OAuth**: 16 tests for publishing, content formatting, rate limiting
+
+**SDK Capability Probes**
+- **ProbesAPI**: Test agents for vulnerabilities (contradiction, hallucination, sycophancy)
+- **Verification History**: Query and analyze past verifications with proof trees
+- **TypeScript SDK v1.1.0**: Full type definitions for all new endpoints
+
+**Performance**
+- **Benchmark Suite**: 11 API component benchmarks with latency metrics
+- **Rate Limiting Tests**: 17 comprehensive rate limiting tests
+- **PERFORMANCE.md**: Documented baseline metrics and SLO targets
+
+**Developer Experience**
+- **Async Memory Wrappers**: Non-blocking `add_async()`, `get_async()`, `retrieve_async()`
+- **Callback Timeouts**: 30s protection for judge termination, early stopping
+- **Philosophical Personas**: Philosopher, humanist, existentialist personas
+
+---
+
+## Previous Releases
 
 ### v1.4.0 - Admin UI & Governance Release (January 2026)
 
 **Production Ready** - Aragora 1.4.0 adds comprehensive admin console components, Nomic loop governance with approval gates, and SOC 2 compliance documentation.
 
-#### Key Highlights
-- **23,363+ tests** collected and passing (+439 from v1.3.0)
+- **23,363+ tests** collected and passing
 - **Admin UI Components**: PersonaEditor, AuditLogViewer, TrainingExportPanel
 - **Nomic Governance**: Approval gates (Design, TestQuality, Commit) with audit logging
-- **SOC 2 Compliance**: MFA enforcement for admin users, data classification docs
-- **Gallery API**: Public debate access for showcasing debates
-- **Mandatory Final Synthesis**: Claude Opus 4.5 generates unified synthesis
-- **103+ documentation files** including ADMIN.md, NOMIC_GOVERNANCE.md
-- **0 HIGH severity security issues** (Bandit scan clean)
-- **4 TODO markers** (well below 15 target)
-- **9.2/10 production readiness score**
-
-#### What's New in 1.4.0
-
-**Admin UI (Sprint 10-11)**
-- **PersonaEditor**: Grid/list view persona management with search and detail panels
-- **AuditLogViewer**: Real-time audit feed with filtering, export (JSON/CSV/SOC2)
-- **TrainingExportPanel**: ML training data export (SFT, DPO, Gauntlet formats)
-- **Admin Pages**: `/admin/personas`, `/admin/audit`, `/admin/training`, `/admin/revenue`
-
-**Nomic Governance**
-- **DesignGate**: Approval required before implementation with complexity scoring
-- **TestQualityGate**: Test quality validation with coverage thresholds
-- **CommitGate**: Structured approval before committing changes
-- **SQLite Audit Logger**: Queryable event history with cycle summaries
-
-**SOC 2 Compliance**
-- **Admin MFA Enforcement**: CC5-01 control - admin access requires MFA
-- **DATA_CLASSIFICATION.md**: Data classification policy
-- **INCIDENT_RESPONSE.md**: Incident response playbooks
-- **PRIVACY_POLICY.md**: Privacy policy documentation
-
-**Infrastructure**
-- **WebSocket Stability**: Fixed race conditions in concurrent debates
-- **Gallery API**: `GET /api/gallery` for public debate access
-- **Mandatory Synthesis**: Debate conclusions with Claude Opus 4.5
-
----
-
-## Previous Release
+- **SOC 2 Compliance**: MFA enforcement, data classification, incident response docs
 
 ### v1.3.0 - GA Preparation Release (January 2026)
 
