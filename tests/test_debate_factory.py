@@ -79,8 +79,9 @@ class TestDebateConfig:
         """Default values are set correctly."""
         config = DebateConfig(question="Test question")
         assert config.agents_str == "anthropic-api,openai-api"
-        assert config.rounds == 3
-        assert config.consensus == "majority"
+        assert config.rounds == 8  # 9-round format (0-8) for web debates
+        assert config.consensus == "judge"  # Judge-based for final decisions
+        assert config.debate_format == "full"  # Full thorough debate by default
 
     def test_parse_agent_specs_simple(self):
         """Simple agent string is parsed correctly."""

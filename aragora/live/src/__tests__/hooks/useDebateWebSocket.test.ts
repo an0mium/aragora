@@ -413,10 +413,11 @@ describe('useDebateWebSocket', () => {
         });
       });
 
-      expect(result.current.messages.length).toBe(1);
-      expect(result.current.messages[0].agent).toBe('system');
-      expect(result.current.messages[0].content).toContain('CONSENSUS REACHED');
-      expect(result.current.messages[0].content).toContain('85%');
+      // Consensus events are tracked as stream events (messages only added if synthesis present)
+      expect(result.current.streamEvents.length).toBe(1);
+      expect(result.current.streamEvents[0].type).toBe('consensus');
+      expect(result.current.streamEvents[0].data.reached).toBe(true);
+      expect(result.current.streamEvents[0].data.confidence).toBe(0.85);
     });
 
     it('should handle grounded_verdict event and set hasCitations', () => {
@@ -619,9 +620,10 @@ describe('useDebateWebSocket', () => {
 
       expect(result.current.streamingMessages.has('Agent A')).toBe(true);
 
-      // Advance time past the timeout (60 seconds)
+      // Advance time past the timeout (300 seconds = 5 minutes)
+      // Hook uses 300s to exceed backend agent timeout of 240s
       act(() => {
-        jest.advanceTimersByTime(65000);
+        jest.advanceTimersByTime(305000);
       });
 
       // Streaming should be cleared and message added with timeout indicator

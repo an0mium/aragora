@@ -76,7 +76,7 @@ describe('PublicGallery', () => {
         render(<PublicGallery />);
       });
 
-      expect(document.querySelector('.animate-spin, .animate-pulse')).toBeInTheDocument();
+      expect(screen.getByText('Loading gallery...')).toBeInTheDocument();
     });
   });
 
@@ -87,7 +87,7 @@ describe('PublicGallery', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Public Gallery')).toBeInTheDocument();
+        expect(screen.getByText('Public Debate Gallery')).toBeInTheDocument();
       });
     });
 
@@ -151,8 +151,8 @@ describe('PublicGallery', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('All')).toBeInTheDocument();
-        expect(screen.getByText('Featured')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Featured' })).toBeInTheDocument();
       });
     });
 
@@ -165,7 +165,7 @@ describe('PublicGallery', () => {
         expect(screen.getByText('Climate Policy Analysis')).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByText('Featured'));
+      fireEvent.click(screen.getByRole('button', { name: 'Featured' }));
 
       await waitFor(() => {
         expect(screen.getByText('AI Safety Discussion')).toBeInTheDocument();

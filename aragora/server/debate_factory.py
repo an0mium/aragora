@@ -83,6 +83,7 @@ class DebateConfig:
     agents_str: str = "anthropic-api,openai-api"
     rounds: int = 8  # 9-round format (0-8), default for all debates
     consensus: str = "judge"  # Judge-based consensus for final decisions
+    debate_format: str = "full"  # "light" (~5 min) or "full" (~30 min)
     debate_id: Optional[str] = None
     trending_topic: Optional["TrendingTopic"] = None  # TrendingTopic from pulse
 
@@ -274,7 +275,11 @@ class DebateFactory:
         """
         from aragora.core import Environment
         from aragora.debate.arena_builder import ArenaBuilder
-        from aragora.debate.protocol import ARAGORA_AI_PROTOCOL, DebateProtocol
+        from aragora.debate.protocol import (
+            ARAGORA_AI_LIGHT_PROTOCOL,
+            ARAGORA_AI_PROTOCOL,
+            DebateProtocol,
+        )
 
         # Parse and create agents
         specs = config.parse_agent_specs()
@@ -291,52 +296,52 @@ class DebateFactory:
                 f"(need at least 2). Failed: {', '.join(failed_names)}"
             )
 
-        # Create environment - use 9 rounds for aragora.ai web debates
+        # Select protocol based on debate_format
+        # - "light": 4-round quick format (~5 min) with minimal features
+        # - "full": 9-round thorough format (~30 min) with all features
+        if config.debate_format == "light":
+            base_protocol = ARAGORA_AI_LIGHT_PROTOCOL
+            max_rounds = 4
+            logger.info(f"debate_format=light using 4-round quick protocol")
+        else:
+            base_protocol = ARAGORA_AI_PROTOCOL
+            max_rounds = 9
+            logger.info(f"debate_format=full using 9-round thorough protocol")
+
+        # Create environment with appropriate round count
         env = Environment(
             task=config.question,
             context="",
-            max_rounds=9,  # 9-round format for web UI
+            max_rounds=max_rounds,
         )
 
-        # Use ARAGORA_AI_PROTOCOL for web debates - 9 rounds with all features enabled
-        # This creates a comprehensive debate with:
-        # - Round 0: Context gathering (parallel with Round 1)
-        # - Rounds 1-6: Structured debate phases
-        # - Round 7: Final synthesis (each agent revises)
-        # - Round 8: Voting, judge verdict, Opus 4.5 summary
+        # Create protocol from preset, allowing consensus override
         protocol = DebateProtocol(
-            rounds=9,
-            consensus=config.consensus or "judge",  # type: ignore[arg-type]
+            rounds=base_protocol.rounds,
+            consensus=config.consensus or base_protocol.consensus,  # type: ignore[arg-type]
             proposer_count=len(agent_result.agents),
-            topology="all-to-all",
-            # 9-round structured format
-            use_structured_phases=True,
-            # Near-impossible early stopping (require 95% uniform consensus)
-            early_stopping=True,
-            early_stop_threshold=0.95,
-            min_rounds_before_early_stop=7,
-            # High convergence bar to prevent premature consensus
-            convergence_detection=True,
-            convergence_threshold=0.95,
-            # Enable Trickster for hollow consensus detection
-            enable_trickster=True,
-            trickster_sensitivity=0.7,
-            # Enable all quality features
-            enable_calibration=True,
-            enable_rhetorical_observer=True,
-            enable_evolution=True,
-            enable_evidence_weighting=True,
-            verify_claims_during_consensus=True,
-            enable_research=True,
-            # Role rotation for cognitive diversity
-            role_rotation=True,
-            role_matching=True,
-            # Extended timeouts for 9-round debates
-            timeout_seconds=1800,  # 30 minutes total
-            round_timeout_seconds=150,  # 2.5 minutes per round
-            debate_rounds_timeout_seconds=900,  # 15 minutes for debate rounds
-            # Enable breakpoints for human intervention
-            enable_breakpoints=True,
+            topology=base_protocol.topology,
+            use_structured_phases=base_protocol.use_structured_phases,
+            round_phases=base_protocol.round_phases,
+            early_stopping=base_protocol.early_stopping,
+            early_stop_threshold=base_protocol.early_stop_threshold,
+            min_rounds_before_early_stop=base_protocol.min_rounds_before_early_stop,
+            convergence_detection=base_protocol.convergence_detection,
+            convergence_threshold=base_protocol.convergence_threshold,
+            enable_trickster=base_protocol.enable_trickster,
+            trickster_sensitivity=base_protocol.trickster_sensitivity,
+            enable_calibration=base_protocol.enable_calibration,
+            enable_rhetorical_observer=base_protocol.enable_rhetorical_observer,
+            enable_evolution=base_protocol.enable_evolution,
+            enable_evidence_weighting=base_protocol.enable_evidence_weighting,
+            verify_claims_during_consensus=base_protocol.verify_claims_during_consensus,
+            enable_research=base_protocol.enable_research,
+            role_rotation=base_protocol.role_rotation,
+            role_matching=base_protocol.role_matching,
+            timeout_seconds=base_protocol.timeout_seconds,
+            round_timeout_seconds=base_protocol.round_timeout_seconds,
+            debate_rounds_timeout_seconds=base_protocol.debate_rounds_timeout_seconds,
+            enable_breakpoints=base_protocol.enable_breakpoints,
         )
 
         # Build arena using ArenaBuilder for cleaner configuration

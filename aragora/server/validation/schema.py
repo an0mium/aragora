@@ -37,6 +37,11 @@ DEBATE_START_SCHEMA = {
     "mode": {"type": "string", "max_length": 64, "required": False},
     "rounds": {"type": "int", "min_value": 1, "max_value": 20, "required": False},
     "consensus": {"type": "string", "max_length": 64, "required": False},
+    "debate_format": {
+        "type": "enum",
+        "allowed_values": {"light", "full"},
+        "required": False,
+    },  # "light" (~5 min) or "full" (~30 min)
 }
 
 DEBATE_UPDATE_SCHEMA = {

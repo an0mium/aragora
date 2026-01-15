@@ -48,6 +48,7 @@ class DebateRequest:
     agents_str: str = "anthropic-api,openai-api,gemini,grok"
     rounds: int = 8  # 9-round format (0-8), default for all debates
     consensus: str = "judge"  # Judge-based consensus for final decisions
+    debate_format: str = "full"  # "light" (~5 min) or "full" (~30 min)
     auto_select: bool = False
     auto_select_config: dict = None
     use_trending: bool = False
@@ -56,6 +57,9 @@ class DebateRequest:
     def __post_init__(self):
         if self.auto_select_config is None:
             self.auto_select_config = {}
+        # Normalize debate_format
+        if self.debate_format not in ("light", "full"):
+            self.debate_format = "full"
 
     @classmethod
     def from_dict(cls, data: dict) -> "DebateRequest":
@@ -87,6 +91,7 @@ class DebateRequest:
             agents_str=data.get("agents", "anthropic-api,openai-api,gemini,grok"),
             rounds=rounds,
             consensus=data.get("consensus", "judge"),
+            debate_format=data.get("debate_format", "full"),
             auto_select=data.get("auto_select", False),
             auto_select_config=data.get("auto_select_config", {}),
             use_trending=data.get("use_trending", False),
@@ -256,6 +261,7 @@ class DebateController:
             agents_str=agents_str,
             rounds=request.rounds,
             consensus=request.consensus,
+            debate_format=request.debate_format,
             debate_id=debate_id,
             trending_topic=trending_topic,
         )

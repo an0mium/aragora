@@ -11,6 +11,7 @@ interface DebateInputProps {
 }
 
 type DebateMode = 'standard' | 'graph' | 'matrix';
+type DebateFormat = 'light' | 'full';
 
 const DEBATE_MODES: Record<DebateMode, { label: string; description: string; endpoint: string }> = {
   standard: {
@@ -27,6 +28,21 @@ const DEBATE_MODES: Record<DebateMode, { label: string; description: string; end
     label: 'Matrix',
     description: 'Parallel scenarios for comparison',
     endpoint: '/api/debates/matrix',
+  },
+};
+
+const DEBATE_FORMATS: Record<DebateFormat, { label: string; description: string; time: string; icon: string }> = {
+  light: {
+    label: 'Quick',
+    description: '4 rounds, focused analysis',
+    time: '~5 min',
+    icon: '\u26A1', // Lightning bolt
+  },
+  full: {
+    label: 'Thorough',
+    description: '9 rounds, deep exploration',
+    time: '~15-30 min',
+    icon: '\uD83E\uDDE0', // Brain emoji
   },
 };
 
@@ -67,6 +83,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
   const [agents, setAgents] = useState(DEFAULT_AGENTS);
   const [rounds, setRounds] = useState(DEFAULT_ROUNDS);
   const [debateMode, setDebateMode] = useState<DebateMode>('standard');
+  const [debateFormat, setDebateFormat] = useState<DebateFormat>('full');
   const [apiStatus, setApiStatus] = useState<ApiStatus>('checking');
   const [recommendations, setRecommendations] = useState<AgentRecommendation[]>([]);
   const [detectedDomain, setDetectedDomain] = useState<string>('general');
@@ -99,6 +116,17 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
     'If a Transparency Patch made every thought about others audible, which institution would collapse first: Marriage, Politics, Law, or Religion?',
     'What skill or knowledge that you are proud of will be completely obsolete within your lifetime?',
     'If aliens visited Earth and could only observe one person for 24 hours to understand humanity, who would you choose?',
+    'What is the most ethically justifiable form of cheating, and where would you draw the line?',
+    'If you could eliminate one universally accepted moral value from humanity to test its impact, which would you choose?',
+    'You have a one-time time machine: prevent infant Hitler from becoming a dictator, but lose civil-rights movements, the EU, and modern computing. Press the button?',
+
+    // Civilization & Future
+    'Should humanity colonize Mars, or focus those resources on solving Earth\'s problems first?',
+    'Should human lifespan be artificially extended, and if so, who decides who gets access?',
+    'Are we fundamentally changing human nature with technology, or merely amplifying existing traits?',
+    'If we could run a historical Diff Check measuring Net Suffering vs. Net Joy for famous figures, whose score would shock us most?',
+    'If we could access the Universe\'s Error Logs for failed civilizations, what Critical Warning would Earth be flagging?',
+    'Should legal personhood scale with measured consciousness probability? A 70%-sapient AI pays 70% tax; a 30%-conscious pig gets 30% protection?',
 
     // Multi-Agent Debate
     'Is consensus among AI agents more reliable than a single powerful model?',
@@ -218,6 +246,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
           question: trimmedQuestion,
           agents: agents.split(',').map(a => a.trim()).filter(Boolean),
           rounds,
+          debate_format: debateFormat,
           // Graph/Matrix specific options
           ...(debateMode === 'graph' && { branch_on_disagreement: true }),
           ...(debateMode === 'matrix' && { scenarios: 3 }),
@@ -255,7 +284,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
     } finally {
       setIsSubmitting(false);
     }
-  }, [question, placeholder, agents, rounds, debateMode, apiBase, isSubmitting, onDebateStarted, onError, router]);
+  }, [question, placeholder, agents, rounds, debateMode, debateFormat, apiBase, isSubmitting, onDebateStarted, onError, router]);
 
   const isDisabled = isSubmitting || apiStatus === 'offline' || apiStatus === 'checking';
 
@@ -448,6 +477,58 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
               </p>
             </div>
 
+            {/* Debate Format Selector */}
+            <div>
+              <label id="debate-format-label" className="block text-xs font-mono text-text-muted mb-2">
+                DEBATE DEPTH
+              </label>
+              <div
+                className="flex gap-2"
+                role="radiogroup"
+                aria-labelledby="debate-format-label"
+                onKeyDown={(e) => {
+                  const formats = Object.keys(DEBATE_FORMATS) as DebateFormat[];
+                  const currentIndex = formats.indexOf(debateFormat);
+                  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const nextIndex = (currentIndex + 1) % formats.length;
+                    setDebateFormat(formats[nextIndex]);
+                  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const prevIndex = (currentIndex - 1 + formats.length) % formats.length;
+                    setDebateFormat(formats[prevIndex]);
+                  }
+                }}
+              >
+                {(Object.keys(DEBATE_FORMATS) as DebateFormat[]).map((format) => (
+                  <button
+                    key={format}
+                    type="button"
+                    role="radio"
+                    aria-checked={debateFormat === format}
+                    aria-label={`${DEBATE_FORMATS[format].label}: ${DEBATE_FORMATS[format].description}, ${DEBATE_FORMATS[format].time}`}
+                    tabIndex={debateFormat === format ? 0 : -1}
+                    onClick={() => setDebateFormat(format)}
+                    className={`flex-1 px-3 py-2 text-xs font-mono border transition-colors ${
+                      debateFormat === format
+                        ? 'bg-acid-green text-bg border-acid-green'
+                        : 'bg-bg text-text-muted border-acid-green/30 hover:border-acid-green/60'
+                    }`}
+                    title={`${DEBATE_FORMATS[format].description} (${DEBATE_FORMATS[format].time})`}
+                  >
+                    <span className="mr-1">{DEBATE_FORMATS[format].icon}</span>
+                    {DEBATE_FORMATS[format].label.toUpperCase()}
+                    <span className="block text-[10px] opacity-70 mt-0.5">
+                      {DEBATE_FORMATS[format].time}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-text-muted mt-1">
+                {DEBATE_FORMATS[debateFormat].description}
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               {/* Agents */}
               <div>
@@ -482,14 +563,14 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
                              font-mono text-sm text-text focus:border-acid-green
                              focus:outline-none"
                 >
-                  {[1, 2, 3, 4, 5].map((n) => (
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                     <option key={n} value={n}>
-                      {n} round{n !== 1 ? 's' : ''}
+                      {n} round{n !== 1 ? 's' : ''}{n === 8 ? ' (recommended)' : ''}
                     </option>
                   ))}
                 </select>
                 <p className="text-[10px] text-text-muted mt-1">
-                  More rounds = deeper analysis
+                  8 rounds = full 9-phase format (context through adjudication)
                 </p>
               </div>
             </div>

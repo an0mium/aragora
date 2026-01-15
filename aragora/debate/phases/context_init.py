@@ -104,69 +104,36 @@ class ContextInitializer:
         """
         Initialize the debate context.
 
-        This method performs all context preparation in order:
-        1. Inject fork debate history
-        2. Auto-fetch trending topics from Pulse (if enabled)
-        3. Inject trending topic context
+        This method performs context preparation with critical items first
+        to enable parallel execution with the proposal phase:
+
+        CRITICAL (must complete before proposals):
+        1. Initialize DebateResult
+        2. Select proposers
+
+        FAST SYNC (run before background tasks):
+        3. Inject fork debate history
         4. Start recorder
-        5. Fetch historical context
-        6. Inject learned patterns
-        7. Inject memory patterns
-        8. Inject historical dissents
-        9. Perform pre-debate research
-        10. Collect evidence (auto-collection)
-        11. Initialize DebateResult
-        12. Initialize context messages
-        13. Select proposers
+        5. Initialize context messages
+
+        BACKGROUND (can run parallel with proposals):
+        6. Auto-fetch trending topics from Pulse (if enabled)
+        7. Inject trending topic context
+        8. Fetch historical context
+        9. Inject learned patterns
+        10. Inject memory patterns
+        11. Inject historical dissents
+        12. Perform pre-debate research
+        13. Collect evidence (auto-collection)
 
         Args:
             ctx: The DebateContext to initialize
         """
         from aragora.core import DebateResult
 
-        # 1. Inject fork debate history
-        self._inject_fork_history(ctx)
+        # === CRITICAL: Must complete before proposals can start ===
 
-        # 2. Auto-fetch trending topics from Pulse if enabled
-        if not self.trending_topic and self.auto_fetch_trending:
-            await self._inject_pulse_context(ctx)
-
-        # 3. Inject trending topic context (provided or auto-fetched)
-        self._inject_trending_topic(ctx)
-
-        # 4. Start recorder
-        self._start_recorder()
-
-        # 5. Fetch historical context (async, with timeout)
-        await self._fetch_historical(ctx)
-
-        # 6. Inject learned patterns from InsightStore (async)
-        await self._inject_insight_patterns(ctx)
-
-        # 7. Inject memory patterns from CritiqueStore
-        self._inject_memory_patterns(ctx)
-
-        # 8. Inject historical dissents from ConsensusMemory
-        self._inject_historical_dissents(ctx)
-
-        # 9. Start research in background (non-blocking for fast startup)
-        # Research runs in parallel with proposals, results injected before round 2
-        if self.protocol and getattr(self.protocol, "enable_research", False):
-            ctx.background_research_task = asyncio.create_task(
-                self._perform_pre_debate_research(ctx)
-            )
-            logger.info("background_research_started")
-
-        # 10. Start evidence collection in background (non-blocking)
-        if (
-            self.evidence_collector
-            and self.protocol
-            and getattr(self.protocol, "enable_evidence_collection", True)
-        ):
-            ctx.background_evidence_task = asyncio.create_task(self._collect_evidence(ctx))
-            logger.info("background_evidence_started")
-
-        # 11. Initialize DebateResult
+        # 1. Initialize DebateResult (needed for message recording)
         ctx.result = DebateResult(
             task=ctx.env.task,
             messages=[],
@@ -175,11 +142,60 @@ class ContextInitializer:
             dissenting_views=[],
         )
 
-        # 12. Initialize context messages for fork debates
+        # 2. Select proposers (needed by proposal phase)
+        self._select_proposers(ctx)
+        logger.debug(f"proposers_selected count={len(ctx.proposers)}")
+
+        # === FAST SYNC: Quick operations that set up context ===
+
+        # 3. Inject fork debate history
+        self._inject_fork_history(ctx)
+
+        # 4. Start recorder
+        self._start_recorder()
+
+        # 5. Initialize context messages for fork debates
         self._init_context_messages(ctx)
 
-        # 13. Select proposers
-        self._select_proposers(ctx)
+        # === BACKGROUND: Context enrichment (can run parallel with proposals) ===
+        # These operations gather additional context but aren't blocking.
+        # Results are injected before round 2 via await_background_context().
+
+        # 6. Auto-fetch trending topics from Pulse if enabled
+        if not self.trending_topic and self.auto_fetch_trending:
+            await self._inject_pulse_context(ctx)
+
+        # 7. Inject trending topic context (provided or auto-fetched)
+        self._inject_trending_topic(ctx)
+
+        # 8. Fetch historical context (async, with timeout)
+        await self._fetch_historical(ctx)
+
+        # 9. Inject learned patterns from InsightStore (async)
+        await self._inject_insight_patterns(ctx)
+
+        # 10. Inject memory patterns from CritiqueStore
+        self._inject_memory_patterns(ctx)
+
+        # 11. Inject historical dissents from ConsensusMemory
+        self._inject_historical_dissents(ctx)
+
+        # 12. Start research in background (non-blocking for fast startup)
+        # Research runs in parallel with proposals, results injected before round 2
+        if self.protocol and getattr(self.protocol, "enable_research", False):
+            ctx.background_research_task = asyncio.create_task(
+                self._perform_pre_debate_research(ctx)
+            )
+            logger.info("background_research_started")
+
+        # 13. Start evidence collection in background (non-blocking)
+        if (
+            self.evidence_collector
+            and self.protocol
+            and getattr(self.protocol, "enable_evidence_collection", True)
+        ):
+            ctx.background_evidence_task = asyncio.create_task(self._collect_evidence(ctx))
+            logger.info("background_evidence_started")
 
     def _inject_fork_history(self, ctx: "DebateContext") -> None:
         """Inject fork debate history into partial messages."""

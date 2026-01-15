@@ -26,10 +26,12 @@ logger = logging.getLogger(__name__)
 
 # Re-export CircuitBreaker for backwards compatibility
 __all__ = [
+    "ARAGORA_AI_LIGHT_PROTOCOL",
     "ARAGORA_AI_PROTOCOL",
     "CircuitBreaker",
     "DebateProtocol",
     "RoundPhase",
+    "STRUCTURED_LIGHT_ROUND_PHASES",
     "STRUCTURED_ROUND_PHASES",
     "user_vote_multiplier",
 ]
@@ -88,10 +90,10 @@ STRUCTURED_ROUND_PHASES: list[RoundPhase] = [
     ),
     RoundPhase(
         number=5,
-        name="Synthesis",
-        description="Integrate insights from previous rounds",
-        focus="Common ground, reconciling tensions, emerging consensus",
-        cognitive_mode="Synthesizer",
+        name="Integration",
+        description="Connect insights across perspectives, identify patterns",
+        focus="Emerging patterns, bridging views, key trade-offs, areas of agreement",
+        cognitive_mode="Integrator",
     ),
     RoundPhase(
         number=6,
@@ -393,4 +395,80 @@ ARAGORA_AI_PROTOCOL = DebateProtocol(
     debate_rounds_timeout_seconds=900,  # 15 minutes for debate rounds phase
     # Enable breakpoints for human intervention
     enable_breakpoints=True,
+)
+
+# =============================================================================
+# Aragora.ai Light Protocol - Quick Debates
+# =============================================================================
+# Fast 4-round format for simple questions. ~5 minutes vs ~30 minutes for full.
+# Selected via debate_format="light" in API requests.
+
+STRUCTURED_LIGHT_ROUND_PHASES: list[RoundPhase] = [
+    RoundPhase(
+        number=0,
+        name="Quick Context",
+        description="Minimal context gathering, core facts only",
+        focus="Essential background, key facts",
+        cognitive_mode="Researcher",
+    ),
+    RoundPhase(
+        number=1,
+        name="Initial Positions",
+        description="Establish key viewpoints and main arguments",
+        focus="Core positions, primary reasoning",
+        cognitive_mode="Analyst",
+    ),
+    RoundPhase(
+        number=2,
+        name="Critique & Synthesis",
+        description="Combined challenge and integration phase",
+        focus="Key disagreements, emerging consensus",
+        cognitive_mode="Skeptic",
+    ),
+    RoundPhase(
+        number=3,
+        name="Quick Resolution",
+        description="Fast judge decision and brief synthesis",
+        focus="Final answer, key takeaways",
+        cognitive_mode="Adjudicator",
+    ),
+]
+
+ARAGORA_AI_LIGHT_PROTOCOL = DebateProtocol(
+    # 4-round quick format
+    rounds=4,
+    use_structured_phases=True,
+    round_phases=STRUCTURED_LIGHT_ROUND_PHASES,
+    # Judge-based for speed
+    consensus="judge",
+    consensus_threshold=0.6,
+    # All agents participate but fewer rounds
+    topology="all-to-all",
+    proposer_count=-1,
+    critic_count=-1,
+    # Aggressive early stopping (70% agreement)
+    early_stopping=True,
+    early_stop_threshold=0.7,
+    min_rounds_before_early_stop=2,
+    # Lower convergence bar for faster consensus
+    convergence_detection=True,
+    convergence_threshold=0.8,
+    divergence_threshold=0.40,
+    # Disable compute-intensive features for speed
+    enable_trickster=False,
+    enable_calibration=False,
+    enable_rhetorical_observer=False,
+    enable_evolution=False,
+    enable_evidence_weighting=False,
+    verify_claims_during_consensus=False,
+    enable_research=False,  # Skip web research
+    # Simpler roles (no rotation)
+    role_rotation=False,
+    role_matching=False,
+    # Tight timeouts for quick resolution
+    timeout_seconds=300,  # 5 minutes total
+    round_timeout_seconds=60,  # 1 minute per round
+    debate_rounds_timeout_seconds=180,  # 3 minutes for debate rounds
+    # No breakpoints in light mode
+    enable_breakpoints=False,
 )
