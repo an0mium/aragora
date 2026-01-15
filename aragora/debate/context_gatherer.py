@@ -119,22 +119,25 @@ class ContextGatherer:
             if aragora_ctx:
                 context_parts.append(aragora_ctx)
 
-            # 3. Gather additional evidence and trending in parallel (fallback sources)
-            # Only if Claude search didn't return sufficient context
+            # 3. ALWAYS gather trending context for real-time relevance
+            # This provides current context even when Claude search succeeds
+            trending_task = asyncio.create_task(self._gather_trending_with_timeout())
+
+            # 4. Gather additional evidence in parallel (fallback if Claude search weak)
             if not claude_ctx or len(claude_ctx) < 500:
                 evidence_task = asyncio.create_task(self._gather_evidence_with_timeout(task))
-                trending_task = asyncio.create_task(self._gather_trending_with_timeout())
-
-                # Wait for both, but don't fail if one times out
                 results = await asyncio.gather(evidence_task, trending_task, return_exceptions=True)
+            else:
+                # Still wait for trending even if Claude search succeeded
+                results = await asyncio.gather(trending_task, return_exceptions=True)
 
-                for result in results:
-                    if isinstance(result, str) and result:
-                        context_parts.append(result)
-                    elif isinstance(result, asyncio.TimeoutError):
-                        logger.warning("Context gathering subtask timed out")
-                    elif isinstance(result, Exception):
-                        logger.debug(f"Context gathering subtask failed: {result}")
+            for result in results:
+                if isinstance(result, str) and result:
+                    context_parts.append(result)
+                elif isinstance(result, asyncio.TimeoutError):
+                    logger.warning("Context gathering subtask timed out")
+                elif isinstance(result, Exception):
+                    logger.debug(f"Context gathering subtask failed: {result}")
 
         try:
             await asyncio.wait_for(_gather_with_timeout(), timeout=timeout)
@@ -375,16 +378,19 @@ class ContextGatherer:
         """
         try:
             from aragora.pulse.ingestor import (
+                GitHubTrendingIngestor,
+                GoogleTrendsIngestor,
                 HackerNewsIngestor,
                 PulseManager,
                 RedditIngestor,
-                TwitterIngestor,
             )
 
             manager = PulseManager()
-            manager.add_ingestor("twitter", TwitterIngestor())
-            manager.add_ingestor("hackernews", HackerNewsIngestor())
-            manager.add_ingestor("reddit", RedditIngestor())
+            # Free, no-auth sources for real trending data:
+            manager.add_ingestor("google", GoogleTrendsIngestor())  # Real Google Trends
+            manager.add_ingestor("hackernews", HackerNewsIngestor())  # Real HN front page
+            manager.add_ingestor("reddit", RedditIngestor())  # Real Reddit hot posts
+            manager.add_ingestor("github", GitHubTrendingIngestor())  # Real GitHub trending
 
             topics = await manager.get_trending_topics(limit_per_platform=3)
 

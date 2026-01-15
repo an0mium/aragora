@@ -211,13 +211,17 @@ class TwitterIngestor(PulseIngestor):
         self.base_url = "https://api.twitter.com/2"
 
     async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
-        """Fetch trending topics from Twitter."""
+        """Fetch trending topics from Twitter.
+
+        Note: Twitter/X API requires paid subscription ($100+/month).
+        Without API key, returns empty list (use free alternatives like Google Trends).
+        """
         # Validate limit
         limit = max(1, min(limit, 50))
 
         if not self.api_key:
-            logger.debug("No Twitter API key, using mock data")
-            return self._mock_trending_data(limit)
+            logger.info("[twitter] No API key configured (X API requires paid subscription)")
+            return []  # Return empty, not mock data
 
         async def _fetch():
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -326,7 +330,7 @@ class HackerNewsIngestor(PulseIngestor):
                 return topics
 
         return await self._retry_with_backoff(
-            _fetch, fallback_fn=lambda: self._mock_trending_data(limit)
+            _fetch, fallback_fn=lambda: []  # No mock data - return empty on failure
         )
 
     def _categorize_topic(self, title: str) -> str:
@@ -416,7 +420,7 @@ class RedditIngestor(PulseIngestor):
                 return all_topics[:limit]
 
         return await self._retry_with_backoff(
-            _fetch, fallback_fn=lambda: self._mock_trending_data(limit)
+            _fetch, fallback_fn=lambda: []  # No mock data - return empty on failure
         )
 
     def _categorize_subreddit(self, subreddit: str) -> str:
@@ -540,11 +544,11 @@ class GitHubTrendingIngestor(PulseIngestor):
                     )
                     topics.append(topic)
 
-                logger.debug(f"Fetched {len(topics)} trending GitHub repositories")
+                logger.info(f"[github] Fetched {len(topics)} real trending repositories")
                 return topics
 
         return await self._retry_with_backoff(
-            _fetch, fallback_fn=lambda: self._mock_trending_data(limit)
+            _fetch, fallback_fn=lambda: []  # No mock data - return empty on failure
         )
 
     def _categorize_repo(self, repo: Dict[str, Any]) -> str:
@@ -627,6 +631,90 @@ class GitHubTrendingIngestor(PulseIngestor):
             ),
         ]
         return mock_topics[:limit]
+
+
+class GoogleTrendsIngestor(PulseIngestor):
+    """Google Trends ingestor using the public RSS feed (free, no auth required).
+
+    Fetches real-time trending searches from Google Trends daily RSS feed.
+    No authentication or API key required.
+    """
+
+    def __init__(self, geo: str = "US", **kwargs):
+        """Initialize Google Trends ingestor.
+
+        Args:
+            geo: Geographic region code (US, GB, etc.). Default: US
+        """
+        super().__init__(**kwargs)
+        self.geo = geo
+        # Google Trends RSS feed URL for daily trending searches
+        self.base_url = "https://trends.google.com/trends/trendingsearches/daily/rss"
+
+    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+        """Fetch trending searches from Google Trends RSS feed."""
+        limit = max(1, min(limit, 20))
+
+        async def _fetch():
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                params = {"geo": self.geo}
+                response = await client.get(self.base_url, params=params)
+                response.raise_for_status()
+
+                # Parse RSS XML
+                import xml.etree.ElementTree as ET
+
+                root = ET.fromstring(response.text)
+
+                topics = []
+                # Find all items in the RSS feed
+                for item in root.findall(".//item")[:limit]:
+                    title = item.find("title")
+                    traffic = item.find("{https://trends.google.com/trends/trendingsearches/daily}approx_traffic")
+
+                    if title is not None:
+                        # Parse traffic number (e.g., "200K+" -> 200000)
+                        volume = 0
+                        if traffic is not None and traffic.text:
+                            traffic_str = traffic.text.replace("+", "").replace(",", "")
+                            if "K" in traffic_str:
+                                volume = int(float(traffic_str.replace("K", "")) * 1000)
+                            elif "M" in traffic_str:
+                                volume = int(float(traffic_str.replace("M", "")) * 1000000)
+                            else:
+                                try:
+                                    volume = int(traffic_str)
+                                except ValueError:
+                                    volume = 0
+
+                        topic = TrendingTopic(
+                            platform="google",
+                            topic=title.text or "Unknown",
+                            volume=volume,
+                            category=self._categorize_topic(title.text or ""),
+                            raw_data={"geo": self.geo},
+                        )
+                        topics.append(topic)
+
+                logger.info(f"[google_trends] Fetched {len(topics)} real trending searches from Google")
+                return topics
+
+        return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
+
+    def _categorize_topic(self, topic: str) -> str:
+        """Categorize Google Trends topic based on keywords."""
+        topic_lower = topic.lower()
+        if any(word in topic_lower for word in ["ai", "tech", "software", "app", "google", "apple", "microsoft"]):
+            return "tech"
+        elif any(word in topic_lower for word in ["election", "president", "congress", "vote", "political"]):
+            return "politics"
+        elif any(word in topic_lower for word in ["climate", "environment", "weather", "storm"]):
+            return "environment"
+        elif any(word in topic_lower for word in ["game", "sport", "nfl", "nba", "soccer", "football"]):
+            return "sports"
+        elif any(word in topic_lower for word in ["movie", "show", "celebrity", "music", "album"]):
+            return "entertainment"
+        return "general"
 
 
 class PulseManager:
