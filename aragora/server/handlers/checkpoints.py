@@ -63,7 +63,7 @@ class CheckpointHandler(BaseHandler):
             or (path.startswith("/api/debates/") and "/checkpoint" in path)
         )
 
-    @handle_errors  # type: ignore[arg-type]
+    @handle_errors("checkpoint handling")  # type: ignore[arg-type]
     async def handle(  # type: ignore[override]
         self,
         path: str,
