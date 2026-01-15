@@ -361,23 +361,20 @@ jobs:
               fi
             fi
 
-            # Update cloudflared tunnel config for WebSocket routing (if cloudflared is installed)
+            # Update cloudflared tunnel config to route through nginx (for CORS headers)
             if command -v cloudflared &> /dev/null; then
-              echo "Updating cloudflared config for WebSocket routing..."
+              echo "Updating cloudflared config to route through nginx..."
               CLOUDFLARED_CONFIG_DIR="$HOME/.cloudflared"
               if [ -d "$CLOUDFLARED_CONFIG_DIR" ]; then
-                # Check if config needs WebSocket routing update
-                if ! grep -q "path: /ws" "$CLOUDFLARED_CONFIG_DIR/config.yml" 2>/dev/null; then
-                  echo "Adding WebSocket route to cloudflared config..."
+                # Check if config needs update to route through nginx (port 80)
+                if ! grep -q "service: http://localhost:80" "$CLOUDFLARED_CONFIG_DIR/config.yml" 2>/dev/null; then
+                  echo "Updating cloudflared to route through nginx..."
                   # Backup existing config
                   cp "$CLOUDFLARED_CONFIG_DIR/config.yml" "$CLOUDFLARED_CONFIG_DIR/config.yml.bak" 2>/dev/null || true
-                  # Create updated config with WebSocket routing using echo (avoids YAML heredoc issues)
+                  # Create updated config routing through nginx for CORS support
                   echo "ingress:" > "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
                   echo "  - hostname: api.aragora.ai" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
-                  echo "    path: /ws" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
-                  echo "    service: http://localhost:8765" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
-                  echo "  - hostname: api.aragora.ai" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
-                  echo "    service: http://localhost:8080" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
+                  echo "    service: http://localhost:80" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
                   echo "  - service: http_status:404" >> "$CLOUDFLARED_CONFIG_DIR/config.yml.new"
                   # Preserve tunnel token from old config if present
                   if grep -q "^tunnel:" "$CLOUDFLARED_CONFIG_DIR/config.yml" 2>/dev/null; then
@@ -390,7 +387,7 @@ jobs:
                   echo "Restarting cloudflared to apply changes..."
                   sudo systemctl restart cloudflared 2>/dev/null || true
                 else
-                  echo "Cloudflared config already has WebSocket routing"
+                  echo "Cloudflared already routing through nginx"
                 fi
               else
                 echo "::warning::Cloudflared config directory not found"
