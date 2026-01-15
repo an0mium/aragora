@@ -104,32 +104,58 @@ jobs:
       - name: Install security tools
         run: pip install safety pip-audit uv
 
-      - name: Check Python dependencies
+      - name: Install package
+        run: pip install -e . 2>/dev/null || true
+
+      - name: Run Safety check
+        id: safety
+        run: safety check --full-report
+        continue-on-error: true
+
+      - name: Run pip-audit
+        id: pip-audit
         run: |
-          pip install -e . 2>/dev/null || true
-          safety check --full-report || true
-          if uv pip export --format requirements-txt --output-file /tmp/aragora-requirements.txt; then
-            pip-audit -r /tmp/aragora-requirements.txt || true
+          if uv pip export --format requirements-txt --output-file /tmp/aragora-requirements.txt 2>/dev/null; then
+            pip-audit -r /tmp/aragora-requirements.txt
           else
-            pip-audit || true
+            pip-audit
           fi
+        continue-on-error: true
+
+      - name: Report Python dependency status
+        if: steps.safety.outcome == 'failure' || steps.pip-audit.outcome == 'failure'
+        run: |
+          echo "::warning::Python dependency vulnerabilities detected. Review safety and pip-audit results."
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Check npm dependencies
+      - name: Install npm dependencies (live)
         working-directory: aragora/live
-        run: |
-          npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
-          npm audit --audit-level=high || true
+        run: npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
 
-      - name: Check aragora-js dependencies
+      - name: Audit npm dependencies (live)
+        id: npm-audit-live
+        working-directory: aragora/live
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Install npm dependencies (aragora-js)
         working-directory: aragora-js
+        run: npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
+
+      - name: Audit npm dependencies (aragora-js)
+        id: npm-audit-js
+        working-directory: aragora-js
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Report npm dependency status
+        if: steps.npm-audit-live.outcome == 'failure' || steps.npm-audit-js.outcome == 'failure'
         run: |
-          npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
-          npm audit --audit-level=high || true
+          echo "::warning::NPM dependency vulnerabilities detected. Review npm audit results."
 
   secret-scanning:
     name: Secret Scanning
