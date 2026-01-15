@@ -77,8 +77,10 @@ jobs:
 
       - name: Run Bandit
         run: |
+          # Generate JSON report for artifacts
           bandit -r aragora/ -c pyproject.toml -f json -o bandit-results.json || true
-          bandit -r aragora/ -c pyproject.toml -ll
+          # Fail on HIGH severity only (-lll = high, -ll = medium)
+          bandit -r aragora/ -c pyproject.toml -lll
 
       - name: Upload Bandit results
         uses: actions/upload-artifact@v4

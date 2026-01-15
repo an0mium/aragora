@@ -38,6 +38,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install black ruff
+          pip install -e .
 
       - name: Run lint tier
         run: bash scripts/test_tiers.sh lint
@@ -158,8 +159,8 @@ jobs:
         run: |
           # Generate JSON report for artifacts
           bandit -r aragora/ -ll -ii --format json --output bandit-report.json || true
-          # Fail on HIGH severity (level 2+), ignore LOW
-          bandit -r aragora/ -ll -ii --severity-level high
+          # Fail on HIGH severity only (-lll = high, -ll = medium, -l = low)
+          bandit -r aragora/ -lll -ii
 
       - name: Check dependencies for vulnerabilities
         run: |

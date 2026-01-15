@@ -60,14 +60,14 @@ jobs:
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
 
-          # Wait for server to be healthy
-          for i in {1..30}; do
+          # Wait for server to be healthy (increased timeout for CI)
+          for i in {1..60}; do
             if curl -fsS http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
               echo "Backend server is healthy"
               break
             fi
-            echo "Waiting for backend... ($i/30)"
-            sleep 1
+            echo "Waiting for backend... ($i/60)"
+            sleep 2
           done
 
           curl -fsS http://127.0.0.1:8080/api/health
@@ -96,14 +96,14 @@ jobs:
           FRONTEND_PID=$!
           echo "FRONTEND_PID=$FRONTEND_PID" >> $GITHUB_ENV
 
-          # Wait for frontend to be ready
-          for i in {1..30}; do
+          # Wait for frontend to be ready (increased timeout for CI)
+          for i in {1..60}; do
             if curl -fsS http://localhost:3000 >/dev/null 2>&1; then
               echo "Frontend is ready"
               break
             fi
-            echo "Waiting for frontend... ($i/30)"
-            sleep 1
+            echo "Waiting for frontend... ($i/60)"
+            sleep 2
           done
 
       - name: Run Playwright tests
