@@ -305,7 +305,7 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
 
   const forkReplay = useCallback(async (debateId: string, eventId: string, configOverrides: object = {}) => {
     try {
-      const response = await fetch(`/api/replays/${debateId}/fork`, {
+      const response = await fetch(`${API_BASE_URL}/api/replays/${debateId}/fork`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event_id: eventId, config: configOverrides }),
