@@ -288,7 +288,7 @@ class TestDashboardEdgeCases:
 
     def test_debates_with_nan_confidence(self):
         """Dashboard should handle NaN confidence values."""
-        from aragora.server.handlers.dashboard import DashboardHandler
+        from aragora.server.handlers.admin import DashboardHandler
 
         handler = DashboardHandler({})
         debates = [
@@ -301,7 +301,7 @@ class TestDashboardEdgeCases:
 
     def test_debates_with_infinity_confidence(self):
         """Dashboard should handle infinity confidence values."""
-        from aragora.server.handlers.dashboard import DashboardHandler
+        from aragora.server.handlers.admin import DashboardHandler
 
         handler = DashboardHandler({})
         debates = [
@@ -313,7 +313,7 @@ class TestDashboardEdgeCases:
 
     def test_debates_with_negative_confidence(self):
         """Dashboard should handle negative confidence values."""
-        from aragora.server.handlers.dashboard import DashboardHandler
+        from aragora.server.handlers.admin import DashboardHandler
 
         handler = DashboardHandler({})
         debates = [
@@ -325,7 +325,7 @@ class TestDashboardEdgeCases:
 
     def test_empty_debates_list(self):
         """Dashboard should handle empty debates list."""
-        from aragora.server.handlers.dashboard import DashboardHandler
+        from aragora.server.handlers.admin import DashboardHandler
 
         handler = DashboardHandler({})
         summary = handler._get_summary_metrics(None, [])
@@ -334,7 +334,7 @@ class TestDashboardEdgeCases:
 
     def test_large_debate_count(self):
         """Dashboard should handle large number of debates."""
-        from aragora.server.handlers.dashboard import DashboardHandler
+        from aragora.server.handlers.admin import DashboardHandler
 
         handler = DashboardHandler({})
         # Create 10000 mock debates
@@ -345,7 +345,7 @@ class TestDashboardEdgeCases:
 
     def test_hours_zero(self):
         """Dashboard should handle hours=0 parameter."""
-        from aragora.server.handlers.dashboard import DashboardHandler
+        from aragora.server.handlers.admin import DashboardHandler
         import json
 
         handler = DashboardHandler({})
@@ -355,7 +355,7 @@ class TestDashboardEdgeCases:
 
     def test_hours_negative(self):
         """Dashboard should handle negative hours parameter."""
-        from aragora.server.handlers.dashboard import DashboardHandler
+        from aragora.server.handlers.admin import DashboardHandler
         import json
 
         handler = DashboardHandler({})

@@ -237,7 +237,7 @@ def _get_stream_chunk_timeout() -> float:
     return get_settings().agent.stream_chunk_timeout
 
 
-STREAM_CHUNK_TIMEOUT = 30.0  # Default fallback, use _get_stream_chunk_timeout()
+STREAM_CHUNK_TIMEOUT = 90.0  # Default fallback (increased for long-form models)
 
 
 async def iter_chunks_with_timeout(

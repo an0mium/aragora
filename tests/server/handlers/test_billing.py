@@ -25,7 +25,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.server.handlers.billing import BillingHandler
+from aragora.server.handlers.admin import BillingHandler
 
 
 # ===========================================================================

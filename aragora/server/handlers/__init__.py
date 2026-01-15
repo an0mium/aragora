@@ -30,14 +30,14 @@ from aragora.config.stability import Stability
 from .admin import AdminHandler
 from .agents import AgentsHandler
 from .analytics import AnalyticsHandler
-from .audio import AudioHandler
 from .auditing import AuditingHandler
 from .auth import AuthHandler
 from .base import BaseHandler, HandlerResult, error_response, json_response
 from .belief import BeliefHandler
 from .admin import BillingHandler  # Moved to admin/
 from .breakpoints import BreakpointsHandler
-from .broadcast import BroadcastHandler
+from .features import AudioHandler  # Moved to features/
+from .features import BroadcastHandler  # Moved to features/
 from .agents import CalibrationHandler  # Moved to agents/
 from .checkpoints import CheckpointHandler
 from .consensus import ConsensusHandler
@@ -45,11 +45,11 @@ from .critique import CritiqueHandler
 from .admin import DashboardHandler  # Moved to admin/
 from .debates import DebatesHandler
 from .docs import DocsHandler
-from .documents import DocumentHandler
-from .evidence import EvidenceHandler
+from .features import DocumentHandler  # Moved to features/
+from .features import EvidenceHandler  # Moved to features/
 from .evolution import EvolutionHandler
 from .evolution_ab_testing import EvolutionABTestingHandler
-from .features import FeaturesHandler
+from .features import FeaturesHandler  # Moved to features/
 from .verification import FormalVerificationHandler  # Moved to verification/
 from .gallery import GalleryHandler
 from .gauntlet import GauntletHandler
@@ -70,9 +70,9 @@ from .nomic import NomicHandler
 from .oauth import OAuthHandler
 from .organizations import OrganizationsHandler
 from .persona import PersonaHandler
-from .plugins import PluginsHandler
+from .features import PluginsHandler  # Moved to features/
 from .agents import ProbesHandler  # Moved to agents/
-from .pulse import PulseHandler
+from .features import PulseHandler  # Moved to features/
 from .social import RelationshipHandler  # Moved to social/
 from .replays import ReplaysHandler
 from .reviews import ReviewsHandler

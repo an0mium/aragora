@@ -291,7 +291,7 @@ class TestCalibrationLeaderboardEndpoint:
     @pytest.fixture
     def handler(self):
         """Create CalibrationHandler with mock server context."""
-        from aragora.server.handlers.calibration import CalibrationHandler
+        from aragora.server.handlers.agents import CalibrationHandler
 
         mock_context = MagicMock()
         return CalibrationHandler(mock_context)

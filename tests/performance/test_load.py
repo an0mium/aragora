@@ -139,7 +139,7 @@ def mock_handler_context(tmp_path):
 @pytest.fixture
 def system_handler(mock_handler_context):
     """Create SystemHandler instance."""
-    from aragora.server.handlers.system import SystemHandler
+    from aragora.server.handlers.admin import SystemHandler
 
     return SystemHandler(mock_handler_context)
 

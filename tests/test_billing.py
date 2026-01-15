@@ -560,7 +560,7 @@ class TestBillingHandler:
 
     @pytest.fixture
     def handler(self):
-        from aragora.server.handlers.billing import BillingHandler
+        from aragora.server.handlers.admin import BillingHandler
 
         ctx = {}
         return BillingHandler(ctx)

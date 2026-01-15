@@ -29,7 +29,7 @@ from aragora.billing.models import (
     TIER_LIMITS,
     User,
 )
-from aragora.server.handlers.billing import BillingHandler
+from aragora.server.handlers.admin import BillingHandler
 
 
 # =============================================================================

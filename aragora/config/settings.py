@@ -128,7 +128,7 @@ class AgentSettings(BaseSettings):
         description="Maximum buffer size for streaming responses (bytes)",
     )
     stream_chunk_timeout: float = Field(
-        default=30.0,
+        default=90.0,  # Increased from 30 for long-form models like KIMI
         ge=5.0,
         le=300.0,
         alias="ARAGORA_STREAM_CHUNK_TIMEOUT",

@@ -23,8 +23,8 @@ from unittest.mock import Mock, MagicMock, patch
 
 import pytest
 
-from aragora.server.handlers.system import SystemHandler
-from aragora.server.handlers.health import HealthHandler
+from aragora.server.handlers.admin import SystemHandler
+from aragora.server.handlers.admin import HealthHandler
 from aragora.server.handlers.nomic import NomicHandler
 from aragora.server.handlers.docs import DocsHandler
 from aragora.server.handlers.base import HandlerResult

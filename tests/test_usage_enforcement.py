@@ -177,7 +177,7 @@ class TestUsageEndpoint:
     @pytest.fixture
     def billing_handler(self, mock_user_store):
         """Create billing handler."""
-        from aragora.server.handlers.billing import BillingHandler
+        from aragora.server.handlers.admin import BillingHandler
 
         ctx = {"user_store": mock_user_store}
         return BillingHandler(ctx)
@@ -259,7 +259,7 @@ class TestForecastEndpoint:
     @pytest.fixture
     def billing_handler(self, mock_user_store):
         """Create billing handler."""
-        from aragora.server.handlers.billing import BillingHandler
+        from aragora.server.handlers.admin import BillingHandler
 
         ctx = {"user_store": mock_user_store}
         return BillingHandler(ctx)

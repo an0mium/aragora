@@ -92,9 +92,9 @@ class Phase(Protocol):
 class PhaseConfig:
     """Configuration for phase execution."""
 
-    # Timeout settings
-    total_timeout_seconds: float = 300.0  # 5 minutes default
-    phase_timeout_seconds: float = 60.0  # Per-phase timeout
+    # Timeout settings (increased for debates with many agents)
+    total_timeout_seconds: float = 600.0  # 10 minutes default
+    phase_timeout_seconds: float = 120.0  # Per-phase timeout (2 minutes)
 
     # Execution behavior
     stop_on_failure: bool = True

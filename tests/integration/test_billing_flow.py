@@ -38,7 +38,7 @@ from aragora.billing.usage import (
     calculate_token_cost,
 )
 from aragora.billing.jwt_auth import create_token_pair
-from aragora.server.handlers.billing import BillingHandler
+from aragora.server.handlers.admin import BillingHandler
 from aragora.server.handlers.base import HandlerResult
 
 

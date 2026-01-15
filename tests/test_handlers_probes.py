@@ -10,7 +10,7 @@ import json
 import pytest
 from unittest.mock import Mock, MagicMock, patch, AsyncMock
 
-from aragora.server.handlers.probes import ProbesHandler
+from aragora.server.handlers.agents import ProbesHandler
 from aragora.server.handlers.base import clear_cache
 
 

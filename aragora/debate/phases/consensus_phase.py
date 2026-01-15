@@ -1702,10 +1702,10 @@ class ConsensusPhase:
             # Build synthesis prompt
             synthesis_prompt = self._build_synthesis_prompt(ctx)
 
-            # Generate synthesis with timeout
+            # Generate synthesis with timeout (180s for complex debates)
             synthesis = await asyncio.wait_for(
                 synthesizer.generate(synthesis_prompt, ctx.context_messages),
-                timeout=90.0,
+                timeout=180.0,
             )
 
             # Store synthesis in result
@@ -1741,7 +1741,7 @@ class ConsensusPhase:
                 )
 
         except asyncio.TimeoutError:
-            logger.warning("synthesis_timeout timeout=90s, using consensus fallback")
+            logger.warning("synthesis_timeout timeout=180s, using consensus fallback")
             # Use existing final_answer from consensus as fallback
             if ctx.result.final_answer:
                 synthesis = f"[Synthesis generated from consensus result]\n\n{ctx.result.final_answer}"

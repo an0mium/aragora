@@ -399,13 +399,13 @@ class TestCalibrationEndpoints:
 
     def test_calibration_handler_exists(self):
         """Verify CalibrationHandler can be imported."""
-        from aragora.server.handlers.calibration import CalibrationHandler
+        from aragora.server.handlers.agents import CalibrationHandler
 
         assert CalibrationHandler is not None
 
     def test_calibration_routes(self, handler_ctx):
         """Verify calibration routes are handled."""
-        from aragora.server.handlers.calibration import CalibrationHandler
+        from aragora.server.handlers.agents import CalibrationHandler
 
         handler = CalibrationHandler(handler_ctx)
 
@@ -419,7 +419,7 @@ class TestCalibrationEndpoints:
 
     def test_calibration_agent_routes(self, handler_ctx):
         """Verify agent-specific calibration routes are handled."""
-        from aragora.server.handlers.calibration import CalibrationHandler
+        from aragora.server.handlers.agents import CalibrationHandler
 
         handler = CalibrationHandler(handler_ctx)
 

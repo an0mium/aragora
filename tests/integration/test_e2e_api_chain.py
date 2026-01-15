@@ -249,7 +249,7 @@ class TestHandlerCoordination:
 
     def test_health_handler_always_responds(self, handler_context, mock_request):
         """SystemHandler health endpoint should always work."""
-        from aragora.server.handlers.system import SystemHandler
+        from aragora.server.handlers.admin import SystemHandler
 
         handler = SystemHandler(handler_context)
 
@@ -262,7 +262,7 @@ class TestHandlerCoordination:
 
     def test_system_handler_returns_valid_json(self, handler_context, mock_request):
         """SystemHandler should return valid JSON body."""
-        from aragora.server.handlers.system import SystemHandler
+        from aragora.server.handlers.admin import SystemHandler
 
         handler = SystemHandler(handler_context)
         result = handler.handle("/api/health", {}, mock_request)

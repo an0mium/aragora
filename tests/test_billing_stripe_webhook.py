@@ -71,7 +71,7 @@ def mock_user_store():
 @pytest.fixture
 def billing_handler(mock_user_store):
     """Create billing handler with mocked context."""
-    from aragora.server.handlers.billing import BillingHandler
+    from aragora.server.handlers.admin import BillingHandler
 
     ctx = {"user_store": mock_user_store}
     handler = BillingHandler(ctx)

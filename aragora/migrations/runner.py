@@ -94,9 +94,11 @@ class MigrationRunner:
 
     def _init_migrations_table(self) -> None:
         """Create the migrations tracking table if it doesn't exist."""
+        # Use BIGINT for PostgreSQL to support timestamp-based version numbers
+        version_type = "BIGINT" if isinstance(self._backend, PostgreSQLBackend) else "INTEGER"
         sql = f"""
             CREATE TABLE IF NOT EXISTS {self.MIGRATIONS_TABLE} (
-                version INTEGER PRIMARY KEY,
+                version {version_type} PRIMARY KEY,
                 name TEXT NOT NULL,
                 applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )

@@ -288,7 +288,9 @@ class SyncEventEmitter:
         if self._loop_id and not event.loop_id:
             event.loop_id = self._loop_id
 
-        # Assign sequence numbers (thread-safe)
+        # Assign sequence numbers AND queue event atomically (thread-safe)
+        # This prevents race conditions where events get dropped but their
+        # sequence numbers are already assigned, causing sequence gaps
         with self._seq_lock:
             self._global_seq += 1
             event.seq = self._global_seq
@@ -300,19 +302,22 @@ class SyncEventEmitter:
                 self._agent_seqs[event.agent] += 1
                 event.agent_seq = self._agent_seqs[event.agent]
 
-        # Enforce queue size limit to prevent memory exhaustion
-        if self._queue.qsize() >= self.MAX_QUEUE_SIZE:
-            # Drop oldest event to make room (backpressure)
-            try:
-                self._queue.get_nowait()
-                self._overflow_count += 1
-                logger.warning(
-                    f"[stream] Queue overflow, dropped event (total: {self._overflow_count})"
-                )
-            except queue.Empty:
-                pass
+            # Enforce queue size limit to prevent memory exhaustion
+            # Must be inside lock to prevent race between seq assignment and queue
+            if self._queue.qsize() >= self.MAX_QUEUE_SIZE:
+                # Drop oldest event to make room (backpressure)
+                try:
+                    self._queue.get_nowait()
+                    self._overflow_count += 1
+                    logger.warning(
+                        f"[stream] Queue overflow, dropped event (total: {self._overflow_count})"
+                    )
+                except queue.Empty:
+                    pass
 
-        self._queue.put(event)
+            self._queue.put(event)
+
+        # Notify subscribers outside lock (they don't need seq consistency)
         for sub in self._subscribers:
             try:
                 sub(event)

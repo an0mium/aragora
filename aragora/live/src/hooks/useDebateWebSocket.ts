@@ -604,10 +604,23 @@ export function useDebateWebSocket({
     // Critique events
     else if (data.type === 'critique') {
       const issues = eventData?.issues as string[] | undefined;
+      const target = (eventData?.target as string) || 'unknown';
+      const critic = (data.agent as string) || (eventData?.agent as string) || 'unknown';
+
+      // Build critique content: prefer full content, fallback to issues, then placeholder
+      let critiqueBody = '';
+      if (eventData?.content && typeof eventData.content === 'string' && eventData.content.trim()) {
+        critiqueBody = eventData.content as string;
+      } else if (issues && issues.length > 0) {
+        critiqueBody = issues.join('; ');
+      } else {
+        critiqueBody = '[Critique content not available]';
+      }
+
       const msg: TranscriptMessage = {
-        agent: (data.agent as string) || (eventData?.agent as string) || 'unknown',
+        agent: critic,
         role: 'critic',
-        content: `[CRITIQUE → ${(eventData?.target as string) || 'unknown'}] ${issues?.join('; ') || (eventData?.content as string) || ''}`,
+        content: `[CRITIQUE → ${target}] ${critiqueBody}`,
         round: (data.round as number) || (eventData?.round as number),
         timestamp: (data.timestamp as number) || Date.now() / 1000,
       };

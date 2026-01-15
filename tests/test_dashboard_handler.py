@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from aragora.server.handlers.dashboard import DashboardHandler
+from aragora.server.handlers.admin import DashboardHandler
 
 
 class TestDashboardHandlerRouting:

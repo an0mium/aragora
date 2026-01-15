@@ -12,7 +12,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import time
 
-from aragora.server.handlers.formal_verification import (
+from aragora.server.handlers.verification.formal_verification import (
     FormalVerificationHandler,
     _verification_history,
     _add_to_history,
@@ -90,7 +90,7 @@ class TestVerificationHistoryStorage:
 
     def test_history_eviction(self):
         """Test that old entries are evicted when limit is reached."""
-        from aragora.server.handlers.formal_verification import MAX_HISTORY_SIZE
+        from aragora.server.handlers.verification.formal_verification import MAX_HISTORY_SIZE
 
         # Add entries up to the limit
         for i in range(MAX_HISTORY_SIZE + 10):

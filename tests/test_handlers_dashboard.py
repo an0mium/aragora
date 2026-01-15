@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
 
-from aragora.server.handlers.dashboard import DashboardHandler
+from aragora.server.handlers.admin import DashboardHandler
 from aragora.server.handlers.base import clear_cache
 
 
