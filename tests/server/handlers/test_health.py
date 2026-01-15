@@ -19,22 +19,20 @@ from aragora.server.handlers.admin.health import HealthHandler
 @pytest.fixture
 def health_handler():
     """Create a health handler with mocked dependencies."""
-    handler = HealthHandler()
-    handler.ctx = {}
+    ctx = {"storage": None, "elo_system": None, "nomic_dir": None}
+    handler = HealthHandler(ctx)
     return handler
 
 
 @pytest.fixture
 def health_handler_with_storage():
     """Create a health handler with mocked storage."""
-    handler = HealthHandler()
-    handler.ctx = {}
-
     mock_storage = MagicMock()
     mock_storage.list_recent.return_value = []
 
-    with patch.object(handler, 'get_storage', return_value=mock_storage):
-        yield handler
+    ctx = {"storage": mock_storage, "elo_system": None, "nomic_dir": None}
+    handler = HealthHandler(ctx)
+    return handler
 
 
 class TestHealthHandler:
@@ -76,7 +74,7 @@ class TestLivenessProbe:
         assert result is not None
         body = json.loads(result.body)
         assert body["status"] == "ok"
-        assert result.status == 200
+        assert result.status_code == 200
 
 
 class TestReadinessProbe:
@@ -91,7 +89,7 @@ class TestReadinessProbe:
         assert result is not None
         body = json.loads(result.body)
         assert body["status"] == "ready"
-        assert result.status == 200
+        assert result.status_code == 200
 
     def test_readiness_with_storage_returns_ready(self, health_handler):
         """Readiness should return ready when storage is available."""
@@ -105,7 +103,7 @@ class TestReadinessProbe:
         body = json.loads(result.body)
         assert body["status"] == "ready"
         assert body["checks"]["storage"] is True
-        assert result.status == 200
+        assert result.status_code == 200
 
     def test_readiness_with_storage_error_returns_not_ready(self, health_handler):
         """Readiness should return not_ready when storage fails."""
@@ -117,7 +115,7 @@ class TestReadinessProbe:
         body = json.loads(result.body)
         assert body["status"] == "not_ready"
         assert body["checks"]["storage"] is False
-        assert result.status == 503
+        assert result.status_code == 503
 
 
 class TestComprehensiveHealthCheck:
