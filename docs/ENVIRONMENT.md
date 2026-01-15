@@ -350,6 +350,35 @@ Configure Slack slash commands and outbound notifications.
 | `ARAGORA_RATE_LIMIT_FAIL_OPEN` | Optional | Allow requests if Redis is down (`true`/`false`) | `false` |
 | `ARAGORA_REDIS_FAILURE_THRESHOLD` | Optional | Failures before Redis limiter disables (count) | `3` |
 
+## Request Timeout Middleware
+
+Controls HTTP request timeouts to prevent hanging requests and cascading failures.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_REQUEST_TIMEOUT` | Optional | Default request timeout (seconds) | `30` |
+| `ARAGORA_SLOW_REQUEST_TIMEOUT` | Optional | Timeout for slow endpoints like debates, broadcasts (seconds) | `60` |
+| `ARAGORA_MAX_REQUEST_TIMEOUT` | Optional | Maximum allowed timeout (seconds) | `300` |
+| `ARAGORA_TIMEOUT_WORKERS` | Optional | Thread pool size for sync timeout operations | `4` |
+
+**Slow Endpoint Patterns** (automatically use `ARAGORA_SLOW_REQUEST_TIMEOUT`):
+- `/api/debates/` - Debate orchestration
+- `/api/broadcast/` - Audio/video generation
+- `/api/evidence/` - Evidence collection
+- `/api/gauntlet/` - Comprehensive testing
+
+**Per-endpoint Overrides:**
+```python
+from aragora.server.middleware.timeout import configure_timeout
+
+configure_timeout(
+    endpoint_overrides={
+        "/api/debates/run": 120.0,  # 2 minutes for debate runs
+        "/api/broadcast/generate": 180.0,  # 3 minutes for video generation
+    }
+)
+```
+
 ## Billing & Authentication
 
 JWT authentication and Stripe integration for paid tiers.
