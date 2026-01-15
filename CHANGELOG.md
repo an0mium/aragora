@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-01-15
+
+### Added
+- **Privacy compliance handler**: GDPR/CCPA data privacy endpoints (566 lines)
+  - `GET /api/privacy/data-export`: Export user data (GDPR Art. 20)
+  - `DELETE /api/privacy/data-deletion`: Request data deletion (GDPR Art. 17)
+  - `GET /api/privacy/consent`: Get consent status
+  - `POST /api/privacy/consent`: Update consent preferences
+  - `GET /api/privacy/retention`: Get data retention policies
+- **CritiqueStore module**: Persistent critique storage with thread-safe access
+- **New test suites**:
+  - Privacy handler tests (722 lines)
+  - MFA middleware tests (663 lines)
+  - Storage factory/repository tests (672 lines)
+  - Debate orchestrator integration tests (454 lines)
+- **Documentation**:
+  - DATA_RESIDENCY.md: Regional storage and compliance policies
+  - FEATURE_MATURITY.md: Feature stability classifications
+  - MONITORING_SETUP.md: Observability configuration guide
+  - REMOTE_WORK_SECURITY.md: Security guidelines for remote development
+
+### Changed
+- **Type safety improvements**:
+  - Added `AgentRole` and `AgentStance` type aliases
+  - Added `ServerContext` TypedDict for handler type safety
+  - Improved type hints across core modules
+- **Consensus phase reliability**: Guaranteed synthesis generation with multi-tier fallbacks
+  - Fallback chain: Opus → Sonnet → formatted summary → minimal synthesis
+  - Never fails silently - always produces output
+- **Handler test fixes**: Updated 351 tests for refactored module paths
+  - Fixed HandlerResult attribute access (`.status_code`, `.body`)
+  - Fixed import paths for admin/billing, features/evidence subpackages
+  - Added rate limiter reset fixtures
+
+### Fixed
+- **Handler import paths**: Fixed broken imports after handler refactoring
+  - Cache imports: `.cache` → `.admin.cache`
+  - Evidence imports: Updated for features subpackage
+  - Billing mock patches: Updated for jwt_auth, stripe_client paths
+- **Test pollution**: Added rate limiter reset between tests
+- **Gauntlet ID validation**: Tests now use valid `gauntlet-*` ID format
+
+### Security
+- **GDPR/CCPA compliance**: Full data subject rights implementation
+- **Consent management**: Granular consent tracking and updates
+
 ## [1.5.0] - 2026-01-14
 
 ### Added
