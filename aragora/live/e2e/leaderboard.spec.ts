@@ -1,20 +1,22 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 /**
  * E2E tests for the leaderboard feature.
  */
 
 test.describe('Leaderboard', () => {
-  test('should load leaderboard page', async ({ page }) => {
+  test('should load leaderboard page', async ({ page, aragoraPage }) => {
     await page.goto('/leaderboard');
+    await aragoraPage.dismissAllOverlays();
 
     // Should have leaderboard heading or content
     const heading = page.locator('h1:has-text("Leaderboard"), h1:has-text("Ranking"), [data-testid="leaderboard-title"]');
     await expect(heading.first()).toBeVisible();
   });
 
-  test('should display agent rankings', async ({ page }) => {
+  test('should display agent rankings', async ({ page, aragoraPage }) => {
     await page.goto('/leaderboard');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Should show ranking table or list
@@ -31,8 +33,9 @@ test.describe('Leaderboard', () => {
     expect(hasRankings || hasEmptyState).toBeTruthy();
   });
 
-  test('should show ELO ratings', async ({ page }) => {
+  test('should show ELO ratings', async ({ page, aragoraPage }) => {
     await page.goto('/leaderboard');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for ELO or rating values
@@ -47,8 +50,9 @@ test.describe('Leaderboard', () => {
     }
   });
 
-  test('should display agent names', async ({ page }) => {
+  test('should display agent names', async ({ page, aragoraPage }) => {
     await page.goto('/leaderboard');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for agent names
@@ -64,8 +68,9 @@ test.describe('Leaderboard', () => {
     }
   });
 
-  test('should allow sorting by different metrics', async ({ page }) => {
+  test('should allow sorting by different metrics', async ({ page, aragoraPage }) => {
     await page.goto('/leaderboard');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for sort controls
@@ -82,8 +87,9 @@ test.describe('Leaderboard', () => {
     }
   });
 
-  test('should show win/loss statistics', async ({ page }) => {
+  test('should show win/loss statistics', async ({ page, aragoraPage }) => {
     await page.goto('/leaderboard');
+    await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
     // Look for win/loss or match statistics
@@ -96,8 +102,9 @@ test.describe('Leaderboard', () => {
     expect(hasStats).toBeDefined();
   });
 
-  test('should be accessible', async ({ page }) => {
+  test('should be accessible', async ({ page, aragoraPage }) => {
     await page.goto('/leaderboard');
+    await aragoraPage.dismissAllOverlays();
 
     // Table should have proper structure
     const table = page.locator('table');
@@ -110,8 +117,9 @@ test.describe('Leaderboard', () => {
     }
   });
 
-  test('should handle loading state', async ({ page }) => {
+  test('should handle loading state', async ({ page, aragoraPage }) => {
     await page.goto('/leaderboard');
+    await aragoraPage.dismissAllOverlays();
 
     // During load, might show skeleton or spinner
     const loadingIndicator = page.locator(

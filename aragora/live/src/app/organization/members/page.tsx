@@ -254,6 +254,7 @@ export default function OrganizationMembersPage() {
                         value={inviteEmail}
                         onChange={(e) => setInviteEmail(e.target.value)}
                         placeholder="email@example.com"
+                        aria-label="Email address to invite"
                         className="w-full bg-bg border border-acid-green/30 px-4 py-2 font-mono text-sm text-text focus:border-acid-green focus:outline-none"
                         required
                       />
@@ -264,6 +265,7 @@ export default function OrganizationMembersPage() {
                         id="invite-role"
                         value={inviteRole}
                         onChange={(e) => setInviteRole(e.target.value as 'admin' | 'member')}
+                        aria-label="Role for invited member"
                         className="bg-bg border border-acid-green/30 px-4 py-2 font-mono text-sm text-text focus:border-acid-green focus:outline-none"
                       >
                         <option value="member">Member</option>
