@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from aragora.billing.models import Organization, User
 
 
 class InMemoryUserStore:
@@ -12,13 +15,13 @@ class InMemoryUserStore:
     Production should use a proper database backend.
     """
 
-    def __init__(self):
-        self.users: dict[str, Any] = {}  # id -> User
+    def __init__(self) -> None:
+        self.users: dict[str, User] = {}  # id -> User
         self.users_by_email: dict[str, str] = {}  # email -> id
-        self.organizations: dict[str, Any] = {}  # id -> Organization
+        self.organizations: dict[str, Organization] = {}  # id -> Organization
         self.api_keys: dict[str, str] = {}  # api_key -> user_id
 
-    def save_user(self, user) -> None:
+    def save_user(self, user: User) -> None:
         """Save a user."""
         self.users[user.id] = user
         self.users_by_email[user.email.lower()] = user.id
@@ -26,18 +29,18 @@ class InMemoryUserStore:
         if user.api_key:
             self.api_keys[user.api_key] = user.id
 
-    def get_user_by_id(self, user_id: str):
+    def get_user_by_id(self, user_id: str) -> Optional[User]:
         """Get user by ID."""
         return self.users.get(user_id)
 
-    def get_user_by_email(self, email: str):
+    def get_user_by_email(self, email: str) -> Optional[User]:
         """Get user by email."""
         user_id = self.users_by_email.get(email.lower())
         if user_id:
             return self.users.get(user_id)
         return None
 
-    def get_user_by_api_key(self, api_key: str):
+    def get_user_by_api_key(self, api_key: str) -> Optional[User]:
         """Get user by API key.
 
         Supports both:
@@ -56,11 +59,11 @@ class InMemoryUserStore:
 
         return None
 
-    def save_organization(self, org) -> None:
+    def save_organization(self, org: Organization) -> None:
         """Save an organization."""
         self.organizations[org.id] = org
 
-    def get_organization_by_id(self, org_id: str):
+    def get_organization_by_id(self, org_id: str) -> Optional[Organization]:
         """Get organization by ID."""
         return self.organizations.get(org_id)
 
