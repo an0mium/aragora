@@ -65,6 +65,9 @@ class Event:
 
     Events are immutable records of something that happened.
     They trigger state transitions and are logged for auditing.
+
+    Includes distributed tracing fields for correlation across services,
+    consistent with DebateEvent in aragora.debate.event_bus.
     """
 
     event_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
@@ -82,9 +85,26 @@ class Event:
     agent_name: Optional[str] = None
     agent_error: Optional[str] = None
 
+    # Distributed tracing fields for correlation across services
+    correlation_id: Optional[str] = None  # Links related events across service boundaries
+    trace_id: Optional[str] = None  # OpenTelemetry-style trace identifier
+    span_id: Optional[str] = None  # Current operation span
+
+    def __post_init__(self):
+        """Auto-populate tracing fields from current context if not provided."""
+        if self.correlation_id is None and self.trace_id is None:
+            try:
+                from aragora.server.middleware.tracing import get_trace_id, get_span_id
+
+                self.trace_id = get_trace_id()
+                self.span_id = get_span_id()
+                self.correlation_id = self.trace_id  # Use trace_id as correlation_id
+            except ImportError:
+                pass
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize event to dictionary."""
-        return {
+        result = {
             "event_id": self.event_id,
             "event_type": self.event_type.name,
             "timestamp": self.timestamp.isoformat(),
@@ -96,6 +116,14 @@ class Event:
             "agent_name": self.agent_name,
             "agent_error": self.agent_error,
         }
+        # Include tracing fields if present
+        if self.correlation_id:
+            result["correlation_id"] = self.correlation_id
+        if self.trace_id:
+            result["trace_id"] = self.trace_id
+        if self.span_id:
+            result["span_id"] = self.span_id
+        return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Event":

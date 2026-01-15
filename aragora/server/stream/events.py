@@ -150,7 +150,11 @@ class StreamEventType(Enum):
 
 @dataclass
 class StreamEvent:
-    """A single event in the debate stream."""
+    """A single event in the debate stream.
+
+    Includes distributed tracing fields for correlation across services,
+    consistent with DebateEvent in aragora.debate.event_bus.
+    """
 
     type: StreamEventType
     data: dict
@@ -161,6 +165,22 @@ class StreamEvent:
     seq: int = 0  # Global sequence number for ordering
     agent_seq: int = 0  # Per-agent sequence number for token ordering
     task_id: str = ""  # Unique task identifier for concurrent outputs from same agent
+    # Distributed tracing fields for correlation across services
+    correlation_id: str = ""  # Links related events across service boundaries
+    trace_id: str = ""  # OpenTelemetry-style trace identifier
+    span_id: str = ""  # Current operation span
+
+    def __post_init__(self):
+        """Auto-populate tracing fields from current context if not provided."""
+        if not self.correlation_id and not self.trace_id:
+            try:
+                from aragora.server.middleware.tracing import get_trace_id, get_span_id
+
+                self.trace_id = get_trace_id() or ""
+                self.span_id = get_span_id() or ""
+                self.correlation_id = self.trace_id  # Use trace_id as correlation_id
+            except ImportError:
+                pass
 
     def to_dict(self) -> dict:
         result = {
@@ -176,6 +196,13 @@ class StreamEvent:
             result["loop_id"] = self.loop_id
         if self.task_id:
             result["task_id"] = self.task_id
+        # Include tracing fields if present
+        if self.correlation_id:
+            result["correlation_id"] = self.correlation_id
+        if self.trace_id:
+            result["trace_id"] = self.trace_id
+        if self.span_id:
+            result["span_id"] = self.span_id
         return result
 
     def to_json(self) -> str:
