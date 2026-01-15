@@ -130,25 +130,28 @@ function ConfigEditor({ config, onUpdate, loading }: ConfigEditorProps) {
     <div className="space-y-4">
       {/* Rate Limit */}
       <div>
-        <label className="block text-xs font-mono text-text-muted mb-1">
+        <label htmlFor="pulse-debates-per-hour" className="block text-xs font-mono text-text-muted mb-1">
           Debates per Hour: {localConfig.max_debates_per_hour}
         </label>
         <input
+          id="pulse-debates-per-hour"
           type="range"
           min="1"
           max="12"
           value={localConfig.max_debates_per_hour}
           onChange={(e) => handleChange('max_debates_per_hour', parseInt(e.target.value))}
           className="w-full accent-acid-green"
+          aria-label={`Debates per hour: ${localConfig.max_debates_per_hour}`}
         />
       </div>
 
       {/* Poll Interval */}
       <div>
-        <label className="block text-xs font-mono text-text-muted mb-1">
+        <label htmlFor="pulse-poll-interval" className="block text-xs font-mono text-text-muted mb-1">
           Poll Interval: {Math.round(localConfig.poll_interval_seconds / 60)}min
         </label>
         <input
+          id="pulse-poll-interval"
           type="range"
           min="60"
           max="900"
@@ -156,15 +159,17 @@ function ConfigEditor({ config, onUpdate, loading }: ConfigEditorProps) {
           value={localConfig.poll_interval_seconds}
           onChange={(e) => handleChange('poll_interval_seconds', parseInt(e.target.value))}
           className="w-full accent-acid-green"
+          aria-label={`Poll interval: ${Math.round(localConfig.poll_interval_seconds / 60)} minutes`}
         />
       </div>
 
       {/* Volume Threshold */}
       <div>
-        <label className="block text-xs font-mono text-text-muted mb-1">
+        <label htmlFor="pulse-min-volume" className="block text-xs font-mono text-text-muted mb-1">
           Min Volume: {localConfig.min_volume_threshold}
         </label>
         <input
+          id="pulse-min-volume"
           type="range"
           min="10"
           max="500"
@@ -172,6 +177,7 @@ function ConfigEditor({ config, onUpdate, loading }: ConfigEditorProps) {
           value={localConfig.min_volume_threshold}
           onChange={(e) => handleChange('min_volume_threshold', parseInt(e.target.value))}
           className="w-full accent-acid-green"
+          aria-label={`Minimum volume threshold: ${localConfig.min_volume_threshold}`}
         />
       </div>
 
