@@ -337,11 +337,11 @@ class AgentFallbackChain:
     CircuitBreaker to track provider health and avoid repeatedly calling failing providers.
 
     Usage:
-        from aragora.resilience import CircuitBreaker
+        from aragora.resilience import get_circuit_breaker
 
         chain = AgentFallbackChain(
             providers=["openai", "openrouter", "anthropic"],
-            circuit_breaker=CircuitBreaker(failure_threshold=3, cooldown_seconds=60),
+            circuit_breaker=get_circuit_breaker("fallback_chain", failure_threshold=3, cooldown_seconds=60),
             max_retries=3,  # Only try 3 providers before giving up
             max_fallback_time=30.0,  # Give up after 30 seconds total
         )

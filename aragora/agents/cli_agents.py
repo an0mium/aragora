@@ -27,7 +27,7 @@ from aragora.agents.errors import (
 )
 from aragora.agents.registry import AgentRegistry
 from aragora.core import Agent, Critique, Message
-from aragora.resilience import CircuitBreaker
+from aragora.resilience import CircuitBreaker, get_circuit_breaker
 
 if TYPE_CHECKING:
     from aragora.agents.api_agents import OpenRouterAgent
@@ -112,12 +112,14 @@ class CLIAgent(CritiqueMixin, Agent):
         self._fallback_used = False  # Track if fallback was triggered this session
         self.enable_circuit_breaker = enable_circuit_breaker
 
-        # Use provided circuit breaker or create a new local instance
-        # This avoids global state and improves testability
+        # Use provided circuit breaker, global registry, or disable
+        # Global registry ensures consistent state across agent instances
         if circuit_breaker is not None:
             self._circuit_breaker = circuit_breaker
         elif enable_circuit_breaker:
-            self._circuit_breaker = CircuitBreaker(
+            # Use global registry with agent name for shared state
+            self._circuit_breaker = get_circuit_breaker(
+                f"cli_{name}",
                 failure_threshold=15,  # High threshold for CLI flakiness
                 cooldown_seconds=120.0,  # Longer cooldown for active debates
             )
