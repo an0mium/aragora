@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useCallback } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
 import { UserParticipation } from '@/components/UserParticipation';
 import { CitationsPanel } from '@/components/CitationsPanel';
@@ -12,6 +13,7 @@ import { RhetoricalObservationsPanel } from './RhetoricalObservationsPanel';
 import { UncertaintyPanel } from '@/components/UncertaintyPanel';
 import { MoodTrackerPanel } from '@/components/MoodTrackerPanel';
 import { TokenStreamViewer } from '@/components/TokenStreamViewer';
+import { API_BASE_URL } from '@/config';
 import type { LiveDebateViewProps } from './types';
 
 const STATUS_CONFIG = {
@@ -213,16 +215,73 @@ export function LiveDebateView({
         </div>
       )}
 
-      {/* Footer - show when complete with clickable permalink */}
+      {/* Export & Share Panel - show when complete */}
       {status === 'complete' && (
-        <div className="text-center text-xs font-mono text-text-muted py-4 border-t border-acid-green/20">
-          <button
-            onClick={onShare}
-            className="hover:text-acid-green transition-colors cursor-pointer"
-            title="Click to copy permalink"
-          >
-            {'>'} PERMALINK: {debateId} {copied ? '[COPIED!]' : '[CLICK TO COPY]'}
-          </button>
+        <div className="bg-surface border border-acid-green/30">
+          <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50">
+            <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+              {'>'} EXPORT & SHARE
+            </span>
+          </div>
+          <div className="p-4 space-y-4">
+            {/* Transcript Downloads */}
+            <div>
+              <div className="text-xs font-mono text-text-muted mb-2 uppercase">Download Transcript</div>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={`${API_BASE_URL}/api/debates/${debateId}/export/txt`}
+                  download
+                  className="px-3 py-2 text-xs font-mono bg-bg border border-acid-green/40 text-acid-green hover:bg-acid-green/10 transition-colors"
+                >
+                  [TXT]
+                </a>
+                <a
+                  href={`${API_BASE_URL}/api/debates/${debateId}/export/md`}
+                  download
+                  className="px-3 py-2 text-xs font-mono bg-bg border border-acid-green/40 text-acid-green hover:bg-acid-green/10 transition-colors"
+                >
+                  [MARKDOWN]
+                </a>
+                <a
+                  href={`${API_BASE_URL}/api/debates/${debateId}/export/json`}
+                  download
+                  className="px-3 py-2 text-xs font-mono bg-bg border border-border text-text-muted hover:border-acid-green/40 transition-colors"
+                >
+                  [JSON]
+                </a>
+                <a
+                  href={`${API_BASE_URL}/api/debates/${debateId}/export/html`}
+                  download
+                  className="px-3 py-2 text-xs font-mono bg-bg border border-border text-text-muted hover:border-acid-green/40 transition-colors"
+                >
+                  [HTML]
+                </a>
+              </div>
+            </div>
+
+            {/* Audio Generation (placeholder for future) */}
+            <div>
+              <div className="text-xs font-mono text-text-muted mb-2 uppercase">Audio</div>
+              <button
+                disabled
+                className="px-3 py-2 text-xs font-mono bg-bg border border-border text-text-muted opacity-50 cursor-not-allowed"
+                title="Audio generation coming soon"
+              >
+                [GENERATE AUDIO] (coming soon)
+              </button>
+            </div>
+
+            {/* Permalink */}
+            <div className="pt-2 border-t border-acid-green/20">
+              <button
+                onClick={onShare}
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors cursor-pointer"
+                title="Click to copy permalink"
+              >
+                {'>'} PERMALINK: {debateId} {copied ? '[COPIED!]' : '[CLICK TO COPY]'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
