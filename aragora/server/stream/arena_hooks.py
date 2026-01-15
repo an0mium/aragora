@@ -184,7 +184,7 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
             )
         )
 
-    def on_consensus(reached: bool, confidence: float, answer: str) -> None:
+    def on_consensus(reached: bool, confidence: float, answer: str, synthesis: str = "") -> None:
         emitter.emit(
             StreamEvent(
                 type=StreamEventType.CONSENSUS,
@@ -192,7 +192,23 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
                     "reached": reached,
                     "confidence": confidence,
                     "answer": answer,  # Full answer - no truncation
+                    "synthesis": synthesis,  # Fallback synthesis in case SYNTHESIS event is missed
                 },
+                loop_id=loop_id,
+            )
+        )
+
+    def on_synthesis(content: str, confidence: float = 0.0) -> None:
+        """Emit explicit synthesis event for guaranteed delivery."""
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.SYNTHESIS,
+                data={
+                    "content": content,
+                    "confidence": confidence,
+                    "agent": "synthesis-agent",
+                },
+                agent="synthesis-agent",
                 loop_id=loop_id,
             )
         )
@@ -213,6 +229,7 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
         "on_critique": on_critique,
         "on_vote": on_vote,
         "on_consensus": on_consensus,
+        "on_synthesis": on_synthesis,
         "on_debate_end": on_debate_end,
     }
 

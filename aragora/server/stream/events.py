@@ -21,6 +21,7 @@ class StreamEventType(Enum):
     CRITIQUE = "critique"
     VOTE = "vote"
     CONSENSUS = "consensus"
+    SYNTHESIS = "synthesis"  # Explicit synthesis event for guaranteed delivery
     DEBATE_END = "debate_end"
 
     # Token streaming events (for real-time response display)
