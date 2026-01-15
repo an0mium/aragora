@@ -18,6 +18,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+try:
+    from botocore.exceptions import ClientError
+except ImportError:
+    ClientError = None  # boto3 not installed
+
 from aragora.config.secrets import (
     MANAGED_SECRETS,
     SecretManager,
@@ -243,8 +248,6 @@ class TestSecretManagerAWS:
 
         mock_client = MagicMock()
         # Simulate ClientError for ResourceNotFoundException
-        from botocore.exceptions import ClientError
-
         mock_client.get_secret_value.side_effect = ClientError(
             {"Error": {"Code": "ResourceNotFoundException", "Message": "Secret not found"}},
             "GetSecretValue",
@@ -260,8 +263,6 @@ class TestSecretManagerAWS:
         manager = SecretManager(config)
 
         mock_client = MagicMock()
-        from botocore.exceptions import ClientError
-
         mock_client.get_secret_value.side_effect = ClientError(
             {"Error": {"Code": "AccessDeniedException", "Message": "Access denied"}},
             "GetSecretValue",
