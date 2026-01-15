@@ -126,11 +126,11 @@ const DOC_CATEGORIES = [
 // Platform capabilities
 const CAPABILITIES = [
   { label: 'AI Providers', value: '13+', desc: 'Claude, GPT, Gemini, Mistral, Grok, DeepSeek, Qwen, Kimi...' },
-  { label: 'Consensus Algorithms', value: '7', desc: 'Majority, unanimous, weighted, judge, supermajority...' },
+  { label: 'Consensus Algorithms', value: '6', desc: 'Majority, unanimous, weighted, strong, conditional, tension-tracking' },
   { label: 'Debate Types', value: '3', desc: 'Standard, graph, matrix' },
   { label: 'Memory Tiers', value: '4', desc: 'Fast, medium, slow, glacial' },
-  { label: 'REST Endpoints', value: '134+', desc: 'Full API coverage' },
-  { label: 'Test Definitions', value: '27K+', desc: 'Comprehensive coverage' },
+  { label: 'REST Endpoints', value: '245+', desc: 'Full API coverage' },
+  { label: 'Test Files', value: '600+', desc: 'Comprehensive coverage' },
 ];
 
 export default function AboutPage() {

@@ -15,7 +15,7 @@ export function Header() {
           <AsciiBannerCompact connected={true} />
 
           {/* Desktop Navigation */}
-          <div className="hidden sm:flex items-center gap-4">
+          <nav className="hidden sm:flex items-center gap-4" aria-label="Main navigation">
             <a
               href="/debates"
               className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
@@ -66,7 +66,7 @@ export function Header() {
             </a>
             <BackendSelector compact />
             <ThemeToggle />
-          </div>
+          </nav>
 
           {/* Mobile Menu Button */}
           <div className="flex sm:hidden items-center gap-2">
@@ -74,7 +74,9 @@ export function Header() {
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 text-acid-green hover:text-acid-cyan transition-colors"
-              aria-label="Toggle menu"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation"
             >
               {mobileMenuOpen ? (
                 <span className="font-mono text-lg">✕</span>
@@ -87,7 +89,7 @@ export function Header() {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="sm:hidden mt-4 pb-2 border-t border-acid-green/20 pt-4 space-y-3">
+          <nav id="mobile-navigation" className="sm:hidden mt-4 pb-2 border-t border-acid-green/20 pt-4 space-y-3" aria-label="Mobile navigation">
             <a
               href="/debates"
               className="block text-sm font-mono text-text-muted hover:text-acid-green transition-colors py-2"
@@ -139,7 +141,7 @@ export function Header() {
             <div className="pt-2">
               <BackendSelector compact />
             </div>
-          </div>
+          </nav>
         )}
       </div>
     </header>

@@ -35,9 +35,9 @@ export default function RootLayout({
         <AuthProvider>
           <ToastProvider>
             <ErrorBoundary>
-              <main id="main-content" tabIndex={-1}>
+              <div id="main-content" tabIndex={-1}>
                 {children}
-              </main>
+              </div>
             </ErrorBoundary>
           </ToastProvider>
         </AuthProvider>

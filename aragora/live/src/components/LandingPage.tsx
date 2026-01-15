@@ -61,7 +61,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
                 [ABOUT]
               </a>
               <a
-                href="/api/docs"
+                href="https://api.aragora.ai/docs"
                 className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block"
               >
                 [API]

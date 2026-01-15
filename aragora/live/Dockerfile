@@ -18,17 +18,17 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build arguments for API URLs
-ARG NEXT_PUBLIC_API_URL=http://localhost:8080
-ARG NEXT_PUBLIC_WS_URL=ws://localhost:8765/ws
+# Build arguments for API URLs (production defaults)
+ARG NEXT_PUBLIC_API_URL=https://api.aragora.ai
+ARG NEXT_PUBLIC_WS_URL=wss://api.aragora.ai/ws
 
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DOCKER_BUILD=1
 
-# Build the application
-RUN npm run build:local
+# Build the application with production URLs
+RUN npm run build
 
 # Stage 3: Runner
 FROM node:18-alpine AS runner

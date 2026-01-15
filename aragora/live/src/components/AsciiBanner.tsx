@@ -119,9 +119,9 @@ export function AsciiBannerCompact({
 /_/   \\_\\_| \\_\\`}
         </pre>
       )}
-      <span className="text-acid-green font-mono font-bold hover:text-acid-cyan transition-colors">
+      <a href="https://aragora.ai" className="text-acid-green font-mono font-bold hover:text-acid-cyan transition-colors">
         [ARAGORA]
-      </span>
+      </a>
       {showStatus && (
         <span
           className={`w-2 h-2 rounded-full ${

@@ -5,7 +5,8 @@
  * Or: npx playwright test scripts/capture-console-errors.ts --project=chromium
  */
 
-import { chromium, ConsoleMessage } from 'playwright';
+import { chromium } from 'playwright';
+import type { ConsoleMessage } from 'playwright';
 
 interface ErrorEntry {
   page: string;

@@ -34,9 +34,46 @@ export const testData = {
 export class AragoraPage {
   constructor(private page: import('@playwright/test').Page) {}
 
+  /**
+   * Dismiss the boot sequence animation if present.
+   * The boot animation is a full-screen overlay that blocks all pointer events.
+   */
+  async dismissBootAnimation() {
+    const bootOverlay = this.page.locator('[aria-label*="Boot sequence"]');
+    if (await bootOverlay.isVisible({ timeout: 1000 }).catch(() => false)) {
+      // Click to skip the boot animation
+      await bootOverlay.click();
+      // Wait for animation to complete and overlay to disappear
+      await bootOverlay.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+    }
+  }
+
+  /**
+   * Dismiss the onboarding wizard if present.
+   * The wizard is shown for first-time visitors.
+   */
+  async dismissOnboarding() {
+    const skipButton = this.page.locator('button:has-text("[SKIP]")');
+    if (await skipButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await skipButton.click();
+      // Wait for wizard to disappear
+      await this.page.locator('.fixed.z-\\[100\\]').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+    }
+  }
+
+  /**
+   * Dismiss all overlays (boot animation, onboarding wizard).
+   */
+  async dismissAllOverlays() {
+    await this.dismissBootAnimation();
+    await this.dismissOnboarding();
+  }
+
   async waitForAppReady() {
+    // First dismiss boot animation if present
+    await this.dismissBootAnimation();
     // Wait for Next.js hydration
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('domcontentloaded');
     // Wait for any loading spinners to disappear
     await this.page.waitForSelector('[data-testid="loading"]', { state: 'hidden' }).catch(() => {});
   }

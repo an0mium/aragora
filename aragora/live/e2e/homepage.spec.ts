@@ -1,12 +1,13 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, AragoraPage } from './fixtures';
 
 /**
  * E2E tests for the Aragora homepage and navigation.
  */
 
 test.describe('Homepage', () => {
-  test('should load successfully', async ({ page }) => {
+  test('should load successfully', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissBootAnimation();
 
     // Should have a title
     await expect(page).toHaveTitle(/Aragora/i);
@@ -16,18 +17,20 @@ test.describe('Homepage', () => {
     await expect(heading).toBeVisible();
   });
 
-  test('should display navigation', async ({ page }) => {
+  test('should display navigation', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissBootAnimation();
 
     // Check for navigation elements
     const nav = page.locator('nav, [role="navigation"]');
     await expect(nav).toBeVisible();
   });
 
-  test('should be responsive on mobile', async ({ page }) => {
+  test('should be responsive on mobile', async ({ page, aragoraPage }) => {
     // Set mobile viewport
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/');
+    await aragoraPage.dismissBootAnimation();
 
     // Page should still be functional
     await expect(page).toHaveTitle(/Aragora/i);
@@ -38,7 +41,7 @@ test.describe('Homepage', () => {
     expect(bodyBox?.width).toBeLessThanOrEqual(375);
   });
 
-  test('should have no console errors on load', async ({ page }) => {
+  test('should have no console errors on load', async ({ page, aragoraPage }) => {
     const consoleErrors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
@@ -47,7 +50,8 @@ test.describe('Homepage', () => {
     });
 
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await aragoraPage.dismissBootAnimation();
+    await page.waitForLoadState('domcontentloaded');
 
     // Filter out expected errors (like missing env vars in dev)
     const unexpectedErrors = consoleErrors.filter(
@@ -57,11 +61,12 @@ test.describe('Homepage', () => {
     expect(unexpectedErrors).toHaveLength(0);
   });
 
-  test('should have accessible page structure', async ({ page }) => {
+  test('should have accessible page structure', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissBootAnimation();
 
-    // Should have a main landmark
-    const main = page.locator('main, [role="main"]');
+    // Should have a main landmark (use first() to handle multiple mains)
+    const main = page.locator('main, [role="main"]').first();
     await expect(main).toBeVisible();
 
     // Should have skip link or proper heading structure
@@ -72,8 +77,9 @@ test.describe('Homepage', () => {
 });
 
 test.describe('Navigation', () => {
-  test('should navigate to debates page', async ({ page }) => {
+  test('should navigate to debates page', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissBootAnimation();
 
     // Click on debates link
     const debatesLink = page.locator('a[href*="debate"], a:has-text("Debate")').first();
@@ -83,8 +89,9 @@ test.describe('Navigation', () => {
     }
   });
 
-  test('should navigate to leaderboard', async ({ page }) => {
+  test('should navigate to leaderboard', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissBootAnimation();
 
     // Click on leaderboard link
     const leaderboardLink = page.locator('a[href*="leaderboard"], a:has-text("Leaderboard")').first();
@@ -94,8 +101,9 @@ test.describe('Navigation', () => {
     }
   });
 
-  test('should navigate back to homepage from any page', async ({ page }) => {
+  test('should navigate back to homepage from any page', async ({ page, aragoraPage }) => {
     await page.goto('/debates');
+    await aragoraPage.dismissBootAnimation();
 
     // Click on logo or home link
     const homeLink = page.locator('a[href="/"], [data-testid="logo"], a:has-text("Aragora")').first();
