@@ -282,8 +282,8 @@ class ConnectionPoolManager:
             if self._pool is not None:
                 try:
                     self._pool.disconnect()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Error disconnecting pool during reconnect: {type(e).__name__}")
                 self._pool = None
                 self._client = None
                 self.metrics.connections_closed += 1

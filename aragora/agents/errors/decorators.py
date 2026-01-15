@@ -193,6 +193,7 @@ def _handle_response_error(
         return _build_error_action(error, ctx, retryable_exceptions, override_delay)
 
     elif e.status >= 500:
+        # Reassigning error variable to different exception subclass based on status code
         error = AgentConnectionError(  # type: ignore[assignment]
             f"Server error (HTTP {e.status})",
             agent_name=ctx.agent_name,
@@ -203,6 +204,7 @@ def _handle_response_error(
 
     else:
         # 4xx errors - not retryable
+        # Reassigning error variable to different exception subclass based on status code
         error = AgentAPIError(  # type: ignore[assignment]
             f"API error (HTTP {e.status}): {sanitize_error(str(e))}",
             agent_name=ctx.agent_name,
@@ -391,6 +393,7 @@ def handle_agent_errors(
                 # No more retries - raise the error
                 raise action.error
 
+        # Decorator wrapper preserves original function signature at runtime
         return wrapper  # type: ignore[return-value]
 
     return decorator

@@ -207,8 +207,8 @@ class RedisPubSub:
         if self._pubsub:
             try:
                 self._pubsub.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Error closing pubsub connection: {type(e).__name__}")
             self._pubsub = None
 
         logger.info("Pub/sub listener stopped")

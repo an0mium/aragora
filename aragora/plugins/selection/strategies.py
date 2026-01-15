@@ -129,8 +129,8 @@ class ELOWeightedScorer(ScorerProtocol):
                 if probe_profile.total_probes > 0:
                     probe_score = probe_profile.probe_score
                     has_critical = probe_profile.has_critical_issues()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Probe filter lookup failed for {agent.name}: {type(e).__name__}")
 
         adjustment = 0.5 + (probe_score * 0.5)
         if has_critical:
@@ -154,8 +154,8 @@ class ELOWeightedScorer(ScorerProtocol):
                 if summary.total_predictions >= 5:
                     calibration_score = max(0.0, 1.0 - summary.ece)
                     is_overconfident = summary.is_overconfident
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Calibration lookup failed for {agent.name}: {type(e).__name__}")
 
         adjustment = 0.7 + (calibration_score * 0.3)
         if is_overconfident:

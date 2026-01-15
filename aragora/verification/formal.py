@@ -37,6 +37,7 @@ import hashlib
 import json
 import logging
 import subprocess
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -1311,13 +1312,17 @@ class FormalVerificationManager:
         }
 
 
-# Singleton instance for easy access
+# Singleton instance with thread-safe initialization
 _manager: Optional[FormalVerificationManager] = None
+_manager_lock = threading.Lock()
 
 
 def get_formal_verification_manager() -> FormalVerificationManager:
-    """Get the global formal verification manager."""
+    """Get the global formal verification manager (thread-safe)."""
     global _manager
     if _manager is None:
-        _manager = FormalVerificationManager()
+        with _manager_lock:
+            # Double-checked locking pattern
+            if _manager is None:
+                _manager = FormalVerificationManager()
     return _manager

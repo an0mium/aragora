@@ -1269,6 +1269,7 @@ class ContinuumMemory(SQLiteStore):
         max_pressure = 0.0
         tier_names = ["fast", "medium", "slow", "glacial"]
         for tier_name in tier_names:
+            # tier_name is validated to be one of the literal keys in tier_names list above
             limit: int = max_entries[tier_name]  # type: ignore[literal-required]
             if limit <= 0:
                 continue
@@ -1460,6 +1461,7 @@ class ContinuumMemory(SQLiteStore):
 
             for t in tiers_to_process:
                 tier_name = t.value
+                # get() returns Optional[int] but we provide a default, so result is always int
                 limit: int = max_entries.get(tier_name, 10000)  # type: ignore[assignment]
 
                 # Count current entries
