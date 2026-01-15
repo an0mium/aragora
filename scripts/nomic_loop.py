@@ -2026,24 +2026,14 @@ class NomicLoop:
         with open(self.log_file, "w") as f:
             f.write(f"=== NOMIC LOOP STARTED: {datetime.now().isoformat()} ===\n")
 
-        # Initialize extracted phase classes (enabled by default)
-        # Set USE_EXTRACTED_PHASES=0 to use legacy inline implementations
-        self.use_extracted_phases = os.environ.get("USE_EXTRACTED_PHASES", "1") == "1"
-        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
-            print(f"[phases] Using extracted modular phase classes")
-            # Wire up Prometheus metrics for phase profiling
-            self._setup_phase_metrics()
-        elif not self.use_extracted_phases:
-            import warnings
-
-            warnings.warn(
-                "USE_EXTRACTED_PHASES=0 uses deprecated legacy code. "
-                "This will be removed in 2026-06. "
-                "Set USE_EXTRACTED_PHASES=1 (default) to use the new modular phases.",
-                DeprecationWarning,
-                stacklevel=2,
+        # Initialize extracted phase classes (required since Phase 10C consolidation)
+        if not _NOMIC_PHASES_AVAILABLE:
+            raise RuntimeError(
+                "Extracted phase classes not available. "
+                "Ensure aragora.nomic.phases module is installed."
             )
-            print(f"[phases] Using legacy inline implementations (USE_EXTRACTED_PHASES=0)")
+        print(f"[phases] Using extracted modular phase classes")
+        self._setup_phase_metrics()
         self._extracted_phases = {}
 
         # Initialize agents
@@ -7705,64 +7695,45 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         This ensures ALL agents have first-hand knowledge of the codebase,
         preventing proposals for features that already exist.
         """
-        # Use extracted phase class if enabled
-        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
-            context_phase = self._create_context_phase()
-            result = await context_phase.execute()
-            # Convert ContextResult (TypedDict) to dict for backward compatibility
-            return {
-                "phase": "context",
-                "codebase_context": result["codebase_summary"],
-                "duration": result["duration_seconds"],
-                "agents_succeeded": result.get("data", {}).get("agents_succeeded", 0),
-            }
-
-        # Legacy inline implementation removed in Phase 10C consolidation (2026-01)
-        # The extracted phase classes in scripts/nomic/phases/ are now required.
-        raise RuntimeError(
-            "Legacy inline phase implementations have been removed. "
-            "Extracted phase classes are now required. Ensure scripts/nomic/phases/ "
-            "is available and USE_EXTRACTED_PHASES=1 (the default)."
-        )
+        context_phase = self._create_context_phase()
+        result = await context_phase.execute()
+        # Convert ContextResult (TypedDict) to dict for backward compatibility
+        return {
+            "phase": "context",
+            "codebase_context": result["codebase_summary"],
+            "duration": result["duration_seconds"],
+            "agents_succeeded": result.get("data", {}).get("agents_succeeded", 0),
+        }
 
     async def phase_debate(self, codebase_context: str = None) -> dict:
         """Phase 1: Agents debate what to improve."""
-        # Use extracted phase class if enabled
-        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
-            topic_hint = self.initial_proposal[:200] if self.initial_proposal else ""
-            debate_phase = self._create_debate_phase(topic_hint=topic_hint)
-            debate_team = debate_phase.agents  # Get the team for hooks
-            hooks = self._create_post_debate_hooks(debate_team=debate_team)
-            # Build learning context
-            from aragora.nomic.phases.debate import LearningContext
+        topic_hint = self.initial_proposal[:200] if self.initial_proposal else ""
+        debate_phase = self._create_debate_phase(topic_hint=topic_hint)
+        debate_team = debate_phase.agents  # Get the team for hooks
+        hooks = self._create_post_debate_hooks(debate_team=debate_team)
+        # Build learning context
+        from aragora.nomic.phases.debate import LearningContext
 
-            learning = LearningContext(
-                failure_lessons=self._analyze_failed_branches(),
-                successful_patterns=self._format_successful_patterns(),
-            )
-            result = await debate_phase.execute(
-                codebase_context=codebase_context or self.get_current_features(),
-                recent_changes=self.get_recent_changes(),
-                learning_context=learning,
-                hooks=hooks,
-            )
-            # Convert DebateResult (TypedDict) to dict for backward compatibility
-            return {
-                "phase": "debate",
-                "improvement": result["improvement"],
-                "final_answer": result[
-                    "improvement"
-                ],  # Alias for backward compat with _run_cycle_impl
-                "consensus_reached": result["consensus_reached"],
-                "confidence": result["confidence"],
-            }
-
-        # Legacy inline implementation removed in Phase 10C consolidation (2026-01)
-        raise RuntimeError(
-            "Legacy inline phase implementations have been removed. "
-            "Extracted phase classes are now required. Ensure scripts/nomic/phases/ "
-            "is available and USE_EXTRACTED_PHASES=1 (the default)."
+        learning = LearningContext(
+            failure_lessons=self._analyze_failed_branches(),
+            successful_patterns=self._format_successful_patterns(),
         )
+        result = await debate_phase.execute(
+            codebase_context=codebase_context or self.get_current_features(),
+            recent_changes=self.get_recent_changes(),
+            learning_context=learning,
+            hooks=hooks,
+        )
+        # Convert DebateResult (TypedDict) to dict for backward compatibility
+        return {
+            "phase": "debate",
+            "improvement": result["improvement"],
+            "final_answer": result[
+                "improvement"
+            ],  # Alias for backward compat with _run_cycle_impl
+            "consensus_reached": result["consensus_reached"],
+            "confidence": result["confidence"],
+        }
 
     async def phase_design(self, improvement: str, belief_analysis: dict = None) -> dict:
         """Phase 2: All agents design the implementation together.
@@ -7771,104 +7742,68 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             improvement: The improvement proposal from debate phase
             belief_analysis: Optional belief analysis from debate (contested/crux claims)
         """
-        # Use extracted phase class if enabled
-        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
-            design_phase = self._create_design_phase()
-            # Build belief context from analysis
-            from aragora.nomic.phases.design import BeliefContext
+        design_phase = self._create_design_phase()
+        # Build belief context from analysis
+        from aragora.nomic.phases.design import BeliefContext
 
-            belief_ctx = None
-            if belief_analysis:
-                belief_ctx = BeliefContext(
-                    contested_count=belief_analysis.get("contested_count", 0),
-                    crux_count=belief_analysis.get("crux_count", 0),
-                    posteriors=belief_analysis.get("posteriors"),
-                    convergence_achieved=belief_analysis.get("convergence_achieved", False),
-                )
-            result = await design_phase.execute(
-                improvement=improvement,
-                belief_context=belief_ctx,
+        belief_ctx = None
+        if belief_analysis:
+            belief_ctx = BeliefContext(
+                contested_count=belief_analysis.get("contested_count", 0),
+                crux_count=belief_analysis.get("crux_count", 0),
+                posteriors=belief_analysis.get("posteriors"),
+                convergence_achieved=belief_analysis.get("convergence_achieved", False),
             )
-            # Convert DesignResult (TypedDict) to dict for backward compatibility
-            return {
-                "phase": "design",
-                "success": result["success"],
-                "design": result["design"],
-                "files_affected": result["files_affected"],
-                "complexity": result["complexity_estimate"],
-            }
-
-        # Legacy inline implementation removed in Phase 10C consolidation (2026-01)
-        raise RuntimeError(
-            "Legacy inline phase implementations have been removed. "
-            "Extracted phase classes are now required. Ensure scripts/nomic/phases/ "
-            "is available and USE_EXTRACTED_PHASES=1 (the default)."
+        result = await design_phase.execute(
+            improvement=improvement,
+            belief_context=belief_ctx,
         )
+        # Convert DesignResult (TypedDict) to dict for backward compatibility
+        return {
+            "phase": "design",
+            "success": result["success"],
+            "design": result["design"],
+            "files_affected": result["files_affected"],
+            "complexity": result["complexity_estimate"],
+        }
 
     async def phase_implement(self, design: str) -> dict:
         """Phase 3: Hybrid multi-model implementation."""
-        # Use extracted phase class if enabled
-        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
-            implement_phase = self._create_implement_phase()
-            result = await implement_phase.execute(design)
-            # Convert ImplementResult (TypedDict) to dict for backward compatibility
-            return {
-                "phase": "implement",
-                "success": result["success"],
-                "files_modified": result["files_modified"],
-                "diff_summary": result["diff_summary"],
-                "error": result.get("error"),
-            }
-
-        # Legacy inline implementation removed in Phase 10C consolidation (2026-01)
-        raise RuntimeError(
-            "Legacy inline phase implementations have been removed. "
-            "Extracted phase classes are now required. Ensure scripts/nomic/phases/ "
-            "is available and USE_EXTRACTED_PHASES=1 (the default)."
-        )
+        implement_phase = self._create_implement_phase()
+        result = await implement_phase.execute(design)
+        # Convert ImplementResult (TypedDict) to dict for backward compatibility
+        return {
+            "phase": "implement",
+            "success": result["success"],
+            "files_modified": result["files_modified"],
+            "diff_summary": result["diff_summary"],
+            "error": result.get("error"),
+        }
 
     async def phase_verify(self) -> dict:
         """Phase 4: Verify changes don't break things."""
-        # Use extracted phase class if enabled
-        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
-            verify_phase = self._create_verify_phase()
-            result = await verify_phase.execute()
-            # Convert VerifyResult (TypedDict) to dict for backward compatibility
-            return {
-                "phase": "verify",
-                "success": result["success"],
-                "test_results": result["test_results"],
-                "error": result.get("error"),
-            }
-
-        # Legacy inline implementation removed in Phase 10C consolidation (2026-01)
-        raise RuntimeError(
-            "Legacy inline phase implementations have been removed. "
-            "Extracted phase classes are now required. Ensure scripts/nomic/phases/ "
-            "is available and USE_EXTRACTED_PHASES=1 (the default)."
-        )
+        verify_phase = self._create_verify_phase()
+        result = await verify_phase.execute()
+        # Convert VerifyResult (TypedDict) to dict for backward compatibility
+        return {
+            "phase": "verify",
+            "success": result["success"],
+            "test_results": result["test_results"],
+            "error": result.get("error"),
+        }
 
     async def phase_commit(self, improvement: str) -> dict:
         """Phase 5: Commit changes if verification passes."""
-        # Use extracted phase class if enabled
-        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
-            commit_phase = self._create_commit_phase()
-            result = await commit_phase.execute(improvement)
-            # Convert CommitResult (TypedDict) to dict for backward compatibility
-            return {
-                "phase": "commit",
-                "success": result["success"],
-                "commit_hash": result.get("commit_hash"),
-                "branch": result.get("branch"),
-                "error": result.get("error"),
-            }
-
-        # Legacy inline implementation removed in Phase 10C consolidation (2026-01)
-        raise RuntimeError(
-            "Legacy inline phase implementations have been removed. "
-            "Extracted phase classes are now required. Ensure scripts/nomic/phases/ "
-            "is available and USE_EXTRACTED_PHASES=1 (the default)."
-        )
+        commit_phase = self._create_commit_phase()
+        result = await commit_phase.execute(improvement)
+        # Convert CommitResult (TypedDict) to dict for backward compatibility
+        return {
+            "phase": "commit",
+            "success": result["success"],
+            "commit_hash": result.get("commit_hash"),
+            "branch": result.get("branch"),
+            "error": result.get("error"),
+        }
 
     async def _run_cycle_impl(self) -> dict:
         """Internal implementation of run_cycle (called with timeout wrapper)."""
