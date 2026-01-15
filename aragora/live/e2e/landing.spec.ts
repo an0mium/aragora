@@ -1,8 +1,9 @@
-import { test, expect } from './fixtures';
+import { test, expect, AragoraPage } from './fixtures';
 
 test.describe('Landing Page', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissBootAnimation();
   });
 
   test('should display the landing page with ASCII art title', async ({ page }) => {
@@ -94,8 +95,9 @@ test.describe('Landing Page', () => {
 });
 
 test.describe('Landing Page - CRT Effects', () => {
-  test('should have scanlines effect', async ({ page }) => {
+  test('should have scanlines effect', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissBootAnimation();
 
     // Check for scanlines element (usually a div with specific styling)
     const scanlines = page.locator('[class*="scanline"], [class*="Scanline"]').first();
@@ -105,16 +107,18 @@ test.describe('Landing Page - CRT Effects', () => {
 });
 
 test.describe('Landing Page - Accessibility', () => {
-  test('should have proper heading hierarchy', async ({ page }) => {
+  test('should have proper heading hierarchy', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissBootAnimation();
 
     // Check that there's at least one h1
     const h1 = page.locator('h1').first();
     await expect(h1).toBeVisible();
   });
 
-  test('should have focusable interactive elements', async ({ page }) => {
+  test('should have focusable interactive elements', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissBootAnimation();
 
     // Tab through page and check focus
     await page.keyboard.press('Tab');
@@ -122,8 +126,9 @@ test.describe('Landing Page - Accessibility', () => {
     await expect(focusedElement).toBeVisible();
   });
 
-  test('should have proper color contrast', async ({ page }) => {
+  test('should have proper color contrast', async ({ page, aragoraPage }) => {
     await page.goto('/');
+    await aragoraPage.dismissBootAnimation();
 
     // Check that text is visible (basic contrast check)
     const textElements = page.locator('p, span, a, button');

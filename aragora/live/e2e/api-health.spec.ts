@@ -9,7 +9,7 @@ test.describe('API Health', () => {
     await page.goto('/');
 
     // Wait for any API calls to complete
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Check for API-dependent content loading
     const mainContent = page.locator('main, [data-testid="app-content"]');
@@ -100,7 +100,7 @@ test.describe('WebSocket Connectivity', () => {
 
   test('should handle WebSocket disconnect gracefully', async ({ page }) => {
     await page.goto('/debates');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Close any WebSocket connections
     await page.evaluate(() => {
@@ -124,12 +124,12 @@ test.describe('Data Fetching', () => {
     });
 
     await page.goto('/debates');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Navigate away and back
     await page.goto('/');
     await page.goto('/debates');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should have some caching (not double requests for same data)
     expect(requests.length).toBeDefined();
@@ -137,7 +137,7 @@ test.describe('Data Fetching', () => {
 
   test('should handle pagination API correctly', async ({ page }) => {
     await page.goto('/debates');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for pagination or load more
     const nextPage = page.locator('button:has-text("Next"), button:has-text("Load more"), [data-testid="next-page"]');

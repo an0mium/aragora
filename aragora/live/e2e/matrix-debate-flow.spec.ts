@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 /**
  * E2E tests for the Matrix Debate flow.
@@ -10,7 +10,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Matrix Debate Mode Selection', () => {
   test('should display MATRIX mode button on homepage', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const matrixMode = page.getByRole('button', { name: /matrix/i });
     await expect(matrixMode).toBeVisible();
@@ -18,7 +18,7 @@ test.describe('Matrix Debate Mode Selection', () => {
 
   test('should switch to MATRIX mode when clicked', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const matrixMode = page.getByRole('button', { name: /matrix/i });
     await matrixMode.click();
@@ -33,7 +33,7 @@ test.describe('Matrix Debate Mode Selection', () => {
 
   test('should update submit button text in MATRIX mode', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Switch to MATRIX mode
     const matrixMode = page.getByRole('button', { name: /matrix/i });
@@ -46,7 +46,7 @@ test.describe('Matrix Debate Mode Selection', () => {
 
   test('should show variables configuration in MATRIX mode', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Switch to MATRIX mode
     const matrixMode = page.getByRole('button', { name: /matrix/i });
@@ -67,7 +67,7 @@ test.describe('Matrix Debate Mode Selection', () => {
 test.describe('Matrix Debate Creation', () => {
   test('should create a matrix debate and navigate to visualization', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Switch to MATRIX mode
     const matrixMode = page.getByRole('button', { name: /matrix/i });
@@ -106,7 +106,7 @@ test.describe('Matrix Debate Visualization Page', () => {
 
   test('should display matrix debates title', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const title = page.locator('h1, h2').filter({ hasText: /matrix/i });
     await expect(title.first()).toBeVisible();
@@ -114,7 +114,7 @@ test.describe('Matrix Debate Visualization Page', () => {
 
   test('should show matrix list or empty state', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Either matrices exist or empty state
     const matrixList = page.locator('[data-testid="matrix-list"], .matrix-list, ul, ol');
@@ -131,7 +131,7 @@ test.describe('Matrix Debate Visualization Page', () => {
 test.describe('Matrix Grid Display', () => {
   test('should display scenario grid when matrix is selected', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for grid elements
     const grid = page.locator('[data-testid="scenario-grid"], .scenario-grid, table, [role="grid"]');
@@ -143,7 +143,7 @@ test.describe('Matrix Grid Display', () => {
 
   test('should show scenario cells with status indicators', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for scenario cells
     const cells = page.locator('[data-testid="scenario-cell"], .scenario-cell, td');
@@ -157,7 +157,7 @@ test.describe('Matrix Grid Display', () => {
 
   test('should display confidence scores in cells', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for percentage indicators
     const percentages = page.locator(':text("%")');
@@ -171,7 +171,7 @@ test.describe('Matrix Grid Display', () => {
 test.describe('Matrix Scenario Details', () => {
   test('should show scenario details panel when cell clicked', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Find and click a scenario cell
     const cells = page.locator('[data-testid="scenario-cell"], .scenario-cell, td').first();
@@ -192,7 +192,7 @@ test.describe('Matrix Scenario Details', () => {
 test.describe('Matrix Filtering', () => {
   test('should have filter controls', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for filter controls
     const filterSection = page.locator(':text("filter"), [data-testid="filters"], .filters');
@@ -204,7 +204,7 @@ test.describe('Matrix Filtering', () => {
 
   test('should have consensus filter checkbox', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for consensus filter
     const consensusFilter = page.locator('input[type="checkbox"], [role="checkbox"]').filter({ hasText: /consensus/i });
@@ -215,7 +215,7 @@ test.describe('Matrix Filtering', () => {
 
   test('should have confidence slider', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for confidence slider
     const slider = page.locator('input[type="range"], [role="slider"]');
@@ -228,7 +228,7 @@ test.describe('Matrix Filtering', () => {
 test.describe('Matrix Comparison Mode', () => {
   test('should show compare button when multiple scenarios selected', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Try to select multiple scenarios
     const cells = page.locator('[data-testid="scenario-cell"], .scenario-cell');
@@ -250,7 +250,7 @@ test.describe('Matrix Comparison Mode', () => {
 test.describe('Matrix Statistics', () => {
   test('should display scenario count', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for scenario count
     const count = page.locator(':text("scenario")');
@@ -261,7 +261,7 @@ test.describe('Matrix Statistics', () => {
 
   test('should display consensus rate', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for consensus rate
     const rate = page.locator(':text("consensus"), :text("rate")');
@@ -274,7 +274,7 @@ test.describe('Matrix Statistics', () => {
 test.describe('Matrix Debate with Query Parameters', () => {
   test('should load specific matrix when id parameter provided', async ({ page }) => {
     await page.goto('/debates/matrix?id=test-matrix-123');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Page should attempt to load the specified matrix
     const content = page.locator('main');
@@ -283,7 +283,7 @@ test.describe('Matrix Debate with Query Parameters', () => {
 
   test('should handle invalid matrix id gracefully', async ({ page }) => {
     await page.goto('/debates/matrix?id=invalid-nonexistent-id');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should show error or empty state, not crash
     const hasContent = await page.locator('main').isVisible();
@@ -295,7 +295,7 @@ test.describe('Matrix Debate Responsiveness', () => {
   test('should be responsive on mobile viewport', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Grid should adapt or scroll horizontally
     const content = page.locator('main');
@@ -305,7 +305,7 @@ test.describe('Matrix Debate Responsiveness', () => {
   test('should be responsive on tablet viewport', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const content = page.locator('main');
     await expect(content).toBeVisible();
@@ -314,7 +314,7 @@ test.describe('Matrix Debate Responsiveness', () => {
   test('should work on desktop viewport', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const content = page.locator('main');
     await expect(content).toBeVisible();
@@ -324,7 +324,7 @@ test.describe('Matrix Debate Responsiveness', () => {
 test.describe('Matrix Export', () => {
   test('should have export button', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for export functionality
     const exportButton = page.getByRole('button', { name: /export/i });
@@ -337,7 +337,7 @@ test.describe('Matrix Export', () => {
 test.describe('Matrix Refresh', () => {
   test('should have refresh button', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const refreshButton = page.getByRole('button', { name: /refresh/i });
     await expect(refreshButton).toBeVisible();
@@ -346,7 +346,7 @@ test.describe('Matrix Refresh', () => {
 
   test('should reload data when refresh clicked', async ({ page }) => {
     await page.goto('/debates/matrix');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const refreshButton = page.getByRole('button', { name: /refresh/i });
 

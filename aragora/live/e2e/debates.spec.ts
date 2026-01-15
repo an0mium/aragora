@@ -17,7 +17,7 @@ test.describe('Debates List', () => {
     await page.goto('/debates');
 
     // Wait for content to load
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should show debate items or empty state
     const debateItems = page.locator('[data-testid="debate-item"], .debate-card, article');
@@ -47,7 +47,7 @@ test.describe('Debates List', () => {
   test('should show pagination or load more for large lists', async ({ page }) => {
     await page.goto('/debates');
 
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Check for pagination controls
     const pagination = page.locator('[data-testid="pagination"], .pagination, button:has-text("Load more"), button:has-text("Next")');
@@ -66,7 +66,7 @@ test.describe('Single Debate View', () => {
   test('should load individual debate page', async ({ page }) => {
     // Navigate to debates list first
     await page.goto('/debates');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Click on first debate if available
     const debateLink = page.locator('[data-testid="debate-item"] a, .debate-card a, article a').first();
@@ -86,7 +86,7 @@ test.describe('Single Debate View', () => {
   test('should display debate messages and critiques', async ({ page }) => {
     await page.goto('/debate/test-debate');
 
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Check for message containers
     const messages = page.locator('[data-testid="message"], .message, [role="log"]');
@@ -100,13 +100,13 @@ test.describe('Single Debate View', () => {
 
   test('should show agent information', async ({ page }) => {
     await page.goto('/debates');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const debateLink = page.locator('[data-testid="debate-item"] a, .debate-card a').first();
 
     if (await debateLink.isVisible().catch(() => false)) {
       await debateLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Should show agent names/avatars
       const agentInfo = page.locator('[data-testid="agent"], .agent-name, .agent-avatar');
@@ -119,13 +119,13 @@ test.describe('Single Debate View', () => {
 
   test('should display consensus status', async ({ page }) => {
     await page.goto('/debates');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const debateLink = page.locator('[data-testid="debate-item"] a, .debate-card a').first();
 
     if (await debateLink.isVisible().catch(() => false)) {
       await debateLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Look for consensus indicator
       const consensusInfo = page.locator(
@@ -142,13 +142,13 @@ test.describe('Single Debate View', () => {
 test.describe('Debate Interaction', () => {
   test('should allow voting on debate outcomes', async ({ page }) => {
     await page.goto('/debates');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const debateLink = page.locator('[data-testid="debate-item"] a, .debate-card a').first();
 
     if (await debateLink.isVisible().catch(() => false)) {
       await debateLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Look for voting buttons
       const voteButtons = page.locator('[data-testid="vote"], button:has-text("Vote"), button:has-text("Agree")');
@@ -162,13 +162,13 @@ test.describe('Debate Interaction', () => {
 
   test('should show audience feedback section', async ({ page }) => {
     await page.goto('/debates');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const debateLink = page.locator('[data-testid="debate-item"] a, .debate-card a').first();
 
     if (await debateLink.isVisible().catch(() => false)) {
       await debateLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Look for feedback or comments section
       const feedbackSection = page.locator(

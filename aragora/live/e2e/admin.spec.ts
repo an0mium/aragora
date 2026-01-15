@@ -50,7 +50,7 @@ test.describe('Admin Page', () => {
 test.describe('Admin - Health Tab', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     // Health tab should be default, but click it to be sure
     const healthTab = page.getByRole('button', { name: /health/i });
     if (await healthTab.isVisible()) {
@@ -96,7 +96,7 @@ test.describe('Admin - Health Tab', () => {
 test.describe('Admin - Agents Tab', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await page.getByRole('button', { name: /agents/i }).click();
   });
 
@@ -130,7 +130,7 @@ test.describe('Admin - Agents Tab', () => {
 test.describe('Admin - Errors Tab', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await page.getByRole('button', { name: /errors/i }).click();
   });
 
@@ -160,7 +160,7 @@ test.describe('Admin - Errors Tab', () => {
 test.describe('Admin - Metrics Tab', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await page.getByRole('button', { name: /metrics/i }).click();
   });
 
@@ -186,7 +186,7 @@ test.describe('Admin - Metrics Tab', () => {
 test.describe('Admin - Refresh Functionality', () => {
   test('should refresh data when clicking refresh button', async ({ page }) => {
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const refreshButton = page.getByRole('button', { name: /refresh/i });
 
@@ -202,7 +202,7 @@ test.describe('Admin - Refresh Functionality', () => {
 
   test('should auto-refresh data periodically', async ({ page }) => {
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // The admin page auto-refreshes every 30 seconds
     // We can verify by checking network requests
@@ -225,7 +225,7 @@ test.describe('Admin - Refresh Functionality', () => {
 test.describe('Admin - Tab Navigation', () => {
   test('should switch between all tabs', async ({ page }) => {
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Start at health tab
     await page.getByRole('button', { name: /health/i }).click();
@@ -250,7 +250,7 @@ test.describe('Admin - Tab Navigation', () => {
 
   test('should maintain tab selection on page focus', async ({ page }) => {
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Select agents tab
     await page.getByRole('button', { name: /agents/i }).click();
@@ -270,7 +270,7 @@ test.describe('Admin - Tab Navigation', () => {
 test.describe('Admin - Header Navigation', () => {
   test('should have ASCII banner link to home', async ({ page }) => {
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Click the banner/logo area
     const bannerLink = page.locator('header a').first();
@@ -281,7 +281,7 @@ test.describe('Admin - Header Navigation', () => {
 
   test('should have backend selector', async ({ page }) => {
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Backend selector should be visible in header
     const backendSelector = page.locator('header').getByRole('button').filter({ hasText: /local|production|staging/i });
@@ -290,7 +290,7 @@ test.describe('Admin - Header Navigation', () => {
 
   test('should have theme toggle', async ({ page }) => {
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Theme toggle should be in header
     const header = page.locator('header');
@@ -309,7 +309,7 @@ test.describe('Admin - Responsive Layout', () => {
   test('should display correctly on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Title should be visible
     await expect(page.getByText(/system administration/i)).toBeVisible();
@@ -322,7 +322,7 @@ test.describe('Admin - Responsive Layout', () => {
   test('should display correctly on tablet', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     await expect(page.getByText(/system administration/i)).toBeVisible();
 
@@ -336,7 +336,7 @@ test.describe('Admin - Responsive Layout', () => {
   test('should display grid layout on desktop', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Health tab should show grid layout with 4 columns
     await page.getByRole('button', { name: /health/i }).click();

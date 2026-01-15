@@ -15,7 +15,7 @@ test.describe('Leaderboard', () => {
 
   test('should display agent rankings', async ({ page }) => {
     await page.goto('/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Should show ranking table or list
     const rankingItems = page.locator(
@@ -33,7 +33,7 @@ test.describe('Leaderboard', () => {
 
   test('should show ELO ratings', async ({ page }) => {
     await page.goto('/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for ELO or rating values
     const ratings = page.locator('[data-testid="elo-rating"], .elo-score, :text(/\\d{3,4}/)');
@@ -49,7 +49,7 @@ test.describe('Leaderboard', () => {
 
   test('should display agent names', async ({ page }) => {
     await page.goto('/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for agent names
     const agentNames = page.locator(
@@ -66,7 +66,7 @@ test.describe('Leaderboard', () => {
 
   test('should allow sorting by different metrics', async ({ page }) => {
     await page.goto('/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for sort controls
     const sortButtons = page.locator(
@@ -84,7 +84,7 @@ test.describe('Leaderboard', () => {
 
   test('should show win/loss statistics', async ({ page }) => {
     await page.goto('/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for win/loss or match statistics
     const stats = page.locator(
@@ -128,7 +128,7 @@ test.describe('Leaderboard', () => {
 test.describe('Leaderboard Filtering', () => {
   test('should filter by time period', async ({ page }) => {
     await page.goto('/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for time period selector
     const periodSelector = page.locator(
@@ -146,7 +146,7 @@ test.describe('Leaderboard Filtering', () => {
 
   test('should filter by agent type', async ({ page }) => {
     await page.goto('/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Look for agent type filter
     const agentFilter = page.locator(
@@ -163,7 +163,7 @@ test.describe('Leaderboard Filtering', () => {
 test.describe('Agent Details', () => {
   test('should link to agent detail page', async ({ page }) => {
     await page.goto('/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Click on agent name if it's a link
     const agentLink = page.locator(
@@ -178,7 +178,7 @@ test.describe('Agent Details', () => {
 
   test('should show agent performance chart', async ({ page }) => {
     await page.goto('/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Some leaderboards show inline charts
     const chart = page.locator(

@@ -5,7 +5,7 @@
  * Run with: npx playwright test accessibility.spec.ts
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import AxeBuilder from '@axe-core/playwright';
 
 // Critical pages to test for accessibility
@@ -20,9 +20,10 @@ const CRITICAL_PAGES = [
 
 test.describe('Accessibility - Critical Pages', () => {
   for (const page of CRITICAL_PAGES) {
-    test(`${page.name} should have no critical accessibility violations`, async ({ page: browserPage }) => {
+    test(`${page.name} should have no critical accessibility violations`, async ({ page: browserPage, aragoraPage }) => {
       await browserPage.goto(page.path);
-      await browserPage.waitForLoadState('networkidle');
+      await aragoraPage.dismissBootAnimation();
+      await browserPage.waitForLoadState('domcontentloaded');
 
       const results = await new AxeBuilder({ page: browserPage })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -56,7 +57,7 @@ test.describe('Accessibility - Critical Pages', () => {
 test.describe('Accessibility - Interactive Components', () => {
   test('Modal dialogs should be accessible', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Try to open any modal (e.g., sign in)
     const signInButton = page.getByRole('button', { name: /sign in/i });
@@ -78,7 +79,7 @@ test.describe('Accessibility - Interactive Components', () => {
 
   test('Navigation should be keyboard accessible', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Test keyboard navigation
     await page.keyboard.press('Tab');
@@ -93,7 +94,7 @@ test.describe('Accessibility - Interactive Components', () => {
 
   test('Forms should have proper labels', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a'])
@@ -111,7 +112,7 @@ test.describe('Accessibility - Interactive Components', () => {
 test.describe('Accessibility - Color Contrast', () => {
   test('Text should have sufficient color contrast', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2aa'])
@@ -139,7 +140,7 @@ test.describe('Accessibility - Color Contrast', () => {
 test.describe('Accessibility - ARIA', () => {
   test('ARIA attributes should be valid', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const results = await new AxeBuilder({ page })
       .withTags(['cat.aria'])
@@ -154,7 +155,7 @@ test.describe('Accessibility - ARIA', () => {
 
   test('Interactive elements should have accessible names', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const results = await new AxeBuilder({ page })
       .analyze();
@@ -170,7 +171,7 @@ test.describe('Accessibility - ARIA', () => {
 test.describe('Accessibility - Debates Page', () => {
   test('Debate list should be accessible', async ({ page }) => {
     await page.goto('/debates');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa'])
@@ -186,12 +187,12 @@ test.describe('Accessibility - Debates Page', () => {
   test('Debate viewer should be accessible', async ({ page }) => {
     // Navigate to debates and click on first one if available
     await page.goto('/debates');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const debateLink = page.locator('a[href*="/debates/"]').first();
     if (await debateLink.isVisible()) {
       await debateLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa'])
@@ -209,7 +210,7 @@ test.describe('Accessibility - Debates Page', () => {
 test.describe('Accessibility - Screen Reader Compatibility', () => {
   test('Page should have proper heading hierarchy', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const headings = await page.evaluate(() => {
       const h1s = document.querySelectorAll('h1');
@@ -227,7 +228,7 @@ test.describe('Accessibility - Screen Reader Compatibility', () => {
 
   test('Page should have skip links or landmarks', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const hasLandmarks = await page.evaluate(() => {
       const main = document.querySelector('main, [role="main"]');
