@@ -43,11 +43,17 @@ logger = logging.getLogger(__name__)
 
 
 class ErrorCode(str, Enum):
-    """Standardized error codes for API responses."""
+    """Standardized error codes for API responses.
+
+    Consolidated from error_utils.py and errors.py for consistent error handling.
+    """
 
     # Client errors (4xx)
     BAD_REQUEST = "BAD_REQUEST"
     VALIDATION_ERROR = "VALIDATION_ERROR"
+    INVALID_REQUEST = "INVALID_REQUEST"
+    MISSING_PARAMETER = "MISSING_PARAMETER"
+    INVALID_FORMAT = "INVALID_FORMAT"
     UNAUTHORIZED = "UNAUTHORIZED"
     FORBIDDEN = "FORBIDDEN"
     NOT_FOUND = "NOT_FOUND"
@@ -60,6 +66,7 @@ class ErrorCode(str, Enum):
     # Server errors (5xx)
     INTERNAL_ERROR = "INTERNAL_ERROR"
     SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE"
+    TIMEOUT = "TIMEOUT"
     GATEWAY_TIMEOUT = "GATEWAY_TIMEOUT"
     DATABASE_ERROR = "DATABASE_ERROR"
     EXTERNAL_SERVICE_ERROR = "EXTERNAL_SERVICE_ERROR"
@@ -69,6 +76,14 @@ class ErrorCode(str, Enum):
     AGENT_ERROR = "AGENT_ERROR"
     VERIFICATION_ERROR = "VERIFICATION_ERROR"
     MEMORY_ERROR = "MEMORY_ERROR"
+    QUOTA_EXCEEDED = "QUOTA_EXCEEDED"
+
+    # Agent-specific errors
+    INVALID_API_KEY = "INVALID_API_KEY"
+    AGENT_TIMEOUT = "AGENT_TIMEOUT"
+    AGENT_RATE_LIMITED = "AGENT_RATE_LIMITED"
+    AGENT_NOT_FOUND = "AGENT_NOT_FOUND"
+    CONFIG_ERROR = "CONFIG_ERROR"
 
 
 # =============================================================================
@@ -492,6 +507,360 @@ def log_error(
     return error_id
 
 
+# =============================================================================
+# Error Suggestions Registry (from error_utils.py)
+# =============================================================================
+
+ERROR_SUGGESTIONS: Dict[ErrorCode, Dict[str, str]] = {
+    ErrorCode.INVALID_API_KEY: {
+        "message": "Invalid or missing API key",
+        "suggestion": "Check your API key configuration",
+        "cli_help": "Run `aragora doctor` to verify API keys",
+        "docs": "See docs/ENVIRONMENT.md for configuration",
+    },
+    ErrorCode.AGENT_TIMEOUT: {
+        "message": "Agent timed out",
+        "suggestion": "Increase timeout or use fewer agents",
+        "cli_help": "Set ARAGORA_DEBATE_TIMEOUT=1200 in .env",
+        "docs": "See docs/TROUBLESHOOTING.md",
+    },
+    ErrorCode.AGENT_RATE_LIMITED: {
+        "message": "Agent rate limited by provider",
+        "suggestion": "Wait and retry, or use fallback provider",
+        "cli_help": "Set OPENROUTER_API_KEY for fallback access",
+        "docs": "See docs/ENVIRONMENT.md for fallback configuration",
+    },
+    ErrorCode.AGENT_NOT_FOUND: {
+        "message": "Agent not found",
+        "suggestion": "Check agent name spelling",
+        "cli_help": "Run `aragora status` to list available agents",
+        "docs": "See docs/CUSTOM_AGENTS.md for agent configuration",
+    },
+    ErrorCode.CONFIG_ERROR: {
+        "message": "Configuration error",
+        "suggestion": "Check your configuration file",
+        "cli_help": "Run `aragora config show` to view current settings",
+        "docs": "See docs/ENVIRONMENT.md for configuration options",
+    },
+    ErrorCode.UNAUTHORIZED: {
+        "message": "Authentication required",
+        "suggestion": "Provide valid authentication token",
+        "cli_help": "Set ARAGORA_API_TOKEN in .env",
+        "docs": "See docs/API_REFERENCE.md for authentication",
+    },
+    ErrorCode.RATE_LIMITED: {
+        "message": "Rate limit exceeded",
+        "suggestion": "Wait before retrying",
+        "cli_help": "Rate limits reset after 60 seconds",
+        "docs": "See docs/API_REFERENCE.md for rate limit details",
+    },
+    ErrorCode.NOT_FOUND: {
+        "message": "Resource not found",
+        "suggestion": "Verify the resource ID exists",
+        "cli_help": "Use `aragora status` to check available resources",
+        "docs": "Check the API endpoint path",
+    },
+    ErrorCode.DATABASE_ERROR: {
+        "message": "Database error",
+        "suggestion": "Check database connectivity",
+        "cli_help": "Run `aragora doctor` to check database status",
+        "docs": "See docs/TROUBLESHOOTING.md for database issues",
+    },
+    ErrorCode.TIMEOUT: {
+        "message": "Operation timed out",
+        "suggestion": "Increase timeout or reduce complexity",
+        "cli_help": "Set ARAGORA_DEBATE_TIMEOUT to a higher value",
+        "docs": "See docs/ENVIRONMENT.md for timeout configuration",
+    },
+    ErrorCode.SERVICE_UNAVAILABLE: {
+        "message": "Service temporarily unavailable",
+        "suggestion": "Wait and retry",
+        "cli_help": "Check server status with `aragora doctor`",
+        "docs": "See docs/TROUBLESHOOTING.md",
+    },
+}
+
+
+def get_error_suggestion(code: ErrorCode) -> Dict[str, str]:
+    """Get suggestion details for an error code.
+
+    Returns:
+        Dict with 'message', 'suggestion', 'cli_help', and 'docs' keys
+    """
+    return ERROR_SUGGESTIONS.get(
+        code,
+        {
+            "message": "An error occurred",
+            "suggestion": "Check the error details",
+            "cli_help": "Run `aragora doctor` for diagnostics",
+            "docs": "See docs/TROUBLESHOOTING.md",
+        },
+    )
+
+
+def format_cli_error(code: ErrorCode, details: str = "") -> str:
+    """Format an error message for CLI output with actionable suggestions.
+
+    Args:
+        code: Error code
+        details: Additional error details
+
+    Returns:
+        Formatted error string for terminal output
+    """
+    info = get_error_suggestion(code)
+    lines = [
+        f"[{code.value}] {info['message']}",
+    ]
+    if details:
+        lines.append(f"  Details: {details}")
+    lines.append(f"  -> {info['suggestion']}")
+    lines.append(f"  -> Try: {info['cli_help']}")
+    return "\n".join(lines)
+
+
+# =============================================================================
+# Safe Error Message (from error_utils.py)
+# =============================================================================
+
+
+def safe_error_message(e: Exception, context: str = "") -> str:
+    """Return a sanitized error message for client responses.
+
+    Logs the full error server-side while returning a generic message to clients.
+    This prevents information disclosure of internal details like file paths,
+    stack traces, or sensitive configuration.
+
+    Args:
+        e: The exception that occurred
+        context: Optional context string for logging (e.g., "debate creation")
+
+    Returns:
+        User-friendly error message safe to return to clients
+    """
+    # Log full details server-side for debugging
+    logger.error(f"Error in {context}: {type(e).__name__}: {e}", exc_info=True)
+
+    # Map common exceptions to user-friendly messages
+    error_type = type(e).__name__
+    if error_type in ("FileNotFoundError", "OSError"):
+        return "Resource not found"
+    elif error_type in ("json.JSONDecodeError", "ValueError"):
+        return "Invalid data format"
+    elif error_type in ("PermissionError",):
+        return "Access denied"
+    elif error_type in ("TimeoutError", "asyncio.TimeoutError"):
+        return "Operation timed out"
+    else:
+        return "An error occurred"
+
+
+# =============================================================================
+# Error Formatter Class (from error_utils.py)
+# =============================================================================
+
+# Map HTTP status codes to error codes
+_STATUS_TO_CODE: Dict[int, ErrorCode] = {
+    400: ErrorCode.INVALID_REQUEST,
+    401: ErrorCode.UNAUTHORIZED,
+    403: ErrorCode.FORBIDDEN,
+    404: ErrorCode.NOT_FOUND,
+    409: ErrorCode.CONFLICT,
+    413: ErrorCode.PAYLOAD_TOO_LARGE,
+    429: ErrorCode.RATE_LIMITED,
+    500: ErrorCode.INTERNAL_ERROR,
+    502: ErrorCode.EXTERNAL_SERVICE_ERROR,
+    503: ErrorCode.SERVICE_UNAVAILABLE,
+    504: ErrorCode.TIMEOUT,
+}
+
+
+class ErrorFormatter:
+    """Unified error formatter for consistent API responses.
+
+    Provides a single interface for formatting both client and server errors
+    with automatic classification, sanitization, and trace ID generation.
+
+    Example:
+        formatter = ErrorFormatter()
+
+        # Format client error (bad input)
+        response = formatter.format_client_error(
+            "Invalid agent name",
+            field="agent",
+            trace_id="abc123"
+        )
+
+        # Format server error (internal failure)
+        response = formatter.format_server_error(
+            exception,
+            context="debate creation",
+            trace_id="abc123"
+        )
+
+        # Auto-classify an exception
+        api_error = formatter.classify_exception(exception, "debate creation")
+    """
+
+    # Map exception types to (status_code, error_code, default_message)
+    EXCEPTION_TYPE_MAP: Dict[str, tuple] = {
+        "FileNotFoundError": (404, ErrorCode.NOT_FOUND, "Resource not found"),
+        "OSError": (500, ErrorCode.INTERNAL_ERROR, "System error"),
+        "JSONDecodeError": (400, ErrorCode.INVALID_FORMAT, "Invalid JSON format"),
+        "ValueError": (400, ErrorCode.VALIDATION_ERROR, "Invalid value"),
+        "KeyError": (400, ErrorCode.MISSING_PARAMETER, "Missing required field"),
+        "PermissionError": (403, ErrorCode.FORBIDDEN, "Access denied"),
+        "TimeoutError": (504, ErrorCode.TIMEOUT, "Operation timed out"),
+        "ConnectionError": (502, ErrorCode.EXTERNAL_SERVICE_ERROR, "Connection failed"),
+        "sqlite3.OperationalError": (503, ErrorCode.DATABASE_ERROR, "Database error"),
+    }
+
+    @classmethod
+    def format_client_error(
+        cls,
+        message: str,
+        status: int = 400,
+        code: Optional[ErrorCode] = None,
+        field: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        suggestion: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Format a client error (4xx) response.
+
+        Use for validation failures, bad requests, and missing resources.
+
+        Args:
+            message: Human-readable error message
+            status: HTTP status code (default 400)
+            code: Error code (auto-detected from status if not provided)
+            field: Field that caused the error (for validation errors)
+            trace_id: Request trace ID for correlation
+            suggestion: Helpful suggestion for the user
+
+        Returns:
+            Formatted error response dict
+        """
+        error_code = code or _STATUS_TO_CODE.get(status, ErrorCode.INVALID_REQUEST)
+        error_dict: Dict[str, Any] = {
+            "error": error_code.value,
+            "message": message,
+        }
+        if trace_id:
+            error_dict["trace_id"] = trace_id
+        if field:
+            error_dict["field"] = field
+        if suggestion:
+            error_dict["suggestion"] = suggestion
+        return error_dict
+
+    @classmethod
+    def format_server_error(
+        cls,
+        exception: Exception,
+        context: str = "",
+        trace_id: Optional[str] = None,
+        log_full: bool = True,
+    ) -> Dict[str, Any]:
+        """Format a server error (5xx) response.
+
+        Logs full details server-side, returns sanitized message to client.
+
+        Args:
+            exception: The exception that occurred
+            context: Context for logging (e.g., "debate creation")
+            trace_id: Request trace ID for correlation
+            log_full: Whether to log full exception with traceback
+
+        Returns:
+            Formatted error response dict with sanitized message
+        """
+        # Log full details server-side
+        if log_full:
+            logger.exception(
+                f"[{trace_id or 'no-trace'}] Error in {context}: "
+                f"{type(exception).__name__}: {exception}"
+            )
+
+        # Get classification
+        status, code, message = cls._classify_exception_type(exception)
+
+        error_dict: Dict[str, Any] = {
+            "error": code.value,
+            "message": message,
+        }
+        if trace_id:
+            error_dict["trace_id"] = trace_id
+            error_dict["suggestion"] = "If this persists, contact support with the trace ID"
+        return error_dict
+
+    @classmethod
+    def classify_exception(
+        cls,
+        exception: Exception,
+        context: str = "",
+        trace_id: Optional[str] = None,
+    ) -> AragoraAPIError:
+        """Classify an exception into an AragoraAPIError.
+
+        Args:
+            exception: The exception to classify
+            context: Context for the error
+            trace_id: Request trace ID
+
+        Returns:
+            AragoraAPIError instance with appropriate classification
+        """
+        status, code, message = cls._classify_exception_type(exception)
+
+        # Log for debugging
+        logger.debug(f"Classified {type(exception).__name__} as {code.value} ({status})")
+
+        return AragoraAPIError(
+            code=code,
+            message=message,
+            status_code=status,
+            context=ErrorContext(extra={"context": context} if context else {}),
+        )
+
+    @classmethod
+    def _classify_exception_type(cls, exception: Exception) -> tuple:
+        """Classify exception type to (status, code, message)."""
+        exception_type = type(exception).__name__
+
+        # Check direct mapping
+        if exception_type in cls.EXCEPTION_TYPE_MAP:
+            return cls.EXCEPTION_TYPE_MAP[exception_type]
+
+        # Check fully qualified name for nested types
+        full_type = f"{type(exception).__module__}.{exception_type}"
+        if full_type in cls.EXCEPTION_TYPE_MAP:
+            return cls.EXCEPTION_TYPE_MAP[full_type]
+
+        # Check base classes
+        for base_type, mapping in cls.EXCEPTION_TYPE_MAP.items():
+            if base_type in str(type(exception).__mro__):
+                return mapping
+
+        # Default to internal error
+        return 500, ErrorCode.INTERNAL_ERROR, "An error occurred"
+
+    @classmethod
+    def categorize_status(cls, status: int) -> str:
+        """Categorize HTTP status code.
+
+        Returns:
+            Category string: "success", "redirect", "client_error", "server_error"
+        """
+        if 200 <= status < 300:
+            return "success"
+        elif 300 <= status < 400:
+            return "redirect"
+        elif 400 <= status < 500:
+            return "client_error"
+        else:
+            return "server_error"
+
+
 __all__ = [
     # Error codes
     "ErrorCode",
@@ -525,4 +894,11 @@ __all__ = [
     "wrap_exception",
     "log_error",
     "EXCEPTION_MAP",
+    # From error_utils.py consolidation
+    "safe_error_message",
+    "ERROR_SUGGESTIONS",
+    "get_error_suggestion",
+    "format_cli_error",
+    "ErrorFormatter",
+    "_STATUS_TO_CODE",
 ]

@@ -43,6 +43,10 @@ _EXPORTS = {
         "aragora.server.stream.state_manager",
         "increment_cleanup_counter",
     ),
+    "get_stream_state_manager": (
+        "aragora.server.stream.state_manager",
+        "get_stream_state_manager",
+    ),
     # Arena hooks
     "create_arena_hooks": ("aragora.server.stream.arena_hooks", "create_arena_hooks"),
     "wrap_agent_for_streaming": ("aragora.server.stream.arena_hooks", "wrap_agent_for_streaming"),
@@ -77,7 +81,7 @@ _EXPORTS = {
     "_debate_executor_lock": ("aragora.server.stream.state_manager", "_debate_executor_lock"),
     "_DEBATE_TTL_SECONDS": ("aragora.server.stream.servers", "_DEBATE_TTL_SECONDS"),
     "TRUSTED_PROXIES": ("aragora.server.stream.servers", "TRUSTED_PROXIES"),
-    "_safe_error_message": ("aragora.server.error_utils", "safe_error_message"),
+    "_safe_error_message": ("aragora.server.errors", "safe_error_message"),
     "_debate_executor": ("aragora.server.stream.state_manager", "_debate_executor"),
     "_get_active_debates": ("aragora.server.stream.state_manager", "get_active_debates"),
 }
@@ -105,6 +109,7 @@ __all__ = [
     "get_debate_executor_lock",
     "cleanup_stale_debates",
     "increment_cleanup_counter",
+    "get_stream_state_manager",
     # Arena hooks
     "create_arena_hooks",
     "wrap_agent_for_streaming",

@@ -1,8 +1,19 @@
 """
-Debate and loop state management.
+Debate and loop state management for streaming.
 
-Provides bounded collections and state tracking for active debates and
-nomic loop instances, with TTL-based cleanup to prevent memory leaks.
+NOTE: For general debate state management, prefer using aragora.server.state.StateManager:
+
+    from aragora.server.state import get_state_manager
+    state = get_state_manager()
+    state.register_debate(...)
+
+This module provides streaming-specific features:
+- LoopInstance: Nomic loop tracking
+- BoundedDebateDict: Memory-bounded debate tracking
+- Periodic cleanup tasks for streaming state
+
+The global debate tracking functions in this module delegate to the canonical
+StateManager in aragora.server.state where applicable.
 """
 
 import asyncio
@@ -300,8 +311,18 @@ _state_manager: Optional[DebateStateManager] = None
 _state_manager_lock = threading.Lock()
 
 
-def get_state_manager() -> DebateStateManager:
-    """Get the global DebateStateManager singleton.
+def get_stream_state_manager() -> DebateStateManager:
+    """Get the global DebateStateManager singleton for streaming.
+
+    This returns the streaming-specific DebateStateManager which handles:
+    - Loop instance tracking (LoopInstance)
+    - Streaming debate state caching
+    - Async cleanup tasks
+
+    For general debate management, use aragora.server.state.get_state_manager() instead:
+
+        from aragora.server.state import get_state_manager
+        state = get_state_manager()  # Returns StateManager
 
     Thread-safe lazy initialization of the shared state manager instance.
     """
@@ -311,6 +332,27 @@ def get_state_manager() -> DebateStateManager:
             if _state_manager is None:
                 _state_manager = DebateStateManager()
     return _state_manager
+
+
+def get_state_manager() -> DebateStateManager:
+    """DEPRECATED: Use get_stream_state_manager() for streaming state.
+
+    For general debate management, use aragora.server.state.get_state_manager():
+
+        from aragora.server.state import get_state_manager
+        state = get_state_manager()
+
+    This alias is kept for backward compatibility.
+    """
+    import warnings
+    warnings.warn(
+        "stream.state_manager.get_state_manager() is deprecated. "
+        "Use get_stream_state_manager() for streaming or "
+        "aragora.server.state.get_state_manager() for general debate management.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return get_stream_state_manager()
 
 
 # =============================================================================
@@ -391,7 +433,8 @@ __all__ = [
     "get_debate_executor",
     "set_debate_executor",
     "get_debate_executor_lock",
-    "get_state_manager",
+    "get_stream_state_manager",  # Preferred - streaming-specific
+    "get_state_manager",  # Deprecated - use get_stream_state_manager() instead
     "cleanup_stale_debates",
     "increment_cleanup_counter",
     # Periodic cleanup

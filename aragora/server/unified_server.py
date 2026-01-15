@@ -1320,12 +1320,12 @@ class UnifiedServer:
         # Start periodic state cleanup task (prevents memory leaks from stale entries)
         try:
             from aragora.server.stream.state_manager import (
-                get_state_manager,
+                get_stream_state_manager,
                 start_cleanup_task,
             )
 
-            state_manager = get_state_manager()
-            start_cleanup_task(state_manager, interval_seconds=300)
+            stream_state_manager = get_stream_state_manager()
+            start_cleanup_task(stream_state_manager, interval_seconds=300)
             logger.debug("State cleanup task started (5 min interval)")
         except (ImportError, RuntimeError) as e:
             logger.debug(f"State cleanup task not started: {e}")

@@ -24,7 +24,7 @@ from aragora.server.debate_utils import (
     cleanup_stale_debates,
     update_debate_status,
 )
-from aragora.server.error_utils import safe_error_message
+from aragora.server.errors import safe_error_message
 from aragora.server.http_utils import run_async
 from aragora.server.state import get_state_manager
 from aragora.server.stream import (
