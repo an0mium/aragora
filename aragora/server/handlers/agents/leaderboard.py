@@ -249,7 +249,7 @@ class LeaderboardViewHandler(BaseHandler):
     def _fetch_reputations(self) -> dict:
         """Fetch all agent reputations."""
         try:
-            from aragora.memory.critique_store import CritiqueStore
+            from aragora.memory.store import CritiqueStore
         except ImportError:
             return {"reputations": [], "count": 0}
 
@@ -326,7 +326,7 @@ class LeaderboardViewHandler(BaseHandler):
         """Fetch agent introspection data."""
         try:
             from aragora.introspection import get_agent_introspection
-            from aragora.memory.critique_store import CritiqueStore
+            from aragora.memory.store import CritiqueStore
         except ImportError:
             return {"agents": {}, "count": 0}
 

@@ -332,8 +332,8 @@ CACHE_TTL_QUERY = _env_int("ARAGORA_CACHE_QUERY", 60)  # 1 min
 
 # === Pulse Scheduler ===
 # Auto-start the pulse debate scheduler when the server starts
-# Set to "true" or "1" to enable
-PULSE_SCHEDULER_AUTOSTART = _env_bool("PULSE_SCHEDULER_AUTOSTART", False)
+# Set to "false" or "0" to disable
+PULSE_SCHEDULER_AUTOSTART = _env_bool("PULSE_SCHEDULER_AUTOSTART", True)
 # Poll interval in seconds (how often to check for trending topics)
 PULSE_SCHEDULER_POLL_INTERVAL = _env_int("PULSE_SCHEDULER_POLL_INTERVAL", 300)  # 5 min
 # Maximum debates per hour (rate limiting)

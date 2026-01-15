@@ -176,7 +176,7 @@ class TestDebateWithMemory:
         self, e2e_agents, e2e_environment, e2e_protocol, mock_external_apis, temp_e2e_dir
     ):
         """Debate should interact with CritiqueStore for memory."""
-        from aragora.memory.critique_store import CritiqueStore
+        from aragora.memory.store import CritiqueStore
 
         critique_store = CritiqueStore(str(temp_e2e_dir / "critiques.db"))
 

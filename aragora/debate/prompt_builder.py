@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from aragora.evidence.collector import EvidencePack
     from aragora.memory.consensus import DissentRetriever
     from aragora.memory.continuum import ContinuumMemory
-    from aragora.memory.critique_store import CritiqueStore
+    from aragora.memory.store import CritiqueStore
     from aragora.ranking.elo import EloSystem
 
 logger = logging.getLogger(__name__)
