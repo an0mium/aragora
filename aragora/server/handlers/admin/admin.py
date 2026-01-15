@@ -970,8 +970,10 @@ class AdminHandler(BaseHandler):
                 from aragora.nomic.metrics import update_circuit_breaker_count
 
                 update_circuit_breaker_count(0)
-            except Exception:
-                pass  # Best effort
+            except ImportError:
+                logger.debug("nomic.metrics not available for circuit breaker count update")
+            except Exception as e:
+                logger.debug(f"Best effort metrics update failed: {type(e).__name__}")
 
             logger.info(
                 f"Admin {auth_ctx.user_id} reset circuit breakers. Previously open: {open_before}"

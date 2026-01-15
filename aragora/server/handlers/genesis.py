@@ -347,8 +347,8 @@ class GenesisHandler(BaseHandler):
                                 enriched_node["event_type"] = "crossover"
                                 enriched_node["created_at"] = event.timestamp
                                 break
-                except Exception:
-                    pass  # Event lookup is optional
+                except Exception as e:
+                    logger.debug(f"Optional event lookup failed for genome lineage: {type(e).__name__}")
 
                 enriched_lineage.append(enriched_node)
 
