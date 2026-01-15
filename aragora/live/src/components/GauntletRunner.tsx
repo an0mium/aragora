@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAragoraClient } from '@/hooks/useAragoraClient';
+import { useGauntletWebSocket } from '@/hooks/useGauntletWebSocket';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ApiError } from './ApiError';
 import type {
@@ -26,12 +27,24 @@ export function GauntletRunner({ initialDecision }: GauntletRunnerProps) {
   const [rounds, setRounds] = useState(3);
   const [stressLevel, setStressLevel] = useState(5);
   const [isRunning, setIsRunning] = useState(false);
+  const [activeGauntletId, setActiveGauntletId] = useState<string | null>(null);
 
   // Data state
   const [personas, setPersonas] = useState<GauntletPersona[]>([]);
   const [results, setResults] = useState<GauntletResult[]>([]);
   const [selectedResult, setSelectedResult] = useState<GauntletResult | null>(null);
   const [receipt, setReceipt] = useState<GauntletReceipt | null>(null);
+
+  // WebSocket for real-time gauntlet updates (replaces polling)
+  const {
+    status: wsStatus,
+    progress: wsProgress,
+    verdict: wsVerdict,
+    error: wsError,
+  } = useGauntletWebSocket({
+    gauntletId: activeGauntletId || '',
+    enabled: !!activeGauntletId && isRunning,
+  });
 
   const fetchData = useCallback(async () => {
     if (!client) return;
@@ -57,6 +70,32 @@ export function GauntletRunner({ initialDecision }: GauntletRunnerProps) {
     fetchData();
   }, [fetchData]);
 
+  // Handle WebSocket completion (replaces polling)
+  useEffect(() => {
+    if (!activeGauntletId || !isRunning) return;
+
+    if (wsStatus === 'complete' || wsStatus === 'error') {
+      // Fetch final result
+      client?.gauntlet.get(activeGauntletId).then((res) => {
+        setSelectedResult(res.gauntlet);
+        setActiveTab('results');
+        // Refresh results list
+        return client.gauntlet.results({ limit: 10 });
+      }).then((resultsRes) => {
+        setResults(resultsRes?.results || []);
+      }).catch((e) => {
+        setError(e instanceof Error ? e.message : 'Failed to fetch result');
+      }).finally(() => {
+        setIsRunning(false);
+        setActiveGauntletId(null);
+      });
+    }
+
+    if (wsError) {
+      setError(wsError);
+    }
+  }, [wsStatus, wsError, activeGauntletId, isRunning, client]);
+
   const runGauntlet = async () => {
     if (!client || !decision.trim()) return;
     setIsRunning(true);
@@ -70,27 +109,11 @@ export function GauntletRunner({ initialDecision }: GauntletRunnerProps) {
         stress_level: stressLevel,
       });
 
-      // Poll for completion
-      let attempts = 0;
-      const maxAttempts = 60; // 5 minutes max
-      while (attempts < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-        const statusRes = await client.gauntlet.get(res.gauntlet_id);
-
-        if (statusRes.gauntlet.status === 'completed' || statusRes.gauntlet.status === 'failed') {
-          setSelectedResult(statusRes.gauntlet);
-          setActiveTab('results');
-          break;
-        }
-        attempts++;
-      }
-
-      // Refresh results list
-      const resultsRes = await client.gauntlet.results({ limit: 10 });
-      setResults(resultsRes.results || []);
+      // Set active gauntlet ID to enable WebSocket streaming
+      setActiveGauntletId(res.gauntlet_id);
+      // WebSocket will handle completion via useEffect above
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to run gauntlet');
-    } finally {
       setIsRunning(false);
     }
   };
