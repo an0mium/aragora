@@ -11,7 +11,7 @@ This package contains debate-related handlers split by domain:
 
 from .batch import BatchOperationsMixin
 from .fork import ForkOperationsMixin
-from .graph_debates import GraphDebatesHandler
+from .graph_debates import GraphDebatesHandler, _graph_limiter
 from .handler import (
     DebatesHandler,
     STATUS_MAP,
@@ -30,6 +30,7 @@ __all__ = [
     "MatrixDebatesHandler",
     "STATUS_MAP",
     "STATUS_REVERSE_MAP",
+    "_graph_limiter",
     "denormalize_status",
     "normalize_debate_response",
     "normalize_status",

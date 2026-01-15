@@ -349,7 +349,7 @@ class TestBroadcastHandlerIntegration:
     def test_handler_routes(self):
         """Test broadcast handler routes are registered."""
         try:
-            from aragora.server.handlers.broadcast import BroadcastHandler
+            from aragora.server.handlers.features import BroadcastHandler
 
             handler = BroadcastHandler({})
 
@@ -362,7 +362,7 @@ class TestBroadcastHandlerIntegration:
     async def test_get_pipeline(self, mock_storage):
         """Test getting pipeline from handler."""
         try:
-            from aragora.server.handlers.broadcast import BroadcastHandler
+            from aragora.server.handlers.features import BroadcastHandler
 
             ctx = {"broadcast_storage": mock_storage}
             handler = BroadcastHandler(ctx)

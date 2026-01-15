@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 from dataclasses import dataclass
 
-from aragora.server.handlers.leaderboard import LeaderboardViewHandler
+from aragora.server.handlers.agents import LeaderboardViewHandler
 from aragora.server.handlers.base import clear_cache
 
 

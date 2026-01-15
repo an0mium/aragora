@@ -12,7 +12,7 @@ import json
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 
-from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+from aragora.server.handlers.debates import MatrixDebatesHandler
 
 
 # ============================================================================

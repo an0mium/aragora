@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from aragora.server.handlers.cache import (
+from aragora.server.handlers.admin.cache import (
     BoundedTTLCache,
     CACHE_INVALIDATION_MAP,
     clear_cache,
@@ -614,7 +614,7 @@ class TestAsyncTTLCacheDecorator:
     @pytest.mark.asyncio
     async def test_async_cache_basic(self):
         """Test basic async caching."""
-        from aragora.server.handlers.cache import async_ttl_cache
+        from aragora.server.handlers.admin.cache import async_ttl_cache
 
         call_count = 0
 
@@ -642,7 +642,7 @@ class TestAsyncTTLCacheDecorator:
     @pytest.mark.asyncio
     async def test_async_cache_concurrent_calls(self):
         """Test that concurrent calls don't cause issues."""
-        from aragora.server.handlers.cache import async_ttl_cache
+        from aragora.server.handlers.admin.cache import async_ttl_cache
 
         call_count = 0
 

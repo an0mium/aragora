@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from aragora.storage.share_store import ShareLinkStore
-from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+from aragora.server.handlers.social import ShareSettings, DebateVisibility
 
 
 @pytest.fixture

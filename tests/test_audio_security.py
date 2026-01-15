@@ -201,7 +201,7 @@ class TestAudioHandlerSecurity:
     def audio_handler(self):
         """Create audio handler with mock storage."""
         try:
-            from aragora.server.handlers.audio import AudioHandler
+            from aragora.server.handlers.features import AudioHandler
 
             mock_storage = Mock()
             mock_storage.storage_dir = Path("/safe/audio/dir")

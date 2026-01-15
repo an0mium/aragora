@@ -888,7 +888,7 @@ class TestSystemHealthDetails:
         # Clear existing cache before test
         clear_cache()
 
-        from aragora.server.handlers.cache import get_handler_cache
+        from aragora.server.handlers.admin.cache import get_handler_cache
 
         # Add a test entry using the cache's set method
         cache = get_handler_cache()

@@ -16,9 +16,9 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from aragora.server.handlers.evolution_ab_testing import EvolutionABTestingHandler
+from aragora.server.handlers.evolution import EvolutionABTestingHandler
 from aragora.server.handlers.base import clear_cache
-import aragora.server.handlers.evolution_ab_testing as ab_mod
+import aragora.server.handlers.evolution.ab_testing as ab_mod
 
 
 # ============================================================================

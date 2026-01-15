@@ -1,10 +1,38 @@
 """Feature handlers - audio, broadcast, documents, evidence, pulse, plugins, features."""
 
-from .audio import AudioHandler
+from .audio import AudioHandler, PODCAST_AVAILABLE
 from .broadcast import BroadcastHandler
 from .documents import DocumentHandler
 from .evidence import EvidenceHandler
-from .features import FeaturesHandler
+from .features import (
+    FEATURE_REGISTRY,
+    FeatureInfo,
+    FeaturesHandler,
+    feature_unavailable_response,
+    get_all_features,
+    get_available_features,
+    get_unavailable_features,
+    _check_feature_available,
+    _check_pulse,
+    _check_genesis,
+    _check_elo,
+    _check_z3,
+    _check_lean,
+    _check_laboratory,
+    _check_calibration,
+    _check_evolution,
+    _check_red_team,
+    _check_probes,
+    _check_continuum,
+    _check_consensus,
+    _check_insights,
+    _check_moments,
+    _check_tournaments,
+    _check_crux,
+    _check_rhetorical,
+    _check_trickster,
+    _check_requirement,
+)
 from .plugins import PluginsHandler
 from .pulse import PulseHandler
 
@@ -13,7 +41,15 @@ __all__ = [
     "BroadcastHandler",
     "DocumentHandler",
     "EvidenceHandler",
+    "FEATURE_REGISTRY",
+    "FeatureInfo",
     "FeaturesHandler",
+    "feature_unavailable_response",
+    "get_all_features",
+    "get_available_features",
+    "get_unavailable_features",
+    "_check_feature_available",
     "PluginsHandler",
+    "PODCAST_AVAILABLE",
     "PulseHandler",
 ]

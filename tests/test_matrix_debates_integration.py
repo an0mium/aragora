@@ -133,7 +133,7 @@ class TestMatrixDebatesHandlerRoutes:
     def test_handler_routes(self):
         """Test handler recognizes all matrix debate routes."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -146,7 +146,7 @@ class TestMatrixDebatesHandlerRoutes:
     def test_auth_required_endpoints(self):
         """Test auth is required for POST endpoint."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -167,7 +167,7 @@ class TestMatrixDebatesGetEndpoints:
     async def test_get_matrix_debate_not_found(self, mock_handler):
         """Test 404 response for non-existent matrix debate."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -183,7 +183,7 @@ class TestMatrixDebatesGetEndpoints:
     async def test_get_matrix_debate_success(self, mock_handler, mock_storage):
         """Test successful matrix debate retrieval."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             # Configure storage to return a debate
             mock_storage.get_matrix_debate = AsyncMock(
@@ -208,7 +208,7 @@ class TestMatrixDebatesGetEndpoints:
     async def test_get_matrix_debate_no_storage(self, mock_handler):
         """Test 503 when storage not configured."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             mock_handler.storage = None
 
@@ -223,7 +223,7 @@ class TestMatrixDebatesGetEndpoints:
     async def test_get_scenarios_empty(self, mock_handler):
         """Test empty scenarios response."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -240,7 +240,7 @@ class TestMatrixDebatesGetEndpoints:
     async def test_get_conclusions_empty(self, mock_handler):
         """Test empty conclusions response."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -267,7 +267,7 @@ class TestMatrixDebatesPostEndpoint:
     async def test_create_matrix_debate_missing_task(self, mock_handler):
         """Test 400 response when task is missing."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -287,7 +287,7 @@ class TestMatrixDebatesPostEndpoint:
     async def test_create_matrix_debate_missing_scenarios(self, mock_handler):
         """Test 400 response when scenarios are missing."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -307,7 +307,7 @@ class TestMatrixDebatesPostEndpoint:
     async def test_create_matrix_debate_empty_scenarios(self, mock_handler):
         """Test 400 response when scenarios list is empty."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -335,7 +335,7 @@ class TestMatrixDebatesUtilities:
     def test_find_universal_conclusions_all_consensus(self, sample_results):
         """Test finding universal conclusions when all reach consensus."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -350,7 +350,7 @@ class TestMatrixDebatesUtilities:
     def test_find_universal_conclusions_no_consensus(self):
         """Test finding universal conclusions when some don't reach consensus."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -369,7 +369,7 @@ class TestMatrixDebatesUtilities:
     def test_find_universal_conclusions_empty(self):
         """Test finding universal conclusions with empty results."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -382,7 +382,7 @@ class TestMatrixDebatesUtilities:
     def test_find_conditional_conclusions(self, sample_results):
         """Test finding conditional conclusions."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -403,7 +403,7 @@ class TestMatrixDebatesUtilities:
     def test_find_conditional_conclusions_empty(self):
         """Test finding conditional conclusions with empty results."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -416,7 +416,7 @@ class TestMatrixDebatesUtilities:
     def test_build_comparison_matrix(self, sample_results):
         """Test building comparison matrix."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -439,7 +439,7 @@ class TestMatrixDebatesUtilities:
     def test_build_comparison_matrix_empty(self):
         """Test building comparison matrix with empty results."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -465,7 +465,7 @@ class TestAgentLoading:
     async def test_load_agents_default(self):
         """Test loading default agents."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -489,7 +489,7 @@ class TestAgentLoading:
     async def test_load_agents_returns_empty_on_failure(self):
         """Test graceful handling of agent load failure."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -516,7 +516,7 @@ class TestHandleGetRouting:
     async def test_get_matrix_debate_by_id(self, mock_handler, mock_storage):
         """Test getting matrix debate by ID."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             mock_storage.get_matrix_debate = AsyncMock(
                 return_value={
@@ -541,7 +541,7 @@ class TestHandleGetRouting:
     async def test_get_scenarios_by_matrix_id(self, mock_handler, mock_storage):
         """Test getting scenarios for a matrix debate."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             mock_storage.get_matrix_scenarios = AsyncMock(
                 return_value=[
@@ -566,7 +566,7 @@ class TestHandleGetRouting:
     async def test_get_conclusions_by_matrix_id(self, mock_handler, mock_storage):
         """Test getting conclusions for a matrix debate."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             mock_storage.get_matrix_conclusions = AsyncMock(
                 return_value={
@@ -601,7 +601,7 @@ class TestMatrixDebateFallback:
     async def test_fallback_runs_scenarios_in_parallel(self, mock_handler, sample_scenarios):
         """Test fallback runs scenarios concurrently."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 
@@ -646,7 +646,7 @@ class TestMatrixDebateFallback:
     async def test_fallback_no_agents(self, mock_handler, sample_scenarios):
         """Test fallback returns error when no agents loaded."""
         try:
-            from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+            from aragora.server.handlers.debates import MatrixDebatesHandler
 
             handler = MatrixDebatesHandler({})
 

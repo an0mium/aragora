@@ -15,7 +15,7 @@ import json
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 
-from aragora.server.handlers.graph_debates import GraphDebatesHandler, _graph_limiter
+from aragora.server.handlers.debates import GraphDebatesHandler, _graph_limiter
 
 
 # ============================================================================

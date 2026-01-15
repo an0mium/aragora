@@ -55,7 +55,7 @@ def mock_tracker():
 def handler_with_tracker(mock_tracker):
     """Create handler with mocked tracker."""
     try:
-        from aragora.server.handlers.memory_analytics import MemoryAnalyticsHandler
+        from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
         handler = MemoryAnalyticsHandler({})
         handler._tracker = mock_tracker
@@ -68,7 +68,7 @@ def handler_with_tracker(mock_tracker):
 def handler_without_tracker():
     """Create handler without tracker (simulates module not available)."""
     try:
-        from aragora.server.handlers.memory_analytics import MemoryAnalyticsHandler
+        from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
         handler = MemoryAnalyticsHandler({})
         # Use a sentinel to indicate "no tracker" - set to False to bypass lazy loading
@@ -91,7 +91,7 @@ class TestMemoryAnalyticsRoutes:
     def test_handler_routes(self):
         """Test handler recognizes all memory analytics routes."""
         try:
-            from aragora.server.handlers.memory_analytics import MemoryAnalyticsHandler
+            from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
             handler = MemoryAnalyticsHandler({})
 
@@ -103,7 +103,7 @@ class TestMemoryAnalyticsRoutes:
     def test_can_handle_analytics_route(self):
         """Test can_handle returns True for analytics route."""
         try:
-            from aragora.server.handlers.memory_analytics import MemoryAnalyticsHandler
+            from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
             handler = MemoryAnalyticsHandler({})
 
@@ -114,7 +114,7 @@ class TestMemoryAnalyticsRoutes:
     def test_can_handle_snapshot_route(self):
         """Test can_handle returns True for snapshot route."""
         try:
-            from aragora.server.handlers.memory_analytics import MemoryAnalyticsHandler
+            from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
             handler = MemoryAnalyticsHandler({})
 
@@ -125,7 +125,7 @@ class TestMemoryAnalyticsRoutes:
     def test_can_handle_tier_route(self):
         """Test can_handle returns True for tier-specific routes."""
         try:
-            from aragora.server.handlers.memory_analytics import MemoryAnalyticsHandler
+            from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
             handler = MemoryAnalyticsHandler({})
 
@@ -139,7 +139,7 @@ class TestMemoryAnalyticsRoutes:
     def test_cannot_handle_other_routes(self):
         """Test can_handle returns False for unrelated routes."""
         try:
-            from aragora.server.handlers.memory_analytics import MemoryAnalyticsHandler
+            from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
             handler = MemoryAnalyticsHandler({})
 
@@ -283,7 +283,7 @@ class TestTrackerLazyLoading:
     def test_tracker_caches_instance(self):
         """Test tracker property caches the tracker instance."""
         try:
-            from aragora.server.handlers.memory_analytics import MemoryAnalyticsHandler
+            from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
             handler = MemoryAnalyticsHandler({})
 

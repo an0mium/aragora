@@ -19,8 +19,8 @@ from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
 from io import BytesIO
 
-from aragora.server.handlers.broadcast import BroadcastHandler
-from aragora.server.handlers.audio import AudioHandler
+from aragora.server.handlers.features import BroadcastHandler
+from aragora.server.handlers.features import AudioHandler
 from aragora.server.handlers.social import (
     SocialMediaHandler,
     _store_oauth_state,

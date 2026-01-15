@@ -173,13 +173,13 @@ class TestPluginsEndpoints:
 
     def test_plugins_handler_exists(self):
         """Verify PluginsHandler can be imported."""
-        from aragora.server.handlers.plugins import PluginsHandler
+        from aragora.server.handlers.features import PluginsHandler
 
         assert PluginsHandler is not None
 
     def test_plugins_routes(self, handler_ctx):
         """Verify plugins routes are handled."""
-        from aragora.server.handlers.plugins import PluginsHandler
+        from aragora.server.handlers.features import PluginsHandler
 
         handler = PluginsHandler(handler_ctx)
 
@@ -193,7 +193,7 @@ class TestPluginsEndpoints:
 
     def test_plugins_list_returns_array(self, handler_ctx):
         """Test plugins list endpoint returns array."""
-        from aragora.server.handlers.plugins import PluginsHandler
+        from aragora.server.handlers.features import PluginsHandler
 
         handler = PluginsHandler(handler_ctx)
 
@@ -271,19 +271,19 @@ class TestGraphDebatesEndpoints:
 
     def test_graph_debates_handler_exists(self):
         """Verify GraphDebatesHandler can be imported."""
-        from aragora.server.handlers.graph_debates import GraphDebatesHandler
+        from aragora.server.handlers.debates import GraphDebatesHandler
 
         assert GraphDebatesHandler is not None
 
     def test_matrix_debates_handler_exists(self):
         """Verify MatrixDebatesHandler can be imported."""
-        from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+        from aragora.server.handlers.debates import MatrixDebatesHandler
 
         assert MatrixDebatesHandler is not None
 
     def test_graph_routes(self, handler_ctx):
         """Verify graph debate routes are handled."""
-        from aragora.server.handlers.graph_debates import GraphDebatesHandler
+        from aragora.server.handlers.debates import GraphDebatesHandler
 
         handler = GraphDebatesHandler(handler_ctx)
 
@@ -291,7 +291,7 @@ class TestGraphDebatesEndpoints:
 
     def test_matrix_routes(self, handler_ctx):
         """Verify matrix debate routes are handled."""
-        from aragora.server.handlers.matrix_debates import MatrixDebatesHandler
+        from aragora.server.handlers.debates import MatrixDebatesHandler
 
         handler = MatrixDebatesHandler(handler_ctx)
 
@@ -350,13 +350,13 @@ class TestLearningEndpoints:
 
     def test_learning_handler_exists(self):
         """Verify LearningHandler can be imported."""
-        from aragora.server.handlers.learning import LearningHandler
+        from aragora.server.handlers.memory import LearningHandler
 
         assert LearningHandler is not None
 
     def test_learning_routes(self, handler_ctx):
         """Verify learning routes are handled."""
-        from aragora.server.handlers.learning import LearningHandler
+        from aragora.server.handlers.memory import LearningHandler
 
         handler = LearningHandler(handler_ctx)
 

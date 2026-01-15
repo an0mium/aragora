@@ -10,7 +10,7 @@ import json
 import pytest
 from unittest.mock import Mock, MagicMock, patch
 
-from aragora.server.handlers.plugins import PluginsHandler
+from aragora.server.handlers.features import PluginsHandler
 from aragora.server.handlers.base import clear_cache
 
 

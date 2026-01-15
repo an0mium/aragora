@@ -15,7 +15,7 @@ import sqlite3
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from aragora.server.handlers.learning import LearningHandler
+from aragora.server.handlers.memory import LearningHandler
 
 
 # ============================================================================

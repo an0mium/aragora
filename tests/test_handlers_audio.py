@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
 from tempfile import TemporaryDirectory
 
-from aragora.server.handlers.audio import AudioHandler, PODCAST_AVAILABLE
+from aragora.server.handlers.features import AudioHandler, PODCAST_AVAILABLE
 
 
 class MockAudioStore:

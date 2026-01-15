@@ -2,10 +2,11 @@
 
 from .insights import InsightsHandler
 from .learning import LearningHandler
-from .memory import MemoryHandler
+from .memory import CONTINUUM_AVAILABLE, MemoryHandler
 from .memory_analytics import MemoryAnalyticsHandler
 
 __all__ = [
+    "CONTINUUM_AVAILABLE",
     "InsightsHandler",
     "LearningHandler",
     "MemoryHandler",

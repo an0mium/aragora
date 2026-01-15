@@ -16,7 +16,7 @@ from unittest.mock import Mock, MagicMock, AsyncMock
 from dataclasses import dataclass
 from enum import Enum
 
-from aragora.server.handlers.insights import InsightsHandler
+from aragora.server.handlers.memory import InsightsHandler
 
 
 class MockInsightType(Enum):

@@ -25,7 +25,7 @@ class TestDocumentHandlerRouting:
 
     @pytest.fixture
     def doc_handler(self):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         ctx = {"document_store": None}
         return DocumentHandler(ctx)
@@ -60,7 +60,7 @@ class TestListDocumentsEndpoint:
 
     @pytest.fixture
     def doc_handler(self, mock_store):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         ctx = {"document_store": mock_store}
         return DocumentHandler(ctx)
@@ -73,7 +73,7 @@ class TestListDocumentsEndpoint:
         assert len(data["documents"]) == 2
 
     def test_list_documents_no_store_returns_empty(self):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         ctx = {"document_store": None}
         handler = DocumentHandler(ctx)
@@ -90,7 +90,7 @@ class TestFormatsEndpoint:
 
     @pytest.fixture
     def doc_handler(self):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         ctx = {"document_store": None}
         return DocumentHandler(ctx)
@@ -120,7 +120,7 @@ class TestGetDocumentEndpoint:
 
     @pytest.fixture
     def doc_handler(self, mock_store):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         ctx = {"document_store": mock_store}
         return DocumentHandler(ctx)
@@ -141,7 +141,7 @@ class TestGetDocumentEndpoint:
         assert "error" in data
 
     def test_get_document_no_store_returns_500(self):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         ctx = {"document_store": None}
         handler = DocumentHandler(ctx)
@@ -154,7 +154,7 @@ class TestDocumentIdValidation:
 
     @pytest.fixture
     def doc_handler(self):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         store = Mock()
         store.get.return_value = None  # Document not found
@@ -190,7 +190,7 @@ class TestDocumentUploadEndpoint:
 
     @pytest.fixture
     def doc_handler(self, mock_store):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         ctx = {"document_store": mock_store}
         handler = DocumentHandler(ctx)
@@ -207,7 +207,7 @@ class TestDocumentUploadEndpoint:
         return handler
 
     def test_upload_no_store_returns_500(self, mock_http_handler):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         ctx = {"document_store": None}
         handler = DocumentHandler(ctx)
@@ -259,7 +259,7 @@ class TestDocumentUploadRateLimiting:
 
     @pytest.fixture
     def doc_handler(self, mock_store):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         ctx = {"document_store": mock_store}
         handler = DocumentHandler(ctx)
@@ -275,7 +275,7 @@ class TestDocumentUploadRateLimiting:
         return handler
 
     def test_rate_limit_tracks_per_ip(self, doc_handler, mock_http_handler):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         # First few requests should pass rate limit check
         for _ in range(4):
@@ -283,7 +283,7 @@ class TestDocumentUploadRateLimiting:
             assert result is None  # None means allowed
 
     def test_rate_limit_blocks_after_per_minute_limit(self, doc_handler, mock_http_handler):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         # Exhaust the per-minute limit
         for _ in range(DocumentHandler.MAX_UPLOADS_PER_MINUTE):
@@ -298,7 +298,7 @@ class TestDocumentUploadRateLimiting:
         assert "per minute" in data["error"].lower()
 
     def test_rate_limit_different_ips_independent(self, doc_handler):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         handler1 = Mock()
         handler1.client_address = ("1.1.1.1", 12345)
@@ -326,7 +326,7 @@ class TestDocumentUploadParsing:
 
     @pytest.fixture
     def doc_handler(self, mock_store):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         ctx = {"document_store": mock_store}
         handler = DocumentHandler(ctx)
@@ -497,7 +497,7 @@ class TestDocumentHandlerGetClientIP:
 
     @pytest.fixture
     def doc_handler(self):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         ctx = {"document_store": None}
         return DocumentHandler(ctx)
@@ -527,7 +527,7 @@ class TestDocumentListException:
 
     @pytest.fixture
     def doc_handler(self, mock_store):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         ctx = {"document_store": mock_store}
         return DocumentHandler(ctx)
@@ -550,7 +550,7 @@ class TestDocumentGetException:
 
     @pytest.fixture
     def doc_handler(self, mock_store):
-        from aragora.server.handlers.documents import DocumentHandler
+        from aragora.server.handlers.features import DocumentHandler
 
         ctx = {"document_store": mock_store}
         return DocumentHandler(ctx)

@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from dataclasses import dataclass
 
-from aragora.server.handlers.pulse import PulseHandler
+from aragora.server.handlers.features import PulseHandler
 
 
 @dataclass

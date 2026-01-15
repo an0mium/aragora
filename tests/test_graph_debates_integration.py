@@ -250,7 +250,7 @@ class TestGraphDebatesHandlerIntegration:
     def test_handler_routes(self):
         """Test handler recognizes all graph debate routes."""
         try:
-            from aragora.server.handlers.graph_debates import GraphDebatesHandler
+            from aragora.server.handlers.debates import GraphDebatesHandler
 
             handler = GraphDebatesHandler({})
 
@@ -263,7 +263,7 @@ class TestGraphDebatesHandlerIntegration:
     async def test_get_graph_debate_not_found(self, mock_handler):
         """Test 404 response for non-existent debate."""
         try:
-            from aragora.server.handlers.graph_debates import GraphDebatesHandler
+            from aragora.server.handlers.debates import GraphDebatesHandler
 
             handler = GraphDebatesHandler({})
 
@@ -277,7 +277,7 @@ class TestGraphDebatesHandlerIntegration:
     async def test_get_branches_empty(self, mock_handler):
         """Test empty branches response."""
         try:
-            from aragora.server.handlers.graph_debates import GraphDebatesHandler
+            from aragora.server.handlers.debates import GraphDebatesHandler
 
             handler = GraphDebatesHandler({})
 

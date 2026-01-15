@@ -5,7 +5,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from aragora.server.handlers.relationship import RelationshipHandler
+from aragora.server.handlers.social import RelationshipHandler
 
 
 class TestRelationshipHandlerRouting:
@@ -286,7 +286,7 @@ class TestScoreComputationUtilities:
 
     def test_rivalry_score_requires_minimum_debates(self):
         """Rivalry score is 0 with fewer than 3 debates."""
-        from aragora.server.handlers.relationship import compute_rivalry_score
+        from aragora.server.handlers.social import compute_rivalry_score
 
         # Less than 3 debates should return 0
         assert compute_rivalry_score(2, 0, 1, 1) == 0.0
@@ -295,7 +295,7 @@ class TestScoreComputationUtilities:
 
     def test_rivalry_score_increases_with_disagreement(self):
         """Higher disagreement rate increases rivalry score."""
-        from aragora.server.handlers.relationship import compute_rivalry_score
+        from aragora.server.handlers.social import compute_rivalry_score
 
         # High disagreement (0 agreement out of 10) vs low disagreement (8 agreement out of 10)
         high_disagree = compute_rivalry_score(10, 0, 5, 5)
@@ -305,7 +305,7 @@ class TestScoreComputationUtilities:
 
     def test_rivalry_score_competitive_wins(self):
         """Competitive win rates (close to 50/50) increase rivalry."""
-        from aragora.server.handlers.relationship import compute_rivalry_score
+        from aragora.server.handlers.social import compute_rivalry_score
 
         # Equal wins (5-5) vs lopsided (9-1)
         equal_wins = compute_rivalry_score(10, 2, 5, 5)
@@ -315,7 +315,7 @@ class TestScoreComputationUtilities:
 
     def test_alliance_score_requires_minimum_debates(self):
         """Alliance score is 0 with fewer than 3 debates."""
-        from aragora.server.handlers.relationship import compute_alliance_score
+        from aragora.server.handlers.social import compute_alliance_score
 
         assert compute_alliance_score(2, 2) == 0.0
         assert compute_alliance_score(1, 1) == 0.0
@@ -323,7 +323,7 @@ class TestScoreComputationUtilities:
 
     def test_alliance_score_increases_with_agreement(self):
         """Higher agreement rate increases alliance score."""
-        from aragora.server.handlers.relationship import compute_alliance_score
+        from aragora.server.handlers.social import compute_alliance_score
 
         high_agree = compute_alliance_score(10, 9)
         low_agree = compute_alliance_score(10, 2)
@@ -332,28 +332,28 @@ class TestScoreComputationUtilities:
 
     def test_determine_relationship_type_rivalry(self):
         """Returns rivalry when rivalry score dominates."""
-        from aragora.server.handlers.relationship import determine_relationship_type
+        from aragora.server.handlers.social import determine_relationship_type
 
         assert determine_relationship_type(0.8, 0.2) == "rivalry"
         assert determine_relationship_type(0.5, 0.1) == "rivalry"
 
     def test_determine_relationship_type_alliance(self):
         """Returns alliance when alliance score dominates."""
-        from aragora.server.handlers.relationship import determine_relationship_type
+        from aragora.server.handlers.social import determine_relationship_type
 
         assert determine_relationship_type(0.2, 0.8) == "alliance"
         assert determine_relationship_type(0.1, 0.5) == "alliance"
 
     def test_determine_relationship_type_neutral(self):
         """Returns neutral when both scores are below threshold."""
-        from aragora.server.handlers.relationship import determine_relationship_type
+        from aragora.server.handlers.social import determine_relationship_type
 
         assert determine_relationship_type(0.1, 0.1) == "neutral"
         assert determine_relationship_type(0.2, 0.2) == "neutral"
 
     def test_determine_relationship_type_custom_threshold(self):
         """Respects custom threshold parameter."""
-        from aragora.server.handlers.relationship import determine_relationship_type
+        from aragora.server.handlers.social import determine_relationship_type
 
         # With default threshold (0.3), 0.4 would be rivalry
         assert determine_relationship_type(0.4, 0.1) == "rivalry"
@@ -362,7 +362,7 @@ class TestScoreComputationUtilities:
 
     def test_compute_relationship_scores_integration(self):
         """compute_relationship_scores combines all calculations."""
-        from aragora.server.handlers.relationship import (
+        from aragora.server.handlers.social import (
             compute_relationship_scores,
             RelationshipScores,
         )
