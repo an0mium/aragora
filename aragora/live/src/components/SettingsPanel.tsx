@@ -362,6 +362,7 @@ export function SettingsPanel() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
+              id={`tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={`px-2 md:px-4 py-2 font-mono text-xs md:text-sm whitespace-nowrap transition-colors snap-start ${
                 activeTab === tab.id
@@ -369,6 +370,7 @@ export function SettingsPanel() {
                   : 'text-text-muted hover:text-text'
               }`}
               aria-selected={activeTab === tab.id}
+              aria-controls={`panel-${tab.id}`}
               role="tab"
             >
               {tab.label}
@@ -390,7 +392,7 @@ export function SettingsPanel() {
 
       {/* Features Tab */}
       {activeTab === 'features' && (
-        <div className="space-y-6">
+        <div className="space-y-6" role="tabpanel" id="panel-features" aria-labelledby="tab-features">
           {featureLoading ? (
             <div className="card p-6 animate-pulse">
               <div className="h-32 bg-surface rounded" />
@@ -627,7 +629,7 @@ export function SettingsPanel() {
 
       {/* Debate Tab */}
       {activeTab === 'debate' && (
-        <div className="space-y-6">
+        <div className="space-y-6" role="tabpanel" id="panel-debate" aria-labelledby="tab-debate">
           <div className="card p-6">
             <h3 className="font-mono text-acid-green mb-4">Default Debate Settings</h3>
             <div className="space-y-4">
@@ -697,7 +699,7 @@ export function SettingsPanel() {
 
       {/* Appearance Tab */}
       {activeTab === 'appearance' && (
-        <div className="space-y-6">
+        <div className="space-y-6" role="tabpanel" id="panel-appearance" aria-labelledby="tab-appearance">
           <div className="card p-6">
             <h3 className="font-mono text-acid-green mb-4">Theme</h3>
             <div className="space-y-3">
@@ -806,7 +808,7 @@ export function SettingsPanel() {
 
       {/* Notifications Tab */}
       {activeTab === 'notifications' && (
-        <div className="card p-6">
+        <div className="card p-6" role="tabpanel" id="panel-notifications" aria-labelledby="tab-notifications">
           <h3 className="font-mono text-acid-green mb-4">Email Notifications</h3>
           <div className="space-y-4">
             <label className="flex items-center justify-between cursor-pointer">
@@ -871,7 +873,7 @@ export function SettingsPanel() {
 
       {/* API Keys Tab */}
       {activeTab === 'api' && (
-        <div className="space-y-6">
+        <div className="space-y-6" role="tabpanel" id="panel-api" aria-labelledby="tab-api">
           <div className="card p-6">
             <h3 className="font-mono text-acid-green mb-4">Generate API Key</h3>
             <div className="flex gap-3">
@@ -965,7 +967,7 @@ export function SettingsPanel() {
 
       {/* Integrations Tab */}
       {activeTab === 'integrations' && (
-        <div className="space-y-6">
+        <div className="space-y-6" role="tabpanel" id="panel-integrations" aria-labelledby="tab-integrations">
           <div className="card p-6">
             <h3 className="font-mono text-acid-green mb-4">Slack Integration</h3>
             <p className="font-mono text-xs text-text-muted mb-4">
@@ -1125,7 +1127,7 @@ export function SettingsPanel() {
 
       {/* Account Tab */}
       {activeTab === 'account' && (
-        <div className="space-y-6">
+        <div className="space-y-6" role="tabpanel" id="panel-account" aria-labelledby="tab-account">
           {isAuthenticated && user ? (
             <>
               <div className="card p-6">

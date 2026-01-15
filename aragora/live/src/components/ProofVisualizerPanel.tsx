@@ -36,7 +36,9 @@ interface VerificationResult {
 
 interface BatchResult {
   results: VerificationResult[];
-  summary: {
+  status?: 'error' | 'success';
+  error?: string;
+  summary?: {
     total: number;
     verified: number;
     failed: number;
@@ -45,13 +47,15 @@ interface BatchResult {
 }
 
 interface TranslationResult {
-  success: boolean;
-  formal_statement: string;
-  language: string;
-  model_used: string;
-  confidence: number;
-  translation_time_ms: number;
-  error_message: string;
+  success?: boolean;
+  formal_statement?: string;
+  language?: string;
+  model_used?: string;
+  confidence?: number;
+  translation_time_ms?: number;
+  error_message?: string;
+  status?: 'error' | 'success';
+  error?: string;
 }
 
 interface ProofVisualizerPanelProps {
@@ -479,7 +483,13 @@ export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualize
             <div className="card p-4">
               <h4 className="font-mono text-acid-cyan mb-4">BATCH RESULTS</h4>
 
+              {/* Error state */}
+              {batchResult.status === 'error' && batchResult.error && (
+                <div className="text-acid-red text-sm mb-4">{batchResult.error}</div>
+              )}
+
               {/* Summary */}
+              {batchResult.summary && (
               <div className="grid grid-cols-4 gap-4 mb-6 text-center">
                 <div className="p-2 bg-surface rounded">
                   <div className="text-lg font-mono text-text">{batchResult.summary.total}</div>
@@ -498,6 +508,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualize
                   <div className="text-xs font-mono text-text-muted">timeout</div>
                 </div>
               </div>
+              )}
 
               {/* Individual Results */}
               <div className="space-y-2">
@@ -562,13 +573,18 @@ export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualize
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-mono text-acid-cyan">TRANSLATION RESULT</h4>
                 <span className={`px-2 py-0.5 rounded text-xs font-mono ${
-                  translationResult.success
-                    ? 'bg-acid-green/20 text-acid-green'
-                    : 'bg-acid-red/20 text-acid-red'
+                  translationResult.status === 'error' || !translationResult.success
+                    ? 'bg-acid-red/20 text-acid-red'
+                    : 'bg-acid-green/20 text-acid-green'
                 }`}>
-                  {translationResult.success ? 'SUCCESS' : 'FAILED'}
+                  {translationResult.status === 'error' ? 'ERROR' : translationResult.success ? 'SUCCESS' : 'FAILED'}
                 </span>
               </div>
+
+              {/* Error state */}
+              {translationResult.status === 'error' && translationResult.error && (
+                <div className="text-acid-red text-sm mb-4">{translationResult.error}</div>
+              )}
 
               {translationResult.formal_statement && (
                 <div className="mb-4">
@@ -579,6 +595,8 @@ export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualize
                 </div>
               )}
 
+              {/* Only show metrics if we have valid data (not error state) */}
+              {translationResult.language && (
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div className="p-2 bg-surface rounded">
                   <div className="text-sm font-mono text-acid-cyan">
@@ -588,17 +606,18 @@ export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualize
                 </div>
                 <div className="p-2 bg-surface rounded">
                   <div className="text-sm font-mono text-text">
-                    {(translationResult.confidence * 100).toFixed(0)}%
+                    {((translationResult.confidence ?? 0) * 100).toFixed(0)}%
                   </div>
                   <div className="text-xs font-mono text-text-muted">confidence</div>
                 </div>
                 <div className="p-2 bg-surface rounded">
                   <div className="text-sm font-mono text-text">
-                    {translationResult.translation_time_ms.toFixed(0)}ms
+                    {(translationResult.translation_time_ms ?? 0).toFixed(0)}ms
                   </div>
                   <div className="text-xs font-mono text-text-muted">time</div>
                 </div>
               </div>
+              )}
 
               {translationResult.error_message && (
                 <div className="mt-4">

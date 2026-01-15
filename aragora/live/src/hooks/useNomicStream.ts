@@ -129,17 +129,7 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
           if (data.type === 'loop_unregister') {
             const loopId = data.data.loop_id as string;
             setActiveLoops((prev) => prev.filter((l) => l.loop_id !== loopId));
-            // If this was the selected loop, switch to another
-            if (selectedLoopIdRef.current === loopId) {
-              setActiveLoops((prev) => {
-                if (prev.length > 0) {
-                  setSelectedLoopId(prev[0].loop_id);
-                } else {
-                  setSelectedLoopId(null);
-                }
-                return prev;
-              });
-            }
+            // Selection update handled by useEffect below
             return;
           }
 
@@ -237,6 +227,16 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
     updateStateFromEventRef.current = updateStateFromEvent;
   }, [updateStateFromEvent]);
 
+  // Sync selectedLoopId when selected loop is removed (fixes race condition)
+  useEffect(() => {
+    if (selectedLoopId && !activeLoops.find(l => l.loop_id === selectedLoopId)) {
+      // Selected loop no longer exists, select first available or null
+      const newId = activeLoops.length > 0 ? activeLoops[0].loop_id : null;
+      setSelectedLoopId(newId);
+      selectedLoopIdRef.current = newId;
+    }
+  }, [activeLoops, selectedLoopId]);
+
   useEffect(() => {
     connect();
 
@@ -263,6 +263,7 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
 
   const selectLoop = useCallback((loopId: string) => {
     setSelectedLoopId(loopId);
+    selectedLoopIdRef.current = loopId;
     // Clear events when switching loops (optional - remove if you want to keep history)
     setEvents([]);
   }, []);

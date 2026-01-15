@@ -6,6 +6,7 @@ export type StreamEventType =
   | 'critique'
   | 'vote'
   | 'consensus'
+  | 'synthesis'
   | 'verdict'
   | 'grounded_verdict'
   | 'debate_end'

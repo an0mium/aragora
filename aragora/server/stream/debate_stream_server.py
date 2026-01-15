@@ -450,19 +450,50 @@ class DebateStreamServer(ServerBase):
             async with self._clients_lock:
                 self.clients -= disconnected
 
+    def _group_events_by_agent(self, events: list[StreamEvent]) -> list[StreamEvent]:
+        """Reorder events to group TOKEN_DELTA by agent.
+
+        Non-token events maintain their relative order.
+        Token events are grouped by agent for smoother frontend rendering,
+        reducing visual interleaving during parallel agent generation.
+        """
+        result: list[StreamEvent] = []
+        token_groups: dict[str, list[StreamEvent]] = {}
+
+        for event in events:
+            if event.type == StreamEventType.TOKEN_DELTA and event.agent:
+                # Buffer token events by agent
+                if event.agent not in token_groups:
+                    token_groups[event.agent] = []
+                token_groups[event.agent].append(event)
+            else:
+                # Flush buffered tokens before non-token event
+                for agent_tokens in token_groups.values():
+                    result.extend(agent_tokens)
+                token_groups.clear()
+                result.append(event)
+
+        # Flush remaining tokens (grouped by agent)
+        for agent_tokens in token_groups.values():
+            result.extend(agent_tokens)
+
+        return result
+
     async def _drain_loop(self) -> None:
         """Background task that drains the emitter queue and broadcasts.
 
         Uses batching to send multiple events in a single WebSocket message,
         reducing overhead and context switches by 5-10x for high-frequency
-        event streams.
+        event streams. Events are grouped by agent to prevent visual
+        interleaving during parallel generation.
         """
         while self._running:
             # Collect all pending events into a batch
             events = list(self._emitter.drain())
             if events:
-                # Send batch as a single message
-                await self.broadcast_batch(events)
+                # Group token events by agent for smoother streaming display
+                grouped = self._group_events_by_agent(events)
+                await self.broadcast_batch(grouped)
             await asyncio.sleep(0.05)
 
     def register_loop(self, loop_id: str, name: str, path: str = "") -> None:

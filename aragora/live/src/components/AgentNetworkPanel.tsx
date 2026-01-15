@@ -181,8 +181,17 @@ function NetworkGraph({
         <g
           key={node.id}
           transform={`translate(${node.x}, ${node.y})`}
-          className="cursor-pointer"
+          className="cursor-pointer focus:outline-none"
           onClick={() => onNodeClick?.(node.id)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onNodeClick?.(node.id);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label={`${node.id} - ${node.type}${node.type === 'center' ? ' (selected)' : ''}`}
         >
           <circle
             r={node.type === 'center' ? 20 : 15}
@@ -308,16 +317,18 @@ function AgentNetworkPanelComponent({
         <h4 className="text-sm font-medium text-zinc-500 dark:text-zinc-500 dark:text-zinc-400 mb-2 flex items-center gap-2">
           <span>{icon}</span> {title}
         </h4>
-        <div className="space-y-1">
+        <div className="space-y-1" role="list" aria-label={title}>
           {items.map((item) => (
-            <div
+            <button
               key={item.agent}
-              className={`flex items-center justify-between p-2 rounded ${colorClass} cursor-pointer hover:opacity-80`}
+              type="button"
+              className={`w-full flex items-center justify-between p-2 rounded ${colorClass} cursor-pointer hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500`}
               onClick={() => {
                 setAgentInput(item.agent);
                 fetchNetwork(item.agent);
                 onAgentSelect?.(item.agent);
               }}
+              aria-label={`View ${item.agent}'s network - Score: ${(item.score * 100).toFixed(0)}%${item.debate_count !== undefined ? `, ${item.debate_count} debates` : ''}`}
             >
               <span className="font-medium">{item.agent}</span>
               <div className="flex items-center gap-2 text-xs">
@@ -330,7 +341,7 @@ function AgentNetworkPanelComponent({
                   </span>
                 )}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>

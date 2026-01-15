@@ -253,11 +253,22 @@ function GraphNode({ position, isSelected, onClick }: GraphNodeProps) {
   const colors = getAgentColors(node.agent_id);
   const branchColor = getBranchColor(node.branch_id || 'main');
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
     <g
       transform={`translate(${x}, ${y})`}
       onClick={onClick}
-      className="cursor-pointer"
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-label={`${node.node_type} by ${node.agent_id}, ${(node.confidence * 100).toFixed(0)}% confidence`}
+      className="cursor-pointer focus:outline-none"
     >
       {/* Node circle */}
       <circle
@@ -1099,14 +1110,15 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
             )}
 
             {debates.map((debate) => (
-              <div
+              <button
                 key={debate.debate_id}
                 data-testid={`graph-debate-item-${debate.debate_id}`}
                 onClick={() => {
                   setSelectedDebate(debate);
                   setSelectedNodeId(null);
                 }}
-                className={`p-3 border-b border-border cursor-pointer transition-colors ${
+                aria-pressed={selectedDebate?.debate_id === debate.debate_id}
+                className={`w-full text-left p-3 border-b border-border cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-acid-green/50 ${
                   selectedDebate?.debate_id === debate.debate_id
                     ? 'bg-acid-green/10 border-l-2 border-l-acid-green'
                     : 'hover:bg-bg'
@@ -1120,7 +1132,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
                   <span>/</span>
                   <span className="text-acid-cyan">{debate.branch_count} branches</span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -1200,11 +1212,13 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
 
               {/* Branch legend - interactive */}
               <div className="px-4 py-2 border-t border-acid-green/20 bg-bg/30">
-                <div className="flex flex-wrap gap-3 text-xs font-mono">
+                <div className="flex flex-wrap gap-3 text-xs font-mono" role="group" aria-label="Branch filters">
                   {Object.entries(selectedDebate.graph.branches).map(([id, branch]) => (
-                    <div
+                    <button
                       key={id}
-                      className={`flex items-center gap-1 cursor-pointer px-2 py-1 rounded transition-all duration-200 ${
+                      type="button"
+                      aria-pressed={highlightedBranch === branch.name}
+                      className={`flex items-center gap-1 cursor-pointer px-2 py-1 rounded transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-acid-green/50 ${
                         highlightedBranch === branch.name
                           ? 'bg-acid-green/20 scale-105'
                           : highlightedBranch && highlightedBranch !== branch.name
@@ -1213,6 +1227,8 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
                       }`}
                       onMouseEnter={() => setHighlightedBranch(branch.name)}
                       onMouseLeave={() => setHighlightedBranch(null)}
+                      onFocus={() => setHighlightedBranch(branch.name)}
+                      onBlur={() => setHighlightedBranch(null)}
                     >
                       <div
                         className={`w-3 h-3 rounded-full ${getBranchBgColor(branch.name)} ${
@@ -1231,7 +1247,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
                       {branch.is_active && (
                         <span className="text-acid-green animate-pulse">[active]</span>
                       )}
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>

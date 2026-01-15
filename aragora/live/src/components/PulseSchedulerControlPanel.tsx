@@ -375,11 +375,15 @@ export function PulseSchedulerControlPanel() {
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-acid-green/10">
+      <div className="flex border-b border-acid-green/10" role="tablist" aria-label="Scheduler panels">
         {(['status', 'config', 'history'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
+            role="tab"
+            aria-selected={activeTab === tab}
+            aria-controls={`panel-${tab}`}
+            id={`tab-${tab}`}
             className={`flex-1 px-4 py-2 text-xs font-mono uppercase transition-colors ${
               activeTab === tab
                 ? 'text-acid-green border-b-2 border-acid-green bg-acid-green/5'
@@ -394,7 +398,12 @@ export function PulseSchedulerControlPanel() {
       {/* Content */}
       <div className="p-4">
         {activeTab === 'status' && (
-          <div className="space-y-4">
+          <div
+            className="space-y-4"
+            role="tabpanel"
+            id="panel-status"
+            aria-labelledby="tab-status"
+          >
             {scheduler.metrics ? (
               <MetricsDisplay metrics={scheduler.metrics} />
             ) : (
@@ -430,15 +439,22 @@ export function PulseSchedulerControlPanel() {
         )}
 
         {activeTab === 'config' && scheduler.config && (
-          <ConfigEditor
-            config={scheduler.config}
-            onUpdate={scheduler.updateConfig}
-            loading={scheduler.actionLoading}
-          />
+          <div role="tabpanel" id="panel-config" aria-labelledby="tab-config">
+            <ConfigEditor
+              config={scheduler.config}
+              onUpdate={scheduler.updateConfig}
+              loading={scheduler.actionLoading}
+            />
+          </div>
         )}
 
         {activeTab === 'history' && (
-          <div className="space-y-3">
+          <div
+            className="space-y-3"
+            role="tabpanel"
+            id="panel-history"
+            aria-labelledby="tab-history"
+          >
             <button
               onClick={() => scheduler.fetchHistory(20)}
               disabled={scheduler.historyLoading}

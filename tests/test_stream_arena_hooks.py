@@ -60,6 +60,7 @@ class TestCreateArenaHooks:
             "on_critique",
             "on_vote",
             "on_consensus",
+            "on_synthesis",
             "on_debate_end",
         }
         assert set(hooks.keys()) == expected_hooks
@@ -190,6 +191,48 @@ class TestCreateArenaHooks:
         assert event.data["confidence"] == 0.92
         assert event.data["answer"] == "The consensus answer is yes"
 
+    def test_on_consensus_with_synthesis_fallback(self, mock_emitter):
+        """on_consensus should include synthesis as fallback."""
+        hooks = create_arena_hooks(mock_emitter)
+
+        hooks["on_consensus"](
+            reached=True,
+            confidence=0.92,
+            answer="The consensus answer is yes",
+            synthesis="This is the synthesized conclusion.",
+        )
+
+        assert len(mock_emitter.events) == 1
+        event = mock_emitter.events[0]
+        assert event.type == StreamEventType.CONSENSUS
+        assert event.data["synthesis"] == "This is the synthesized conclusion."
+
+    def test_on_synthesis_emits_event(self, mock_emitter):
+        """on_synthesis should emit SYNTHESIS event with content and confidence."""
+        hooks = create_arena_hooks(mock_emitter)
+
+        hooks["on_synthesis"](
+            content="After thorough discussion, the agents concluded...",
+            confidence=0.95,
+        )
+
+        assert len(mock_emitter.events) == 1
+        event = mock_emitter.events[0]
+        assert event.type == StreamEventType.SYNTHESIS
+        assert event.data["content"] == "After thorough discussion, the agents concluded..."
+        assert event.data["confidence"] == 0.95
+        assert event.data["agent"] == "synthesis-agent"
+        assert event.agent == "synthesis-agent"
+
+    def test_on_synthesis_with_default_confidence(self, mock_emitter):
+        """on_synthesis should use default confidence of 0.0."""
+        hooks = create_arena_hooks(mock_emitter)
+
+        hooks["on_synthesis"](content="Synthesis content only")
+
+        event = mock_emitter.events[0]
+        assert event.data["confidence"] == 0.0
+
     def test_on_debate_end_emits_event(self, mock_emitter):
         """on_debate_end should emit DEBATE_END event."""
         hooks = create_arena_hooks(mock_emitter)
@@ -218,6 +261,7 @@ class TestCreateArenaHooks:
         hooks["on_vote"]("a1", "approve", 0.8)
         hooks["on_vote"]("a2", "approve", 0.9)
         hooks["on_consensus"](True, 0.85, "Final answer")
+        hooks["on_synthesis"]("Synthesized conclusion from the debate.", 0.85)
         hooks["on_debate_end"](30.0, 1)
 
         # Verify event order
@@ -231,6 +275,7 @@ class TestCreateArenaHooks:
             StreamEventType.VOTE,
             StreamEventType.VOTE,
             StreamEventType.CONSENSUS,
+            StreamEventType.SYNTHESIS,
             StreamEventType.DEBATE_END,
         ]
 
