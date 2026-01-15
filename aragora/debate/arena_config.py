@@ -159,7 +159,7 @@ class ArenaConfig:
 
     # Performance telemetry
     performance_monitor: Optional[Any] = None  # AgentPerformanceMonitor
-    enable_performance_monitor: bool = False
+    enable_performance_monitor: bool = True  # Auto-create PerformanceMonitor for timing metrics
     enable_telemetry: bool = False  # Enable Prometheus/Blackbox telemetry emission
 
     # Agent selection (performance-based team formation)

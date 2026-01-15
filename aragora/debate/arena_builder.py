@@ -211,7 +211,7 @@ class ArenaBuilder:
 
         # Performance monitoring
         self._performance_monitor: Any = None
-        self._enable_performance_monitor: bool = False
+        self._enable_performance_monitor: bool = True
         self._enable_telemetry: bool = False
 
         # Evolution
