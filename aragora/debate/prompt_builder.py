@@ -228,6 +228,41 @@ and building on others' ideas."""
         assignment = self.current_role_assignments[agent.name]
         return self.role_rotator.format_role_context(assignment)
 
+    def get_round_phase_context(self, round_number: int) -> str:
+        """Get structured phase context for the current debate round.
+
+        Args:
+            round_number: 1-indexed round number
+
+        Returns:
+            Formatted guidance string for the current phase
+        """
+        phase = self.protocol.get_round_phase(round_number)
+        if not phase:
+            return ""
+
+        lines = [f"## ROUND {round_number}: {phase.name.upper()}"]
+        lines.append(f"**Phase Objective:** {phase.description}")
+        lines.append(f"**Focus:** {phase.focus}")
+        lines.append(f"**Cognitive Mode:** {phase.cognitive_mode}")
+        lines.append("")
+
+        # Add phase-specific guidance
+        if phase.cognitive_mode == "Analyst":
+            lines.append("Analyze thoroughly. Establish facts and key considerations.")
+        elif phase.cognitive_mode == "Skeptic":
+            lines.append("Challenge assumptions. Find weaknesses and edge cases.")
+        elif phase.cognitive_mode == "Lateral Thinker":
+            lines.append("Think creatively. Explore unconventional approaches and analogies.")
+        elif phase.cognitive_mode == "Devil's Advocate":
+            lines.append("Argue the opposing view. Surface risks and unintended consequences.")
+        elif phase.cognitive_mode == "Synthesizer":
+            lines.append("Integrate insights. Find common ground and build consensus.")
+        elif phase.cognitive_mode == "Examiner":
+            lines.append("Question directly. Clarify remaining disputes and test convictions.")
+
+        return "\n".join(lines)
+
     async def classify_question_async(self, use_llm: bool = True) -> str:
         """Classify the debate question using LLM (async).
 
@@ -878,6 +913,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         critiques: list["Critique"],
         audience_section: str = "",
         all_agents: Optional[list["Agent"]] = None,
+        round_number: int = 0,
     ) -> str:
         """Build the revision prompt including critiques.
 
@@ -887,11 +923,19 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
             critiques: List of critiques received
             audience_section: Optional pre-formatted audience suggestions section
             all_agents: Optional list of all agents for ELO context injection
+            round_number: Current debate round (1-indexed) for phase-specific prompts
         """
         critiques_str = "\n\n".join(c.to_prompt() for c in critiques)
         intensity_guidance = self.get_agreement_intensity_guidance()
         stance_str = self.get_stance_guidance(agent)
         stance_section = f"\n\n{stance_str}" if stance_str else ""
+
+        # Include structured round phase context if using structured phases
+        round_phase_section = ""
+        if round_number > 0:
+            round_phase_context = self.get_round_phase_context(round_number)
+            if round_phase_context:
+                round_phase_section = f"\n\n{round_phase_context}"
 
         # Include cognitive role context if role rotation enabled
         role_section = self.get_role_context(agent)
@@ -945,7 +989,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if audience_section:
             audience_section = f"\n\n{audience_section}"
 
-        return f"""You are revising your proposal based on critiques from other agents.{role_section}{persona_section}{flip_section}
+        return f"""You are revising your proposal based on critiques from other agents.{round_phase_section}{role_section}{persona_section}{flip_section}
 
 {intensity_guidance}{stance_section}{patterns_section}{belief_section}{calibration_section}{elo_section}{evidence_section}{audience_section}
 

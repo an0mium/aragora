@@ -121,6 +121,10 @@ STANDARD_PHASE_ORDER = [
 # Optional phases that can be skipped
 OPTIONAL_PHASES = {"analytics", "feedback"}
 
+# Critical phases that MUST run even if earlier phases fail
+# Consensus phase generates synthesis which is required for debate completion
+CRITICAL_PHASES = {"consensus"}
+
 
 class PhaseExecutor:
     """
@@ -250,8 +254,18 @@ class PhaseExecutor:
             if not result.success:
                 if self._config.stop_on_failure:
                     if phase_name not in OPTIONAL_PHASES:
-                        logger.error(f"Required phase '{phase_name}' failed, stopping")
-                        break
+                        # Check if there are critical phases remaining that must run
+                        remaining_phases = phase_order[phase_order.index(phase_name) + 1 :]
+                        has_critical_remaining = any(p in CRITICAL_PHASES for p in remaining_phases)
+
+                        if has_critical_remaining:
+                            logger.warning(
+                                f"Required phase '{phase_name}' failed, but continuing to critical phases"
+                            )
+                            # Continue to ensure consensus/synthesis runs
+                        else:
+                            logger.error(f"Required phase '{phase_name}' failed, stopping")
+                            break
                     else:
                         logger.warning(f"Optional phase '{phase_name}' failed, continuing")
 
@@ -561,4 +575,5 @@ __all__ = [
     "Phase",
     "STANDARD_PHASE_ORDER",
     "OPTIONAL_PHASES",
+    "CRITICAL_PHASES",
 ]

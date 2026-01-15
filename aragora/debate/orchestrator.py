@@ -882,7 +882,9 @@ class Arena:
             phases=phases_dict,
             config=PhaseConfig(
                 total_timeout_seconds=timeout,
-                phase_timeout_seconds=timeout / 3,  # Per-phase timeout
+                # Per-phase timeout: at least 120s or half the total, whichever is larger
+                # This ensures phases have enough time, especially consensus with synthesis
+                phase_timeout_seconds=max(120.0, timeout / 2),
                 enable_tracing=True,
             ),
         )
@@ -1891,9 +1893,11 @@ class Arena:
         audience_section = self._prepare_audience_context(emit_event=True)
         return self.prompt_builder.build_proposal_prompt(agent, audience_section)
 
-    def _build_revision_prompt(self, agent: Agent, original: str, critiques: list[Critique]) -> str:
-        """Build the revision prompt including critiques."""
+    def _build_revision_prompt(
+        self, agent: Agent, original: str, critiques: list[Critique], round_number: int = 0
+    ) -> str:
+        """Build the revision prompt including critiques and round-specific phase context."""
         audience_section = self._prepare_audience_context(emit_event=False)
         return self.prompt_builder.build_revision_prompt(
-            agent, original, critiques, audience_section
+            agent, original, critiques, audience_section, round_number=round_number
         )

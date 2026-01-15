@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import AGENT_TIMEOUT_SECONDS, MAX_CONCURRENT_CRITIQUES, MAX_CONCURRENT_REVISIONS
 from aragora.debate.complexity_governor import get_complexity_governor
+from aragora.server.stream.arena_hooks import streaming_task_context
 
 # Timeout for async callbacks that can hang (evidence refresh, judge termination, etc.)
 DEFAULT_CALLBACK_TIMEOUT = 30.0
@@ -321,19 +322,22 @@ class DebateRoundsPhase:
             logger.debug(f"critique_generating critic={critic.name} target={proposal_agent}")
             # Use complexity-scaled timeout from governor
             timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
+            # Use task context to distinguish concurrent streaming from same agent
+            task_id = f"{critic.name}:critique:{proposal_agent}"
             try:
-                if self._with_timeout:
-                    crit_result = await self._with_timeout(
-                        self._critique_with_agent(
+                with streaming_task_context(task_id):
+                    if self._with_timeout:
+                        crit_result = await self._with_timeout(
+                            self._critique_with_agent(
+                                critic, proposal, ctx.env.task if ctx.env else "", ctx.context_messages
+                            ),
+                            critic.name,
+                            timeout_seconds=timeout,
+                        )
+                    else:
+                        crit_result = await self._critique_with_agent(
                             critic, proposal, ctx.env.task if ctx.env else "", ctx.context_messages
-                        ),
-                        critic.name,
-                        timeout_seconds=timeout,
-                    )
-                else:
-                    crit_result = await self._critique_with_agent(
-                        critic, proposal, ctx.env.task if ctx.env else "", ctx.context_messages
-                    )
+                        )
                 return (critic, proposal_agent, crit_result)
             except Exception as e:
                 return (critic, proposal_agent, e)
@@ -468,23 +472,26 @@ class DebateRoundsPhase:
 
         async def generate_revision_bounded(agent, revision_prompt):
             """Wrap revision generation with semaphore for bounded concurrency."""
+            # Use task context to distinguish concurrent streaming from same agent
+            task_id = f"{agent.name}:revision:{round_num}"
             async with revision_semaphore:
-                if self._with_timeout:
-                    return await self._with_timeout(
-                        self._generate_with_agent(agent, revision_prompt, ctx.context_messages),
-                        agent.name,
-                        timeout_seconds=timeout,
-                    )
-                else:
-                    return await self._generate_with_agent(
-                        agent, revision_prompt, ctx.context_messages
-                    )
+                with streaming_task_context(task_id):
+                    if self._with_timeout:
+                        return await self._with_timeout(
+                            self._generate_with_agent(agent, revision_prompt, ctx.context_messages),
+                            agent.name,
+                            timeout_seconds=timeout,
+                        )
+                    else:
+                        return await self._generate_with_agent(
+                            agent, revision_prompt, ctx.context_messages
+                        )
 
         revision_tasks = []
         revision_agents = []
         for agent in ctx.proposers:
             revision_prompt = self._build_revision_prompt(
-                agent, proposals.get(agent.name, ""), agent_critiques[-len(critics) :]
+                agent, proposals.get(agent.name, ""), agent_critiques[-len(critics) :], round_num
             )
             revision_tasks.append(generate_revision_bounded(agent, revision_prompt))
             revision_agents.append(agent)
