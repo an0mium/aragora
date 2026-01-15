@@ -10,7 +10,8 @@ const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/w
 // Reconnection configuration
 const MAX_RECONNECT_ATTEMPTS = 15;
 const MAX_RECONNECT_DELAY_MS = 30000;
-const STREAM_TIMEOUT_MS = 60000;
+// Stream timeout: 5 min to exceed backend agent timeout (240s) and prevent premature client-side timeouts
+const STREAM_TIMEOUT_MS = 300000;
 
 interface UseDebateWebSocketStoreOptions {
   debateId: string;

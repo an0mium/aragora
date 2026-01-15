@@ -237,14 +237,22 @@ class OpenRouterAgent(APIAgent):
 
                         try:
                             content = data["choices"][0]["message"]["content"]
-                            # Success - reset backoff state
-                            limiter.record_success()
-                            return content
                         except (KeyError, IndexError):
                             raise AgentAPIError(
                                 f"Unexpected OpenRouter response format: {data}",
                                 agent_name=self.name,
                             )
+
+                        # Validate content is non-empty (empty responses should trigger retry/fallback)
+                        if not content or not content.strip():
+                            raise AgentAPIError(
+                                f"Model {model} returned empty response",
+                                agent_name=self.name,
+                            )
+
+                        # Success - reset backoff state
+                        limiter.record_success()
+                        return content
 
             except aiohttp.ClientError as e:
                 limiter.release_on_error()
@@ -745,7 +753,22 @@ class KimiLegacyAgent(APIAgent):
                     )
 
                 data = await response.json()
-                return data["choices"][0]["message"]["content"]
+                try:
+                    content = data["choices"][0]["message"]["content"]
+                except (KeyError, IndexError):
+                    raise ExternalServiceError(
+                        service="Kimi API",
+                        reason=f"Unexpected response format: {data}",
+                        status_code=response.status,
+                    )
+
+                # Validate content is non-empty
+                if not content or not content.strip():
+                    raise AgentAPIError(
+                        "Kimi returned empty response",
+                        agent_name=self.name,
+                    )
+                return content
 
 
 # === Llama 4 Models ===

@@ -132,8 +132,8 @@ export function useDebateWebSocket({
 
   // Orphaned stream cleanup - handles agents that never send token_end
   // NOTE: Backend agent timeout is 240s (4 min), stream chunk timeout is 90s
-  // Use 180s (3 min) to give agents time while still catching true orphans
-  const STREAM_TIMEOUT_MS = 180000; // 180 seconds (3 minutes)
+  // Use 300s (5 min) to exceed backend agent timeout and prevent premature client-side timeouts
+  const STREAM_TIMEOUT_MS = 300000; // 300 seconds (5 minutes)
   useEffect(() => {
     const interval = setInterval(() => {
       setStreamingMessages(prev => {
