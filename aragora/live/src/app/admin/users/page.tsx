@@ -239,6 +239,7 @@ export default function UsersAdminPage() {
                   setRoleFilter(e.target.value);
                   setPage(0);
                 }}
+                aria-label="Filter by role"
                 className="bg-surface border border-acid-green/40 text-text font-mono text-sm rounded px-3 py-2"
               >
                 <option value="">All Roles</option>
