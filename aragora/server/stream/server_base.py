@@ -230,18 +230,35 @@ class ServerBase:
 
         return len(stale_keys)
 
-    def _update_debate_state(self, event: dict) -> None:
+    def _update_debate_state(self, event: "StreamEvent") -> None:
         """
         Subscriber callback to update debate state from events.
 
         This is called by the emitter when events are published.
         Override in subclasses for custom state handling.
+
+        Note: The event parameter is a StreamEvent dataclass, not a dict.
+        Access fields via attributes (event.loop_id) and nested data via event.data.
         """
-        loop_id = event.get("loop_id")
+        # Import here to avoid circular imports
+        from aragora.server.stream.events import StreamEvent, StreamEventType
+
+        # Handle both StreamEvent objects and dicts (for backwards compatibility)
+        if isinstance(event, dict):
+            loop_id = event.get("loop_id", "")
+            event_type = event.get("type", "")
+            event_data = event.get("data", {})
+            event_agent = event.get("agent", "")
+            event_round = event.get("round", 0)
+        else:
+            loop_id = event.loop_id
+            event_type = event.type.value if isinstance(event.type, StreamEventType) else str(event.type)
+            event_data = event.data or {}
+            event_agent = event.agent
+            event_round = event.round
+
         if not loop_id:
             return
-
-        event_type = event.get("type", "")
 
         with self._debate_states_lock:
             if loop_id not in self.debate_states:
@@ -258,26 +275,38 @@ class ServerBase:
 
             # Update state based on event type
             if event_type == "debate_start":
-                state["task"] = event.get("task")
-                state["agents"] = event.get("agents", [])
+                state["task"] = event_data.get("task")
+                state["agents"] = event_data.get("agents", [])
                 state["status"] = "running"
             elif event_type == "round_start":
-                state["current_round"] = event.get("round", 0)
+                state["current_round"] = event_round or event_data.get("round", 0)
             elif event_type == "agent_message":
                 state["messages"].append(
                     {
-                        "agent": event.get("agent"),
-                        "content": event.get("content", ""),  # Full content - never truncate
-                        "role": event.get("role", "agent"),  # Preserve role for synthesis detection
-                        "round": event.get("round", 0),
+                        "agent": event_agent,
+                        "content": event_data.get("content", ""),  # Full content - never truncate
+                        "role": event_data.get("role", "agent"),  # Preserve role for synthesis detection
+                        "round": event_round,
                     }
                 )
-            elif event_type in ("debate_end", "consensus_reached"):
+            elif event_type == "synthesis":
+                # Add synthesis as a message with special role
+                state["messages"].append(
+                    {
+                        "agent": event_agent or "synthesis-agent",
+                        "content": event_data.get("content", ""),
+                        "role": "synthesis",
+                        "round": event_round,
+                    }
+                )
+                state["synthesis"] = event_data.get("content", "")
+            elif event_type in ("debate_end", "consensus_reached", "consensus"):
                 state["status"] = "completed"
-                state["result"] = event.get("result")
+                state["result"] = event_data.get("result") or event_data.get("answer")
+                state["ended"] = True
             elif event_type == "error":
                 state["status"] = "error"
-                state["error"] = event.get("error")
+                state["error"] = event_data.get("error") or event_data.get("message")
 
     # =========================================================================
     # Active Loops Tracking
