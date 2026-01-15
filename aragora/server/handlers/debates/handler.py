@@ -224,7 +224,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
     ]
 
     # Allowed export formats and tables for input validation
-    ALLOWED_EXPORT_FORMATS = {"json", "csv", "html"}
+    ALLOWED_EXPORT_FORMATS = {"json", "csv", "html", "txt", "md"}
     ALLOWED_EXPORT_TABLES = {"summary", "messages", "critiques", "votes"}
 
     # Endpoints that expose debate artifacts - require auth unless debate is_public
