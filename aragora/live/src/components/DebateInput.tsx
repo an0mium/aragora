@@ -80,6 +80,16 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
     'Is Hegelian dialectics the optimal framework for AI reasoning?',
     'Will AI agents eventually form their own societies and cultures?',
     'Is truth something AI can discover, or only approximate?',
+    'Should AI systems prioritize uncomfortable truths over what humans want to hear?',
+    'Should AI development be paused to solve risks, or accelerated for benefits?',
+    'Should AI systems be granted legal personhood with rights and responsibilities?',
+    'Should humanity cede political power to a benevolent AI superintelligence?',
+
+    // Society & Policy
+    'How will AI impact job displacement and what policies should governments implement?',
+    'Should governments implement universal basic income to mitigate AI job impacts?',
+    'If eliminating climate change required giving up the internet, should we make that trade?',
+    'In 2034, should voting be mandatory with AI-assisted candidate matching?',
 
     // Multi-Agent Debate
     'Is consensus among AI agents more reliable than a single powerful model?',
