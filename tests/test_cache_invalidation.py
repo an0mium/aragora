@@ -301,7 +301,7 @@ class TestInvalidateCacheLogging:
 
         _cache.set("lb_rankings:test", "value")
 
-        with patch("aragora.server.handlers.cache.logger") as mock_logger:
+        with patch("aragora.server.handlers.admin.cache.logger") as mock_logger:
             invalidate_cache("elo")
             # Should have logged debug message
             mock_logger.debug.assert_called()
@@ -310,7 +310,7 @@ class TestInvalidateCacheLogging:
         """Test no log when no entries cleared."""
         clear_cache()  # Ensure empty
 
-        with patch("aragora.server.handlers.cache.logger") as mock_logger:
+        with patch("aragora.server.handlers.admin.cache.logger") as mock_logger:
             invalidate_cache("elo")
             # Should not have logged (nothing cleared)
             mock_logger.debug.assert_not_called()

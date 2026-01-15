@@ -1,9 +1,23 @@
 """
 Handler caching utilities with TTL expiry and bounded size.
 
+DEPRECATION NOTICE:
+    This module is deprecated. For new code, use aragora.cache instead:
+
+        from aragora.cache import (
+            TTLCache,           # Instead of BoundedTTLCache
+            cached,             # Instead of ttl_cache
+            async_cached,       # Instead of async_ttl_cache
+            invalidate_cache,   # Same name, unified implementation
+        )
+
+    The BoundedTTLCache class in this module has a different interface
+    (ttl_seconds passed to get() instead of constructor) and is maintained
+    for backward compatibility with existing handlers.
+
 Provides:
-- BoundedTTLCache: Thread-safe TTL cache with LRU eviction
-- ttl_cache: Decorator for caching function results
+- BoundedTTLCache: Thread-safe TTL cache with LRU eviction (DEPRECATED)
+- ttl_cache: Decorator for caching function results (DEPRECATED)
 - Event-driven cache invalidation
 - Cache statistics for monitoring
 """
@@ -56,6 +70,10 @@ CACHE_EVICT_PERCENT = float(os.environ.get("ARAGORA_CACHE_EVICT_PERCENT", "0.1")
 class BoundedTTLCache:
     """
     Thread-safe TTL cache with bounded size and LRU eviction.
+
+    DEPRECATED: Use aragora.cache.TTLCache instead for new code.
+    This class is maintained for backward compatibility with handlers
+    that pass ttl_seconds to get() rather than the constructor.
 
     Prevents memory leaks by limiting the number of entries and
     evicting oldest entries when the limit is reached.
