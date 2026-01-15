@@ -381,6 +381,8 @@ class VideoGenerator:
         agents: list[str],
         output_path: Optional[Path] = None,
         audio_bitrate: int = DEFAULT_AUDIO_BITRATE,
+        width: int = 1920,
+        height: int = 1080,
     ) -> Optional[Path]:
         """
         Generate video with static thumbnail and audio track.
@@ -393,6 +395,8 @@ class VideoGenerator:
             agents: List of agents (used for thumbnail)
             output_path: Output video path. Auto-generated if not provided.
             audio_bitrate: Audio bitrate in kbps (default 192, clamped to valid range)
+            width: Video width in pixels (default 1920)
+            height: Video height in pixels (default 1080)
 
         Returns:
             Path to video file or None if failed
@@ -432,6 +436,7 @@ class VideoGenerator:
             # -loop 1: loop the image
             # -tune stillimage: optimize for static content
             # -shortest: end when audio ends
+            # -vf scale: scale to target resolution
             cmd = [
                 "ffmpeg",
                 "-y",  # Overwrite output
@@ -441,6 +446,8 @@ class VideoGenerator:
                 str(thumb_path),
                 "-i",
                 str(audio_path),
+                "-vf",
+                f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2",
                 "-c:v",
                 "libx264",
                 "-tune",
@@ -684,12 +691,11 @@ async def generate_video(
     generator = VideoGenerator(output_dir=output_path.parent)
 
     # Extract width and height from tuple
-    # TODO: pass to generate_static_video when supported
     try:
-        _width, _height = resolution
+        width, height = resolution
     except (ValueError, TypeError):
         logger.warning(f"Invalid resolution format '{resolution}', using default 1920x1080")
-        _width, _height = 1920, 1080
+        width, height = 1920, 1080
 
     # Convert thumbnail_path string to Path if provided
     thumb_path: Optional[Path] = Path(thumbnail_path) if thumbnail_path else None
@@ -719,6 +725,8 @@ async def generate_video(
                 str(thumb_path),
                 "-i",
                 str(audio_path),
+                "-vf",
+                f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2",
                 "-c:v",
                 "libx264",
                 "-tune",
@@ -764,6 +772,8 @@ async def generate_video(
         title=title,
         agents=[],  # No agents list available at this level
         output_path=output_path,
+        width=width,
+        height=height,
     )
 
     return result is not None
