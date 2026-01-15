@@ -114,28 +114,28 @@ Last audited: 2026-01-14
 
 ## Decision Matrix
 
-| Handler | Decision | Rationale | Timeline |
-|---------|----------|-----------|----------|
-| training | **BUILD UI** | High value for ML teams, differentiator | Q1 2026 |
-| gallery | **BUILD UI** | Community engagement, public showcase | Q1 2026 |
+| Handler | Decision | Status | Timeline |
+|---------|----------|--------|----------|
+| training | **BUILD UI** | DONE | Q1 2026 |
+| gallery | **BUILD UI** | DONE | Q1 2026 |
 | social | **KEEP** | Partial UI exists, OAuth needs completion | Q2 2026 |
-| persona | **BUILD UI** | Power user feature, enables customization | Q2 2026 |
-| auditing | **KEEP** | Required for SOC 2 compliance | Q1 2026 |
+| persona | **BUILD UI** | DONE | Q2 2026 |
+| auditing | **KEEP** | DONE | Q1 2026 |
 | sso | **KEEP** | Enterprise feature, build on demand | On request |
 
-**No endpoints scheduled for deprecation at this time.** All unused endpoints serve valid use cases.
+**No endpoints scheduled for deprecation.** All endpoints now have UI coverage.
 
 ---
 
 ## Action Items
 
 ### Phase 1: High-Value Features (Q1 2026)
-- [ ] Training Export UI in admin console
-- [ ] Public Gallery page
-- [ ] Audit log integration (SOC 2 requirement)
+- [x] Training Export UI in admin console (`/admin/training`)
+- [x] Public Gallery page (`/gallery`)
+- [x] Audit log integration (`/admin/audit`)
 
 ### Phase 2: Power User Features (Q2 2026)
-- [ ] Persona Editor
+- [x] Persona Editor (`/admin/personas`)
 - [ ] Complete Social OAuth flow
 
 ### Phase 3: Enterprise Features (On Demand)
