@@ -80,6 +80,19 @@ from aragora.observability.tracing import (
 from aragora.observability.tracing import (
     shutdown as shutdown_tracing,
 )
+from aragora.observability.siem import (
+    SIEMBackend,
+    SIEMConfig,
+    SecurityEventType,
+    SecurityEvent,
+    SIEMClient,
+    get_siem_client,
+    emit_security_event,
+    emit_auth_event,
+    emit_data_access_event,
+    emit_privacy_event,
+    shutdown_siem,
+)
 
 __all__ = [
     # Logging
@@ -126,4 +139,16 @@ __all__ = [
     "get_metrics_config",
     "is_tracing_enabled",
     "is_metrics_enabled",
+    # SIEM
+    "SIEMBackend",
+    "SIEMConfig",
+    "SecurityEventType",
+    "SecurityEvent",
+    "SIEMClient",
+    "get_siem_client",
+    "emit_security_event",
+    "emit_auth_event",
+    "emit_data_access_event",
+    "emit_privacy_event",
+    "shutdown_siem",
 ]
