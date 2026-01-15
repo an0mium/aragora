@@ -1475,6 +1475,14 @@ class Arena:
         governor = get_complexity_governor()
         governor.set_task_complexity(task_complexity)
 
+        # Classify question domain using LLM for accurate persona selection
+        # This runs once and caches the result for get_persona_context() calls
+        if self.prompt_builder:
+            try:
+                await self.prompt_builder.classify_question_async(use_llm=True)
+            except Exception as e:
+                logger.warning(f"Question classification failed, using keyword fallback: {e}")
+
         # Apply performance-based agent selection if enabled
         if self.use_performance_selection:
             self.agents = self._select_debate_team(self.agents)

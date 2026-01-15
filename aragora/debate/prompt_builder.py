@@ -8,6 +8,13 @@ Handles construction of prompts for proposals, revisions, and judgments.
 import logging
 from typing import TYPE_CHECKING, Optional
 
+# Import QuestionClassifier for LLM-based classification
+try:
+    from aragora.server.question_classifier import QuestionClassifier, QuestionClassification
+except ImportError:
+    QuestionClassifier = None  # type: ignore
+    QuestionClassification = None  # type: ignore
+
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
     from aragora.agents.flip_detector import FlipDetector
@@ -80,6 +87,10 @@ class PromptBuilder:
         self._historical_context_cache: str = ""
         self._continuum_context_cache: str = ""
         self.user_suggestions: list = []
+
+        # Question classification cache (populated by classify_question_async)
+        self._classification: Optional["QuestionClassification"] = None
+        self._question_classifier: Optional["QuestionClassifier"] = None
 
     def format_patterns_for_prompt(self, patterns: list[dict]) -> str:
         """Format learned patterns as prompt context for agents.
@@ -217,8 +228,76 @@ and building on others' ideas."""
         assignment = self.current_role_assignments[agent.name]
         return self.role_rotator.format_role_context(assignment)
 
+    async def classify_question_async(self, use_llm: bool = True) -> str:
+        """Classify the debate question using LLM (async).
+
+        This method should be called once at debate start to classify the
+        question using Claude for accurate domain detection. Results are
+        cached for subsequent calls to get_persona_context().
+
+        Args:
+            use_llm: If True, use Claude for classification (more accurate).
+                     If False, use fast keyword-based classification.
+
+        Returns:
+            The detected domain category.
+        """
+        if self._classification is not None:
+            return self._classification.category
+
+        if QuestionClassifier is None:
+            logger.debug("QuestionClassifier not available, using keyword fallback")
+            return self._detect_question_domain_keywords(self.env.task)
+
+        try:
+            if self._question_classifier is None:
+                self._question_classifier = QuestionClassifier()
+
+            if use_llm:
+                # Use LLM-based classification (more accurate)
+                self._classification = self._question_classifier.classify(self.env.task)
+                logger.info(
+                    f"LLM classification: category={self._classification.category}, "
+                    f"confidence={self._classification.confidence:.2f}, "
+                    f"personas={self._classification.recommended_personas}"
+                )
+            else:
+                # Use fast keyword-based classification
+                self._classification = self._question_classifier.classify_simple(self.env.task)
+                logger.debug(f"Keyword classification: category={self._classification.category}")
+
+            return self._classification.category
+
+        except Exception as e:
+            logger.warning(f"Question classification failed, using keyword fallback: {e}")
+            return self._detect_question_domain_keywords(self.env.task)
+
     def _detect_question_domain(self, question: str) -> str:
         """Detect question domain for persona selection.
+
+        Uses cached LLM classification if available, otherwise falls back
+        to keyword-based detection.
+
+        Returns 'philosophical', 'ethics', 'technical', 'ethical', or 'general'.
+        """
+        # Use cached LLM classification if available
+        if self._classification is not None:
+            # Map classifier categories to our domain categories
+            category = self._classification.category
+            if category in ("ethical", "philosophical"):
+                return "philosophical"  # Both use philosophical personas
+            elif category == "technical":
+                return "technical"
+            elif category in ("legal", "security", "financial", "healthcare", "scientific"):
+                return "technical"  # Specialized domains use technical personas
+            else:
+                return "general"
+
+        # Fall back to keyword-based detection
+        return self._detect_question_domain_keywords(question)
+
+    def _detect_question_domain_keywords(self, question: str) -> str:
+        """Keyword-based domain detection (fallback when LLM unavailable).
 
         Returns 'philosophical', 'ethics', 'technical', or 'general'.
         """
