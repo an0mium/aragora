@@ -382,16 +382,17 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         origin for unauthorized requests (that would be a security issue).
         """
         headers = {
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            "Access-Control-Max-Age": "86400",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Origin, X-Requested-With",
+            "Access-Control-Max-Age": "3600",
         }
         # Only add Allow-Origin for whitelisted origins or same-origin requests
         if origin and origin in WS_ALLOWED_ORIGINS:
             headers["Access-Control-Allow-Origin"] = origin
+            headers["Access-Control-Allow-Credentials"] = "true"
         elif not origin:
-            # Same-origin request - allow with wildcard
-            headers["Access-Control-Allow-Origin"] = "*"
+            # Same-origin request - no CORS headers needed
+            pass
         # For unauthorized origins, don't add Allow-Origin (browser will block)
         return headers
 
@@ -606,6 +607,10 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                 consensus=consensus,  # type: ignore[arg-type]
                 proposer_count=len(agents),  # All agents propose initially
                 topology="all-to-all",  # Everyone critiques everyone
+                # Disable early termination to ensure full rounds with all phases
+                early_stopping=False,
+                convergence_detection=False,
+                min_rounds_before_early_stop=rounds,
             )
 
             # Create arena with hooks and available context systems

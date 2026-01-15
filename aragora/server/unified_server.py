@@ -989,13 +989,18 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         if cors_config.is_origin_allowed(request_origin):
             self.send_header("Access-Control-Allow-Origin", request_origin)
+            # Allow credentials (cookies, authorization headers) for authenticated requests
+            self.send_header("Access-Control-Allow-Credentials", "true")
         elif not request_origin:
             # Same-origin requests don't have Origin header
             pass
         # else: no CORS header = browser blocks cross-origin request
 
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Filename, Authorization")
+        # Support all REST methods including DELETE for privacy endpoints
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Filename, Authorization, Accept, Origin, X-Requested-With")
+        # Cache preflight response for 1 hour to reduce OPTIONS requests
+        self.send_header("Access-Control-Max-Age", "3600")
 
     def log_message(self, format: str, *args) -> None:
         """Suppress default logging."""
@@ -1282,7 +1287,12 @@ class UnifiedServer:
 
                             env = Environment(task=topic_text)
                             agents = get_agents_by_names(["anthropic-api", "openai-api"])
-                            protocol = DebateProtocol(rounds=rounds, consensus="majority")
+                            protocol = DebateProtocol(
+                                rounds=rounds,
+                                consensus="majority",
+                                convergence_detection=False,
+                                early_stopping=False,
+                            )
                             if not agents:
                                 return None
                             arena = Arena.from_env(env, agents, protocol)
