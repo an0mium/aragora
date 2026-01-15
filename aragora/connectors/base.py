@@ -7,19 +7,24 @@ All connectors inherit from BaseConnector and implement:
 - record(): Store evidence in provenance chain
 """
 
+import asyncio
 import hashlib
+import logging
+import random
 import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from aragora.reasoning.provenance import (
     ProvenanceManager,
     ProvenanceRecord,
     SourceType,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -116,12 +121,21 @@ class BaseConnector(ABC):
     and recording evidence with provenance tracking.
     """
 
+    # Default retry configuration
+    DEFAULT_MAX_RETRIES = 3
+    DEFAULT_BASE_DELAY = 1.0  # seconds
+    DEFAULT_MAX_DELAY = 30.0  # seconds
+    DEFAULT_JITTER_FACTOR = 0.3  # ±30%
+
     def __init__(
         self,
         provenance: Optional[ProvenanceManager] = None,
         default_confidence: float = 0.5,
         max_cache_entries: int = 500,
         cache_ttl_seconds: float = 3600.0,  # 1 hour default TTL
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        base_delay: float = DEFAULT_BASE_DELAY,
+        max_delay: float = DEFAULT_MAX_DELAY,
     ):
         self.provenance = provenance
         self.default_confidence = default_confidence
@@ -129,6 +143,10 @@ class BaseConnector(ABC):
         self._cache: OrderedDict[str, Tuple[float, Evidence]] = OrderedDict()
         self._max_cache_entries = max_cache_entries
         self._cache_ttl = cache_ttl_seconds
+        # Retry configuration
+        self._max_retries = max_retries
+        self._base_delay = base_delay
+        self._max_delay = max_delay
 
     def _cache_get(self, evidence_id: str) -> Optional[Evidence]:
         """Get from cache if not expired."""
@@ -186,6 +204,188 @@ class BaseConnector(ABC):
             "max_entries": self._max_cache_entries,
             "ttl_seconds": self._cache_ttl,
         }
+
+    def _calculate_retry_delay(self, attempt: int) -> float:
+        """
+        Calculate retry delay with exponential backoff and jitter.
+
+        Jitter prevents thundering herd when multiple clients recover
+        simultaneously after a provider outage.
+
+        Args:
+            attempt: Current retry attempt (0-indexed)
+
+        Returns:
+            Delay in seconds with jitter applied
+        """
+        # Calculate base exponential delay: 1s → 2s → 4s → 8s...
+        delay = min(self._base_delay * (2**attempt), self._max_delay)
+
+        # Apply random jitter: delay ± (jitter_factor * delay)
+        jitter = delay * self.DEFAULT_JITTER_FACTOR * random.uniform(-1, 1)
+
+        # Ensure minimum delay of 0.1s
+        return max(0.1, delay + jitter)
+
+    async def _request_with_retry(
+        self,
+        request_func: Any,
+        operation: str = "request",
+    ) -> Any:
+        """
+        Execute a request function with exponential backoff retry.
+
+        Retries on:
+        - Connection errors (network issues)
+        - Timeout errors
+        - 429 (Rate limit) - uses Retry-After header if present
+        - 5xx (Server errors)
+
+        Does NOT retry on:
+        - 4xx errors (except 429)
+        - Parse errors
+        - Auth errors
+
+        Args:
+            request_func: Async callable that performs the HTTP request.
+                         Should return the response or raise httpx exceptions.
+            operation: Description for logging (e.g., "search", "fetch")
+
+        Returns:
+            Response from the request function
+
+        Raises:
+            ConnectorError subclass on failure after all retries exhausted
+
+        Example:
+            async def do_request():
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(url, params=params)
+                    response.raise_for_status()
+                    return response.json()
+
+            data = await self._request_with_retry(do_request, "search")
+        """
+        from aragora.connectors.exceptions import (
+            ConnectorAPIError,
+            ConnectorNetworkError,
+            ConnectorParseError,
+            ConnectorRateLimitError,
+            ConnectorTimeoutError,
+        )
+
+        # Lazy import httpx (optional dependency)
+        try:
+            import httpx
+        except ImportError:
+            logger.warning("httpx not available for retry wrapper")
+            return await request_func()
+
+        last_error: Optional[Exception] = None
+
+        for attempt in range(self._max_retries + 1):
+            try:
+                return await request_func()
+
+            except httpx.TimeoutException as e:
+                last_error = ConnectorTimeoutError(
+                    f"{operation} timed out",
+                    connector_name=self.name,
+                )
+                logger.warning(
+                    f"[{self.name}] {operation} timeout (attempt {attempt + 1}/{self._max_retries + 1})"
+                )
+
+            except (httpx.ConnectError, httpx.NetworkError) as e:
+                last_error = ConnectorNetworkError(
+                    f"{operation} connection failed: {e}",
+                    connector_name=self.name,
+                )
+                logger.warning(
+                    f"[{self.name}] {operation} network error (attempt {attempt + 1}/{self._max_retries + 1}): {e}"
+                )
+
+            except httpx.HTTPStatusError as e:
+                status = e.response.status_code
+
+                if status == 429:
+                    # Rate limit - check for Retry-After header
+                    retry_after = None
+                    if "Retry-After" in e.response.headers:
+                        try:
+                            retry_after = float(e.response.headers["Retry-After"])
+                        except (ValueError, TypeError):
+                            pass
+
+                    last_error = ConnectorRateLimitError(
+                        f"{operation} rate limited (HTTP 429)",
+                        connector_name=self.name,
+                        retry_after=retry_after,
+                    )
+                    logger.warning(
+                        f"[{self.name}] {operation} rate limited (attempt {attempt + 1}/{self._max_retries + 1})"
+                    )
+
+                    # Use Retry-After delay if provided, otherwise use exponential backoff
+                    if retry_after is not None and attempt < self._max_retries:
+                        delay = min(retry_after, self._max_delay)
+                        # Add small jitter to Retry-After
+                        delay += delay * 0.1 * random.uniform(0, 1)
+                        logger.info(f"[{self.name}] Waiting {delay:.1f}s (Retry-After)")
+                        await asyncio.sleep(delay)
+                        continue
+
+                elif status >= 500:
+                    # Server error - retryable
+                    last_error = ConnectorAPIError(
+                        f"{operation} server error (HTTP {status})",
+                        connector_name=self.name,
+                        status_code=status,
+                    )
+                    logger.warning(
+                        f"[{self.name}] {operation} server error {status} (attempt {attempt + 1}/{self._max_retries + 1})"
+                    )
+
+                else:
+                    # 4xx errors (except 429) - not retryable
+                    raise ConnectorAPIError(
+                        f"{operation} failed (HTTP {status})",
+                        connector_name=self.name,
+                        status_code=status,
+                    ) from e
+
+            except Exception as e:
+                # Unexpected error - log and don't retry
+                if "json" in str(e).lower() or "decode" in str(e).lower():
+                    raise ConnectorParseError(
+                        f"{operation} parse error: {e}",
+                        connector_name=self.name,
+                    ) from e
+
+                logger.error(f"[{self.name}] {operation} unexpected error: {e}")
+                raise ConnectorAPIError(
+                    f"{operation} failed unexpectedly: {e}",
+                    connector_name=self.name,
+                ) from e
+
+            # Retry with exponential backoff
+            if attempt < self._max_retries:
+                delay = self._calculate_retry_delay(attempt)
+                logger.info(
+                    f"[{self.name}] Retrying {operation} in {delay:.1f}s "
+                    f"(attempt {attempt + 2}/{self._max_retries + 1})"
+                )
+                await asyncio.sleep(delay)
+
+        # All retries exhausted
+        if last_error is not None:
+            raise last_error
+
+        # Should never reach here, but just in case
+        raise ConnectorAPIError(
+            f"{operation} failed after {self._max_retries + 1} attempts",
+            connector_name=self.name,
+        )
 
     @property
     @abstractmethod

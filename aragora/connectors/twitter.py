@@ -182,36 +182,26 @@ class TwitterConnector(BaseConnector):
         # Rate limiting
         await self._rate_limit()
 
-        try:
+        headers = self._get_headers()
+
+        async def do_request():
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(
                     TWITTER_SEARCH_URL,
                     params=params,
-                    headers=self._get_headers(),
+                    headers=headers,
                 )
-
-                if response.status_code == 401:
-                    logger.error("Twitter API authentication failed - check TWITTER_BEARER_TOKEN")
-                    return []
-                elif response.status_code == 429:
-                    logger.warning("Twitter API rate limit exceeded")
-                    return []
-
                 response.raise_for_status()
+                return response.json()
 
-            data = response.json()
+        try:
+            data = await self._request_with_retry(do_request, f"search '{query[:50]}'")
             results = self._parse_search_results(data)
             logger.info(f"Twitter search '{query[:50]}...' returned {len(results)} results")
             return results[:limit]
 
-        except httpx.TimeoutException:
-            logger.warning(f"Twitter search timeout for query: {query}")
-            return []
-        except httpx.HTTPStatusError as e:
-            logger.error(f"Twitter API error: {e.response.status_code}")
-            return []
         except Exception as e:
-            logger.error(f"Twitter search failed: {e}")
+            logger.debug(f"Twitter search failed: {e}")
             return []
 
     async def fetch(self, evidence_id: str) -> Optional[Evidence]:
@@ -242,31 +232,29 @@ class TwitterConnector(BaseConnector):
 
         await self._rate_limit()
 
-        try:
-            url = f"{TWITTER_TWEET_URL}/{tweet_id}"
-            params = {
-                "tweet.fields": "created_at,author_id,public_metrics,lang,source,conversation_id",
-                "expansions": "author_id",
-                "user.fields": "username,name,verified,public_metrics",
-            }
+        url = f"{TWITTER_TWEET_URL}/{tweet_id}"
+        params = {
+            "tweet.fields": "created_at,author_id,public_metrics,lang,source,conversation_id",
+            "expansions": "author_id",
+            "user.fields": "username,name,verified,public_metrics",
+        }
+        headers = self._get_headers()
 
+        async def do_request():
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url, params=params, headers=self._get_headers())
-
-                if response.status_code == 404:
-                    logger.debug(f"Tweet not found: {tweet_id}")
-                    return None
-
+                response = await client.get(url, params=params, headers=headers)
                 response.raise_for_status()
+                return response.json()
 
-            data = response.json()
+        try:
+            data = await self._request_with_retry(do_request, f"fetch {evidence_id}")
             evidence = self._parse_tweet(data.get("data", {}), data.get("includes", {}))
             if evidence:
                 self._cache_put(evidence_id, evidence)
             return evidence
 
         except Exception as e:
-            logger.error(f"Twitter fetch failed for {evidence_id}: {e}")
+            logger.debug(f"Twitter fetch failed for {evidence_id}: {e}")
             return None
 
     def _parse_search_results(self, data: dict) -> list[Evidence]:
@@ -439,12 +427,16 @@ class TwitterConnector(BaseConnector):
 
         await self._rate_limit()
 
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url, params=params, headers=self._get_headers())
-                response.raise_for_status()
+        headers = self._get_headers()
 
-            data = response.json()
+        async def do_request():
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url, params=params, headers=headers)
+                response.raise_for_status()
+                return response.json()
+
+        try:
+            data = await self._request_with_retry(do_request, f"get_user_tweets {user_id}")
             tweets = data.get("data", [])
 
             results = []
@@ -457,7 +449,7 @@ class TwitterConnector(BaseConnector):
             return results
 
         except Exception as e:
-            logger.error(f"Twitter get_user_tweets failed for {user_id}: {e}")
+            logger.debug(f"Twitter get_user_tweets failed for {user_id}: {e}")
             return []
 
     async def search_hashtag(self, hashtag: str, limit: int = 10) -> list[Evidence]:

@@ -174,24 +174,22 @@ class RedditConnector(BaseConnector):
         # Rate limiting
         await self._rate_limit()
 
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url, params=params, headers=self._get_headers())
-                response.raise_for_status()
+        headers = self._get_headers()
 
-            data = response.json()
+        async def do_request():
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url, params=params, headers=headers)
+                response.raise_for_status()
+                return response.json()
+
+        try:
+            data = await self._request_with_retry(do_request, f"search '{query}'")
             results = self._parse_listing(data)
             logger.info(f"Reddit search '{query}' returned {len(results)} results")
             return results
 
-        except httpx.TimeoutException:
-            logger.warning(f"Reddit search timeout for query: {query}")
-            return []
-        except httpx.HTTPStatusError as e:
-            logger.error(f"Reddit API error: {e.response.status_code}")
-            return []
         except Exception as e:
-            logger.error(f"Reddit search failed: {e}")
+            logger.debug(f"Reddit search failed: {e}")
             return []
 
     async def fetch(self, evidence_id: str) -> Optional[Evidence]:
@@ -218,20 +216,24 @@ class RedditConnector(BaseConnector):
 
         await self._rate_limit()
 
-        try:
-            url = REDDIT_POST_URL.format(post_id=post_id)
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url, headers=self._get_headers())
-                response.raise_for_status()
+        url = REDDIT_POST_URL.format(post_id=post_id)
+        headers = self._get_headers()
 
-            data = response.json()
+        async def do_request():
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()
+                return response.json()
+
+        try:
+            data = await self._request_with_retry(do_request, f"fetch {evidence_id}")
             evidence = self._parse_post_detail(data)
             if evidence:
                 self._cache_put(evidence_id, evidence)
             return evidence
 
         except Exception as e:
-            logger.error(f"Reddit fetch failed for {evidence_id}: {e}")
+            logger.debug(f"Reddit fetch failed for {evidence_id}: {e}")
             return None
 
     def _parse_listing(self, data: dict) -> list[Evidence]:
@@ -410,18 +412,22 @@ class RedditConnector(BaseConnector):
 
         await self._rate_limit()
 
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url, params=params, headers=self._get_headers())
-                response.raise_for_status()
+        headers = self._get_headers()
 
-            data = response.json()
+        async def do_request():
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url, params=params, headers=headers)
+                response.raise_for_status()
+                return response.json()
+
+        try:
+            data = await self._request_with_retry(do_request, f"get r/{subreddit}/{sort}")
             results = self._parse_listing(data)
             logger.info(f"Reddit r/{subreddit}/{sort} returned {len(results)} results")
             return results
 
         except Exception as e:
-            logger.error(f"Reddit get_subreddit failed for r/{subreddit}: {e}")
+            logger.debug(f"Reddit get_subreddit failed for r/{subreddit}: {e}")
             return []
 
     async def get_hot(self, subreddit: str = "all", limit: int = 25) -> list[Evidence]:

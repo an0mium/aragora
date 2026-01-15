@@ -10,7 +10,6 @@ The Algolia HN API is free and requires no authentication.
 """
 
 import asyncio
-import json
 import logging
 from datetime import datetime
 from typing import Optional
@@ -158,33 +157,21 @@ class HackerNewsConnector(BaseConnector):
         # Rate limiting
         await self._rate_limit()
 
-        try:
+        async def do_request():
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(url, params=params)
                 response.raise_for_status()
+                return response.json()
 
-            data = response.json()
+        try:
+            data = await self._request_with_retry(do_request, f"search '{query}'")
             results = self._parse_search_results(data)
             logger.info(f"HackerNews search '{query}' returned {len(results)} results")
             return results
 
-        except httpx.TimeoutException:
-            logger.warning(f"HackerNews search timeout for query: {query}")
-            return []
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HackerNews API error: {e.response.status_code}")
-            return []
-        except httpx.ConnectError as e:
-            logger.error(f"HackerNews connection error: {e}")
-            return []
-        except httpx.RequestError as e:
-            logger.error(f"HackerNews request error: {e}")
-            return []
-        except json.JSONDecodeError as e:
-            logger.error(f"HackerNews JSON parsing error: {e}")
-            return []
         except Exception as e:
-            logger.error(f"HackerNews search failed unexpectedly ({type(e).__name__}): {e}")
+            # Return empty list on failure (connector exceptions already logged)
+            logger.debug(f"HackerNews search failed: {e}")
             return []
 
     async def fetch(self, evidence_id: str) -> Optional[Evidence]:
@@ -211,37 +198,23 @@ class HackerNewsConnector(BaseConnector):
 
         await self._rate_limit()
 
-        try:
-            url = f"{HN_ITEM_URL}/{item_id}"
+        url = f"{HN_ITEM_URL}/{item_id}"
+
+        async def do_request():
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(url)
                 response.raise_for_status()
+                return response.json()
 
-            data = response.json()
+        try:
+            data = await self._request_with_retry(do_request, f"fetch {evidence_id}")
             evidence = self._parse_item(data)
             if evidence:
                 self._cache_put(evidence_id, evidence)
             return evidence
 
-        except httpx.TimeoutException:
-            logger.warning(f"HackerNews fetch timeout for {evidence_id}")
-            return None
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HackerNews API error fetching {evidence_id}: {e.response.status_code}")
-            return None
-        except httpx.ConnectError as e:
-            logger.error(f"HackerNews connection error for {evidence_id}: {e}")
-            return None
-        except httpx.RequestError as e:
-            logger.error(f"HackerNews request error for {evidence_id}: {e}")
-            return None
-        except json.JSONDecodeError as e:
-            logger.error(f"HackerNews JSON parsing error for {evidence_id}: {e}")
-            return None
         except Exception as e:
-            logger.error(
-                f"HackerNews fetch failed unexpectedly for {evidence_id} ({type(e).__name__}): {e}"
-            )
+            logger.debug(f"HackerNews fetch failed for {evidence_id}: {e}")
             return None
 
     def _parse_search_results(self, data: dict) -> list[Evidence]:

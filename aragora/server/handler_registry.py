@@ -561,6 +561,191 @@ def get_route_index() -> RouteIndex:
     return _route_index
 
 
+# =============================================================================
+# Handler Validation
+# =============================================================================
+
+
+class HandlerValidationError(Exception):
+    """Raised when a handler fails validation."""
+
+    pass
+
+
+def validate_handler_class(handler_class: Any, handler_name: str) -> List[str]:
+    """
+    Validate that a handler class has required methods and attributes.
+
+    Args:
+        handler_class: The handler class to validate
+        handler_name: Name for error messages
+
+    Returns:
+        List of validation errors (empty if valid)
+    """
+    errors: List[str] = []
+
+    if handler_class is None:
+        errors.append(f"{handler_name}: Handler class is None")
+        return errors
+
+    # Required method: can_handle(path: str) -> bool
+    if not hasattr(handler_class, "can_handle"):
+        errors.append(f"{handler_name}: Missing required method 'can_handle'")
+    elif not callable(getattr(handler_class, "can_handle")):
+        errors.append(f"{handler_name}: 'can_handle' is not callable")
+
+    # Required method: handle(path: str, query: dict, request_handler) -> HandlerResult
+    if not hasattr(handler_class, "handle"):
+        errors.append(f"{handler_name}: Missing required method 'handle'")
+    elif not callable(getattr(handler_class, "handle")):
+        errors.append(f"{handler_name}: 'handle' is not callable")
+
+    # Optional but recommended: ROUTES attribute for exact path matching
+    if not hasattr(handler_class, "ROUTES"):
+        logger.debug(f"{handler_name}: No ROUTES attribute (will use prefix matching only)")
+
+    return errors
+
+
+def validate_handler_instance(handler: Any, handler_name: str) -> List[str]:
+    """
+    Validate an instantiated handler works correctly.
+
+    Args:
+        handler: The handler instance
+        handler_name: Name for error messages
+
+    Returns:
+        List of validation errors (empty if valid)
+    """
+    errors: List[str] = []
+
+    if handler is None:
+        errors.append(f"{handler_name}: Handler instance is None")
+        return errors
+
+    # Verify can_handle doesn't crash with a test path
+    try:
+        result = handler.can_handle("/api/test-path-validation")
+        if not isinstance(result, bool):
+            errors.append(f"{handler_name}: can_handle() returned non-bool: {type(result)}")
+    except Exception as e:
+        errors.append(f"{handler_name}: can_handle() raised exception: {e}")
+
+    return errors
+
+
+def validate_all_handlers(raise_on_error: bool = False) -> Dict[str, Any]:
+    """
+    Validate all registered handler classes.
+
+    This should be called at startup to catch configuration issues early.
+
+    Args:
+        raise_on_error: If True, raise exception on validation failures
+
+    Returns:
+        Dict with validation results:
+        - valid: List of valid handler names
+        - invalid: Dict of handler name -> error messages
+        - missing: List of handlers that couldn't be imported
+    """
+    if not HANDLERS_AVAILABLE:
+        logger.warning("[handler-validation] Handler imports failed, skipping validation")
+        return {
+            "valid": [],
+            "invalid": {},
+            "missing": [name for name, _ in HANDLER_REGISTRY],
+            "status": "imports_failed",
+        }
+
+    results: Dict[str, Any] = {
+        "valid": [],
+        "invalid": {},
+        "missing": [],
+        "status": "ok",
+    }
+
+    for attr_name, handler_class in HANDLER_REGISTRY:
+        handler_name = attr_name.replace("_handler", "").replace("_", " ").title()
+
+        if handler_class is None:
+            results["missing"].append(handler_name)
+            continue
+
+        errors = validate_handler_class(handler_class, handler_name)
+        if errors:
+            results["invalid"][handler_name] = errors
+        else:
+            results["valid"].append(handler_name)
+
+    # Log summary
+    valid_count = len(results["valid"])
+    invalid_count = len(results["invalid"])
+    missing_count = len(results["missing"])
+    total = valid_count + invalid_count + missing_count
+
+    if invalid_count > 0 or missing_count > 0:
+        logger.warning(
+            f"[handler-validation] {valid_count}/{total} handlers valid, "
+            f"{invalid_count} invalid, {missing_count} missing"
+        )
+        for name, errors in results["invalid"].items():
+            for error in errors:
+                logger.warning(f"[handler-validation] {error}")
+        results["status"] = "validation_errors"
+    else:
+        logger.info(f"[handler-validation] All {valid_count} handlers validated successfully")
+
+    if raise_on_error and (invalid_count > 0 or missing_count > 0):
+        raise HandlerValidationError(
+            f"Handler validation failed: {invalid_count} invalid, {missing_count} missing"
+        )
+
+    return results
+
+
+def validate_handlers_on_init(registry_mixin: Any) -> Dict[str, Any]:
+    """
+    Validate instantiated handlers after initialization.
+
+    Called from _init_handlers to verify all handlers work correctly.
+
+    Args:
+        registry_mixin: The HandlerRegistryMixin instance with initialized handlers
+
+    Returns:
+        Dict with validation results
+    """
+    results: Dict[str, Any] = {
+        "valid": [],
+        "invalid": {},
+        "not_initialized": [],
+    }
+
+    for attr_name, handler_class in HANDLER_REGISTRY:
+        handler_name = attr_name.replace("_handler", "").replace("_", " ").title()
+        handler = getattr(registry_mixin, attr_name, None)
+
+        if handler is None:
+            results["not_initialized"].append(handler_name)
+            continue
+
+        errors = validate_handler_instance(handler, handler_name)
+        if errors:
+            results["invalid"][handler_name] = errors
+        else:
+            results["valid"].append(handler_name)
+
+    if results["invalid"]:
+        for name, errors in results["invalid"].items():
+            for error in errors:
+                logger.warning(f"[handler-instance-validation] {error}")
+
+    return results
+
+
 class HandlerRegistryMixin:
     """
     Mixin providing modular HTTP handler initialization and routing.
@@ -694,6 +879,13 @@ class HandlerRegistryMixin:
 
         cls._handlers_initialized = True
         logger.info(f"[handlers] Modular handlers initialized ({len(HANDLER_REGISTRY)} handlers)")
+
+        # Validate instantiated handlers
+        validation_results = validate_handlers_on_init(cls)
+        if validation_results["invalid"]:
+            logger.warning(
+                f"[handlers] {len(validation_results['invalid'])} handlers have validation issues"
+            )
 
         # Build route index for O(1) dispatch
         route_index = get_route_index()
@@ -870,4 +1062,10 @@ __all__ = [
     "HANDLERS_AVAILABLE",
     "RouteIndex",
     "get_route_index",
+    # Validation functions
+    "HandlerValidationError",
+    "validate_handler_class",
+    "validate_handler_instance",
+    "validate_all_handlers",
+    "validate_handlers_on_init",
 ]
