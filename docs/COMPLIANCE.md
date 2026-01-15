@@ -56,34 +56,58 @@ Aragora is designed with privacy and security as core principles. This document 
 
 #### Right of Access (Art. 15)
 
+Users can export their data via the self-service API:
+
 ```bash
-# Export user data via API
-curl -X GET /api/v2/users/me/export \
-  -H "Authorization: Bearer $TOKEN" \
-  -o user_data_export.json
+# Export all user data
+GET /api/privacy/export
+GET /api/v2/users/me/export?format=json
+
+# CSV format
+GET /api/privacy/export?format=csv
+
+# Data inventory (categories collected)
+GET /api/privacy/data-inventory
 ```
 
-Response includes:
+Exports include:
 - Profile information
-- Debate participation history
-- Voting records
-- Consent records
-- API usage logs
+- Organization membership
+- OAuth provider links
+- User preferences
+- Audit log (90 days)
+- Usage summary
+
+For manual requests: privacy@aragora.ai (processed within 30 days).
+See [DSAR_WORKFLOW.md](DSAR_WORKFLOW.md) for detailed procedures.
 
 #### Right to Erasure (Art. 17)
 
+Users can delete their account via the self-service API:
+
 ```bash
-# Request account deletion
-curl -X DELETE /api/v2/users/me \
-  -H "Authorization: Bearer $TOKEN"
+# Delete account (requires password confirmation)
+DELETE /api/privacy/account
+DELETE /api/v2/users/me
+
+# Request body
+{
+  "password": "your_password",
+  "confirm": true,
+  "reason": "optional reason"
+}
 ```
 
+For manual requests: privacy@aragora.ai with subject "Account Deletion Request"
+
 Deletion process:
-1. User data anonymized/deleted
-2. Active sessions invalidated
-3. Associated debates: user attribution removed
-4. Audit logs: PII redacted (retained for compliance)
-5. Backups: marked for exclusion in next rotation
+1. User profile anonymized (email, name replaced)
+2. OAuth provider links removed
+3. API keys revoked
+4. MFA data cleared
+5. Active sessions invalidated
+6. Audit logs: PII redacted (retained for compliance)
+7. Backups: marked for exclusion in next rotation
 
 #### Data Portability (Art. 20)
 
@@ -341,16 +365,23 @@ Aragora does not sell personal information. Third-party sharing is limited to:
 ### CCPA Request Handling
 
 ```bash
-# Consumer requests via API
-# Right to know
+# Right to know (data inventory)
+GET /api/privacy/data-inventory
 GET /api/v2/users/me/data-inventory
 
-# Right to delete
-DELETE /api/v2/users/me?ccpa=true
+# Right to know (full export)
+GET /api/privacy/export
+GET /api/v2/users/me/export
 
-# Right to opt-out
-POST /api/v2/users/me/preferences
-{"do_not_sell": true, "marketing_opt_out": true}
+# Right to delete
+DELETE /api/privacy/account
+DELETE /api/v2/users/me
+# Body: {"password": "...", "confirm": true}
+
+# Right to opt-out (Do Not Sell)
+GET /api/privacy/preferences  # Get current settings
+POST /api/privacy/preferences # Update settings
+# Body: {"do_not_sell": true, "marketing_opt_out": true, "analytics_opt_out": true}
 ```
 
 ---
@@ -495,4 +526,9 @@ curl -X POST /api/v2/admin/users \
 - [SECURITY.md](../SECURITY.md) - Security policies and controls
 - [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) - Backup and recovery procedures
 - [DATABASE.md](DATABASE.md) - Data storage and encryption
-- [API_REFERENCE.md](API_REFERENCE.md) - Data subject rights APIs
+- [DATA_RESIDENCY.md](DATA_RESIDENCY.md) - Data location and transfer policies
+- [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md) - Data classification levels
+- [PRIVACY_POLICY.md](PRIVACY_POLICY.md) - Privacy policy
+- [DSAR_WORKFLOW.md](DSAR_WORKFLOW.md) - Data subject access request procedures
+- [BREACH_NOTIFICATION_SLA.md](BREACH_NOTIFICATION_SLA.md) - Breach response timelines
+- [REMOTE_WORK_SECURITY.md](REMOTE_WORK_SECURITY.md) - Remote access security

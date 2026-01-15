@@ -82,6 +82,7 @@ This document tracks the maturity level of Aragora features. Use this to underst
 | OrganizationsHandler | `/api/organizations/*` | 49+ | Team management |
 | WebhookHandler | `/api/webhooks/*` | 30+ | Webhook delivery |
 | AdminHandler | `/api/admin/*` | 33+ | Admin operations |
+| PrivacyHandler | `/api/privacy/*` | 40+ | GDPR/CCPA data export/deletion |
 
 ### Experimental Handlers
 

@@ -135,35 +135,56 @@ When processing debates, user content may be sent to AI providers:
 
 ### Data Export
 
-Customers can export their data at any time:
+Customers can export their data via the self-service API:
 
 ```bash
-# Via CLI
-aragora data export --format json --output my-data.zip
+# JSON export (default)
+GET /api/privacy/export
+GET /api/v2/users/me/export
 
-# Via API
-GET /api/v1/user/data-export
-Authorization: Bearer <token>
+# CSV export
+GET /api/privacy/export?format=csv
+
+# Data inventory (categories collected)
+GET /api/privacy/data-inventory
 ```
 
 Export includes:
 - User profile data
-- Debate history
-- Consensus records
-- Usage logs
+- Organization membership
+- OAuth provider links
+- Preferences
+- Audit log (last 90 days)
+- Usage summary
+
+For manual requests: privacy@aragora.ai (processed within 30 days per GDPR)
 
 ### Data Deletion
 
-Customers can request complete data deletion:
+Customers can delete their account via the self-service API:
 
-1. Self-service: Settings > Privacy > Delete Account
-2. API: `DELETE /api/v1/user` with confirmation token
-3. Email: privacy@aragora.ai
+```bash
+# Delete account (requires password confirmation)
+DELETE /api/privacy/account
+DELETE /api/v2/users/me
+
+# Request body:
+{
+  "password": "your_password",
+  "confirm": true,
+  "reason": "optional reason for deletion"
+}
+```
+
+For manual requests: privacy@aragora.ai with subject "Account Deletion Request"
 
 Deletion timeline:
-- Active data: Immediate
+- Active data: Immediate (anonymized for audit compliance)
+- OAuth links: Immediate
+- API keys: Immediate
+- MFA data: Immediate
 - Backups: Within 30 days
-- Audit logs: Retained 7 years (legal requirement)
+- Audit logs: Retained 7 years (legal requirement, PII redacted)
 
 ---
 
@@ -298,7 +319,13 @@ Active data is deleted immediately. Backups are purged within 30 days. Audit log
 No. Aragora never sells customer data. See our Privacy Policy for details.
 
 ### How do you handle government data requests?
-We follow a strict legal process. See our Law Enforcement Guidelines document.
+We follow a strict legal process:
+- Requests must be legally valid and properly scoped
+- We notify users unless legally prohibited
+- We provide only the minimum data required
+- All requests are logged in our transparency report
+
+For law enforcement inquiries, contact: legal@aragora.ai
 
 ---
 

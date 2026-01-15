@@ -70,6 +70,7 @@ from .nomic import NomicHandler
 from .oauth import OAuthHandler
 from .organizations import OrganizationsHandler
 from .persona import PersonaHandler
+from .privacy import PrivacyHandler
 from .features import PluginsHandler  # Moved to features/
 from .agents import ProbesHandler  # Moved to agents/
 from .features import PulseHandler  # Moved to features/
@@ -145,6 +146,7 @@ ALL_HANDLERS = [
     EvidenceHandler,
     WebhookHandler,
     AdminHandler,
+    PrivacyHandler,
 ]
 
 # Handler stability classifications
@@ -213,6 +215,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "EvidenceHandler": Stability.STABLE,  # Evidence collection and storage
     "WebhookHandler": Stability.STABLE,  # Webhook registration and delivery
     "AdminHandler": Stability.STABLE,  # Admin panel backend API
+    "PrivacyHandler": Stability.STABLE,  # GDPR/CCPA data export and deletion
 }
 
 
@@ -296,6 +299,7 @@ __all__ = [
     "EvidenceHandler",
     "WebhookHandler",
     "AdminHandler",
+    "PrivacyHandler",
     # Collaboration handlers
     "CollaborationHandlers",
     "get_collaboration_handlers",
