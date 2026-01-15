@@ -228,6 +228,20 @@ class DebateController:
             )
         )
 
+        # Emit PHASE_PROGRESS to show research is starting
+        # This gives users immediate feedback that something is happening
+        self.emitter.emit(
+            StreamEvent(
+                type=StreamEventType.PHASE_PROGRESS,
+                data={
+                    "phase": "research",
+                    "status": "starting",
+                    "message": "Gathering context and researching topic...",
+                },
+                loop_id=debate_id,
+            )
+        )
+
         # Fetch trending topic if requested
         trending_topic = None
         if request.use_trending:
