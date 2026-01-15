@@ -14,7 +14,7 @@ from typing import Any, Optional
 
 from aragora.config import CACHE_TTL_DASHBOARD_DEBATES
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
@@ -22,7 +22,7 @@ from .base import (
     json_response,
     ttl_cache,
 )
-from .utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -554,7 +554,7 @@ class DashboardHandler(BaseHandler):
             health["prometheus_available"] = is_prometheus_available()
 
             # Get cache stats if available
-            from .base import _cache
+            from ..base import _cache
 
             if _cache:
                 health["cache_entries"] = len(_cache)

@@ -31,7 +31,7 @@ from aragora.auth.lockout import get_lockout_tracker
 from aragora.billing.jwt_auth import create_access_token, extract_user_from_request
 from aragora.server.middleware.mfa import enforce_admin_mfa_policy
 
-from .base import (
+from ..base import (
     SAFE_ID_PATTERN,
     BaseHandler,
     HandlerResult,

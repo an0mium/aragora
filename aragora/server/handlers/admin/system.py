@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 from aragora.billing.jwt_auth import extract_user_from_request
 from aragora.exceptions import DatabaseError, StorageError
 
-from .base import (
+from ..base import (
     SAFE_ID_PATTERN,
     BaseHandler,
     HandlerResult,
@@ -43,7 +43,7 @@ from .base import (
     ttl_cache,
     validate_path_segment,
 )
-from .utils.rate_limit import rate_limit
+from ..utils.rate_limit import rate_limit
 
 # Cache TTLs for system endpoints (in seconds)
 CACHE_TTL_HISTORY = 60  # History queries

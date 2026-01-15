@@ -35,14 +35,14 @@ from .auditing import AuditingHandler
 from .auth import AuthHandler
 from .base import BaseHandler, HandlerResult, error_response, json_response
 from .belief import BeliefHandler
-from .billing import BillingHandler
+from .admin import BillingHandler  # Moved to admin/
 from .breakpoints import BreakpointsHandler
 from .broadcast import BroadcastHandler
 from .agents import CalibrationHandler  # Moved to agents/
 from .checkpoints import CheckpointHandler
 from .consensus import ConsensusHandler
 from .critique import CritiqueHandler
-from .dashboard import DashboardHandler
+from .admin import DashboardHandler  # Moved to admin/
 from .debates import DebatesHandler
 from .docs import DocsHandler
 from .documents import DocumentHandler
@@ -55,7 +55,7 @@ from .gallery import GalleryHandler
 from .gauntlet import GauntletHandler
 from .genesis import GenesisHandler
 from .graph_debates import GraphDebatesHandler
-from .health import HealthHandler
+from .admin import HealthHandler  # Moved to admin/
 from .memory import InsightsHandler  # Moved to memory/
 from .introspection import IntrospectionHandler
 from .laboratory import LaboratoryHandler
@@ -80,7 +80,7 @@ from .routing import RoutingHandler
 from .selection import SelectionHandler
 from .social import SlackHandler  # Moved to social/
 from .social import SocialMediaHandler
-from .system import SystemHandler
+from .admin import SystemHandler  # Moved to admin/
 from .tournaments import TournamentHandler
 from .verification import VerificationHandler
 from .webhooks import WebhookHandler

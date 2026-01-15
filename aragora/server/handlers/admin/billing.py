@@ -30,7 +30,7 @@ from aragora.billing.stripe_client import (
 )
 from aragora.server.validation.schema import CHECKOUT_SESSION_SCHEMA, validate_against_schema
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
@@ -40,7 +40,7 @@ from .base import (
     log_request,
     require_permission,
 )
-from .utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 

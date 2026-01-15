@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 from aragora.config import DB_ELO_PATH, DB_INSIGHTS_PATH
 
 from .base import BaseHandler, HandlerResult, error_response, json_response, safe_error_message
-from .cache import _cache, get_cache_stats
+from .admin.cache import _cache, get_cache_stats
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 # Rate limiter for metrics endpoints (60 requests per minute - monitoring may poll frequently)
