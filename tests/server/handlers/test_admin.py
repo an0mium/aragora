@@ -448,7 +448,7 @@ class TestAdminRevenueStats:
 
         handler = make_mock_handler()
 
-        with patch("aragora.server.handlers.admin.TIER_LIMITS", {
+        with patch("aragora.server.handlers.admin.admin.TIER_LIMITS", {
             "free": MagicMock(price_monthly_cents=0),
             "starter": MagicMock(price_monthly_cents=2900),
         }):

@@ -17,7 +17,7 @@ import pytest
 from unittest.mock import Mock, MagicMock, patch, AsyncMock
 from datetime import datetime
 
-from aragora.server.handlers.evidence import EvidenceHandler
+from aragora.server.handlers.features import EvidenceHandler
 
 
 def parse_body(result):
