@@ -15,6 +15,7 @@ Weight calculation and vote aggregation logic is extracted to:
 
 import asyncio
 import logging
+import time
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
@@ -270,6 +271,46 @@ class ConsensusPhase:
                         role="synthesis",
                         round_num=(self.protocol.rounds if self.protocol else 3) + 1,
                     )
+
+        # CRITICAL: Emit consensus and debate_end events directly from consensus phase
+        # These events must fire regardless of whether analytics phase runs (it's optional)
+        # This ensures the frontend always knows when the debate completes
+        self._emit_guaranteed_events(ctx)
+
+    def _emit_guaranteed_events(self, ctx: "DebateContext") -> None:
+        """Emit consensus and debate_end events with guaranteed delivery.
+
+        These events are emitted directly from the consensus phase rather than
+        relying on the analytics phase (which is optional and may be skipped).
+        This ensures the frontend always receives notification when a debate ends.
+        """
+        if not ctx.result:
+            return
+
+        # Emit consensus event
+        if self.hooks and "on_consensus" in self.hooks:
+            try:
+                self.hooks["on_consensus"](
+                    reached=ctx.result.consensus_reached,
+                    confidence=ctx.result.confidence,
+                    answer=ctx.result.final_answer,
+                    synthesis=ctx.result.synthesis or "",
+                )
+                logger.debug("consensus_event_emitted reached=%s", ctx.result.consensus_reached)
+            except Exception as e:
+                logger.warning(f"Failed to emit consensus event: {e}")
+
+        # Emit debate_end event
+        if self.hooks and "on_debate_end" in self.hooks:
+            try:
+                duration = time.time() - ctx.start_time if hasattr(ctx, "start_time") else 0.0
+                self.hooks["on_debate_end"](
+                    duration=duration,
+                    rounds=ctx.result.rounds_used,
+                )
+                logger.debug("debate_end_event_emitted duration=%.1fs", duration)
+            except Exception as e:
+                logger.warning(f"Failed to emit debate_end event: {e}")
 
     async def _execute_consensus(self, ctx: "DebateContext", consensus_mode: str) -> None:
         """Execute the consensus logic for the given mode."""
@@ -1727,15 +1768,15 @@ class ConsensusPhase:
             # Build synthesis prompt
             synthesis_prompt = self._build_synthesis_prompt(ctx)
 
-            # Generate synthesis with timeout (180s for complex debates)
+            # Generate synthesis with timeout (60s to fit within phase budget)
             synthesis = await asyncio.wait_for(
                 synthesizer.generate(synthesis_prompt, ctx.context_messages),
-                timeout=180.0,
+                timeout=60.0,
             )
             logger.info(f"synthesis_generated_opus chars={len(synthesis)}")
 
         except asyncio.TimeoutError:
-            logger.warning("synthesis_opus_timeout timeout=180s, trying sonnet fallback")
+            logger.warning("synthesis_opus_timeout timeout=60s, trying sonnet fallback")
             synthesis_source = "sonnet"
         except ImportError as e:
             logger.warning(f"synthesis_import_error: {e}, trying sonnet fallback")
@@ -1756,7 +1797,7 @@ class ConsensusPhase:
                 synthesis_prompt = self._build_synthesis_prompt(ctx)
                 synthesis = await asyncio.wait_for(
                     synthesizer.generate(synthesis_prompt, ctx.context_messages),
-                    timeout=120.0,
+                    timeout=30.0,
                 )
                 logger.info(f"synthesis_generated_sonnet chars={len(synthesis)}")
             except Exception as e:
