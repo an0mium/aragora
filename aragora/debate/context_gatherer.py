@@ -19,9 +19,11 @@ from typing import Any, Callable, Optional
 logger = logging.getLogger(__name__)
 
 # Configurable timeouts (in seconds)
-CONTEXT_GATHER_TIMEOUT = float(os.getenv("ARAGORA_CONTEXT_TIMEOUT", "10.0"))
-EVIDENCE_TIMEOUT = float(os.getenv("ARAGORA_EVIDENCE_TIMEOUT", "5.0"))
-TRENDING_TIMEOUT = float(os.getenv("ARAGORA_TRENDING_TIMEOUT", "3.0"))
+# Increased timeouts to allow Claude web search to complete
+CONTEXT_GATHER_TIMEOUT = float(os.getenv("ARAGORA_CONTEXT_TIMEOUT", "150.0"))
+CLAUDE_SEARCH_TIMEOUT = float(os.getenv("ARAGORA_CLAUDE_SEARCH_TIMEOUT", "120.0"))
+EVIDENCE_TIMEOUT = float(os.getenv("ARAGORA_EVIDENCE_TIMEOUT", "30.0"))
+TRENDING_TIMEOUT = float(os.getenv("ARAGORA_TRENDING_TIMEOUT", "5.0"))
 
 
 class ContextGatherer:
@@ -83,8 +85,9 @@ class ContextGatherer:
         Perform multi-source research and return formatted context.
 
         Gathers context from:
+        - Claude's web search (primary - best quality, uses Opus 4.5)
         - Aragora documentation (if task is Aragora-related)
-        - Evidence connectors (web, GitHub, local docs)
+        - Evidence connectors (web, GitHub, local docs) - fallback
         - Pulse/trending topics
 
         All sub-operations have individual timeouts to prevent blocking.
@@ -106,25 +109,32 @@ class ContextGatherer:
         async def _gather_with_timeout():
             nonlocal context_parts
 
-            # Gather Aragora context (local files, fast)
+            # 1. Primary: Claude's web search (best quality research)
+            claude_ctx = await self._gather_claude_web_search(task)
+            if claude_ctx:
+                context_parts.append(claude_ctx)
+
+            # 2. Gather Aragora context (local files, fast)
             aragora_ctx = await self.gather_aragora_context(task)
             if aragora_ctx:
                 context_parts.append(aragora_ctx)
 
-            # Gather evidence and trending in parallel with individual timeouts
-            evidence_task = asyncio.create_task(self._gather_evidence_with_timeout(task))
-            trending_task = asyncio.create_task(self._gather_trending_with_timeout())
+            # 3. Gather additional evidence and trending in parallel (fallback sources)
+            # Only if Claude search didn't return sufficient context
+            if not claude_ctx or len(claude_ctx) < 500:
+                evidence_task = asyncio.create_task(self._gather_evidence_with_timeout(task))
+                trending_task = asyncio.create_task(self._gather_trending_with_timeout())
 
-            # Wait for both, but don't fail if one times out
-            results = await asyncio.gather(evidence_task, trending_task, return_exceptions=True)
+                # Wait for both, but don't fail if one times out
+                results = await asyncio.gather(evidence_task, trending_task, return_exceptions=True)
 
-            for result in results:
-                if isinstance(result, str) and result:
-                    context_parts.append(result)
-                elif isinstance(result, asyncio.TimeoutError):
-                    logger.warning("Context gathering subtask timed out")
-                elif isinstance(result, Exception):
-                    logger.debug(f"Context gathering subtask failed: {result}")
+                for result in results:
+                    if isinstance(result, str) and result:
+                        context_parts.append(result)
+                    elif isinstance(result, asyncio.TimeoutError):
+                        logger.warning("Context gathering subtask timed out")
+                    elif isinstance(result, Exception):
+                        logger.debug(f"Context gathering subtask failed: {result}")
 
         try:
             await asyncio.wait_for(_gather_with_timeout(), timeout=timeout)
@@ -136,6 +146,46 @@ class ContextGatherer:
             return self._research_context_cache
         else:
             return "No research context available."
+
+    async def _gather_claude_web_search(self, task: str) -> Optional[str]:
+        """
+        Perform web search using Claude's built-in web_search tool.
+
+        This is the primary research method - uses Claude Opus 4.5 with
+        web search capability to provide high-quality, current information.
+
+        Args:
+            task: The debate topic/task description.
+
+        Returns:
+            Formatted research context, or None if search fails.
+        """
+        try:
+            from aragora.server.research_phase import research_for_debate
+
+            logger.info("[research] Starting Claude web search for debate context...")
+
+            result = await asyncio.wait_for(
+                research_for_debate(task),
+                timeout=CLAUDE_SEARCH_TIMEOUT,
+            )
+
+            if result:
+                logger.info(f"[research] Claude web search complete: {len(result)} chars")
+                return result
+            else:
+                logger.info("[research] Claude web search returned no results")
+                return None
+
+        except asyncio.TimeoutError:
+            logger.warning(f"[research] Claude web search timed out after {CLAUDE_SEARCH_TIMEOUT}s")
+            return None
+        except ImportError:
+            logger.debug("[research] research_phase module not available")
+            return None
+        except Exception as e:
+            logger.warning(f"[research] Claude web search failed: {e}")
+            return None
 
     async def _gather_evidence_with_timeout(self, task: str) -> Optional[str]:
         """Gather evidence with timeout protection."""
