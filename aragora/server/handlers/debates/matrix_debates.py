@@ -17,14 +17,14 @@ from typing import Any
 
 from aragora.server.error_utils import safe_error_message
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
     json_response,
 )
-from .utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 

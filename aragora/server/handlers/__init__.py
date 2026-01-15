@@ -54,14 +54,14 @@ from .verification import FormalVerificationHandler  # Moved to verification/
 from .gallery import GalleryHandler
 from .gauntlet import GauntletHandler
 from .genesis import GenesisHandler
-from .graph_debates import GraphDebatesHandler
+from .debates import GraphDebatesHandler  # Moved to debates/
 from .admin import HealthHandler  # Moved to admin/
 from .memory import InsightsHandler  # Moved to memory/
 from .introspection import IntrospectionHandler
 from .laboratory import LaboratoryHandler
 from .agents import LeaderboardViewHandler  # Moved to agents/
 from .memory import LearningHandler  # Moved to memory/
-from .matrix_debates import MatrixDebatesHandler
+from .debates import MatrixDebatesHandler  # Moved to debates/
 from .memory import MemoryHandler  # memory/ subdirectory
 from .memory import MemoryAnalyticsHandler  # Moved to memory/
 from .metrics import MetricsHandler

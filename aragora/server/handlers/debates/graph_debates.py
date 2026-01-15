@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import re
 
-from .base import (
+from ..base import (
     SAFE_AGENT_PATTERN,
     BaseHandler,
     HandlerResult,
@@ -29,7 +29,7 @@ _SUSPICIOUS_PATTERNS = [
     re.compile(r"\x00"),  # Null byte injection
     re.compile(r"\{\{.*\}\}"),  # Template injection
 ]
-from .utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 
