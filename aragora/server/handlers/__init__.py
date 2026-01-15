@@ -47,8 +47,8 @@ from .debates import DebatesHandler
 from .docs import DocsHandler
 from .features import DocumentHandler  # Moved to features/
 from .features import EvidenceHandler  # Moved to features/
-from .evolution import EvolutionHandler
-from .evolution_ab_testing import EvolutionABTestingHandler
+from .evolution import EvolutionABTestingHandler  # Moved to evolution/
+from .evolution import EvolutionHandler  # Moved to evolution/
 from .features import FeaturesHandler  # Moved to features/
 from .verification import FormalVerificationHandler  # Moved to verification/
 from .gallery import GalleryHandler

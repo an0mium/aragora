@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
@@ -140,7 +140,7 @@ class EvolutionABTestingHandler(BaseHandler):
         """Route DELETE requests with auth and rate limiting."""
         from aragora.billing.jwt_auth import extract_user_from_request
 
-        from .utils.rate_limit import RateLimiter, get_client_ip
+        from ..utils.rate_limit import RateLimiter, get_client_ip
 
         if not AB_TESTING_AVAILABLE:
             return error_response("A/B testing module not available", 503)

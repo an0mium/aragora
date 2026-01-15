@@ -15,7 +15,7 @@ from typing import Optional
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
-from .base import (
+from ..base import (
     SAFE_AGENT_PATTERN,
     BaseHandler,
     HandlerResult,
@@ -24,7 +24,7 @@ from .base import (
     get_string_param,
     json_response,
 )
-from .utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 

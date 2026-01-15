@@ -814,7 +814,7 @@ class TestAdminServiceUnavailable:
     """Tests for service unavailable scenarios."""
 
     def test_no_user_store(self):
-        handler_ctx = AdminHandler(ctx={})
+        handler_ctx = AdminHandler({})
 
         handler = make_mock_handler()
 
