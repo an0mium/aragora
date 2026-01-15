@@ -388,6 +388,9 @@ jobs:
                   sudo systemctl restart cloudflared 2>/dev/null || true
                 else
                   echo "Cloudflared already routing through nginx"
+                  # Force restart anyway to ensure config is applied
+                  echo "Restarting cloudflared to ensure latest config..."
+                  sudo systemctl restart cloudflared 2>/dev/null || true
                 fi
               else
                 echo "::warning::Cloudflared config directory not found"
