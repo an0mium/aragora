@@ -401,6 +401,19 @@ class AutonomicExecutor:
 
             sanitized = OutputSanitizer.sanitize_agent_output(raw_output, agent.name)
 
+            # Retry once on empty output (qwen and other agents sometimes produce empty responses)
+            if sanitized == "(Agent produced empty output)":
+                logger.warning(
+                    f"[Autonomic] Agent {agent.name} produced empty output, retrying once..."
+                )
+                retry_raw = await agent.generate(prompt, context)
+                retry_sanitized = OutputSanitizer.sanitize_agent_output(retry_raw, agent.name)
+                if retry_sanitized != "(Agent produced empty output)":
+                    logger.info(f"[Autonomic] Agent {agent.name} retry succeeded")
+                    sanitized = retry_sanitized
+                else:
+                    logger.warning(f"[Autonomic] Agent {agent.name} retry also produced empty output")
+
             # Record successful completion
             if tracking_id and self.performance_monitor:
                 self.performance_monitor.record_completion(

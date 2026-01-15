@@ -399,7 +399,17 @@ class DebateRoundsPhase:
                 return await generate_critique(critic, proposal_agent, proposal)
 
         critique_tasks = []
-        for proposal_agent, proposal in proposals.items():
+        # Filter out empty/placeholder proposals to avoid wasting critic resources
+        valid_proposals = {
+            agent: content
+            for agent, content in proposals.items()
+            if content and "(Agent produced empty output)" not in content
+        }
+        if len(valid_proposals) < len(proposals):
+            skipped = [a for a in proposals if a not in valid_proposals]
+            logger.warning(f"critique_skip_empty_proposals skipped={skipped}")
+
+        for proposal_agent, proposal in valid_proposals.items():
             if self._select_critics_for_proposal:
                 selected_critics = self._select_critics_for_proposal(proposal_agent, critics)
             else:
@@ -555,7 +565,23 @@ class DebateRoundsPhase:
         # Emit heartbeat before revision phase
         self._emit_heartbeat(f"revision_round_{round_num}", f"starting_{len(revision_agents)}_agents")
 
+        # Periodic heartbeat task during long-running revisions
+        async def heartbeat_during_revisions():
+            """Emit heartbeat every 30s while revisions are in progress."""
+            heartbeat_count = 0
+            try:
+                while True:
+                    await asyncio.sleep(30.0)
+                    heartbeat_count += 1
+                    self._emit_heartbeat(
+                        f"revision_round_{round_num}",
+                        f"in_progress_{heartbeat_count * 30}s",
+                    )
+            except asyncio.CancelledError:
+                pass
+
         # Execute all revisions with bounded concurrency and phase-level timeout
+        heartbeat_task = asyncio.create_task(heartbeat_during_revisions())
         try:
             revision_results = await asyncio.wait_for(
                 asyncio.gather(*revision_tasks, return_exceptions=True),
@@ -568,6 +594,13 @@ class DebateRoundsPhase:
             )
             # Return timeout errors for all pending agents
             revision_results = [asyncio.TimeoutError()] * len(revision_tasks)
+        finally:
+            # Cancel the heartbeat task now that revisions are done
+            heartbeat_task.cancel()
+            try:
+                await heartbeat_task
+            except asyncio.CancelledError:
+                pass
 
         # Process results
         revision_count = 0

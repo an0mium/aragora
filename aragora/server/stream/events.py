@@ -43,6 +43,7 @@ class StreamEventType(Enum):
     BACKUP_CREATED = "backup_created"
     BACKUP_RESTORED = "backup_restored"
     ERROR = "error"
+    PHASE_TIMEOUT = "phase_timeout"  # Phase timed out - sent to WebSocket clients
     LOG_MESSAGE = "log_message"
 
     # Multi-loop management events

@@ -128,7 +128,7 @@ class AgentSettings(BaseSettings):
         description="Maximum buffer size for streaming responses (bytes)",
     )
     stream_chunk_timeout: float = Field(
-        default=300.0,  # Must exceed agent_timeout to prevent race conditions
+        default=180.0,  # Reduced from 300s - must be < agent_timeout to prevent zombie streams
         ge=5.0,
         le=600.0,
         alias="ARAGORA_STREAM_CHUNK_TIMEOUT",

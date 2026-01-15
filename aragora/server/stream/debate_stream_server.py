@@ -784,12 +784,10 @@ class DebateStreamServer(ServerBase):
             )
         )
 
-        # Take snapshot under lock to prevent race conditions during iteration
-        with self._debate_states_lock:
-            states_snapshot = dict(self.debate_states)
-
-        for loop_id, state in states_snapshot.items():
-            await websocket.send(json.dumps({"type": "sync", "data": state}))
+        # NOTE: We no longer send all cached debate states on connect.
+        # This was causing old debate content to appear in new debates.
+        # Clients should subscribe to specific debates to receive their state.
+        # The loop_list message above tells clients what debates are available.
 
     async def _send_debate_state(self, websocket, debate_id: str) -> None:
         """Send current debate state to a newly subscribed client.
