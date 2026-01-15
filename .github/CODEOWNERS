@@ -1,0 +1,68 @@
+# Aragora CODEOWNERS
+# These owners will be requested for review when someone opens a PR.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything
+* @an0mium
+
+# =============================================================================
+# Protected Files (require explicit approval)
+# =============================================================================
+
+# Core package exports and types
+/aragora/__init__.py @an0mium
+/aragora/core.py @an0mium
+/aragora/types.py @an0mium
+/aragora/typing.py @an0mium
+
+# Nomic loop (self-improvement safety-critical)
+/scripts/nomic_loop.py @an0mium
+/scripts/run_nomic_with_stream.py @an0mium
+
+# Configuration and environment
+/.env.example @an0mium
+/pyproject.toml @an0mium
+
+# =============================================================================
+# Domain-Specific Areas
+# =============================================================================
+
+# Debate orchestration
+/aragora/debate/ @an0mium
+
+# Agent implementations
+/aragora/agents/ @an0mium
+
+# Server and API
+/aragora/server/ @an0mium
+
+# Memory systems
+/aragora/memory/ @an0mium
+
+# Security and auth
+/aragora/auth/ @an0mium
+/aragora/billing/ @an0mium
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+
+# CI/CD workflows
+/.github/workflows/ @an0mium
+
+# Deployment
+/deploy/ @an0mium
+
+# =============================================================================
+# Documentation
+# =============================================================================
+
+# Compliance and legal docs
+/docs/DATA_RESIDENCY.md @an0mium
+/docs/PRIVACY_POLICY.md @an0mium
+/docs/BREACH_NOTIFICATION_SLA.md @an0mium
+/docs/DSAR_WORKFLOW.md @an0mium
+/docs/DATA_CLASSIFICATION.md @an0mium
+
+# Project guidelines
+/CLAUDE.md @an0mium
