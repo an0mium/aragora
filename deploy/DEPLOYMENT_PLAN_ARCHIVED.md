@@ -1,6 +1,16 @@
-# Aragora Production Deployment Plan
+# [ARCHIVED] Aragora Production Deployment Plan
 
-## Overview
+> **DEPRECATED:** This document is outdated and kept for historical reference only.
+>
+> **Current documentation:**
+> - `README.md` - Quick start guide for EC2 deployment
+> - `cloudflare-lb-setup.md` - Cloudflare tunnel and load balancer configuration
+>
+> **Current architecture:** EC2-only via Cloudflare tunnel (`ringrift-cluster`)
+
+---
+
+## Overview (Historical)
 
 This document outlines the deployment architecture for aragora's production infrastructure.
 
