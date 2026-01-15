@@ -105,10 +105,12 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
       {/* Agent Selection */}
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="flex-1">
-          <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1">Agent 1</label>
+          <label htmlFor="compare-agent-1" className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1">Agent 1</label>
           <select
+            id="compare-agent-1"
             value={agent1}
             onChange={(e) => setAgent1(e.target.value)}
+            aria-label="Select first agent for comparison"
             className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded px-3 py-2 text-white"
           >
             <option value="">Select agent...</option>
@@ -123,10 +125,12 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
           <span className="text-zinc-400 dark:text-zinc-500 text-xl">vs</span>
         </div>
         <div className="flex-1">
-          <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1">Agent 2</label>
+          <label htmlFor="compare-agent-2" className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1">Agent 2</label>
           <select
+            id="compare-agent-2"
             value={agent2}
             onChange={(e) => setAgent2(e.target.value)}
+            aria-label="Select second agent for comparison"
             className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded px-3 py-2 text-white"
           >
             <option value="">Select agent...</option>

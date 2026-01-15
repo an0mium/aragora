@@ -72,8 +72,8 @@ export function HistoryPanel() {
 
       {/* Show warning when Supabase not configured */}
       {supabaseWarning && !useSupabase && (
-        <div className="mb-4 p-2 bg-yellow-900/20 border border-yellow-500/50 text-yellow-500 text-xs font-mono">
-          <span className="text-yellow-400">!</span> {supabaseWarning}
+        <div className="mb-4 p-2 bg-yellow-900/20 border border-yellow-600/50 text-yellow-200 text-xs font-mono" role="alert">
+          <span className="text-yellow-300">!</span> {supabaseWarning}
         </div>
       )}
 

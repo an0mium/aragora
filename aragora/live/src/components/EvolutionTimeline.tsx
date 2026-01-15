@@ -317,9 +317,12 @@ export function EvolutionTimeline({
 
       {/* Filter */}
       <div className="flex gap-2">
+        <label htmlFor="event-type-filter" className="sr-only">Filter by event type</label>
         <select
+          id="event-type-filter"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
+          aria-label="Filter by event type"
           className="bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text focus:border-acid-green focus:outline-none"
         >
           <option value="">All Event Types</option>

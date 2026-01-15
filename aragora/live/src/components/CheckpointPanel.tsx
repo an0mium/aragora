@@ -139,9 +139,12 @@ export function CheckpointPanel({ backendConfig, debateId, onResume }: Checkpoin
 
         {/* Debate Filter */}
         <div className="flex gap-4">
+          <label htmlFor="debate-filter" className="sr-only">Filter by debate</label>
           <select
+            id="debate-filter"
             value={selectedDebate || ''}
             onChange={(e) => setSelectedDebate(e.target.value || null)}
+            aria-label="Filter by debate"
             className="flex-1 bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
           >
             <option value="">All Debates</option>

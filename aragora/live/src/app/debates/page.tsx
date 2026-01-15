@@ -130,13 +130,13 @@ export default function DebatesPage() {
                 <div className="flex items-center gap-2 mt-2">
                   <Link
                     href="/debates/graph"
-                    className="px-2 py-1 text-xs font-mono bg-acid-cyan/10 text-acid-cyan border border-acid-cyan/30 hover:bg-acid-cyan/20 transition-colors"
+                    className="px-2 py-1 text-xs font-mono bg-acid-cyan/10 text-teal-700 dark:text-acid-cyan border border-acid-cyan/30 hover:bg-acid-cyan/20 transition-colors"
                   >
                     GRAPH DEBATES
                   </Link>
                   <Link
                     href="/debates/matrix"
-                    className="px-2 py-1 text-xs font-mono bg-gold/10 text-gold border border-gold/30 hover:bg-gold/20 transition-colors"
+                    className="px-2 py-1 text-xs font-mono bg-gold/10 text-amber-700 dark:text-gold border border-gold/30 hover:bg-gold/20 transition-colors"
                   >
                     SCENARIO MATRIX
                   </Link>
