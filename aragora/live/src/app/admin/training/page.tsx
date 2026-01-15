@@ -510,10 +510,12 @@ export default function TrainingExportPage() {
                 {/* Export Controls */}
                 <div className="mt-6 pt-6 border-t border-acid-green/20 flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <label className="font-mono text-xs text-text-muted">Format:</label>
+                    <label htmlFor="export-format" className="font-mono text-xs text-text-muted">Format:</label>
                     <select
+                      id="export-format"
                       value={format}
                       onChange={e => setFormat(e.target.value as ExportFormat)}
+                      aria-label="Select export format"
                       className="p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm text-text"
                     >
                       <option value="jsonl">JSONL (line-delimited)</option>
