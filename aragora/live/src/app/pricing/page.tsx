@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -113,6 +113,12 @@ export default function PricingPage() {
   const { user, isAuthenticated, tokens } = useAuth();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch - auth state differs between server and client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSubscribe = async (planId: string) => {
     if (!isAuthenticated) {
@@ -180,20 +186,24 @@ export default function PricingPage() {
               <AsciiBannerCompact connected={true} />
             </Link>
             <div className="flex items-center gap-4">
-              {isAuthenticated ? (
-                <Link
-                  href="/"
-                  className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
-                >
-                  [DASHBOARD]
-                </Link>
+              {mounted ? (
+                isAuthenticated ? (
+                  <Link
+                    href="/"
+                    className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                  >
+                    [DASHBOARD]
+                  </Link>
+                ) : (
+                  <Link
+                    href="/auth/login"
+                    className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                  >
+                    [LOGIN]
+                  </Link>
+                )
               ) : (
-                <Link
-                  href="/auth/login"
-                  className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
-                >
-                  [LOGIN]
-                </Link>
+                <span className="text-xs font-mono text-acid-cyan/50">...</span>
               )}
             </div>
           </div>
