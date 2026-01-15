@@ -467,6 +467,11 @@ class ConsensusPhase:
             ctx, vote_counts, proposals, choice_mapping
         )
 
+        # Apply evidence citation bonuses if enabled
+        vote_counts = self._apply_evidence_citation_bonuses(
+            ctx, votes, vote_counts, choice_mapping
+        )
+
         ctx.vote_tally = dict(vote_counts)
 
         # Determine winner
@@ -1177,6 +1182,88 @@ class ConsensusPhase:
 
         # Phase 10E: Update ELO based on verification results
         await self._update_elo_from_verification(ctx)
+
+        return vote_counts
+
+    def _apply_evidence_citation_bonuses(
+        self,
+        ctx: "DebateContext",
+        votes: list["Vote"],
+        vote_counts: Counter,
+        choice_mapping: dict[str, str],
+    ) -> Counter:
+        """Apply evidence citation bonuses to vote counts.
+
+        When enable_evidence_weighting is enabled in the protocol, votes that
+        properly cite evidence from the evidence_pack receive a weight bonus.
+        This encourages agents to ground their arguments in factual evidence.
+
+        Evidence is detected by looking for EVID-xxx patterns in vote reasoning.
+
+        Args:
+            ctx: DebateContext with evidence_pack
+            votes: List of votes to check for evidence citations
+            vote_counts: Current vote counts by choice
+            choice_mapping: Mapping from vote choice to canonical form
+
+        Returns:
+            Updated vote counts with evidence citation bonuses applied
+        """
+        import re
+
+        if not self.protocol or not getattr(self.protocol, "enable_evidence_weighting", False):
+            return vote_counts
+
+        # Check if we have an evidence pack to reference
+        evidence_pack = getattr(ctx, "evidence_pack", None)
+        if not evidence_pack or not hasattr(evidence_pack, "snippets"):
+            return vote_counts
+
+        evidence_ids = {s.id for s in evidence_pack.snippets}
+        if not evidence_ids:
+            return vote_counts
+
+        evidence_bonus = getattr(self.protocol, "evidence_citation_bonus", 0.15)
+
+        # Track evidence citations per agent for analytics
+        evidence_citations: dict[str, int] = {}
+
+        for vote in votes:
+            if isinstance(vote, Exception):
+                continue
+
+            # Look for evidence citations in vote reasoning
+            # Pattern: EVID-xxx (standard evidence ID format)
+            cited_ids = set(re.findall(r"EVID-([a-zA-Z0-9]+)", vote.reasoning))
+
+            # Count how many valid citations
+            valid_citations = len(cited_ids & evidence_ids)
+
+            if valid_citations > 0:
+                canonical = choice_mapping.get(vote.choice, vote.choice)
+                if canonical in vote_counts:
+                    current_count = vote_counts[canonical]
+                    bonus = evidence_bonus * valid_citations
+                    vote_counts[canonical] = current_count + bonus
+
+                    evidence_citations[vote.agent] = valid_citations
+                    logger.debug(
+                        f"evidence_citation_bonus agent={vote.agent} "
+                        f"citations={valid_citations} bonus={bonus:.2f}"
+                    )
+
+        # Store evidence citations in result for analytics
+        result = ctx.result
+        if evidence_citations and hasattr(result, "metadata"):
+            if result.metadata is None:
+                result.metadata = {}
+            result.metadata["evidence_citations"] = evidence_citations
+
+        if evidence_citations:
+            logger.info(
+                f"evidence_weighting applied: {len(evidence_citations)} agents cited evidence, "
+                f"total citations={sum(evidence_citations.values())}"
+            )
 
         return vote_counts
 

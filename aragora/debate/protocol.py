@@ -248,6 +248,13 @@ class DebateProtocol:
     verification_weight_bonus: float = 0.2  # Boost for verified claims (0.0-1.0)
     verification_timeout_seconds: float = 5.0  # Quick timeout per verification
 
+    # Evidence citation weighting: Reward votes that cite evidence
+    # When enabled, votes that properly reference evidence from evidence_pack
+    # receive a weight bonus during consensus. Encourages factual grounding.
+    # Detects EVID-xxx patterns in vote reasoning.
+    enable_evidence_weighting: bool = True  # Enable evidence citation bonuses
+    evidence_citation_bonus: float = 0.15  # Bonus per evidence citation (0.0-1.0)
+
     # Formal proof verification: Use Lean4/Z3 to verify consensus claims
     # When enabled, attempts machine-checkable proof of final consensus
     # Requires formal verification backends to be installed (z3-solver, etc.)
