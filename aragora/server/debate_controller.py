@@ -23,7 +23,6 @@ from aragora.server.debate_utils import (
     _active_debates_lock,
     cleanup_stale_debates,
     update_debate_status,
-    wrap_agent_for_streaming,
 )
 from aragora.server.error_utils import safe_error_message
 from aragora.server.http_utils import run_async
@@ -32,6 +31,7 @@ from aragora.server.stream import (
     StreamEvent,
     StreamEventType,
     create_arena_hooks,
+    wrap_agent_for_streaming,
 )
 
 if TYPE_CHECKING:

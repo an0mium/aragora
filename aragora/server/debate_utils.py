@@ -12,16 +12,12 @@ via get_state_manager().
 import logging
 import threading
 import time
-from datetime import datetime
+import warnings
 from typing import Any, Dict, Optional
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.server.state import get_state_manager
-from aragora.server.stream import (
-    StreamEvent,
-    StreamEventType,
-    SyncEventEmitter,
-)
+from aragora.server.stream import SyncEventEmitter
 
 logger = logging.getLogger(__name__)
 
@@ -199,10 +195,11 @@ def increment_cleanup_counter() -> bool:
 
 
 def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: str) -> Any:
-    """Wrap an agent to emit token streaming events.
+    """DEPRECATED: Use aragora.server.stream.wrap_agent_for_streaming instead.
 
-    If the agent has a generate_stream() method, we override its generate()
-    to call generate_stream() and emit TOKEN_* events.
+    This function was missing task_id on TOKEN events, causing text interleaving
+    when multiple agents stream concurrently. The correct implementation in
+    aragora.server.stream.arena_hooks includes proper task_id handling.
 
     Args:
         agent: Agent instance (duck-typed, must have generate method)
@@ -212,83 +209,18 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
     Returns:
         The agent with wrapped generate method (or unchanged if no streaming support)
     """
-    # Check if agent supports streaming
-    if not hasattr(agent, "generate_stream"):
-        return agent
+    warnings.warn(
+        "debate_utils.wrap_agent_for_streaming is deprecated and was causing text "
+        "interleaving bugs. Use aragora.server.stream.wrap_agent_for_streaming instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    # Import here to avoid circular imports
+    from aragora.server.stream.arena_hooks import (
+        wrap_agent_for_streaming as _correct_wrap,
+    )
 
-    # Store original generate method
-    original_generate = agent.generate
-
-    async def streaming_generate(prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
-        """Streaming wrapper that emits TOKEN_* events."""
-        # Emit start event
-        emitter.emit(
-            StreamEvent(
-                type=StreamEventType.TOKEN_START,
-                data={
-                    "debate_id": debate_id,
-                    "agent": agent.name,
-                    "timestamp": datetime.now().isoformat(),
-                },
-                agent=agent.name,
-            )
-        )
-
-        full_response = ""
-        try:
-            # Stream tokens from the agent
-            async for token in agent.generate_stream(prompt, context):
-                full_response += token
-                # Emit token delta event
-                emitter.emit(
-                    StreamEvent(
-                        type=StreamEventType.TOKEN_DELTA,
-                        data={
-                            "debate_id": debate_id,
-                            "agent": agent.name,
-                            "token": token,
-                        },
-                        agent=agent.name,
-                    )
-                )
-
-            # Emit end event
-            emitter.emit(
-                StreamEvent(
-                    type=StreamEventType.TOKEN_END,
-                    data={
-                        "debate_id": debate_id,
-                        "agent": agent.name,
-                        "full_response": full_response,
-                    },
-                    agent=agent.name,
-                )
-            )
-
-            return full_response
-
-        except Exception as e:
-            # Emit error as end event
-            emitter.emit(
-                StreamEvent(
-                    type=StreamEventType.TOKEN_END,
-                    data={
-                        "debate_id": debate_id,
-                        "agent": agent.name,
-                        "error": _safe_error_message(e, f"token streaming for {agent.name}"),
-                        "full_response": full_response,
-                    },
-                    agent=agent.name,
-                )
-            )
-            # Fall back to non-streaming
-            if full_response:
-                return full_response
-            return await original_generate(prompt, context)
-
-    # Replace the generate method
-    agent.generate = streaming_generate
-    return agent
+    return _correct_wrap(agent, emitter, debate_id)
 
 
 # Backward compatibility aliases (prefixed with underscore)

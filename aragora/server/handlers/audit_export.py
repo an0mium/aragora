@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 _audit_log = None
 
 
-def get_audit_log():
+def get_audit_log() -> "AuditLog":
     """Get or create audit log instance."""
     global _audit_log
     if _audit_log is None:
