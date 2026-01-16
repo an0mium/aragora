@@ -10,6 +10,15 @@ Analyzes debate traces for:
 Produces a structured risk register for project management.
 """
 
+__all__ = [
+    "Risk",
+    "RiskAnalyzer",
+    "RiskCategory",
+    "RiskLevel",
+    "RiskRegister",
+    "generate_risk_register",
+]
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

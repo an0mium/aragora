@@ -325,10 +325,7 @@ class TestConcurrentAccess:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=create_and_read_session, args=(i,))
-            for i in range(50)
-        ]
+        threads = [threading.Thread(target=create_and_read_session, args=(i,)) for i in range(50)]
 
         for t in threads:
             t.start()

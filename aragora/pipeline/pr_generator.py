@@ -11,6 +11,13 @@ Usage:
     plan = generator.generate_patch_plan()
 """
 
+__all__ = [
+    "DecisionMemo",
+    "PatchPlan",
+    "PRGenerator",
+    "generate_pr_artifacts",
+]
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any

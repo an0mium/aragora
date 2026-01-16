@@ -91,7 +91,9 @@ class AuditRepository:
                     user_agent,
                 ),
             )
-            return cursor.lastrowid  # type: ignore[return-value]
+            # lastrowid is guaranteed to be set after INSERT
+            assert cursor.lastrowid is not None
+            return cursor.lastrowid
 
     def get_log(
         self,

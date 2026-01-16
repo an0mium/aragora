@@ -150,9 +150,7 @@ class TestGetSecurityHeaders:
         from aragora.server.middleware.security import get_security_headers
 
         nonce = "abc123"
-        headers = get_security_headers(
-            enable_csp=True, csp_mode="standard", nonce=nonce
-        )
+        headers = get_security_headers(enable_csp=True, csp_mode="standard", nonce=nonce)
 
         assert f"'nonce-{nonce}'" in headers["Content-Security-Policy"]
 
@@ -161,9 +159,7 @@ class TestGetSecurityHeaders:
         from aragora.server.middleware.security import get_security_headers
 
         report_uri = "https://example.com/csp-report"
-        headers = get_security_headers(
-            enable_csp=True, csp_report_uri=report_uri
-        )
+        headers = get_security_headers(enable_csp=True, csp_report_uri=report_uri)
 
         assert f"report-uri {report_uri}" in headers["Content-Security-Policy"]
 
@@ -424,9 +420,7 @@ class TestSecurityMiddlewareQueryParams:
         from aragora.server.middleware.security import SecurityMiddleware
 
         middleware = SecurityMiddleware()
-        result = middleware.validate_query_params(
-            params={"limit": ["10"], "offset": ["0"]}
-        )
+        result = middleware.validate_query_params(params={"limit": ["10"], "offset": ["0"]})
 
         assert result.valid is True
 
@@ -435,9 +429,7 @@ class TestSecurityMiddlewareQueryParams:
         from aragora.server.middleware.security import SecurityMiddleware
 
         middleware = SecurityMiddleware()
-        result = middleware.validate_query_params(
-            params={"unknown_param": ["value"]}
-        )
+        result = middleware.validate_query_params(params={"unknown_param": ["value"]})
 
         assert result.valid is False
         assert result.error_code == 400
@@ -448,9 +440,7 @@ class TestSecurityMiddlewareQueryParams:
         from aragora.server.middleware.security import SecurityMiddleware
 
         middleware = SecurityMiddleware()
-        result = middleware.validate_query_params(
-            params={"table": ["debates"]}
-        )
+        result = middleware.validate_query_params(params={"table": ["debates"]})
 
         assert result.valid is True
 
@@ -459,9 +449,7 @@ class TestSecurityMiddlewareQueryParams:
         from aragora.server.middleware.security import SecurityMiddleware
 
         middleware = SecurityMiddleware()
-        result = middleware.validate_query_params(
-            params={"table": ["invalid_table"]}
-        )
+        result = middleware.validate_query_params(params={"table": ["invalid_table"]})
 
         assert result.valid is False
         assert result.error_code == 400
@@ -506,13 +494,9 @@ class TestSecurityMiddlewareWithCustomConfig:
         middleware = SecurityMiddleware(config)
 
         # Should accept custom param
-        result = middleware.validate_query_params(
-            params={"custom_param": ["value"]}
-        )
+        result = middleware.validate_query_params(params={"custom_param": ["value"]})
         assert result.valid is True
 
         # Should reject non-allowed param
-        result = middleware.validate_query_params(
-            params={"limit": ["10"]}
-        )
+        result = middleware.validate_query_params(params={"limit": ["10"]})
         assert result.valid is False

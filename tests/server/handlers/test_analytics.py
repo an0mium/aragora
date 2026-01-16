@@ -34,6 +34,7 @@ class MockHandler:
 def create_analytics_handler():
     """Create an AnalyticsHandler with empty context."""
     from aragora.server.handlers.analytics import AnalyticsHandler
+
     return AnalyticsHandler({})
 
 
@@ -340,7 +341,10 @@ class TestGetConsensusQuality:
         mock_storage = MagicMock()
         # Create declining confidence: first half high, second half low
         mock_storage.list_debates.return_value = [
-            {"id": f"d{i}", "result": {"confidence": 0.9 if i < 5 else 0.5, "consensus_reached": True}}
+            {
+                "id": f"d{i}",
+                "result": {"confidence": 0.9 if i < 5 else 0.5, "consensus_reached": True},
+            }
             for i in range(10)
         ]
 
@@ -357,7 +361,10 @@ class TestGetConsensusQuality:
         mock_storage = MagicMock()
         # Create improving confidence: first half low, second half high
         mock_storage.list_debates.return_value = [
-            {"id": f"d{i}", "result": {"confidence": 0.5 if i < 5 else 0.9, "consensus_reached": True}}
+            {
+                "id": f"d{i}",
+                "result": {"confidence": 0.5 if i < 5 else 0.9, "consensus_reached": True},
+            }
             for i in range(10)
         ]
 

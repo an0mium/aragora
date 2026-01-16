@@ -44,11 +44,30 @@ from aragora.ranking.elo_core import (
     expected_score,
 )
 from aragora.ranking.leaderboard_engine import LeaderboardEngine
+from aragora.ranking.match_recorder import (
+    build_match_scores,
+    check_duplicate_match,
+    compute_calibration_k_multipliers,
+    determine_winner,
+    generate_match_id,
+    normalize_match_params,
+    save_match,
+)
 from aragora.ranking.redteam import RedTeamIntegrator, RedTeamResult, VulnerabilitySummary
 from aragora.ranking.relationships import (
     RelationshipMetrics,
     RelationshipStats,
     RelationshipTracker,
+)
+from aragora.ranking.snapshot import (
+    read_snapshot_leaderboard,
+    read_snapshot_matches,
+    write_snapshot,
+)
+from aragora.ranking.verification import (
+    calculate_verification_elo_change,
+    calculate_verification_impact,
+    update_rating_from_verification,
 )
 from aragora.utils.cache import TTLCache
 
@@ -91,6 +110,7 @@ def get_elo_store() -> "EloSystem":
     if _elo_store is None:
         _elo_store = EloSystem()
     return _elo_store
+
 
 # Use centralized config values (can be overridden via environment variables)
 DEFAULT_ELO = ELO_INITIAL_RATING
@@ -628,83 +648,21 @@ class EloSystem:
     ) -> dict[str, float]:
         """Compute per-agent K-factor multipliers based on calibration quality.
 
-        Agents with poor calibration (overconfident or underconfident) get
-        higher K-factor multipliers so their ELO changes more dramatically,
-        creating stronger incentives to improve calibration.
-
-        Rules:
-        - Well-calibrated agents (ECE < 0.1): multiplier = 1.0 (no adjustment)
-        - Slightly miscalibrated (ECE 0.1-0.2): multiplier = 1.1
-        - Moderately miscalibrated (ECE 0.2-0.3): multiplier = 1.25
-        - Poorly calibrated (ECE > 0.3): multiplier = 1.4
-
-        Args:
-            participants: List of agent names
-            calibration_tracker: Optional CalibrationTracker instance
-
-        Returns:
-            Dict of agent_name -> K-factor multiplier
+        Delegates to match_recorder.compute_calibration_k_multipliers.
         """
-        if calibration_tracker is None:
-            return {}
-
-        multipliers = {}
-        for agent in participants:
-            try:
-                # CalibrationTracker.get_expected_calibration_error returns 0-1
-                ece = calibration_tracker.get_expected_calibration_error(agent)
-
-                if ece < 0.1:
-                    # Well-calibrated: no adjustment
-                    multipliers[agent] = 1.0
-                elif ece < 0.2:
-                    # Slightly miscalibrated: mild penalty
-                    multipliers[agent] = 1.1
-                elif ece < 0.3:
-                    # Moderately miscalibrated: moderate penalty
-                    multipliers[agent] = 1.25
-                else:
-                    # Poorly calibrated: significant penalty
-                    multipliers[agent] = 1.4
-            except (KeyError, AttributeError):
-                # If calibration lookup fails, use default multiplier
-                multipliers[agent] = 1.0
-
-        return multipliers
+        return compute_calibration_k_multipliers(participants, calibration_tracker)
 
     @staticmethod
     def _build_match_scores(winner: str, loser: str, is_draw: bool) -> dict[str, float]:
-        """Build score dict for a two-player match.
-
-        Args:
-            winner: Name of winning agent
-            loser: Name of losing agent
-            is_draw: Whether the match was a draw
-
-        Returns:
-            Dict mapping agent names to scores (1.0=win, 0.5=draw, 0.0=loss)
-        """
-        if is_draw:
-            return {winner: 0.5, loser: 0.5}
-        return {winner: 1.0, loser: 0.0}
+        """Build score dict for a two-player match. Delegates to match_recorder."""
+        return build_match_scores(winner, loser, is_draw)
 
     @staticmethod
     def _generate_match_id(
         participants: list[str], task: str | None = None, domain: str | None = None
     ) -> str:
-        """Generate a unique match ID.
-
-        Args:
-            participants: List of participant names
-            task: Optional task label
-            domain: Optional domain label
-
-        Returns:
-            Unique match identifier string
-        """
-        label = "-vs-".join(participants) if participants else "match"
-        scope = task or domain or "debate"
-        return f"{scope}-{label}-{uuid.uuid4().hex[:8]}"
+        """Generate a unique match ID. Delegates to match_recorder."""
+        return generate_match_id(participants, task, domain)
 
     def _normalize_match_params(
         self,
@@ -717,56 +675,10 @@ class EloSystem:
         task: str | None,
         domain: str | None,
     ) -> tuple[str, list[str] | None, dict[str, float] | None]:
-        """Normalize legacy and modern match signatures.
-
-        Handles backwards compatibility with older API signatures where
-        participants could be a string (loser name) and debate_id was
-        used as winner name.
-
-        Args:
-            debate_id: Debate ID or legacy winner name
-            participants: List of participants or legacy loser name
-            scores: Score dict or None
-            winner: Explicit winner name
-            loser: Explicit loser name
-            draw: Whether match was a draw
-            task: Task label for ID generation
-            domain: Domain label for ID generation
-
-        Returns:
-            Tuple of (normalized_debate_id, participants_list, scores_dict)
-        """
-        participants_list: list[str] | None = None
-
-        # Legacy signature: participants is a string (loser name)
-        if isinstance(participants, str):
-            winner_name = winner or (debate_id or "")
-            loser_name = loser or participants
-            if not winner_name or not loser_name:
-                raise ValueError("winner and loser must be provided for legacy record_match calls")
-            if scores is None or isinstance(scores, bool):
-                draw_flag = (
-                    draw
-                    if draw is not None
-                    else bool(scores) if isinstance(scores, bool) else False
-                )
-                scores = self._build_match_scores(winner_name, loser_name, draw_flag)
-            participants_list = [winner_name, loser_name]
-            debate_id = self._generate_match_id(participants_list, task, domain)
-        else:
-            # Modern signature
-            participants_list = participants if isinstance(participants, list) else None
-            if scores is None and winner and loser:
-                scores = self._build_match_scores(winner, loser, bool(draw))
-                participants_list = [winner, loser]
-            if scores is None and draw and participants_list:
-                scores = {name: 0.5 for name in participants_list}
-            if participants_list is None and scores is not None:
-                participants_list = list(scores.keys())
-            if debate_id is None:
-                debate_id = self._generate_match_id(participants_list or [], task, domain)
-
-        return debate_id or "", participants_list, scores
+        """Normalize legacy and modern match signatures. Delegates to match_recorder."""
+        return normalize_match_params(
+            debate_id, participants, scores, winner, loser, draw, task, domain
+        )
 
     def record_match(
         self,
@@ -818,24 +730,12 @@ class EloSystem:
             return {}
 
         # Check for duplicate match recording to prevent ELO accumulation bug
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT elo_changes FROM matches WHERE debate_id = ?",
-                (debate_id,),
-            )
-            existing = cursor.fetchone()
-            if existing:
-                # Match already recorded - return cached ELO changes
-                logger.debug("Skipping duplicate record_match for debate_id=%s", debate_id)
-                return safe_json_loads(existing[0], {})
+        cached_changes = check_duplicate_match(self._db, debate_id)
+        if cached_changes is not None:
+            return cached_changes
 
         # Determine winner (highest score)
-        sorted_agents = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        if len(sorted_agents) < 2:
-            winner = sorted_agents[0][0] if sorted_agents else None
-        else:
-            winner = sorted_agents[0][0] if sorted_agents[0][1] > sorted_agents[1][1] else None
+        winner = determine_winner(scores)
 
         # Get current ratings (batch query to avoid N+1)
         ratings = self.get_ratings_batch(participants_list)
@@ -906,25 +806,8 @@ class EloSystem:
         scores: dict[str, float],
         elo_changes: dict[str, float],
     ):
-        """Save match to history."""
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-
-            cursor.execute(
-                """
-                INSERT OR REPLACE INTO matches (debate_id, winner, participants, domain, scores, elo_changes)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    debate_id,
-                    winner,
-                    json.dumps(participants),
-                    domain,
-                    json.dumps(scores),
-                    json.dumps(elo_changes),
-                ),
-            )
-            conn.commit()
+        """Save match to history. Delegates to match_recorder.save_match."""
+        save_match(self._db, debate_id, winner, participants, domain, scores, elo_changes)
 
     def _record_elo_history(
         self, agent_name: str, elo: float, debate_id: str | None = None
@@ -940,69 +823,16 @@ class EloSystem:
             conn.commit()
 
     def _write_snapshot(self) -> None:
-        """Write JSON snapshot for fast reads.
-
-        Creates an atomic JSON file with current leaderboard and recent matches.
-        This avoids SQLite locking issues when multiple readers access data.
-        """
+        """Write JSON snapshot for fast reads. Delegates to snapshot module."""
         snapshot_path = self.db_path.parent / "elo_snapshot.json"
-
-        # Gather current state
-        leaderboard = self.get_leaderboard(limit=100)
-        data = {
-            "leaderboard": [
-                {
-                    "agent_name": r.agent_name,
-                    "elo": r.elo,
-                    "wins": r.wins,
-                    "losses": r.losses,
-                    "draws": r.draws,
-                    "games_played": r.games_played,
-                    "win_rate": r.win_rate,
-                }
-                for r in leaderboard
-            ],
-            "recent_matches": self.get_recent_matches(limit=50),
-            "updated_at": datetime.now().isoformat(),
-        }
-
-        # Atomic write: write to temp file then rename
-        temp_path = snapshot_path.with_suffix(".tmp")
-        try:
-            with open(temp_path, "w") as f:
-                json.dump(data, f)
-            temp_path.rename(snapshot_path)
-        except Exception as e:
-            # Snapshot is optional, don't fail on write errors
-            logger.debug(f"Failed to write ELO snapshot: {e}")
-            if temp_path.exists():
-                temp_path.unlink()
+        write_snapshot(snapshot_path, self.get_leaderboard, self.get_recent_matches)
 
     def get_snapshot_leaderboard(self, limit: int = 20) -> list[dict]:
-        """Get leaderboard from JSON snapshot file.
-
-        Falls back to database query if snapshot is missing or stale.
-        Use get_cached_leaderboard() for in-memory caching.
-
-        Args:
-            limit: Maximum number of entries to return
-
-        Returns:
-            List of dicts with agent_name, elo, wins, losses, draws, games_played, win_rate
-        """
+        """Get leaderboard from JSON snapshot file. Delegates to snapshot module."""
         snapshot_path = self.db_path.parent / "elo_snapshot.json"
-        if snapshot_path.exists():
-            try:
-                with open(snapshot_path) as f:
-                    data = json.load(f)
-                return data.get("leaderboard", [])[:limit]
-            except json.JSONDecodeError as e:
-                logger.debug(f"ELO snapshot corrupted, falling back to database: {e}")
-            except (PermissionError, OSError) as e:
-                logger.warning(
-                    f"Cannot read ELO snapshot (I/O error), falling back to database: {e}"
-                )
-
+        result = read_snapshot_leaderboard(snapshot_path, limit)
+        if result is not None:
+            return result
         # Fall back to database
         leaderboard = self.get_leaderboard(limit)
         return [
@@ -1019,30 +849,11 @@ class EloSystem:
         ]
 
     def get_cached_recent_matches(self, limit: int = 10) -> list[dict]:
-        """Get recent matches from cache if available.
-
-        Falls back to database query if cache is missing.
-
-        Args:
-            limit: Maximum number of matches to return
-
-        Returns:
-            List of match dicts
-        """
+        """Get recent matches from cache if available. Delegates to snapshot module."""
         snapshot_path = self.db_path.parent / "elo_snapshot.json"
-        if snapshot_path.exists():
-            try:
-                with open(snapshot_path) as f:
-                    data = json.load(f)
-                return data.get("recent_matches", [])[:limit]
-            except json.JSONDecodeError as e:
-                logger.debug(f"Recent matches snapshot corrupted, falling back to database: {e}")
-            except (PermissionError, OSError) as e:
-                logger.warning(
-                    f"Cannot read recent matches snapshot (I/O error), falling back: {e}"
-                )
-
-        # Fall back to database
+        result = read_snapshot_matches(snapshot_path, limit)
+        if result is not None:
+            return result
         return self.get_recent_matches(limit)
 
     def record_critique(self, agent_name: str, accepted: bool) -> None:
@@ -1486,7 +1297,7 @@ class EloSystem:
 
     # =========================================================================
     # Formal Verification Integration (Phase 10E)
-    # Adjusts ELO based on formal proof verification results.
+    # Delegates to verification module for cleaner separation of concerns.
     # =========================================================================
 
     def update_from_verification(
@@ -1500,58 +1311,24 @@ class EloSystem:
         """
         Adjust ELO based on formal verification results.
 
-        When an agent's claims are formally verified (proven or disproven),
-        their ELO is adjusted to reflect the quality of their reasoning.
-        Verified claims boost ELO; disproven claims reduce it.
-
-        Args:
-            agent_name: Name of the agent whose claims were verified
-            domain: Domain of the debate (for domain-specific ELO)
-            verified_count: Number of claims that were formally proven
-            disproven_count: Number of claims that were formally disproven
-            k_factor: ELO adjustment factor (default 16, half of standard)
-
-        Returns:
-            Net ELO change applied
-
-        Example:
-            # Agent had 2 claims proven and 1 disproven
-            change = elo.update_from_verification(
-                agent_name="claude",
-                domain="logic",
-                verified_count=2,
-                disproven_count=1,
-            )  # Returns net ELO change
+        Delegates to verification module. See verification.py for details.
         """
         _validate_agent_name(agent_name)
 
+        # Early return only if no claims at all (not when they cancel out)
         if verified_count == 0 and disproven_count == 0:
             return 0.0
 
+        net_change = calculate_verification_elo_change(verified_count, disproven_count, k_factor)
         rating = self.get_rating(agent_name, use_cache=False)
-
-        # Calculate ELO adjustment:
-        # - Each verified claim: +k_factor * 0.5 (half a "win" vs verification)
-        # - Each disproven claim: -k_factor * 0.5 (half a "loss" vs verification)
-        # Using half because verification is against an objective standard,
-        # not another agent.
-        verification_bonus = verified_count * k_factor * 0.5
-        disproven_penalty = disproven_count * k_factor * 0.5
-        net_change = verification_bonus - disproven_penalty
-
-        # Apply to overall ELO
         old_elo = rating.elo
-        rating.elo = max(100, rating.elo + net_change)  # Floor at 100
 
-        # Apply to domain-specific ELO
-        if domain:
-            old_domain_elo = rating.domain_elos.get(domain, DEFAULT_ELO)
-            rating.domain_elos[domain] = max(100, old_domain_elo + net_change)
+        # Apply change (may be zero if claims cancel out)
+        if net_change != 0.0:
+            update_rating_from_verification(rating, domain, net_change, DEFAULT_ELO)
+            self._save_rating(rating)
 
-        rating.updated_at = datetime.now().isoformat()
-
-        # Save and record history
-        self._save_rating(rating)
+        # Always record history for verification events (even zero-change ones)
         self._record_elo_history(
             agent_name,
             rating.elo,
@@ -1569,54 +1346,9 @@ class EloSystem:
             old_elo,
             rating.elo,
         )
-
         return net_change
 
     def get_verification_impact(self, agent_name: str) -> dict:
-        """
-        Get summary of verification impact on an agent's ELO.
-
-        Returns:
-            Dict with verification-related ELO history.
-        """
+        """Get summary of verification impact on an agent's ELO. Delegates to verification module."""
         _validate_agent_name(agent_name)
-
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT debate_id, elo, created_at
-                FROM elo_history
-                WHERE agent_name = ? AND debate_id LIKE 'verification:%'
-                ORDER BY created_at DESC
-                LIMIT 50
-                """,
-                (agent_name,),
-            )
-            rows = cursor.fetchall()
-
-        history: list[dict[str, Any]] = []
-        total_impact = 0.0
-        prev_elo: float | None = None
-
-        for row in reversed(rows):
-            debate_id, elo, created_at = row
-            if prev_elo is not None:
-                change = elo - prev_elo
-                total_impact += change
-                history.append(
-                    {
-                        "debate_id": debate_id,
-                        "elo": elo,
-                        "change": change,
-                        "created_at": created_at,
-                    }
-                )
-            prev_elo = elo
-
-        return {
-            "agent_name": agent_name,
-            "verification_events": len(history),
-            "total_impact": total_impact,
-            "history": list(reversed(history)),
-        }
+        return calculate_verification_impact(self._db, agent_name)

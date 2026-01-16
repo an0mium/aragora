@@ -145,9 +145,7 @@ class TestDatabaseTransactions:
         test_db.rollback()
 
         # Verify data was not persisted
-        cursor = test_db.execute(
-            "SELECT * FROM debates WHERE id = ?", ("debate-rollback",)
-        )
+        cursor = test_db.execute("SELECT * FROM debates WHERE id = ?", ("debate-rollback",))
         result = cursor.fetchone()
 
         assert result is None
@@ -269,9 +267,7 @@ class TestConcurrentWrites:
 
         # Final status should be one of the valid statuses
         verify_conn = sqlite3.connect(str(temp_db_path))
-        cursor = verify_conn.execute(
-            "SELECT status FROM debates WHERE id = ?", ("update-test",)
-        )
+        cursor = verify_conn.execute("SELECT status FROM debates WHERE id = ?", ("update-test",))
         final_status = cursor.fetchone()[0]
         verify_conn.close()
 
@@ -299,9 +295,7 @@ class TestMemoryTiers:
 
         # Query by tier
         for tier in tiers:
-            cursor = test_db.execute(
-                "SELECT content FROM memories WHERE tier = ?", (tier,)
-            )
+            cursor = test_db.execute("SELECT content FROM memories WHERE tier = ?", (tier,))
             result = cursor.fetchone()
             assert result is not None
             assert tier in result[0]
@@ -317,9 +311,7 @@ class TestMemoryTiers:
         test_db.commit()
 
         # Query ordered by importance (highest first)
-        cursor = test_db.execute(
-            "SELECT id, importance FROM memories ORDER BY importance DESC"
-        )
+        cursor = test_db.execute("SELECT id, importance FROM memories ORDER BY importance DESC")
         results = cursor.fetchall()
 
         # Verify descending order
@@ -497,9 +489,7 @@ class TestConnectionResilience:
 
         # Reconnect and verify data
         new_conn = sqlite3.connect(str(temp_db_path))
-        cursor = new_conn.execute(
-            "SELECT topic FROM debates WHERE id = ?", ("reconnect-test",)
-        )
+        cursor = new_conn.execute("SELECT topic FROM debates WHERE id = ?", ("reconnect-test",))
         result = cursor.fetchone()
         new_conn.close()
 

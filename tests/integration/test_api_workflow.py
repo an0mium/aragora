@@ -19,7 +19,13 @@ import pytest
 
 from aragora.core import Agent, Message, Environment, DebateResult
 from aragora.server.auth import AuthConfig, auth_config
-from aragora.server.handlers import SystemHandler, DebatesHandler, AgentsHandler, HealthHandler, NomicHandler
+from aragora.server.handlers import (
+    SystemHandler,
+    DebatesHandler,
+    AgentsHandler,
+    HealthHandler,
+    NomicHandler,
+)
 from aragora.server.handlers.base import json_response, HandlerResult
 
 

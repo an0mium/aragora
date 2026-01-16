@@ -103,7 +103,18 @@ class TestDebateExecution:
         ]
 
         env = Environment(task="Simple decision task")
-        protocol = DebateProtocol(rounds=5, consensus="majority", enable_calibration=False, convergence_detection=False, enable_trickster=False, enable_rhetorical_observer=False, enable_evolution=False, enable_research=False, enable_breakpoints=False, enable_evidence_weighting=False)
+        protocol = DebateProtocol(
+            rounds=5,
+            consensus="majority",
+            enable_calibration=False,
+            convergence_detection=False,
+            enable_trickster=False,
+            enable_rhetorical_observer=False,
+            enable_evolution=False,
+            enable_research=False,
+            enable_breakpoints=False,
+            enable_evidence_weighting=False,
+        )
 
         arena = Arena(env, agreeable_agents, protocol)
         result = await arena.run()
@@ -126,7 +137,18 @@ class TestConsensusAndOutcome:
         ]
 
         env = Environment(task="Consensus test task")
-        protocol = DebateProtocol(rounds=2, consensus="majority", enable_calibration=False, convergence_detection=False, enable_trickster=False, enable_rhetorical_observer=False, enable_evolution=False, enable_research=False, enable_breakpoints=False, enable_evidence_weighting=False)
+        protocol = DebateProtocol(
+            rounds=2,
+            consensus="majority",
+            enable_calibration=False,
+            convergence_detection=False,
+            enable_trickster=False,
+            enable_rhetorical_observer=False,
+            enable_evolution=False,
+            enable_research=False,
+            enable_breakpoints=False,
+            enable_evidence_weighting=False,
+        )
 
         arena = Arena(env, agents, protocol)
         result = await arena.run()
@@ -145,7 +167,18 @@ class TestConsensusAndOutcome:
         ]
 
         env = Environment(task="Contentious topic")
-        protocol = DebateProtocol(rounds=2, consensus="unanimous", enable_calibration=False, convergence_detection=False, enable_trickster=False, enable_rhetorical_observer=False, enable_evolution=False, enable_research=False, enable_breakpoints=False, enable_evidence_weighting=False)
+        protocol = DebateProtocol(
+            rounds=2,
+            consensus="unanimous",
+            enable_calibration=False,
+            convergence_detection=False,
+            enable_trickster=False,
+            enable_rhetorical_observer=False,
+            enable_evolution=False,
+            enable_research=False,
+            enable_breakpoints=False,
+            enable_evidence_weighting=False,
+        )
 
         arena = Arena(env, agents, protocol)
         result = await arena.run()
@@ -326,7 +359,18 @@ class TestDebateEdgeCases:
     async def test_debate_with_single_round(self, e2e_agents, mock_external_apis):
         """Debate should complete with single round."""
         env = Environment(task="Quick decision")
-        protocol = DebateProtocol(rounds=1, consensus="majority", enable_calibration=False, convergence_detection=False, enable_trickster=False, enable_rhetorical_observer=False, enable_evolution=False, enable_research=False, enable_breakpoints=False, enable_evidence_weighting=False)
+        protocol = DebateProtocol(
+            rounds=1,
+            consensus="majority",
+            enable_calibration=False,
+            convergence_detection=False,
+            enable_trickster=False,
+            enable_rhetorical_observer=False,
+            enable_evolution=False,
+            enable_research=False,
+            enable_breakpoints=False,
+            enable_evidence_weighting=False,
+        )
 
         arena = Arena(env, e2e_agents, protocol)
         result = await arena.run()
@@ -409,8 +453,7 @@ class TestDebateFormats:
         )
 
         agents = [
-            E2EAgent(f"agent_{i}", position=f"solution_{i}", stubbornness=0.2)
-            for i in range(3)
+            E2EAgent(f"agent_{i}", position=f"solution_{i}", stubbornness=0.2) for i in range(3)
         ]
         env = Environment(task="Quick test question")
 
@@ -439,8 +482,7 @@ class TestDebateFormats:
         )
 
         agents = [
-            E2EAgent(f"agent_{i}", position=f"solution_{i}", stubbornness=0.3)
-            for i in range(3)
+            E2EAgent(f"agent_{i}", position=f"solution_{i}", stubbornness=0.3) for i in range(3)
         ]
         env = Environment(task="Thorough test question")
 

@@ -7,6 +7,12 @@ All connectors inherit from BaseConnector and implement:
 - record(): Store evidence in provenance chain
 """
 
+__all__ = [
+    "BaseConnector",
+    "Connector",
+    "Evidence",
+]
+
 import asyncio
 import hashlib
 import logging

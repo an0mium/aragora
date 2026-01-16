@@ -174,9 +174,7 @@ class TestContentSecurityPolicy:
     def test_csp_with_report_uri(self):
         """E2E: Report URI should be appended to CSP."""
         report_uri = "https://example.com/csp-report"
-        headers = get_security_headers(
-            enable_csp=True, csp_report_uri=report_uri
-        )
+        headers = get_security_headers(enable_csp=True, csp_report_uri=report_uri)
 
         csp = headers[CSP_HEADER]
 

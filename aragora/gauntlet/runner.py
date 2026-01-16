@@ -8,6 +8,11 @@ Chains together:
 4. Risk aggregation
 """
 
+__all__ = [
+    "GauntletRunner",
+    "run_gauntlet",
+]
+
 import hashlib
 import logging
 import uuid

@@ -223,9 +223,7 @@ class AgentsHandler(BaseHandler):
             "positions": lambda: self._get_positions(agent, get_int_param(params, "limit", 20)),
             "domains": lambda: self._get_domains(agent),
             "performance": lambda: self._get_performance(agent),
-            "introspect": lambda: self._get_agent_introspect(
-                agent, params.get("debate_id")
-            ),
+            "introspect": lambda: self._get_agent_introspect(agent, params.get("debate_id")),
         }
 
         if endpoint in handlers:
@@ -876,9 +874,7 @@ class AgentsHandler(BaseHandler):
         )
 
     @handle_errors("agent introspect")
-    def _get_agent_introspect(
-        self, agent: str, debate_id: Optional[str] = None
-    ) -> HandlerResult:
+    def _get_agent_introspect(self, agent: str, debate_id: Optional[str] = None) -> HandlerResult:
         """Get agent introspection data for self-awareness and debugging.
 
         This endpoint provides comprehensive internal state information that
@@ -997,8 +993,7 @@ class AgentsHandler(BaseHandler):
                     if debate:
                         # Find agent's messages in this debate
                         agent_msgs = [
-                            m for m in debate.get("messages", [])
-                            if m.get("agent") == agent
+                            m for m in debate.get("messages", []) if m.get("agent") == agent
                         ]
                         introspection["debate_context"] = {
                             "debate_id": debate_id,
@@ -1026,6 +1021,7 @@ class AgentsHandler(BaseHandler):
     def _get_timestamp(self) -> str:
         """Get current ISO timestamp."""
         from datetime import datetime
+
         return datetime.now().isoformat()
 
     @ttl_cache(ttl_seconds=CACHE_TTL_AGENT_H2H, key_prefix="agent_h2h", skip_first=True)

@@ -90,6 +90,7 @@ def reset_rate_limiters():
     """Reset rate limiters before each test."""
     try:
         from aragora.server.handlers.utils.rate_limit import _limiters
+
         for limiter in _limiters.values():
             limiter.clear()
         yield
@@ -110,6 +111,7 @@ def temp_db_path():
 def user_store(temp_db_path):
     """Create a UserStore with temporary database."""
     from aragora.storage.user_store import UserStore
+
     store = UserStore(str(temp_db_path))
     return store
 
@@ -282,16 +284,16 @@ class TestTokenExpiration:
         refresh_token = login_data["tokens"]["refresh_token"]
 
         # Use refresh token to get new access token
-        refresh_request = create_mock_request(
-            body={"refresh_token": refresh_token}
-        )
+        refresh_request = create_mock_request(body={"refresh_token": refresh_token})
         refresh_result = auth_handler._handle_refresh(refresh_request)
 
         status = get_status(refresh_result)
         if status == 200:
             refresh_data = get_body(refresh_result)
             # Check for access_token in various response formats
-            new_access = refresh_data.get("access_token") or refresh_data.get("tokens", {}).get("access_token")
+            new_access = refresh_data.get("access_token") or refresh_data.get("tokens", {}).get(
+                "access_token"
+            )
 
             if new_access:
                 # New token should be valid

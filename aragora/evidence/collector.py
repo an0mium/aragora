@@ -421,9 +421,7 @@ class EvidenceCollector:
             return match.group(1), match.group(2)
         return None
 
-    async def _fetch_github_readme(
-        self, url: str, web_connector: Any
-    ) -> Optional[EvidenceSnippet]:
+    async def _fetch_github_readme(self, url: str, web_connector: Any) -> Optional[EvidenceSnippet]:
         """Fetch README.md from a GitHub repository.
 
         Tries multiple branch names (main, master, develop) and README variants.

@@ -62,7 +62,9 @@ class AuditRequestParser:
     """Parse and validate audit request JSON bodies."""
 
     @staticmethod
-    def _read_json(handler: Any, read_json_fn: Any) -> tuple[Optional[dict[str, Any]], Optional[HandlerResult]]:
+    def _read_json(
+        handler: Any, read_json_fn: Any
+    ) -> tuple[Optional[dict[str, Any]], Optional[HandlerResult]]:
         """Read and validate JSON body."""
         data = read_json_fn(handler)
         if data is None:
@@ -120,7 +122,9 @@ class AuditRequestParser:
         }, None
 
     @staticmethod
-    def parse_deep_audit(handler: Any, read_json_fn: Any) -> tuple[Optional[dict[str, Any]], Optional[HandlerResult]]:
+    def parse_deep_audit(
+        handler: Any, read_json_fn: Any
+    ) -> tuple[Optional[dict[str, Any]], Optional[HandlerResult]]:
         """Parse deep audit request."""
         data, err = AuditRequestParser._read_json(handler, read_json_fn)
         if err:
@@ -817,9 +821,9 @@ class AuditingHandler(BaseHandler):
             except ValueError:
                 continue
 
-            pattern: dict = vulnerability_patterns.get(attack_type, {})  # type: ignore[assignment]
-            keywords: list = pattern.get("keywords", [])
-            base_severity: float = pattern.get("base_severity", 0.5) or 0.5  # type: ignore[assignment]
+            pattern = vulnerability_patterns.get(attack_type, {})
+            keywords = pattern.get("keywords", [])
+            base_severity = float(pattern.get("base_severity", 0.5) or 0.5)
 
             matches = sum(1 for kw in keywords if kw in proposal_lower)
             severity = min(0.9, base_severity + (matches * 0.1))

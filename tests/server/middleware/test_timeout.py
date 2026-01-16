@@ -86,9 +86,7 @@ class TestRequestTimeoutConfig:
         """get_timeout() should use explicit endpoint overrides."""
         from aragora.server.middleware.timeout import RequestTimeoutConfig
 
-        config = RequestTimeoutConfig(
-            endpoint_timeouts={"/api/custom": 45.0}
-        )
+        config = RequestTimeoutConfig(endpoint_timeouts={"/api/custom": 45.0})
 
         timeout = config.get_timeout("/api/custom/endpoint")
         assert timeout == 45.0
@@ -313,12 +311,11 @@ class TestWithTimeoutDecorator:
         @with_timeout(0.01)  # 10ms timeout
         def slow_handler(self, path):
             import time
+
             time.sleep(1)  # Will definitely timeout
             return {"status": "ok"}, 200
 
-        with patch(
-            "aragora.server.middleware.timeout.get_executor"
-        ) as mock_get_executor:
+        with patch("aragora.server.middleware.timeout.get_executor") as mock_get_executor:
             mock_executor = MagicMock()
             mock_future = MagicMock()
             mock_future.result.side_effect = FuturesTimeoutError()
@@ -343,12 +340,11 @@ class TestWithTimeoutDecorator:
         @with_timeout(timeout=1, error_response=custom_error)
         def slow_handler(self, path):
             import time
+
             time.sleep(10)
             return {"status": "ok"}, 200
 
-        with patch(
-            "aragora.server.middleware.timeout.get_executor"
-        ) as mock_get_executor:
+        with patch("aragora.server.middleware.timeout.get_executor") as mock_get_executor:
             mock_executor = MagicMock()
             mock_future = MagicMock()
             mock_future.result.side_effect = FuturesTimeoutError()
@@ -375,9 +371,7 @@ class TestWithTimeoutDecorator:
         def handler(self, path):
             return {"ok": True}, 200
 
-        with patch(
-            "aragora.server.middleware.timeout.get_executor"
-        ) as mock_get_executor:
+        with patch("aragora.server.middleware.timeout.get_executor") as mock_get_executor:
             mock_executor = MagicMock()
             mock_future = MagicMock()
             mock_future.result.return_value = ({"ok": True}, 200)
@@ -656,9 +650,7 @@ class TestEnvironmentConfiguration:
             from aragora.server.middleware.timeout import RequestTimeoutConfig
 
             # Need to reload to pick up env var
-            config = RequestTimeoutConfig(
-                default_timeout=float("45")
-            )
+            config = RequestTimeoutConfig(default_timeout=float("45"))
 
             assert config.default_timeout == 45.0
 
@@ -667,9 +659,7 @@ class TestEnvironmentConfiguration:
         with patch.dict("os.environ", {"ARAGORA_SLOW_REQUEST_TIMEOUT": "180"}):
             from aragora.server.middleware.timeout import RequestTimeoutConfig
 
-            config = RequestTimeoutConfig(
-                slow_timeout=float("180")
-            )
+            config = RequestTimeoutConfig(slow_timeout=float("180"))
 
             assert config.slow_timeout == 180.0
 
@@ -678,8 +668,6 @@ class TestEnvironmentConfiguration:
         with patch.dict("os.environ", {"ARAGORA_MAX_REQUEST_TIMEOUT": "300"}):
             from aragora.server.middleware.timeout import RequestTimeoutConfig
 
-            config = RequestTimeoutConfig(
-                max_timeout=float("300")
-            )
+            config = RequestTimeoutConfig(max_timeout=float("300"))
 
             assert config.max_timeout == 300.0

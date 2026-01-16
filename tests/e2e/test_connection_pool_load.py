@@ -257,7 +257,9 @@ class TestWALModeConcurrentWrites:
         """Create a WAL-mode database."""
         db_path = tmp_path / "wal.db"
         conn = get_wal_connection(str(db_path))
-        conn.execute("CREATE TABLE writes (id INTEGER PRIMARY KEY, writer_id INTEGER, timestamp REAL)")
+        conn.execute(
+            "CREATE TABLE writes (id INTEGER PRIMARY KEY, writer_id INTEGER, timestamp REAL)"
+        )
         conn.commit()
         conn.close()
         return db_path
@@ -274,7 +276,7 @@ class TestWALModeConcurrentWrites:
                 with pool.connection() as conn:
                     conn.execute(
                         "INSERT INTO writes (writer_id, timestamp) VALUES (?, ?)",
-                        (writer_id, time.time())
+                        (writer_id, time.time()),
                     )
                     conn.commit()
                 return True
@@ -319,7 +321,7 @@ class TestWALModeConcurrentWrites:
                 with pool.connection() as conn:
                     conn.execute(
                         "INSERT INTO writes (writer_id, timestamp) VALUES (?, ?)",
-                        (writer_id, time.time())
+                        (writer_id, time.time()),
                     )
                     conn.commit()
                 return True
@@ -482,10 +484,7 @@ class TestAsyncPoolBehavior:
 
         try:
             # Run multiple operations from async context
-            tasks = [
-                loop.run_in_executor(None, sync_operation, i)
-                for i in range(10)
-            ]
+            tasks = [loop.run_in_executor(None, sync_operation, i) for i in range(10)]
             results = await asyncio.gather(*tasks)
 
             assert len(results) == 10
@@ -517,10 +516,7 @@ class TestAsyncPoolBehavior:
                 return result is not None
 
         try:
-            tasks = [
-                loop.run_in_executor(None, sync_read_write, i)
-                for i in range(operation_count)
-            ]
+            tasks = [loop.run_in_executor(None, sync_read_write, i) for i in range(operation_count)]
             results = await asyncio.gather(*tasks)
 
             assert all(results)

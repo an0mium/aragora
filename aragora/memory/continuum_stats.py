@@ -239,7 +239,12 @@ def delete_memory(
     Returns:
         Dict with result: {"deleted": bool, "archived": bool, "id": str, "blocked": bool}
     """
-    result: Dict[str, Any] = {"deleted": False, "archived": False, "id": memory_id, "blocked": False}
+    result: Dict[str, Any] = {
+        "deleted": False,
+        "archived": False,
+        "id": memory_id,
+        "blocked": False,
+    }
 
     with cms.connection() as conn:
         cursor = conn.cursor()

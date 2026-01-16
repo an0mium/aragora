@@ -11,6 +11,15 @@ Generates detailed audit trails from Gauntlet stress-tests:
 "Every decision needs a paper trail."
 """
 
+__all__ = [
+    "AuditEvent",
+    "AuditEventType",
+    "AuditTrail",
+    "AuditTrailGenerator",
+    "GauntletResultProtocol",
+    "generate_audit_trail",
+]
+
 from __future__ import annotations
 
 import csv

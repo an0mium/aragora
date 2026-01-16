@@ -11,6 +11,11 @@ Features:
 - Rate limiting and caching
 """
 
+__all__ = [
+    "DOMAIN_AUTHORITY",
+    "WebConnector",
+]
+
 import asyncio
 import hashlib
 import json

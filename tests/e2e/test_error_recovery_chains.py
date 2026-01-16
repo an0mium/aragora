@@ -160,9 +160,7 @@ class TestAllProvidersExhausted:
     @pytest.mark.asyncio
     async def test_exhausted_error_contains_tried_providers(self):
         """Verify error message indicates which providers were tried."""
-        agents = [
-            MockProviderAgent(f"agent{i}", fail_permanently=True) for i in range(3)
-        ]
+        agents = [MockProviderAgent(f"agent{i}", fail_permanently=True) for i in range(3)]
 
         chain = AgentFallbackChain(providers=agents)
 
@@ -238,9 +236,7 @@ class TestCircuitBreakerIntegration:
         assert breaker.is_open
 
     @pytest.mark.asyncio
-    async def test_circuit_breaker_prevents_calls_when_open(
-        self, fresh_circuit_breakers
-    ):
+    async def test_circuit_breaker_prevents_calls_when_open(self, fresh_circuit_breakers):
         """Verify open circuit breaker prevents agent calls."""
         breaker = get_circuit_breaker("blocked-agent", failure_threshold=2)
 
@@ -264,13 +260,9 @@ class TestCircuitBreakerIntegration:
         assert len(agent.calls) == 0
 
     @pytest.mark.asyncio
-    async def test_circuit_breaker_recovery_after_cooldown(
-        self, fresh_circuit_breakers
-    ):
+    async def test_circuit_breaker_recovery_after_cooldown(self, fresh_circuit_breakers):
         """Verify circuit breaker allows requests after cooldown expires."""
-        breaker = get_circuit_breaker(
-            "recovering-agent", failure_threshold=2, cooldown_seconds=0.1
-        )
+        breaker = get_circuit_breaker("recovering-agent", failure_threshold=2, cooldown_seconds=0.1)
 
         # Open the breaker
         breaker.record_failure()
@@ -291,9 +283,7 @@ class TestCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_circuit_breaker_closes_on_success(self, fresh_circuit_breakers):
         """Verify circuit breaker closes after successful call."""
-        breaker = get_circuit_breaker(
-            "healing-agent", failure_threshold=2, cooldown_seconds=0.1
-        )
+        breaker = get_circuit_breaker("healing-agent", failure_threshold=2, cooldown_seconds=0.1)
 
         # Open the breaker
         breaker.record_failure()
@@ -369,9 +359,7 @@ class TestPartialConsensusWithDegradedAgents:
     @pytest.mark.asyncio
     async def test_debate_continues_with_partial_agents(self, mock_debate_agents):
         """Verify debate can proceed with subset of working agents."""
-        working_agents = [
-            a for a in mock_debate_agents if not a._fail_permanently
-        ]
+        working_agents = [a for a in mock_debate_agents if not a._fail_permanently]
 
         # Collect responses from working agents
         responses = []

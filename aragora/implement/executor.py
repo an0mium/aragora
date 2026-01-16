@@ -429,7 +429,7 @@ Make only the changes specified. Follow existing code style."""
             return await self.execute_plan(tasks, completed, on_task_complete)
 
         max_parallel = max_parallel or MAX_PARALLEL
-        results = []
+        results: list[TaskResult] = []
         remaining = [t for t in tasks if t.id not in completed]
 
         logger.info(f"  Executing {len(remaining)} tasks (max {max_parallel} parallel)...")
@@ -473,7 +473,7 @@ Make only the changes specified. Follow existing code style."""
                 if on_task_complete:
                     on_task_complete(task.id, result)
 
-        return results  # type: ignore[return-value]
+        return results
 
     async def review_with_codex(
         self, diff: str, timeout: int = 2400

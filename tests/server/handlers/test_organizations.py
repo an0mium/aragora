@@ -507,11 +507,11 @@ class TestInviteMember:
             patch.object(handler, "_get_current_user", return_value=(user, MockAuthContext())),
             patch.object(handler, "_get_user_store", return_value=mock_user_store),
             patch.object(
-                handler, "read_json_body", return_value={"email": "new@test.com", "role": "superadmin"}
+                handler,
+                "read_json_body",
+                return_value={"email": "new@test.com", "role": "superadmin"},
             ),
-            patch(
-                "aragora.server.handlers.organizations.validate_against_schema"
-            ) as mock_validate,
+            patch("aragora.server.handlers.organizations.validate_against_schema") as mock_validate,
         ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler._invite_member(mock_http, "org-123")
@@ -556,7 +556,9 @@ class TestRemoveMember:
 
         with (
             patch.object(
-                handler, "_get_current_user", return_value=(admin, MockAuthContext(user_id="admin-1"))
+                handler,
+                "_get_current_user",
+                return_value=(admin, MockAuthContext(user_id="admin-1")),
             ),
             patch.object(handler, "_get_user_store", return_value=mock_user_store),
         ):

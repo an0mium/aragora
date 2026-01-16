@@ -138,9 +138,7 @@ class AudienceManager:
                 # Use timeout-based lock acquisition to prevent deadlocks
                 acquired = self._data_lock.acquire(timeout=self._lock_timeout)
                 if not acquired:
-                    logger.warning(
-                        "[audience] Lock timeout during drain, skipping event"
-                    )
+                    logger.warning("[audience] Lock timeout during drain, skipping event")
                     skipped_count += 1
                     continue
                 try:

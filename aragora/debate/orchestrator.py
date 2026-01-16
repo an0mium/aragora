@@ -153,7 +153,9 @@ class Arena:
         protocol: DebateProtocol = None,
         memory=None,  # CritiqueStore instance
         event_hooks: dict = None,  # Optional hooks for streaming events
-        event_emitter: Optional["EventEmitterProtocol"] = None,  # Optional event emitter for subscribing to user events
+        event_emitter: Optional[
+            "EventEmitterProtocol"
+        ] = None,  # Optional event emitter for subscribing to user events
         spectator: SpectatorStream = None,  # Optional spectator stream for real-time events
         debate_embeddings=None,  # DebateEmbeddingsDatabase for historical context
         insight_store=None,  # Optional InsightStore for extracting learnings from debates
@@ -670,24 +672,28 @@ class Arena:
     def _auto_init_position_ledger(self) -> None:
         """Auto-initialize PositionLedger. See SubsystemCoordinator for details."""
         from aragora.debate.subsystem_coordinator import SubsystemCoordinator
+
         temp = SubsystemCoordinator(enable_position_ledger=True)
         self.position_ledger = temp.position_ledger
 
     def _auto_init_calibration_tracker(self) -> None:
         """Auto-initialize CalibrationTracker. See SubsystemCoordinator for details."""
         from aragora.debate.subsystem_coordinator import SubsystemCoordinator
+
         temp = SubsystemCoordinator(enable_calibration=True)
         self.calibration_tracker = temp.calibration_tracker
 
     def _auto_init_dissent_retriever(self) -> None:
         """Auto-initialize DissentRetriever. See SubsystemCoordinator for details."""
         from aragora.debate.subsystem_coordinator import SubsystemCoordinator
+
         temp = SubsystemCoordinator(consensus_memory=self.consensus_memory)
         self.dissent_retriever = temp.dissent_retriever
 
     def _auto_init_moment_detector(self) -> None:
         """Auto-initialize MomentDetector. See SubsystemCoordinator for details."""
         from aragora.debate.subsystem_coordinator import SubsystemCoordinator
+
         temp = SubsystemCoordinator(
             elo_system=self.elo_system,
             position_ledger=self.position_ledger,
@@ -700,6 +706,7 @@ class Arena:
         """Auto-initialize BreakpointManager when enable_breakpoints is True."""
         try:
             from aragora.debate.breakpoints import BreakpointConfig, BreakpointManager
+
             config = self.protocol.breakpoint_config or BreakpointConfig()
             self.breakpoint_manager = BreakpointManager(config=config)
             logger.debug("Auto-initialized BreakpointManager for human-in-the-loop breakpoints")
@@ -977,7 +984,9 @@ class Arena:
         """
         # Return instance-level cached domain if available
         if self._cache.has_debate_domain():
-            return self._cache.debate_domain  # type: ignore[return-value]
+            # has_debate_domain() guarantees debate_domain is not None
+            assert self._cache.debate_domain is not None
+            return self._cache.debate_domain
 
         # Use module-level LRU cache for the actual computation
         domain = _compute_domain_from_task(self.env.task.lower())
@@ -1347,9 +1356,7 @@ class Arena:
         """Log any failed phases from the execution result."""
         if execution_result.success:
             return
-        error_phases = [
-            p.phase_name for p in execution_result.phases if p.status.value == "failed"
-        ]
+        error_phases = [p.phase_name for p in execution_result.phases if p.status.value == "failed"]
         if error_phases:
             logger.warning(f"Phase failures: {error_phases}")
 
@@ -1676,8 +1683,7 @@ class Arena:
     def _format_role_assignments_for_log(self) -> str:
         """Format current role assignments as a log-friendly string."""
         return ", ".join(
-            f"{name}: {assign.role.value}"
-            for name, assign in self.current_role_assignments.items()
+            f"{name}: {assign.role.value}" for name, assign in self.current_role_assignments.items()
         )
 
     def _log_role_assignments(self, round_num: int) -> None:

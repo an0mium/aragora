@@ -99,13 +99,9 @@ class TestWebSocketEventBroadcast:
         mock_server._emitter.emit(
             StreamEvent(type=StreamEventType.DEBATE_START, data={"debate_id": "1"})
         )
+        mock_server._emitter.emit(StreamEvent(type=StreamEventType.ROUND_START, data={"round": 1}))
         mock_server._emitter.emit(
-            StreamEvent(type=StreamEventType.ROUND_START, data={"round": 1})
-        )
-        mock_server._emitter.emit(
-            StreamEvent(
-                type=StreamEventType.AGENT_MESSAGE, data={"agent": "claude", "text": "Hi"}
-            )
+            StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={"agent": "claude", "text": "Hi"})
         )
 
         await asyncio.sleep(0.01)
@@ -347,8 +343,7 @@ class TestConcurrentOperations:
                 errors.append(e)
 
         threads = [
-            threading.Thread(target=read_write_state, args=(f"debate-{i}",))
-            for i in range(50)
+            threading.Thread(target=read_write_state, args=(f"debate-{i}",)) for i in range(50)
         ]
 
         for t in threads:
@@ -374,9 +369,7 @@ class TestEventEmitterSubscriptions:
         received: List[StreamEvent] = []
 
         server._emitter.subscribe(lambda event: received.append(event))
-        server._emitter.emit(
-            StreamEvent(type=StreamEventType.DEBATE_START, data={"value": 42})
-        )
+        server._emitter.emit(StreamEvent(type=StreamEventType.DEBATE_START, data={"value": 42}))
 
         await asyncio.sleep(0.01)
         assert len(received) == 1
@@ -390,9 +383,7 @@ class TestEventEmitterSubscriptions:
 
         server._emitter.subscribe(lambda e: results1.append(e))
         server._emitter.subscribe(lambda e: results2.append(e))
-        server._emitter.emit(
-            StreamEvent(type=StreamEventType.ROUND_START, data={})
-        )
+        server._emitter.emit(StreamEvent(type=StreamEventType.ROUND_START, data={}))
 
         await asyncio.sleep(0.01)
         assert len(results1) == 1

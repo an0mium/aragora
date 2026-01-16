@@ -5,6 +5,12 @@ Compares fine-tuned Tinker models against baseline models using
 debate outcomes, win rates, and calibration metrics.
 """
 
+__all__ = [
+    "ABTestResult",
+    "EvaluationMetrics",
+    "TinkerEvaluator",
+]
+
 import json
 import logging
 import random

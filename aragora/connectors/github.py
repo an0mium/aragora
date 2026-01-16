@@ -11,6 +11,10 @@ Searches:
 - Code (via search API)
 """
 
+__all__ = [
+    "GitHubConnector",
+]
+
 import asyncio
 import hashlib
 import json

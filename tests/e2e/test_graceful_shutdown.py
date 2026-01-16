@@ -181,9 +181,7 @@ class TestShutdownPersistsCircuitBreakers:
         """Verify circuit breaker states are persisted."""
         manager = ServerLifecycleManager()
 
-        with patch(
-            "aragora.resilience.persist_all_circuit_breakers"
-        ) as mock_persist:
+        with patch("aragora.resilience.persist_all_circuit_breakers") as mock_persist:
             mock_persist.return_value = 3
             await manager.graceful_shutdown(timeout=1.0)
             mock_persist.assert_called_once()
@@ -209,9 +207,7 @@ class TestShutdownClosesDatabaseConnections:
         """Verify DatabaseManager instances are cleared."""
         manager = ServerLifecycleManager()
 
-        with patch(
-            "aragora.storage.schema.DatabaseManager"
-        ) as mock_db_manager:
+        with patch("aragora.storage.schema.DatabaseManager") as mock_db_manager:
             await manager.graceful_shutdown(timeout=1.0)
             mock_db_manager.clear_instances.assert_called_once()
 
@@ -441,10 +437,7 @@ class TestConcurrentShutdown:
         manager = ServerLifecycleManager()
 
         # Start multiple shutdowns concurrently
-        tasks = [
-            asyncio.create_task(manager.graceful_shutdown(timeout=1.0))
-            for _ in range(3)
-        ]
+        tasks = [asyncio.create_task(manager.graceful_shutdown(timeout=1.0)) for _ in range(3)]
 
         # All should complete without error
         results = await asyncio.gather(*tasks, return_exceptions=True)

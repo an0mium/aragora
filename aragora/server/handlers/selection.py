@@ -229,7 +229,7 @@ class SelectionHandler(BaseHandler):
         context = SelectionContext(agent_pool=agent_pool)
 
         # Score all agents
-        scored_agents = []
+        scored_agents: list[dict[str, str | float]] = []
         for agent in agent_pool.values():
             score = scorer.score_agent(agent, requirements, context)
             scored_agents.append(
@@ -242,8 +242,8 @@ class SelectionHandler(BaseHandler):
                 }
             )
 
-        # Sort by score
-        scored_agents.sort(key=lambda x: x["score"], reverse=True)  # type: ignore[arg-type, return-value]
+        # Sort by score (score is always a float in this list)
+        scored_agents.sort(key=lambda x: float(x["score"]), reverse=True)
 
         return json_response(
             {
@@ -319,7 +319,7 @@ class SelectionHandler(BaseHandler):
         roles = role_assigner.assign_roles(team, requirements, context)
 
         # Build response
-        team_members = []
+        team_members: list[dict[str, Any]] = []
         for agent in team:
             team_members.append(
                 {
@@ -333,7 +333,11 @@ class SelectionHandler(BaseHandler):
             )
 
         # Calculate metrics
-        expected_quality = sum(m["score"] for m in team_members) / len(team_members) if team_members else 0  # type: ignore[misc]
+        expected_quality = (
+            sum(float(m["score"]) for m in team_members) / len(team_members)
+            if team_members
+            else 0.0
+        )
         expected_cost = sum(a.cost_factor for a in team)
 
         # Diversity score

@@ -17,6 +17,25 @@ Environment Variables:
     ARAGORA_NOMIC_DIR: Legacy alias for data directory (default: ".nomic")
 """
 
+__all__ = [
+    "CONSOLIDATED_DB_MAPPING",
+    "DatabaseMode",
+    "DatabaseType",
+    "DEFAULT_DATA_DIR",
+    "DEFAULT_NOMIC_DIR",
+    "LEGACY_DB_NAMES",
+    "get_db_mode",
+    "get_db_path",
+    "get_db_path_str",
+    "get_elo_db_path",
+    "get_genesis_db_path",
+    "get_insights_db_path",
+    "get_memory_db_path",
+    "get_nomic_dir",
+    "get_personas_db_path",
+    "get_positions_db_path",
+]
+
 import os
 from enum import Enum
 from pathlib import Path

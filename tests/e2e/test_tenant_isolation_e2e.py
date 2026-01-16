@@ -218,9 +218,7 @@ class TestWorkspaceAccess:
         """E2E: Workspace owner should always have access."""
         workspace_manager._cache[org_a_workspace.id] = org_a_workspace
 
-        has_access = await workspace_manager.check_user_access(
-            org_a_owner, org_a_workspace.id
-        )
+        has_access = await workspace_manager.check_user_access(org_a_owner, org_a_workspace.id)
         assert has_access is True
 
     @pytest.mark.asyncio
@@ -230,9 +228,7 @@ class TestWorkspaceAccess:
         org_a_workspace.member_ids.append(org_a_member.id)
         workspace_manager._cache[org_a_workspace.id] = org_a_workspace
 
-        has_access = await workspace_manager.check_user_access(
-            org_a_member, org_a_workspace.id
-        )
+        has_access = await workspace_manager.check_user_access(org_a_member, org_a_workspace.id)
         assert has_access is True
 
     @pytest.mark.asyncio
@@ -240,9 +236,7 @@ class TestWorkspaceAccess:
         """E2E: User from different org should not have access."""
         workspace_manager._cache[org_a_workspace.id] = org_a_workspace
 
-        has_access = await workspace_manager.check_user_access(
-            org_b_owner, org_a_workspace.id
-        )
+        has_access = await workspace_manager.check_user_access(org_b_owner, org_a_workspace.id)
         assert has_access is False
 
     @pytest.mark.asyncio
@@ -271,9 +265,7 @@ class TestCrossTenantIsolation:
         workspace_manager._cache[org_b_workspace.id] = org_b_workspace
 
         # Org A owner should NOT have access to Org B's workspace
-        has_access = await workspace_manager.check_user_access(
-            org_a_owner, org_b_workspace.id
-        )
+        has_access = await workspace_manager.check_user_access(org_a_owner, org_b_workspace.id)
         assert has_access is False
 
     @pytest.mark.asyncio
@@ -333,9 +325,7 @@ class TestLimitEnforcement:
     """Tests for plan limit enforcement."""
 
     @pytest.mark.asyncio
-    async def test_monthly_debate_limit_enforced(
-        self, workspace_manager, org_a_workspace
-    ):
+    async def test_monthly_debate_limit_enforced(self, workspace_manager, org_a_workspace):
         """E2E: Monthly debate limit should be enforced."""
         workspace_manager._cache[org_a_workspace.id] = org_a_workspace
 
@@ -353,9 +343,7 @@ class TestLimitEnforcement:
             assert "Monthly debate limit" in message
 
     @pytest.mark.asyncio
-    async def test_concurrent_debate_limit_enforced(
-        self, workspace_manager, org_a_workspace
-    ):
+    async def test_concurrent_debate_limit_enforced(self, workspace_manager, org_a_workspace):
         """E2E: Concurrent debate limit should be enforced."""
         workspace_manager._cache[org_a_workspace.id] = org_a_workspace
 
@@ -384,9 +372,7 @@ class TestLimitEnforcement:
         )
         workspace_manager._cache[workspace.id] = workspace
 
-        allowed, message = await workspace_manager.check_limits(
-            workspace, "add_member"
-        )
+        allowed, message = await workspace_manager.check_limits(workspace, "add_member")
 
         assert allowed is False
         assert "Member limit" in message
@@ -409,9 +395,7 @@ class TestLimitEnforcement:
             return_value={"debates_this_month": 100000, "active_debates": 1000},
         ):
             # Create debate should be allowed (-1 means unlimited)
-            allowed, message = await workspace_manager.check_limits(
-                workspace, "create_debate"
-            )
+            allowed, message = await workspace_manager.check_limits(workspace, "create_debate")
             assert allowed is True
 
     @pytest.mark.asyncio
@@ -543,9 +527,7 @@ class TestInvitationScoping:
         )
         workspace_manager._cache[workspace.id] = workspace
 
-        allowed, message = await workspace_manager.check_limits(
-            workspace, "add_member"
-        )
+        allowed, message = await workspace_manager.check_limits(workspace, "add_member")
 
         assert allowed is False
         assert "Member limit" in message
@@ -561,8 +543,6 @@ class TestInvitationScoping:
         )
         workspace_manager._cache[workspace.id] = workspace
 
-        allowed, message = await workspace_manager.check_limits(
-            workspace, "add_member"
-        )
+        allowed, message = await workspace_manager.check_limits(workspace, "add_member")
 
         assert allowed is True

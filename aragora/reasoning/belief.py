@@ -810,7 +810,7 @@ class BeliefPropagationAnalyzer:
 
         A "crux" is a claim with high centrality and high uncertainty.
         """
-        cruxes = []
+        cruxes: list[dict[str, Any]] = []
 
         for node in self.network.nodes.values():
             # Crux score = centrality * entropy
@@ -828,7 +828,7 @@ class BeliefPropagationAnalyzer:
                 }
             )
 
-        return sorted(cruxes, key=lambda x: -x["crux_score"])[:top_k]  # type: ignore[operator]
+        return sorted(cruxes, key=lambda x: -float(x["crux_score"]))[:top_k]
 
     def suggest_evidence_targets(self) -> list[dict]:
         """

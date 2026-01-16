@@ -219,12 +219,15 @@ class TestSchedulerStatus:
         mock_store = MagicMock()
         mock_store.get_analytics.return_value = {"total_records": 100}
 
-        with patch(
-            "aragora.server.handlers.features.pulse.get_pulse_scheduler",
-            return_value=mock_scheduler,
-        ), patch(
-            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
-            return_value=mock_store,
+        with (
+            patch(
+                "aragora.server.handlers.features.pulse.get_pulse_scheduler",
+                return_value=mock_scheduler,
+            ),
+            patch(
+                "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+                return_value=mock_store,
+            ),
         ):
             handler = PulseHandler({})
 
@@ -261,13 +264,16 @@ class TestSchedulerLifecycle:
         mock_scheduler.state = MockSchedulerState.RUNNING
         mock_scheduler._debate_creator = None
 
-        with patch(
-            "aragora.server.handlers.features.pulse.get_pulse_scheduler",
-            return_value=mock_scheduler,
-        ), patch.object(
-            PulseHandler,
-            "_run_async_safely",
-            return_value=None,
+        with (
+            patch(
+                "aragora.server.handlers.features.pulse.get_pulse_scheduler",
+                return_value=mock_scheduler,
+            ),
+            patch.object(
+                PulseHandler,
+                "_run_async_safely",
+                return_value=None,
+            ),
         ):
             handler = PulseHandler({})
             mock_http = MockHandler(headers={"Authorization": "Bearer test"})
@@ -289,13 +295,16 @@ class TestSchedulerLifecycle:
         mock_scheduler = MagicMock()
         mock_scheduler.state = MockSchedulerState.STOPPED
 
-        with patch(
-            "aragora.server.handlers.features.pulse.get_pulse_scheduler",
-            return_value=mock_scheduler,
-        ), patch.object(
-            PulseHandler,
-            "_run_async_safely",
-            return_value=None,
+        with (
+            patch(
+                "aragora.server.handlers.features.pulse.get_pulse_scheduler",
+                return_value=mock_scheduler,
+            ),
+            patch.object(
+                PulseHandler,
+                "_run_async_safely",
+                return_value=None,
+            ),
         ):
             handler = PulseHandler({})
             body_bytes = json.dumps({"graceful": True}).encode()
@@ -304,9 +313,7 @@ class TestSchedulerLifecycle:
                 body=body_bytes,
             )
 
-            result = handler._stop_scheduler.__wrapped__.__wrapped__.__wrapped__(
-                handler, mock_http
-            )
+            result = handler._stop_scheduler.__wrapped__.__wrapped__.__wrapped__(handler, mock_http)
 
             assert result.status_code == 200
             body = json.loads(result.body)
@@ -320,13 +327,16 @@ class TestSchedulerLifecycle:
         mock_scheduler = MagicMock()
         mock_scheduler.state = MockSchedulerState.PAUSED
 
-        with patch(
-            "aragora.server.handlers.features.pulse.get_pulse_scheduler",
-            return_value=mock_scheduler,
-        ), patch.object(
-            PulseHandler,
-            "_run_async_safely",
-            return_value=None,
+        with (
+            patch(
+                "aragora.server.handlers.features.pulse.get_pulse_scheduler",
+                return_value=mock_scheduler,
+            ),
+            patch.object(
+                PulseHandler,
+                "_run_async_safely",
+                return_value=None,
+            ),
         ):
             handler = PulseHandler({})
             mock_http = MockHandler()
@@ -347,13 +357,16 @@ class TestSchedulerLifecycle:
         mock_scheduler = MagicMock()
         mock_scheduler.state = MockSchedulerState.RUNNING
 
-        with patch(
-            "aragora.server.handlers.features.pulse.get_pulse_scheduler",
-            return_value=mock_scheduler,
-        ), patch.object(
-            PulseHandler,
-            "_run_async_safely",
-            return_value=None,
+        with (
+            patch(
+                "aragora.server.handlers.features.pulse.get_pulse_scheduler",
+                return_value=mock_scheduler,
+            ),
+            patch.object(
+                PulseHandler,
+                "_run_async_safely",
+                return_value=None,
+            ),
         ):
             handler = PulseHandler({})
             mock_http = MockHandler()
@@ -379,7 +392,12 @@ class TestSchedulerLifecycle:
             mock_http = MockHandler()
 
             # Test all lifecycle methods return 503 when scheduler unavailable
-            for method_name in ["_start_scheduler", "_stop_scheduler", "_pause_scheduler", "_resume_scheduler"]:
+            for method_name in [
+                "_start_scheduler",
+                "_stop_scheduler",
+                "_pause_scheduler",
+                "_resume_scheduler",
+            ]:
                 method = getattr(handler, method_name)
                 # Access wrapped method
                 result = method.__wrapped__.__wrapped__.__wrapped__(handler, mock_http)
@@ -601,9 +619,7 @@ class TestStartDebateOnTopic:
             body=body_bytes,
         )
 
-        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(
-            handler, mock_http
-        )
+        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(handler, mock_http)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -620,9 +636,7 @@ class TestStartDebateOnTopic:
             body=body_bytes,
         )
 
-        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(
-            handler, mock_http
-        )
+        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(handler, mock_http)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -640,9 +654,7 @@ class TestStartDebateOnTopic:
             body=body_bytes,
         )
 
-        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(
-            handler, mock_http
-        )
+        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(handler, mock_http)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -659,9 +671,7 @@ class TestStartDebateOnTopic:
             body=body_bytes,
         )
 
-        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(
-            handler, mock_http
-        )
+        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(handler, mock_http)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -672,18 +682,18 @@ class TestStartDebateOnTopic:
         from aragora.server.handlers.features.pulse import PulseHandler
 
         handler = PulseHandler({})
-        body_bytes = json.dumps({
-            "topic": "Test topic",
-            "consensus": "invalid_mode",
-        }).encode()
+        body_bytes = json.dumps(
+            {
+                "topic": "Test topic",
+                "consensus": "invalid_mode",
+            }
+        ).encode()
         mock_http = MockHandler(
             headers={"Content-Length": str(len(body_bytes))},
             body=body_bytes,
         )
 
-        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(
-            handler, mock_http
-        )
+        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(handler, mock_http)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -696,9 +706,7 @@ class TestStartDebateOnTopic:
         handler = PulseHandler({})
         mock_http = MockHandler(headers={"Content-Length": "0"})
 
-        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(
-            handler, mock_http
-        )
+        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(handler, mock_http)
 
         assert result.status_code == 400
 
@@ -712,9 +720,7 @@ class TestStartDebateOnTopic:
             body=b"not json!",
         )
 
-        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(
-            handler, mock_http
-        )
+        result = handler._start_debate_on_topic.__wrapped__.__wrapped__(handler, mock_http)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -728,10 +734,12 @@ class TestStartDebateOnTopic:
 
         for mode in valid_modes:
             handler = PulseHandler({})
-            body_bytes = json.dumps({
-                "topic": "Test topic",
-                "consensus": mode,
-            }).encode()
+            body_bytes = json.dumps(
+                {
+                    "topic": "Test topic",
+                    "consensus": mode,
+                }
+            ).encode()
             mock_http = MockHandler(
                 headers={"Content-Length": str(len(body_bytes))},
                 body=body_bytes,
@@ -742,17 +750,18 @@ class TestStartDebateOnTopic:
             mock_env = MagicMock()
             mock_protocol = MagicMock()
 
-            with patch.dict("sys.modules", {
-                "aragora": MagicMock(
-                    Arena=mock_arena,
-                    Environment=mock_env,
-                    DebateProtocol=mock_protocol,
-                ),
-                "aragora.agents": MagicMock(get_agents_by_names=MagicMock(return_value=[])),
-            }):
-                result = handler._start_debate_on_topic.__wrapped__.__wrapped__(
-                    handler, mock_http
-                )
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora": MagicMock(
+                        Arena=mock_arena,
+                        Environment=mock_env,
+                        DebateProtocol=mock_protocol,
+                    ),
+                    "aragora.agents": MagicMock(get_agents_by_names=MagicMock(return_value=[])),
+                },
+            ):
+                result = handler._start_debate_on_topic.__wrapped__.__wrapped__(handler, mock_http)
                 # 400 for no agents is expected, not 400 for invalid consensus
                 if result.status_code == 400:
                     body = json.loads(result.body)

@@ -176,8 +176,7 @@ class ProposalPhase:
             if idx > 0:
                 await asyncio.sleep(PROPOSAL_STAGGER_SECONDS)
             task = asyncio.create_task(
-                self._generate_single_proposal(ctx, agent),
-                name=f"proposal_{agent.name}"
+                self._generate_single_proposal(ctx, agent), name=f"proposal_{agent.name}"
             )
             tasks.append(task)
             logger.info(f"proposal_started agent={agent.name} stagger_idx={idx}")

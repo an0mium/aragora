@@ -4,6 +4,16 @@ Gauntlet Configuration.
 Defines the configuration for a Gauntlet validation run.
 """
 
+__all__ = [
+    "AttackCategory",
+    "GauntletConfig",
+    "GauntletFinding",
+    "GauntletResult",
+    "PassFailCriteria",
+    "PhaseResult",
+    "ProbeCategory",
+]
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional

@@ -409,6 +409,7 @@ class TestResilienceDecorator:
     @pytest.mark.asyncio
     async def test_decorator_with_circuit_breaker(self):
         """E2E: Decorator should integrate with circuit breaker."""
+
         @with_resilience(
             circuit_name="decorated-service",
             retries=1,

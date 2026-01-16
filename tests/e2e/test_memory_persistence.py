@@ -142,7 +142,8 @@ class TestMemoryPersistenceSimulation:
         conn = sqlite3.connect(str(temp_db))
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS continuum_memory (
                 id TEXT PRIMARY KEY,
                 tier TEXT NOT NULL,
@@ -157,11 +158,14 @@ class TestMemoryPersistenceSimulation:
                 updated_at TEXT NOT NULL,
                 metadata TEXT DEFAULT '{}'
             )
-        """)
+        """
+        )
         conn.commit()
 
         # Verify table exists
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='continuum_memory'")
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='continuum_memory'"
+        )
         result = cursor.fetchone()
         assert result is not None
 
@@ -173,7 +177,8 @@ class TestMemoryPersistenceSimulation:
         cursor = conn.cursor()
 
         # Create table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE continuum_memory (
                 id TEXT PRIMARY KEY,
                 tier TEXT NOT NULL,
@@ -182,7 +187,8 @@ class TestMemoryPersistenceSimulation:
                 created_at TEXT,
                 updated_at TEXT
             )
-        """)
+        """
+        )
 
         # Insert entry
         now = datetime.now().isoformat()
@@ -208,9 +214,11 @@ class TestMemoryPersistenceSimulation:
         # First connection - write data
         conn1 = sqlite3.connect(str(temp_db))
         cursor1 = conn1.cursor()
-        cursor1.execute("""
+        cursor1.execute(
+            """
             CREATE TABLE test_persistence (id TEXT PRIMARY KEY, value TEXT)
-        """)
+        """
+        )
         cursor1.execute("INSERT INTO test_persistence VALUES ('key1', 'value1')")
         conn1.commit()
         conn1.close()
@@ -286,7 +294,9 @@ class TestTierPromotion:
         min_updates = 5
         min_consolidation = 0.3
 
-        qualifies = entry.update_count >= min_updates and entry.consolidation_score >= min_consolidation
+        qualifies = (
+            entry.update_count >= min_updates and entry.consolidation_score >= min_consolidation
+        )
         assert not qualifies
 
 
@@ -345,9 +355,7 @@ class TestCircuitBreakerPersistence:
 
     def test_circuit_breaker_recovery_state(self, fresh_circuit_breakers):
         """Verify circuit breaker cooldown state is trackable."""
-        breaker = get_circuit_breaker(
-            "cooldown-test", failure_threshold=2, cooldown_seconds=60
-        )
+        breaker = get_circuit_breaker("cooldown-test", failure_threshold=2, cooldown_seconds=60)
 
         # Open the breaker
         breaker.record_failure()
@@ -373,7 +381,8 @@ class TestELORatingsPersistence:
         conn = sqlite3.connect(str(temp_db))
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE agent_elo (
                 agent_name TEXT PRIMARY KEY,
                 rating REAL NOT NULL,
@@ -382,7 +391,8 @@ class TestELORatingsPersistence:
                 losses INTEGER DEFAULT 0,
                 updated_at TEXT NOT NULL
             )
-        """)
+        """
+        )
 
         cursor.execute(
             "INSERT INTO agent_elo VALUES (?, ?, ?, ?, ?, ?)",
@@ -403,13 +413,15 @@ class TestELORatingsPersistence:
         conn = sqlite3.connect(str(temp_db))
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE agent_elo (
                 agent_name TEXT PRIMARY KEY,
                 rating REAL NOT NULL,
                 updated_at TEXT NOT NULL
             )
-        """)
+        """
+        )
 
         now = datetime.now().isoformat()
         cursor.execute("INSERT INTO agent_elo VALUES (?, ?, ?)", ("gpt-4", 1500.0, now))
@@ -435,12 +447,14 @@ class TestELORatingsPersistence:
         conn = sqlite3.connect(str(temp_db))
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE agent_elo (
                 agent_name TEXT PRIMARY KEY,
                 rating REAL NOT NULL
             )
-        """)
+        """
+        )
 
         # Insert multiple agents
         agents = [("claude", 1550.0), ("gpt-4", 1500.0), ("gemini", 1480.0)]
@@ -472,12 +486,14 @@ class TestSchemaVersioning:
         cursor = conn.cursor()
 
         # Create schema version table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE schema_version (
                 version INTEGER PRIMARY KEY,
                 applied_at TEXT NOT NULL
             )
-        """)
+        """
+        )
 
         cursor.execute(
             "INSERT INTO schema_version VALUES (?, ?)",
@@ -505,13 +521,15 @@ class TestConcurrentMemoryAccess:
         # Initialize with WAL mode
         conn = sqlite3.connect(str(db_path))
         conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE memory_entries (
                 id TEXT PRIMARY KEY,
                 content TEXT,
                 update_count INTEGER DEFAULT 0
             )
-        """)
+        """
+        )
         conn.commit()
         conn.close()
 

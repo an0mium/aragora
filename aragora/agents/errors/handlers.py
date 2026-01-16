@@ -8,7 +8,7 @@ handling agent failures.
 
 import asyncio
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 from aragora.agents.types import T
 
@@ -62,11 +62,11 @@ async def handle_agent_operation(
 
     except asyncio.TimeoutError:
         logger.warning(f"[Autonomic] Agent {agent_name} {operation_name} timed out")
-        return fallback_message if fallback_message else fallback_value  # type: ignore[return-value]
+        return cast(T, fallback_message if fallback_message else fallback_value)
 
     except (ConnectionError, OSError) as e:
         logger.warning(f"[Autonomic] Agent {agent_name} {operation_name} connection error: {e}")
-        return fallback_message if fallback_message else fallback_value  # type: ignore[return-value]
+        return cast(T, fallback_message if fallback_message else fallback_value)
 
     except Exception as e:
         # Use ErrorClassifier for more detailed categorization
@@ -75,7 +75,7 @@ async def handle_agent_operation(
             f"[Autonomic] Agent {agent_name} {operation_name} failed ({category}): "
             f"{type(e).__name__}: {e}"
         )
-        return fallback_message if fallback_message else fallback_value  # type: ignore[return-value]
+        return cast(T, fallback_message if fallback_message else fallback_value)
 
 
 class AgentErrorHandler:

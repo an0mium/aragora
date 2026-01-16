@@ -38,6 +38,7 @@ def use_jaccard_similarity():
     else:
         os.environ.pop("ARAGORA_SIMILARITY_BACKEND", None)
 
+
 from aragora.core import Agent, Vote, Critique, Environment
 from aragora.debate.orchestrator import Arena, DebateProtocol
 

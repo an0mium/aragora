@@ -289,10 +289,7 @@ class TestPhaseTransitions:
         phase_results["verify"]["tests_passed"] = False
 
         # Simulating the decision logic
-        can_commit = (
-            phase_results["verify"]["success"]
-            and phase_results["verify"]["tests_passed"]
-        )
+        can_commit = phase_results["verify"]["success"] and phase_results["verify"]["tests_passed"]
         assert not can_commit
 
     def test_no_consensus_skips_later_phases(self, phase_results):
@@ -381,9 +378,7 @@ class TestRollbackBehavior:
             "syntax_valid": True,
         }
 
-        should_rollback = not (
-            verify_result["tests_passed"] and verify_result["syntax_valid"]
-        )
+        should_rollback = not (verify_result["tests_passed"] and verify_result["syntax_valid"])
         assert not should_rollback
 
 

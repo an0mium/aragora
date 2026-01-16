@@ -1039,7 +1039,9 @@ class ContinuumMemory(SQLiteStore):
         surprise_score: float,
     ) -> None:
         """Emit MEMORY_TIER_PROMOTION or MEMORY_TIER_DEMOTION event."""
-        _consolidation.emit_tier_event(self, event_type, memory_id, from_tier, to_tier, surprise_score)
+        _consolidation.emit_tier_event(
+            self, event_type, memory_id, from_tier, to_tier, surprise_score
+        )
 
     def _promote_batch(
         self,

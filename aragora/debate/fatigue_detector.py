@@ -145,13 +145,15 @@ class FatigueDetector:
         fatigue_score = self._calculate_fatigue_score(agent, metrics)
 
         # Store response history
-        self.response_history[agent].append({
-            "round": round,
-            "length": len(response),
-            "metrics": metrics,
-            "fatigue_score": fatigue_score,
-            "timestamp": datetime.now().isoformat(),
-        })
+        self.response_history[agent].append(
+            {
+                "round": round,
+                "length": len(response),
+                "metrics": metrics,
+                "fatigue_score": fatigue_score,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
         # Generate signal if threshold exceeded
         if fatigue_score > self.fatigue_threshold:
@@ -216,7 +218,7 @@ class FatigueDetector:
         words = text.lower().split()
         if len(words) < n:
             return set()
-        return {" ".join(words[i:i+n]) for i in range(len(words) - n + 1)}
+        return {" ".join(words[i : i + n]) for i in range(len(words) - n + 1)}
 
     def _argument_novelty(self, agent: str, response: str) -> float:
         """Measure how novel the arguments are compared to past responses.
@@ -242,9 +244,21 @@ class FatigueDetector:
         """Extract key argumentative phrases from text."""
         # Simple extraction: sentences that contain argument indicators
         indicators = [
-            "because", "therefore", "however", "although", "moreover",
-            "furthermore", "consequently", "thus", "hence", "suggest",
-            "argue", "believe", "evidence", "conclude", "implies"
+            "because",
+            "therefore",
+            "however",
+            "although",
+            "moreover",
+            "furthermore",
+            "consequently",
+            "thus",
+            "hence",
+            "suggest",
+            "argue",
+            "believe",
+            "evidence",
+            "conclude",
+            "implies",
         ]
 
         phrases = set()
@@ -260,9 +274,7 @@ class FatigueDetector:
 
         return phrases
 
-    def _engagement_score(
-        self, response: str, context: Optional[Dict[str, Any]]
-    ) -> float:
+    def _engagement_score(self, response: str, context: Optional[Dict[str, Any]]) -> float:
         """Score how engaged the response is with prior arguments.
 
         Higher score = better engagement with context.
@@ -279,9 +291,15 @@ class FatigueDetector:
 
         # Check for quote/reference patterns
         reference_patterns = [
-            "as mentioned", "building on", "in response to",
-            "addressing", "regarding the point", "contrary to",
-            "agrees with", "disagrees with", "earlier point"
+            "as mentioned",
+            "building on",
+            "in response to",
+            "addressing",
+            "regarding the point",
+            "contrary to",
+            "agrees with",
+            "disagrees with",
+            "earlier point",
         ]
         response_lower = response.lower()
         pattern_matches = sum(1 for p in reference_patterns if p in response_lower)
@@ -297,16 +315,14 @@ class FatigueDetector:
         # Running average
         n = baseline.samples
         baseline.avg_response_length = (
-            (baseline.avg_response_length * n + metrics["response_length"]) / (n + 1)
-        )
+            baseline.avg_response_length * n + metrics["response_length"]
+        ) / (n + 1)
         baseline.avg_unique_word_ratio = (
-            (baseline.avg_unique_word_ratio * n + metrics["unique_words_ratio"]) / (n + 1)
-        )
+            baseline.avg_unique_word_ratio * n + metrics["unique_words_ratio"]
+        ) / (n + 1)
         baseline.samples += 1
 
-    def _calculate_fatigue_score(
-        self, agent: str, metrics: Dict[str, float]
-    ) -> float:
+    def _calculate_fatigue_score(self, agent: str, metrics: Dict[str, float]) -> float:
         """Calculate overall fatigue score from metrics.
 
         Weights different indicators based on their reliability:
@@ -337,11 +353,11 @@ class FatigueDetector:
         }
 
         fatigue = (
-            weights["length_decline"] * length_decline +
-            weights["unique_decline"] * unique_decline * 2 +  # Scale to 0-1
-            weights["repetition"] * metrics["repetition_score"] +
-            weights["novelty_decline"] * (1 - metrics["argument_novelty"]) +
-            weights["engagement_decline"] * (1 - metrics["engagement_score"])
+            weights["length_decline"] * length_decline
+            + weights["unique_decline"] * unique_decline * 2  # Scale to 0-1
+            + weights["repetition"] * metrics["repetition_score"]
+            + weights["novelty_decline"] * (1 - metrics["argument_novelty"])
+            + weights["engagement_decline"] * (1 - metrics["engagement_score"])
         )
 
         return min(fatigue, 1.0)

@@ -572,7 +572,7 @@ class DebateStreamServer(ServerBase):
                             batch = token_events[i : i + 3]
                             await asyncio.wait_for(
                                 self.broadcast_batch(batch),
-                                timeout=2.0  # 2 second timeout per token batch
+                                timeout=2.0,  # 2 second timeout per token batch
                             )
 
                     # Batch other events normally with agent grouping
@@ -580,7 +580,7 @@ class DebateStreamServer(ServerBase):
                         grouped = self._group_events_by_agent(other_events)
                         await asyncio.wait_for(
                             self.broadcast_batch(grouped),
-                            timeout=5.0  # 5 second timeout for other events
+                            timeout=5.0,  # 5 second timeout for other events
                         )
                 except asyncio.TimeoutError:
                     logger.warning(

@@ -709,7 +709,8 @@ class DeadlockResolver:
         # Compare with previous round
         if previous_positions:
             matching = sum(
-                1 for agent, pos in current_positions.items()
+                1
+                for agent, pos in current_positions.items()
                 if previous_positions.get(agent) == pos
             )
             if current_positions:
@@ -775,8 +776,16 @@ class DeadlockResolver:
         """Count unique argument phrases in messages."""
         arguments = set()
         indicators = [
-            "because", "therefore", "however", "since", "given that",
-            "evidence", "suggests", "implies", "conclude", "argue"
+            "because",
+            "therefore",
+            "however",
+            "since",
+            "given that",
+            "evidence",
+            "suggests",
+            "implies",
+            "conclude",
+            "argue",
         ]
 
         for msg in messages:
@@ -857,24 +866,30 @@ class DeadlockResolver:
         # Branch 1: Assume first position is correct
         agent_list = list(latest_by_agent.keys())
         if agent_list:
-            branches.append({
-                "hypothesis": f"Assume {agent_list[0]}'s position is valid",
-                "lead_agent": agent_list[0],
-            })
+            branches.append(
+                {
+                    "hypothesis": f"Assume {agent_list[0]}'s position is valid",
+                    "lead_agent": agent_list[0],
+                }
+            )
 
         # Branch 2: Assume opposite/alternative position
         if len(agent_list) > 1:
-            branches.append({
-                "hypothesis": f"Assume {agent_list[1]}'s position is valid",
-                "lead_agent": agent_list[1],
-            })
+            branches.append(
+                {
+                    "hypothesis": f"Assume {agent_list[1]}'s position is valid",
+                    "lead_agent": agent_list[1],
+                }
+            )
 
         # Branch 3: Synthesis - what if both are partially right?
         if len(agent_list) >= 2:
-            branches.append({
-                "hypothesis": "Explore synthesis: both positions may be partially correct",
-                "lead_agent": agent_list[0],  # Arbiter role
-            })
+            branches.append(
+                {
+                    "hypothesis": "Explore synthesis: both positions may be partially correct",
+                    "lead_agent": agent_list[0],  # Arbiter role
+                }
+            )
 
         return ForkDecision(
             should_fork=len(branches) >= 2,

@@ -10,6 +10,10 @@ Searches:
 Uses simple text search with optional regex support.
 """
 
+__all__ = [
+    "LocalDocsConnector",
+]
+
 import hashlib
 import logging
 import os

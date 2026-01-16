@@ -13,6 +13,12 @@ Features:
 - Automatic path management
 """
 
+__all__ = [
+    "DebateTrainingConfig",
+    "DebateTrainingExporter",
+    "export_debate_to_training",
+]
+
 import json
 import logging
 from dataclasses import dataclass

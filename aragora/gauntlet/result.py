@@ -8,6 +8,17 @@ Combines findings from:
 - Risk analysis
 """
 
+__all__ = [
+    "AttackSummary",
+    "GauntletResult",
+    "ProbeSummary",
+    "RiskSummary",
+    "ScenarioSummary",
+    "SeverityLevel",
+    "Verdict",
+    "Vulnerability",
+]
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional

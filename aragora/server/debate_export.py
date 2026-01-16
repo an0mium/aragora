@@ -622,7 +622,7 @@ def format_debate_latex(debate: dict) -> ExportResult:
     lines.append(f"Messages & {len(messages)} \\\\")
     lines.append(f"Critiques & {len(critiques)} \\\\")
     lines.append(f"Consensus & {'Yes' if consensus else 'No'} \\\\")
-    confidence = debate.get('confidence', 0)
+    confidence = debate.get("confidence", 0)
     lines.append(f"Confidence & {confidence:.1%} \\\\")
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
@@ -646,7 +646,9 @@ def format_debate_latex(debate: dict) -> ExportResult:
 
         # Color based on role
         color = {"speaker": "aragora", "critic": "critic", "judge": "judge"}.get(role, "black")
-        role_label = {"speaker": "Proposer", "critic": "Critic", "judge": "Judge"}.get(role, role.title())
+        role_label = {"speaker": "Proposer", "critic": "Critic", "judge": "Judge"}.get(
+            role, role.title()
+        )
 
         lines.append(f"\\begin{{agentmsg}}{{{color}}}{{{agent} ({role_label})}}")
         lines.append(content)
@@ -664,7 +666,9 @@ def format_debate_latex(debate: dict) -> ExportResult:
             summary = _latex_escape(critique.get("summary", ""))
 
             severity_text = "High" if severity > 0.7 else "Medium" if severity > 0.4 else "Low"
-            lines.append(f"\\paragraph{{{critic} $\\rightarrow$ {target} (Severity: {severity_text})}}")
+            lines.append(
+                f"\\paragraph{{{critic} $\\rightarrow$ {target} (Severity: {severity_text})}}"
+            )
             lines.append(summary)
             lines.append("")
 
@@ -691,7 +695,9 @@ def format_debate_latex(debate: dict) -> ExportResult:
     lines.append("")
     lines.append(r"\vfill")
     lines.append(r"\begin{center}")
-    lines.append(r"\small\textit{Exported from \href{https://aragora.ai}{Aragora} -- Multi-Agent AI Debate System}")
+    lines.append(
+        r"\small\textit{Exported from \href{https://aragora.ai}{Aragora} -- Multi-Agent AI Debate System}"
+    )
     lines.append(r"\end{center}")
     lines.append("")
     lines.append(r"\end{document}")

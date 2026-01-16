@@ -1,18 +1,3 @@
-Discovering endpoints...
-19:14:50 DEBUG    aragora.utils.cache_registry: Registered LRU cache: _compute_domain_from_task
-19:14:50 DEBUG    aragora.services.registry: ServiceRegistry initialized
-19:14:50 DEBUG    aragora.services.registry: Registered factory: RateLimiterRegistry
-19:14:50 DEBUG    aragora.services.registry: Lazily initialized service: RateLimiterRegistry
-19:14:50 WARNING  aragora.server.handlers.oauth: [OAuth] GOOGLE_OAUTH_REDIRECT_URI not set, using localhost fallback. This will fail in production.
-19:14:50 WARNING  aragora.server.handlers.oauth: [OAuth] OAUTH_SUCCESS_URL not set, using localhost fallback. This will fail in production.
-19:14:50 WARNING  aragora.server.handlers.oauth: [OAuth] OAUTH_ERROR_URL not set, using localhost fallback. This will fail in production.
-19:14:50 DEBUG    aragora.server.handlers.oauth: [OAuth] Using localhost for allowed redirect hosts (dev mode)
-19:14:50 INFO     aragora.server.oauth_state_store: OAuth state store initialized: in-memory
-19:14:50 DEBUG    aragora.server.handlers.social.social_media: [Social] Using localhost for OAuth hosts (dev mode)
-19:14:50 DEBUG    aragora.server.cors_config: [CORS] Using default origins (dev mode). Set ARAGORA_ALLOWED_ORIGINS to customize.
-19:14:50 DEBUG    aragora.server.cors_config: [CORS] Allowed origins: {'http://127.0.0.1:8080', 'http://localhost:8080', 'https://live.aragora.ai', 'https://api.aragora.ai', 'https://www.aragora.ai', 'http://localhost:3000', 'http://127.0.0.1:3000', 'https://aragora.ai'}
-19:14:50 WARNING  aragora.server.auth: Authentication disabled (no API token). Set ARAGORA_API_TOKEN for access control.
-Found 128 endpoints in 26 groups
 # Aragora API Documentation
 
 This document describes the HTTP API endpoints provided by the Aragora server.

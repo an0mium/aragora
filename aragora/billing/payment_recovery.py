@@ -54,7 +54,7 @@ class PaymentFailure:
     invoice_id: Optional[str] = None
     invoice_url: Optional[str] = None
     status: str = "failing"  # failing, recovered, downgraded
-    grace_ends_at: datetime = field(default=None)  # type: ignore
+    grace_ends_at: Optional[datetime] = field(default=None)
 
     def __post_init__(self):
         if self.grace_ends_at is None:

@@ -377,6 +377,7 @@ class TestEvidenceStore:
     def test_init_creates_tables(self, store):
         """Test initialization creates required tables."""
         import sqlite3
+
         with store.connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
@@ -406,6 +407,7 @@ class TestEvidenceStore:
 
         # Query directly
         import sqlite3
+
         with store.connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
@@ -446,6 +448,7 @@ class TestEvidenceStore:
         )
 
         import sqlite3
+
         with store.connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
