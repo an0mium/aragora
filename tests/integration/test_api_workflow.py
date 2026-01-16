@@ -335,7 +335,7 @@ class TestConcurrentRequests:
 
     def test_multiple_health_checks(self, handler_context):
         """Test multiple sequential health check requests."""
-        handler = SystemHandler(handler_context)
+        handler = HealthHandler(handler_context)
 
         # Make 10 sequential requests
         for _ in range(10):
@@ -397,7 +397,7 @@ class TestResponseFormat:
 
     def test_health_response_format(self, handler_context):
         """Test health endpoint response format."""
-        handler = SystemHandler(handler_context)
+        handler = HealthHandler(handler_context)
 
         result = handler.handle("/api/health", {}, None)
         data, status = parse_handler_result(result)
