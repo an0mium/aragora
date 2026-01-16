@@ -598,8 +598,8 @@ def critical_decision(reason: str = "") -> Callable[[Callable], Callable]:
     """Decorator to mark a debate point as requiring human review."""
 
     def decorator(func: Callable) -> Callable:
-        func._aragora_critical = True  # type: ignore[attr-defined]
-        func._aragora_critical_reason = reason  # type: ignore[attr-defined]
+        setattr(func, "_aragora_critical", True)
+        setattr(func, "_aragora_critical_reason", reason)
         return func
 
     return decorator
@@ -621,10 +621,10 @@ def breakpoint(
     """
 
     def decorator(func: Callable) -> Callable:
-        func._aragora_breakpoint = True  # type: ignore[attr-defined]
-        func._aragora_breakpoint_trigger = trigger  # type: ignore[attr-defined]
-        func._aragora_breakpoint_threshold = threshold  # type: ignore[attr-defined]
-        func._aragora_breakpoint_message = message  # type: ignore[attr-defined]
+        setattr(func, "_aragora_breakpoint", True)
+        setattr(func, "_aragora_breakpoint_trigger", trigger)
+        setattr(func, "_aragora_breakpoint_threshold", threshold)
+        setattr(func, "_aragora_breakpoint_message", message)
         return func
 
     return decorator
