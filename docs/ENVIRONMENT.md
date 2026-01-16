@@ -205,15 +205,15 @@ explicitly if you need consistent pooling across subsystems.
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_DEFAULT_AGENTS` | Optional | Default agent list when none specified | `grok,anthropic-api,openai-api,deepseek,mistral-api,gemini,qwen-max,kimi` |
-| `ARAGORA_STREAMING_AGENTS` | Optional | Agents allowed for streaming responses | `grok,anthropic-api,openai-api,mistral-api` |
+| `ARAGORA_DEFAULT_AGENTS` | Optional | Default agent list when none specified | `grok,anthropic-api,openai-api,deepseek,gemini` |
+| `ARAGORA_STREAMING_AGENTS` | Optional | Agents allowed for streaming responses | `grok,anthropic-api,openai-api` |
 
 ## Streaming Controls
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
 | `ARAGORA_STREAM_BUFFER_SIZE` | Optional | Max SSE buffer size (bytes) | `10485760` |
-| `ARAGORA_STREAM_CHUNK_TIMEOUT` | Optional | Timeout between stream chunks (seconds) | `30` |
+| `ARAGORA_STREAM_CHUNK_TIMEOUT` | Optional | Timeout between stream chunks (seconds) | `180` |
 
 ## WebSocket & Audience Limits
 

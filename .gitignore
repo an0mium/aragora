@@ -145,3 +145,6 @@ Screenshot*.png
 output/
 .mypy_cache/
 typings/
+
+# Investor documents (sensitive business documents)
+docs/investor/
